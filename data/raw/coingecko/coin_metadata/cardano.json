@@ -1,0 +1,218 @@
+{
+  "id": "cardano",
+  "symbol": "ada",
+  "name": "Cardano",
+  "web_slug": "cardano",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "Cardano Ecosystem",
+    "Proof of Stake (PoS)",
+    "GMCI Layer 1 Index",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Made in USA",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Cardano is a blockchain platform built on academic research that enables smart contracts and decentralized applications while using significantly less energy than traditional cryptocurrencies like Bitcoin. \n\nWhat sets Cardano apart is its methodical, research-driven approach \u2014 every major feature is peer-reviewed by scientists and cryptographers before being added to the network. This careful process aims to create a more secure and stable foundation compared to platforms that prioritize speed over thorough testing. The platform's native cryptocurrency, ADA, is used to send money, pay transaction fees, and participate in network governance.\n\nCardano uses a proof-of-stake system to process transactions, which works differently from Bitcoin's mining approach. Instead of competing to solve complex puzzles, users can \"stake\" their ADA \u2014 essentially locking it up temporarily \u2014 to become validators who verify transactions. The system selects validators based on how much ADA they've staked and for how long, then rewards them with additional ADA for their participation. This approach uses far less energy than traditional mining while keeping the network secure. The platform also features a two-layer design that separates basic payment transactions from smart contract operations, allowing each function to be optimized independently for better performance. \n\nADA holders can earn staking rewards by locking up their tokens to help secure the network, vote on proposed changes to the platform, and use ADA for international money transfers with lower fees than traditional services.\n\nCardano was founded in 2017 by Charles Hoskinson, who previously helped create Ethereum. Hoskinson leads Input Output Global (IOG), the technology company that builds and maintains Cardano's core software. The ecosystem operates through three organizations: IOG handles technical development, the Cardano Foundation promotes adoption and standardization, and Emurgo helps businesses integrate blockchain technology into their operations. This structure distributes responsibilities across multiple groups rather than concentrating control in a single entity. \n\nIn February 2025, major asset manager Grayscale Investments filed to create an exchange-traded fund (ETF) for Cardano with the U.S. Securities and Exchange Commission, which would allow traditional investors to buy ADA through their regular brokerage accounts without needing to set up cryptocurrency wallets.Retry"
+  },
+  "links": {
+    "homepage": [
+      "https://cardano.org/"
+    ],
+    "whitepaper": "https://docs.cardano.org/introduction",
+    "blockchain_site": [
+      "https://cardanoscan.io/",
+      "https://cardanoexplorer.com/",
+      "https://adaex.org/",
+      "https://adastat.net/",
+      "https://ada.tokenview.io/",
+      "https://3xpl.com/cardano"
+    ],
+    "official_forum_url": [
+      "https://forum.cardano.org/"
+    ],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "Cardano_CF",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "Cardano",
+    "subreddit_url": "https://www.reddit.com/r/cardano",
+    "repos_url": {
+      "github": [
+        "https://github.com/input-output-hk/cardano-sl",
+        "https://github.com/input-output-hk/js-cardano-wasm",
+        "https://github.com/input-output-hk/plutus",
+        "https://github.com/input-output-hk/rust-cardano",
+        "https://github.com/input-output-hk/cardano-chain"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+    "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+    "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 90.32,
+  "sentiment_votes_down_percentage": 9.68,
+  "watchlist_portfolio_users": 955251,
+  "market_cap_rank": 15,
+  "market_cap_rank_with_rehypothecated": 17,
+  "status_updates": [
+    {
+      "description": "3/3 \nTo find out more on what to expect over the next week or two and in the native token age, here\u2019s a rundown from our blog. So let's welcome Mary and multi-assets and let's go!\ud83d\ude80\nBlog: https://iohk.io/en/blog/posts/2021/02/18/building-native-tokens-on-cardano-for-pleasure-and-profit/\n\nLast but not least, a new video from David!\nDavid explains what you need to know about the beginning of an exciting multi-asset future... \n\nWatch it here: https://youtu.be/PVqsCXh-V5Y",
+      "category": "milestone",
+      "created_at": "2021-03-02T01:09:48.401Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": true,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "CARDANO SMART CONTRACTS: On tonight's earlier Cardano360 we shared the rollout plan for smartcontracts on Cardano. Here's more on the Alonzo roadmap from Charles Hoskinson. We'll bring you more clips from the show throughout the week ahead via our Twitter accounts, so stay tuned!\n\nhttps://twitter.com/InputOutputHK/status/1375219371883307011",
+      "category": "general",
+      "created_at": "2021-03-26T01:53:13.066Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "Join Tim Harrison &amp; Aparna Jue for Cardano360 \u2013 our bumper March edition \ud83c\udf89\n\nIt's been another month of incredible growth across the Cardano universe. Packed with 3+ hours of content, here's where we chart our expanding universe!\n\nWatch it here: https://youtu.be/ULBLgPgxtN8",
+      "category": "general",
+      "created_at": "2021-03-26T01:50:59.841Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "Cardano D-DAY Confirmed: Earlier today, IOHK have just successfully submitted an update proposal to the Cardano blockchain, handing over full responsibility for block production to the stake pool operator community on March 31st. This is what Decentralization looks like. Onward! \ud83d\udc4c\nhttps://twitter.com/InputOutputHK/status/1375150085328211973",
+      "category": "general",
+      "created_at": "2021-03-26T01:44:07.280Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "Cardano360: A new episode of the Cardano monthly show!\n\nFeaturing a full program of updates on all aspects of Cardano development, including team &amp; partner interviews, progress updates &amp; more! Join us on 25th of March, 17:30 UTC \n\nGet ready for it here: https://www.crowdcast.io/e/cardano360-march",
+      "category": "general",
+      "created_at": "2021-03-22T06:58:22.632Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "NEW IOHK BLOG: Another important milestone for Cardano as financial data powerhouse Bloomberg adds Cardano to its \u2018Terminal\u2019 real-time market information platform and leading exchange Coinbase Pro lists ADA!\n\nRead it all here: https://iohk.io/en/blog/posts/2021/03/17/momentum-continues-as-coinbase-lists-ada-and-bloomberg-adds-cardano/",
+      "category": "general",
+      "created_at": "2021-03-18T03:20:25.204Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    },
+    {
+      "description": "Cardano360 - March Edition is coming up next week! \n\nJoin your regular hosts Tim Harrison &amp; Aparna Jue, along with guests from across the ecosystem with all the latest updates and deeper dives into the Cardano universe.\n\nSave your spot \u2b07\ufe0f \nhttps://bit.ly/30RMbJN",
+      "category": "general",
+      "created_at": "2021-03-18T03:17:21.932Z",
+      "user": "Niels Schoof",
+      "user_title": "Cardano Foundation Community Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "cardano",
+        "name": "Cardano",
+        "symbol": "ada",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/975/thumb/cardano.png?1696502090",
+          "small": "https://coin-images.coingecko.com/coins/images/975/small/cardano.png?1696502090",
+          "large": "https://coin-images.coingecko.com/coins/images/975/large/cardano.png?1696502090"
+        }
+      }
+    }
+  ],
+  "last_updated": "2026-04-21T15:56:48.977Z"
+}

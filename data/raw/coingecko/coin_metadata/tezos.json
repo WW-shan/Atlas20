@@ -1,0 +1,128 @@
+{
+  "id": "tezos",
+  "symbol": "xtz",
+  "name": "Tezos",
+  "web_slug": "tezos",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": "Proof of Stake",
+  "categories": [
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "Tezos Ecosystem",
+    "Proof of Stake (PoS)",
+    "GMCI Layer 1 Index",
+    "GMCI Index",
+    "Privacy Blockchain",
+    "Polychain Capital Portfolio",
+    "Made in USA",
+    "Coinbase 50 Index",
+    "Governance"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "What Is Tezos (XTZ)?\n\n\nTezos is a high-performing blockchain and open-source platform for assets and applications, with a strong focus on code security, on-chain governance, and decentralization. Tezos 2.0, the upcoming step in the evolution of Tezos, aims to improve scalability (via layer 2s), composability, and to implement support to mainstream programming languages (like Javascript, Typescript, Python, and many others).\n\n\nInitially built with formal verification in mind, the Tezos protocol enables builders to avoid bugs when developing smart contracts, making it particularly suited to applications that require a high degree of security and certainty.\n\n\nTezos\u2019 LPoS (Liquid Proof-of-Stake) consensus mechanism enables any stakeholder to take part, directly or by delegation, in the consensus process, and to be rewarded for securing the network. Rather uniquely, Tezos\u2019 on-chain governance system also enables stakeholders to create and vote on protocol upgrade proposals. This pioneering system allows the protocol to self-amend and upgrade itself without leading to a split (or fork) in the blockchain, empowering the community without slowing down innovation.\n\n\nFirst proposed in 2014 and launched in 2018, the Tezos Mainnet has a proven track record of running uninterrupted ever since, having earned a strong reputation for technical excellence and a supportive community. \n\n\nWho Are the Founders of Tezos?\nTezos was conceived by Arthur and Kathleen Breitman in a 2014 white paper under the pseudonym L.M. Goodman in a nod to Satoshi Nakamoto, referencing a journalist who had misidentified the creator of Bitcoin.\n\n\nIn a previous paper, the Breitmans had argued that Bitcoin's biggest shortcomings were the lack of a governance process that invited contributions from its community of users, cost and centralization issues raised by its proof-of-work system, the limited expressiveness of its programming language which didn\u2019t allow for smart contracts, and security "
+  },
+  "links": {
+    "homepage": [
+      "https://www.tezos.com/",
+      "https://tezos.foundation/",
+      "https://wallet.kukai.app/"
+    ],
+    "whitepaper": "https://tezos.com/whitepaper.pdf",
+    "blockchain_site": [
+      "https://tzstats.com/",
+      "https://teztracker.com/en/mainnet/",
+      "https://tezblock.io",
+      "https://tzkt.io"
+    ],
+    "official_forum_url": [
+      "https://forum.tezosagora.org/"
+    ],
+    "chat_url": [
+      "https://discord.com/invite/yXaPy6s5Nr"
+    ],
+    "announcement_url": [
+      "https://templewallet.com/"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "tezos",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/tezos",
+    "repos_url": {
+      "github": [
+        "https://github.com/tezos/tezos-mirror",
+        "https://github.com/tezos/tezos"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/976/thumb/Tezos-logo.png?1696502091",
+    "small": "https://coin-images.coingecko.com/coins/images/976/small/Tezos-logo.png?1696502091",
+    "large": "https://coin-images.coingecko.com/coins/images/976/large/Tezos-logo.png?1696502091"
+  },
+  "country_origin": "US",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 100.0,
+  "sentiment_votes_down_percentage": 0.0,
+  "ico_data": {
+    "ico_start_date": "2017-07-01T00:00:00.000Z",
+    "ico_end_date": "2017-07-14T00:00:00.000Z",
+    "short_desc": "The self-amending crypto-ledger",
+    "description": "Tezos is a secure, future-proof smart contract system. Because Tezos has a built-in consensus mechanism, its protocol can evolve, and incorporate new innovations over time, without the risk of hard forks splitting the market. Tezos is its own blockchain, not a derivative of any other blockchain. We didn\u2019t just fork Bitcoin or Ethereum and add a layer onto it. We built our own from the ground up. Their smart contract language makes it easier to apply formal verification to any smart contract running on the Tezos blockchain. This allows developers to rule out weaknesses in code before uploading that code on the blockchain.Tezos relies on a less onerous, less computationally intensive, and less power-consuming proof-of-stake consensus algorithm, where bonded stakeholders validate transactions.",
+    "links": {
+      "web": "https://tezos.com/",
+      "blog": "",
+      "slack": "http://slack.tezos.com/",
+      "github": "https://github.com/tezos/tezos",
+      "twitter": "https://twitter.com/tez0s",
+      "facebook": "https://www.facebook.com/tezosledger/",
+      "telegram": "",
+      "whitepaper": "https://tezos.com/pdf/position_paper.pdf"
+    },
+    "softcap_currency": "",
+    "hardcap_currency": "",
+    "total_raised_currency": "USD",
+    "softcap_amount": null,
+    "hardcap_amount": null,
+    "total_raised": "232000000.0",
+    "quote_pre_sale_currency": "",
+    "base_pre_sale_amount": null,
+    "quote_pre_sale_amount": null,
+    "quote_public_sale_currency": "USD",
+    "base_public_sale_amount": 1.0,
+    "quote_public_sale_amount": 0.47,
+    "accepting_currencies": "BTC, ETH",
+    "country_origin": "US",
+    "pre_sale_start_date": null,
+    "pre_sale_end_date": null,
+    "whitelist_url": "",
+    "whitelist_start_date": null,
+    "whitelist_end_date": null,
+    "bounty_detail_url": "",
+    "amount_for_sale": null,
+    "kyc_required": true,
+    "whitelist_available": null,
+    "pre_sale_available": null,
+    "pre_sale_ended": false
+  },
+  "watchlist_portfolio_users": 128680,
+  "market_cap_rank": 118,
+  "market_cap_rank_with_rehypothecated": 163,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:15:46.759Z"
+}

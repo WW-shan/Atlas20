@@ -1,0 +1,72 @@
+{
+  "id": "pi-network",
+  "symbol": "pi",
+  "name": "Pi Network",
+  "web_slug": "pi-network",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Layer 1 (L1)",
+    "Made in USA",
+    "Mobile Mining"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Pi Network is a social cryptocurrency and developer platform designed to make digital currency mining accessible to everyday people through mobile devices. The project aims to build a widely distributed currency that facilitates transactions for real-world goods and services rather than purely speculative trading. Its main value proposition is a mobile-first mining system that allows users to earn rewards on their phones without requiring specialized hardware, draining battery life, or using excessive data.\n\nThe network operates on the Stellar Consensus Protocol and a Federated Byzantine Agreement, which allows computers to reach agreement by trusting specific groups of other peers. Security is maintained through a global trust graph built from individual user groups called security circles where members vouch for each other. Users participate in four primary roles as pioneers, contributors, ambassadors, or nodes to ensure the network remains decentralized. This meritocratic distribution model rewards consistent engagement and network growth rather than financial wealth or technical power.\n\nFounded by Dr. Nicolas Kokkalis and Dr. Chengdiao Fan, both of whom hold doctoral degrees from Stanford University, the project is managed by Social Chain Inc. The ecosystem includes a native wallet, a dedicated browser, and a platform for decentralized applications where the PI token is used for peer-to-peer exchange and transaction fees. Additionally, tokens can be used for purchasing goods in an internal marketplace, staking in a launchpad, or voluntary lockups that support market stability while boosting personal mining rates. The project has focused on organic community growth and does not list any external institutional investors in its documentation."
+  },
+  "links": {
+    "homepage": [
+      "https://minepi.com/"
+    ],
+    "whitepaper": "https://minepi.com/white-paper/",
+    "blockchain_site": [
+      "https://blockexplorer.minepi.com/mainnet/"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://www.linkedin.com/company/pi-net/",
+      "https://www.instagram.com/pi_network/"
+    ],
+    "announcement_url": [
+      "https://minepi.com/blog"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "PiCoreTeam",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": null,
+    "repos_url": {
+      "github": [
+        "https://github.com/pi-apps/pi-platform-docs"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/54342/thumb/pi_network.jpg?1739347576",
+    "small": "https://coin-images.coingecko.com/coins/images/54342/small/pi_network.jpg?1739347576",
+    "large": "https://coin-images.coingecko.com/coins/images/54342/large/pi_network.jpg?1739347576"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 92.71,
+  "sentiment_votes_down_percentage": 7.29,
+  "watchlist_portfolio_users": 230203,
+  "market_cap_rank": 49,
+  "market_cap_rank_with_rehypothecated": 61,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:10:06.999Z"
+}

@@ -1,0 +1,182 @@
+project_name: Atlas20 Rotation - Bear Bottom to Current (2022-11-21 to 2026-04-22)
+start_date: '2022-11-21'
+end_date: '2026-04-22'
+initial_capital: 100000.0
+annualization_days: 365
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed/bear_bottom_to_current_2022_11_21_2026_04_22
+  reports_dir: reports/bear_bottom_to_current_2022_11_21_2026_04_22
+
+logging:
+  level: INFO
+
+universe:
+  universe_size: 20
+  current_top_n_candidates: 60
+  legacy_candidate_ids:
+    - eos
+    - monero
+    - near
+    - algorand
+    - filecoin
+    - internet-computer
+    - tezos
+    - the-graph
+    - fantom
+    - decentraland
+    - theta-token
+    - axie-infinity
+    - hedera-hashgraph
+    - vechain
+    - neo
+    - aave
+    - maker
+    - render-token
+    - arbitrum
+    - optimism
+    - immutable-x
+    - injective-protocol
+  min_history_days: 90
+  min_daily_dollar_volume: 25000000
+  min_price: 0.000001
+  use_proxy_market_caps: true
+  exclude_wrapped_assets: true
+  stablecoin_ids:
+    - tether
+    - usd-coin
+    - dai
+    - first-digital-usd
+    - usds
+    - frax
+    - true-usd
+    - usdd
+    - paypal-usd
+    - pax-gold
+    - pax-dollar
+    - usdb
+    - ethena-usde
+    - tether-gold
+  excluded_ids:
+    - wrapped-bitcoin
+    - weth
+    - wrapped-steth
+    - staked-ether
+    - lido-staked-ether
+    - rocket-pool-eth
+    - coinbase-wrapped-btc
+    - ether-fi-staked-eth
+    - wrapped-eeth
+    - renbtc
+  name_exclusion_keywords:
+    - usd
+    - treasury
+    - fund
+    - liquidity
+    - institutional
+    - wrapped
+    - bridged
+    - liquid staked
+    - staked ether
+    - restaked
+    - heloc
+  symbol_exclusion_keywords:
+    - usd
+    - usdt
+    - usdc
+    - dai
+    - fdusd
+    - tusd
+    - usdd
+    - usde
+    - wbtc
+    - steth
+    - wsteth
+    - cbeth
+    - reth
+    - weth
+  category_exclusion_keywords:
+    - stablecoins
+    - fiat-backed
+    - tokenized treasury
+    - treasury-backed
+    - treasury
+    - money market
+    - institutional fund
+    - yield-bearing stablecoin
+    - asset-backed stablecoin
+    - liquid staking tokens
+    - wrapped tokens
+
+regime:
+  btc_ma_window: 120
+  tracked_total_mcap_ma_window: 120
+  tracked_alt_mcap_momentum_window: 60
+  use_btc_ma: true
+  use_tracked_total_mcap_ma: true
+  use_tracked_alt_momentum: false
+  combine_method: all
+
+rebalancing:
+  frequencies:
+    monthly: month_end
+    biweekly: 14D
+
+frictions:
+  fee_bps: 10.0
+  slippage_bps: 10.0
+  max_weight_per_coin: 0.35
+  max_weight_per_sector: 0.50
+  missing_return_fill: 0.0
+
+signals:
+  momentum_windows:
+    '30': 0.5
+    '60': 0.3
+    '90': 0.2
+  sector_score_weights:
+    ret_20_rank: 0.4
+    ret_60_rank: 0.4
+    btc_relative_60: 0.2
+
+strategies:
+  momentum_hold_counts: [4, 6, 8]
+  momentum_frequencies: [monthly, biweekly]
+  sector_top_k: [2, 3, 4]
+  sector_frequencies: [monthly, biweekly]
+  sector_max_coins_per_sector: 2
+  include_bull_filter_variants: true
+  include_small_cap_comparison: false
+
+providers:
+  coingecko:
+    base_url: https://api.coingecko.com/api/v3
+    rate_limit_seconds: 1.25
+    timeout_seconds: 30
+    vs_currency: usd
+    max_retries: 5
+    retry_backoff_seconds: 2.0
+  cryptocompare:
+    base_url: https://min-api.cryptocompare.com/data/v2
+    timeout_seconds: 30
+    quote_currency: USD
+
+reporting:
+  rolling_window_days: 365
+  selected_strategies_for_plots:
+    - BTC_BH__always_on
+    - ETH_BH__always_on
+    - TOP20_EQ__always_on
+    - TOP20_MOM_top8_biweekly__bull_only
+    - TOP20_SECTOR_top4_biweekly__bull_only
+
+data_quality:
+  use_coingecko_recent_history: true
+  coingecko_recent_days: 365
+  min_overlap_days: 60
+  max_latest_price_gap: 0.35
+  max_median_overlap_gap: 0.20
+  exclude_on_validation_failure: true
+  min_direct_market_cap_days: 60
+  require_metadata: false

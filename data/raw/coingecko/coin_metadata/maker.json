@@ -1,0 +1,120 @@
+{
+  "id": "maker",
+  "symbol": "mkr",
+  "name": "Maker",
+  "web_slug": "maker",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+    "energi": "0x050317d93f29d1ba5ff3eac3b8157fd4e345588d",
+    "sora": "0x00ec184ef0b4bd955db05eea5a8489ae72888ab6e63682a15beca1cd39344c8f",
+    "polygon-pos": "0x6f7c932e7684666c9fd1d44527765433e01ff61d",
+    "avalanche": "0x88128fd4b259552a9a1d457f435a6527aab72d42"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2"
+    },
+    "energi": {
+      "decimal_place": 18,
+      "contract_address": "0x050317d93f29d1ba5ff3eac3b8157fd4e345588d",
+      "geckoterminal_url": "https://www.geckoterminal.com/nrg/tokens/0x050317d93f29d1ba5ff3eac3b8157fd4e345588d"
+    },
+    "sora": {
+      "decimal_place": 18,
+      "contract_address": "0x00ec184ef0b4bd955db05eea5a8489ae72888ab6e63682a15beca1cd39344c8f"
+    },
+    "polygon-pos": {
+      "decimal_place": 18,
+      "contract_address": "0x6f7c932e7684666c9fd1d44527765433e01ff61d",
+      "geckoterminal_url": "https://www.geckoterminal.com/polygon_pos/tokens/0x6f7c932e7684666c9fd1d44527765433e01ff61d"
+    },
+    "avalanche": {
+      "decimal_place": 18,
+      "contract_address": "0x88128fd4b259552a9a1d457f435a6527aab72d42",
+      "geckoterminal_url": "https://www.geckoterminal.com/avax/tokens/0x88128fd4b259552a9a1d457f435a6527aab72d42"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Decentralized Finance (DeFi)",
+    "Avalanche Ecosystem",
+    "Polygon Ecosystem",
+    "Ethereum Ecosystem",
+    "Real World Assets (RWA)",
+    "Paradigm Portfolio",
+    "Index Coop Defi Index",
+    "Stablecoin Issuer",
+    "DragonFly Capital Portfolio",
+    "Andreessen Horowitz (a16z) Portfolio",
+    "Energi Ecosystem",
+    "Sora Ecosystem",
+    "GMCI DeFi Index",
+    "RWA Protocol",
+    "GMCI Index",
+    "Polychain Capital Portfolio",
+    "Made in USA",
+    "Coinbase 50 Index",
+    "Governance"
+  ],
+  "preview_listing": false,
+  "public_notice": "<a href=\"https://www.coingecko.com/en/coins/maker\"target=\"_blank\">Maker (MKR)</a> has been rebranded to <a href=\"https://www.coingecko.com/en/coins/sky\"target=\"_blank\">Sky (SKY)</a>. For more information, please visit this <a href=\"https://x.com/SkyEcosystem/status/1828405625828843710\"target=\"_blank\">post</a>.<br>",
+  "additional_notices": [],
+  "description": {
+    "en": "MKR is a cryptocurrency depicted as a smart contract platform and works alongside the Dai coin and aims to act as a hedge currency that provides traders with a stable alternative to the majority of coins currently available on the market. Maker offers a transparent stablecoin system that is fully inspectable on the Ethereum blockchain. Founded almost three years ago, MakerDao is lead by Rune Christensen, its CEO and founder. Maker\u2019s MKR coin is a recent entrant to the market and is not a well known project. However, after today it will be known by many more people after blowing up 40% and it is one of the coins to rise to prominence during the recent peaks and troughs.\n\nAfter being developed by the MakerDAO team, Maker Dai officially went live on December 18th, 2017. Dai is a price stable coin that is suitable for payments, savings, or collateral and provides cryptocurrency traders with increased options concerning opening and closing positions. Dai lives completely on the blockchain chain with its stability unmediated by the legal system or trusted counterparties and helps facilitate trading while staying entirely in the world of cryptocurrencies. The concept of a stablecoin is fairly straight forward \u2013 it\u2019s a token that has its price or value pegged to a particular fiat currency. A stablecoin is a token (like Bitcoin and Ethereum) that exists on a blockchain, but unlike Bitcoin or Ethereum, Dai has no volatility.\n\nMKR is an ERC-20 token on the Ethereum blockchain and can not be mined. It\u2019s instead created/destroyed in response to DAI price fluctuations in order to keep it hovering around $1 USD. MKR is used to pay transaction fees on the Maker system, and it collateralizes the system. Holding MKR comes with voting rights within Maker\u2019s continuous approval voting system. Bad governance devalues MKR tokens, so MKR holders are incentivized to vote for the good of the entire system. It\u2019s a fully decentralized and democratic structure, then, which is an underutilized USP of blockchain tech.\n\nValue volatility is a relative concept among both cryptos and fiat currencies. The US dollar, for example, was worth 110.748 yen on July 9, 2018. On July 4, 2011, $1 was worth 80.64 yen, and on March 18, 1985, $1 was worth 255.65 yen. These are major differences in exchange rates, and inflation within each country makes each currency worth different values even when compared to themselves. One USD in 1913 is worth the equivalent of $25.41 today, and even $1 in 1993 is worth the equivalent of $1.74 today. Stablecoins don\u2019t negate these basic economic principles of value. Instead, both Tether and Dai have values pegged to the U.S. dollar. This is done to stabilize the price."
+  },
+  "links": {
+    "homepage": [
+      "https://makerdao.com/",
+      "https://blog.makerdao.com/"
+    ],
+    "whitepaper": "",
+    "blockchain_site": [
+      "https://etherscan.io/token/0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+      "https://intel.arkm.com/explorer/token/maker",
+      "https://ethplorer.io/address/0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+      "https://snowtrace.io/token/0x88128fd4b259552a9a1d457f435a6527aab72d42",
+      "https://arbiscan.io/token/0x2e9a6df78e42a30712c10a9dc4b1c8656f8f2879",
+      "https://explorer.energi.network/token/0x050317d93f29d1ba5ff3eac3b8157fd4e345588d",
+      "https://polygonscan.com/token/0x6f7c932e7684666c9fd1d44527765433e01ff61d",
+      "https://ethereum.dex.guru/token/0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+      "https://snowtrace.io/token/0x88128fd4b259552a9a1d457f435a6527aab72d42?type=erc20&chainid=43114"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://chat.makerdao.com/"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "SkyEcosystem",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/MakerDAO",
+    "repos_url": {
+      "github": [
+        "https://github.com/makerdao/multicall",
+        "https://github.com/makerdao/dai.js"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/1364/thumb/Mark_Maker.png?1696502423",
+    "small": "https://coin-images.coingecko.com/coins/images/1364/small/Mark_Maker.png?1696502423",
+    "large": "https://coin-images.coingecko.com/coins/images/1364/large/Mark_Maker.png?1696502423"
+  },
+  "country_origin": "",
+  "genesis_date": "2017-11-25",
+  "contract_address": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
+  "sentiment_votes_up_percentage": null,
+  "sentiment_votes_down_percentage": null,
+  "watchlist_portfolio_users": 81684,
+  "market_cap_rank": null,
+  "market_cap_rank_with_rehypothecated": null,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:22:25.645Z"
+}

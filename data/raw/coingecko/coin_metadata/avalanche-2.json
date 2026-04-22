@@ -1,0 +1,93 @@
+{
+  "id": "avalanche-2",
+  "symbol": "avax",
+  "name": "Avalanche",
+  "web_slug": "avalanche",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "Avalanche Ecosystem",
+    "Proof of Stake (PoS)",
+    "DragonFly Capital Portfolio",
+    "DeFiance Capital Portfolio",
+    "Andreessen Horowitz (a16z) Portfolio",
+    "GMCI Layer 1 Index",
+    "GMCI 30 Index",
+    "Galaxy Digital Portfolio",
+    "GMCI Index",
+    "Polychain Capital Portfolio",
+    "World Liberty Financial Portfolio",
+    "Made in USA",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Avalanche is a high throughput smart contract blockchain&nbsp;platform. Validators secure the network through a proof-of-stake consensus protocol. It is said to be fast, low cost, and environmental friendly."
+  },
+  "links": {
+    "homepage": [
+      "https://www.avax.network"
+    ],
+    "whitepaper": "https://cdn.prod.website-files.com/5d80307810123f5ffbb34d6e/6008d7bbf8b10d1eb01e7e16_Avalanche%20Platform%20Whitepaper.pdf",
+    "blockchain_site": [
+      "https://snowtrace.io/",
+      "https://platform.arkhamintelligence.com/explorer/token/avalanche-2",
+      "https://explorer.avax.network/",
+      "https://avascan.info/",
+      "https://www.oklink.com/avax",
+      "https://explorer.energi.network/token/0xd7b8710f5713d2739da301a5ecdb8b6ffb5ec60d",
+      "https://stepscan.io/token/0xd6070ae98b8069de6b494332d1a1a81b6179d960",
+      "https://avascan.info/blockchain/c/address//token",
+      "https://moonriver.moonscan.io/token/",
+      "https://explorer-mainnet-cardano-evm.c1.milkomeda.com/token/"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://discord.com/invite/avax",
+      "https://www.facebook.com/avalancheavax"
+    ],
+    "announcement_url": [
+      "https://www.linkedin.com/company/avalancheavax"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "avax",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "avalancheavax",
+    "subreddit_url": "https://www.reddit.com/r/Avax",
+    "repos_url": {
+      "github": [
+        "https://github.com/ava-labs/avalanchego"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/12559/thumb/Avalanche_Circle_RedWhite_Trans.png?1696512369",
+    "small": "https://coin-images.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png?1696512369",
+    "large": "https://coin-images.coingecko.com/coins/images/12559/large/Avalanche_Circle_RedWhite_Trans.png?1696512369"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 92.31,
+  "sentiment_votes_down_percentage": 7.69,
+  "watchlist_portfolio_users": 490169,
+  "market_cap_rank": 27,
+  "market_cap_rank_with_rehypothecated": 38,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:02:21.585Z"
+}

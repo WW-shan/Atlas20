@@ -1,0 +1,86 @@
+{
+  "id": "filecoin",
+  "symbol": "fil",
+  "name": "Filecoin",
+  "web_slug": "filecoin",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Infrastructure",
+    "Smart Contract Platform",
+    "Storage",
+    "Layer 1 (L1)",
+    "DePIN",
+    "Alleged SEC Securities",
+    "Pantera Capital Portfolio",
+    "GMCI DePIN Index",
+    "GMCI 30 Index",
+    "Sequoia Capital Portfolio",
+    "Blockchain Capital Portfolio",
+    "GMCI Index",
+    "Made in USA",
+    "CoinList Launchpad"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "The Filecoin network achieves staggering economies of scale by allowing anyone worldwide to participate as storage providers. It also makes storage resemble a commodity or utility by decoupling hard-drive space from additional services. On this robust global market the price of storage will be driven by supply and demand, not corporate pricing departments, and miners will compete on factors like reputation for reliability as well as price."
+  },
+  "links": {
+    "homepage": [
+      "https://filecoin.io/"
+    ],
+    "whitepaper": "https://docs.filecoin.io/",
+    "blockchain_site": [
+      "https://filfox.info/en",
+      "https://filscan.io/#/tipset/chain",
+      "https://explorer.energi.network/token/0xf8a425e39af1976e1826f0c8843149afa5e9ec04"
+    ],
+    "official_forum_url": [
+      "https://filecoin.io/blog/",
+      "https://discuss.filecoin.io/"
+    ],
+    "chat_url": [],
+    "announcement_url": [
+      "https://liftoff.filecoin.io/"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "Filecoin",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": null,
+    "repos_url": {
+      "github": [
+        "https://github.com/filecoin-project/lotus",
+        "https://github.com/filecoin-project/"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/12817/thumb/filecoin.png?1696512609",
+    "small": "https://coin-images.coingecko.com/coins/images/12817/small/filecoin.png?1696512609",
+    "large": "https://coin-images.coingecko.com/coins/images/12817/large/filecoin.png?1696512609"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 100.0,
+  "sentiment_votes_down_percentage": 0.0,
+  "watchlist_portfolio_users": 168950,
+  "market_cap_rank": 83,
+  "market_cap_rank_with_rehypothecated": 115,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:14:47.542Z"
+}

@@ -1,0 +1,357 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlas20 UI Concept v1</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: rgba(12, 24, 44, 0.78);
+      --panel-2: rgba(19, 33, 58, 0.95);
+      --border: rgba(113, 153, 255, 0.16);
+      --text: #eef4ff;
+      --muted: #98a7c7;
+      --green: #2fd39a;
+      --red: #ff6b8b;
+      --blue: #69a8ff;
+      --violet: #8d7dff;
+      --cyan: #47d2ff;
+      --shadow: 0 24px 60px rgba(0,0,0,.35);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(71, 210, 255, .10), transparent 30%),
+        radial-gradient(circle at 80% 10%, rgba(141, 125, 255, .10), transparent 26%),
+        linear-gradient(180deg, #09111f 0%, #050b15 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .shell {
+      width: 1500px;
+      max-width: calc(100vw - 40px);
+      margin: 24px auto;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: rgba(4, 10, 21, 0.70);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .brand h1 {
+      font-size: 28px;
+      margin: 0 0 6px;
+      letter-spacing: .2px;
+    }
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .pill.active { color: var(--text); background: rgba(105,168,255,.10); }
+    .tabs {
+      display: inline-flex;
+      gap: 8px;
+      padding: 6px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.03);
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 12px 18px;
+      border-radius: 14px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .tab.active {
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(105,168,255,.22), rgba(141,125,255,.18));
+      border: 1px solid rgba(141,125,255,.22);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.4fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .panel {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(15,28,50,.95), rgba(9,18,34,.92));
+      padding: 20px;
+      min-height: 200px;
+    }
+    .hero {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 10px;
+    }
+    .hero h2 { margin: 0 0 10px; font-size: 34px; line-height: 1.1; }
+    .hero p { margin: 0 0 18px; color: var(--muted); line-height: 1.6; }
+    .cta-row { display:flex; gap:12px; }
+    .btn {
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 14px;
+      border: 1px solid var(--border);
+    }
+    .btn.primary { background: linear-gradient(135deg, var(--blue), var(--violet)); color: white; }
+    .btn.secondary { color: var(--text); background: rgba(255,255,255,.03); }
+    .kpis {
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .kpi {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .kpi .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .8px; }
+    .kpi .value { margin-top: 10px; font-size: 28px; font-weight: 800; }
+    .kpi .delta { margin-top: 6px; font-size: 12px; }
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+    .overview-row {
+      display:grid;
+      grid-template-columns: 1.55fr .95fr;
+      gap:18px;
+      margin-bottom: 18px;
+    }
+    .chart {
+      height: 300px;
+      position: relative;
+      overflow: hidden;
+    }
+    .fake-chart {
+      position:absolute; inset:16px 16px 14px 16px;
+      border-radius: 16px;
+      background:
+        linear-gradient(to top, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 20%,
+        linear-gradient(to right, rgba(255,255,255,.02) 1px, transparent 1px) 0 0/14% 100%,
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+      border:1px solid rgba(255,255,255,.04);
+    }
+    svg.line {
+      position:absolute; inset:16px;
+      width: calc(100% - 32px); height: calc(100% - 32px);
+    }
+    .legend { display:flex; gap:16px; font-size:13px; color: var(--muted); margin-top: 6px; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+    .table {
+      width:100%; border-collapse: collapse; margin-top: 12px; font-size: 13px;
+    }
+    .table th, .table td {
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05); text-align:left;
+    }
+    .table th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    .dashboard {
+      display:grid;
+      grid-template-columns: 300px 1fr 290px;
+      gap:18px;
+      margin-top: 10px;
+    }
+    .control-group { margin-bottom: 16px; }
+    .control-group h4 { margin:0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; }
+    .field {
+      padding: 12px 14px; margin-bottom: 10px; border-radius: 14px;
+      background: rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05);
+      display:flex; justify-content:space-between; gap:10px; font-size: 14px;
+    }
+    .run {
+      margin-top: 14px; padding: 14px 16px; border-radius: 16px;
+      background: linear-gradient(135deg, rgba(47,211,154,.90), rgba(71,210,255,.90));
+      color:#07111f; font-weight: 800; text-align:center;
+    }
+    .subtabs { display:flex; gap:8px; margin-bottom: 14px; }
+    .subtab {
+      padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.03); color: var(--muted); border:1px solid rgba(255,255,255,.05); font-size: 13px;
+    }
+    .subtab.active { color: var(--text); background: rgba(105,168,255,.12); }
+    .compare-cards { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+    .mini {
+      padding: 14px; border-radius: 16px; border:1px solid rgba(255,255,255,.05); background: rgba(255,255,255,.03);
+    }
+    .mini h5 { margin:0 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; }
+    .mini .big { font-size: 24px; font-weight: 800; }
+    .notes { color: var(--muted); line-height: 1.6; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="brand">
+        <h1>Atlas20 Rotation Research Console</h1>
+        <p>Desktop-first investment presentation + semi-dynamic research dashboard</p>
+      </div>
+      <div class="status">
+        <div class="pill active">Champion Run · 237.0x</div>
+        <div class="pill">Window · 2022-11-21 → 2026-04-21</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Overview</div>
+      <div class="tab">Dashboard</div>
+    </div>
+
+    <div class="grid">
+      <div class="panel hero">
+        <div>
+          <div class="eyebrow">Visual Direction</div>
+          <h2>Institutional research UI, but still sharp enough to feel like a trading console.</h2>
+          <p>
+            The page should open with a polished investor-facing summary, then let the user dive into a high-signal, parameter-driven dashboard without leaving the app.
+          </p>
+        </div>
+        <div class="cta-row">
+          <div class="btn primary">Open Dashboard</div>
+          <div class="btn secondary">Export Report</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="kpis">
+          <div class="kpi"><div class="label">Final Multiple</div><div class="value">237.0x</div><div class="delta green">+ better than BTC</div></div>
+          <div class="kpi"><div class="label">CAGR</div><div class="value">394.9%</div><div class="delta green">profit-max window</div></div>
+          <div class="kpi"><div class="label">Sharpe</div><div class="value">2.29</div><div class="delta green">strong risk-adjusted</div></div>
+          <div class="kpi"><div class="label">Max DD</div><div class="value">-50.8%</div><div class="delta red">high but controlled</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overview-row">
+      <div class="panel chart">
+        <div class="eyebrow">Overview Tab · Hero Chart</div>
+        <div class="fake-chart"></div>
+        <svg class="line" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <polyline fill="none" stroke="#69a8ff" stroke-width="2.3" points="0,78 10,76 18,72 24,68 30,64 36,59 42,52 48,47 54,42 60,31 66,28 72,19 78,13 84,8 90,5 100,2"/>
+          <polyline fill="none" stroke="#47d2ff" stroke-width="1.9" opacity=".9" points="0,80 10,79 18,76 24,74 30,70 36,68 42,63 48,57 54,54 60,48 66,46 72,39 78,34 84,29 90,24 100,20"/>
+          <polyline fill="none" stroke="#ff6b8b" stroke-width="1.6" opacity=".7" points="0,82 10,83 18,81 24,85 30,79 36,84 42,76 48,80 54,70 60,76 66,66 72,75 78,61 84,63 90,57 100,52"/>
+        </svg>
+        <div class="legend">
+          <div><span class="dot" style="background:#69a8ff"></span>Champion</div>
+          <div><span class="dot" style="background:#47d2ff"></span>BTC Buy & Hold</div>
+          <div><span class="dot" style="background:#ff6b8b"></span>Equal Weight</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="eyebrow">Overview Tab · Top Strategies</div>
+        <table class="table">
+          <thead>
+            <tr><th>Strategy</th><th>Multiple</th><th>Sharpe</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Momentum Lead Top1</td><td>237.0x</td><td>2.29</td></tr>
+            <tr><td>Champion exBTC</td><td>224.0x</td><td>2.28</td></tr>
+            <tr><td>BTC Buy & Hold</td><td>4.4x</td><td>1.16</td></tr>
+            <tr><td>Top20 Momentum</td><td>3.1x</td><td>0.92</td></tr>
+          </tbody>
+        </table>
+        <p class="notes">Overview should feel investor-readable: top-line metrics, clean comparison chart, and concise explanation of how the winning strategy actually works.</p>
+      </div>
+    </div>
+
+    <div class="tabs" style="margin-top:8px;">
+      <div class="tab">Overview</div>
+      <div class="tab active">Dashboard</div>
+    </div>
+
+    <div class="dashboard">
+      <div class="panel">
+        <div class="eyebrow">Left Rail</div>
+        <div class="control-group">
+          <h4>Window</h4>
+          <div class="field"><span>Start</span><strong>2022-11-21</strong></div>
+          <div class="field"><span>End</span><strong>2026-04-21</strong></div>
+        </div>
+        <div class="control-group">
+          <h4>Strategy</h4>
+          <div class="field"><span>Family</span><strong>momentum_lead</strong></div>
+          <div class="field"><span>Top N</span><strong>1</strong></div>
+          <div class="field"><span>Frequency</span><strong>14D</strong></div>
+        </div>
+        <div class="control-group">
+          <h4>Universe</h4>
+          <div class="field"><span>Min History</span><strong>30d</strong></div>
+          <div class="field"><span>Min Volume</span><strong>$1m</strong></div>
+          <div class="field"><span>Exclude BTC</span><strong>No</strong></div>
+        </div>
+        <div class="control-group">
+          <h4>Risk Overlay</h4>
+          <div class="field"><span>Stop</span><strong>11d / 2 confirm</strong></div>
+          <div class="field"><span>Risk-off Asset</span><strong>BTC</strong></div>
+          <div class="field"><span>Mode</span><strong>always_on</strong></div>
+        </div>
+        <div class="run">Run Backtest</div>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Center Workspace</div>
+        <div class="subtabs">
+          <div class="subtab active">Equity</div>
+          <div class="subtab">Drawdown</div>
+          <div class="subtab">Rolling</div>
+          <div class="subtab">Selection History</div>
+        </div>
+        <div class="compare-cards">
+          <div class="mini"><h5>Champion</h5><div class="big">237.0x</div></div>
+          <div class="mini"><h5>BTC</h5><div class="big">4.4x</div></div>
+          <div class="mini"><h5>Selected Run</h5><div class="big">Pending</div></div>
+        </div>
+        <div class="chart" style="height:340px;">
+          <div class="fake-chart"></div>
+          <svg class="line" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <polyline fill="none" stroke="#69a8ff" stroke-width="2.3" points="0,80 8,77 14,70 20,68 26,60 32,54 38,52 44,43 50,36 56,29 62,25 68,18 74,12 80,8 88,5 100,1"/>
+            <polyline fill="none" stroke="#8d7dff" stroke-width="2" points="0,79 8,78 14,74 20,71 26,70 32,64 38,63 44,55 50,57 56,47 62,49 68,40 74,36 80,32 88,28 100,22" opacity=".95"/>
+            <polyline fill="none" stroke="#47d2ff" stroke-width="1.8" points="0,82 8,81 14,80 20,78 26,75 32,71 38,68 44,64 50,61 56,57 62,53 68,48 74,42 80,35 88,28 100,20" opacity=".8"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="eyebrow">Right Rail</div>
+        <div class="kpi" style="margin-bottom:12px;"><div class="label">Run Status</div><div class="value" style="font-size:24px;">Ready</div><div class="delta green">last run completed</div></div>
+        <div class="kpi" style="margin-bottom:12px;"><div class="label">Final Multiple</div><div class="value" style="font-size:24px;">237.0x</div></div>
+        <div class="kpi" style="margin-bottom:12px;"><div class="label">Sharpe</div><div class="value" style="font-size:24px;">2.29</div></div>
+        <div class="kpi"><div class="label">Max Drawdown</div><div class="value" style="font-size:24px;">-50.8%</div></div>
+        <p class="notes" style="margin-top:14px;">Right rail should behave like a decision panel: current run metrics, parameter summary, compare state, and download/export actions.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,81 @@
+{
+  "id": "shiba-inu",
+  "symbol": "shib",
+  "name": "Shiba Inu",
+  "web_slug": "shiba-inu",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Meme",
+    "Ethereum Ecosystem",
+    "Animoca Brands Portfolio",
+    "Dog-Themed",
+    "GMCI Meme Index",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Shiba Inu (SHIB) is a decentralized, community-led cryptocurrency ecosystem built on the Ethereum blockchain. Originally launched as a meme-based project, it has evolved into a comprehensive financial ecosystem designed to offer a decentralized alternative to traditional banking. Its main value proposition lies in its transition from a social phenomenon into a functional utility network, supported by a vast global community known as the ShibArmy and a commitment to 100% community ownership with no central leadership.\n\nThe ecosystem features its own decentralized exchange, ShibaSwap, where users can trade, provide liquidity, and earn rewards. To address Ethereum\u2019s high costs and slow speeds, the project utilizes Shibarium, a Layer 2 scaling solution that processes transactions faster and more affordably.\n\nThe project employs a unique three-token model to manage its economy and governance. SHIB serves as the primary currency for trading and payments, while LEASH offers scarcity-based incentives for dedicated supporters. BONE acts as the governance token, allowing holders to vote on proposals through the Doggy DAO and serving as the native gas token for the Shibarium network."
+  },
+  "links": {
+    "homepage": [
+      "https://shibatoken.com/",
+      "https://shib.io/"
+    ],
+    "whitepaper": "https://shib.io/documents/SHIBPAPER-ABRIDGED-V.1.pdf",
+    "blockchain_site": [
+      "https://etherscan.io/token/0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+      "https://intel.arkm.com/explorer/token/shiba-inu",
+      "https://ethplorer.io/address/0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+      "https://explorer.energi.network/token/0x7fdb933327aa6989ae706001c2ea54ba5e046e79",
+      "https://ethereum.dex.guru/token/0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://discord.com/invite/shibatoken"
+    ],
+    "announcement_url": [
+      "https://blog.shibaswap.com/"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "shibarium_",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "ShibaInu_Dogecoinkiller",
+    "subreddit_url": "https://www.reddit.com/r/SHIBArmy/",
+    "repos_url": {
+      "github": [],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/11939/thumb/shiba.png?1696511800",
+    "small": "https://coin-images.coingecko.com/coins/images/11939/small/shiba.png?1696511800",
+    "large": "https://coin-images.coingecko.com/coins/images/11939/large/shiba.png?1696511800"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+  "sentiment_votes_up_percentage": 58.62,
+  "sentiment_votes_down_percentage": 41.38,
+  "watchlist_portfolio_users": 812598,
+  "market_cap_rank": 32,
+  "market_cap_rank_with_rehypothecated": 43,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:03:28.404Z"
+}

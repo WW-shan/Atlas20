@@ -1,0 +1,118 @@
+{
+  "id": "solana",
+  "symbol": "sol",
+  "name": "Solana",
+  "web_slug": "solana",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Solana Ecosystem",
+    "Layer 1 (L1)",
+    "FTX Holdings",
+    "Multicoin Capital Portfolio",
+    "Proof of Stake (PoS)",
+    "Alameda Research Portfolio",
+    "Andreessen Horowitz (a16z) Portfolio",
+    "GMCI Layer 1 Index",
+    "GMCI 30 Index",
+    "Delphi Ventures Portfolio",
+    "GMCI Index",
+    "Polychain Capital Portfolio",
+    "Made in USA",
+    "Coinbase 50 Index",
+    "CoinList Launchpad"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Solana is a high-performance Layer 1 blockchain designed for mass adoption by providing a fast, secure, and low-cost environment for decentralized applications. It distinguishes itself by scaling globally without the use of complex sharding or multiple layers, instead maintaining a single, unified ledger to avoid liquidity fragmentation. This architecture allows it to process thousands of transactions per second with sub-second finality, often at a cost of less than a penny per transaction.\n\nThe network operates on a unique hybrid model that combines Proof of Stake with an innovation called Proof of History, which functions as a decentralized clock to timestamp transactions. This system reduces the need for constant node communication, allowing the Sealevel engine to run non-conflicting smart contracts in parallel across multiple CPU cores. Further efficiency is gained through the Gulf Stream protocol, which reduces confirmation times by forwarding transactions to validators before the current block is finished.\n\nFounded in 2017 by Anatoly Yakovenko, Solana is now supported by the Switzerland-based Solana Foundation and significant institutional investors like Andreessen Horowitz and Polychain Capital. The platform\u2019s native token, SOL, serves as the primary currency for paying transaction fees, participating in network governance, and securing the system through staking. \n\nSolana has also seen significant institutional adoption ranging from spot Solana ETFs to major partnerships including Visa's 2025 launch of USDC settlement on the network and the tokenization of public equity by firms like Galaxy Digital."
+  },
+  "links": {
+    "homepage": [
+      "https://solana.com/"
+    ],
+    "whitepaper": "https://solana.com/solana-whitepaper.pdf",
+    "blockchain_site": [
+      "https://solscan.io/",
+      "https://platform.arkhamintelligence.com/explorer/token/solana",
+      "https://xray.helius.xyz/",
+      "https://solana.fm/",
+      "https://solanabeach.io/",
+      "https://www.oklink.com/sol",
+      "https://explorer.solana.com/"
+    ],
+    "official_forum_url": [],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/solana",
+    "repos_url": {
+      "github": [
+        "https://github.com/solana-labs/solana"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/4128/thumb/solana.png?1718769756",
+    "small": "https://coin-images.coingecko.com/coins/images/4128/small/solana.png?1718769756",
+    "large": "https://coin-images.coingecko.com/coins/images/4128/large/solana.png?1718769756"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "sentiment_votes_up_percentage": 82.61,
+  "sentiment_votes_down_percentage": 17.39,
+  "ico_data": {
+    "ico_start_date": null,
+    "ico_end_date": null,
+    "short_desc": "High-Performance Blockchain",
+    "description": "",
+    "links": {},
+    "softcap_currency": "",
+    "hardcap_currency": "",
+    "total_raised_currency": "",
+    "softcap_amount": null,
+    "hardcap_amount": null,
+    "total_raised": null,
+    "quote_pre_sale_currency": "",
+    "base_pre_sale_amount": null,
+    "quote_pre_sale_amount": null,
+    "quote_public_sale_currency": "",
+    "base_public_sale_amount": 0.0,
+    "quote_public_sale_amount": 0.0,
+    "accepting_currencies": "",
+    "country_origin": "",
+    "pre_sale_start_date": null,
+    "pre_sale_end_date": null,
+    "whitelist_url": "https://solana.com/presale/",
+    "whitelist_start_date": null,
+    "whitelist_end_date": null,
+    "bounty_detail_url": "",
+    "amount_for_sale": null,
+    "kyc_required": true,
+    "whitelist_available": true,
+    "pre_sale_available": null,
+    "pre_sale_ended": false
+  },
+  "watchlist_portfolio_users": 1295512,
+  "market_cap_rank": 7,
+  "market_cap_rank_with_rehypothecated": 7,
+  "status_updates": [],
+  "last_updated": "2026-04-21T15:54:17.360Z"
+}

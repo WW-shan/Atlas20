@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / 'src'
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from atlas20.analytics.metrics import compute_summary_metrics
+from atlas20.backtest.calendar import get_rebalance_dates
+from atlas20.backtest.engine import run_backtest
+from atlas20.config import load_config, load_sector_config
+from atlas20.data.processor import build_processed_datasets
+from atlas20.logging_utils import configure_logging, ensure_dir
+from atlas20.reporting.charts import plot_drawdowns, plot_equity_curves, plot_sector_exposure
+from atlas20.reporting.report import dataframe_to_markdown
+from atlas20.signals.regime import build_regime_frame
+from atlas20.signals.risk import btc_above_trailing_price
+from atlas20.strategies.implementations import build_rebalance_targets, build_strategy_definitions
+from atlas20.strategies.overlays import apply_daily_risk_overlay
+from atlas20.strategies.sector_v2 import build_sector_v2_targets
+from atlas20.universe.builder import build_rebalance_universe, prepare_market_data
+
+
+
+def _all_rebalance_dates(index: pd.DatetimeIndex, config) -> list[pd.Timestamp]:
+    dates: set[pd.Timestamp] = set()
+    for frequency_name, frequency_value in config.rebalancing.frequencies.items():
+        dates.update(get_rebalance_dates(index, config.start_timestamp, frequency_name, frequency_value))
+    return sorted(dates)
+
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description='Run Sector V2 study for Atlas20.')
+    parser.add_argument('--config', default='config/five_year_exact_2021_04_22_2026_04_22.yaml')
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    configure_logging(config.logging.level)
+    sector_config = load_sector_config(config.resolve_path('config/sectors.yaml'))
+    panel, metadata = build_processed_datasets(config, sector_config)
+    market = prepare_market_data(panel, metadata, config)
+    union_rebalance_dates = _all_rebalance_dates(market.price.index, config)
+    universe = build_rebalance_universe(market, union_rebalance_dates, config)
+    regime_frame = build_regime_frame(market.price, market.market_cap, config)
+    sector_by_coin = metadata['sector']
+
+    strategy_lookup = {item.name: item for item in build_strategy_definitions(config)}
+    baseline_names = [
+        'TOP20_SECTOR_top3_biweekly__bull_only',
+        'TOP20_SECTOR_top4_biweekly__bull_only',
+    ]
+    baseline_targets_cache = {}
+
+    results = {}
+    rows = []
+    report_dir = ensure_dir(config.resolve_path(config.paths.reports_dir) / 'sector_v2_study')
+
+    for baseline_name in baseline_names:
+        strategy = strategy_lookup[baseline_name]
+        targets, _ = build_rebalance_targets(strategy, market, universe, regime_frame, config)
+        baseline_targets_cache[baseline_name] = targets
+        result = run_backtest(
+            name=baseline_name,
+            asset_returns=market.returns,
+            rebalance_targets=targets,
+            sector_by_coin=sector_by_coin,
+            friction=config.frictions,
+            initial_capital=config.initial_capital,
+        )
+        results[baseline_name] = result
+        metrics = compute_summary_metrics(result, config.annualization_days)
+        metrics.update({'strategy': baseline_name, 'variant': 'BASELINE'})
+        rows.append(metrics)
+
+    study_variants = [
+        ('SECTOR_V2A_top3_biweekly__bull_only', dict(top_k=3, frequency='biweekly', regime_mode='bull_only', weighted_sectors=False, coins_per_sector=2)),
+        ('SECTOR_V2B_top3_biweekly__bull_only', dict(top_k=3, frequency='biweekly', regime_mode='bull_only', weighted_sectors=True, coins_per_sector=2)),
+        ('SECTOR_V2C_top3_biweekly__bull_only', dict(top_k=3, frequency='biweekly', regime_mode='bull_only', weighted_sectors=True, coins_per_sector=1)),
+    ]
+
+    for variant_name, kwargs in study_variants:
+        build = build_sector_v2_targets(market, universe, regime_frame, config, **kwargs)
+        result = run_backtest(
+            name=variant_name,
+            asset_returns=market.returns,
+            rebalance_targets=build.targets,
+            sector_by_coin=sector_by_coin,
+            friction=config.frictions,
+            initial_capital=config.initial_capital,
+        )
+        results[variant_name] = result
+        metrics = compute_summary_metrics(result, config.annualization_days)
+        metrics.update({'strategy': variant_name, 'variant': variant_name.split('_')[1]})
+        rows.append(metrics)
+        build.sector_history.to_csv(report_dir / f'{variant_name}_sector_history.csv', index=False)
+        build.coin_history.to_csv(report_dir / f'{variant_name}_coin_history.csv', index=False)
+        build.sector_history.to_csv(report_dir / f'{variant_name}_sector_metrics.csv', index=False)
+        plot_sector_exposure(result.sector_exposure, report_dir / f'{variant_name}_sector_exposure.png', title=f'Sector Exposure - {variant_name}')
+
+    btc_21d_risk_on = btc_above_trailing_price(market.price, lookback_days=21, confirm_days=1)
+    overlay_variants = [
+        (
+            'TOP20_SECTOR_top4_biweekly__bull_only__BTC_LT_21D',
+            baseline_targets_cache['TOP20_SECTOR_top4_biweekly__bull_only'],
+        ),
+        (
+            'SECTOR_V2B_top3_biweekly__bull_only__BTC_LT_21D',
+            build_sector_v2_targets(
+                market,
+                universe,
+                regime_frame,
+                config,
+                top_k=3,
+                frequency='biweekly',
+                regime_mode='bull_only',
+                weighted_sectors=True,
+                coins_per_sector=2,
+            ).targets,
+        ),
+    ]
+
+    for variant_name, base_targets in overlay_variants:
+        targets = apply_daily_risk_overlay(base_targets, btc_21d_risk_on)
+        result = run_backtest(
+            name=variant_name,
+            asset_returns=market.returns,
+            rebalance_targets=targets,
+            sector_by_coin=sector_by_coin,
+            friction=config.frictions,
+            initial_capital=config.initial_capital,
+        )
+        results[variant_name] = result
+        metrics = compute_summary_metrics(result, config.annualization_days)
+        metrics.update({'strategy': variant_name, 'variant': 'BTC_LT_21D'})
+        rows.append(metrics)
+        plot_sector_exposure(result.sector_exposure, report_dir / f'{variant_name}_sector_exposure.png', title=f'Sector Exposure - {variant_name}')
+
+    summary = pd.DataFrame(rows).set_index('strategy')
+    baseline = summary.loc['TOP20_SECTOR_top4_biweekly__bull_only']
+    summary['cagr_delta_vs_best_baseline'] = summary['cagr'] - baseline['cagr']
+    summary['sharpe_delta_vs_best_baseline'] = summary['sharpe'] - baseline['sharpe']
+    summary['drawdown_improvement_vs_best_baseline'] = summary['max_drawdown'] - baseline['max_drawdown']
+    summary = summary.sort_values(['sharpe', 'cagr'], ascending=False)
+    summary.to_csv(report_dir / 'sector_v2_summary.csv')
+
+    pd.DataFrame({name: result.daily_returns for name, result in results.items()}).to_csv(report_dir / 'sector_v2_daily_returns.csv')
+    pd.DataFrame({name: result.equity_curve for name, result in results.items()}).to_csv(report_dir / 'sector_v2_equity_curves.csv')
+    pd.DataFrame({name: result.drawdown for name, result in results.items()}).to_csv(report_dir / 'sector_v2_drawdowns.csv')
+    plot_equity_curves(results, report_dir / 'sector_v2_equity_curves.png')
+    plot_drawdowns(results, report_dir / 'sector_v2_drawdowns.png')
+
+    markdown_lines = [
+        '# Sector V2 Study',
+        '',
+        f'Window: {config.start_date} to {config.end_date}',
+        '',
+        '## Summary',
+        '',
+        dataframe_to_markdown(
+            summary[['variant', 'cagr', 'sharpe', 'max_drawdown', 'annualized_turnover', 'average_holdings', 'cagr_delta_vs_best_baseline', 'sharpe_delta_vs_best_baseline', 'drawdown_improvement_vs_best_baseline']],
+            percent_columns={'cagr', 'max_drawdown', 'cagr_delta_vs_best_baseline', 'drawdown_improvement_vs_best_baseline'},
+            number_columns={'sharpe', 'annualized_turnover', 'average_holdings', 'sharpe_delta_vs_best_baseline'},
+        ),
+        '',
+        '## Variant definitions',
+        '',
+        '- `BASELINE`: existing sector rotation from the main research pipeline.',
+        '- `V2A`: stronger sector score with breadth and leader strength, equal weight across sectors, top 2 coins per sector.',
+        '- `V2B`: same stronger score, but sector weights follow rank emphasis (roughly 50/30/20).',
+        '- `V2C`: V2B plus single-leader selection inside each sector.',
+        '- `BTC_LT_21D`: adds a daily BTC trailing-price stop overlay that exits to cash when BTC falls below its 21-day-ago close and re-enters on the next eligible rebalance.',
+        '',
+        '## Notes',
+        '',
+        '- Positive `drawdown_improvement_vs_best_baseline` means a shallower drawdown than the best baseline sector strategy.',
+        '- The comparison baseline is `TOP20_SECTOR_top4_biweekly__bull_only` because it was the strongest baseline sector variant in this exact five-year window.',
+    ]
+    (report_dir / 'sector_v2_report.md').write_text('\n'.join(markdown_lines), encoding='utf-8')
+
+
+if __name__ == '__main__':
+    main()

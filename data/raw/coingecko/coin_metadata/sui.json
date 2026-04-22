@@ -1,0 +1,86 @@
+{
+  "id": "sui",
+  "symbol": "sui",
+  "name": "Sui",
+  "web_slug": "sui",
+  "asset_platform_id": "sui",
+  "platforms": {
+    "sui": "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  },
+  "detail_platforms": {
+    "sui": {
+      "decimal_place": 9,
+      "contract_address": "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+      "geckoterminal_url": "https://www.geckoterminal.com/sui-network/tokens/0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Binance Launchpool",
+    "Layer 1 (L1)",
+    "Sui Ecosystem",
+    "Coinbase Ventures Portfolio",
+    "Proof of Stake (PoS)",
+    "Andreessen Horowitz (a16z) Portfolio",
+    "YZi Labs (Prev. Binance Labs) Portfolio",
+    "GMCI Layer 1 Index",
+    "Circle Ventures Portfolio",
+    "GMCI Index",
+    "Made in USA"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Sui s a Layer 1 blockchain developed by Mysten Labs, a team founded by former lead engineers from Meta\u2019s blockchain research division. It is designed for global adoption by providing a secure, high-speed environment for digital asset ownership and removing technical barriers for Web3 applications. The platform utilizes the Move programming language to create a safe framework and supports horizontal scaling to keep fees stable and speeds high as the network grows. Significant institutional support comes from major venture capital firms including Andreessen Horowitz, Coinbase Ventures, Circle Ventures, and YZi Labs.\n\nThe system functions by organizing data into independent objects rather than a single ledger of accounts. This object-centric data model enables parallel execution, allowing the network to process many transactions simultaneously instead of waiting for one to finish before starting the next. This architecture is built for rapid transaction finalization to ensure near-instant results. To maintain long-term stability, the network collects fees into a storage fund that rewards validators for keeping data on the network indefinitely.\n\nSui offers several advanced tools including zkLogin for easier account access and sponsored transactions that allow users to interact with apps without managing complex wallets or immediate fees. Developers can also create tailored object types that work across the entire network, which encourages innovation and deep composability. These features are designed to create a more user-friendly experience for interacting with decentralized applications and digital games.\n\nThe SUI token is central to the ecosystem, serving as the primary asset for transaction fees and on-chain utility within decentralized exchanges and lending platforms. Users participate in a proof-of-stake mechanism by locking their tokens to support validators and secure the blockchain in exchange for rewards. Additionally, token holders have a role in governance, allowing them to participate in voting on network rules and future protocol upgrades. Value moves through the system through these staking rewards and transaction fees to ensure the platform scales sustainably"
+  },
+  "links": {
+    "homepage": [
+      "https://sui.io/"
+    ],
+    "whitepaper": "https://github.com/MystenLabs/sui/blob/main/doc/paper/sui.pdf",
+    "blockchain_site": [
+      "https://suiscan.xyz/mainnet/home",
+      "https://www.oklink.com/sui",
+      "https://suivision.xyz/coin/0x0000000000000000000000000000000000000000000000000000000000000002::sui::sui",
+      "https://suiscan.xyz/mainnet/coin/0x0000000000000000000000000000000000000000000000000000000000000002::sui::sui/txs",
+      "https://suiscan.xyz/mainnet/coin/0x2::sui::sui/txs",
+      "https://suivision.xyz/coin/0x2::sui::sui"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://medium.com/mysten-labs",
+      "https://discord.gg/sui"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "SuiNetwork",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": null,
+    "repos_url": {
+      "github": [
+        "https://github.com/MystenLabs/sui"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/26375/thumb/sui-ocean-square.png?1727791290",
+    "small": "https://coin-images.coingecko.com/coins/images/26375/small/sui-ocean-square.png?1727791290",
+    "large": "https://coin-images.coingecko.com/coins/images/26375/large/sui-ocean-square.png?1727791290"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x2::sui::SUI",
+  "sentiment_votes_up_percentage": 87.5,
+  "sentiment_votes_down_percentage": 12.5,
+  "watchlist_portfolio_users": 365497,
+  "market_cap_rank": 29,
+  "market_cap_rank_with_rehypothecated": 40,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:03:22.421Z"
+}

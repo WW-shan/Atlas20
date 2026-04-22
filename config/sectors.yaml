@@ -1,0 +1,110 @@
+default_sector: Other
+
+category_keyword_rules:
+  Store of Value:
+    - bitcoin ecosystem
+    - proof of work
+    - digital gold
+  Smart Contract Platform / L1:
+    - smart contract platform
+    - layer 1
+    - scaling
+    - rollup
+    - parallelized evm
+  DeFi:
+    - decentralized finance
+    - decentralized exchange
+    - lending/borrowing
+    - liquid staking
+    - restaking
+    - yield farming
+  Exchange / Trading Infrastructure:
+    - exchange-based tokens
+    - derivatives
+    - trading
+    - perpetuals
+    - cex
+  Payments:
+    - payments
+    - payment solutions
+    - remittance
+  Oracle / Middleware:
+    - oracle
+    - interoperability
+    - middleware
+    - ai agents
+    - indexing
+  Meme:
+    - meme
+  RWA / Yield Protocol:
+    - rwa
+    - yield-bearing
+    - real world assets
+    - synthetic dollar
+  Privacy:
+    - privacy
+
+name_keyword_rules:
+  Meme:
+    - pepe
+    - doge
+    - shib
+    - bonk
+    - wif
+  Exchange / Trading Infrastructure:
+    - hyperliquid
+    - uniswap
+    - pancakeswap
+  Oracle / Middleware:
+    - chainlink
+    - graph
+    - pyth
+  RWA / Yield Protocol:
+    - ethena
+    - ondo
+  Payments:
+    - xrp
+    - stellar
+    - ripple
+
+manual_overrides:
+  bitcoin: Store of Value
+  ethereum: Smart Contract Platform / L1
+  binancecoin: Exchange / Trading Infrastructure
+  ripple: Payments
+  solana: Smart Contract Platform / L1
+  cardano: Smart Contract Platform / L1
+  dogecoin: Meme
+  tron: Smart Contract Platform / L1
+  chainlink: Oracle / Middleware
+  avalanche-2: Smart Contract Platform / L1
+  stellar: Payments
+  toncoin: Smart Contract Platform / L1
+  shiba-inu: Meme
+  sui: Smart Contract Platform / L1
+  hyperliquid: Exchange / Trading Infrastructure
+  litecoin: Payments
+  hedera-hashgraph: Payments
+  polkadot: Smart Contract Platform / L1
+  bitcoin-cash: Payments
+  monero: Privacy
+  near: Smart Contract Platform / L1
+  aptos: Smart Contract Platform / L1
+  pepe: Meme
+  internet-computer: Smart Contract Platform / L1
+  aave: DeFi
+  uniswap: DeFi
+  maker: DeFi
+  ethena: RWA / Yield Protocol
+  ondo-finance: RWA / Yield Protocol
+  render-token: Oracle / Middleware
+  the-graph: Oracle / Middleware
+  arbitrum: Smart Contract Platform / L1
+  optimism: Smart Contract Platform / L1
+  filecoin: Oracle / Middleware
+  eos: Smart Contract Platform / L1
+  algorand: Smart Contract Platform / L1
+  vechain: Payments
+  tezos: Smart Contract Platform / L1
+  fantom: Smart Contract Platform / L1
+  neo: Smart Contract Platform / L1

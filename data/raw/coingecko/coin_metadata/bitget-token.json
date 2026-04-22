@@ -1,0 +1,84 @@
+{
+  "id": "bitget-token",
+  "symbol": "bgb",
+  "name": "Bitget Token",
+  "web_slug": "bitget-token",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x54d2252757e1672eead234d27b1270728ff90581",
+    "morph-l2": "0x389c08bc23a7317000a1fd76c7c5b0cb0b4640b5"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x54d2252757e1672eead234d27b1270728ff90581",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x54d2252757e1672eead234d27b1270728ff90581"
+    },
+    "morph-l2": {
+      "decimal_place": 18,
+      "contract_address": "0x389c08bc23a7317000a1fd76c7c5b0cb0b4640b5",
+      "geckoterminal_url": "https://www.geckoterminal.com/morph-l2/tokens/0x389c08bc23a7317000a1fd76c7c5b0cb0b4640b5"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Exchange-based Tokens",
+    "Centralized Exchange (CEX) Token",
+    "Ethereum Ecosystem",
+    "DragonFly Capital Portfolio",
+    "Morph L2 Ecosystem",
+    "Made in China"
+  ],
+  "preview_listing": false,
+  "public_notice": "<a href=\"https://www.coingecko.com/en/coins/bitget-wallet-token\"target=\"_blank\">Bitget Wallet Token (BWB)</a> is merging into Bitget Token (BGB). For more information, please visit this <a href=\"https://web3.bitget.com/en/blog/articles/bwb-and-bgb-token-merge-upgrade\"target=\"_blank\">post</a>.<br>",
+  "additional_notices": [],
+  "description": {
+    "en": "What is BGB token?\nBGB is a decentralised token that is the primary token of Morph's blockchain, serving as the gas, governance, and payment token across the layer. \n\nWho Are the Founders of Bitget Token?\nLaunched in 2021, Bitget Token (BGB) was initially positioned as the platform token for the Bitget exchange and Bitget Wallet. \nBehind Bitget is a team of visionary early adopters dedicated to a blockchain-powered future. The leadership team is comprised of seasoned professionals with experience at global giants like Goldman Sachs, Facebook, and Binance, including CEO Gracy Chen, COO Vugar Usi Zade, and CLO Hon Ng.\nIn September 2025, Bitget agreed to a strategic partnership with the Morph chain. The Morph Foundation, a non-profit decentralized organization, is now solely responsible for the future development of BGB.\n\nWhat Makes Bitget Token (BGB) Unique?\nBGB is the gas and governance token of the Morph chain. At the same time, BGB will also get support from its partners, such as exchanges and wallets, serving as a key medium for Launchpool's new token mining, fee discounts, and more.\n\nHow Many Bitget Token (BGB) Coins Are There in Circulation?\nThe initial supply of Bitget Token (BGB) is fixed at 2 billion tokens. As of September 2025, the circulating supply of BGB is 699,992,035. The Morph Foundation will update the BGB burn mechanism, linking it to Morph network activity, until the total BGB supply is reduced to 100 million.\n\nHow Is the Bitget Token Network Secured?\nBitget Token (BGB) initially operates on Ethereum's blockchain using the ERC-20 standard and Proof-of-Stake (PoS) consensus, making it compatible with any Ethereum wallet. \nFollowing the strategic partnership between Bitget and Morph, a growing number of BGB will be migrated to the Morph chain, as the gas and governance token. \n\nWhere Can You Buy Bitget Token (BGB)?\nBitget Token (BGB) can be purchased directly on the Bitget exchange. BGB is also available for trading on MECX, Bitfinex, Uniswap, and BulbaSwap."
+  },
+  "links": {
+    "homepage": [
+      "https://partner.bitget.com/bg/2LAE9K"
+    ],
+    "whitepaper": "https://www.bitget.com/cdnstatic/files/BGB-whitepaper-en.pdf",
+    "blockchain_site": [
+      "https://etherscan.io/token/0x54d2252757e1672eead234d27b1270728ff90581",
+      "https://intel.arkm.com/explorer/token/bitget-token",
+      "https://ethplorer.io/address/0x54d2252757e1672eead234d27b1270728ff90581",
+      "https://explorer.morphl2.io/token/0x389C08Bc23A7317000a1FD76c7c5B0cb0b4640b5"
+    ],
+    "official_forum_url": [
+      "https://www.tiktok.com/@bitgetofficial",
+      "https://www.instagram.com/bitget__official/"
+    ],
+    "chat_url": [
+      "https://www.youtube.com/@Bitget"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "bitgetglobal",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "Bitget_NewMarket_Bot",
+    "subreddit_url": "https://www.reddit.com/r/BitgetReddit",
+    "repos_url": {
+      "github": [],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/11610/thumb/Bitget_logo.png?1736925727",
+    "small": "https://coin-images.coingecko.com/coins/images/11610/small/Bitget_logo.png?1736925727",
+    "large": "https://coin-images.coingecko.com/coins/images/11610/large/Bitget_logo.png?1736925727"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x54d2252757e1672eead234d27b1270728ff90581",
+  "sentiment_votes_up_percentage": null,
+  "sentiment_votes_down_percentage": null,
+  "watchlist_portfolio_users": 44860,
+  "market_cap_rank": 59,
+  "market_cap_rank_with_rehypothecated": 74,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:12:31.718Z"
+}

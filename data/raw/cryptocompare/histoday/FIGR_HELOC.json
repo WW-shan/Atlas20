@@ -1,0 +1,9 @@
+{
+  "Response": "Error",
+  "Message": "CCCAGG market does not exist for this coin pair (FIGR_HELOC-USD)",
+  "HasWarning": false,
+  "Type": 2,
+  "RateLimit": {},
+  "Data": {},
+  "Cooldown": 0
+}

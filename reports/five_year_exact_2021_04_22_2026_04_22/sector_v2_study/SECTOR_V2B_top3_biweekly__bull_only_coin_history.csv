@@ -1,0 +1,206 @@
+rebalance_date,sector,coin_id,coin_rank_in_sector,coin_score,coin_weight
+2021-11-04,Meme,shiba-inu,1,3.9519509692389643,0.25
+2021-11-04,Meme,dogecoin,2,0.03104311813989375,0.25
+2021-11-04,Other,axie-infinity,1,0.7722907500066281,0.3
+2021-11-04,Smart Contract Platform / L1,solana,1,1.523329614898934,0.1
+2021-11-04,Smart Contract Platform / L1,avalanche-2,2,1.1872945016371101,0.1
+2022-03-24,Store of Value,ethereum-classic,1,0.7531356568354223,0.25
+2022-03-24,Store of Value,bitcoin,2,0.11191361133251633,0.25
+2022-03-24,Payments,ripple,1,0.1710972501282591,0.15
+2022-03-24,Payments,litecoin,2,0.08337826715435742,0.15
+2022-03-24,Other,axie-infinity,1,0.20816804225067798,0.1
+2022-03-24,Other,decentraland,2,0.04597268560772154,0.1
+2022-04-07,Privacy,monero,1,0.1806208308850864,0.5
+2022-04-07,Store of Value,ethereum-classic,1,0.5334134316095844,0.15
+2022-04-07,Store of Value,bitcoin,2,0.07758460390122973,0.15
+2022-04-07,DeFi,aave,1,0.37239530940997156,0.2
+2023-01-12,Payments,litecoin,1,0.34258045603462656,0.25
+2023-01-12,Payments,ripple,2,-0.041692939859145774,0.25
+2023-01-12,Smart Contract Platform / L1,optimism,1,0.4606395331096242,0.15
+2023-01-12,Smart Contract Platform / L1,avalanche-2,2,0.11514043204943647,0.15
+2023-01-12,Store of Value,bitcoin,1,0.0734845165791861,0.2
+2023-01-26,Smart Contract Platform / L1,optimism,1,1.3186017445010494,0.25
+2023-01-26,Smart Contract Platform / L1,solana,2,0.7677763110657021,0.25
+2023-01-26,Store of Value,bitcoin,1,0.3326295766526578,0.3
+2023-01-26,Oracle / Middleware,chainlink,1,0.1212446534147606,0.2
+2023-03-09,Smart Contract Platform / L1,optimism,1,0.3000514924400185,0.25
+2023-03-09,Smart Contract Platform / L1,ethereum,2,-0.007695726772345389,0.25
+2023-03-09,Store of Value,bitcoin,1,0.03294691320920107,0.3
+2023-03-09,Meme,shiba-inu,1,-0.08134490238611707,0.1
+2023-03-09,Meme,dogecoin,2,-0.23766851877902284,0.1
+2023-03-23,Store of Value,bitcoin,1,0.2918518590250472,0.5
+2023-03-23,Smart Contract Platform / L1,immutable-x,1,0.7002540680662808,0.15
+2023-03-23,Smart Contract Platform / L1,optimism,2,0.3565616470725978,0.15
+2023-03-23,Payments,ripple,1,0.15135247771766003,0.1
+2023-03-23,Payments,litecoin,2,0.10710250758861568,0.1
+2023-11-02,Oracle / Middleware,chainlink,1,0.5994824600504642,0.5
+2023-11-02,Store of Value,bitcoin,1,0.2811003295414068,0.3
+2023-11-02,Smart Contract Platform / L1,solana,1,0.8229442478984247,0.1
+2023-11-02,Smart Contract Platform / L1,cardano,2,0.2180667819460037,0.1
+2023-11-16,Oracle / Middleware,chainlink,1,1.072609365255225,0.5
+2023-11-16,Smart Contract Platform / L1,solana,1,1.669076645186424,0.15
+2023-11-16,Smart Contract Platform / L1,avalanche-2,2,1.3088750376635734,0.15
+2023-11-16,Store of Value,bitcoin,1,0.32296703884616024,0.2
+2023-11-30,Oracle / Middleware,chainlink,1,0.6567954454480042,0.5
+2023-11-30,Smart Contract Platform / L1,solana,1,1.1302849022083161,0.15
+2023-11-30,Smart Contract Platform / L1,avalanche-2,2,1.032385556312342,0.15
+2023-11-30,Store of Value,bitcoin,1,0.24113281172798465,0.2
+2023-12-14,Smart Contract Platform / L1,avalanche-2,1,2.270368007221566,0.25
+2023-12-14,Smart Contract Platform / L1,immutable-x,2,2.0712391564136245,0.25
+2023-12-14,Oracle / Middleware,chainlink,1,0.6537987345329064,0.3
+2023-12-14,Store of Value,bitcoin,1,0.40366006015584144,0.2
+2023-12-28,Smart Contract Platform / L1,avalanche-2,1,1.8801092698335224,0.25
+2023-12-28,Smart Contract Platform / L1,solana,2,1.8102033005420028,0.25
+2023-12-28,DeFi,uniswap,1,0.5535713885938556,0.15
+2023-12-28,DeFi,aave,2,0.3953669467384624,0.15
+2023-12-28,Oracle / Middleware,chainlink,1,0.38765548617091017,0.2
+2024-01-11,Smart Contract Platform / L1,internet-computer,1,1.8756853788516246,0.25
+2024-01-11,Smart Contract Platform / L1,injective-protocol,2,1.4478876923210766,0.25
+2024-01-11,Store of Value,ethereum-classic,1,0.5710171781936589,0.15
+2024-01-11,Store of Value,bitcoin,2,0.2789730413523528,0.15
+2024-01-11,Oracle / Middleware,chainlink,1,0.2124989851751621,0.2
+2024-01-25,Smart Contract Platform / L1,sui,1,0.7713800143162428,0.25
+2024-01-25,Smart Contract Platform / L1,arbitrum,2,0.5318056976152267,0.25
+2024-01-25,Store of Value,bitcoin,1,0.025175701204802302,0.3
+2024-01-25,Payments,ripple,1,-0.14809842821788485,0.2
+2024-02-08,Smart Contract Platform / L1,sui,1,1.1176023772799475,0.25
+2024-02-08,Smart Contract Platform / L1,arbitrum,2,0.30655050344800394,0.25
+2024-02-08,Exchange / Trading Infrastructure,binancecoin,1,0.18339927937321887,0.3
+2024-02-08,Oracle / Middleware,chainlink,1,0.23284284772276434,0.2
+2024-02-22,Exchange / Trading Infrastructure,binancecoin,1,0.4020003493620518,0.5
+2024-02-22,Oracle / Middleware,the-graph,1,0.7006894694334658,0.15
+2024-02-22,Oracle / Middleware,filecoin,2,0.5992814876513262,0.15
+2024-02-22,Smart Contract Platform / L1,sui,1,0.9936796663279308,0.1
+2024-02-22,Smart Contract Platform / L1,immutable-x,2,0.7294382731409179,0.1
+2024-03-07,Meme,shiba-inu,1,2.445508862470786,0.25
+2024-03-07,Meme,dogecoin,2,0.9205564566650855,0.25
+2024-03-07,Oracle / Middleware,filecoin,1,0.890176620922452,0.15
+2024-03-07,Oracle / Middleware,chainlink,2,0.24651501042622806,0.15
+2024-03-07,Exchange / Trading Infrastructure,binancecoin,1,0.6536479626500813,0.2
+2024-03-21,Meme,shiba-inu,1,1.7667019632758392,0.25
+2024-03-21,Meme,dogecoin,2,0.7748196076180646,0.25
+2024-03-21,Exchange / Trading Infrastructure,binancecoin,1,0.7102359918540367,0.3
+2024-03-21,Smart Contract Platform / L1,near,1,0.9934600025049123,0.1
+2024-03-21,Smart Contract Platform / L1,the-open-network,2,0.8255208647152973,0.1
+2024-04-04,Meme,shiba-inu,1,0.8921387177318321,0.25
+2024-04-04,Meme,dogecoin,2,0.7115410759882107,0.25
+2024-04-04,Exchange / Trading Infrastructure,binancecoin,1,0.6882007050281046,0.3
+2024-04-04,Payments,bitcoin-cash,1,1.2319070399264382,0.1
+2024-04-04,Payments,litecoin,2,0.33974687800747555,0.1
+2024-04-18,Meme,shiba-inu,1,0.6504250999521055,0.25
+2024-04-18,Meme,dogecoin,2,0.5159791750269007,0.25
+2024-04-18,Exchange / Trading Infrastructure,binancecoin,1,0.3692622747597853,0.3
+2024-04-18,Store of Value,bitcoin,1,0.18340264057791394,0.2
+2024-05-02,Smart Contract Platform / L1,the-open-network,1,0.6058172014256875,0.25
+2024-05-02,Smart Contract Platform / L1,ethereum,2,-0.029123671885768684,0.25
+2024-05-02,Store of Value,bitcoin,1,0.0055885200206467756,0.3
+2024-05-02,Meme,shiba-inu,1,0.23800622223150722,0.1
+2024-05-02,Meme,dogecoin,2,-0.048058260605826825,0.1
+2024-05-16,Exchange / Trading Infrastructure,binancecoin,1,0.14385643599875234,0.5
+2024-05-16,Store of Value,bitcoin,1,0.047683263974228826,0.3
+2024-05-16,Meme,shiba-inu,1,0.28805164756347823,0.1
+2024-05-16,Meme,dogecoin,2,0.11896597289342828,0.1
+2024-05-30,Exchange / Trading Infrastructure,htx-dao,1,inf,0.5
+2024-05-30,Store of Value,bitcoin,1,0.07006474693127385,0.3
+2024-05-30,Oracle / Middleware,chainlink,1,0.14330360786985216,0.2
+2024-06-13,Exchange / Trading Infrastructure,htx-dao,1,inf,0.5
+2024-06-13,Store of Value,bitcoin,1,0.038723222936161796,0.3
+2024-06-13,Payments,litecoin,1,-0.02386176494344895,0.1
+2024-06-13,Payments,ripple,2,-0.08901087119405902,0.1
+2024-10-17,Smart Contract Platform / L1,sui,1,1.075917239963807,0.25
+2024-10-17,Smart Contract Platform / L1,bittensor,2,0.8363100512201418,0.25
+2024-10-17,Meme,dogecoin,1,0.23589500784956347,0.3
+2024-10-17,Store of Value,bitcoin,1,0.10689166744048262,0.2
+2024-10-31,Meme,dogecoin,1,0.5537189498229992,0.25
+2024-10-31,Meme,shiba-inu,2,0.19629136150434828,0.25
+2024-10-31,Smart Contract Platform / L1,sui,1,0.9531372343108941,0.15
+2024-10-31,Smart Contract Platform / L1,bittensor,2,0.3675729116838245,0.15
+2024-10-31,Store of Value,bitcoin,1,0.17355761881712722,0.2
+2024-11-14,Meme,dogecoin,1,2.32477497852999,0.25
+2024-11-14,Meme,pepe,2,1.4079905648597402,0.25
+2024-11-14,Smart Contract Platform / L1,sui,1,1.5706242508597628,0.15
+2024-11-14,Smart Contract Platform / L1,crypto-com-chain,2,0.867363893074077,0.15
+2024-11-14,Store of Value,bitcoin,1,0.3907284549292179,0.2
+2024-11-28,Payments,stellar,1,4.131573573077388,0.25
+2024-11-28,Payments,hedera-hashgraph,2,1.728315496706082,0.25
+2024-11-28,Meme,dogecoin,1,1.9011952184046104,0.15
+2024-11-28,Meme,shiba-inu,2,0.4271037832871958,0.15
+2024-11-28,DeFi,uniswap,1,0.7510163026184613,0.2
+2024-12-12,Payments,hedera-hashgraph,1,4.071414274269825,0.25
+2024-12-12,Payments,stellar,2,2.8732898712264463,0.25
+2024-12-12,Oracle / Middleware,chainlink,1,1.3634755547278938,0.3
+2024-12-12,Meme,dogecoin,1,1.3873337954906981,0.1
+2024-12-12,Meme,shiba-inu,2,0.412578534884828,0.1
+2024-12-26,Payments,hedera-hashgraph,1,2.686382267454783,0.25
+2024-12-26,Payments,ripple,2,1.7536417829829838,0.25
+2024-12-26,Meme,dogecoin,1,0.5599101816228336,0.15
+2024-12-26,Meme,pepe,2,0.3700788108241846,0.15
+2024-12-26,Oracle / Middleware,chainlink,1,0.6304451368083919,0.1
+2024-12-26,Oracle / Middleware,render-token,2,0.1291824096959475,0.1
+2025-01-09,Exchange / Trading Infrastructure,bitget-token,1,2.7914461646367945,0.5
+2025-01-09,Payments,hedera-hashgraph,1,1.9772970441788067,0.15
+2025-01-09,Payments,ripple,2,1.4808912775706138,0.15
+2025-01-09,DeFi,aave,1,0.3425124718031892,0.2
+2025-01-23,Exchange / Trading Infrastructure,bitget-token,1,2.3359149345002397,0.25
+2025-01-23,Exchange / Trading Infrastructure,binancecoin,2,0.04913715809637072,0.25
+2025-01-23,Payments,ripple,1,1.569317905196999,0.15
+2025-01-23,Payments,hedera-hashgraph,2,1.5410118665380148,0.15
+2025-01-23,DeFi,aave,1,0.5308120650864526,0.2
+2025-02-06,Exchange / Trading Infrastructure,bitget-token,1,1.3701863553455467,0.5
+2025-02-06,Payments,ripple,1,0.6196411994979263,0.15
+2025-02-06,Payments,hedera-hashgraph,2,0.47778839438703663,0.15
+2025-02-06,Store of Value,bitcoin,1,0.036586050247408734,0.2
+2025-02-20,Payments,litecoin,1,0.2266954671987645,0.25
+2025-02-20,Payments,ripple,2,0.15483731781269056,0.25
+2025-02-20,Exchange / Trading Infrastructure,bitget-token,1,0.24537540146332992,0.3
+2025-02-20,Store of Value,bitcoin,1,-0.027886089793110205,0.2
+2025-05-15,Privacy,monero,1,0.5709710545874044,0.5
+2025-05-15,Meme,pepe,1,0.8971994546780281,0.15
+2025-05-15,Meme,dogecoin,2,0.34368853695667984,0.15
+2025-05-15,Smart Contract Platform / L1,sui,1,0.6852095548091233,0.1
+2025-05-15,Smart Contract Platform / L1,ethereum,2,0.42443513928160503,0.1
+2025-05-29,Privacy,monero,1,0.4703522557826855,0.5
+2025-05-29,Store of Value,bitcoin,1,0.21587437071308505,0.3
+2025-05-29,Smart Contract Platform / L1,ethereum,1,0.42713524418981913,0.1
+2025-05-29,Smart Contract Platform / L1,solana,2,0.22769959026247016,0.1
+2025-06-12,Store of Value,bitcoin,1,0.17637025870316964,0.5
+2025-06-12,Privacy,monero,1,0.2891956974414568,0.3
+2025-06-12,Smart Contract Platform / L1,ethereum,1,0.36882166931467014,0.1
+2025-06-12,Smart Contract Platform / L1,sui,2,0.17683578127152189,0.1
+2025-06-26,Exchange / Trading Infrastructure,whitebit,1,0.5719544739123802,0.25
+2025-06-26,Exchange / Trading Infrastructure,binancecoin,2,0.006583401889004281,0.25
+2025-06-26,Privacy,monero,1,0.0785248856713005,0.3
+2025-06-26,Store of Value,bitcoin,1,0.08430153550418136,0.2
+2025-07-10,Exchange / Trading Infrastructure,whitebit,1,0.5335622644500162,0.25
+2025-07-10,Exchange / Trading Infrastructure,binancecoin,2,0.03382875047677587,0.25
+2025-07-10,Store of Value,bitcoin,1,0.09105186540298271,0.3
+2025-07-10,Privacy,monero,1,0.10327271923759627,0.2
+2025-07-24,Payments,stellar,1,0.6206232301459036,0.25
+2025-07-24,Payments,hedera-hashgraph,2,0.4580853182897922,0.25
+2025-07-24,Exchange / Trading Infrastructure,hyperliquid,1,0.4095310872568536,0.15
+2025-07-24,Exchange / Trading Infrastructure,binancecoin,2,0.2126013754409391,0.15
+2025-07-24,Oracle / Middleware,chainlink,1,0.3027495449421249,0.2
+2025-08-07,DeFi,uniswap,1,0.43403464767276634,0.5
+2025-08-07,Payments,stellar,1,0.5368010929435544,0.15
+2025-08-07,Payments,hedera-hashgraph,2,0.45924263239408514,0.15
+2025-08-07,Exchange / Trading Infrastructure,binancecoin,1,0.18204049608238493,0.1
+2025-08-07,Exchange / Trading Infrastructure,whitebit,2,0.17384869532227332,0.1
+2025-08-21,Oracle / Middleware,chainlink,1,0.6575191716799587,0.5
+2025-08-21,DeFi,uniswap,1,0.3164199184002426,0.3
+2025-08-21,Payments,hedera-hashgraph,1,0.21003447780602671,0.1
+2025-08-21,Payments,stellar,2,0.2099733914668816,0.1
+2025-09-04,Oracle / Middleware,chainlink,1,0.5967829159846346,0.5
+2025-09-04,Smart Contract Platform / L1,crypto-com-chain,1,1.60566990650731,0.15
+2025-09-04,Smart Contract Platform / L1,ethereum,2,0.49660317241588203,0.15
+2025-09-04,Payments,bitcoin-cash,1,0.20710127470566986,0.1
+2025-09-04,Payments,stellar,2,0.1757111184396431,0.1
+2025-09-18,Exchange / Trading Infrastructure,hyperliquid,1,0.3706099178541028,0.25
+2025-09-18,Exchange / Trading Infrastructure,binancecoin,2,0.2979023038400669,0.25
+2025-09-18,Oracle / Middleware,chainlink,1,0.22353410321823375,0.3
+2025-09-18,Smart Contract Platform / L1,crypto-com-chain,1,0.9127219413260088,0.1
+2025-09-18,Smart Contract Platform / L1,solana,2,0.4176166478945813,0.1
+2025-10-02,Oracle / Middleware,chainlink,1,0.26496930399989316,0.5
+2025-10-02,Exchange / Trading Infrastructure,binancecoin,1,0.33353483954038393,0.15
+2025-10-02,Exchange / Trading Infrastructure,hyperliquid,2,0.1637656405514178,0.15
+2025-10-02,Smart Contract Platform / L1,avalanche-2,1,0.43410943402439245,0.1
+2025-10-02,Smart Contract Platform / L1,crypto-com-chain,2,0.35446361240333707,0.1

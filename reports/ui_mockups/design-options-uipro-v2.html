@@ -1,0 +1,109 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlas20 Visual Direction Options</title>
+  <style>
+    :root {
+      --bg:#06101d; --panel:#0c1830; --panel2:#111f38; --border:rgba(140,170,255,.16);
+      --text:#eef5ff; --muted:#93a5c7; --blue:#69a8ff; --violet:#8b5cf6; --gold:#f59e0b; --green:#2fd39a; --red:#ff6b8b; --cyan:#47d2ff;
+    }
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:linear-gradient(180deg,#08101d,#050a12);color:var(--text)}
+    .wrap{max-width:1560px;margin:0 auto;padding:28px}
+    h1{margin:0 0 8px;font-size:34px}.subtitle{color:var(--muted);margin:0 0 22px;line-height:1.6}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{background:linear-gradient(180deg,rgba(17,31,56,.96),rgba(8,17,32,.96));border:1px solid var(--border);border-radius:22px;overflow:hidden;cursor:pointer;transition:.18s transform,.18s border-color,.18s box-shadow}.card:hover{transform:translateY(-3px);border-color:rgba(140,170,255,.32);box-shadow:0 20px 40px rgba(0,0,0,.28)}
+    .head{padding:18px 18px 10px}.tag{display:inline-block;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px}
+    .name{font-size:22px;font-weight:800;margin-bottom:8px}.desc{font-size:14px;color:var(--muted);line-height:1.55;min-height:66px}
+    .mock{padding:16px 16px 18px}
+    .window{border-radius:18px;border:1px solid rgba(255,255,255,.07);overflow:hidden;background:#0b1528}
+    .bar{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px;color:var(--muted)}
+    .body{padding:12px}.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:10px;margin-bottom:10px}.box{border-radius:16px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);padding:12px}.title{font-size:18px;font-weight:800;margin:0 0 8px}.small{font-size:12px;color:var(--muted)}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.kpi{padding:10px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05)} .kpi b{display:block;font-size:18px;margin-top:6px}
+    .layout{display:grid;grid-template-columns:250px 1fr 220px;gap:10px;margin-top:10px}.side,.main,.rail{min-height:220px;border-radius:16px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);padding:10px}
+    .chip{height:34px;border-radius:12px;background:rgba(255,255,255,.05);margin-bottom:8px}.chart{height:170px;border-radius:14px;border:1px solid rgba(255,255,255,.05);background:linear-gradient(to top,rgba(255,255,255,.02) 1px, transparent 1px) 0 0/100% 20%,linear-gradient(to right,rgba(255,255,255,.02) 1px, transparent 1px) 0 0/14% 100%}
+    .list div{height:16px;border-radius:8px;background:rgba(255,255,255,.06);margin-bottom:8px}
+    .notes{margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6}
+    .proscons{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 18px 18px}.pc{border-radius:16px;border:1px solid rgba(255,255,255,.05);padding:12px;background:rgba(255,255,255,.03)}.pc h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;color:var(--muted)}.pc ul{padding-left:18px;margin:0}.pc li{font-size:13px;line-height:1.55;color:#d6e1f5}
+    .a .tag{background:rgba(245,158,11,.14);color:#fbbf24}.a .window{background:#0b1220}.a .title{font-family:'IBM Plex Sans',Inter,sans-serif}
+    .b .tag{background:rgba(71,210,255,.14);color:#47d2ff}.b .window{background:#09121f}.b .title{font-family:'Fira Code',monospace}
+    .c .tag{background:rgba(139,92,246,.14);color:#b69cff}.c .window{background:#0d1323; box-shadow: inset 0 1px 0 rgba(255,255,255,.04)}
+    .choice{margin-top:20px;padding:16px 18px;border-radius:18px;border:1px dashed rgba(255,255,255,.18);color:var(--muted);font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Atlas20 · Visual Direction Options</h1>
+    <p class="subtitle">Based on the installed UI/UX Pro Max skill, I pulled recommendations from its design-system, style, landing, chart, and typography databases. These three directions are the best-fit adaptations for your product, not literal copies of every search result.</p>
+
+    <div class="cards options">
+      <div class="card a option" data-choice="A" onclick="toggleSelect(this)">
+        <div class="head">
+          <div class="tag">A · Recommended</div>
+          <div class="name">Institutional Research Dark</div>
+          <div class="desc">Investor-facing first. Clean, premium, trust-heavy. Feels like a serious quant product with strong presentation polish.</div>
+        </div>
+        <div class="mock">
+          <div class="window">
+            <div class="bar"><span>Overview</span><span>237.0x champion</span></div>
+            <div class="body">
+              <div class="hero">
+                <div class="box"><div class="title">Atlas20 Research Console</div><div class="small">Top-20 crypto rotation research, allocation intelligence, and benchmark comparison.</div><div class="kpis"><div class="kpi"><span class="small">Multiple</span><b>237x</b></div><div class="kpi"><span class="small">CAGR</span><b>395%</b></div><div class="kpi"><span class="small">Sharpe</span><b>2.29</b></div><div class="kpi"><span class="small">MDD</span><b>-50.8%</b></div></div></div>
+                <div class="box"><div class="chart"></div></div>
+              </div>
+              <div class="layout"><div class="side"><div class="chip"></div><div class="chip"></div><div class="chip"></div><div class="chip"></div></div><div class="main"><div class="chart"></div></div><div class="rail"><div class="list"><div></div><div></div><div></div><div></div><div></div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="proscons"><div class="pc"><h4>Strengths</h4><ul><li>Best fit for investment-report + dashboard hybrid</li><li>Feels credible and premium</li><li>Clear hierarchy for KPI storytelling</li></ul></div><div class="pc"><h4>Tradeoffs</h4><ul><li>Less visually aggressive</li><li>Needs careful spacing to avoid looking too corporate</li></ul></div></div>
+      </div>
+
+      <div class="card b option" data-choice="B" onclick="toggleSelect(this)">
+        <div class="head">
+          <div class="tag">B</div>
+          <div class="name">Data-Dense Quant Console</div>
+          <div class="desc">More like a research terminal. Higher information density, stronger dashboard feel, less “pitch deck”, more analyst workstation.</div>
+        </div>
+        <div class="mock">
+          <div class="window">
+            <div class="bar"><span>Dashboard</span><span>Filters · Charts · Selection</span></div>
+            <div class="body">
+              <div class="layout"><div class="side"><div class="chip"></div><div class="chip"></div><div class="chip"></div><div class="chip"></div><div class="chip"></div></div><div class="main"><div class="chart"></div><div class="kpis" style="margin-top:10px"><div class="kpi"><span class="small">Run</span><b>Live</b></div><div class="kpi"><span class="small">Top N</span><b>1</b></div><div class="kpi"><span class="small">Stop</span><b>11/2</b></div><div class="kpi"><span class="small">Pool</span><b>Top20</b></div></div></div><div class="rail"><div class="list"><div></div><div></div><div></div><div></div><div></div><div></div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="proscons"><div class="pc"><h4>Strengths</h4><ul><li>Very strong research-tool feel</li><li>Efficient for desktop power users</li><li>Best if you care most about exploration speed</li></ul></div><div class="pc"><h4>Tradeoffs</h4><ul><li>Weaker first impression for investor presentation</li><li>Can feel too internal-tool-like</li></ul></div></div>
+      </div>
+
+      <div class="card c option" data-choice="C" onclick="toggleSelect(this)">
+        <div class="head">
+          <div class="tag">C</div>
+          <div class="name">Premium Glass Strategy Lab</div>
+          <div class="desc">A bit more modern and branded. Keeps the dark professional look, but adds glow, glass, and premium SaaS energy.</div>
+        </div>
+        <div class="mock">
+          <div class="window">
+            <div class="bar"><span>Overview / Dashboard</span><span>Premium mode</span></div>
+            <div class="body">
+              <div class="hero">
+                <div class="box"><div class="title">Semi-Dynamic Strategy Lab</div><div class="small">Polished presentation surface with live parameter tuning and strategy replay.</div></div>
+                <div class="box"><div class="chart"></div></div>
+              </div>
+              <div class="layout"><div class="side"><div class="chip"></div><div class="chip"></div><div class="chip"></div></div><div class="main"><div class="chart"></div></div><div class="rail"><div class="list"><div></div><div></div><div></div><div></div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="proscons"><div class="pc"><h4>Strengths</h4><ul><li>Most visually memorable</li><li>Feels like a product, not just a report</li><li>Good balance of premium + modern</li></ul></div><div class="pc"><h4>Tradeoffs</h4><ul><li>Easier to over-design</li><li>More risk of distracting from the numbers</li></ul></div></div>
+      </div>
+    </div>
+
+    <div class="choice">Recommendation: <strong>A as the base</strong>, then borrow a little of <strong>C</strong> for polish. That means: institutional structure + subtle premium glass treatment, but not full trading-terminal cyber aesthetics.</div>
+  </div>
+  <script>
+    function toggleSelect(el){
+      document.querySelectorAll('.option').forEach(x=>x.style.outline='none');
+      el.style.outline='3px solid rgba(105,168,255,.8)';
+    }
+  </script>
+</body>
+</html>

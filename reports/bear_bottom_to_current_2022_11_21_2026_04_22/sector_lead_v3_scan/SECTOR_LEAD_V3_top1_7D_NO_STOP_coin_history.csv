@@ -1,0 +1,41 @@
+rebalance_date,sector,coin_id,coin_score,coin_weight
+2023-03-27,Store of Value,bitcoin,0.9999999999999999,1.0
+2023-04-10,Smart Contract Platform / L1,arbitrum,0.7749999999999999,1.0
+2023-10-23,Oracle / Middleware,chainlink,0.9999999999999999,1.0
+2023-11-06,Smart Contract Platform / L1,solana,0.9714285714285713,1.0
+2023-11-20,Smart Contract Platform / L1,immutable-x,0.9374999999999999,1.0
+2023-12-04,Smart Contract Platform / L1,immutable-x,0.9125000000000001,1.0
+2023-12-18,Smart Contract Platform / L1,injective-protocol,0.9999999999999999,1.0
+2024-01-01,Smart Contract Platform / L1,internet-computer,0.9571428571428571,1.0
+2024-01-15,Smart Contract Platform / L1,sui,0.9999999999999999,1.0
+2024-01-29,Smart Contract Platform / L1,sui,0.9999999999999999,1.0
+2024-02-12,Smart Contract Platform / L1,immutable-x,0.9374999999999999,1.0
+2024-02-26,DeFi,uniswap,0.9999999999999999,1.0
+2024-03-11,Meme,shiba-inu,0.95,1.0
+2024-03-25,Meme,dogecoin,0.75,1.0
+2024-04-08,Smart Contract Platform / L1,the-open-network,0.9444444444444443,1.0
+2024-04-22,Smart Contract Platform / L1,the-open-network,0.9444444444444443,1.0
+2024-05-06,Smart Contract Platform / L1,solana,0.8571428571428571,1.0
+2024-05-20,Smart Contract Platform / L1,the-open-network,0.9333333333333333,1.0
+2024-06-03,Smart Contract Platform / L1,ethereum,0.9249999999999999,1.0
+2024-07-29,Payments,ripple,0.9999999999999999,1.0
+2024-10-21,Smart Contract Platform / L1,sui,0.9714285714285713,1.0
+2024-11-04,Meme,dogecoin,0.9999999999999999,1.0
+2024-11-18,Meme,dogecoin,0.9999999999999999,1.0
+2024-12-02,Payments,hedera-hashgraph,0.9999999999999999,1.0
+2024-12-16,Payments,hedera-hashgraph,0.95,1.0
+2024-12-30,Exchange / Trading Infrastructure,bitget-token,0.9999999999999999,1.0
+2025-01-13,Exchange / Trading Infrastructure,bitget-token,0.9999999999999999,1.0
+2025-01-27,Payments,hedera-hashgraph,0.875,1.0
+2025-02-10,Exchange / Trading Infrastructure,bitget-token,0.9999999999999999,1.0
+2025-05-19,Smart Contract Platform / L1,ethereum,0.8749999999999999,1.0
+2025-06-02,Privacy,monero,0.9999999999999999,1.0
+2025-06-16,Exchange / Trading Infrastructure,whitebit,0.9999999999999999,1.0
+2025-06-30,Exchange / Trading Infrastructure,whitebit,0.95,1.0
+2025-07-14,Payments,stellar,0.9999999999999999,1.0
+2025-07-28,Payments,hedera-hashgraph,0.98,1.0
+2025-08-11,Oracle / Middleware,chainlink,0.9999999999999999,1.0
+2025-08-25,Oracle / Middleware,chainlink,0.9999999999999999,1.0
+2025-09-08,Other,world-liberty-financial,0.7999999999999999,1.0
+2025-09-22,Other,world-liberty-financial,0.9999999999999999,1.0
+2025-10-06,Exchange / Trading Infrastructure,binancecoin,0.9999999999999999,1.0

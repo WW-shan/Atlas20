@@ -1,0 +1,101 @@
+{
+  "id": "pepe",
+  "symbol": "pepe",
+  "name": "Pepe",
+  "web_slug": "pepe",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+    "avalanche": "0xa659d083b677d6bffe1cb704e1473b896727be6d",
+    "binance-smart-chain": "0x25d887ce7a35172c62febfd67a1856f20faebb00",
+    "arbitrum-one": "0x25d887ce7a35172c62febfd67a1856f20faebb00"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x6982508145454ce325ddbe47a25d4ec3d2311933"
+    },
+    "avalanche": {
+      "decimal_place": 18,
+      "contract_address": "0xa659d083b677d6bffe1cb704e1473b896727be6d",
+      "geckoterminal_url": "https://www.geckoterminal.com/avax/tokens/0xa659d083b677d6bffe1cb704e1473b896727be6d"
+    },
+    "binance-smart-chain": {
+      "decimal_place": 18,
+      "contract_address": "0x25d887ce7a35172c62febfd67a1856f20faebb00",
+      "geckoterminal_url": "https://www.geckoterminal.com/bsc/tokens/0x25d887ce7a35172c62febfd67a1856f20faebb00"
+    },
+    "arbitrum-one": {
+      "decimal_place": 18,
+      "contract_address": "0x25d887ce7a35172c62febfd67a1856f20faebb00",
+      "geckoterminal_url": "https://www.geckoterminal.com/arbitrum/tokens/0x25d887ce7a35172c62febfd67a1856f20faebb00"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "BNB Chain Ecosystem",
+    "Avalanche Ecosystem",
+    "Meme",
+    "Arbitrum Ecosystem",
+    "Ethereum Ecosystem",
+    "Frog-Themed",
+    "GMCI Meme Index",
+    "GMCI Index",
+    "The Boy\u2019s Club",
+    "4chan-Themed"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "What is the project about?\nPepe is a community based meme token surround the iconic meme Pepe the frog. Pepe aims to leverage the power of such an iconic meme to become the most memeable memecoin in existence. \n\nWhat makes your project unique?\nPepe is here to make memecoins great again. Ushering in a new paradigm for memecoins, Pepe represents the memecoin in it's purest simplicity. With zero taxes, liquidity locked forever, and contract immutable, Pepe is for the people, forever. Pepe is about culture, rallying together a community to have fun and enjoy memes, fueled purely by memetic power. \n\nHistory of your project.\nPepe was stealth launched on Friday, April 14th, 2023. \n\nWhat\u2019s next for your project?\nPepe will focus on developing a tight-knit community around the token and building resources to enrich the communities knowledge and success in crypto through a token gated group, newsletter, and more tools. \n\nWhat can your token be used for?\nPepe can be used to speculate on the power of memes, and does not pretend to be anything more. \n"
+  },
+  "links": {
+    "homepage": [
+      "https://www.pepe.vip/"
+    ],
+    "whitepaper": "",
+    "blockchain_site": [
+      "https://etherscan.io/token/0x6982508145454ce325ddbe47a25d4ec3d2311933",
+      "https://intel.arkm.com/explorer/token/pepe ",
+      "https://ethplorer.io/address/0x6982508145454ce325ddbe47a25d4ec3d2311933",
+      "https://bscscan.com/token/0x25d887ce7a35172c62febfd67a1856f20faebb00",
+      "https://arbiscan.io/token/0x25d887ce7a35172c62febfd67a1856f20faebb00",
+      "https://ethereum.dex.guru/token/0x6982508145454ce325ddbe47a25d4ec3d2311933",
+      "https://binplorer.com/address/0x25d887ce7a35172c62febfd67a1856f20faebb00",
+      "https://snowtrace.io/token/0xa659d083b677d6bffe1cb704e1473b896727be6d?type=erc20&chainid=43114",
+      "https://intel.arkm.com/explorer/token/pepe",
+      "https://intel.arkm.com/explorer/token/<api_symbol>"
+    ],
+    "official_forum_url": [],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "pepecoineth",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": null,
+    "repos_url": {
+      "github": [],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/29850/thumb/pepe-token.jpeg?1696528776",
+    "small": "https://coin-images.coingecko.com/coins/images/29850/small/pepe-token.jpeg?1696528776",
+    "large": "https://coin-images.coingecko.com/coins/images/29850/large/pepe-token.jpeg?1696528776"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+  "sentiment_votes_up_percentage": 93.75,
+  "sentiment_votes_down_percentage": 6.25,
+  "watchlist_portfolio_users": 389664,
+  "market_cap_rank": 52,
+  "market_cap_rank_with_rehypothecated": 64,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:11:26.004Z"
+}

@@ -1,0 +1,212 @@
+{
+  "id": "litecoin",
+  "symbol": "ltc",
+  "name": "Litecoin",
+  "web_slug": "litecoin",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 2,
+  "hashing_algorithm": "Scrypt",
+  "categories": [
+    "Infrastructure",
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "Proof of Work (PoW)",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Made in USA",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Litecoin is a decentralized, peer-to-peer digital currency designed to enable instant, near-zero cost payments to individuals and merchants worldwide. As an open-source global payment network that functions independently of central banks or intermediaries, its main value proposition lies in providing a scarce digital asset with a fixed maximum supply of 84 million tokens.\n\nThe network operates using a Proof of Work mechanism where computers solve complex puzzles to confirm transactions and secure the blockchain. It is distinguished by a block generation time of 2.5 minutes, which allows for faster transaction confirmations and a higher total throughput than earlier protocols. Key technical features include the Scrypt hashing algorithm, which promotes wider network participation, and MimbleWimble Extension Blocks, which improve user privacy by allowing transaction details to be hidden.\n\nThe LTC token is used for settling global payments, executing microtransactions through smaller units called litoshis, and diversifying digital portfolios with a highly liquid asset. New tokens are issued to miners as rewards for verifying blocks, though these rewards undergo a halving event approximately every four years to strictly control inflation. This process ensures the ledger maintains immutability, meaning records cannot be changed once they are saved to the global network.\n\nCreated by former Google engineer Charlie Lee, the project is supported by the Litecoin Foundation, a non-profit organization dedicated to ecosystem adoption. Unlike many venture-backed projects, it is maintained by a decentralized community of independent developers and a global network of miners. The project has seen recent institutional adoption, with entities like Lite Strategy and Luxxfolio Holdings adding significant amounts of LTC to their corporate treasuries as of late 2025."
+  },
+  "links": {
+    "homepage": [
+      "http://litecoin.org"
+    ],
+    "whitepaper": "https://crypto-risk-metrics.com/wp-content/uploads/2025-04-22-White-paper-Litecoin-FFG-D74JZ1VRD.pdf",
+    "blockchain_site": [
+      "https://chainz.cryptoid.info/ltc/",
+      "https://ltc.tokenview.io/",
+      "https://explorer.energi.network/token/0x21a5230038c8c849d2ffb0d3ce762228ed245237",
+      "https://www.oklink.com/ltc",
+      "https://3xpl.com/litecoin"
+    ],
+    "official_forum_url": [
+      "https://litecointalk.org/"
+    ],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "LTCFoundation",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": 47417,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/litecoin/",
+    "repos_url": {
+      "github": [
+        "https://github.com/litecoin-project/litecoin"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+    "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+    "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+  },
+  "country_origin": "",
+  "genesis_date": "2011-10-08",
+  "sentiment_votes_up_percentage": 87.5,
+  "sentiment_votes_down_percentage": 12.5,
+  "watchlist_portfolio_users": 365179,
+  "market_cap_rank": 25,
+  "market_cap_rank_with_rehypothecated": 34,
+  "status_updates": [
+    {
+      "description": "For all you Atari flashback fans out there, get ready to use Litecoin for everything from games to hotels. Today we announce our newest partnership with Atari! Litecoin will also become an option for purchasing the much-anticipated new Atari VCS gaming console at a discount! \n\nFor more info see our blog: litecoin-foundation.org/atari/",
+      "category": "general",
+      "created_at": "2020-05-21T12:15:08.418Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "Litecoin Foundation Partners With MeconCash, Enabling Fiat Withdrawal At Over 13,000 ATMs Across South Korea.\n\n\ud83d\udc47 Read More\nhttps://litecoin-foundation.org/litecoin-foundation-partners-with-meconcash-enabling-fiat-withdrawal-at-over-13000-atms-across-south-korea/",
+      "category": "partnership",
+      "created_at": "2020-03-02T13:08:21.379Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "Litecoin Foundation partners with Cred, Litecoin holders can start earning up to 10% interest on their digital assets! Sign up to start earning now: mycred.io/litecoin\n\nRead more about it here:\nlitecoin-foundation.org/13731-2/\n\n",
+      "category": "partnership",
+      "created_at": "2020-02-14T02:31:28.789Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "Litecoin meetup and pre-Blockshow networking party in Singapore \n\nDate: &amp; Time: 13 Nov 2019 - 6pm till late.\nLocation:  MEDZS Clifford Centre Raffles Place #01-01\n\nRSVP now \u2013 bit.ly/ecxxparty\n\nCo-organised by Xfers, Ledger, Ecxx.com, Litecoin foundation",
+      "category": "general",
+      "created_at": "2019-11-08T05:03:54.985Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "Litecoin Summit 2019 was successfully held in Las Vegas.\n\nRecorded live stream here: \nDay 1: https://www.youtube.com/watch?v=7YAGPK4vMrQ\nDay 2: https://www.youtube.com/watch?v=_rhgu_WsEus&amp;t=30424s",
+      "category": "general",
+      "created_at": "2019-11-08T04:56:46.406Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "Introducing Litewallet: A New &amp; Improved Version Of LoafWallet\n\n\ud83d\udc47 Read More\nhttps://litecoin-foundation.org/introducing-litewallet-a-new-improved-version-of-loafwallet/",
+      "category": "milestone",
+      "created_at": "2019-11-08T04:52:00.205Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    },
+    {
+      "description": "The Litecoin MimbleWimble Extension Block Proposal has been Published.\n\n\ud83d\udc47 Read More:\nhttps://litecoin.com/en/news/the-litecoin-mimblewimble-extension-block-proposal-has-been-published",
+      "category": "general",
+      "created_at": "2019-11-08T04:41:14.435Z",
+      "user": "Keith Yong",
+      "user_title": "Operations Director",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "litecoin",
+        "name": "Litecoin",
+        "symbol": "ltc",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/2/thumb/litecoin.png?1696501400",
+          "small": "https://coin-images.coingecko.com/coins/images/2/small/litecoin.png?1696501400",
+          "large": "https://coin-images.coingecko.com/coins/images/2/large/litecoin.png?1696501400"
+        }
+      }
+    }
+  ],
+  "last_updated": "2026-04-21T16:02:12.279Z"
+}

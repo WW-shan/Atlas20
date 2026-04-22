@@ -1,0 +1,188 @@
+{
+  "id": "okb",
+  "symbol": "okb",
+  "name": "OKB",
+  "web_slug": "okb",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x75231f58b43240c9718dd58b4967c5114342a86c",
+    "okex-chain": "0xdf54b6c6195ea4d948d03bfd818d365cf175cfc2",
+    "sora": "0x0080edc40a944d29562b2dea2de42ed27b9047d16eeea27c5bc1b2e02786abe9"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x75231f58b43240c9718dd58b4967c5114342a86c",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x75231f58b43240c9718dd58b4967c5114342a86c"
+    },
+    "okex-chain": {
+      "decimal_place": 18,
+      "contract_address": "0xdf54b6c6195ea4d948d03bfd818d365cf175cfc2",
+      "geckoterminal_url": "https://www.geckoterminal.com/okexchain/tokens/0xdf54b6c6195ea4d948d03bfd818d365cf175cfc2"
+    },
+    "sora": {
+      "decimal_place": 18,
+      "contract_address": "0x0080edc40a944d29562b2dea2de42ed27b9047d16eeea27c5bc1b2e02786abe9"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Exchange-based Tokens",
+    "Centralized Exchange (CEX) Token",
+    "Ethereum Ecosystem",
+    "Sora Ecosystem",
+    "OKT Chain Ecosystem",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Made in China"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "OKEx, the 2nd most popular cryptocurrency exchange by trading volume, launched its platform token \u2018OKB\u2018 today with 10 trading pairs. On its official support page, OKEx describes OKB is a global utility token issued by the OK Blockchain Foundation. The total available supply of OKB will be one billion tokens (1,000,000,000), with a distribution model that allocates 60% of the supply will be given out to OKEx customers for community building and during marketing campaigns. According to OKEx, the company had officially issued OKB on ERC20 protocol earlier this month. \n\nThe company denied ICO (initial coin offering) and public fundraising. Reportedly the company had stated that it would be soon shifting the token to its official OK chain and subsequently it will be applied not only on OKEx\u2019s platform but also on other related projects. There will be in total 1 billion tokens supplied globally out of which 600 million coins will be distributed to OKEx customers for community building and marketing campaigns. Rest will be locked up for a period of 1 year to 3 years.\n\nAccording to OKEx, the company had officially issued OKB on ERC20 protocol earlier this month. The company denied ICO (initial coin offering) and public fundraising. Reportedly the company had stated that it would be soon shifting the token to its official OK chain and subsequently it will be applied not only on OKEx\u2019s platform but also on other related projects. There will be in total 1 billion tokens supplied globally out of which 600 million coins will be distributed to OKEx customers for community building and marketing campaigns. Rest will be locked up for a period of 1 year to 3 years."
+  },
+  "links": {
+    "homepage": [
+      "https://www.okx.com/"
+    ],
+    "whitepaper": "",
+    "blockchain_site": [
+      "https://ethplorer.io/address/0x75231f58b43240c9718dd58b4967c5114342a86c",
+      "https://intel.arkm.com/explorer/token/okb",
+      "https://etherscan.io/token/0x75231f58b43240c9718dd58b4967c5114342a86c",
+      "https://www.oklink.com/cn/oktc/address/0xdf54b6c6195ea4d948d03bfd818d365cf175cfc2"
+    ],
+    "official_forum_url": [
+      "https://t.me/OKXAnnouncements",
+      "https://medium.com/okex-blog"
+    ],
+    "chat_url": [
+      "https://www.youtube.com/@OKXCryptoExchange",
+      "https://www.linkedin.com/company/okxofficial/"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "okx",
+    "facebook_username": "okexofficial",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "OKXOfficial_English",
+    "subreddit_url": "https://www.reddit.com/r/OKX/",
+    "repos_url": {
+      "github": [],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+    "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+    "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x75231f58b43240c9718dd58b4967c5114342a86c",
+  "sentiment_votes_up_percentage": 100.0,
+  "sentiment_votes_down_percentage": 0.0,
+  "watchlist_portfolio_users": 43321,
+  "market_cap_rank": 48,
+  "market_cap_rank_with_rehypothecated": 60,
+  "status_updates": [
+    {
+      "description": "According to the OKB monthly report: In May, OKB has conducted the eighth buyback and burn, in which 3,509,874.52 OKB in the worth of 19 Million U.S. dollars was sent to the black-hole address and burned.\n\nBesides, 2 new partners have landed in the OKB ecosystem and a series of campaigns were launched to further heighten privileges of OKB holders including buying OKB and get additional USDT and BTC bonus.\n\ncomplete article: www.okex.com/academy/en/okb-ecosystem-monthly-report-in-may-2020",
+      "category": "general",
+      "created_at": "2020-06-10T03:13:12.982Z",
+      "user": "NateWong",
+      "user_title": "Marketing Officer",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "okb",
+        "name": "OKB",
+        "symbol": "okb",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+          "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+          "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+        }
+      }
+    },
+    {
+      "description": "OKB has launched the 8th round of Buy-back &amp; Burn between Mar 1 and May 31, 2020. The amount of OKB bought back and burned was 3,509,874.52 OKB, equivalent to USD 19,000,000 (according to the OKB price on June 2, 2020). As of today, we have already burned a total of 20,671,583.58 OKB, the current OKB in circulation is 279,328,416.42 OKB.",
+      "category": "general",
+      "created_at": "2020-06-03T08:38:16.201Z",
+      "user": "NateWong",
+      "user_title": "Marketing Officer",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "okb",
+        "name": "OKB",
+        "symbol": "okb",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+          "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+          "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+        }
+      }
+    },
+    {
+      "description": "Recently OKB team is doing Airdrop to its followers.\nAll users on OKEx.com from now on purchase at least 100 USD OKB will get at least 10 USDT as an additional bonus. At most 100 USDT as an additional bonus can go to one single account.\nPlease click this campaign URL and join:  http://okex.com/promotion/QIvxpF\nOKEx Limited-Time Bonus!\nBuy OKB and share the prize pool worth 20,000 USDT!\n\n",
+      "category": "general",
+      "created_at": "2020-05-28T02:04:27.470Z",
+      "user": "NateWong",
+      "user_title": "Marketing Officer",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "okb",
+        "name": "OKB",
+        "symbol": "okb",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+          "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+          "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+        }
+      }
+    },
+    {
+      "description": "According to the Messari price charts, OKB price has the best performance among the centralized exchange tokens including OKB, BNB, HT, LEO and others in the past quarter.\nThis is the description URL: https://messari.io/chart/centralized-exchange-coins-ytd-performance-72987146\nCMC URL: https://blog.coinmarketcap.com/2020/04/28/top-10-gainers-by-crypto-market-cap-in-q1-2020/?utm_source=coinmarketcap&amp;utm_medium=mobileapp&amp;utm_ca\ntips: No acquisition of messari from okex, neither is CMC.\n",
+      "category": "general",
+      "created_at": "2020-05-25T12:10:38.381Z",
+      "user": "NateWong",
+      "user_title": "Marketing Officer",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "okb",
+        "name": "OKB",
+        "symbol": "okb",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+          "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+          "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+        }
+      }
+    },
+    {
+      "description": "According to the buying back and burning rules issued by OKEx, there will be a buying back and burning executed for OKB every quarter.\nSince the second quarter has only ten days left, the eighth round of buying back and burning of OKB is on the way. OKEx will take out the 30% of transaction fees occurred on crypto-crypto market to buy back OKB from the secondary market and burn.\nSo how do you expect OKB to behave?",
+      "category": "general",
+      "created_at": "2020-05-21T03:02:21.275Z",
+      "user": "NateWong",
+      "user_title": "Marketing Officer",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "okb",
+        "name": "OKB",
+        "symbol": "okb",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/4463/thumb/WeChat_Image_20220118095654.png?1696505053",
+          "small": "https://coin-images.coingecko.com/coins/images/4463/small/WeChat_Image_20220118095654.png?1696505053",
+          "large": "https://coin-images.coingecko.com/coins/images/4463/large/WeChat_Image_20220118095654.png?1696505053"
+        }
+      }
+    }
+  ],
+  "last_updated": "2026-04-21T16:08:04.944Z"
+}

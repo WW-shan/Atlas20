@@ -1,0 +1,221 @@
+{
+  "id": "zcash",
+  "symbol": "zec",
+  "name": "Zcash",
+  "web_slug": "zcash",
+  "asset_platform_id": null,
+  "platforms": {
+    "": "",
+    "near-protocol": "zec.omft.near"
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    },
+    "near-protocol": {
+      "decimal_place": 8,
+      "contract_address": "zec.omft.near",
+      "geckoterminal_url": "https://www.geckoterminal.com/near/tokens/zec.omft.near"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": "Equihash",
+  "categories": [
+    "Privacy Coins",
+    "Layer 1 (L1)",
+    "Near Protocol Ecosystem",
+    "Zero Knowledge (ZK)",
+    "Proof of Work (PoW)",
+    "Pantera Capital Portfolio",
+    "Made in USA",
+    "Coinbase 50 Index",
+    "Quantum-Resistant",
+    "Privacy"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Zcash is a privacy-focused cryptocurrency that uses trustless zero-knowledge proofs to enable fully encrypted transactions while maintaining blockchain transparency and security. It was the first cryptocurrency to implement zero-knowledge encryption for private peer-to-peer payments, addressing the fundamental privacy gap in traditional cryptocurrencies that expose transaction details publicly. \n\nWith a fixed supply of 21 million ZEC and a halving schedule similar to Bitcoin, Zcash allows users to prove transactions are valid without revealing sensitive information like wallet balances, transaction amounts, or participant identities, making it suitable for everyday payments, long-term savings, and cross-border money transfers where financial confidentiality matters.\n\nThe protocol operates on its own blockchain currently using Proof-of-Work consensus, though it's evolving toward Proof-of-Stake through the planned \"Crosslink\" upgrade to enhance security, scalability, and energy efficiency. Zcash employs trustless zero-knowledge proofs (Halo) within its Orchard shielded pool to verify transactions without revealing sender, receiver, or amount information. \n\nUsers can choose between transparent public transactions and shielded private transactions through Unified Addresses, which work with both types. The network is faster and cheaper than Bitcoin, with new blocks mined every 75 seconds and transaction fees typically just a fraction of a cent. Privacy adoption has surged in 2025, with over 30% of total ZEC supply now held in fully shielded pools.\n\nZcash was created by a group of scientists in 2013 who initially proposed Zerocoin as a privacy extension to Bitcoin before building a standalone protocol. The ecosystem operates with a self-funded development model where block rewards support independent teams through the Zcash Community Grants Committee and a new Coinholder-Controlled Fund."
+  },
+  "links": {
+    "homepage": [
+      "https://z.cash/"
+    ],
+    "whitepaper": "https://zips.z.cash/protocol/protocol.pdf",
+    "blockchain_site": [
+      "https://zecblockexplorer.com/",
+      "https://zcash.tokenview.io/",
+      "https://explorer.energi.network/token/0x6b2972207c550964E12c4d30CB87a69dc53ac0D3",
+      "https://3xpl.com/zcash",
+      "https://nearblocks.io/token/zec.omft.near"
+    ],
+    "official_forum_url": [
+      "https://forum.z.cash/"
+    ],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "zcash",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "Zcash_Community",
+    "subreddit_url": "https://www.reddit.com/r/zec",
+    "repos_url": {
+      "github": [
+        "https://github.com/zcash/zcash",
+        "https://github.com/zcash/librustzcash"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+    "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+    "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+  },
+  "country_origin": "",
+  "genesis_date": "2016-10-28",
+  "sentiment_votes_up_percentage": 90.0,
+  "sentiment_votes_down_percentage": 10.0,
+  "watchlist_portfolio_users": 135651,
+  "market_cap_rank": 22,
+  "market_cap_rank_with_rehypothecated": 31,
+  "status_updates": [
+    {
+      "description": "Weekly Update (Community + Comms):\n-Engineering AMA *TODAY*\n-A bounty to add BLAKE2 into Istanbul \n-Zcash side-chains via FlyClient proofs \n-Product team updates\n\nAnd so much more: https://forum.zcashcommunity.com/t/july-12-2019-weekly-update-community-comms/34077",
+      "category": "general",
+      "created_at": "2019-07-12T16:26:11.224Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Weekly Update (Community + Comms): Special Edition - #Zcon1 Recap!\nhttps://forum.zcashcommunity.com/t/june-28-2019-weekly-update-community-comms/33948",
+      "category": "general",
+      "created_at": "2019-06-28T13:35:36.021Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Weekly Update (Community + Comms):\n-Zcon1 takes place next week in Split, Croatia\n-Product updates, including current priorities\n-Q2 livestream available on our YouTube channel\n\nhttps://forum.zcashcommunity.com/t/june-14-2019-weekly-update-community-comms/33778",
+      "category": "general",
+      "created_at": "2019-06-14T13:46:54.541Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Today we announced the rollout of our new domain \u2014 electriccoin.co \u2014 and a fresh company brand! We unveiled these in keeping with the promise we made when the company name change was announced. Our goal is to provide additional clarity about the difference between the Electric Coin Company and Zcash, the cryptocurrency. Read about this and more in today's weekly update: \n\nhttps://forum.zcashcommunity.com/t/may-31-2019-weekly-update-community-comms/33674",
+      "category": "general",
+      "created_at": "2019-05-31T19:29:02.829Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Weekly Update (Community + Comms):\n-2.0.5 delayed, anticipate a Monday release\n-Transparency report published\n\nFull update: https://forum.zcashcommunity.com/t/may-17-2019-weekly-update-community-comms/33532",
+      "category": "general",
+      "created_at": "2019-05-17T18:22:06.932Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Weekly Update (Community + Comms):\n-ZIP and NUP Process Updates to Enhance Community Engagement\n-Zcashd 2.0.5 is planned for release next week\n-Following along with ZIP editors\n-Reference Wallet Team Twitter Q&amp;A\nhttps://forum.zcashcommunity.com/t/may-03-2019-weekly-update-community-comms/33368",
+      "category": "general",
+      "created_at": "2019-05-03T13:15:52.652Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    },
+    {
+      "description": "Weekly Update (Community + Comms):\n-Canceled plans to implement the feature of Splitting the Founder\u2019s Reward (FR) in the NU2 Blossom upgrade\n-Zcash Empowers Charitable Giving\n-People Behind Zcash Technology: Jack Grigg\n\nhttps://forum.zcashcommunity.com/t/april-19-2019-weekly-update-community-comms/33255",
+      "category": "general",
+      "created_at": "2019-04-19T12:55:07.281Z",
+      "user": "Elise Hamdon",
+      "user_title": "Communications Manager",
+      "pin": false,
+      "project": {
+        "type": "Coin",
+        "id": "zcash",
+        "name": "Zcash",
+        "symbol": "zec",
+        "image": {
+          "thumb": "https://coin-images.coingecko.com/coins/images/486/thumb/circle-zcash-color.png?1696501740",
+          "small": "https://coin-images.coingecko.com/coins/images/486/small/circle-zcash-color.png?1696501740",
+          "large": "https://coin-images.coingecko.com/coins/images/486/large/circle-zcash-color.png?1696501740"
+        }
+      }
+    }
+  ],
+  "last_updated": "2026-04-21T16:01:08.458Z"
+}

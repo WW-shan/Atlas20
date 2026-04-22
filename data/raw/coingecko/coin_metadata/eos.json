@@ -1,0 +1,113 @@
+{
+  "id": "eos",
+  "symbol": "eos",
+  "name": "EOS",
+  "web_slug": "eos",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": "Delegated Proof-of-Stake",
+  "categories": [
+    "Smart Contract Platform",
+    "DWF Labs Portfolio",
+    "GMCI Layer 1 Index",
+    "GMCI Index",
+    "Made in USA",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": "EOS (EOS) has been rebranded to Vaulta (A). They migrated from their <a href=\"https://bloks.io/\"target=\"_blank\">old network</a> to a <a href=\"https://www.unicove.com/\"target=\"_blank\">new one</a>. For more information, please visit this <a href=\"https://www.vaulta.com/resources/vaulta-token-swap-a-begins-may-14\"target=\"_blank\">post</a> and visit the new token page <a href=\"https://www.coingecko.com/en/coins/vaulta\"target=\"_blank\">here</a>.<br>",
+  "additional_notices": [],
+  "description": {
+    "en": "Blockchain built and run by the EOS Community.\n \nThe EOSIO core development is now in the hands of the community:\nhttps://medium.com/eos-network-foundation/eosio-coalition-report-april-28th-71d5b77d63cc\n \nAbout EOS Support:\n \nhttps://EOSsupport.io is an organisation started by community members that serves as a concierge for providing user and technical support for customers who use the EOS Network.\nEOS Support team offers new services such as coordination efforts for the Mandel consensus upgrade, knowledge base, technical support, and many more for the EOS network.\nSource: EOS Network Foundation Quarterly Report Q1 2022:\nhttps://medium.com/eos-network-foundation/enf-q1-2022-report-5320984367e9\nPage 13: https://drive.google.com/file/d/1sL42m5PO-N4BeZUvTa-5w3wU3TQnsp93/view\n\n"
+  },
+  "links": {
+    "homepage": [
+      "https://eosnetwork.com/",
+      "https://eossupport.io"
+    ],
+    "whitepaper": "https://eosn.foundation/blog/category/eos-blue-papers/",
+    "blockchain_site": [
+      "https://bloks.io/",
+      "https://eosflare.io/",
+      "https://eosauthority.com/"
+    ],
+    "official_forum_url": [
+      "https://twitter.com/eossupportio"
+    ],
+    "chat_url": [
+      "https://discord.com/invite/eos-network",
+      "https://www.facebook.com/groups/eosblockchain"
+    ],
+    "announcement_url": [
+      "https://medium.com/eos-network-foundation/eosio-coalition-report-april-28th-71d5b77d63cc"
+    ],
+    "snapshot_url": null,
+    "twitter_screen_name": "eosnetworkfdn",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "EOS_Global",
+    "subreddit_url": "https://www.reddit.com/r/eos",
+    "repos_url": {
+      "github": [
+        "https://github.com/eosnetworkfoundation/eos-evm-contract",
+        "https://github.com/eosnetworkfoundation/"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/738/thumb/CG_EOS_Icon.png?1731705232",
+    "small": "https://coin-images.coingecko.com/coins/images/738/small/CG_EOS_Icon.png?1731705232",
+    "large": "https://coin-images.coingecko.com/coins/images/738/large/CG_EOS_Icon.png?1731705232"
+  },
+  "country_origin": "US",
+  "genesis_date": "2017-07-01",
+  "sentiment_votes_up_percentage": null,
+  "sentiment_votes_down_percentage": null,
+  "ico_data": {
+    "ico_start_date": "2017-06-27T00:00:00.000Z",
+    "ico_end_date": "2018-06-01T00:00:00.000Z",
+    "short_desc": "EOS claims to be \u201cthe most powerful infrastructure for decentralized applications.",
+    "description": "",
+    "links": {},
+    "softcap_currency": "",
+    "hardcap_currency": "USD",
+    "total_raised_currency": "USD",
+    "softcap_amount": null,
+    "hardcap_amount": "196874404.0",
+    "total_raised": "4197956135.18",
+    "quote_pre_sale_currency": "",
+    "base_pre_sale_amount": null,
+    "quote_pre_sale_amount": null,
+    "quote_public_sale_currency": "USD",
+    "base_public_sale_amount": 1.0,
+    "quote_public_sale_amount": 0.99,
+    "accepting_currencies": "ETH",
+    "country_origin": "US",
+    "pre_sale_start_date": null,
+    "pre_sale_end_date": null,
+    "whitelist_url": "",
+    "whitelist_start_date": null,
+    "whitelist_end_date": null,
+    "bounty_detail_url": "",
+    "amount_for_sale": "900000000.0",
+    "kyc_required": true,
+    "whitelist_available": null,
+    "pre_sale_available": null,
+    "pre_sale_ended": false
+  },
+  "watchlist_portfolio_users": 111418,
+  "market_cap_rank": null,
+  "market_cap_rank_with_rehypothecated": null,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:17:59.268Z"
+}

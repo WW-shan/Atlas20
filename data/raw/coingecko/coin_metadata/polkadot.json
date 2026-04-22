@@ -1,0 +1,117 @@
+{
+  "id": "polkadot",
+  "symbol": "dot",
+  "name": "Polkadot",
+  "web_slug": "polkadot",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+    "arbitrum-one": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+    "optimistic-ethereum": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+    "binance-smart-chain": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+    "base": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    },
+    "arbitrum-one": {
+      "decimal_place": 18,
+      "contract_address": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "geckoterminal_url": "https://www.geckoterminal.com/arbitrum/tokens/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    },
+    "optimistic-ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "geckoterminal_url": "https://www.geckoterminal.com/optimism/tokens/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    },
+    "binance-smart-chain": {
+      "decimal_place": 18,
+      "contract_address": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "geckoterminal_url": "https://www.geckoterminal.com/bsc/tokens/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    },
+    "base": {
+      "decimal_place": 18,
+      "contract_address": "0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "geckoterminal_url": "https://www.geckoterminal.com/base/tokens/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Polkadot Ecosystem",
+    "BNB Chain Ecosystem",
+    "Arbitrum Ecosystem",
+    "Ethereum Ecosystem",
+    "Optimism Ecosystem",
+    "Base Ecosystem",
+    "Proof of Stake (PoS)",
+    "Layer 0 (L0)",
+    "Pantera Capital Portfolio",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Made in USA",
+    "Coinbase 50 Index",
+    "Governance",
+    "Base Native"
+  ],
+  "preview_listing": false,
+  "public_notice": "<p>According to CertiK, there's an exploit on the Hyperbridge gateway contract on Ethereum.</p> <p>The attacker forged a cross-chain message, gained unauthorized admin rights over the bridged Polkadot (DOT) token contract, and minted approximately 1 billion tokens.</p> <p>For full details and on-chain transaction, please refer to the post <a href=\"https://x.com/CertiKAlert/status/2043557571609731268\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.</p>",
+  "additional_notices": [],
+  "description": {
+    "en": "Polkadot is a platform that allows diverse blockchains to transfer messages, including value, in a trust-free fashion; sharing their unique features while pooling their security. In brief, Polkadot is a scalable heterogeneous multi-chain technology.\n\nPolkadot is heterogeneous because it is entirely flexible and makes no assumption about the nature or structure of the chains in the network. Even non-blockchain systems or data structures can become parachains if they fulfill a set of criteria.\n\nPolkadot may be considered equivalent to a set of independent chains (e.g. a set containing Ethereum, Ethereum Classic, Namecoin and Bitcoin) except with important additions: pooled security and trust-free interchain transactability.\n\nMany of the native parachains of Polkadot will be written using a Polkadot Runtime Environment SDK (e.g. Parity Technologies' Substrate)."
+  },
+  "links": {
+    "homepage": [
+      "https://polkadot.com/",
+      "https://www.polkadot.com"
+    ],
+    "whitepaper": "https://polkadot.com/papers/Polkadot-whitepaper.pdf",
+    "blockchain_site": [
+      "https://polkadot.subscan.io/",
+      "https://intel.arkm.com/explorer/token/polkadot",
+      "https://3xpl.com/polkadot",
+      "https://etherscan.io/token/0x196C20DA81Fbc324EcdF55501e95Ce9f0bD84d14",
+      "https://ethplorer.io/address/0x196C20DA81Fbc324EcdF55501e95Ce9f0bD84d14",
+      "https://arbiscan.io/token/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8",
+      "https://optimistic.etherscan.io/token/0x8d010bf9c26881788b4e6bf5fd1bdc358c8f90b8"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://discord.com/invite/polkadot",
+      "https://medium.com/polkadot-network",
+      "https://www.youtube.com/channel/UCB7PbjuZLEba_znc7mEGNgw"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "Polkadot",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "PolkadotOfficial",
+    "subreddit_url": "https://www.reddit.com/r/Polkadot",
+    "repos_url": {
+      "github": [
+        "https://github.com/paritytech/polkadot-sdk"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/12171/thumb/polkadot.jpg?1766533446",
+    "small": "https://coin-images.coingecko.com/coins/images/12171/small/polkadot.jpg?1766533446",
+    "large": "https://coin-images.coingecko.com/coins/images/12171/large/polkadot.jpg?1766533446"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0x196c20da81fbc324ecdf55501e95ce9f0bd84d14",
+  "sentiment_votes_up_percentage": 80.0,
+  "sentiment_votes_down_percentage": 20.0,
+  "watchlist_portfolio_users": 634849,
+  "market_cap_rank": 42,
+  "market_cap_rank_with_rehypothecated": 54,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:06:42.052Z"
+}

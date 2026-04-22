@@ -1,0 +1,123 @@
+{
+  "id": "ethereum",
+  "symbol": "eth",
+  "name": "Ethereum",
+  "web_slug": "ethereum",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": "Ethash",
+  "categories": [
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "Ethereum Ecosystem",
+    "FTX Holdings",
+    "Multicoin Capital Portfolio",
+    "Proof of Stake (PoS)",
+    "Alameda Research Portfolio",
+    "Andreessen Horowitz (a16z) Portfolio",
+    "GMCI Layer 1 Index",
+    "GMCI 30 Index",
+    "Delphi Ventures Portfolio",
+    "Galaxy Digital Portfolio",
+    "GMCI Index",
+    "World Liberty Financial Portfolio",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Ethereum is a global, open-source platform for decentralized applications. In other words, it is a decentralized blockchain platform that enables developers to build and deploy smart contracts and applications without central authority control. Unlike Bitcoin, which primarily functions as digital currency, Ethereum operates as a programmable global computer where developers can create any type of decentralized service. \n\nThe platform hosts over $14 billion in DeFi applications with hundreds of thousands of active users across financial protocols, NFT marketplaces, and gaming platforms. Its transition to Proof of Stake in September 2022 reduced energy consumption by over 99%, addressing environmental concerns while strengthening network security.\n\nThe network operates through thousands of independent validator nodes that process transactions and execute smart contracts on the Ethereum Virtual Machine. Smart contracts are self-executing programs written in Solidity that automatically carry out agreements when conditions are met, eliminating intermediaries like banks or brokers. \n\nValidators stake ETH as collateral to propose and validate blocks, earning rewards for honest participation while facing penalties for malicious behavior. The EIP-1559 upgrade introduced a dynamic base fee mechanism that burns ETH with each transaction, creating deflationary pressure during high network activity when more ETH is burned than issued to validators.\n\nVitalik Buterin proposed Ethereum in 2013, but seven co-founders helped build it, including Gavin Wood who created Solidity and the EVM technical specification, and Joseph Lubin who founded ConsenSys. The project launched in July 2015 after raising over $18 million through crowdfunding, quickly becoming the largest blockchain developer community. Major milestones include the 2020 Beacon Chain launch, the 2021 London hard fork implementing fee burning, and the 2022 Merge to Proof of Stake. \n\nEther (ETH) serves multiple functions: paying transaction fees (gas), staking to secure the network and earn 3-5% annual yields, serving as collateral in DeFi protocols, and purchasing NFTs and digital assets. The asset is increasingly adopted by traditional institutions, with publicly traded companies adding ETH to corporate treasuries to generate staking yields while maintaining blockchain exposure, and in 2024, the SEC approved spot Ethereum ETFs, allowing traditional investors to gain exposure through conventional brokerage accounts.\n\nEthereum's roadmap focuses on dramatically increasing transaction capacity to over 100,000 per second, reducing confirmation times, and enhancing decentralization while maintaining security against future threats like quantum computing."
+  },
+  "links": {
+    "homepage": [
+      "https://www.ethereum.org/"
+    ],
+    "whitepaper": "https://ethereum.org/whitepaper/",
+    "blockchain_site": [
+      "https://etherscan.io/",
+      "https://platform.arkhamintelligence.com/explorer/token/ethereum",
+      "https://ethplorer.io/",
+      "https://eth.tokenview.io/",
+      "https://www.oklink.com/eth",
+      "https://3xpl.com/ethereum"
+    ],
+    "official_forum_url": [],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "ethereum",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/ethereum",
+    "repos_url": {
+      "github": [
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/py-evm",
+        "https://github.com/ethereum/aleth",
+        "https://github.com/ethereum/web3.py",
+        "https://github.com/ethereum/solidity",
+        "https://github.com/ethereum/sharding",
+        "https://github.com/ethereum/casper",
+        "https://github.com/paritytech/parity"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/279/thumb/ethereum.png?1696501628",
+    "small": "https://coin-images.coingecko.com/coins/images/279/small/ethereum.png?1696501628",
+    "large": "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628"
+  },
+  "country_origin": "",
+  "genesis_date": "2015-07-30",
+  "sentiment_votes_up_percentage": 87.5,
+  "sentiment_votes_down_percentage": 12.5,
+  "ico_data": {
+    "ico_start_date": "2014-07-20T00:00:00.000Z",
+    "ico_end_date": "2014-09-01T00:00:00.000Z",
+    "short_desc": "A decentralized platform for applications",
+    "description": "",
+    "links": {},
+    "softcap_currency": "",
+    "hardcap_currency": "",
+    "total_raised_currency": "",
+    "softcap_amount": null,
+    "hardcap_amount": null,
+    "total_raised": null,
+    "quote_pre_sale_currency": "",
+    "base_pre_sale_amount": null,
+    "quote_pre_sale_amount": null,
+    "quote_public_sale_currency": "BTC",
+    "base_public_sale_amount": 1.0,
+    "quote_public_sale_amount": 0.00074794,
+    "accepting_currencies": "",
+    "country_origin": "",
+    "pre_sale_start_date": null,
+    "pre_sale_end_date": null,
+    "whitelist_url": "",
+    "whitelist_start_date": null,
+    "whitelist_end_date": null,
+    "bounty_detail_url": "",
+    "amount_for_sale": null,
+    "kyc_required": true,
+    "whitelist_available": null,
+    "pre_sale_available": null,
+    "pre_sale_ended": false
+  },
+  "watchlist_portfolio_users": 1943578,
+  "market_cap_rank": 2,
+  "market_cap_rank_with_rehypothecated": 2,
+  "status_updates": [],
+  "last_updated": "2026-04-21T15:34:11.528Z"
+}

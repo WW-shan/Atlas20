@@ -1,0 +1,85 @@
+{
+  "id": "immutable-x",
+  "symbol": "imx",
+  "name": "Immutable",
+  "web_slug": "immutable-x",
+  "asset_platform_id": "ethereum",
+  "platforms": {
+    "ethereum": "0xf57e7e7c23978c3caec3c3548e3d615c346e79ff"
+  },
+  "detail_platforms": {
+    "ethereum": {
+      "decimal_place": 18,
+      "contract_address": "0xf57e7e7c23978c3caec3c3548e3d615c346e79ff",
+      "geckoterminal_url": "https://www.geckoterminal.com/eth/tokens/0xf57e7e7c23978c3caec3c3548e3d615c346e79ff"
+    }
+  },
+  "block_time_in_minutes": 0,
+  "hashing_algorithm": null,
+  "categories": [
+    "Smart Contract Platform",
+    "Gaming (GameFi)",
+    "NFT",
+    "Play To Earn",
+    "Ethereum Ecosystem",
+    "Layer 2 (L2)",
+    "Zero Knowledge (ZK)",
+    "Animoca Brands Portfolio",
+    "Immutable zkEVM Ecosystem",
+    "Coinbase Ventures Portfolio",
+    "Rollup",
+    "Gaming Blockchains",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Gaming Marketplace",
+    "Coinbase 50 Index",
+    "CoinList Launchpad"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "IMX is the native token for the Immutable X network, the first zk-rollup for NFT on Ethereum."
+  },
+  "links": {
+    "homepage": [
+      "https://imx.community/"
+    ],
+    "whitepaper": "",
+    "blockchain_site": [
+      "https://etherscan.io/token/0xf57e7e7c23978c3caec3c3548e3d615c346e79ff",
+      "https://intel.arkm.com/explorer/token/immutable-x",
+      "https://ethplorer.io/address/0xf57e7e7c23978c3caec3c3548e3d615c346e79ff"
+    ],
+    "official_forum_url": [],
+    "chat_url": [
+      "https://discord.com/channels/765480457256042496/765871633990287390"
+    ],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "Immutable",
+    "facebook_username": "",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "immutablex",
+    "subreddit_url": "https://www.reddit.com/r/ImmutableX/",
+    "repos_url": {
+      "github": [],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/17233/thumb/immutableX-symbol-BLK-RGB.png?1696516787",
+    "small": "https://coin-images.coingecko.com/coins/images/17233/small/immutableX-symbol-BLK-RGB.png?1696516787",
+    "large": "https://coin-images.coingecko.com/coins/images/17233/large/immutableX-symbol-BLK-RGB.png?1696516787"
+  },
+  "country_origin": "",
+  "genesis_date": null,
+  "contract_address": "0xf57e7e7c23978c3caec3c3548e3d615c346e79ff",
+  "sentiment_votes_up_percentage": 100.0,
+  "sentiment_votes_down_percentage": 0.0,
+  "watchlist_portfolio_users": 149287,
+  "market_cap_rank": 219,
+  "market_cap_rank_with_rehypothecated": 309,
+  "status_updates": [],
+  "last_updated": "2026-04-21T16:21:42.338Z"
+}

@@ -1,0 +1,80 @@
+{
+  "id": "bitcoin",
+  "symbol": "btc",
+  "name": "Bitcoin",
+  "web_slug": "bitcoin",
+  "asset_platform_id": null,
+  "platforms": {
+    "": ""
+  },
+  "detail_platforms": {
+    "": {
+      "decimal_place": null,
+      "contract_address": ""
+    }
+  },
+  "block_time_in_minutes": 10,
+  "hashing_algorithm": "SHA-256",
+  "categories": [
+    "Smart Contract Platform",
+    "Layer 1 (L1)",
+    "FTX Holdings",
+    "Proof of Work (PoW)",
+    "Bitcoin Ecosystem",
+    "GMCI 30 Index",
+    "GMCI Index",
+    "Coinbase 50 Index"
+  ],
+  "preview_listing": false,
+  "public_notice": null,
+  "additional_notices": [],
+  "description": {
+    "en": "Bitcoin is the world's first decentralized cryptocurrency, created in 2009 by the pseudonymous Satoshi Nakamoto. It enables peer-to-peer electronic cash transactions without intermediaries like banks or governments, operating on a blockchain secured by Proof of Work mining and the SHA-256 cryptographic algorithm. \n\nWith a fixed supply cap of 21 million coins and programmatic halvings every four years that reduce miner rewards, Bitcoin is designed as a deflationary digital asset often called \"digital gold.\" Its value stems from solving the double-spending problem without trusted intermediaries, creating the first truly scarce digital asset with censorship resistance and permissionless access that no government, corporation, or individual can control.\n\nBitcoin operates as a decentralized peer-to-peer network where transactions are recorded on a public ledger called the blockchain, distributed across thousands of computers globally. Transactions are grouped into blocks added approximately every 10 minutes through mining, where specialized computers compete to solve complex mathematical puzzles. \n\nBitcoin has achieved mainstream adoption through multiple vectors. The January 2024 SEC approval of 11 spot Bitcoin ETFs opened Bitcoin investment to traditional finance participants, and corporations like Strategy (formerly MicroStrategy) are using Bitcoin as a treasury reserve asset to protect against currency debasement, offering MSTR holders amplified exposure to Bitcoin. \n\nThe Bitcoin ecosystem continues to evolve with innovations like Ordinals, which emerged in January 2023 to enable NFT-like functionality directly on Bitcoin, and BRC-20 tokens, an experimental standard for creating fungible tokens using Ordinal inscriptions. BTCFi (Bitcoin Finance) represents emerging financial applications extending beyond Bitcoin's traditional role, with protocols like Babylon allowing Bitcoin holders to stake BTC to secure Proof of Stake chains. "
+  },
+  "links": {
+    "homepage": [
+      "http://www.bitcoin.org"
+    ],
+    "whitepaper": "https://bitcoin.org/bitcoin.pdf",
+    "blockchain_site": [
+      "https://mempool.space/",
+      "https://platform.arkhamintelligence.com/explorer/token/bitcoin",
+      "https://btc.com/",
+      "https://btc.tokenview.io/",
+      "https://www.oklink.com/btc",
+      "https://3xpl.com/bitcoin"
+    ],
+    "official_forum_url": [
+      "https://bitcointalk.org/"
+    ],
+    "chat_url": [],
+    "announcement_url": [],
+    "snapshot_url": null,
+    "twitter_screen_name": "bitcoin",
+    "facebook_username": "bitcoins",
+    "bitcointalk_thread_identifier": null,
+    "telegram_channel_identifier": "",
+    "subreddit_url": "https://www.reddit.com/r/Bitcoin/",
+    "repos_url": {
+      "github": [
+        "https://github.com/bitcoin/bitcoin",
+        "https://github.com/bitcoin/bips"
+      ],
+      "bitbucket": []
+    }
+  },
+  "image": {
+    "thumb": "https://coin-images.coingecko.com/coins/images/1/thumb/bitcoin.png?1696501400",
+    "small": "https://coin-images.coingecko.com/coins/images/1/small/bitcoin.png?1696501400",
+    "large": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400"
+  },
+  "country_origin": "",
+  "genesis_date": "2009-01-03",
+  "sentiment_votes_up_percentage": 91.28,
+  "sentiment_votes_down_percentage": 8.72,
+  "watchlist_portfolio_users": 2372521,
+  "market_cap_rank": 1,
+  "market_cap_rank_with_rehypothecated": 1,
+  "status_updates": [],
+  "last_updated": "2026-04-21T15:34:26.569Z"
+}
