@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Atlas20 Rotation research framework for crypto momentum and sector rotation"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{name = "Codex"}]
+license = "MIT"
+authors = [{name = "Atlas20 contributors"}]
 dependencies = [
   "pandas>=2.2",
   "numpy>=1.26",
@@ -16,6 +17,13 @@ dependencies = [
   "PyYAML>=6.0",
   "matplotlib>=3.8",
   "requests>=2.32",
+  "fastapi>=0.116",
+  "uvicorn>=0.35",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
 ]
 
 [tool.setuptools]
