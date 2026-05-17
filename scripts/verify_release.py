@@ -23,6 +23,7 @@ def run(command: list[str]) -> None:
 
 def main() -> int:
     checks = [
+        [sys.executable, "scripts/check_repo_health.py"],
         [sys.executable, "-m", "pytest", "-q"],
         ["npm", "--prefix", "apps/web", "test"],
         ["npm", "--prefix", "apps/web", "run", "build"],
