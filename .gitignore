@@ -5,10 +5,12 @@ __pycache__/
 
 # Local tooling
 .superpowers/
+.playwright-mcp/
 
 # Node
 node_modules/
 dist/
+*.tsbuildinfo
 
 # OS
 .DS_Store
@@ -17,4 +19,8 @@ Thumbs.db
 # Local AI / worktree tooling
 .worktrees/
 .codex/
+
+# Generated app runs
+reports/app_runs/*
+!reports/app_runs/.gitkeep
 

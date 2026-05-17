@@ -1,109 +1,136 @@
 # Atlas20 Rotation
 
-Atlas20 Rotation is a production-style crypto research framework for testing whether **rotation inside the top-20 non-stablecoin universe** can outperform simple benchmarks such as BTC buy-and-hold and top-20 equal weight.
+Atlas20 Rotation is a reproducible crypto research framework for testing
+whether rotation inside a top-20 non-stablecoin universe can outperform simple
+benchmarks such as BTC buy-and-hold and top-20 equal weight.
 
-## Core design
+The repository now includes both the Python research engine and a desktop-first
+Atlas20 Research Console built with FastAPI and React/Vite.
 
-- **Market cap is only used for universe selection.**
-- **Portfolio construction is never market-cap weighted.**
-- Strategies allocate using equal weight after **momentum**, **sector strength**, and **bull-regime** logic.
-- The universe is rebuilt **point in time** at every rebalance date.
+> Research only. This project is not financial advice and does not execute
+> trades.
 
-## Implemented strategies
+## What Is Included
 
-### Benchmarks
-- BTC buy-and-hold
-- ETH buy-and-hold
-- Top-20 non-stablecoin equal weight
+- Point-in-time top-20 universe construction from public cached data.
+- Momentum, sector, and benchmark strategy backtests.
+- Bull-regime and BTC trailing-stop risk overlays.
+- Report generation with CSV and PNG artifacts.
+- FastAPI read/write API for the research console.
+- React/Vite web console for champion review and constrained reruns.
+- Python, API, and frontend tests plus GitHub Actions CI.
 
-### Rotation strategies
-- Top-20 momentum rotation
-  - top 4 / 6 / 8 holdings
-  - monthly and biweekly rebalancing
-  - always-on and bull-only overlays
-- Top-20 sector rotation
-  - top 2 / 3 / 4 sectors
-  - strongest 1-2 coins per sector
-  - monthly and biweekly rebalancing
-  - always-on and bull-only overlays
-
-## Data design
-
-Default data stack:
-
-- **CoinGecko**: current candidate universe snapshot, current market cap snapshot, basic coin metadata
-- **CryptoCompare**: long daily price and dollar-volume history
-- **Historical market cap proxy**: `current_market_cap * historical_price / latest_historical_price`
-
-This keeps the project fully public-data and reproducible, while avoiding a fixed historical top-20 list. The trade-off is that long-history market-cap ranks are an approximation rather than a perfect point-in-time series.
-
-## Key assumptions and limitations
-
-1. Long-history market caps are proxied because free public APIs do not reliably expose point-in-time daily market-cap history for the full sample.
-2. Sector labels are driven by a human-editable YAML mapping, current metadata, and manual overrides.
-3. Candidate coverage is **reduced survivorship bias**, not perfect survivorship-free coverage: the framework uses current large caps plus a curated legacy list.
-4. Bull filter is evaluated on rebalance dates in the default implementation.
-
-## Folder structure
+## Repository Layout
 
 ```text
-Atlas20/
-?? config/
-?  ?? base.yaml
-?  ?? sectors.yaml
-?? data/
-?  ?? raw/
-?  ?? processed/
-?? reports/
-?  ?? latest/
-?? scripts/
-?? src/atlas20/
-?? tests/
+.
+|-- apps/web/                 # React/Vite research console
+|-- config/                   # Research windows and sector mappings
+|-- data/                     # Cached raw and processed public data
+|-- docs/                     # Design docs and implementation plans
+|-- reports/                  # Included research output snapshots
+|-- scripts/                  # Data, research, API, and verification commands
+|-- src/atlas20/              # Python package
+|-- tests/                    # Python tests
+|-- pyproject.toml
+`-- README.md
 ```
 
-## Installation
+## Core Design
+
+- Market cap is used for universe selection only.
+- Portfolio construction is not market-cap weighted.
+- Strategies allocate by momentum, sector strength, and risk-regime logic.
+- The universe is rebuilt point in time at every rebalance date.
+- Data assumptions are explicit and documented in generated reports.
+
+## Data Stack
+
+- CoinGecko: candidate universe snapshots, market cap snapshot, metadata.
+- CryptoCompare: long daily price and dollar-volume history.
+- Historical market-cap proxy:
+  `current_market_cap * historical_price / latest_historical_price`.
+
+This keeps the project public-data friendly and reproducible. The trade-off is
+that long-history market-cap ranks are approximations, not perfect historical
+constituent data.
+
+## Install
+
+Python:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 ```
 
-If you prefer not to install the package, the scripts also add `src/` to `sys.path` automatically.
+Frontend:
 
-## Main commands
+```bash
+npm --prefix apps/web install
+```
 
-### 1) Download and cache raw data
+## Research Commands
+
+Download and cache raw data:
 
 ```bash
 python scripts/download_data.py --config config/base.yaml
 ```
 
-### 2) Build processed datasets
+Build processed datasets:
 
 ```bash
 python scripts/build_datasets.py --config config/base.yaml
 ```
 
-### 3) Run the full research pipeline
+Run the full research pipeline:
 
 ```bash
 python scripts/run_research.py --config config/base.yaml
 ```
 
-By default this now uses the existing raw cache so the research run stays fast. To refresh API data first:
+Use `--refresh-raw` when you intentionally want to refresh public API data:
 
 ```bash
 python scripts/run_research.py --config config/base.yaml --refresh-raw
 ```
 
-### 4) Run unit tests
+## Web Console
+
+Start the API:
 
 ```bash
-pytest
+python scripts/run_api.py
 ```
 
-## Main output files
+Start the frontend:
 
-The end-to-end pipeline writes to `reports/latest/`:
+```bash
+npm --prefix apps/web run dev
+```
+
+Open the Vite URL printed by the dev server. In development, `/api` is proxied
+to `http://127.0.0.1:8000`.
+
+## Verification
+
+Run everything required before publishing:
+
+```bash
+python scripts/verify_release.py
+```
+
+Individual checks:
+
+```bash
+pytest -q
+npm --prefix apps/web test
+npm --prefix apps/web run build
+```
+
+## Main Output Files
+
+The end-to-end pipeline writes research artifacts to `reports/latest/`:
 
 - `atlas20_report.md`
 - `strategy_summary.csv`
@@ -119,42 +146,33 @@ The end-to-end pipeline writes to `reports/latest/`:
 - `sector_exposure_<best_sector_strategy>.csv`
 - `sector_exposure_<best_sector_strategy>.png`
 
-Processed datasets are written to `data/processed/`:
+Generated console reruns are written to `reports/app_runs/` and are ignored by
+Git except for the directory placeholder.
 
-- `panel_daily.csv`
-- `metadata.csv`
-- `data_quality.csv`
-- `rebalance_universe.csv`
-- `regime_frame.csv`
-
-Raw screening diagnostics are also written to `data/raw/coingecko/candidate_screen_log.csv`.
-
-## Current default research result snapshot
+## Current Included Snapshot
 
 Using the cached public-data run included in this workspace:
 
 - Best momentum variant: `TOP20_MOM_top8_biweekly__bull_only`
 - Best sector variant: `TOP20_SECTOR_top3_biweekly__bull_only`
-- BTC buy-and-hold CAGR: about **16.8%**
-- Top-20 equal-weight CAGR: about **-5.0%**
-- Best momentum CAGR: about **8.1%**
-- Best sector CAGR: about **-0.4%**
-- Bull-only overlays improved average Sharpe versus always-on variants in this sample
+- BTC buy-and-hold CAGR: about 16.8%
+- Top-20 equal-weight CAGR: about -5.0%
+- Best momentum CAGR: about 8.1%
+- Best sector CAGR: about -0.4%
 
-See `reports/latest/atlas20_report.md` for the full interpretation and caveats.
+See `reports/latest/atlas20_report.md` and the dated report folders for full
+interpretation and caveats.
 
-## Research questions answered by the report
+## Key Limitations
 
-1. Does top-20 momentum rotation outperform BTC buy-and-hold?
-2. Does sector rotation outperform top-20 equal weight?
-3. Does the bull filter improve risk-adjusted returns?
-4. Is sector rotation complexity justified?
-5. What are the main practical risks and data limitations?
+1. Long-history market caps are proxied because free public APIs do not reliably
+   expose complete point-in-time daily market-cap history.
+2. Candidate coverage reduces survivorship bias but is not perfectly
+   survivorship-free.
+3. Sector labels use human-editable mappings and manual overrides.
+4. Included results depend on cached data snapshots and should be rerun before
+   making new research claims.
 
-## Next recommended improvements
+## License
 
-- Replace market-cap proxies with a commercial or archived point-in-time dataset.
-- Add exchange-level liquidity and listing filters.
-- Add statistical significance checks and cost sensitivity analysis.
-- Add more robust stablecoin / tokenized-fund exclusion logic.
-- Add time-aware sector mappings for rebrands and protocol evolution.
+MIT. See `LICENSE`.

@@ -256,6 +256,23 @@ def test_build_run_request_name_is_stable():
         weights=WeightInput(momentum_rank=0.607681, ret_21_rank=0.268948, ret_42_rank=0.017319, near_high_rank=0.106052),
     )
     assert build_run_request_name(request).startswith("momentum_lead_top1_14D")
+
+
+def test_window_input_rejects_start_date_after_end_date():
+    with pytest.raises(ValueError):
+        WindowInput(start_date="2026-04-21", end_date="2022-11-21")
+
+
+def test_build_run_request_name_changes_when_request_materially_changes():
+    base = BacktestRequest(
+        window=WindowInput(start_date="2022-11-21", end_date="2026-04-21"),
+        strategy=StrategyConfigInput(family="momentum_lead", top_n=1, frequency="14D"),
+        universe=UniverseConfigInput(min_history_days=30, min_daily_dollar_volume=1000000.5, exclude_btc=False),
+        risk=RiskConfigInput(mode="always_on", stop_lookback_days=11, confirm_days=2, risk_off_asset="bitcoin"),
+        weights=WeightInput(momentum_rank=0.607681, ret_21_rank=0.268948, ret_42_rank=0.017319, near_high_rank=0.106052),
+    )
+    changed = base.model_copy(update={"risk": RiskConfigInput(mode="bull_only", stop_lookback_days=11, confirm_days=2, risk_off_asset="bitcoin")})
+    assert build_run_request_name(base) != build_run_request_name(changed)
 ```
 
 - [ ] **Step 2: Run the test to verify failure**
@@ -269,6 +286,12 @@ Expected: FAIL because the runner module and request schemas do not exist yet
 class WindowInput(BaseModel):
     start_date: str
     end_date: str
+
+    @model_validator(mode="after")
+    def validate_date_order(self) -> "WindowInput":
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must be on or before end_date")
+        return self
 
 
 class StrategyConfigInput(BaseModel):
@@ -315,8 +338,13 @@ def build_run_request_name(request: BacktestRequest) -> str:
     return (
         f"{request.strategy.family}_top{request.strategy.top_n}_"
         f"{request.strategy.frequency}_hist{request.universe.min_history_days}_"
-        f"vol{int(request.universe.min_daily_dollar_volume)}_"
-        f"stop{request.risk.stop_lookback_days}_confirm{request.risk.confirm_days}"
+        f"vol{request.universe.min_daily_dollar_volume:g}_"
+        f"exbtc{int(request.universe.exclude_btc)}_"
+        f"{request.risk.mode}_{request.risk.risk_off_asset}_"
+        f"stop{request.risk.stop_lookback_days}_confirm{request.risk.confirm_days}_"
+        f"win{request.window.start_date}_{request.window.end_date}_"
+        f"w{request.weights.momentum_rank:.6f}-{request.weights.ret_21_rank:.6f}-"
+        f"{request.weights.ret_42_rank:.6f}-{request.weights.near_high_rank:.6f}"
     )
 ```
 
@@ -332,10 +360,11 @@ git add src/atlas20/api/schemas.py src/atlas20/api/runner.py tests/test_api_runn
 git commit -m "feat: add constrained backtest request runner scaffolding"
 ```
 
-### Task 4: Expose FastAPI routes for overview, champion, options, and runs
+### Task 4: Expose FastAPI routes for overview, options, and runs
 
 **Files:**
 - Create: `src/atlas20/api/routes/overview.py`
+- Create: `src/atlas20/api/routes/options.py`
 - Create: `src/atlas20/api/routes/runs.py`
 - Create: `src/atlas20/api/routes/backtests.py`
 - Create: `src/atlas20/api/app.py`
@@ -363,6 +392,12 @@ def test_options_endpoint_returns_control_ranges():
     response = client.get("/api/options")
     assert response.status_code == 200
     assert "strategy_families" in response.json()
+
+
+def test_placeholder_runs_and_backtests_routes_are_registered():
+    client = TestClient(create_app())
+    assert client.get("/api/runs").status_code == 200
+    assert client.get("/api/backtests").status_code == 200
 ```
 
 - [ ] **Step 2: Run the tests to verify failure**
@@ -384,7 +419,7 @@ router = APIRouter(prefix="/api", tags=["overview"])
 
 @router.get("/overview")
 def get_overview() -> dict:
-    report_dir = Path("reports/bear_bottom_to_current_2022_11_21_2026_04_22")
+    report_dir = Path(__file__).resolve().parents[4] / "reports" / "bear_bottom_to_current_2022_11_21_2026_04_22"
     champion_dir = report_dir / "profit_max_refine" / "champion_all_1m_14d_stop11_confirm2"
     return {
         "champion": load_champion_summary(champion_dir).model_dump(),
@@ -392,13 +427,53 @@ def get_overview() -> dict:
     }
 ```
 
-- [ ] **Step 4: Implement the app factory**
+- [ ] **Step 4: Implement a neutral options router**
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api", tags=["options"])
+
+
+@router.get("/options")
+def get_options() -> dict:
+    return {
+        "strategy_families": ["benchmark", "momentum", "sector", "champion", "momentum_lead"],
+    }
+```
+
+- [ ] **Step 5: Implement placeholder runs and backtests routers**
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api", tags=["runs"])
+
+
+@router.get("/runs")
+def get_runs() -> dict:
+    return {"items": []}
+```
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/api", tags=["backtests"])
+
+
+@router.get("/backtests")
+def get_backtests() -> dict:
+    return {"status": "ok"}
+```
+
+- [ ] **Step 6: Implement the app factory**
 
 ```python
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from atlas20.api.routes.backtests import router as backtests_router
+from atlas20.api.routes.options import router as options_router
 from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.runs import router as runs_router
 
@@ -413,6 +488,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(overview_router)
+    app.include_router(options_router)
     app.include_router(runs_router)
     app.include_router(backtests_router)
     return app
@@ -421,15 +497,15 @@ def create_app() -> FastAPI:
 app = create_app()
 ```
 
-- [ ] **Step 5: Re-run the route tests**
+- [ ] **Step 7: Re-run the route tests**
 
 Run: `pytest tests/test_api_routes.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/atlas20/api/app.py src/atlas20/api/routes/overview.py src/atlas20/api/routes/runs.py src/atlas20/api/routes/backtests.py tests/test_api_routes.py
+git add src/atlas20/api/app.py src/atlas20/api/routes/overview.py src/atlas20/api/routes/options.py src/atlas20/api/routes/runs.py src/atlas20/api/routes/backtests.py tests/test_api_routes.py
 git commit -m "feat: expose overview and run api routes"
 ```
 
