@@ -26,6 +26,7 @@ export const qk = {
     ["compare", [...ids].sort(), range] as const,
 
   universe: {
+    all:      () => ["universe"] as const,
     timeline: () => ["universe", "timeline"] as const,
     sources:  () => ["universe", "sources"] as const,
     alerts:   () => ["universe", "alerts"] as const,

@@ -140,7 +140,7 @@ export function OverlayLineChart({
       ))}
 
       {/* X-axis labels (first / mid / last) */}
-      {[0, Math.floor(series.length / 2), series.length - 1].map((i) => (
+      {Array.from(new Set([0, Math.floor(series.length / 2), Math.max(0, series.length - 1)])).map((i) => (
         <text
           key={`xl-${i}`}
           x={xOf(i)}

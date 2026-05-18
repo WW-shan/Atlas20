@@ -47,7 +47,7 @@ export function UniverseHealthTab() {
   const refresh = useMutation({
     mutationFn: refreshUniverse,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["universe"] });
+      queryClient.invalidateQueries({ queryKey: qk.universe.all() });
     },
   });
 
@@ -55,7 +55,7 @@ export function UniverseHealthTab() {
   const sData = sources.data ?? fallbackDataSources;
   const aData = alerts.data ?? fallbackDataAlerts;
 
-  const openAlerts = aData.length;
+  const openAlerts = aData.filter((a) => a.severity !== "emerald").length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>

@@ -58,14 +58,18 @@ export function ReportsExportsTab() {
     }
   }, [aData, sort]);
 
+  const openDownload = (url: string) => {
+    if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const handleDownloadAll = () => {
     // Bundle archive (all formats); single-format download lives on individual cards
-    void downloadDigest("bundle").catch(() => {});
+    downloadDigest("bundle").then((r) => openDownload(r.url)).catch(() => {});
   };
 
   const handleDownloadOne = (id: string, fmt?: ReportFormat) => {
     // Honor the page-level format selection when card doesn't override
-    void downloadReport(id, fmt ?? format).catch(() => {});
+    downloadReport(id, fmt ?? format).then((r) => openDownload(r.url)).catch(() => {});
   };
 
   const handleNewReport = () => {

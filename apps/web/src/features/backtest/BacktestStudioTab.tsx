@@ -38,11 +38,12 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const queue = useRunQueue();
 
   const selectedRunId = prefillRunId ?? "btk_0142";
+  const isCanonical = selectedRunId === fallbackRunDetail.run_id;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId),
     queryFn: () => getRunDetail(selectedRunId),
-    initialData: fallbackRunDetail,
-    placeholderData: fallbackRunDetail,
+    initialData: isCanonical ? fallbackRunDetail : undefined,
+    placeholderData: isCanonical ? fallbackRunDetail : undefined,
     enabled: import.meta.env.MODE !== "test",
   });
   const detail: RunDetailPayload = detailQuery.data ?? fallbackRunDetail;

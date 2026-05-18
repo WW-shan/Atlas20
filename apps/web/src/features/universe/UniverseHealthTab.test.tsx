@@ -44,9 +44,9 @@ describe("UniverseHealthTab", () => {
     expect(document.querySelectorAll('[data-alert-id][data-severity="emerald"]').length).toBe(1);
   });
 
-  it("DATA ALERTS section badge shows '6 OPEN'", () => {
+  it("DATA ALERTS section badge shows '5 OPEN' (resolved/emerald excluded)", () => {
     renderWithQuery(<UniverseHealthTab />);
-    expect(screen.getByText("6 OPEN")).toBeInTheDocument();
+    expect(screen.getByText("5 OPEN")).toBeInTheDocument();
   });
 
   it("uses three icon kinds: alert-triangle, info, check-circle", () => {

@@ -100,8 +100,15 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props
                 data-selected={isSelected ? "true" : undefined}
                 role="row"
                 aria-selected={isSelected}
+                tabIndex={0}
                 style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
                 onClick={() => onSelect(r.run_id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(r.run_id);
+                  }
+                }}
               >
                 <td style={{ padding: 0, width: 4 }}>
                   <div

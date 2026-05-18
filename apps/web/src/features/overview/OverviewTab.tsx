@@ -131,22 +131,29 @@ export function OverviewTab({ overview, onNavigate }: Props) {
         <Card ariaLabel="Champion equity curve YTD">
           <SectionHeader rightSlot={
             <div role="tablist" aria-label="Equity range" style={{ display: "flex", gap: 4 }}>
-              {(["1M", "3M", "YTD", "1Y", "ALL"] as const).map((r) => (
-                <span
-                  key={r}
-                  role="tab"
-                  aria-selected={r === "YTD"}
-                  className="mono"
-                  style={{
-                    fontSize: 11,
-                    padding: "2px 8px",
-                    color: r === "YTD" ? "var(--text)" : "var(--muted)",
-                    borderBottom: r === "YTD" ? "2px solid var(--violet)" : undefined,
-                  }}
-                >
-                  {r}
-                </span>
-              ))}
+              {(["1M", "3M", "YTD", "1Y", "ALL"] as const).map((r) => {
+                const active = r === "YTD";
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    disabled
+                    className="mono"
+                    style={{
+                      fontSize: 11,
+                      padding: "2px 8px",
+                      color: active ? "var(--text)" : "var(--muted)",
+                      borderBottom: active ? "2px solid var(--violet)" : "2px solid transparent",
+                      background: "transparent",
+                      cursor: "default",
+                    }}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
             </div>
           }>EQUITY CURVE · YTD</SectionHeader>
           <OverlayLineChart
