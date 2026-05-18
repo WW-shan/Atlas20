@@ -1,14 +1,36 @@
-import { useMemo, useState } from "react";
+import { useMemo, useReducer } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppShell } from "../components/layout/AppShell";
 import { TabSwitcher, type ConsoleTab } from "../components/navigation/TabSwitcher";
-import { DashboardTab } from "../features/dashboard/DashboardTab";
 import { OverviewTab } from "../features/overview/OverviewTab";
 import { fallbackOverview, getOverview } from "../lib/api";
 
+type NavState = { tab: ConsoleTab; prefillRunId?: string };
+type NavAction =
+  | { type: "SET_TAB"; tab: ConsoleTab }
+  | { type: "NAVIGATE"; tab: ConsoleTab; prefillRunId?: string };
+
+function navReducer(state: NavState, action: NavAction): NavState {
+  switch (action.type) {
+    case "SET_TAB":
+      return { tab: action.tab };
+    case "NAVIGATE":
+      return { tab: action.tab, prefillRunId: action.prefillRunId };
+  }
+}
+
+const tabLabels: Record<ConsoleTab, string> = {
+  overview: "Overview",
+  backtest: "Backtest Studio",
+  compare: "Strategy Compare",
+  history: "Run History",
+  universe: "Universe & Data Health",
+  reports: "Reports & Exports",
+};
+
 export function ResearchConsolePage() {
-  const [tab, setTab] = useState<ConsoleTab>("overview");
+  const [nav, dispatch] = useReducer(navReducer, { tab: "overview" });
   const apiEnabled = import.meta.env.MODE !== "test";
   const overviewQuery = useQuery({
     queryKey: ["overview"],
@@ -18,17 +40,64 @@ export function ResearchConsolePage() {
   });
   const overview = useMemo(() => overviewQuery.data ?? fallbackOverview, [overviewQuery.data]);
 
+  const navigate = (tab: ConsoleTab, prefillRunId?: string) => {
+    dispatch({ type: "NAVIGATE", tab, prefillRunId });
+  };
+
+  const pageTitle = tabLabels[nav.tab];
+  const subtitle = getSubtitle(nav.tab);
+
   return (
     <AppShell
-      title="Atlas20 Research Console"
-      subtitle="Crypto rotation research, champion monitoring, and constrained reruns."
-      actions={<TabSwitcher value={tab} onChange={setTab} />}
+      title={pageTitle}
+      actions={<TabSwitcher value={nav.tab} onChange={(t) => dispatch({ type: "SET_TAB", tab: t })} />}
     >
-      {tab === "overview" ? (
-        <OverviewTab overview={overview} onOpenDashboard={() => setTab("dashboard")} />
-      ) : (
-        <DashboardTab overview={overview} />
+      <div className="page-header" style={{ height: "var(--pageheader-h)" }}>
+        <div className="page-header-left">
+          <h2 className="page-header__title">{pageTitle}</h2>
+          <span className="page-header__sub muted">{subtitle}</span>
+        </div>
+      </div>
+
+      {nav.tab === "overview" && (
+        <OverviewTab overview={overview} onNavigate={navigate} />
+      )}
+      {nav.tab === "backtest" && (
+        <PlaceholderTab label="Backtest Studio" />
+      )}
+      {nav.tab === "compare" && (
+        <PlaceholderTab label="Strategy Compare" />
+      )}
+      {nav.tab === "history" && (
+        <PlaceholderTab label="Run History" />
+      )}
+      {nav.tab === "universe" && (
+        <PlaceholderTab label="Universe & Data Health" />
+      )}
+      {nav.tab === "reports" && (
+        <PlaceholderTab label="Reports & Exports" />
       )}
     </AppShell>
+  );
+}
+
+function getSubtitle(tab: ConsoleTab): string {
+  const subs: Record<ConsoleTab, string> = {
+    overview: "Champion summary, equity curve, and market regime",
+    backtest: "Configure, run, and inspect strategy backtests",
+    compare: "Side-by-side performance, risk, and holdings overlap",
+    history: "Browse, filter, and re-run past backtests",
+    universe: "Top-20 token composition over time + data source status",
+    reports: "Generated reports archive + format export center",
+  };
+  return subs[tab];
+}
+
+function PlaceholderTab(props: { label: string }) {
+  return (
+    <div className="card" style={{ padding: "var(--space-6)", minHeight: 400 }}>
+      <h2>{props.label}</h2>
+      <p className="muted">Coming soon — implementation in Phase 5-10.</p>
+    </div>
   );
 }

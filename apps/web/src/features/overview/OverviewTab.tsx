@@ -1,4 +1,5 @@
 import type { OverviewPayload } from "../../lib/api";
+import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
 import { formatCurrencyCompact, formatPercent } from "../../lib/format";
 import { Panel } from "../../components/panels/Panel";
 import { MetricCard } from "../../components/cards/MetricCard";
@@ -9,11 +10,11 @@ import { SparklineChart } from "../../components/charts/SparklineChart";
 
 export function OverviewTab(props: {
   overview: OverviewPayload;
-  onOpenDashboard: () => void;
+  onNavigate: (tab: ConsoleTab, prefillRunId?: string) => void;
 }) {
   return (
     <div className="overview-layout">
-      <HeroSummary champion={props.overview.champion} onOpenDashboard={props.onOpenDashboard} />
+      <HeroSummary champion={props.overview.champion} onOpenDashboard={() => props.onNavigate("backtest")} />
       <div className="metric-grid">
         <MetricCard label="Sharpe" value={props.overview.champion.sharpe.toFixed(2)} />
         <MetricCard label="Monthly win rate" value={formatPercent(props.overview.champion.monthly_win_rate)} tone="positive" />
