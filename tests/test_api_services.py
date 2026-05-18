@@ -84,11 +84,22 @@ def test_toggle_run_favorite_returns_to_original_value():
     assert second == {"run_id": "btk_0142", "favorited": original}
 
 
-def test_get_run_detail_only_returns_canonical_detail():
+def test_get_run_detail_returns_derived_kpi_for_listed_runs():
     from atlas20.api.services import get_run_detail
 
-    assert get_run_detail("btk_0142") is not None
-    assert get_run_detail("btk_0144") is None
+    canonical = get_run_detail("btk_0142")
+    assert canonical is not None and canonical.kpi.sharpe == 3.42
+
+    derived = get_run_detail("btk_0146")
+    assert derived is not None
+    # derived from row.sharpe=1.94, row.max_dd=-0.184, row.return_pct=0.416
+    assert derived.kpi.sharpe == 1.94
+    assert derived.kpi.max_dd == -0.184
+    assert derived.kpi.cagr == 0.416
+    # equity_overlay falls back to canonical series (mock backend simplification)
+    assert len(derived.equity_overlay.series) > 0
+
+    assert get_run_detail("btk_NONEXIST") is None
 
 
 @pytest.mark.parametrize(

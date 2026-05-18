@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -14,6 +15,12 @@ ChartRange = Literal["1M", "3M", "YTD", "1Y", "ALL"]
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
+
+
+class StrictApiModel(BaseModel):
+    """Request models reject unknown keys to surface frontend/backend drift."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class ChampionSummary(ApiModel):
@@ -180,15 +187,22 @@ class RunDetailPayload(RunRow):
     kpi: RunKpi
 
 
-class BacktestUniverse(ApiModel):
+class RunsListResponse(ApiModel):
+    items: list[RunRow]
+    total: int
+    page: int
+    pageSize: int
+
+
+class BacktestUniverse(StrictApiModel):
     topN: int = Field(ge=1)
     excludeStable: bool
     excludeWrapped: bool
 
 
-class BacktestWindow(ApiModel):
-    start: str
-    end: str
+class BacktestWindow(StrictApiModel):
+    start: date
+    end: date
     rebalance: Literal["Weekly", "Biweekly", "Monthly"]
 
     @model_validator(mode="after")
@@ -198,17 +212,17 @@ class BacktestWindow(ApiModel):
         return self
 
 
-class BacktestAllocation(ApiModel):
+class BacktestAllocation(StrictApiModel):
     positionPct: float = Field(ge=0)
     slots: int = Field(ge=1)
 
 
-class BacktestCosts(ApiModel):
+class BacktestCosts(StrictApiModel):
     feeBps: float = Field(ge=0)
     slippageBps: float = Field(ge=0)
 
 
-class BacktestConfig(ApiModel):
+class BacktestConfig(StrictApiModel):
     preset: str
     universe: BacktestUniverse
     window: BacktestWindow

@@ -104,6 +104,8 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props
                 style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
                 onClick={() => onSelect(r.run_id)}
                 onKeyDown={(e) => {
+                  // Ignore key events bubbling from nested controls (favorite ★ button)
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onSelect(r.run_id);

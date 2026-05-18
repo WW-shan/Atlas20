@@ -47,7 +47,7 @@ describe("StrategyCompareTab", () => {
 
   it("renders Jaccard heatmap with 9 cells (3x3)", () => {
     const { container } = renderWithQuery(<StrategyCompareTab />);
-    const heatmap = screen.getByRole("img", { name: "Jaccard holdings overlap heatmap" });
+    const heatmap = screen.getByRole("table", { name: "Jaccard holdings overlap heatmap" });
     const cells = heatmap.querySelectorAll("[data-row]");
     expect(cells.length).toBe(9);
     // 3 diagonal cells

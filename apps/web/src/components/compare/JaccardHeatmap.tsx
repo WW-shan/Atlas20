@@ -31,7 +31,7 @@ export function JaccardHeatmap({ symbols, matrix }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div
-        role="img"
+        role="table"
         aria-label="Jaccard holdings overlap heatmap"
         style={{
           display: "grid",
@@ -80,6 +80,7 @@ export function JaccardHeatmap({ symbols, matrix }: Props) {
               return (
                 <div
                   key={`cell-${i}-${j}`}
+                  role="cell"
                   data-row={i}
                   data-col={j}
                   data-diagonal={isDiagonal ? "true" : undefined}

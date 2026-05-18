@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
@@ -25,11 +25,28 @@ type Props = {
 
 type Action =
   | { type: "set"; patch: Partial<BacktestConfig> }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "hydrate"; config: BacktestConfig };
 
 function reducer(state: BacktestConfig, action: Action): BacktestConfig {
   if (action.type === "reset") return defaultBacktestConfig;
+  if (action.type === "hydrate") return action.config;
   return { ...state, ...action.patch };
+}
+
+function hydrateFromDetail(detail: RunDetailPayload): BacktestConfig {
+  const topNMatch = detail.universe.match(/(\d+)/);
+  const topN = topNMatch ? Math.min(50, Math.max(1, Number(topNMatch[1]))) : defaultBacktestConfig.universe.topN;
+  return {
+    ...defaultBacktestConfig,
+    preset: detail.strategy,
+    universe: { ...defaultBacktestConfig.universe, topN },
+    window: {
+      ...defaultBacktestConfig.window,
+      start: detail.window.start,
+      end: detail.window.end,
+    },
+  };
 }
 
 export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
@@ -48,6 +65,16 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   });
   const detail: RunDetailPayload = detailQuery.data ?? fallbackRunDetail;
 
+  // When user clicks RE-RUN from history, hydrate the sidebar from that run's detail.
+  const hydratedFor = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!prefillRunId || hydratedFor.current === prefillRunId) return;
+    if (detailQuery.data && detailQuery.data.run_id === prefillRunId) {
+      dispatch({ type: "hydrate", config: hydrateFromDetail(detailQuery.data) });
+      hydratedFor.current = prefillRunId;
+    }
+  }, [prefillRunId, detailQuery.data]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
 
@@ -56,7 +83,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
         <Pill tone="cyan-outline" size="sm">
           RUN ID: <span className="mono" style={{ marginLeft: 4 }}>{detail.run_id}</span>
         </Pill>
-        <Button variant="gold" onClick={() => dispatch({ type: "reset" })}>+ NEW RUN</Button>
+        <Button variant="gold" onClick={() => { hydratedFor.current = undefined; dispatch({ type: "reset" }); }}>+ NEW RUN</Button>
       </div>
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>

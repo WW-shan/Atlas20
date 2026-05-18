@@ -108,10 +108,40 @@ def get_run(run_id: str) -> RunRow | None:
     return RunRow.model_validate(row) if row else None
 
 
+def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
+    """Synthesize a kpi block for non-canonical runs from RunRow fields.
+
+    Avoids substituting btk_0142 numbers, which would mislead users looking at
+    a different run's detail page.
+    """
+    sharpe = float(row.get("sharpe") or 0.0)
+    max_dd = float(row.get("max_dd") or 0.0)
+    return_pct = float(row.get("return_pct") or 0.0)
+    sortino = round(sharpe * 1.5, 2) if sharpe else 0.0
+    calmar = round(return_pct / abs(max_dd), 2) if max_dd else 0.0
+    win_rate = round(0.5 + min(max(sharpe / 10, -0.2), 0.2), 3)
+    return {
+        "cagr": round(return_pct, 4),
+        "sharpe": round(sharpe, 2),
+        "sortino": sortino,
+        "max_dd": round(max_dd, 4),
+        "calmar": calmar,
+        "win_rate": win_rate,
+    }
+
+
 def get_run_detail(run_id: str) -> RunDetailPayload | None:
     if run_id == mock_data.fallback_run_detail["run_id"]:
         return RunDetailPayload.model_validate(deepcopy(mock_data.fallback_run_detail))
-    return None
+    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
+    if row is None:
+        return None
+    detail = {
+        **deepcopy(row),
+        "equity_overlay": {"series": mock_data.fallback_overview["equity_overlay"]["series"]},
+        "kpi": _derive_kpi_from_row(row),
+    }
+    return RunDetailPayload.model_validate(detail)
 
 
 def toggle_run_favorite(run_id: str) -> dict[str, Any] | None:
@@ -137,7 +167,7 @@ def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
         "status": "queued",
         "params_summary": (
             f"N={config.universe.topN} · {config.window.rebalance} · "
-            f"{config.window.start[:4]}→{config.window.end[:4]}"
+            f"{config.window.start.year}→{config.window.end.year}"
         ),
     }
     mock_data.fallback_runs_queue.insert(0, summary)

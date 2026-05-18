@@ -5,7 +5,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query
 
 from atlas20.api import services
-from atlas20.api.schemas import RunDetailPayload, RunRow, RunRowSummary
+from atlas20.api.schemas import RunDetailPayload, RunRow, RunRowSummary, RunsListResponse
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -15,7 +15,7 @@ def get_runs_queue() -> list[RunRowSummary]:
     return services.list_runs_queue()
 
 
-@router.get("/runs", response_model_exclude_none=True)
+@router.get("/runs", response_model=RunsListResponse, response_model_exclude_none=True)
 def get_runs(
     q: str = "",
     chips: str = "",
