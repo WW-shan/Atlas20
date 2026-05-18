@@ -24,12 +24,14 @@ export function EquityWorkspace({ detail }: Props) {
           padding: 20,
         }}
       >
-        <div style={{ display: "flex", gap: 24, borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
+        <div role="tablist" aria-label="Workspace views" style={{ display: "flex", gap: 24, borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
           {TABS.map((t) => (
             <span
               key={t}
               role="tab"
               aria-selected={t === "Equity"}
+              aria-disabled={t !== "Equity"}
+              tabIndex={t === "Equity" ? 0 : -1}
               style={{
                 padding: "8px 0",
                 fontSize: 13,
@@ -37,6 +39,7 @@ export function EquityWorkspace({ detail }: Props) {
                 color: t === "Equity" ? "var(--gold)" : "var(--muted)",
                 borderBottom: t === "Equity" ? "2px solid var(--gold)" : "2px solid transparent",
                 marginBottom: -1,
+                opacity: t === "Equity" ? 1 : 0.5,
               }}
             >
               {t}
