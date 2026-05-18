@@ -182,7 +182,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "auto auto 1fr auto auto",
+                  gridTemplateColumns: "auto auto auto auto auto auto",
                   alignItems: "center",
                   gap: 8,
                   fontSize: 13,
@@ -191,8 +191,9 @@ export function OverviewTab({ overview, onNavigate }: Props) {
                 <span className="mono muted" style={{ fontSize: 11 }}>OUT</span>
                 <span className="mono" style={{ color: "var(--muted)" }}>{s.out}</span>
                 <span className="muted" style={{ textAlign: "center" }}>→</span>
+                <span className="mono muted" style={{ fontSize: 11 }}>IN</span>
                 <span className="mono">{s.in}</span>
-                <span className="mono" style={{ color: s.deltaPct >= 0 ? "var(--emerald)" : "var(--rose)", textAlign: "right" }}>
+                <span className="mono" style={{ color: s.deltaPct >= 0 ? "var(--emerald)" : "var(--rose)", textAlign: "right", marginLeft: "auto" }}>
                   {formatPct(s.deltaPct, 1)}
                 </span>
               </div>

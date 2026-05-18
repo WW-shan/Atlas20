@@ -1,0 +1,45 @@
+A premium Design System Reference Sheet poster for Atlas20 Research Console, a crypto rotation strategy research platform. Single dark canvas, cool deep slate background #0A0E14 with very subtle blue tint (NOT brown, NOT warm). Composition is editorial and spacious, like a high-end research firm's brand guidelines.
+
+Top-left: pure wordmark only, ATLAS20 in JetBrains Mono Bold, all caps, letter-spacing 0.18em, color #F59E0B. Below it small slate text Research Console - Design System v1. NO graphic logo mark, NO triangle, NO icon.
+
+The poster is organized into 6 numbered sections in a 12-column grid:
+
+01 - COLOR PALETTE
+A single row of EXACTLY 10 color swatches, no more no less. Each swatch is 96x96 with rounded 8px corners. Below each swatch print the role name in tiny uppercase Inter (8px tracked) AND the hex code in JetBrains Mono (10px). In order:
+- Background  #0A0E14
+- Surface     #111827
+- Border      #1F2937
+- Text        #E2E8F0
+- Muted       #94A3B8
+- Gold        #F59E0B (bright amber, slightly yellow, NOT orange-red)
+- Violet      #8B5CF6
+- Emerald     #10B981
+- Rose        #F43F5E
+- Cyan        #06B6D4
+Do not include any other colors.
+
+02 - TYPOGRAPHY
+Display Aa letterforms in three sizes (H1 48px / H2 32px / H3 24px), labeled INTER DISPLAY. Below, a separate block labeled JETBRAINS MONO showing numerals 1,247.56% in gold and -32.04% in rose, plus a tabular numeric row 10 - 100 - 1,000 - 10,000 demonstrating tabular alignment. Body 14px paragraph sample (real, plausible text - not lorem). Small uppercase tracked label example: CURRENT CHAMPION.
+
+03 - COMPONENT LIBRARY (3 columns wide, the heart of the poster)
+Show each component with ALL its states stacked vertically:
+- Buttons row: Primary (gold filled), Secondary (slate outline), Ghost (no border), each shown in 3 states: default / hover (slightly brighter) / disabled (dimmed). Plus a small Loading variant with spinner.
+- Inputs row: Text input (default), Focused (gold 2px focus ring), With leading icon, Disabled, Error (rose border + tiny error message).
+- Select dropdown, both closed and one shown open with 4 options.
+- Toggle switch on/off.
+- Segmented tabs with 4 segments, second active.
+- Status pills row: Positive (emerald bg subtle, emerald text), Negative (rose), Neutral (slate), Pending (amber).
+- Metric card: uppercase label TOTAL RETURN, big value 1,247% in JetBrains Mono Bold gold, delta chip +18% MoM in emerald, small sparkline gold line beneath.
+- Data table sample: 4 rows x 5 cols: Rank, Token, Weight %, 24h %, Action. Right-aligned numerics in JetBrains Mono, one row shown in hover state (subtle gold-tinted background), sort arrow on Weight column header.
+- Chart container: small 320x180 panel with one smooth gold line on a dark grid #1F2937, faint y-axis ticks, x-axis date labels in JetBrains Mono 10px, label Equity Curve top-left, value tooltip floating at one point.
+
+04 - ICONOGRAPHY
+A row of 8 line icons, 1.5px stroke, lucide-style: home, chart-line, layers, history, database, file-text, settings, search.
+
+05 - DESIGN TOKENS
+Spacing scale as graduated dots (4, 8, 12, 16, 24, 32, 48 px), radius scale as 3 rounded squares (4 / 8 / 12), shadow scale as 3 elevation cards (subtle / medium / strong).
+
+06 - MOTION
+Three small examples of easing curves drawn as bezier paths with labels ease-out 150ms, spring 220ms, linear 80ms.
+
+Background #0A0E14 cool deep slate, panel cards #111827 with 1px #1F2937 borders. Generous section padding. Editorial premium feel, ultra-detailed, dribbble-style brand guidelines poster, 4K resolution, vector-sharp, NO lorem ipsum, NO placeholder text artifacts, NO extra random colors outside the specified palette, real plausible labels throughout.

@@ -9,7 +9,7 @@ export function RegimeGauge({ label, score, model }: RegimeGaugeProps) {
   const indicatorX = Math.max(0, Math.min(1, score)) * 100;
 
   const labelColor =
-    label === "RISK-ON" ? "var(--gold)" :
+    label === "RISK-ON" ? "var(--emerald)" :
     label === "RISK-OFF" ? "var(--rose)" : "var(--muted)";
 
   return (

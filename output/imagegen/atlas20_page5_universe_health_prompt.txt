@@ -1,0 +1,54 @@
+A high-fidelity desktop web application screenshot mockup of "ATLAS20" research console - Page: "Universe & Data Health". Aesthetic: Crypto-Native Premium - dark editorial research terminal with subtle gold luminance accents. No browser chrome, full 1600x1000 canvas.
+
+STRICT PALETTE (exact hex):
+- Background #0A0E14 · Surface #111827 · Border #1F2937
+- Primary text #E2E8F0 · Muted text #94A3B8
+- Gold #F59E0B (tokens currently in top-20 + active nav)
+- Violet #8B5CF6 (rotation event marker)
+- Emerald #10B981 (healthy data sources, positive metrics)
+- Rose #F43F5E (data alerts, breaks)
+- Cyan #06B6D4 (info / informational alerts)
+NOT brown, NOT warm, cool slate grays only.
+
+TYPOGRAPHY: Inter Display for body, JetBrains Mono for all tokens/numbers/timestamps.
+
+LAYOUT (1600x1000):
+
+[1] Top Nav (~56px): "ATLAS20" + "Research Console" left; nav tabs "Overview · Backtest · Compare · History · Universe (active, gold underline + soft glow) · Reports"; search + cog + avatar right.
+
+[2] Page Header (~64px): Title "Universe & Data Health" white 24px + subtitle "Top-20 token composition over time + data source status" muted. Right side: a cyan pill "Last refreshed 2026-05-18 14:32 UTC", a gold outline button "↻ FORCE REFRESH".
+
+[3] Top Section - Top-20 Universe Timeline (height ~440px, full width card):
+- Card header: title "Top-20 Universe Timeline" left + subtitle "Daily composition · last 180 days"; right side small legend "● in universe (gold)  ● rotation event (violet vertical line)"
+- Body: a horizontal band chart / stacked timeline. Y axis (left side) lists 32 token tickers in mono (BTC excluded from universe but plotted for context muted; ETH, SOL, BNB, XRP, ADA, AVAX, DOGE, DOT, MATIC, LINK, ATOM, LTC, BCH, NEAR, INJ, TIA, SUI, SEI, ARB, OP, FIL, IMX, RNDR, FET, AAVE, MKR, UNI, GRT, RUNE, TON, ALGO, ICP). Each token has a horizontal lane.
+- For each token lane, dark base track #1F2937; segments where the token IS in the top-20 are rendered as gold-tinted filled rectangles spanning the time range (some tokens have continuous bands the whole 180d, others have gappy presence). Bands have subtle gold luminous edges.
+- X axis (bottom): months Dec 2025 / Jan / Feb / Mar / Apr / May 2026
+- A few thin vertical violet lines mark "rotation events" (3-4 violet vertical dashed lines), each with a tiny labeled tag at top "MAJOR ROTATION".
+
+[4] Bottom Section - Two Side-by-Side Cards (height ~360px):
+
+LEFT CARD (50% width) - "Data Sources" status grid:
+- Header: title + subtitle "9 sources monitored"
+- A grid of 9 status tiles (3 columns x 3 rows), each tile shows:
+  - Source name (e.g. "CoinGecko · Markets", "CryptoCompare · OHLCV", "Binance · Spot", "Coinbase · Spot", "Kraken · Spot", "DefiLlama · TVL", "Glassnode · On-chain", "Messari · Metrics", "Custom · CSV uploads")
+  - A status pill: 6 "HEALTHY" emerald, 2 "DEGRADED" cyan, 1 "ERROR" rose
+  - Tiny mono "Last sync: 12s ago" / "Last sync: 14m ago" / "Last sync: 2h 14m ago"
+  - For ERROR tile show rose vertical accent bar on left
+  - For DEGRADED tiles show cyan vertical accent bar on left
+
+RIGHT CARD (50% width) - "Data Quality Alerts":
+- Header: title + a count badge "7 open" rose pill
+- A vertical list of 6 alert rows. Each row:
+  - Severity icon (rose triangle for high, cyan circle for info, emerald check for resolved)
+  - Title line: e.g. "BNB · price gap detected"
+  - Subtitle muted: "2026-05-17 18:00 UTC · gap 4h 12m · source: Binance · auto-imputed via fallback"
+  - Right side: tiny mono timestamp + a "▾" action menu
+- Alert content variety:
+  1. (rose) "BNB · price gap detected — auto-imputed"
+  2. (rose) "RNDR · volume outlier (5σ) — flagged for review"
+  3. (cyan) "DOT · stale tick > 30s on Coinbase"
+  4. (rose) "ICP · OHLCV mismatch CoinGecko vs Kraken"
+  5. (emerald) "ATOM · validator slashing event resolved"
+  6. (cyan) "Universe diff: 2 in / 2 out at 2026-05-15 00:00 UTC rebalance"
+
+GLOBAL: cards 1px #1F2937 border, 8px radius, subtle surface gradient, 24px gutters. Universe band chart has clean horizontal rhythm and clear lane alignment. NO browser chrome, NO watermark, plausible Atlas20 data. 16:10 landscape.

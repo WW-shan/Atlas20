@@ -1,0 +1,42 @@
+A high-fidelity desktop web application screenshot mockup of "ATLAS20" research console - Page: "Run History". Aesthetic: Crypto-Native Premium - dark editorial research terminal with subtle gold luminance accents. No browser chrome, full 1600x1000 canvas.
+
+STRICT PALETTE (exact hex):
+- Background #0A0E14 · Surface #111827 · Border #1F2937
+- Primary text #E2E8F0 · Muted text #94A3B8
+- Gold #F59E0B (favorited rows star + primary action)
+- Violet #8B5CF6 (filter chip active)
+- Emerald #10B981 (completed status, positive returns)
+- Rose #F43F5E (failed status, negative returns)
+- Cyan #06B6D4 (running status pulse)
+NOT brown, NOT warm, cool slate grays only.
+
+TYPOGRAPHY: Inter Display sans for body, JetBrains Mono for all numbers/IDs/timestamps/percentages.
+
+LAYOUT (1600x1000):
+
+[1] Top Nav (~56px): "ATLAS20" + "Research Console" left; nav tabs "Overview · Backtest · Compare · History (active, gold underline + soft glow) · Universe · Reports"; search + cog + avatar right.
+
+[2] Page Header (~64px): Title "Run History" white 24px + subtitle "All backtest runs · 1,284 records" muted. Right side: a gold "↻ RE-RUN SELECTED" button (slightly muted when nothing selected, here looks active), beside it a "⬇ EXPORT CSV" outline violet button.
+
+[3] Filter / Toolbar Strip (~64px, surface card full width):
+- Left cluster: search input "Search by name, id, tag..." with magnifier icon, ~280px wide
+- Filter chips row (multi-select, some active): "All", "Favorited ★" (active gold), "Completed" (active emerald outline), "Failed", "Running", "ATLAS family", "Momentum family", "MeanRev family"
+- Right cluster: date range pill "Last 30 days ▾" mono cyan, view toggle (list/grid) icons, columns settings cog
+
+[4] Main Table (~720px tall, full width surface card):
+- Table header row (sticky look): columns separated by subtle dividers. Columns (left to right):
+  - ★ (favorite star) | RUN ID | STRATEGY | UNIVERSE | WINDOW | RETURN | SHARPE | MAX DD | STATUS | DURATION | SPARK | CREATED | ACTIONS
+  - Header labels uppercase muted gray 10px mono
+- 14 data rows. Each row ~44px tall, mono numbers right-aligned, alternating subtle row tint (every other row very faintly lighter surface). One row highlighted with a gold left border (selected). Rows include:
+  - ★(gold) | btk_0142 | ATLAS Adaptive v3 | Top-20 | 2024→2026 | +1,247.56% (emerald) | 3.42 | -32.04% (rose) | COMPLETED (emerald pill) | 1m 28s | (tiny gold sparkline up) | 2026-05-18 14:02 | (• • • menu)
+  - ☆ | btk_0141 | Momentum Top-10 v4 | Top-20 | 2024→2026 | +682.10% (emerald) | 2.81 | -28.70% (rose) | COMPLETED | 1m 12s | (violet spark) | 2026-05-18 13:47 | • • •
+  - ★(gold) | btk_0140 | ATLAS Adaptive v3 (sweep) | Top-30 | 2024→2026 | +1,108.32% (emerald) | 3.18 | -34.20% | COMPLETED | 1m 41s | (gold spark) | 2026-05-18 12:55 | • • •
+  - ☆ | btk_0139 | Mean Reversion v2 | Top-20 | 2024→2026 | +214.80% (emerald) | 1.94 | -18.40% | COMPLETED | 0m 58s | (cyan spark) | 2026-05-18 11:30 | • • •
+  - ☆ | btk_0138 | Test Param Sweep [#a8] | Top-20 | 2025→2026 | — (muted) | — | — | RUNNING (cyan pulse pill) | 0m 24s / ~1:00 | (in-progress dashed) | 2026-05-18 10:12 | • • •
+  - ☆ | btk_0137 | Vol Targeting v1 | Top-25 | 2024→2026 | -4.20% (rose) | 0.14 | -42.10% (rose) | COMPLETED | 1m 03s | (rose flat) | 2026-05-17 22:48 | • • •
+  - ☆ | btk_0136 | High Beta Tilt | Top-15 | 2024→2026 | — | — | — | FAILED (rose pill) | error: data gap | — | 2026-05-17 21:30 | • • •
+  - …continue with 7 more plausible rows ending around 2026-05-15
+
+- Bottom of card: pagination strip muted - "Showing 1-14 of 1,284" left, page numbers "1 2 3 ... 92" right with "1" active in gold
+
+GLOBAL: card 1px #1F2937 border, 8px radius, subtle row striping, 24px outer gutters, plenty of vertical breathing room, status pills are subtle (small radius, low-saturation tinted bg + bright text), sparkline cells small (~80px wide). All numbers tabular mono. NO browser chrome, NO watermark, plausible Atlas20 data. 16:10 landscape.

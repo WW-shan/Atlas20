@@ -1,0 +1,69 @@
+A high-fidelity desktop web application screenshot mockup of "ATLAS20" - a crypto rotation strategy research console. Page: "Home / Overview". Aesthetic direction: Crypto-Native Premium - dark editorial research terminal with subtle gold luminance accents. No browser chrome, no window frame - just the app interface filling the full 1600x1000 canvas.
+
+STRICT PALETTE (use these hex codes exactly, no other colors):
+- Background base: #0A0E14 (deep slate-near-black)
+- Surface card: #111827 (slightly lifted)
+- Border / divider: #1F2937 (very subtle 1px hairlines)
+- Primary text: #E2E8F0 (off-white)
+- Muted text: #94A3B8 (cool gray)
+- Gold accent: #F59E0B (used ONLY for: champion KPI tile glow halo, primary CTA button, active nav indicator)
+- Violet accent: #8B5CF6 (used for: secondary KPI tile, chart line accent)
+- Emerald: #10B981 (positive deltas / up-moves only)
+- Rose: #F43F5E (negative deltas / down-moves only)
+- Cyan: #06B6D4 (informational tags, "active" pills)
+NOT brown, NOT warm yellow, NOT teal-green, NOT navy blue. All grays must be cool slate.
+
+TYPOGRAPHY:
+- Sans-serif for headings and body: clean modern geometric sans (Inter Display style)
+- Monospace for ALL numbers, percentages, tickers, timestamps (JetBrains Mono style with tabular figures, well-aligned)
+- Title weight: 600. Body weight: 400. Numbers: 500.
+
+LAYOUT (top to bottom, full 1600x1000):
+
+[1] Top Nav Bar (height ~56px):
+- Left: "ATLAS20" wordmark in white, beside it "Research Console" muted gray micro-tag
+- Center: horizontal nav tabs - "Overview" (active, gold underline + subtle gold glow), "Backtest", "Compare", "History", "Universe", "Reports"
+- Right: search input (magnifier icon + "Search strategies, tokens..." placeholder), settings cog icon, user avatar circle
+- Bottom: 1px #1F2937 divider
+
+[2] Hero Strip - Champion Strategy (height ~180px, full width minus 24px gutter):
+- A large feature card with subtle gold luminous halo glow on the edges (very soft, 20-30% intensity, not blown out)
+- Left side of card: a small cyan "CURRENT CHAMPION" pill, then huge headline "ATLAS Adaptive v3" (32px, white), beneath it muted subtitle "Top-3 momentum + volatility filter · 2026-05-18"
+- Right side of card: 4 KPI columns in JetBrains Mono:
+  - YTD Return: "+1,247.56%" in gold #F59E0B (large 36px)
+  - Sharpe: "3.42" white
+  - Max Drawdown: "-32.04%" rose #F43F5E
+  - Win Rate: "68.5%" emerald #10B981
+- Each KPI has a tiny mono label above ("YTD RETURN", "SHARPE", "MAX DD", "WIN RATE") in muted gray uppercase 10px
+
+[3] KPI Row (height ~120px, 3 equal cards):
+- Card A "TOTAL AUM TRACKED": large mono number "$847.2M", small spark-area chart below in violet
+- Card B "ACTIVE STRATEGIES": large mono number "12", small horizontal bar chart breakdown
+- Card C "MARKET REGIME": large text "RISK-ON" in emerald, beneath a small 3-segment regime indicator bar (red/amber/green)
+
+[4] Two-Column Workspace (height ~420px):
+- LEFT (60% width) - "Equity Curve · YTD" panel:
+  - Header: title left, segmented control right ("1M | 3M | YTD | 1Y | ALL", YTD active in gold)
+  - Large area chart with two lines: gold ATLAS line trending strongly up, faint violet BTC benchmark line trending modestly up. Gold line has soft glow. X-axis dates Jan-May 2026, Y-axis percentages. Subtle grid lines #1F2937.
+- RIGHT (40% width) - "Latest Rebalance" panel:
+  - Header: title left, "May 17, 14:00 UTC" mono timestamp right
+  - 5 rows of token swaps, each row: a cyan "OUT" tag + token symbol (e.g. "SOL"), arrow icon, gold "IN" tag + token symbol (e.g. "TIA"), weight change mono "8.2% → 12.4%" right-aligned
+  - Tokens shown: SOL→TIA, AVAX→SUI, DOT→INJ, NEAR→SEI, ALGO→TON
+
+[5] Bottom Action Strip (height ~80px):
+- 3 large action buttons left-aligned with gap:
+  - Primary gold button "+ RUN NEW BACKTEST" (gold fill, dark text, subtle gold glow halo)
+  - Secondary outline button "COMPARE STRATEGIES" (transparent fill, violet 1px border, violet text)
+  - Tertiary text button "GENERATE REPORT" (no border, muted text with icon)
+- Right side: "Last sync: 18s ago" mono micro-text with a small pulsing emerald dot
+
+GLOBAL STYLING:
+- All cards have 1px #1F2937 border, 8px radius, 24px internal padding, subtle vertical gradient from #111827 to #0F1620 (barely perceptible)
+- 24px gutter between cards, 24px outer margin
+- Generous whitespace - editorial research feel, not Bloomberg-dense
+- Gold glow effects are SOFT (low intensity, large blur radius), NOT bright halos. Premium subtle.
+- Numbers are ALWAYS in mono, ALWAYS tabular-aligned
+- No drop shadows on cards (just hairline borders)
+- Background has imperceptible noise/grain texture for premium feel
+
+NO: browser chrome, address bar, OS taskbar, mockup frame, watermarks, lorem ipsum, fake placeholder text. All copy must read as plausible real Atlas20 research data. Aspect ratio 16:10 landscape.

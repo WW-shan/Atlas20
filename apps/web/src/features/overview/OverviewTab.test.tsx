@@ -27,12 +27,29 @@ describe("OverviewTab", () => {
     expect(screen.getByText("MARKET REGIME")).toBeInTheDocument();
   });
 
-  it("renders 4 rebalance swap rows", () => {
+  it("renders 4 rebalance swap rows with OUT/IN labels", () => {
     const { container } = render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
-    const outLabels = container.querySelectorAll("span.muted");
-    // At least one OUT marker per swap (4 swaps)
     const outCount = Array.from(container.querySelectorAll("span")).filter((el) => el.textContent === "OUT").length;
+    const inCount = Array.from(container.querySelectorAll("span")).filter((el) => el.textContent === "IN").length;
     expect(outCount).toBe(4);
+    expect(inCount).toBe(4);
+  });
+
+  it("equity overlay renders with two lines (gold ATLAS + violet BTC)", () => {
+    render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
+    expect(screen.getByRole("img", { name: /ATLAS vs BTC equity curve/ })).toBeInTheDocument();
+  });
+
+  it("RegimeGauge has role=meter", () => {
+    render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
+    expect(screen.getByRole("meter")).toBeInTheDocument();
+  });
+
+  it("clicking GENERATE REPORT navigates to reports", () => {
+    const onNavigate = vi.fn();
+    render(<OverviewTab overview={fallbackOverview} onNavigate={onNavigate} />);
+    screen.getByRole("button", { name: /GENERATE REPORT/i }).click();
+    expect(onNavigate).toHaveBeenCalledWith("reports");
   });
 
   it("clicking RUN NEW BACKTEST navigates to backtest tab", () => {

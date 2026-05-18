@@ -1,0 +1,36 @@
+A premium Design System Reference Sheet poster for Atlas20 Research Console, a crypto rotation strategy research platform. Single dark canvas, cool deep slate background #0A0E14 with subtle blue tint (NOT brown, NOT warm).
+
+AESTHETIC DIRECTION: Editorial Minimal. Generous whitespace and breathing room. Typography is the hero. Borders are 1px and subtle. NO shadows or only one barely-there shadow. Components are FLAT: no gradients, no glow, no glassmorphism. Calm, premium, like an annual-report PDF. Mood: Linear app, Vercel dashboard, The Browser Company.
+
+Top-left: pure wordmark ATLAS20 in JetBrains Mono Bold, all caps, letter-spacing 0.18em, color #F59E0B. Below it tiny slate text Research Console - Design System v1. NO graphic logo mark.
+
+The poster has 6 numbered sections in a 12-column grid with WIDE GUTTERS.
+
+01 - COLOR PALETTE
+A row of EXACTLY 10 swatches, 96x96, 8px corners. Below each: role name in tiny uppercase Inter, 8px tracked, AND hex in JetBrains Mono, 10px:
+Background #0A0E14, Surface #111827, Border #1F2937, Text #E2E8F0, Muted #94A3B8, Gold #F59E0B (bright amber, slightly yellow, NOT orange-red), Violet #8B5CF6, Emerald #10B981, Rose #F43F5E, Cyan #06B6D4. No other colors anywhere.
+
+02 - TYPOGRAPHY
+Large display Aa letterforms H1 48px / H2 32px / H3 24px labeled INTER DISPLAY. Separate block JETBRAINS MONO showing tabular numerals 1,247.56% gold, -32.04% rose, plus aligned row 10 - 100 - 1,000 - 10,000. Body 14px paragraph, real sentence about momentum strategies. Uppercase tracked label CURRENT CHAMPION.
+
+03 - COMPONENT LIBRARY
+- Buttons: Primary solid gold, Secondary slate outline, Ghost. Each with default / hover / disabled states stacked.
+- Inputs: default / focused gold 2px ring / with leading icon / disabled / error rose border plus message.
+- Select: closed plus open with 4 options.
+- Toggle on/off.
+- Segmented tabs, 4 segments, second active.
+- Status pills: Positive emerald / Negative rose / Neutral slate / Pending amber.
+- Metric card: label TOTAL RETURN / value 1,247% gold mono bold / delta chip +18% MoM emerald / sparkline gold line.
+- Data table: 4 rows x 5 cols, Rank / Token / Weight % / 24h % / Action, right-aligned numbers, one row hover gold-tinted, sort arrow on header.
+- Chart container 320x180: smooth gold line on dark grid #1F2937, faint y-axis, x-axis dates mono 10px, label Equity Curve, floating tooltip.
+
+04 - ICONOGRAPHY
+Row of 8 line icons, 1.5px stroke, lucide-style: home, chart-line, layers, history, database, file-text, settings, search.
+
+05 - DESIGN TOKENS
+Spacing dots 4/8/12/16/24/32/48 px, radius squares 4/8/12, shadow strip subtle/medium/strong, but shadows are all VERY restrained.
+
+06 - MOTION
+Bezier curves with labels ease-out 150ms / spring 220ms / linear 80ms.
+
+OVERALL: spacious, editorial, premium calm, flat components, restrained accents. Ultra-detailed 4K vector-sharp brand guidelines poster. NO lorem ipsum, NO extra colors outside the palette, NO gradients on components, NO glow.
