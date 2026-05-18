@@ -1,19 +1,62 @@
+/* ============================================================
+   Atlas20 — R3 Crypto-Native Premium Design Tokens
+   SPEC §1 + §2 — Phase 0
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
   color-scheme: dark;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  background: #090b0f;
-  color: #eef3ef;
-  --panel: rgba(18, 23, 29, 0.92);
-  --panel-strong: rgba(26, 32, 39, 0.98);
-  --line: rgba(207, 220, 213, 0.14);
-  --muted: #95a49e;
-  --green: #39d98a;
-  --amber: #f2b84b;
-  --blue: #42a5ff;
-  --red: #ff6b6b;
+
+  /* Typography */
+  --font-sans: "Inter", "Inter Display", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", monospace;
+
+  /* Palette */
+  --bg:        #0A0E14;
+  --surface:   #111827;
+  --border:    #1F2937;
+  --text:      #E2E8F0;
+  --muted:     #94A3B8;
+  --gold:      #F59E0B;
+  --violet:    #8B5CF6;
+  --emerald:   #10B981;
+  --rose:      #F43F5E;
+  --cyan:      #06B6D4;
+
+  /* Derived */
+  --surface-2:  rgb(255 255 255 / 0.02);
+  --gold-glow:  rgb(245 158 11 / 0.18);
+  --row-stripe: rgb(255 255 255 / 0.015);
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Layout heights */
+  --topnav-h:       56px;
+  --pageheader-h:   64px;
+  --row-h:          44px;
+
+  /* Radii */
+  --radius-card:    8px;
+  --radius-pill:    999px;
+  --radius-input:   6px;
+
+  /* Base */
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -21,365 +64,102 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 15% 10%, rgba(57, 217, 138, 0.12), transparent 28rem),
-    radial-gradient(circle at 90% 0%, rgba(242, 184, 75, 0.1), transparent 24rem),
-    linear-gradient(135deg, #090b0f 0%, #10151a 48%, #0b0e12 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ---------- Utility classes ---------- */
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.text-gold   { color: var(--gold); }
+.text-violet { color: var(--violet); }
+.text-emerald{ color: var(--emerald); }
+.text-rose   { color: var(--rose); }
+.text-cyan   { color: var(--cyan); }
+
+/* Section header: uppercase 11px muted label */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Card base */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  position: relative;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, var(--surface-2), transparent);
+  pointer-events: none;
+}
+
+/* Hero card variant */
+.card--hero {
+  box-shadow: 0 0 24px var(--gold-glow);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+/* Reset button/input/select */
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+  color: inherit;
 }
 
 button {
   cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
 }
 
+/* Scrollbar (dark theme) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ---------- Legacy class compatibility (to be removed in Phase 11) ---------- */
+/* These keep existing components rendering while Phase 1-10 lands. */
 .app-shell {
   width: min(1500px, calc(100% - 48px));
   margin: 0 auto;
   padding: 28px 0 48px;
-}
-
-.topbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 16px 0 28px;
-}
-
-.topbar h1 {
-  margin: 4px 0;
-  font-size: clamp(2rem, 4vw, 4.8rem);
-  line-height: 0.96;
-  letter-spacing: 0;
-}
-
-.topbar p,
-.hero-summary p {
-  max-width: 720px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.eyebrow,
-.panel__eyebrow {
-  color: var(--amber);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tab-switcher {
-  display: inline-flex;
-  padding: 4px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.tab {
-  min-width: 108px;
-  min-height: 40px;
-  border: 0;
-  color: var(--muted);
-  background: transparent;
-}
-
-.tab--active {
-  color: #07100c;
-  background: var(--green);
-}
-
-.hero-summary,
-.panel,
-.metric-card,
-.sidebar {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
-}
-
-.hero-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
-  gap: 24px;
-  padding: 32px;
-}
-
-.hero-summary h2 {
-  max-width: 980px;
-  margin: 14px 0;
-  overflow-wrap: anywhere;
-  font-size: clamp(1.8rem, 4vw, 4.2rem);
-  line-height: 0.98;
-  letter-spacing: 0;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 11px;
-  border: 1px solid rgba(57, 217, 138, 0.3);
-  color: var(--green);
-  background: rgba(57, 217, 138, 0.08);
-}
-
-.primary-button {
-  margin-top: 24px;
-  min-height: 44px;
-  border: 0;
-  padding: 0 18px;
-  color: #06100b;
-  background: var(--green);
-  font-weight: 800;
-}
-
-.primary-button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.primary-button--full {
-  width: 100%;
-}
-
-.hero-summary__metrics,
-.metric-grid,
-.overview-grid,
-.dashboard-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.metric-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 16px 0;
-}
-
-.metric-card {
-  min-height: 112px;
-  padding: 18px;
-}
-
-.metric-card__label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.metric-card strong {
-  display: block;
-  margin-top: 16px;
-  font-size: clamp(1.55rem, 3vw, 2.8rem);
-  letter-spacing: 0;
-}
-
-.metric-card--positive strong {
-  color: var(--green);
-}
-
-.metric-card--risk strong {
-  color: var(--red);
-}
-
-.metric-card--accent strong {
-  color: var(--amber);
-}
-
-.overview-grid {
-  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.8fr);
-  margin: 16px 0;
-}
-
-.panel {
-  padding: 20px;
-  overflow: hidden;
-}
-
-.panel__title {
-  margin: 6px 0 18px;
-  font-size: 1.15rem;
-}
-
-.sparkline {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.sparkline rect {
-  fill: rgba(255, 255, 255, 0.025);
-}
-
-.sparkline path {
-  fill: none;
-  stroke: url("#line-equity");
-  stroke-width: 4;
-  vector-effect: non-scaling-stroke;
-}
-
-.logic-grid {
-  display: grid;
-  gap: 14px;
-}
-
-.logic-grid div {
-  display: grid;
-  gap: 5px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.logic-grid span,
-.status-list span {
-  color: var(--muted);
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 640px;
-}
-
-th,
-td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-  vertical-align: top;
-}
-
-td:first-child {
-  overflow-wrap: anywhere;
-}
-
-th {
-  color: var(--muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-}
-
-.dashboard-grid {
-  grid-template-columns: 270px minmax(0, 1fr) 300px;
-  align-items: start;
-}
-
-.sidebar,
-.run-rail {
-  position: sticky;
-  top: 16px;
-}
-
-.sidebar {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-}
-
-.sidebar__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 800;
-}
-
-.sidebar__header button {
-  border: 1px solid var(--line);
-  color: var(--muted);
-  background: transparent;
-  min-height: 32px;
-}
-
-label {
-  display: grid;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-input,
-select {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0 10px;
-  color: #eef3ef;
-  background: #0f1419;
-}
-
-.workspace {
-  display: grid;
-  gap: 16px;
-}
-
-.status-list {
-  display: grid;
-  gap: 14px;
-}
-
-.status-list div {
-  display: grid;
-  gap: 5px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-
-.status-list strong {
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 1100px) {
-  .hero-summary,
-  .overview-grid,
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .sidebar,
-  .run-rail {
-    position: static;
-  }
-}
-
-@media (max-width: 720px) {
-  .app-shell {
-    width: min(100% - 24px, 1500px);
-    padding-top: 14px;
-  }
-
-  .topbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .tab-switcher {
-    width: 100%;
-  }
-
-  .tab {
-    flex: 1;
-  }
-
-  .metric-grid {
-    grid-template-columns: 1fr;
-  }
 }
