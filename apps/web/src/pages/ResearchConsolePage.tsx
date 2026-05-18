@@ -5,6 +5,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { TabSwitcher, type ConsoleTab } from "../components/navigation/TabSwitcher";
 import { OverviewTab } from "../features/overview/OverviewTab";
 import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
+import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { fallbackOverview, getOverview } from "../lib/api";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
@@ -67,7 +68,7 @@ export function ResearchConsolePage() {
         <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
       )}
       {nav.tab === "compare" && (
-        <PlaceholderTab label="Strategy Compare" />
+        <StrategyCompareTab />
       )}
       {nav.tab === "history" && (
         <PlaceholderTab label="Run History" />
