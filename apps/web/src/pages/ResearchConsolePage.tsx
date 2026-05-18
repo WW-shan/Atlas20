@@ -55,7 +55,6 @@ export function ResearchConsolePage() {
 
   return (
     <AppShell
-      title={pageTitle}
       actions={<TabSwitcher value={nav.tab} onChange={(t) => dispatch({ type: "SET_TAB", tab: t })} />}
     >
       <div className="page-header" style={{ height: "var(--pageheader-h)" }}>

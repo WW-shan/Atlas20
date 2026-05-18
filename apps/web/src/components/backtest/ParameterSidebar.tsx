@@ -9,6 +9,11 @@ type Props = {
   isRunning: boolean;
 };
 
+function clamp(n: number, lo: number, hi: number): number {
+  if (Number.isNaN(n)) return lo;
+  return Math.min(hi, Math.max(lo, n));
+}
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   height: 32,
@@ -139,7 +144,7 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
             min={1}
             max={50}
             value={value.allocation.slots}
-            onChange={(e) => onChange({ ...value, allocation: { ...value.allocation, slots: Number(e.target.value) } })}
+            onChange={(e) => onChange({ ...value, allocation: { ...value.allocation, slots: clamp(Number(e.target.value), 1, 50) } })}
             style={{ ...inputStyle, marginTop: 6 }}
           />
         </label>
@@ -152,8 +157,10 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
             Fee bps
             <input
               type="number"
+              min={0}
+              max={500}
               value={value.costs.feeBps}
-              onChange={(e) => onChange({ ...value, costs: { ...value.costs, feeBps: Number(e.target.value) } })}
+              onChange={(e) => onChange({ ...value, costs: { ...value.costs, feeBps: clamp(Number(e.target.value), 0, 500) } })}
               style={{ ...inputStyle, marginTop: 6 }}
               aria-label="Fee basis points"
             />
@@ -162,8 +169,10 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
             Slippage bps
             <input
               type="number"
+              min={0}
+              max={500}
               value={value.costs.slippageBps}
-              onChange={(e) => onChange({ ...value, costs: { ...value.costs, slippageBps: Number(e.target.value) } })}
+              onChange={(e) => onChange({ ...value, costs: { ...value.costs, slippageBps: clamp(Number(e.target.value), 0, 500) } })}
               style={{ ...inputStyle, marginTop: 6 }}
               aria-label="Slippage basis points"
             />

@@ -28,7 +28,7 @@ const SORT_OPTIONS: { key: ReportSortKey; label: string }[] = [
 
 export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
-  const [format, setFormat] = useState<ReportFormat>("markdown");
+  const [format, setFormat] = useState<ReportFormat>(fallbackFeaturedDigest.defaultFormat);
   const apiEnabled = import.meta.env.MODE !== "test";
 
   const featured = useQuery({
@@ -64,7 +64,8 @@ export function ReportsExportsTab() {
   };
 
   const handleDownloadOne = (id: string, fmt?: ReportFormat) => {
-    void downloadReport(id, fmt).catch(() => {});
+    // Honor the page-level format selection when card doesn't override
+    void downloadReport(id, fmt ?? format).catch(() => {});
   };
 
   const handleNewReport = () => {

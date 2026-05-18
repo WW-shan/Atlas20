@@ -24,3 +24,4 @@ Thumbs.db
 reports/app_runs/*
 !reports/app_runs/.gitkeep
 
+.ace-tool/

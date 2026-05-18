@@ -48,6 +48,16 @@ describe("ReportsExportsTab", () => {
     spy.mockRestore();
   });
 
+  it("per-card DOWNLOAD ↓ honors the selected page-level format", () => {
+    const spy = vi.spyOn(api, "downloadReport").mockResolvedValue({ url: "stub" } as never);
+    renderWithQuery(<ReportsExportsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "pdf" }));
+    const firstCardDownload = document.querySelector('button[aria-label^="Download "]') as HTMLButtonElement;
+    fireEvent.click(firstCardDownload);
+    expect(spy).toHaveBeenCalledWith(expect.any(String), "pdf");
+    spy.mockRestore();
+  });
+
   it("renders 6 archive cards (5 ready + 1 generating)", () => {
     renderWithQuery(<ReportsExportsTab />);
     const list = screen.getByRole("list", { name: "Reports archive list" });

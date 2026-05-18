@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 export function AppShell(props: {
-  title: string;
   actions: ReactNode;
   children: ReactNode;
 }) {
