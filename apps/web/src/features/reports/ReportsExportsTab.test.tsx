@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import * as api from "../../lib/api";
 import { ReportsExportsTab } from "./ReportsExportsTab";
 
 function renderWithQuery(ui: React.ReactElement) {
@@ -35,6 +36,16 @@ describe("ReportsExportsTab", () => {
   it("renders DOWNLOAD ALL bundle button", () => {
     renderWithQuery(<ReportsExportsTab />);
     expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).toBeInTheDocument();
+  });
+
+  it("clicking DOWNLOAD ALL invokes downloadDigest('bundle') regardless of selected format", () => {
+    const spy = vi.spyOn(api, "downloadDigest").mockResolvedValue({ url: "stub" } as never);
+    renderWithQuery(<ReportsExportsTab />);
+    // Pick PDF first so we know format state is something other than 'bundle'
+    fireEvent.click(screen.getByRole("button", { name: "pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: /DOWNLOAD ALL/ }));
+    expect(spy).toHaveBeenCalledWith("bundle");
+    spy.mockRestore();
   });
 
   it("renders 6 archive cards (5 ready + 1 generating)", () => {

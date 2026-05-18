@@ -130,16 +130,18 @@ export function OverviewTab({ overview, onNavigate }: Props) {
         {/* Equity Curve */}
         <Card ariaLabel="Champion equity curve YTD">
           <SectionHeader rightSlot={
-            <div style={{ display: "flex", gap: 4 }}>
+            <div role="tablist" aria-label="Equity range" style={{ display: "flex", gap: 4 }}>
               {(["1M", "3M", "YTD", "1Y", "ALL"] as const).map((r) => (
                 <span
                   key={r}
+                  role="tab"
+                  aria-selected={r === "YTD"}
                   className="mono"
                   style={{
                     fontSize: 11,
                     padding: "2px 8px",
-                    color: r === "YTD" ? "var(--gold)" : "var(--muted)",
-                    borderBottom: r === "YTD" ? "2px solid var(--gold)" : undefined,
+                    color: r === "YTD" ? "var(--text)" : "var(--muted)",
+                    borderBottom: r === "YTD" ? "2px solid var(--violet)" : undefined,
                   }}
                 >
                   {r}
@@ -205,7 +207,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
             style={{
               marginTop: 16,
               fontSize: 12,
-              color: "var(--gold)",
+              color: "var(--muted)",
               background: "transparent",
               padding: 0,
             }}

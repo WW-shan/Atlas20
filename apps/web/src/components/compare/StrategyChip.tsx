@@ -97,4 +97,3 @@ export function AddStrategyChip({ onClick }: { onClick?: () => void }) {
     </button>
   );
 }
-

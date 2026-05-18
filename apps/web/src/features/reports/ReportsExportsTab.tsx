@@ -59,9 +59,8 @@ export function ReportsExportsTab() {
   }, [aData, sort]);
 
   const handleDownloadAll = () => {
-    void downloadDigest(format).catch(() => {
-      // Real download wired in Phase 11 — stub for fallback build
-    });
+    // Bundle archive (all formats); single-format download lives on individual cards
+    void downloadDigest("bundle").catch(() => {});
   };
 
   const handleDownloadOne = (id: string, fmt?: ReportFormat) => {

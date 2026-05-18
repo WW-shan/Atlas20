@@ -102,7 +102,7 @@ describe("Fallback data shapes", () => {
     expect(counts.cyan).toBe(2);
     expect(counts.emerald).toBe(1);
     // No InfoCircle anywhere — must be "info"
-    expect(fallbackDataAlerts.every((a) => a.icon !== ("InfoCircle" as unknown))).toBe(true);
+    expect(fallbackDataAlerts.every((a) => (a.icon as string) !== "InfoCircle")).toBe(true);
   });
 
   it("fallbackFeaturedDigest has 4 formats", () => {

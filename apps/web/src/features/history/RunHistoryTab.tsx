@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Toolbar } from "../../components/history/Toolbar";
 import { RunTable } from "../../components/history/RunTable";
@@ -10,6 +10,7 @@ import {
   defaultHistoryFilter,
   fallbackRunsList,
   listRuns,
+  toggleFavorite,
 } from "../../lib/api";
 import type { HistoryFilter, RunRow } from "../../lib/api";
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
@@ -63,7 +64,9 @@ function filterRows(rows: RunRow[], f: HistoryFilter, now: number): RunRow[] {
 export function RunHistoryTab({ onNavigate }: Props) {
   const [filter, setFilter] = useState<HistoryFilter>(defaultHistoryFilter);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [localFavorites, setLocalFavorites] = useState<Record<string, boolean>>({});
   const apiEnabled = import.meta.env.MODE !== "test";
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: qk.runs.list(filter),
@@ -71,18 +74,47 @@ export function RunHistoryTab({ onNavigate }: Props) {
     enabled: apiEnabled,
   });
 
+  const favoriteMutation = useMutation({
+    mutationFn: (runId: string) => toggleFavorite(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+    },
+  });
+
+  const handleToggleFavorite = (runId: string) => {
+    // Optimistic local flip so the star reacts immediately in fallback mode
+    setLocalFavorites((prev) => {
+      const current = prev[runId];
+      // unset returns to baseline (from row data); set inverts whatever's current
+      return { ...prev, [runId]: current === undefined ? true : !current };
+    });
+    if (apiEnabled) favoriteMutation.mutate(runId);
+  };
+
+  const applyLocalFavorite = (row: RunRow): RunRow => {
+    if (localFavorites[row.run_id] !== undefined) {
+      const baseline = row.favorited ?? false;
+      return { ...row, favorited: localFavorites[row.run_id] !== baseline ? !baseline : baseline };
+    }
+    return row;
+  };
+
   // Server returns already-paginated items. Fallback is the full list — we
   // filter & paginate client-side so the demo works without an API.
   const now = useMemo(() => Date.now(), []);
   const serverData = query.data;
   const { rows, total } = useMemo(() => {
     if (apiEnabled && serverData) {
-      return { rows: serverData.items, total: serverData.total };
+      return { rows: serverData.items.map(applyLocalFavorite), total: serverData.total };
     }
     const filtered = filterRows(fallbackRunsList, filter, now);
     const start = (filter.page - 1) * filter.pageSize;
-    return { rows: filtered.slice(start, start + filter.pageSize), total: filtered.length };
-  }, [apiEnabled, serverData, filter, now]);
+    return {
+      rows: filtered.slice(start, start + filter.pageSize).map(applyLocalFavorite),
+      total: filtered.length,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiEnabled, serverData, filter, now, localFavorites]);
 
   const handleRerun = () => {
     if (selectedId) onNavigate("backtest", selectedId);
@@ -112,6 +144,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
         rows={rows}
         selectedId={selectedId}
         onSelect={(id) => setSelectedId((prev) => (prev === id ? undefined : id))}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       <Pager

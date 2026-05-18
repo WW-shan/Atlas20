@@ -44,6 +44,7 @@ export function UniverseTimeline({ data, height = 480 }: Props) {
               fontSize="10"
               fill={isBtc ? "var(--muted)" : "var(--text)"}
               opacity={isBtc ? 0.55 : 1}
+              style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {token}
             </text>
@@ -95,6 +96,7 @@ export function UniverseTimeline({ data, height = 480 }: Props) {
             fontSize="9"
             fill="var(--violet)"
             letterSpacing="0.08em"
+            style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {r.label}
           </text>
@@ -107,6 +109,7 @@ export function UniverseTimeline({ data, height = 480 }: Props) {
         fontFamily="var(--font-mono)"
         fontSize="10"
         fill="var(--muted)"
+        style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {range.start}
       </text>
@@ -117,6 +120,7 @@ export function UniverseTimeline({ data, height = 480 }: Props) {
         fontFamily="var(--font-mono)"
         fontSize="10"
         fill="var(--muted)"
+        style={{ fontVariantNumeric: "tabular-nums" }}
       >
         {range.end}
       </text>

@@ -18,7 +18,7 @@ function statusToToneAndLabel(status: RunRowSummary["status"]): { tone: "cyan" |
 
 function statusToProgress(status: RunRowSummary["status"]): { fill: string; widthPct: number } | null {
   switch (status) {
-    case "running":   return { fill: "var(--gold)",    widthPct: 50 };
+    case "running":   return { fill: "var(--cyan)",    widthPct: 50 };
     case "completed": return { fill: "var(--emerald)", widthPct: 100 };
     case "failed":    return { fill: "var(--rose)",    widthPct: 100 };
     case "queued":    return null;
@@ -100,7 +100,7 @@ export function RunQueue({ runs, onViewAll }: Props) {
           <button
             type="button"
             onClick={onViewAll}
-            style={{ fontSize: 12, color: "var(--gold)", padding: 0, background: "transparent" }}
+            style={{ fontSize: 12, color: "var(--muted)", padding: 0, background: "transparent" }}
           >
             View all →
           </button>

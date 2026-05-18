@@ -42,6 +42,7 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
           value={value.preset}
           onChange={(e) => onChange({ ...value, preset: e.target.value })}
           style={inputStyle}
+          aria-label="Strategy preset"
         >
           <option>ATLAS Adaptive v3</option>
           <option>Momentum Top-10</option>

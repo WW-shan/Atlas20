@@ -63,10 +63,11 @@ export function DataAlertRow({ alert }: Props) {
         gap: 12,
         alignItems: "center",
         padding: "10px 14px",
-        borderLeft: `3px solid ${color}`,
         background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderLeftColor: color,
+        borderTop: "1px solid var(--border)",
+        borderRight: "1px solid var(--border)",
+        borderBottom: "1px solid var(--border)",
+        borderLeft: `3px solid ${color}`,
         borderRadius: "var(--radius-card)",
       }}
     >

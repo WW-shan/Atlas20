@@ -132,6 +132,7 @@ export function OverlayLineChart({
             fontFamily="var(--font-mono)"
             fontSize="11"
             fill="var(--muted)"
+            style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {formatY(t, yFormat)}
           </text>
@@ -148,6 +149,7 @@ export function OverlayLineChart({
           fontFamily="var(--font-mono)"
           fontSize="11"
           fill="var(--muted)"
+          style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {series[i]?.ts ?? ""}
         </text>
@@ -177,6 +179,7 @@ export function OverlayLineChart({
               fontFamily="var(--font-mono)"
               fontSize="10"
               fill={color}
+              style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {a.label}
             </text>

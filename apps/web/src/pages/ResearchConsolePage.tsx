@@ -10,6 +10,7 @@ import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
 import { fallbackOverview, getOverview } from "../lib/api";
+import { qk } from "../lib/qk";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
 type NavAction =
@@ -38,7 +39,7 @@ export function ResearchConsolePage() {
   const [nav, dispatch] = useReducer(navReducer, { tab: "overview" });
   const apiEnabled = import.meta.env.MODE !== "test";
   const overviewQuery = useQuery({
-    queryKey: ["overview"],
+    queryKey: qk.overview(),
     queryFn: getOverview,
     initialData: fallbackOverview,
     enabled: apiEnabled,

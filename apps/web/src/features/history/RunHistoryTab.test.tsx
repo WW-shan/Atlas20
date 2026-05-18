@@ -98,6 +98,17 @@ describe("RunHistoryTab", () => {
     expect(firstRow.getAttribute("aria-selected")).not.toBe("true");
   });
 
+  it("favorite star flips aria-pressed when clicked (wired toggle)", () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    // btk_0146 is NOT favorited in fallback — its button should toggle to pressed
+    const targetRow = document.querySelector('tr[data-run-id="btk_0146"]') as HTMLElement;
+    const favBtn = targetRow.querySelector('button[aria-label^="Favorite"]') as HTMLButtonElement;
+    expect(favBtn.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(favBtn);
+    const after = document.querySelector('tr[data-run-id="btk_0146"] button[aria-label^="Unfavorite"]');
+    expect(after).not.toBeNull();
+  });
+
   it("Pager exists and shows total count", () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
