@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Toolbar } from "../../components/history/Toolbar";
 import { RunTable } from "../../components/history/RunTable";
 import { Pager } from "../../components/ui/Pager";
+import { Button } from "../../components/ui/Button";
 
 import {
   defaultHistoryFilter,
@@ -61,6 +62,7 @@ function filterRows(rows: RunRow[], f: HistoryFilter, now: number): RunRow[] {
 
 export function RunHistoryTab({ onNavigate }: Props) {
   const [filter, setFilter] = useState<HistoryFilter>(defaultHistoryFilter);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const apiEnabled = import.meta.env.MODE !== "test";
 
   const query = useQuery({
@@ -69,28 +71,49 @@ export function RunHistoryTab({ onNavigate }: Props) {
     enabled: apiEnabled,
   });
 
-  // For fallback (and tests), filter client-side. Server-mode trusts the API.
+  // Server returns already-paginated items. Fallback is the full list — we
+  // filter & paginate client-side so the demo works without an API.
   const now = useMemo(() => Date.now(), []);
   const serverData = query.data;
-  const { items, total } = useMemo(() => {
+  const { rows, total } = useMemo(() => {
     if (apiEnabled && serverData) {
-      return { items: serverData.items, total: serverData.total };
+      return { rows: serverData.items, total: serverData.total };
     }
     const filtered = filterRows(fallbackRunsList, filter, now);
-    return { items: filtered, total: filtered.length };
+    const start = (filter.page - 1) * filter.pageSize;
+    return { rows: filtered.slice(start, start + filter.pageSize), total: filtered.length };
   }, [apiEnabled, serverData, filter, now]);
 
-  const start = (filter.page - 1) * filter.pageSize;
-  const pageRows = items.slice(start, start + filter.pageSize);
-
-  const handleOpen = (runId: string) => {
-    onNavigate("backtest", runId);
+  const handleRerun = () => {
+    if (selectedId) onNavigate("backtest", selectedId);
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
       <Toolbar filter={filter} onChange={setFilter} total={total} />
-      <RunTable rows={pageRows} onOpen={handleOpen} />
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
+        {selectedId && (
+          <span className="mono muted" style={{ fontSize: 11 }}>
+            Selected · {selectedId}
+          </span>
+        )}
+        <Button
+          variant={selectedId ? "gold" : "outline-muted"}
+          size="sm"
+          disabled={!selectedId}
+          onClick={handleRerun}
+        >
+          ▶ RE-RUN SELECTED
+        </Button>
+      </div>
+
+      <RunTable
+        rows={rows}
+        selectedId={selectedId}
+        onSelect={(id) => setSelectedId((prev) => (prev === id ? undefined : id))}
+      />
+
       <Pager
         total={total}
         page={filter.page}

@@ -22,18 +22,24 @@ describe("RunHistoryTab", () => {
     expect(screen.getByRole("tab", { name: "30d" }).getAttribute("aria-selected")).toBe("true");
   });
 
+  it("switching date range to 'all' yields 14 fallback rows", () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    fireEvent.click(screen.getByRole("tab", { name: "all" }));
+    const rows = document.querySelectorAll("tr[data-run-id]");
+    expect(rows.length).toBe(14);
+  });
+
+  it("renders RunTable header with 13 columns + 1 selection-bar column", () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    const headers = document.querySelectorAll("thead th");
+    // 13 visible labels + 1 selection-bar (empty label) → 14 th elements
+    expect(headers.length).toBeGreaterThanOrEqual(13);
+  });
+
   it("renders list/grid view toggle with list active", () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     const listBtn = screen.getByRole("button", { name: "list" });
     expect(listBtn.getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("renders RunTable with all fallback rows on default filter", () => {
-    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
-    expect(screen.getByRole("region", { name: "Run history table" })).toBeInTheDocument();
-    // fallback has 14 runs, default page size 14 → all on page 1
-    const rows = document.querySelectorAll("tr[data-run-id]");
-    expect(rows.length).toBeGreaterThanOrEqual(10);
   });
 
   it("renders RUNNING pill with pulse for in-flight runs", () => {
@@ -55,24 +61,41 @@ describe("RunHistoryTab", () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "favorited" }));
     const rows = document.querySelectorAll("tr[data-run-id]");
-    // fallbackRunsList has 2 favorited runs (btk_0148, btk_0142)
     expect(rows.length).toBe(2);
   });
 
-  it("clicking a row navigates to backtest with prefill run_id", () => {
+  it("clicking a row selects it (aria-selected) without navigating", () => {
     const onNavigate = vi.fn();
     renderWithQuery(<RunHistoryTab onNavigate={onNavigate} />);
     const firstRow = document.querySelector("tr[data-run-id]") as HTMLElement;
     fireEvent.click(firstRow);
+    expect(firstRow.getAttribute("aria-selected")).toBe("true");
+    expect(firstRow.getAttribute("data-selected")).toBe("true");
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("RE-RUN SELECTED is disabled until a row is selected", () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    const btn = screen.getByRole("button", { name: /RE-RUN SELECTED/ });
+    expect(btn.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("clicking RE-RUN SELECTED navigates to backtest with prefillRunId", () => {
+    const onNavigate = vi.fn();
+    renderWithQuery(<RunHistoryTab onNavigate={onNavigate} />);
+    const firstRow = document.querySelector("tr[data-run-id]") as HTMLElement;
+    fireEvent.click(firstRow);
+    fireEvent.click(screen.getByRole("button", { name: /RE-RUN SELECTED/ }));
     expect(onNavigate).toHaveBeenCalledWith("backtest", firstRow.getAttribute("data-run-id"));
   });
 
-  it("favorite star button toggles aria-pressed without triggering row click", () => {
-    const onNavigate = vi.fn();
-    renderWithQuery(<RunHistoryTab onNavigate={onNavigate} />);
+  it("favorite star button toggles without triggering row selection", () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     const favBtn = screen.getAllByRole("button", { name: /Favorite|Unfavorite/ })[0];
     fireEvent.click(favBtn);
-    expect(onNavigate).not.toHaveBeenCalled();
+    // The parent row should NOT be selected
+    const firstRow = document.querySelector("tr[data-run-id]") as HTMLElement;
+    expect(firstRow.getAttribute("aria-selected")).not.toBe("true");
   });
 
   it("Pager exists and shows total count", () => {

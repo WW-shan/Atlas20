@@ -5,7 +5,8 @@ import { SparklineChart } from "../charts/SparklineChart";
 
 type Props = {
   rows: RunRow[];
-  onOpen: (runId: string) => void;
+  selectedId?: string;
+  onSelect: (runId: string) => void;
   onToggleFavorite?: (runId: string) => void;
 };
 
@@ -36,9 +37,11 @@ function formatDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-const COLS = [
+const COLS: { key: string; label: string }[] = [
+  { key: "selected", label: "" },
   { key: "favorite", label: "" },
   { key: "run_id",   label: "RUN ID" },
+  { key: "family",   label: "FAMILY" },
   { key: "strategy", label: "STRATEGY" },
   { key: "universe", label: "UNIVERSE" },
   { key: "window",   label: "WINDOW" },
@@ -48,9 +51,10 @@ const COLS = [
   { key: "max_dd",   label: "MAX DD" },
   { key: "duration", label: "TIME" },
   { key: "spark",    label: "TREND" },
+  { key: "created",  label: "CREATED" },
 ];
 
-export function RunTable({ rows, onOpen, onToggleFavorite }: Props) {
+export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props) {
   return (
     <div
       role="region"
@@ -88,13 +92,28 @@ export function RunTable({ rows, onOpen, onToggleFavorite }: Props) {
         <tbody>
           {rows.map((r) => {
             const status = statusTone(r.status);
+            const isSelected = r.run_id === selectedId;
             return (
               <tr
                 key={r.run_id}
                 data-run-id={r.run_id}
+                data-selected={isSelected ? "true" : undefined}
+                role="row"
+                aria-selected={isSelected}
                 style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                onClick={() => onOpen(r.run_id)}
+                onClick={() => onSelect(r.run_id)}
               >
+                <td style={{ padding: 0, width: 4 }}>
+                  <div
+                    aria-hidden
+                    style={{
+                      width: 3,
+                      height: 30,
+                      background: isSelected ? "var(--gold)" : "transparent",
+                      borderRadius: 2,
+                    }}
+                  />
+                </td>
                 <td style={{ padding: "8px 12px", width: 28 }}>
                   <button
                     type="button"
@@ -117,6 +136,9 @@ export function RunTable({ rows, onOpen, onToggleFavorite }: Props) {
                   </button>
                 </td>
                 <td className="mono" style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{r.run_id}</td>
+                <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  {r.strategy_family ?? "—"}
+                </td>
                 <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{r.strategy}</td>
                 <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", whiteSpace: "nowrap" }}>{r.universe}</td>
                 <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", fontSize: 11, whiteSpace: "nowrap" }}>
@@ -166,6 +188,9 @@ export function RunTable({ rows, onOpen, onToggleFavorite }: Props) {
                   ) : (
                     <span className="muted" style={{ fontSize: 11 }}>—</span>
                   )}
+                </td>
+                <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", fontSize: 11, whiteSpace: "nowrap" }}>
+                  {formatDate(r.created_at)}
                 </td>
               </tr>
             );

@@ -5,28 +5,32 @@ type Props = {
   onRemove?: (id: string) => void;
 };
 
-const toneStyles: Record<CompareSelectionItem["tone"], { color: string; border: string; bg: string }> = {
-  gold:    { color: "var(--gold)",    border: "var(--gold)",    bg: "rgba(245,158,11,0.08)" },
-  violet:  { color: "var(--violet)",  border: "var(--violet)",  bg: "rgba(139,92,246,0.08)" },
-  cyan:    { color: "var(--cyan)",    border: "var(--cyan)",    bg: "rgba(6,182,212,0.08)" },
-  emerald: { color: "var(--emerald)", border: "var(--emerald)", bg: "rgba(16,185,129,0.08)" },
+const dotColors: Record<CompareSelectionItem["tone"], string> = {
+  gold:    "var(--gold)",
+  violet:  "var(--violet)",
+  cyan:    "var(--cyan)",
+  emerald: "var(--emerald)",
 };
 
 export function StrategyChip({ item, onRemove }: Props) {
-  const t = toneStyles[item.tone];
+  // Gold is on the SPEC §1.1 restraint whitelist for chart lines + best-cell
+  // tint + diagonal heatmap only. Strategy chips keep a tone-matching dot so
+  // users can map chip→line in the legend, but the chip surface itself uses
+  // neutral border/text/bg to honour gold restraint.
   return (
     <span
       role="listitem"
       aria-label={`Strategy ${item.label}`}
+      data-tone={item.tone}
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
         padding: "6px 12px",
         borderRadius: "var(--radius-pill)",
-        border: `1px solid ${t.border}`,
-        background: t.bg,
-        color: t.color,
+        border: "1px solid var(--border)",
+        background: "var(--surface)",
+        color: "var(--text)",
         fontFamily: "var(--font-sans)",
         fontSize: 12,
         fontWeight: 600,
@@ -39,7 +43,7 @@ export function StrategyChip({ item, onRemove }: Props) {
           width: 8,
           height: 8,
           borderRadius: "50%",
-          background: t.color,
+          background: dotColors[item.tone],
           display: "inline-block",
         }}
       />
@@ -52,7 +56,7 @@ export function StrategyChip({ item, onRemove }: Props) {
           style={{
             background: "transparent",
             border: "none",
-            color: t.color,
+            color: "var(--muted)",
             cursor: "pointer",
             padding: 0,
             marginLeft: 4,
@@ -93,3 +97,4 @@ export function AddStrategyChip({ onClick }: { onClick?: () => void }) {
     </button>
   );
 }
+

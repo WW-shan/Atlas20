@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
 import { SectionHeader } from "../../components/ui/SectionHeader";
-import { Pill } from "../../components/ui/Pill";
 import { OverlayLineChart } from "../../components/charts/OverlayLineChart";
 import { StrategyChip, AddStrategyChip } from "../../components/compare/StrategyChip";
 import { ComparisonTable } from "../../components/compare/ComparisonTable";
@@ -73,8 +72,8 @@ export function StrategyCompareTab() {
                     style={{
                       fontSize: 11,
                       padding: "2px 8px",
-                      color: active ? "var(--gold)" : "var(--muted)",
-                      borderBottom: active ? "2px solid var(--gold)" : "2px solid transparent",
+                      color: active ? "var(--text)" : "var(--muted)",
+                      borderBottom: active ? "2px solid var(--violet)" : "2px solid transparent",
                       background: "transparent",
                       cursor: "pointer",
                     }}
@@ -128,7 +127,22 @@ export function StrategyCompareTab() {
           <SectionHeader>METRIC COMPARISON</SectionHeader>
           <ComparisonTable selections={selections} metrics={data.metrics} />
           <div style={{ marginTop: 12, fontSize: 11, color: "var(--muted)" }}>
-            <Pill tone="gold-outline" size="xs">BEST</Pill>{" "}
+            <span
+              className="mono"
+              aria-label="Best per row legend"
+              style={{
+                display: "inline-block",
+                padding: "1px 8px",
+                background: "rgba(245,158,11,0.06)",
+                color: "var(--gold)",
+                border: "1px solid rgba(245,158,11,0.30)",
+                borderRadius: 4,
+                fontSize: 10,
+                letterSpacing: "0.08em",
+              }}
+            >
+              BEST
+            </span>{" "}
             <span style={{ marginLeft: 8 }}>highlighted per row · direction-aware</span>
           </div>
         </Card>

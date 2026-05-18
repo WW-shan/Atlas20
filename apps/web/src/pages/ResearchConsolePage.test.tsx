@@ -21,14 +21,13 @@ test("clicking tab switches content", async () => {
   render(<App />);
 
   const overviewTab = screen.getByRole("tab", { name: "Overview" });
-  const universeTab = screen.getByRole("tab", { name: "Universe" });
+  const reportsTab = screen.getByRole("tab", { name: "Reports" });
 
-  act(() => { universeTab.click(); });
+  act(() => { reportsTab.click(); });
 
-  // Universe becomes selected, Overview becomes unselected
-  expect(universeTab).toHaveAttribute("aria-selected", "true");
+  expect(reportsTab).toHaveAttribute("aria-selected", "true");
   expect(overviewTab).toHaveAttribute("aria-selected", "false");
 
-  // Placeholder content shows (Universe still a placeholder until P9)
+  // Placeholder content shows (Reports still a placeholder until P10)
   expect(screen.getByText(/Coming soon/)).toBeInTheDocument();
 });

@@ -7,6 +7,7 @@ import { OverviewTab } from "../features/overview/OverviewTab";
 import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
 import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
+import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { fallbackOverview, getOverview } from "../lib/api";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
@@ -75,7 +76,7 @@ export function ResearchConsolePage() {
         <RunHistoryTab onNavigate={navigate} />
       )}
       {nav.tab === "universe" && (
-        <PlaceholderTab label="Universe & Data Health" />
+        <UniverseHealthTab />
       )}
       {nav.tab === "reports" && (
         <PlaceholderTab label="Reports & Exports" />
