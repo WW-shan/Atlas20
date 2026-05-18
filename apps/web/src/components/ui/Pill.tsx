@@ -1,6 +1,6 @@
 import type { PillTone } from "./types";
 
-type PillProps = {
+export type PillProps = {
   tone: PillTone;
   size?: "xs" | "sm" | "md";
   pulse?: boolean;

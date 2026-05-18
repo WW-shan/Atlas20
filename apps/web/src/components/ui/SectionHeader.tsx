@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type SectionHeaderProps = {
+export type SectionHeaderProps = {
   children: string;
   rightSlot?: ReactNode;
 };
@@ -8,6 +8,8 @@ type SectionHeaderProps = {
 export function SectionHeader({ children, rightSlot }: SectionHeaderProps) {
   return (
     <div
+      role="heading"
+      aria-level={3}
       style={{
         display: "flex",
         alignItems: "center",

@@ -1,4 +1,4 @@
-type EmptyStateProps = {
+export type EmptyStateProps = {
   title: string;
   sub?: string;
   action?: { label: string; onClick: () => void };

@@ -23,7 +23,7 @@ export function OverviewTab(props: {
       </div>
       <div className="overview-grid">
         <Panel title="Champion Equity Curve" eyebrow="Performance" className="panel--wide">
-          <SparklineChart points={props.overview.equity_curve} />
+          <SparklineChart points={props.overview.equity_curve.map((p) => p.value)} tone="gold" height={48} width={400} ariaLabel="Champion equity curve" />
         </Panel>
         <StrategyLogicSummary />
       </div>

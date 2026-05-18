@@ -1,6 +1,6 @@
 import type { PillTone } from "./types";
 
-type StatusDotProps = { tone: PillTone; pulse?: boolean };
+export type StatusDotProps = { tone: PillTone; pulse?: boolean };
 
 const toneColors: Record<PillTone, string> = {
   emerald: "var(--emerald)", cyan: "var(--cyan)", rose: "var(--rose)",
@@ -12,7 +12,9 @@ const toneColors: Record<PillTone, string> = {
 export function StatusDot({ tone, pulse }: StatusDotProps) {
   return (
     <span
+      role="presentation"
       aria-hidden="true"
+      data-tone={tone}
       style={{
         display: "inline-block",
         width: 8,

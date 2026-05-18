@@ -1,26 +1,48 @@
 import type { ReactNode } from "react";
 
-type CardProps = {
+export type CardProps = {
   variant?: "default" | "hero" | "report";
   header?: ReactNode;
+  thumbnail?: ReactNode;
   children: ReactNode;
   style?: React.CSSProperties;
+  ariaLabel?: string;
 };
 
-export function Card({ variant = "default", header, children, style }: CardProps) {
+const variantClass: Record<NonNullable<CardProps["variant"]>, string> = {
+  default: "card",
+  hero:    "card card--hero",
+  report:  "card card--report",
+};
+
+export function Card({ variant = "default", header, thumbnail, children, style, ariaLabel }: CardProps) {
   return (
-    <div
-      className={variant === "hero" ? "card card--hero" : "card"}
+    <section
+      aria-label={ariaLabel}
+      className={variantClass[variant]}
+      data-variant={variant}
       style={{
-        padding: 20,
+        padding: variant === "report" ? 0 : 20,
         ...(variant === "hero" ? { minHeight: 180 } : {}),
         ...style,
       }}
     >
-      {header && (
-        <div style={{ marginBottom: 12 }}>{header}</div>
+      {variant === "report" && thumbnail && (
+        <div className="card__thumbnail" style={{ height: 96, overflow: "hidden" }}>
+          {thumbnail}
+        </div>
       )}
-      {children}
-    </div>
+      {variant === "report" ? (
+        <div style={{ padding: 16 }}>
+          {header && <div style={{ marginBottom: 12 }}>{header}</div>}
+          {children}
+        </div>
+      ) : (
+        <>
+          {header && <div style={{ marginBottom: 12 }}>{header}</div>}
+          {children}
+        </>
+      )}
+    </section>
   );
 }

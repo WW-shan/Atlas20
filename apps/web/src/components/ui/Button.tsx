@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-type ButtonVariant = "gold" | "outline-gold" | "outline-violet" | "outline-muted" | "outline-dashed" | "ghost";
+export type ButtonVariant = "gold" | "outline-gold" | "outline-violet" | "outline-muted" | "outline-dashed" | "ghost";
 
-type ButtonProps = {
+export type ButtonProps = {
   variant: ButtonVariant;
   size?: "sm" | "md" | "lg";
   loading?: boolean;

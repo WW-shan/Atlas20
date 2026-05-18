@@ -280,7 +280,8 @@ button {
 }
 
 .topnav-search__input:focus {
-  outline: none;
+  outline: 1px solid var(--violet);
+  outline-offset: 2px;
   border-color: var(--violet);
 }
 

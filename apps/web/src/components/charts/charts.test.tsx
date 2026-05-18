@@ -6,7 +6,7 @@ import { OverlayLineChart } from "./OverlayLineChart";
 
 describe("SparklineChart", () => {
   it("renders SVG with default tone", () => {
-    render(<SparklineChart points={[1, 2, 3, 4]} />);
+    render(<SparklineChart points={[1, 2, 3, 4]} tone="violet" />);
     expect(screen.getByRole("img", { name: "Sparkline" })).toBeInTheDocument();
   });
 

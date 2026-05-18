@@ -1,6 +1,12 @@
-import type { SeriesPoint } from "../../lib/api";
+export type SparkTone = "violet" | "cyan" | "emerald" | "rose" | "gold" | "muted-dashed";
 
-type SparkTone = "violet" | "cyan" | "emerald" | "rose" | "gold" | "muted-dashed";
+export type SparklineProps = {
+  points: number[];
+  tone: SparkTone;
+  height?: number;
+  width?: number;
+  ariaLabel?: string;
+};
 
 const toneColors: Record<SparkTone, string> = {
   violet:  "var(--violet)",
@@ -11,38 +17,21 @@ const toneColors: Record<SparkTone, string> = {
   "muted-dashed": "var(--muted)",
 };
 
-type Point = SeriesPoint | { value: number };
-
-function pointsToPath(points: Point[], width: number, height: number) {
-  if (points.length === 0) return "";
-  const values = points.map((p) => p.value);
+function pointsToPath(values: number[], width: number, height: number) {
+  if (values.length === 0) return "";
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
-  return points
-    .map((point, index) => {
-      const x = (index / Math.max(points.length - 1, 1)) * width;
-      const y = height - ((point.value - min) / range) * height;
+  return values
+    .map((v, index) => {
+      const x = (index / Math.max(values.length - 1, 1)) * width;
+      const y = height - ((v - min) / range) * height;
       return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
 }
 
-export function SparklineChart(props: {
-  points: Point[] | number[];
-  tone?: SparkTone;
-  height?: number;
-  width?: number;
-  ariaLabel?: string;
-}) {
-  const tone: SparkTone = props.tone ?? "violet";
-  const width = props.width ?? 120;
-  const height = props.height ?? 32;
-
-  const points: Point[] = Array.isArray(props.points) && typeof props.points[0] === "number"
-    ? (props.points as number[]).map((v) => ({ value: v }))
-    : (props.points as Point[]);
-
+export function SparklineChart({ points, tone, height = 24, width = 120, ariaLabel }: SparklineProps) {
   const path = pointsToPath(points, width, height);
   const stroke = toneColors[tone];
   const dashed = tone === "muted-dashed";
@@ -53,7 +42,7 @@ export function SparklineChart(props: {
       width={width}
       height={height}
       role="img"
-      aria-label={props.ariaLabel ?? "Sparkline"}
+      aria-label={ariaLabel ?? "Sparkline"}
       style={{ display: "block" }}
     >
       <path

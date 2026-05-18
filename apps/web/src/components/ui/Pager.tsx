@@ -1,4 +1,4 @@
-type PagerProps = {
+export type PagerProps = {
   total: number;
   page: number;
   pageSize: number;
@@ -8,6 +8,8 @@ type PagerProps = {
 export function Pager({ total, page, pageSize, onChange }: PagerProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const from = Math.min((page - 1) * pageSize + 1, total);
+  const to = Math.min(page * pageSize, total);
 
   return (
     <div
@@ -16,7 +18,7 @@ export function Pager({ total, page, pageSize, onChange }: PagerProps) {
       aria-label="Pagination"
     >
       <span className="muted" style={{ fontSize: 12 }}>
-        Showing {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} of{" "}
+        Showing <span className="mono">{from}</span>–<span className="mono">{to}</span> of{" "}
         <span className="mono">{total.toLocaleString()}</span>
       </span>
       <div style={{ display: "flex", gap: 4 }}>

@@ -1,5 +1,5 @@
-type SkeletonProps = {
-  variant?: "text" | "chart" | "table" | "card";
+export type SkeletonProps = {
+  variant: "text" | "chart" | "table" | "card";
   width?: string;
   height?: string;
 };
@@ -11,12 +11,14 @@ const defaults: Record<string, { width: string; height: string }> = {
   card:  { width: "100%", height: "180px" },
 };
 
-export function Skeleton({ variant = "text", width, height }: SkeletonProps) {
+export function Skeleton({ variant, width, height }: SkeletonProps) {
   const d = defaults[variant];
   return (
     <div
-      role="presentation"
+      role="status"
       aria-busy="true"
+      aria-label="Loading"
+      data-variant={variant}
       style={{
         width: width ?? d.width,
         height: height ?? d.height,

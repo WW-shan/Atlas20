@@ -1,4 +1,4 @@
-type KpiTileProps = {
+export type KpiTileProps = {
   label: string;
   value: string | number;
   delta?: { value: string; tone: "emerald" | "rose" | "muted" };
@@ -12,14 +12,14 @@ const deltaColors = {
   muted: "var(--muted)",
 };
 
-export function KpiTile({ label, value, delta, inline }: KpiTileProps) {
+export function KpiTile({ label, value, delta, spark, inline }: KpiTileProps) {
   if (inline) {
     return (
-      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+      <span role="group" aria-label={label} style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
         <span
           style={{
             fontFamily: "var(--font-sans)",
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: 600,
             letterSpacing: "0.08em",
             textTransform: "uppercase" as const,
@@ -39,7 +39,7 @@ export function KpiTile({ label, value, delta, inline }: KpiTileProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div role="group" aria-label={label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <span
         style={{
           fontFamily: "var(--font-sans)",
@@ -53,6 +53,15 @@ export function KpiTile({ label, value, delta, inline }: KpiTileProps) {
         {label}
       </span>
       <span className="mono" style={{ fontSize: 24, lineHeight: 1 }}>{value}</span>
+      {spark && (
+        <SparklineChart
+          points={spark.points}
+          tone={spark.tone}
+          height={24}
+          width={120}
+          ariaLabel={`${label} trend`}
+        />
+      )}
       {delta && (
         <span className="mono" style={{ fontSize: 13, color: deltaColors[delta.tone] }}>
           {delta.value}
