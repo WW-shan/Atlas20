@@ -1,18 +1,13 @@
-"""Constrained backtest API routes."""
+"""Backtest API routes."""
 
 from fastapi import APIRouter
 
-from atlas20.api.runner import execute_backtest_request
-from atlas20.api.schemas import BacktestRequest, RunStatus
+from atlas20.api.schemas import BacktestConfig, RunRowSummary
+from atlas20.api.services import register_new_backtest
 
 router = APIRouter(prefix="/api", tags=["backtests"])
 
 
-@router.get("/backtests")
-def get_backtests() -> dict:
-    return {"status": "ready"}
-
-
-@router.post("/backtests/run", response_model=RunStatus)
-def post_backtest(request: BacktestRequest) -> RunStatus:
-    return execute_backtest_request(request)
+@router.post("/backtests/run", response_model=RunRowSummary, response_model_exclude_none=True)
+def post_backtest(config: BacktestConfig) -> RunRowSummary:
+    return register_new_backtest(config)

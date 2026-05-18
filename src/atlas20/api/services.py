@@ -1,101 +1,218 @@
-"""Services for reading Atlas20 report artifacts."""
+"""Services for the Atlas20 R3 mock-backed API."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from copy import deepcopy
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
-import pandas as pd
-
+from atlas20.api import mock_data
 from atlas20.api.schemas import (
-    ChampionResponse,
-    OptionsResponse,
-    OverviewResponse,
-    SelectionHistoryRow,
-    SeriesPoint,
-    StrategySummary,
+    BacktestConfig,
+    ComparePayload,
+    DataAlert,
+    DataSource,
+    FeaturedDigest,
+    OverviewPayload,
+    ReportEntry,
+    RunDetailPayload,
+    RunRow,
+    RunRowSummary,
+    UniverseTimelinePayload,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports" / "bear_bottom_to_current_2022_11_21_2026_04_22"
-DEFAULT_CHAMPION_DIR = DEFAULT_REPORT_DIR / "profit_max_refine" / "champion_all_1m_14d_stop11_confirm2"
+ANCHOR_DATE = date(2026, 5, 19)
+RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
+RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
 
 
-def _clean_record(record: dict) -> dict:
-    return {str(key).lstrip("\ufeff"): value for key, value in record.items()}
+def get_overview() -> OverviewPayload:
+    return OverviewPayload.model_validate(deepcopy(mock_data.fallback_overview))
 
 
-def load_champion_summary(report_dir: Path = DEFAULT_CHAMPION_DIR) -> ChampionResponse:
-    frame = pd.read_csv(report_dir / "champion_summary.csv")
-    return ChampionResponse.model_validate(_clean_record(frame.iloc[0].to_dict()))
+def get_options_payload() -> dict[str, Any]:
+    return {}
 
 
-def load_top_strategies(report_dir: Path = DEFAULT_REPORT_DIR, limit: int = 10) -> list[StrategySummary]:
-    frame = pd.read_csv(report_dir / "strategy_summary.csv")
-    frame = frame.sort_values(["total_return", "sharpe"], ascending=[False, False]).head(limit)
-    rows: list[StrategySummary] = []
-    for _, row in frame.iterrows():
-        rows.append(
-            StrategySummary(
-                strategy=str(row["strategy"]),
-                multiple=float(row["total_return"]) + 1.0,
-                cagr=float(row["cagr"]),
-                sharpe=float(row["sharpe"]),
-                max_drawdown=float(row["max_drawdown"]),
-                annualized_turnover=float(row.get("annualized_turnover", 0.0)),
-                monthly_win_rate=float(row.get("monthly_win_rate", 0.0)),
-            )
-        )
-    return rows
+def list_runs_queue() -> list[RunRowSummary]:
+    return [RunRowSummary.model_validate(row) for row in mock_data.fallback_runs_queue]
 
 
-def load_time_series(path: Path, value_column: str, limit: int | None = None) -> list[SeriesPoint]:
-    frame = pd.read_csv(path)
-    date_column = "date" if "date" in frame.columns else frame.columns[0]
-    rows = frame[[date_column, value_column]].dropna()
-    if limit:
-        rows = rows.head(limit)
-    return [
-        SeriesPoint(date=str(pd.Timestamp(row[date_column]).date()), value=float(row[value_column]))
-        for _, row in rows.iterrows()
+def _created_date(row: dict[str, Any]) -> date:
+    return datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")).date()
+
+
+def _date_cutoff(date_range: str) -> date | None:
+    if date_range == "all":
+        return None
+    if date_range == "ytd":
+        return date(ANCHOR_DATE.year, 1, 1)
+    days = {"7d": 7, "30d": 30, "90d": 90}.get(date_range, 30)
+    return ANCHOR_DATE - timedelta(days=days)
+
+
+def _matches_query(row: dict[str, Any], q: str) -> bool:
+    if not q:
+        return True
+    needle = q.lower()
+    return (
+        needle in row["strategy"].lower()
+        or needle in row["run_id"].lower()
+        or needle in row.get("universe", "").lower()
+        or needle in row.get("strategy_family", "").lower()
+    )
+
+
+def _matches_chip(row: dict[str, Any], chip: str) -> bool:
+    if chip == "favorited":
+        return bool(row.get("favorited"))
+    if chip in RUN_STATUS_CHIPS:
+        return row["status"] == chip
+    if chip in RUN_FAMILY_CHIPS:
+        return row.get("strategy_family") == chip
+    return chip in row["strategy"]
+
+
+def _matches_date_range(row: dict[str, Any], date_range: str) -> bool:
+    cutoff = _date_cutoff(date_range)
+    return cutoff is None or _created_date(row) >= cutoff
+
+
+def list_runs(
+    q: str = "",
+    chips: list[str] | None = None,
+    date_range: str = "30d",
+    view: str = "list",
+    page: int = 1,
+    page_size: int = 14,
+) -> tuple[list[RunRow], int]:
+    del view
+    chip_values = [chip for chip in chips or [] if chip]
+    rows = [
+        row
+        for row in mock_data.fallback_runs_list
+        if _matches_query(row, q)
+        and all(_matches_chip(row, chip) for chip in chip_values)
+        and _matches_date_range(row, date_range)
     ]
+    total = len(rows)
+    safe_page = max(page, 1)
+    safe_page_size = max(page_size, 1)
+    start = (safe_page - 1) * safe_page_size
+    end = start + safe_page_size
+    return [RunRow.model_validate(row) for row in rows[start:end]], total
 
 
-def load_selection_history(path: Path, limit: int = 100) -> list[SelectionHistoryRow]:
-    frame = pd.read_csv(path).tail(limit)
-    rows: list[SelectionHistoryRow] = []
-    for _, row in frame.iterrows():
-        rows.append(
-            SelectionHistoryRow(
-                rebalance_date=str(pd.Timestamp(row["rebalance_date"]).date()),
-                coin_id=str(row["coin_id"]),
-                coin_rank=int(row["coin_rank"]),
-                coin_score=float(row["coin_score"]) if pd.notna(row.get("coin_score")) else None,
-                coin_weight=float(row["coin_weight"]),
-            )
-        )
-    return rows
+def get_run(run_id: str) -> RunRow | None:
+    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
+    return RunRow.model_validate(row) if row else None
 
 
-def get_overview_payload(
-    report_dir: Path = DEFAULT_REPORT_DIR,
-    champion_dir: Path = DEFAULT_CHAMPION_DIR,
-) -> OverviewResponse:
-    return OverviewResponse(
-        champion=load_champion_summary(champion_dir),
-        top_strategies=load_top_strategies(report_dir, limit=10),
-        equity_curve=load_time_series(champion_dir / "equity_curve.csv", "equity"),
-        daily_returns=load_time_series(champion_dir / "daily_returns.csv", "daily_return"),
-        selection_history=load_selection_history(champion_dir / "selection_history.csv"),
-    )
+def get_run_detail(run_id: str) -> RunDetailPayload | None:
+    if run_id == mock_data.fallback_run_detail["run_id"]:
+        return RunDetailPayload.model_validate(deepcopy(mock_data.fallback_run_detail))
+    return None
 
 
-def get_options_payload() -> OptionsResponse:
-    return OptionsResponse(
-        strategy_families=["momentum_lead"],
-        top_n_values=[1, 2, 3],
-        frequencies=["7D", "14D"],
-        risk_modes=["always_on", "bull_only"],
-        risk_off_assets=["bitcoin", "ethereum", "cash"],
-        min_history_days=[30, 60, 90],
-        min_daily_dollar_volume=[1_000_000, 5_000_000, 10_000_000, 25_000_000],
-    )
+def toggle_run_favorite(run_id: str) -> dict[str, Any] | None:
+    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
+    if row is None:
+        return None
+    row["favorited"] = not bool(row.get("favorited"))
+    if mock_data.fallback_run_detail["run_id"] == run_id:
+        mock_data.fallback_run_detail["favorited"] = row["favorited"]
+    return {"run_id": run_id, "favorited": row["favorited"]}
+
+
+def _next_backtest_id() -> str:
+    ids = [row["run_id"] for row in mock_data.fallback_runs_list + mock_data.fallback_runs_queue]
+    max_number = max((int(run_id.rsplit("_", 1)[1]) for run_id in ids if run_id.startswith("btk_")), default=0)
+    return f"btk_{max_number + 1:04d}"
+
+
+def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
+    summary = {
+        "run_id": _next_backtest_id(),
+        "strategy": config.preset,
+        "status": "queued",
+        "params_summary": (
+            f"N={config.universe.topN} · {config.window.rebalance} · "
+            f"{config.window.start[:4]}→{config.window.end[:4]}"
+        ),
+    }
+    mock_data.fallback_runs_queue.insert(0, summary)
+    return RunRowSummary.model_validate(summary)
+
+
+def get_compare(ids: list[str], range_: str) -> ComparePayload:
+    del range_
+    payload = deepcopy(mock_data.fallback_compare)
+    present = [run_id for run_id in ids if run_id in payload["metrics"]["cagr"]]
+    if not present:
+        return ComparePayload.model_validate(payload)
+    index_by_id = {"atlas": 0, "momentum": 1, "meanrev": 2}
+    label_by_id = {"atlas": "ATLAS v3", "momentum": "Momentum", "meanrev": "MeanRev"}
+    indices = [index_by_id[run_id] for run_id in present]
+    payload["equity"] = [
+        {"ts": point["ts"], "values": {run_id: point["values"][run_id] for run_id in present}}
+        for point in payload["equity"]
+    ]
+    payload["metrics"] = {
+        metric: {run_id: values[run_id] for run_id in present}
+        for metric, values in payload["metrics"].items()
+    }
+    payload["overlap"]["symbols"] = [label_by_id[run_id] for run_id in present]
+    payload["overlap"]["matrix"] = [
+        [payload["overlap"]["matrix"][row_index][column_index] for column_index in indices]
+        for row_index in indices
+    ]
+    payload["overlap"]["sharedHoldings"] = [
+        {**holding, "count": min(holding["count"], len(present)), "total": len(present)}
+        for holding in payload["overlap"]["sharedHoldings"]
+    ]
+    return ComparePayload.model_validate(payload)
+
+
+def get_universe_timeline() -> UniverseTimelinePayload:
+    return UniverseTimelinePayload.model_validate(deepcopy(mock_data.fallback_universe_timeline))
+
+
+def get_data_sources() -> list[DataSource]:
+    return [DataSource.model_validate(row) for row in mock_data.fallback_data_sources]
+
+
+def get_data_alerts() -> list[DataAlert]:
+    return [DataAlert.model_validate(row) for row in mock_data.fallback_data_alerts]
+
+
+def refresh_universe() -> dict[str, str]:
+    refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return {"refreshed_at": refreshed_at}
+
+
+def get_featured_digest() -> FeaturedDigest:
+    return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
+
+
+def list_reports(sort: str = "recent") -> list[ReportEntry]:
+    rows = list(mock_data.fallback_reports)
+    if sort == "oldest":
+        rows.sort(key=lambda row: row["generated_at"])
+    elif sort == "size":
+        rows.sort(key=lambda row: row["size_bytes"], reverse=True)
+    elif sort == "type":
+        rows.sort(key=lambda row: row["report_type"])
+    else:
+        rows.sort(key=lambda row: row["generated_at"], reverse=True)
+    return [ReportEntry.model_validate(row) for row in rows]
+
+
+def build_digest_download_url(fmt: str) -> dict[str, str]:
+    return {"url": f"/static/reports/digest.{fmt}"}
+
+
+def build_report_download_url(report_id: str, fmt: str | None = None) -> dict[str, str] | None:
+    if not any(row["id"] == report_id for row in mock_data.fallback_reports):
+        return None
+    extension = fmt or "markdown"
+    return {"url": f"/static/reports/{report_id}.{extension}"}

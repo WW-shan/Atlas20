@@ -1,49 +1,65 @@
-"""Run artifact API routes."""
+"""Run API routes."""
 
-from pathlib import Path
+from typing import Any, Literal
 
-import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
-from atlas20.api.runner import APP_RUNS_DIR
+from atlas20.api import services
+from atlas20.api.schemas import RunDetailPayload, RunRow, RunRowSummary
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
 
-@router.get("/runs")
-def get_runs() -> dict:
-    if not APP_RUNS_DIR.exists():
-        return {"items": []}
-    items = []
-    for path in sorted(APP_RUNS_DIR.iterdir(), reverse=True):
-        summary_path = path / "summary.csv"
-        if path.is_dir() and summary_path.exists():
-            summary = pd.read_csv(summary_path).iloc[0].to_dict()
-            items.append({"run_id": path.name, "summary": summary})
-    return {"items": items}
+@router.get("/runs/queue", response_model=list[RunRowSummary], response_model_exclude_none=True)
+def get_runs_queue() -> list[RunRowSummary]:
+    return services.list_runs_queue()
 
 
-@router.get("/runs/{run_id}")
-def get_run(run_id: str) -> dict:
-    run_dir = APP_RUNS_DIR / run_id
-    summary_path = run_dir / "summary.csv"
-    if not summary_path.exists():
-        raise HTTPException(status_code=404, detail="run not found")
-    return {"run_id": run_id, "summary": pd.read_csv(summary_path).iloc[0].to_dict()}
-
-
-@router.get("/runs/{run_id}/{artifact}")
-def get_run_artifact(run_id: str, artifact: str) -> dict:
-    allowed = {
-        "equity": "equity_curve.csv",
-        "drawdown": "drawdowns.csv",
-        "daily-returns": "daily_returns.csv",
-        "selection-history": "selection_history.csv",
+@router.get("/runs", response_model_exclude_none=True)
+def get_runs(
+    q: str = "",
+    chips: str = "",
+    dateRange: Literal["7d", "30d", "90d", "ytd", "all"] = "30d",
+    view: Literal["list", "grid"] = "list",
+    page: int = Query(default=1, ge=1),
+    pageSize: int = Query(default=14, ge=1),
+) -> dict[str, Any]:
+    chip_values = [chip for chip in chips.split(",") if chip]
+    items, total = services.list_runs(
+        q=q,
+        chips=chip_values,
+        date_range=dateRange,
+        view=view,
+        page=page,
+        page_size=pageSize,
+    )
+    return {
+        "items": [item.model_dump(mode="json", by_alias=True, exclude_none=True) for item in items],
+        "total": total,
+        "page": page,
+        "pageSize": pageSize,
     }
-    filename = allowed.get(artifact)
-    if filename is None:
-        raise HTTPException(status_code=404, detail="artifact not found")
-    path = Path(APP_RUNS_DIR / run_id / filename)
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="artifact not found")
-    return {"items": pd.read_csv(path).to_dict(orient="records")}
+
+
+@router.get("/runs/{run_id}", response_model=RunRow, response_model_exclude_none=True)
+def get_run(run_id: str) -> RunRow:
+    run = services.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return run
+
+
+@router.get("/runs/{run_id}/detail", response_model=RunDetailPayload, response_model_exclude_none=True)
+def get_run_detail(run_id: str) -> RunDetailPayload:
+    detail = services.get_run_detail(run_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return detail
+
+
+@router.post("/runs/{run_id}/favorite")
+def post_run_favorite(run_id: str) -> dict[str, Any]:
+    result = services.toggle_run_favorite(run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return result
