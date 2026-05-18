@@ -1,0 +1,12 @@
+{
+  "id": "review-bc69153-phase-9",
+  "title": "Review commit bc69153 Phase 9 Universe and P7/P8 fixes",
+  "status": "in_progress",
+  "complexity": "M",
+  "risk": "medium",
+  "domain": "frontend",
+  "currentPhase": "review",
+  "nextAction": "Review scoped commit changes against redesign spec",
+  "createdAt": "2026-05-19T00:00:00+08:00",
+  "branch": "redesign/r3-premium"
+}

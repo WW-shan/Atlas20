@@ -8,6 +8,7 @@ import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
 import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
+import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
 import { fallbackOverview, getOverview } from "../lib/api";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
@@ -79,7 +80,7 @@ export function ResearchConsolePage() {
         <UniverseHealthTab />
       )}
       {nav.tab === "reports" && (
-        <PlaceholderTab label="Reports & Exports" />
+        <ReportsExportsTab />
       )}
     </AppShell>
   );
@@ -95,13 +96,4 @@ function getSubtitle(tab: ConsoleTab): string {
     reports: "Generated reports archive + format export center",
   };
   return subs[tab];
-}
-
-function PlaceholderTab(props: { label: string }) {
-  return (
-    <div className="card" style={{ padding: "var(--space-6)", minHeight: 400 }}>
-      <h2>{props.label}</h2>
-      <p className="muted">Coming soon — implementation in Phase 5-10.</p>
-    </div>
-  );
 }

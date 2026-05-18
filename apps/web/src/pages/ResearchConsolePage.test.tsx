@@ -28,6 +28,6 @@ test("clicking tab switches content", async () => {
   expect(reportsTab).toHaveAttribute("aria-selected", "true");
   expect(overviewTab).toHaveAttribute("aria-selected", "false");
 
-  // Placeholder content shows (Reports still a placeholder until P10)
-  expect(screen.getByText(/Coming soon/)).toBeInTheDocument();
+  // Reports tab now renders the implemented FEATURED DIGEST hero.
+  expect(screen.getByText("FEATURED DIGEST")).toBeInTheDocument();
 });
