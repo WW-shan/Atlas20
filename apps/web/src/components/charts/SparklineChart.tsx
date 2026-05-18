@@ -1,8 +1,21 @@
 import type { SeriesPoint } from "../../lib/api";
 
-function pointsToPath(points: SeriesPoint[], width: number, height: number) {
+type SparkTone = "violet" | "cyan" | "emerald" | "rose" | "gold" | "muted-dashed";
+
+const toneColors: Record<SparkTone, string> = {
+  violet:  "var(--violet)",
+  cyan:    "var(--cyan)",
+  emerald: "var(--emerald)",
+  rose:    "var(--rose)",
+  gold:    "var(--gold)",
+  "muted-dashed": "var(--muted)",
+};
+
+type Point = SeriesPoint | { value: number };
+
+function pointsToPath(points: Point[], width: number, height: number) {
   if (points.length === 0) return "";
-  const values = points.map((point) => point.value);
+  const values = points.map((p) => p.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
@@ -16,23 +29,43 @@ function pointsToPath(points: SeriesPoint[], width: number, height: number) {
 }
 
 export function SparklineChart(props: {
-  points: SeriesPoint[];
-  tone?: "equity" | "drawdown";
+  points: Point[] | number[];
+  tone?: SparkTone;
+  height?: number;
+  width?: number;
+  ariaLabel?: string;
 }) {
-  const width = 720;
-  const height = 240;
-  const path = pointsToPath(props.points, width, height);
+  const tone: SparkTone = props.tone ?? "violet";
+  const width = props.width ?? 120;
+  const height = props.height ?? 32;
+
+  const points: Point[] = Array.isArray(props.points) && typeof props.points[0] === "number"
+    ? (props.points as number[]).map((v) => ({ value: v }))
+    : (props.points as Point[]);
+
+  const path = pointsToPath(points, width, height);
+  const stroke = toneColors[tone];
+  const dashed = tone === "muted-dashed";
+
   return (
-    <svg className={`sparkline sparkline--${props.tone ?? "equity"}`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Time series chart">
-      <defs>
-        <linearGradient id={`line-${props.tone ?? "equity"}`} x1="0" x2="1">
-          <stop offset="0%" stopColor="#39d98a" />
-          <stop offset="55%" stopColor="#42a5ff" />
-          <stop offset="100%" stopColor="#f2b84b" />
-        </linearGradient>
-      </defs>
-      <rect width={width} height={height} rx="10" />
-      <path d={path} />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      role="img"
+      aria-label={props.ariaLabel ?? "Sparkline"}
+      style={{ display: "block" }}
+    >
+      <path
+        d={path}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray={dashed ? "3 3" : undefined}
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }
