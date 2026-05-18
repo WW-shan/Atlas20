@@ -64,7 +64,8 @@ function filterRows(rows: RunRow[], f: HistoryFilter, now: number): RunRow[] {
 export function RunHistoryTab({ onNavigate }: Props) {
   const [filter, setFilter] = useState<HistoryFilter>(defaultHistoryFilter);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
-  const [localFavorites, setLocalFavorites] = useState<Record<string, boolean>>({});
+  // Tracks which runs have been optimistically flipped relative to their server baseline
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const apiEnabled = import.meta.env.MODE !== "test";
   const queryClient = useQueryClient();
 
@@ -76,28 +77,35 @@ export function RunHistoryTab({ onNavigate }: Props) {
 
   const favoriteMutation = useMutation({
     mutationFn: (runId: string) => toggleFavorite(runId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["runs"] });
+    onSuccess: (_data, runId) => {
+      // Server now matches local — clear the flip flag and refetch
+      setFlipped((prev) => {
+        const next = { ...prev };
+        delete next[runId];
+        return next;
+      });
+      void queryClient.invalidateQueries({ queryKey: qk.runs.list(filter) });
+      void queryClient.invalidateQueries({ queryKey: qk.runs.detail(runId) });
+    },
+    onError: (_err, runId) => {
+      // Roll back the optimistic flip
+      setFlipped((prev) => {
+        const next = { ...prev };
+        delete next[runId];
+        return next;
+      });
     },
   });
 
   const handleToggleFavorite = (runId: string) => {
-    // Optimistic local flip so the star reacts immediately in fallback mode
-    setLocalFavorites((prev) => {
-      const current = prev[runId];
-      // unset returns to baseline (from row data); set inverts whatever's current
-      return { ...prev, [runId]: current === undefined ? true : !current };
-    });
+    setFlipped((prev) => ({ ...prev, [runId]: !prev[runId] }));
     if (apiEnabled) favoriteMutation.mutate(runId);
   };
 
-  const applyLocalFavorite = (row: RunRow): RunRow => {
-    if (localFavorites[row.run_id] !== undefined) {
-      const baseline = row.favorited ?? false;
-      return { ...row, favorited: localFavorites[row.run_id] !== baseline ? !baseline : baseline };
-    }
-    return row;
-  };
+  const applyLocalFavorite = (row: RunRow): RunRow =>
+    flipped[row.run_id]
+      ? { ...row, favorited: !(row.favorited ?? false) }
+      : row;
 
   // Server returns already-paginated items. Fallback is the full list — we
   // filter & paginate client-side so the demo works without an API.
@@ -114,7 +122,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
       total: filtered.length,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiEnabled, serverData, filter, now, localFavorites]);
+  }, [apiEnabled, serverData, filter, now, flipped]);
 
   const handleRerun = () => {
     if (selectedId) onNavigate("backtest", selectedId);
