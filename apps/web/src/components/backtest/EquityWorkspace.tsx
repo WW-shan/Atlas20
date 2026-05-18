@@ -36,8 +36,8 @@ export function EquityWorkspace({ detail }: Props) {
                 padding: "8px 0",
                 fontSize: 13,
                 fontWeight: t === "Equity" ? 600 : 400,
-                color: t === "Equity" ? "var(--gold)" : "var(--muted)",
-                borderBottom: t === "Equity" ? "2px solid var(--gold)" : "2px solid transparent",
+                color: t === "Equity" ? "var(--text)" : "var(--muted)",
+                borderBottom: t === "Equity" ? "2px solid var(--violet)" : "2px solid transparent",
                 marginBottom: -1,
                 opacity: t === "Equity" ? 1 : 0.5,
               }}
