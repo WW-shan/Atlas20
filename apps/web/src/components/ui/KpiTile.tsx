@@ -1,3 +1,5 @@
+import { SparklineChart } from "../charts/SparklineChart";
+
 export type KpiTileProps = {
   label: string;
   value: string | number;
