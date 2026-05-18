@@ -20,9 +20,15 @@ test("renders Atlas20 Research Console with 6 tabs", () => {
 test("clicking tab switches content", async () => {
   render(<App />);
 
+  const overviewTab = screen.getByRole("tab", { name: "Overview" });
   const historyTab = screen.getByRole("tab", { name: "History" });
+
   act(() => { historyTab.click(); });
 
-  // Both page header and placeholder show the label — assert the "Coming soon" placeholder text
+  // History becomes selected, Overview becomes unselected
+  expect(historyTab).toHaveAttribute("aria-selected", "true");
+  expect(overviewTab).toHaveAttribute("aria-selected", "false");
+
+  // Placeholder content shows
   expect(screen.getByText(/Coming soon/)).toBeInTheDocument();
 });
