@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/AppShell";
 import { TabSwitcher, type ConsoleTab } from "../components/navigation/TabSwitcher";
 import { OverviewTab } from "../features/overview/OverviewTab";
+import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
 import { fallbackOverview, getOverview } from "../lib/api";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
@@ -63,7 +64,7 @@ export function ResearchConsolePage() {
         <OverviewTab overview={overview} onNavigate={navigate} />
       )}
       {nav.tab === "backtest" && (
-        <PlaceholderTab label="Backtest Studio" />
+        <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
       )}
       {nav.tab === "compare" && (
         <PlaceholderTab label="Strategy Compare" />
