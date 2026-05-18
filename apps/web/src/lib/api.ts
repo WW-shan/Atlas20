@@ -1,3 +1,14 @@
+// ============================================================
+// Atlas20 API — typed schema, fetch helpers, and fallback mocks
+// SPEC §7 (data types), §8 (function registry), §9 (qk registry)
+// ============================================================
+
+import type { ChartRange, RunStatusEnum, ReportSortKey } from "../components/ui/types";
+
+// ============================================================
+// §7.1 — Existing types (preserved & extended)
+// ============================================================
+
 export type ChampionSummary = {
   strategy: string;
   window_start: string;
@@ -54,8 +65,23 @@ export type OverviewPayload = {
   equity_curve: SeriesPoint[];
   daily_returns: SeriesPoint[];
   selection_history: SelectionHistoryRow[];
+
+  // Phase 5 additions
+  aum: { current: number; deltaPct: number; sparkline: number[] };
+  strategies: { total: number; breakdown: { family: string; count: number }[] };
+  regime: { label: "RISK-ON" | "NEUTRAL" | "RISK-OFF"; score: number; model: string };
+  rebalance: {
+    ts: string;
+    swaps: { out: string; in: string; deltaPct: number }[];
+  };
+  equity_overlay: {
+    series: { ts: string; atlas: number; btc: number }[];
+    range: ChartRange;
+  };
+  hero_kpi: { ytdReturn: number; sharpe: number; maxDd: number; winRate: number };
 };
 
+// Pre-redesign RunStatus (kept for backward compat with runBacktest signature)
 export type RunStatus = {
   run_id: string;
   status: "completed" | "failed";
@@ -63,6 +89,201 @@ export type RunStatus = {
   summary: Record<string, string | number | null>;
   error?: string | null;
 };
+
+// ============================================================
+// §7.2 — Runs (page2 + page4 shared)
+// ============================================================
+
+export type StrategyFamily = "ATLAS" | "Momentum" | "MeanRev" | "Carry" | "Other";
+
+export type RunRow = {
+  run_id: string;
+  strategy: string;
+  strategy_family?: StrategyFamily;
+  universe: string;
+  window: { start: string; end: string };
+  status: RunStatusEnum;
+  return_pct?: number;
+  sharpe?: number;
+  max_dd?: number;
+  duration_s?: number;
+  eta_s?: number;
+  spark?: number[];
+  created_at: string;
+  favorited?: boolean;
+};
+
+export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "duration_s" | "eta_s"> & {
+  params_summary: string;
+};
+
+export type RunDetailPayload = RunRow & {
+  equity_overlay: { series: { ts: string; atlas: number; btc: number }[] };
+  kpi: {
+    cagr: number;
+    sharpe: number;
+    sortino: number;
+    max_dd: number;
+    calmar: number;
+    win_rate: number;
+  };
+};
+
+// ============================================================
+// §7.2 — Backtest config (page2)
+// ============================================================
+
+export type BacktestConfig = {
+  preset: string;
+  universe: { topN: number; excludeStable: boolean; excludeWrapped: boolean };
+  window: { start: string; end: string; rebalance: "Weekly" | "Biweekly" | "Monthly" };
+  allocation: { positionPct: number; slots: number };
+  costs: { feeBps: number; slippageBps: number };
+};
+
+export const defaultBacktestConfig: BacktestConfig = {
+  preset: "ATLAS Adaptive v3",
+  universe: { topN: 20, excludeStable: true, excludeWrapped: true },
+  window: { start: "2024-01-01", end: "2026-05-18", rebalance: "Weekly" },
+  allocation: { positionPct: 5.0, slots: 10 },
+  costs: { feeBps: 10, slippageBps: 5 },
+};
+
+// ============================================================
+// §7.2 — History filter (page4)
+// ============================================================
+
+export type HistoryFilter = {
+  q: string;
+  chips: string[];
+  dateRange: "7d" | "30d" | "90d" | "ytd" | "all";
+  view: "list" | "grid";
+  page: number;
+  pageSize: number;
+};
+
+export const defaultHistoryFilter: HistoryFilter = {
+  q: "",
+  chips: [],
+  dateRange: "30d",
+  view: "list",
+  page: 1,
+  pageSize: 14,
+};
+
+// ============================================================
+// §7.2 — Compare (page3)
+// ============================================================
+
+export type CompareMetricKey =
+  | "cagr"
+  | "sharpe"
+  | "sortino"
+  | "max_dd"
+  | "calmar"
+  | "win_rate"
+  | "avg_turnover"
+  | "trades_per_year";
+
+export const compareMetricMeta: Record<
+  CompareMetricKey,
+  { label: string; direction: "higher-is-better" | "lower-is-better"; format: "percent" | "ratio" | "count" }
+> = {
+  cagr:            { label: "CAGR",         direction: "higher-is-better", format: "percent" },
+  sharpe:          { label: "Sharpe",       direction: "higher-is-better", format: "ratio" },
+  sortino:         { label: "Sortino",      direction: "higher-is-better", format: "ratio" },
+  max_dd:          { label: "Max DD",       direction: "lower-is-better",  format: "percent" },
+  calmar:          { label: "Calmar",       direction: "higher-is-better", format: "ratio" },
+  win_rate:        { label: "Win Rate",     direction: "higher-is-better", format: "percent" },
+  avg_turnover:    { label: "Avg Turnover", direction: "lower-is-better",  format: "percent" },
+  trades_per_year: { label: "Trades / yr",  direction: "lower-is-better",  format: "count" },
+};
+
+export type CompareSelectionItem = {
+  id: string;
+  label: string;
+  tone: "gold" | "violet" | "cyan" | "emerald";
+};
+
+export type ComparePayload = {
+  equity: { ts: string; values: Record<string, number> }[];
+  metrics: Record<CompareMetricKey, Record<string, number>>;
+  overlap: {
+    symbols: string[];
+    matrix: number[][];
+    sharedHoldings: { symbol: string; count: number; total: number }[];
+  };
+};
+
+// ============================================================
+// §7.2 — Universe (page5)
+// ============================================================
+
+export type UniverseTimelinePayload = {
+  tokens: string[];
+  segments: { token: string; start: string; end: string }[];
+  rotations: { ts: string; label: string }[];
+  range: { start: string; end: string };
+};
+
+export type DataSourceStatus = "healthy" | "degraded" | "error";
+
+export type DataSource = {
+  id: string;
+  name: string;
+  status: DataSourceStatus;
+  last_sync_seconds: number;
+};
+
+export type DataAlertSeverity = "rose" | "cyan" | "emerald";
+
+export type DataAlert = {
+  id: string;
+  severity: DataAlertSeverity;
+  title: string;
+  meta: string;
+  ts: string;
+  icon: "alert-triangle" | "info" | "check-circle";
+};
+
+// ============================================================
+// §7.2 — Reports (page6)
+// ============================================================
+
+export type ReportFormat = "markdown" | "pdf" | "png" | "csv";
+export type ReportStatus = "ready" | "generating";
+export type ReportThumbKind =
+  | "equity"
+  | "lines"
+  | "heatmap"
+  | "bars"
+  | "horizontal-bars"
+  | "sparkbar";
+
+export type FeaturedDigest = {
+  id: string;
+  title: string;
+  subtitle: string;
+  formats: ReportFormat[];
+  defaultFormat: ReportFormat;
+  generated_at: string;
+};
+
+export type ReportEntry = {
+  id: string;
+  title: string;
+  subtitle: string;
+  thumbnail: ReportThumbKind;
+  status: ReportStatus;
+  highlight?: boolean;
+  generated_at: string;
+  size_bytes: number;
+  report_type: "weekly" | "run" | "compare" | "universe";
+};
+
+// ============================================================
+// Fallback data (mock implementations for dev / tests)
+// ============================================================
 
 export const fallbackOverview: OverviewPayload = {
   champion: {
@@ -115,7 +336,177 @@ export const fallbackOverview: OverviewPayload = {
     { rebalance_date: "2026-01-12", coin_id: "solana", coin_rank: 1, coin_score: 0.89, coin_weight: 1 },
     { rebalance_date: "2026-03-09", coin_id: "hyperliquid", coin_rank: 1, coin_score: 0.94, coin_weight: 1 },
   ],
+
+  // Phase 5 additions
+  aum: {
+    current: 847_200_000,
+    deltaPct: 0.084,
+    sparkline: [820, 825, 818, 830, 835, 828, 840, 844, 838, 847],
+  },
+  strategies: {
+    total: 12,
+    breakdown: [
+      { family: "Trend Following", count: 5 },
+      { family: "Momentum", count: 3 },
+      { family: "Mean Reversion", count: 2 },
+      { family: "Carry", count: 1 },
+      { family: "Other", count: 1 },
+    ],
+  },
+  regime: { label: "RISK-ON", score: 0.72, model: "v2.1" },
+  rebalance: {
+    ts: "2026-05-18",
+    swaps: [
+      { out: "TIA", in: "DOT", deltaPct: 0.042 },
+      { out: "ICP", in: "SUI", deltaPct: 0.031 },
+      { out: "ATOM", in: "INJ", deltaPct: -0.018 },
+      { out: "FTM", in: "SEI", deltaPct: 0.024 },
+    ],
+  },
+  equity_overlay: {
+    series: [
+      { ts: "Jan 2026", atlas: 0, btc: 0 },
+      { ts: "Feb 2026", atlas: 180, btc: 22 },
+      { ts: "Mar 2026", atlas: 420, btc: 58 },
+      { ts: "Apr 2026", atlas: 780, btc: 104 },
+      { ts: "May 2026", atlas: 1247, btc: 124 },
+    ],
+    range: "YTD",
+  },
+  hero_kpi: { ytdReturn: 12.4756, sharpe: 3.42, maxDd: -0.3204, winRate: 0.685 },
 };
+
+export const fallbackRunsQueue: RunRowSummary[] = [
+  { run_id: "btk_0148", strategy: "ATLAS Adaptive v3",   status: "running",   duration_s: 42,  eta_s: 90,  params_summary: "N=20 · Weekly · 2024→2026" },
+  { run_id: "btk_0147", strategy: "Momentum Top-10",     status: "running",   duration_s: 24,  eta_s: 60,  params_summary: "N=10 · Daily · 2024→2026" },
+  { run_id: "btk_0146", strategy: "Mean Reversion v2",   status: "completed", duration_s: 88,  params_summary: "N=15 · Biweekly · 2024→2026" },
+  { run_id: "btk_0145", strategy: "ATLAS Adaptive v2",   status: "completed", duration_s: 102, params_summary: "N=20 · Weekly · 2023→2026" },
+  { run_id: "btk_0144", strategy: "Carry Top-5",         status: "failed",    duration_s: 12,  params_summary: "N=5 · Weekly · 2024→2026" },
+  { run_id: "btk_0149", strategy: "ATLAS Adaptive v3",   status: "queued",    params_summary: "N=20 · Weekly · 2024→2026" },
+];
+
+export const fallbackRunsList: RunRow[] = [
+  { run_id: "btk_0148", strategy: "ATLAS Adaptive v3",   strategy_family: "ATLAS",    universe: "Top-20", window: { start: "2024-01-01", end: "2026-05-18" }, status: "running",   return_pct: 0,       sharpe: 0,    max_dd: 0,       duration_s: 42,  eta_s: 90, spark: [], created_at: "2026-05-18T14:02:00Z", favorited: true },
+  { run_id: "btk_0147", strategy: "Momentum Top-10",     strategy_family: "Momentum", universe: "Top-10", window: { start: "2024-01-01", end: "2026-05-18" }, status: "running",   return_pct: 0,       sharpe: 0,    max_dd: 0,       duration_s: 24,  eta_s: 60, spark: [], created_at: "2026-05-18T13:58:00Z" },
+  { run_id: "btk_0146", strategy: "Mean Reversion v2",   strategy_family: "MeanRev",  universe: "Top-15", window: { start: "2024-01-01", end: "2026-05-18" }, status: "completed", return_pct: 0.416,   sharpe: 1.94, max_dd: -0.184, duration_s: 88,  spark: [10, 12, 11, 14, 13, 16, 15], created_at: "2026-05-18T12:30:00Z" },
+  { run_id: "btk_0145", strategy: "ATLAS Adaptive v2",   strategy_family: "ATLAS",    universe: "Top-20", window: { start: "2023-01-01", end: "2026-05-18" }, status: "completed", return_pct: 0.921,   sharpe: 2.81, max_dd: -0.287, duration_s: 102, spark: [10, 15, 22, 28, 34, 42, 50], created_at: "2026-05-17T18:14:00Z" },
+  { run_id: "btk_0144", strategy: "Carry Top-5",         strategy_family: "Carry",    universe: "Top-5",  window: { start: "2024-01-01", end: "2026-05-18" }, status: "failed",    duration_s: 12, created_at: "2026-05-17T16:02:00Z" },
+  { run_id: "btk_0143", strategy: "Mean Reversion v1",   strategy_family: "MeanRev",  universe: "Top-15", window: { start: "2024-01-01", end: "2026-05-15" }, status: "completed", return_pct: 0.224,   sharpe: 1.42, max_dd: -0.215, duration_s: 76,  spark: [10, 11, 10, 12, 11, 13, 12], created_at: "2026-05-17T11:00:00Z" },
+  { run_id: "btk_0142", strategy: "ATLAS Adaptive v3",   strategy_family: "ATLAS",    universe: "Top-20", window: { start: "2024-01-01", end: "2026-05-15" }, status: "completed", return_pct: 1.584,   sharpe: 3.42, max_dd: -0.3204, duration_s: 88, spark: [10, 18, 26, 38, 50, 65, 80], created_at: "2026-05-16T22:45:00Z", favorited: true },
+  { run_id: "btk_0141", strategy: "Momentum Top-10",     strategy_family: "Momentum", universe: "Top-10", window: { start: "2023-06-01", end: "2026-05-15" }, status: "completed", return_pct: 0.682,   sharpe: 2.10, max_dd: -0.243, duration_s: 64,  spark: [10, 14, 18, 24, 30, 36, 42], created_at: "2026-05-16T17:18:00Z" },
+  { run_id: "btk_0140", strategy: "ATLAS Adaptive v3",   strategy_family: "ATLAS",    universe: "Top-20", window: { start: "2024-06-01", end: "2026-05-12" }, status: "completed", return_pct: 0.842,   sharpe: 2.65, max_dd: -0.198, duration_s: 80,  spark: [10, 16, 22, 28, 36, 44, 52], created_at: "2026-05-16T09:30:00Z" },
+  { run_id: "btk_0139", strategy: "Mean Reversion v2",   strategy_family: "MeanRev",  universe: "Top-15", window: { start: "2024-01-01", end: "2026-05-12" }, status: "completed", return_pct: 0.184,   sharpe: 1.72, max_dd: -0.142, duration_s: 70,  spark: [10, 11, 12, 11, 13, 12, 14], created_at: "2026-05-15T20:00:00Z" },
+  { run_id: "btk_0138", strategy: "Carry Top-5",         strategy_family: "Carry",    universe: "Top-5",  window: { start: "2024-01-01", end: "2026-05-10" }, status: "failed",    duration_s: 18, created_at: "2026-05-15T16:20:00Z" },
+  { run_id: "btk_0137", strategy: "ATLAS Adaptive v2",   strategy_family: "ATLAS",    universe: "Top-20", window: { start: "2023-01-01", end: "2026-05-10" }, status: "completed", return_pct: 0.764,   sharpe: 2.42, max_dd: -0.262, duration_s: 92,  spark: [10, 14, 20, 26, 34, 42, 48], created_at: "2026-05-15T11:00:00Z" },
+  { run_id: "btk_0136", strategy: "Momentum Top-10",     strategy_family: "Momentum", universe: "Top-10", window: { start: "2023-06-01", end: "2026-05-10" }, status: "completed", return_pct: 0.582,   sharpe: 1.95, max_dd: -0.231, duration_s: 60,  spark: [10, 13, 17, 22, 28, 33, 38], created_at: "2026-05-14T22:00:00Z" },
+  { run_id: "btk_0135", strategy: "Trend Following v1",  strategy_family: "Other",    universe: "Top-20", window: { start: "2024-01-01", end: "2026-05-08" }, status: "completed", return_pct: 0.412,   sharpe: 1.65, max_dd: -0.198, duration_s: 84,  spark: [10, 13, 16, 20, 25, 30, 34], created_at: "2026-05-14T15:30:00Z" },
+];
+
+export const fallbackRunDetail: RunDetailPayload = {
+  ...fallbackRunsList[6], // btk_0142, the canonical "champion" reference run
+  equity_overlay: { series: fallbackOverview.equity_overlay.series },
+  kpi: { cagr: 1.584, sharpe: 3.42, sortino: 5.18, max_dd: -0.3204, calmar: 4.95, win_rate: 0.685 },
+};
+
+export const fallbackCompare: ComparePayload = {
+  equity: [
+    { ts: "Jan 2026", values: { atlas: 0,    momentum: 0,   meanrev: 0 } },
+    { ts: "Feb 2026", values: { atlas: 180,  momentum: 110, meanrev: 32 } },
+    { ts: "Mar 2026", values: { atlas: 420,  momentum: 240, meanrev: 78 } },
+    { ts: "Apr 2026", values: { atlas: 780,  momentum: 430, meanrev: 142 } },
+    { ts: "May 2026", values: { atlas: 1247, momentum: 682, meanrev: 214 } },
+  ],
+  metrics: {
+    cagr:            { atlas: 1.584, momentum: 0.921, meanrev: 0.416 },
+    sharpe:          { atlas: 3.42,  momentum: 2.81,  meanrev: 1.94 },
+    sortino:         { atlas: 5.18,  momentum: 4.02,  meanrev: 2.71 },
+    max_dd:          { atlas: -0.3204, momentum: -0.287, meanrev: -0.184 },
+    calmar:          { atlas: 4.95,  momentum: 3.21,  meanrev: 2.26 },
+    win_rate:        { atlas: 0.685, momentum: 0.612, meanrev: 0.548 },
+    avg_turnover:    { atlas: 0.182, momentum: 0.246, meanrev: 0.083 },
+    trades_per_year: { atlas: 248,   momentum: 312,   meanrev: 96 },
+  },
+  overlap: {
+    symbols: ["ATLAS v3", "Momentum", "MeanRev"],
+    matrix: [
+      [1.0, 0.62, 0.18],
+      [0.62, 1.0, 0.31],
+      [0.18, 0.31, 1.0],
+    ],
+    sharedHoldings: [
+      { symbol: "SOL", count: 3, total: 3 },
+      { symbol: "TIA", count: 2, total: 3 },
+      { symbol: "SUI", count: 2, total: 3 },
+      { symbol: "INJ", count: 2, total: 3 },
+      { symbol: "SEI", count: 1, total: 3 },
+    ],
+  },
+};
+
+const universeTickers = [
+  "BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "AVAX",
+  "DOT", "LINK", "MATIC", "TON", "TRX", "ATOM", "ICP", "NEAR",
+  "INJ", "SUI", "TIA", "SEI", "ARB", "OP", "APT", "RNDR",
+  "FIL", "STX", "FTM", "AAVE", "HBAR", "ALGO", "EGLD", "FLOW",
+];
+
+export const fallbackUniverseTimeline: UniverseTimelinePayload = {
+  tokens: universeTickers,
+  segments: universeTickers.slice(1, 21).flatMap((token, idx) => {
+    // Each top-20 token has 1-2 active windows in last 180 days
+    const baseStart = idx % 3 === 0 ? "2025-12-01" : idx % 3 === 1 ? "2026-01-15" : "2026-02-10";
+    return [{ token, start: baseStart, end: "2026-05-18" }];
+  }),
+  rotations: [
+    { ts: "2026-01-15", label: "MAJOR ROTATION" },
+    { ts: "2026-03-09", label: "MAJOR ROTATION" },
+    { ts: "2026-04-22", label: "MAJOR ROTATION" },
+  ],
+  range: { start: "2025-12-01", end: "2026-05-18" },
+};
+
+export const fallbackDataSources: DataSource[] = [
+  { id: "coingecko",     name: "CoinGecko · Markets",   status: "healthy",  last_sync_seconds: 12 },
+  { id: "cryptocompare", name: "CryptoCompare · OHLCV", status: "healthy",  last_sync_seconds: 18 },
+  { id: "binance",       name: "Binance · Spot",        status: "healthy",  last_sync_seconds: 6 },
+  { id: "coinbase",      name: "Coinbase · Spot",       status: "degraded", last_sync_seconds: 840 },
+  { id: "kraken",        name: "Kraken · Spot",         status: "healthy",  last_sync_seconds: 14 },
+  { id: "defillama",     name: "DefiLlama · TVL",       status: "healthy",  last_sync_seconds: 120 },
+  { id: "glassnode",     name: "Glassnode · On-chain",  status: "degraded", last_sync_seconds: 1800 },
+  { id: "messari",       name: "Messari · Metrics",     status: "healthy",  last_sync_seconds: 240 },
+  { id: "custom",        name: "Custom · CSV uploads",  status: "error",    last_sync_seconds: 8040 },
+];
+
+export const fallbackDataAlerts: DataAlert[] = [
+  { id: "a1", severity: "rose",    title: "BNB · price gap detected — auto-imputed",     meta: "Gap 14m · CoinGecko · auto-fill", ts: "2026-05-18T13:42:00Z", icon: "alert-triangle" },
+  { id: "a2", severity: "rose",    title: "RNDR · volume outlier (5σ) — flagged for review", meta: "Δ5.2σ · Binance · pending",      ts: "2026-05-18T12:18:00Z", icon: "alert-triangle" },
+  { id: "a3", severity: "cyan",    title: "DOT · stale tick > 30s on Coinbase",          meta: "Stale 38s · Coinbase",            ts: "2026-05-18T11:40:00Z", icon: "info" },
+  { id: "a4", severity: "rose",    title: "ICP · OHLCV mismatch CoinGecko vs Kraken",    meta: "Δ0.4% · 2026-05-18 04:00 UTC",    ts: "2026-05-18T05:00:00Z", icon: "alert-triangle" },
+  { id: "a5", severity: "emerald", title: "ATOM · validator slashing event resolved",    meta: "Slash 0.1% · resolved",           ts: "2026-05-17T23:14:00Z", icon: "check-circle" },
+  { id: "a6", severity: "cyan",    title: "Universe diff: 2 in / 2 out at 2026-05-15 00:00 UTC rebalance", meta: "+TIA +SEI / -ATOM -FTM", ts: "2026-05-15T00:00:00Z", icon: "info" },
+];
+
+export const fallbackFeaturedDigest: FeaturedDigest = {
+  id: "digest_w20_2026",
+  title: "Atlas20 — Week 20 / 2026",
+  subtitle: "ATLAS Adaptive v3 · YTD +1,247.56% · Top-20 universe · generated 2026-05-18 14:32 UTC",
+  formats: ["markdown", "pdf", "png", "csv"],
+  defaultFormat: "markdown",
+  generated_at: "2026-05-18T14:32:00Z",
+};
+
+export const fallbackReports: ReportEntry[] = [
+  { id: "r1", title: "Atlas20 — Week 19 / 2026",                  subtitle: "digest_w19 · 2026-05-11 · 3.1 MB",       thumbnail: "equity",          status: "ready",      highlight: true,  generated_at: "2026-05-11T14:00:00Z", size_bytes: 3_250_000, report_type: "weekly" },
+  { id: "r2", title: "ATLAS Adaptive v3 — Tear sheet",            subtitle: "btk_0142 · 2026-05-18 · 2.4 MB",         thumbnail: "lines",           status: "ready",                        generated_at: "2026-05-18T15:00:00Z", size_bytes: 2_500_000, report_type: "run" },
+  { id: "r3", title: "Q1 2026 Performance Review",                subtitle: "q1_2026_review · 2026-04-02 · 4.6 MB",   thumbnail: "heatmap",         status: "ready",                        generated_at: "2026-04-02T10:00:00Z", size_bytes: 4_800_000, report_type: "compare" },
+  { id: "r4", title: "Momentum Family Comparison",                subtitle: "cmp_momentum · 2026-05-09 · 1.8 MB",     thumbnail: "bars",            status: "ready",                        generated_at: "2026-05-09T08:30:00Z", size_bytes: 1_890_000, report_type: "compare" },
+  { id: "r5", title: "Universe Composition · April 2026",         subtitle: "uni_2026-04 · 2026-05-01 · pending",     thumbnail: "horizontal-bars", status: "generating",                   generated_at: "2026-05-01T00:00:00Z", size_bytes: 0,         report_type: "universe" },
+  { id: "r6", title: "MeanRev v2 — Backtest Report",              subtitle: "btk_0136 · 2026-05-07 · 2.1 MB",         thumbnail: "sparkbar",        status: "ready",                        generated_at: "2026-05-07T18:42:00Z", size_bytes: 2_180_000, report_type: "run" },
+];
+
+// ============================================================
+// §8 — API function registry
+// ============================================================
 
 export function buildApiUrl(path: string, base = import.meta.env.VITE_ATLAS20_API_BASE ?? "/api") {
   const cleanBase = base.replace(/\/+$/, "");
@@ -139,10 +530,81 @@ export function getOptions() {
   return requestJson<Record<string, unknown>>("/options");
 }
 
-export function runBacktest(payload: unknown) {
-  return requestJson<RunStatus>("/backtests/run", {
+export function runBacktest(payload: BacktestConfig) {
+  return requestJson<RunRowSummary>("/backtests/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function listRunsQueue() {
+  return requestJson<RunRowSummary[]>("/runs/queue");
+}
+
+export function listRuns(filter: HistoryFilter) {
+  const params = new URLSearchParams({
+    q: filter.q,
+    chips: filter.chips.join(","),
+    dateRange: filter.dateRange,
+    view: filter.view,
+    page: String(filter.page),
+    pageSize: String(filter.pageSize),
+  });
+  return requestJson<{ items: RunRow[]; total: number; page: number; pageSize: number }>(
+    `/runs?${params.toString()}`,
+  );
+}
+
+export function getRun(id: string) {
+  return requestJson<RunRow>(`/runs/${encodeURIComponent(id)}`);
+}
+
+export function getRunDetail(id: string) {
+  return requestJson<RunDetailPayload>(`/runs/${encodeURIComponent(id)}/detail`);
+}
+
+export function toggleFavorite(id: string) {
+  return requestJson<{ run_id: string; favorited: boolean }>(
+    `/runs/${encodeURIComponent(id)}/favorite`,
+    { method: "POST" },
+  );
+}
+
+export function getCompare(ids: string[], range: ChartRange) {
+  const params = new URLSearchParams({ ids: ids.join(","), range });
+  return requestJson<ComparePayload>(`/compare?${params.toString()}`);
+}
+
+export function getUniverseTimeline() {
+  return requestJson<UniverseTimelinePayload>("/universe/timeline");
+}
+
+export function getDataSources() {
+  return requestJson<DataSource[]>("/universe/sources");
+}
+
+export function getDataAlerts() {
+  return requestJson<DataAlert[]>("/universe/alerts");
+}
+
+export function refreshUniverse() {
+  return requestJson<{ refreshed_at: string }>("/universe/refresh", { method: "POST" });
+}
+
+export function getFeaturedDigest() {
+  return requestJson<FeaturedDigest>("/reports/digest/featured");
+}
+
+export function listReports(sort: ReportSortKey) {
+  return requestJson<ReportEntry[]>(`/reports?sort=${encodeURIComponent(sort)}`);
+}
+
+export function downloadDigest(format: ReportFormat | "bundle") {
+  return requestJson<{ url: string }>(`/reports/digest/download?format=${encodeURIComponent(format)}`);
+}
+
+export function downloadReport(id: string, fmt?: ReportFormat) {
+  const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
+  return requestJson<{ url: string }>(`/reports/${encodeURIComponent(id)}/download${q}`);
 }

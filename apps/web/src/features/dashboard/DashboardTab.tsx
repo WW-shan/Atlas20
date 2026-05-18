@@ -7,6 +7,8 @@ import type { OverviewPayload, RunStatus } from "../../lib/api";
 import { championToFormState, type DashboardFormState } from "./useChampionPreset";
 import { useRunBacktest } from "./useRunBacktest";
 
+// NOTE: This component is no longer mounted (Phase 1 replaced with PlaceholderTab).
+// Slated for full deletion in Phase 6 along with components/dashboard/* files.
 export function DashboardTab(props: { overview: OverviewPayload }) {
   const championPreset = useMemo(() => championToFormState(props.overview.champion), [props.overview.champion]);
   const [formState, setFormState] = useState<DashboardFormState>(championPreset);
@@ -15,7 +17,7 @@ export function DashboardTab(props: { overview: OverviewPayload }) {
 
   const handleRun = () => {
     mutation.mutate(formState, {
-      onSuccess: (result) => setRun(result),
+      onSuccess: (result) => setRun(result as unknown as RunStatus),
     });
   };
 
