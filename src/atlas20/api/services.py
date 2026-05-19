@@ -21,9 +21,17 @@ from atlas20.api.schemas import (
     UniverseTimelinePayload,
 )
 
-ANCHOR_DATE = date(2026, 5, 19)
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
+
+
+def _today() -> date:
+    from atlas20.api.settings import get_settings
+
+    settings = get_settings()
+    if settings.anchor_date is not None:
+        return settings.anchor_date
+    return datetime.now(timezone.utc).date()
 
 
 def get_overview() -> OverviewPayload:
@@ -45,10 +53,11 @@ def _created_date(row: dict[str, Any]) -> date:
 def _date_cutoff(date_range: str) -> date | None:
     if date_range == "all":
         return None
+    today = _today()
     if date_range == "ytd":
-        return date(ANCHOR_DATE.year, 1, 1)
+        return date(today.year, 1, 1)
     days = {"7d": 7, "30d": 30, "90d": 90}.get(date_range, 30)
-    return ANCHOR_DATE - timedelta(days=days)
+    return today - timedelta(days=days)
 
 
 def _matches_query(row: dict[str, Any], q: str) -> bool:

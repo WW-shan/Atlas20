@@ -3,6 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from atlas20.api.logging_config import configure_logging
+from atlas20.api.middleware.access_log import AccessLogMiddleware
+from atlas20.api.middleware.request_id import RequestIdMiddleware
 from atlas20.api.routes.backtests import router as backtests_router
 from atlas20.api.routes.compare import router as compare_router
 from atlas20.api.routes.options import router as options_router
@@ -10,17 +13,31 @@ from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.reports import router as reports_router
 from atlas20.api.routes.runs import router as runs_router
 from atlas20.api.routes.universe import router as universe_router
+from atlas20.api.settings import get_settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Atlas20 Research Console API", version="0.1.0")
+    settings = get_settings()
+    configure_logging(settings)
+    docs_url = "/docs" if settings.enable_docs else None
+    redoc_url = "/redoc" if settings.enable_docs else None
+    openapi_url = "/openapi.json" if settings.enable_docs else None
+    app = FastAPI(
+        title="Atlas20 Research Console API",
+        version="0.1.0",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
+    )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(RequestIdMiddleware)
     app.include_router(overview_router)
     app.include_router(options_router)
     app.include_router(runs_router)

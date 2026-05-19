@@ -19,6 +19,8 @@ dependencies = [
   "requests>=2.32",
   "fastapi>=0.116",
   "uvicorn>=0.35",
+  "pydantic-settings>=2.0",
+  "structlog>=24.0",
 ]
 
 [project.optional-dependencies]
