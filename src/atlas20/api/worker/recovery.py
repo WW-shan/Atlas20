@@ -12,6 +12,7 @@ from atlas20.api.db.models import Run
 
 
 STALE_HEARTBEAT_ERROR = "worker died - heartbeat stale"
+RESTART_RECOVERY_ERROR = "worker died — restart recovery"
 
 
 def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
@@ -30,3 +31,17 @@ def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
         session.add(run)
     session.flush()
     return len(stale_runs)
+
+
+def recover_my_own_stale_runs(session: Session, my_pid: int) -> int:
+    runs = session.exec(
+        select(Run).where(Run.status == "running", Run.worker_pid == my_pid)
+    ).all()
+    count = 0
+    for run in runs:
+        run.status = "failed"
+        run.error = RESTART_RECOVERY_ERROR
+        session.add(run)
+        count += 1
+    session.commit()
+    return count

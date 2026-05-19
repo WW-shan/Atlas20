@@ -87,6 +87,31 @@ def test_multiple_stale_runs_are_recovered(tmp_path):
         assert RunsRepo(session).get("btk_0002").status == "failed"
 
 
+def test_worker_startup_recovery_skips_other_workers_runs(tmp_path):
+    from atlas20.api.worker.recovery import recover_my_own_stale_runs
+
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        mine = _run("btk_0001", "running", None)
+        mine.worker_pid = 111
+        other = _run("btk_0002", "running", None)
+        other.worker_pid = 222
+        session.add(mine)
+        session.add(other)
+        session.commit()
+
+        recovered = recover_my_own_stale_runs(session, my_pid=111)
+
+        mine_after = RunsRepo(session).get("btk_0001")
+        other_after = RunsRepo(session).get("btk_0002")
+        assert recovered == 1
+        assert mine_after is not None
+        assert mine_after.status == "failed"
+        assert mine_after.error == "worker died — restart recovery"
+        assert other_after is not None
+        assert other_after.status == "running"
+
+
 def test_lifespan_calls_recover_stale_runs(tmp_path, monkeypatch):
     db_path = tmp_path / "atlas20.sqlite"
     monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{db_path.as_posix()}")
