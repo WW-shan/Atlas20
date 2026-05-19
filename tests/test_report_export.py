@@ -179,3 +179,100 @@ def test_export_result_tables_writes_latest_pointer(tmp_path: Path) -> None:
     _export(report_dir)
 
     assert (tmp_path / "reports" / "latest.txt").read_text(encoding="utf-8") == "app_runs/run_001\n"
+
+
+# ---- Codex review (b00mmn73k) follow-up tests ------------------------------
+
+
+def test_export_rejects_empty_results(tmp_path: Path) -> None:
+    """W5: empty results dict must raise ValueError, not produce confusing artifacts."""
+    summary = pd.DataFrame({"annualized_turnover": [], "avg_turnover_per_rebalance": [], "average_holdings": []})
+    with pytest.raises(ValueError, match="at least one BacktestResult"):
+        export_result_tables({}, summary, pd.DataFrame(), pd.DataFrame(), tmp_path / "reports" / "run")
+
+
+def test_export_rejects_windows_reserved_name(tmp_path: Path) -> None:
+    """W3: 'CON', 'NUL' etc must be rejected even though they pass the regex."""
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    weights = pd.DataFrame({"bitcoin": [1.0] * 5}, index=dates)
+    bad = {"CON": _result("CON", weights)}
+    summary = pd.DataFrame(
+        {"annualized_turnover": [1.0], "avg_turnover_per_rebalance": [0.1], "average_holdings": [1.0]},
+        index=["CON"],
+    )
+    with pytest.raises(ValueError, match="Windows reserved"):
+        export_result_tables(bad, summary, pd.DataFrame(), pd.DataFrame(), tmp_path / "reports" / "run")
+
+
+def test_export_rejects_case_insensitive_collision(tmp_path: Path) -> None:
+    """W3: 'Alpha' and 'alpha' would collide on case-insensitive filesystems."""
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    weights = pd.DataFrame({"bitcoin": [1.0] * 5}, index=dates)
+    bad = {
+        "Alpha": _result("Alpha", weights),
+        "alpha": _result("alpha", weights),
+    }
+    summary = pd.DataFrame(
+        {"annualized_turnover": [1.0, 1.0], "avg_turnover_per_rebalance": [0.1, 0.1], "average_holdings": [1.0, 1.0]},
+        index=["Alpha", "alpha"],
+    )
+    with pytest.raises(ValueError, match="case-insensitive"):
+        export_result_tables(bad, summary, pd.DataFrame(), pd.DataFrame(), tmp_path / "reports" / "run")
+
+
+def test_export_rejects_report_dir_outside_reports_root(tmp_path: Path) -> None:
+    """W4: report_dir not under a 'reports/' ancestor must fail before any write."""
+    out = tmp_path / "scratch" / "run_001"
+    with pytest.raises(ValueError, match="reports/"):
+        _export(out)
+    assert not out.exists()
+
+
+def test_selection_history_uses_rebalance_targets_weights(tmp_path: Path) -> None:
+    """W1: coin_weight must come from rebalance_targets, not from a stale weights row."""
+    report_dir = tmp_path / "reports" / "run_001"
+    _export(report_dir)
+    history = pd.read_csv(report_dir / "selection_history.csv")
+
+    # In _inputs, BTC_BH__always_on has rebalance_targets at dates[0] and dates[2]
+    # with weights [0.60, 0.30, 0.10] then [0.00, 0.50, 0.25]. The weight column
+    # in history must match those targets exactly, not result.weights values.
+    btc = history[history["strategy"] == "BTC_BH__always_on"]
+    first_rebalance = btc[btc["rebalance_date"] == btc["rebalance_date"].min()].set_index("coin_id")["coin_weight"]
+    assert pytest.approx(first_rebalance["bitcoin"], rel=1e-6) == 0.60
+    assert pytest.approx(first_rebalance["ethereum"], rel=1e-6) == 0.30
+    assert pytest.approx(first_rebalance["solana"], rel=1e-6) == 0.10
+
+
+def test_selection_history_collapses_duplicate_rebalance_dates(tmp_path: Path) -> None:
+    """W2: duplicate rebalance dates must be collapsed deterministically (keep last)."""
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    weights = pd.DataFrame({"bitcoin": [1.0, 1.0, 1.0], "ethereum": [0.0, 0.0, 0.0]}, index=dates)
+    result = BacktestResult(
+        name="BTC_BH__always_on",
+        daily_returns=pd.Series([0.01, 0.02, -0.01], index=dates, name="BTC_BH__always_on"),
+        equity_curve=pd.Series([101.0, 103.0, 102.0], index=dates, name="BTC_BH__always_on"),
+        drawdown=pd.Series([0.0, 0.0, -0.01], index=dates, name="BTC_BH__always_on"),
+        weights=weights,
+        turnover=pd.Series([0.0, 0.3, 0.2], index=dates, name="BTC_BH__always_on"),
+        holdings_count=pd.Series([1, 1, 1], index=dates),
+        sector_exposure=pd.DataFrame(index=dates),
+        rebalance_targets=pd.DataFrame(
+            {"bitcoin": [0.30, 0.60], "ethereum": [0.70, 0.40]},
+            index=[dates[0], dates[0]],
+        ),
+    )
+    results = {"BTC_BH__always_on": result}
+    summary = pd.DataFrame(
+        {"annualized_turnover": [1.0], "avg_turnover_per_rebalance": [0.1], "average_holdings": [2.0]},
+        index=["BTC_BH__always_on"],
+    )
+    report_dir = tmp_path / "reports" / "run_dup"
+    export_result_tables(results, summary, pd.DataFrame(), pd.DataFrame(), report_dir)
+    history = pd.read_csv(report_dir / "selection_history.csv")
+    # Only one rebalance_date row group, taking "last" duplicate (bitcoin=0.60, ethereum=0.40)
+    first_date = history[history["rebalance_date"] == history["rebalance_date"].min()]
+    weights_by_coin = first_date.set_index("coin_id")["coin_weight"].to_dict()
+    assert pytest.approx(weights_by_coin["bitcoin"], rel=1e-6) == 0.60
+    assert pytest.approx(weights_by_coin["ethereum"], rel=1e-6) == 0.40
+

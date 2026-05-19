@@ -19,6 +19,12 @@ from atlas20.config import ResearchConfig
 
 
 SAFE_STRATEGY_NAME = re.compile(r"^[A-Za-z0-9_]+$")
+# Windows reserved device basenames — block to ensure cross-platform safety.
+WINDOWS_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
 SELECTION_HISTORY_COLUMNS = (
     "rebalance_date",
     "strategy",
@@ -59,12 +65,24 @@ def dataframe_to_markdown(
 def _safe_strategy_name(strategy_name: str) -> str:
     if not SAFE_STRATEGY_NAME.match(strategy_name):
         raise ValueError(f"Strategy name must be filesystem-safe: {strategy_name}")
+    if strategy_name.upper() in WINDOWS_RESERVED_NAMES:
+        raise ValueError(f"Strategy name conflicts with Windows reserved device name: {strategy_name}")
     return strategy_name
 
 
 def _validate_strategy_names(results: dict[str, BacktestResult]) -> None:
+    if not results:
+        raise ValueError("export_result_tables requires at least one BacktestResult")
+    seen_lower: dict[str, str] = {}
     for strategy_name in results:
         _safe_strategy_name(strategy_name)
+        lower = strategy_name.lower()
+        if lower in seen_lower and seen_lower[lower] != strategy_name:
+            raise ValueError(
+                f"Strategy name collision on case-insensitive filesystem: "
+                f"{seen_lower[lower]!r} vs {strategy_name!r}"
+            )
+        seen_lower[lower] = strategy_name
 
 
 def _sha256_file(path: Path) -> str:
@@ -190,18 +208,6 @@ def _write_manifest(report_dir: Path) -> None:
     (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
-def _selection_weight_row(result: BacktestResult, rebalance_date: object, target_row: pd.Series) -> pd.Series:
-    if not result.weights.empty and rebalance_date in result.weights.index:
-        located = result.weights.loc[rebalance_date]
-        if isinstance(located, pd.DataFrame):
-            located = located.iloc[-1]
-        weight_row = located.reindex(target_row.index).fillna(0.0)
-        selected = target_row[target_row > 0].index
-        if float(weight_row.reindex(selected).abs().sum()) > 0.0:
-            return weight_row
-    return target_row
-
-
 def _build_selection_history(results: dict[str, BacktestResult]) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for strategy_name, result in results.items():
@@ -209,26 +215,33 @@ def _build_selection_history(results: dict[str, BacktestResult]) -> pd.DataFrame
         if result.rebalance_targets.empty:
             continue
 
-        for rebalance_date, raw_target_row in result.rebalance_targets.sort_index().iterrows():
+        targets = result.rebalance_targets
+        if not targets.index.is_unique:
+            # Duplicate rebalance dates indicate engine inconsistency; collapse
+            # deterministically by taking the last entry for each date.
+            targets = targets[~targets.index.duplicated(keep="last")]
+
+        for rebalance_date, raw_target_row in targets.sort_index().iterrows():
             target_row = pd.to_numeric(raw_target_row, errors="coerce").fillna(0.0)
             selected = target_row[target_row > 0]
             if selected.empty:
                 continue
 
-            weight_row = _selection_weight_row(result, rebalance_date, target_row)
-            selection = pd.DataFrame(
-                {
-                    "coin_id": selected.index.astype(str),
-                    "coin_weight": weight_row.reindex(selected.index).fillna(0.0).astype(float).to_numpy(),
-                }
+            # Use rebalance_targets weights directly. result.weights may reflect
+            # the previous portfolio on the same date (targets apply on next
+            # trading day), and may also miss the freshly-selected coins.
+            selection = selected.sort_values(ascending=False, kind="stable")
+            # Stable sort already breaks ties by original index order; for full
+            # determinism resort by (weight desc, coin_id asc).
+            selection_df = selection.rename("coin_weight").reset_index().rename(
+                columns={"index": "coin_id"}
             )
-            selection = selection[selection["coin_weight"] > 0].sort_values(
-                ["coin_weight", "coin_id"],
-                ascending=[False, True],
-                kind="stable",
-            )
+            selection_df["coin_id"] = selection_df["coin_id"].astype(str)
+            selection_df = selection_df.sort_values(
+                ["coin_weight", "coin_id"], ascending=[False, True], kind="stable"
+            ).reset_index(drop=True)
 
-            for rank, row in enumerate(selection.itertuples(index=False), start=1):
+            for rank, row in enumerate(selection_df.itertuples(index=False), start=1):
                 rows.append(
                     {
                         "rebalance_date": rebalance_date,
@@ -236,7 +249,7 @@ def _build_selection_history(results: dict[str, BacktestResult]) -> pd.DataFrame
                         "coin_id": row.coin_id,
                         "coin_rank": rank,
                         "coin_score": pd.NA,
-                        "coin_weight": row.coin_weight,
+                        "coin_weight": float(row.coin_weight),
                     }
                 )
 
@@ -315,15 +328,15 @@ def _report_root(report_dir: Path) -> Path:
     for path in (report_dir, *report_dir.parents):
         if path.name == "reports":
             return path
-    return report_dir.parent
+    raise ValueError(
+        f"report_dir must be located under a 'reports/' ancestor; got {report_dir!s}. "
+        f"Atomic latest.txt publication requires a known reports root."
+    )
 
 
 def _write_latest_pointer(report_dir: Path) -> None:
     report_root = _report_root(report_dir)
-    try:
-        relative_report_dir = report_dir.relative_to(report_root)
-    except ValueError:
-        relative_report_dir = Path(report_dir.name)
+    relative_report_dir = report_dir.relative_to(report_root)
     pointer_path = report_root / "latest.txt"
     tmp_pointer_path = pointer_path.with_name(f"{pointer_path.name}.tmp_{os.getpid()}_{time.time_ns()}")
     tmp_pointer_path.write_text(relative_report_dir.as_posix() + "\n", encoding="utf-8")
@@ -337,11 +350,23 @@ def export_result_tables(
     regime_performance: pd.DataFrame,
     report_dir: Path,
 ) -> None:
-    """Export the major result tables and time series as CSV."""
+    """Export major result tables, weights, selection history, and manifest.
+
+    Single-writer assumption: this function is not safe to call concurrently
+    with itself targeting the same ``report_dir`` — concurrent invocations may
+    race during the publish step. Readers should go through
+    ``reports/latest.txt`` rather than poking ``report_dir`` directly.
+
+    Raises:
+        ValueError: ``results`` is empty, contains a filesystem-unsafe
+            strategy name, or ``report_dir`` is not under a ``reports/``
+            ancestor (required for atomic ``latest.txt`` publication).
+    """
     report_dir = Path(report_dir)
+    _validate_strategy_names(results)
+    _report_root(report_dir)  # eagerly validate the reports/ ancestor
     tmp_dir = _temporary_report_dir(report_dir)
     try:
-        _validate_strategy_names(results)
         tmp_dir.mkdir(parents=True, exist_ok=False)
         _write_result_tables(results, summary, yearly_returns, regime_performance, tmp_dir)
         _write_manifest(tmp_dir)
