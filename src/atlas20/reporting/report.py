@@ -2,13 +2,31 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
 from pathlib import Path
+import re
+import shutil
+import subprocess
+import time
 
 import pandas as pd
 
 from atlas20.backtest.engine import BacktestResult
 from atlas20.config import ResearchConfig
 
+
+SAFE_STRATEGY_NAME = re.compile(r"^[A-Za-z0-9_]+$")
+SELECTION_HISTORY_COLUMNS = (
+    "rebalance_date",
+    "strategy",
+    "coin_id",
+    "coin_rank",
+    "coin_score",
+    "coin_weight",
+)
 
 
 def dataframe_to_markdown(
@@ -38,16 +56,203 @@ def dataframe_to_markdown(
     return "\n".join([header, sep, *rows])
 
 
+def _safe_strategy_name(strategy_name: str) -> str:
+    if not SAFE_STRATEGY_NAME.match(strategy_name):
+        raise ValueError(f"Strategy name must be filesystem-safe: {strategy_name}")
+    return strategy_name
 
-def export_result_tables(
+
+def _validate_strategy_names(results: dict[str, BacktestResult]) -> None:
+    for strategy_name in results:
+        _safe_strategy_name(strategy_name)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _utc_iso_from_timestamp(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _code_commit() -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=5,
+        )
+        commit = completed.stdout.strip()
+        if commit:
+            return commit
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return os.environ.get("ATLAS20_CODE_COMMIT", "unknown")
+
+
+def _pipeline_version() -> str:
+    try:
+        import atlas20
+
+        return str(getattr(atlas20, "__version__", "0.1.0"))
+    except ImportError:
+        return "0.1.0"
+
+
+def _config_metadata() -> tuple[str, str]:
+    config_path_text = os.environ.get("ATLAS20_CONFIG_PATH", "config/base.yaml")
+    config_path = Path(config_path_text)
+    resolved_path = config_path if config_path.is_absolute() else Path.cwd() / config_path
+    try:
+        config_sha256 = _sha256_file(resolved_path)
+    except FileNotFoundError:
+        config_sha256 = "unknown"
+    return config_path.as_posix(), config_sha256
+
+
+def _data_snapshot() -> dict[str, str]:
+    raw_dir = Path(os.environ.get("ATLAS20_DATA_RAW_DIR", "data/raw"))
+    raw_dir = raw_dir if raw_dir.is_absolute() else Path.cwd() / raw_dir
+    if not raw_dir.exists():
+        return {}
+
+    snapshot: dict[str, str] = {}
+    for provider_dir in sorted(path for path in raw_dir.iterdir() if path.is_dir()):
+        newest_file: Path | None = None
+        newest_mtime = -1.0
+        for path in provider_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            mtime = path.stat().st_mtime
+            if mtime > newest_mtime:
+                newest_file = path
+                newest_mtime = mtime
+        if newest_file is not None:
+            snapshot[provider_dir.name] = _utc_iso_from_timestamp(newest_mtime)
+    return snapshot
+
+
+def _artifact_kind(path: Path) -> str:
+    if path.parts and path.parts[0] == "weights":
+        return "weights"
+    mapping = {
+        "strategy_summary.csv": "summary",
+        "yearly_returns.csv": "yearly_returns",
+        "regime_performance.csv": "regime_performance",
+        "daily_returns.csv": "daily_returns",
+        "equity_curves.csv": "equity_curves",
+        "drawdowns.csv": "drawdowns",
+        "turnover_summary.csv": "turnover",
+        "selection_history.csv": "selection_history",
+    }
+    return mapping.get(path.name, path.suffix.lstrip(".") or "file")
+
+
+def _artifact_rows(report_dir: Path) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for path in sorted(report_dir.rglob("*")):
+        if not path.is_file() or path.name == "manifest.json":
+            continue
+        relative_path = path.relative_to(report_dir)
+        rows.append(
+            {
+                "kind": _artifact_kind(relative_path),
+                "path": relative_path.as_posix(),
+                "size": path.stat().st_size,
+                "sha256": _sha256_file(path),
+            }
+        )
+    return rows
+
+
+def _write_manifest(report_dir: Path) -> None:
+    config_path, config_sha256 = _config_metadata()
+    manifest = {
+        "config_path": config_path,
+        "config_sha256": config_sha256,
+        "code_commit": _code_commit(),
+        "pipeline_version": _pipeline_version(),
+        "data_snapshot": _data_snapshot(),
+        "generated_at": _utc_now_iso(),
+        "artifacts": _artifact_rows(report_dir),
+    }
+    (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def _selection_weight_row(result: BacktestResult, rebalance_date: object, target_row: pd.Series) -> pd.Series:
+    if not result.weights.empty and rebalance_date in result.weights.index:
+        located = result.weights.loc[rebalance_date]
+        if isinstance(located, pd.DataFrame):
+            located = located.iloc[-1]
+        weight_row = located.reindex(target_row.index).fillna(0.0)
+        selected = target_row[target_row > 0].index
+        if float(weight_row.reindex(selected).abs().sum()) > 0.0:
+            return weight_row
+    return target_row
+
+
+def _build_selection_history(results: dict[str, BacktestResult]) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for strategy_name, result in results.items():
+        _safe_strategy_name(strategy_name)
+        if result.rebalance_targets.empty:
+            continue
+
+        for rebalance_date, raw_target_row in result.rebalance_targets.sort_index().iterrows():
+            target_row = pd.to_numeric(raw_target_row, errors="coerce").fillna(0.0)
+            selected = target_row[target_row > 0]
+            if selected.empty:
+                continue
+
+            weight_row = _selection_weight_row(result, rebalance_date, target_row)
+            selection = pd.DataFrame(
+                {
+                    "coin_id": selected.index.astype(str),
+                    "coin_weight": weight_row.reindex(selected.index).fillna(0.0).astype(float).to_numpy(),
+                }
+            )
+            selection = selection[selection["coin_weight"] > 0].sort_values(
+                ["coin_weight", "coin_id"],
+                ascending=[False, True],
+                kind="stable",
+            )
+
+            for rank, row in enumerate(selection.itertuples(index=False), start=1):
+                rows.append(
+                    {
+                        "rebalance_date": rebalance_date,
+                        "strategy": strategy_name,
+                        "coin_id": row.coin_id,
+                        "coin_rank": rank,
+                        "coin_score": pd.NA,
+                        "coin_weight": row.coin_weight,
+                    }
+                )
+
+    history = pd.DataFrame(rows, columns=SELECTION_HISTORY_COLUMNS)
+    if history.empty:
+        return history
+    return history.sort_values(["rebalance_date", "strategy", "coin_rank"]).reset_index(drop=True)
+
+
+def _write_result_tables(
     results: dict[str, BacktestResult],
     summary: pd.DataFrame,
     yearly_returns: pd.DataFrame,
     regime_performance: pd.DataFrame,
     report_dir: Path,
 ) -> None:
-    """Export the major result tables and time series as CSV."""
-    report_dir.mkdir(parents=True, exist_ok=True)
     summary.to_csv(report_dir / "strategy_summary.csv")
     yearly_returns.to_csv(report_dir / "yearly_returns.csv")
     regime_performance.to_csv(report_dir / "regime_performance.csv", index=False)
@@ -63,6 +268,89 @@ def export_result_tables(
         }
     )
     turnover.to_csv(report_dir / "turnover_summary.csv")
+
+    weights_dir = report_dir / "weights"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    for strategy_name, result in results.items():
+        safe_strategy_name = _safe_strategy_name(strategy_name)
+        result.weights.to_csv(weights_dir / f"{safe_strategy_name}.csv")
+
+    _build_selection_history(results).to_csv(report_dir / "selection_history.csv", index=False)
+
+
+def _temporary_report_dir(report_dir: Path) -> Path:
+    return report_dir.with_name(f"{report_dir.name}.tmp_{os.getpid()}_{time.time_ns()}")
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+
+
+def _publish_report_dir(tmp_dir: Path, report_dir: Path) -> None:
+    backup_dir: Path | None = None
+    report_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    if report_dir.exists() or report_dir.is_symlink():
+        backup_dir = report_dir.with_name(f"{report_dir.name}.bak_{os.getpid()}_{time.time_ns()}")
+        _remove_path(backup_dir)
+        shutil.move(str(report_dir), str(backup_dir))
+
+    try:
+        shutil.move(str(tmp_dir), str(report_dir))
+    except Exception:
+        if report_dir.exists() or report_dir.is_symlink():
+            _remove_path(report_dir)
+        if backup_dir is not None and backup_dir.exists():
+            shutil.move(str(backup_dir), str(report_dir))
+        raise
+    else:
+        if backup_dir is not None:
+            _remove_path(backup_dir)
+
+
+def _report_root(report_dir: Path) -> Path:
+    for path in (report_dir, *report_dir.parents):
+        if path.name == "reports":
+            return path
+    return report_dir.parent
+
+
+def _write_latest_pointer(report_dir: Path) -> None:
+    report_root = _report_root(report_dir)
+    try:
+        relative_report_dir = report_dir.relative_to(report_root)
+    except ValueError:
+        relative_report_dir = Path(report_dir.name)
+    pointer_path = report_root / "latest.txt"
+    tmp_pointer_path = pointer_path.with_name(f"{pointer_path.name}.tmp_{os.getpid()}_{time.time_ns()}")
+    tmp_pointer_path.write_text(relative_report_dir.as_posix() + "\n", encoding="utf-8")
+    tmp_pointer_path.replace(pointer_path)
+
+
+def export_result_tables(
+    results: dict[str, BacktestResult],
+    summary: pd.DataFrame,
+    yearly_returns: pd.DataFrame,
+    regime_performance: pd.DataFrame,
+    report_dir: Path,
+) -> None:
+    """Export the major result tables and time series as CSV."""
+    report_dir = Path(report_dir)
+    tmp_dir = _temporary_report_dir(report_dir)
+    try:
+        _validate_strategy_names(results)
+        tmp_dir.mkdir(parents=True, exist_ok=False)
+        _write_result_tables(results, summary, yearly_returns, regime_performance, tmp_dir)
+        _write_manifest(tmp_dir)
+        _publish_report_dir(tmp_dir, report_dir)
+        _write_latest_pointer(report_dir)
+    except Exception:
+        if tmp_dir.exists():
+            _remove_path(tmp_dir)
+        raise
 
 
 

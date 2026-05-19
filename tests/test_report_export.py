@@ -1,0 +1,181 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from atlas20.backtest.engine import BacktestResult
+from atlas20.reporting import report
+from atlas20.reporting.report import export_result_tables
+
+
+def _result(name: str, weights: pd.DataFrame) -> BacktestResult:
+    dates = weights.index
+    return BacktestResult(
+        name=name,
+        daily_returns=pd.Series([0.01, 0.02, -0.01, 0.00, 0.01], index=dates, name=name),
+        equity_curve=pd.Series([101.0, 103.0, 102.0, 102.0, 103.0], index=dates, name=name),
+        drawdown=pd.Series([0.0, 0.0, -0.01, -0.01, 0.0], index=dates, name=name),
+        weights=weights,
+        turnover=pd.Series([0.0, 0.3, 0.2, 0.0, 0.1], index=dates, name=name),
+        holdings_count=(weights > 0).sum(axis=1),
+        sector_exposure=pd.DataFrame(index=dates),
+        rebalance_targets=weights.loc[[dates[0], dates[2]]],
+    )
+
+
+def _inputs() -> tuple[dict[str, BacktestResult], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    first_weights = pd.DataFrame(
+        {
+            "bitcoin": [0.60, 0.55, 0.00, 0.00, 0.00],
+            "ethereum": [0.30, 0.35, 0.50, 0.45, 0.44],
+            "solana": [0.10, 0.10, 0.25, 0.30, 0.31],
+        },
+        index=dates,
+    )
+    second_weights = pd.DataFrame(
+        {
+            "bitcoin": [0.00, 0.00, 0.70, 0.65, 0.64],
+            "ethereum": [0.50, 0.50, 0.00, 0.00, 0.00],
+            "solana": [0.50, 0.50, 0.30, 0.35, 0.36],
+        },
+        index=dates,
+    )
+    results = {
+        "BTC_BH__always_on": _result("BTC_BH__always_on", first_weights),
+        "TOP20_EQ__always_on": _result("TOP20_EQ__always_on", second_weights),
+    }
+    summary = pd.DataFrame(
+        {
+            "annualized_turnover": [1.0, 2.0],
+            "avg_turnover_per_rebalance": [0.1, 0.2],
+            "average_holdings": [2.0, 3.0],
+        },
+        index=list(results),
+    )
+    yearly_returns = pd.DataFrame({"BTC_BH__always_on": [0.1], "TOP20_EQ__always_on": [0.2]}, index=[2024])
+    regime_performance = pd.DataFrame(
+        {
+            "strategy": ["BTC_BH__always_on"],
+            "regime": ["bull"],
+            "annualized_return": [0.1],
+        }
+    )
+    return results, summary, yearly_returns, regime_performance
+
+
+def _export(report_dir: Path) -> None:
+    export_result_tables(*_inputs(), report_dir)
+
+
+def test_export_result_tables_writes_weights_per_strategy(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+
+    _export(report_dir)
+
+    weights_dir = report_dir / "weights"
+    assert sorted(path.name for path in weights_dir.glob("*.csv")) == [
+        "BTC_BH__always_on.csv",
+        "TOP20_EQ__always_on.csv",
+    ]
+    exported = pd.read_csv(weights_dir / "BTC_BH__always_on.csv", index_col=0)
+    assert exported.columns.tolist() == ["bitcoin", "ethereum", "solana"]
+
+
+def test_export_result_tables_writes_sorted_selection_history(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+
+    _export(report_dir)
+
+    history = pd.read_csv(report_dir / "selection_history.csv")
+    assert history.columns.tolist() == [
+        "rebalance_date",
+        "strategy",
+        "coin_id",
+        "coin_rank",
+        "coin_score",
+        "coin_weight",
+    ]
+    expected_order = history.sort_values(["rebalance_date", "strategy", "coin_rank"]).reset_index(drop=True)
+    pd.testing.assert_frame_equal(history, expected_order)
+    first_row = history.iloc[0].to_dict()
+    assert first_row["rebalance_date"] == "2024-01-01"
+    assert first_row["strategy"] == "BTC_BH__always_on"
+    assert first_row["coin_id"] == "bitcoin"
+    assert first_row["coin_rank"] == 1
+    assert first_row["coin_weight"] == pytest.approx(0.6)
+    assert pd.isna(first_row["coin_score"])
+
+
+def test_export_result_tables_writes_manifest(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+
+    _export(report_dir)
+
+    manifest = json.loads((report_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert set(manifest) == {
+        "config_path",
+        "config_sha256",
+        "code_commit",
+        "pipeline_version",
+        "data_snapshot",
+        "generated_at",
+        "artifacts",
+    }
+    assert manifest["config_path"] == "config/base.yaml"
+    assert len(manifest["config_sha256"]) == 64
+    paths = {artifact["path"] for artifact in manifest["artifacts"]}
+    assert "strategy_summary.csv" in paths
+    assert "weights/BTC_BH__always_on.csv" in paths
+    assert "selection_history.csv" in paths
+    assert all(artifact["size"] > 0 for artifact in manifest["artifacts"])
+    assert all(len(artifact["sha256"]) == 64 for artifact in manifest["artifacts"])
+
+
+def test_export_result_tables_failure_keeps_previous_report(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+    results, summary, yearly_returns, regime_performance = _inputs()
+    export_result_tables(results, summary, yearly_returns, regime_performance, report_dir)
+    previous_manifest = (report_dir / "manifest.json").read_text(encoding="utf-8")
+
+    bad_results = {"bad/name": next(iter(results.values()))}
+    with pytest.raises(ValueError, match="filesystem-safe"):
+        export_result_tables(bad_results, summary, yearly_returns, regime_performance, report_dir)
+
+    assert report_dir.exists()
+    assert (report_dir / "manifest.json").read_text(encoding="utf-8") == previous_manifest
+    assert not any("bad" in path.name for path in (report_dir / "weights").glob("*.csv"))
+
+
+def test_export_result_tables_publish_failure_restores_previous_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+    results, summary, yearly_returns, regime_performance = _inputs()
+    export_result_tables(results, summary, yearly_returns, regime_performance, report_dir)
+    previous_manifest = (report_dir / "manifest.json").read_text(encoding="utf-8")
+    real_move = report.shutil.move
+
+    def flaky_move(src: str, dst: str) -> str:
+        if Path(src).name.startswith(f"{report_dir.name}.tmp_") and Path(dst) == report_dir:
+            Path(dst).mkdir(parents=True, exist_ok=True)
+            (Path(dst) / "partial.txt").write_text("partial", encoding="utf-8")
+            raise OSError("partial move failed")
+        return real_move(src, dst)
+
+    monkeypatch.setattr(report.shutil, "move", flaky_move)
+
+    with pytest.raises(OSError, match="partial move failed"):
+        export_result_tables(results, summary, yearly_returns, regime_performance, report_dir)
+
+    assert (report_dir / "manifest.json").read_text(encoding="utf-8") == previous_manifest
+    assert not (report_dir / "partial.txt").exists()
+
+
+def test_export_result_tables_writes_latest_pointer(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "app_runs" / "run_001"
+
+    _export(report_dir)
+
+    assert (tmp_path / "reports" / "latest.txt").read_text(encoding="utf-8") == "app_runs/run_001\n"
