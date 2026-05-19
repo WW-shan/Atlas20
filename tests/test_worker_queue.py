@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import date, timedelta
 import subprocess
 import time
 
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from atlas20.api.app import create_app
@@ -235,6 +237,55 @@ def test_cancel_uses_configured_heartbeat_under_one_second(tmp_path):
     finally:
         stop_event.set()
         thread.join(timeout=1)
+
+
+def test_heartbeat_thread_survives_transient_db_error(tmp_path, monkeypatch):
+    engine = _engine(tmp_path)
+    settings = _settings(tmp_path)
+    old_heartbeat = utc_now() - timedelta(minutes=5)
+    with Session(engine) as session:
+        run = _run("btk_0001", status="running")
+        run.heartbeat_at = old_heartbeat
+        session.add(run)
+        session.commit()
+
+    calls = 0
+
+    @contextmanager
+    def flaky_session_scope(scoped_settings):
+        nonlocal calls
+        del scoped_settings
+        calls += 1
+        if calls == 1:
+            raise OperationalError("select 1", {}, Exception("database is locked"))
+        with Session(engine) as session:
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+
+    monkeypatch.setattr("atlas20.api.worker.main.session_scope", flaky_session_scope)
+
+    process = FakeProcess()
+    stop_event, cancelled_event, thread = start_heartbeat_thread(
+        "btk_0001",
+        process,
+        settings,
+        heartbeat_interval_seconds=0.01,
+    )
+    time.sleep(0.05)
+    stop_event.set()
+    thread.join(timeout=1)
+
+    with Session(engine) as session:
+        updated = RunsRepo(session).get("btk_0001")
+        assert calls >= 2
+        assert updated is not None
+        assert updated.heartbeat_at is not None
+        assert updated.heartbeat_at > old_heartbeat
+        assert not cancelled_event.is_set()
 
 
 def test_timeout_kills_subprocess(tmp_path, monkeypatch):

@@ -87,15 +87,19 @@ def _heartbeat_loop(
 ) -> None:
     while not stop_event.wait(heartbeat_interval_seconds):
         should_cancel = False
-        with session_scope(settings) as session:
-            repo = RunsRepo(session)
-            run = repo.get(run_id)
-            if run is None or run.status != "running":
-                return
-            if run.requested_cancel:
-                should_cancel = True
-            else:
-                repo.update(run_id, heartbeat_at=utc_now())
+        try:
+            with session_scope(settings) as session:
+                repo = RunsRepo(session)
+                run = repo.get(run_id)
+                if run is None or run.status != "running":
+                    return
+                if run.requested_cancel:
+                    should_cancel = True
+                else:
+                    repo.update(run_id, heartbeat_at=utc_now())
+        except Exception as exc:
+            logger.warning("heartbeat tick failed: %s", exc)
+            continue
 
         if should_cancel:
             cancelled_event.set()
