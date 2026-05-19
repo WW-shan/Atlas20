@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from atlas20.api import mock_data
+from atlas20.api.data_access.compare import load_compare_from_reports
+from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
 from atlas20.api.data_access.universe import (
     load_data_alerts_from_processed,
@@ -20,6 +22,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    OptionsPayload,
     OverviewPayload,
     ReportEntry,
     RunDetailPayload,
@@ -48,8 +51,14 @@ def get_overview() -> OverviewPayload:
     return OverviewPayload.model_validate(payload)
 
 
-def get_options_payload() -> dict[str, Any]:
-    return {}
+def get_options_payload() -> OptionsPayload:
+    settings = get_settings()
+    try:
+        payload = load_options_from_reports(settings)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Falling back to mock options: %s", exc)
+        payload = deepcopy(mock_data.fallback_options)
+    return OptionsPayload.model_validate(payload)
 
 
 def list_runs_queue() -> list[RunRowSummary]:
@@ -194,6 +203,16 @@ def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
 
 
 def get_compare(ids: list[str], range_: str) -> ComparePayload:
+    settings = get_settings()
+    try:
+        payload = load_compare_from_reports(settings, ids, range_)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Falling back to mock compare: %s", exc)
+        return _get_compare_mock(ids, range_)
+    return ComparePayload.model_validate(payload)
+
+
+def _get_compare_mock(ids: list[str], range_: str) -> ComparePayload:
     del range_
     payload = deepcopy(mock_data.fallback_compare)
     present = [run_id for run_id in ids if run_id in payload["metrics"]["cagr"]]

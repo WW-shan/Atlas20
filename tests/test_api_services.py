@@ -8,7 +8,7 @@ import pytest
 from atlas20.api import mock_data
 from atlas20.api import services
 from atlas20.api.settings import get_settings
-from atlas20.api.services import list_reports, list_runs, toggle_run_favorite
+from atlas20.api.services import get_compare, get_options_payload, list_reports, list_runs, toggle_run_favorite
 
 
 MUTABLE_FIXTURES = {
@@ -166,3 +166,27 @@ def test_get_data_alerts_falls_back_on_missing_data(tmp_path, monkeypatch, caplo
 
     assert [alert.model_dump() for alert in alerts] == mock_data.fallback_data_alerts
     assert "Falling back to mock data alerts" in caplog.text
+
+
+def test_load_options_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    payload = get_options_payload()
+
+    assert payload.model_dump() == mock_data.fallback_options
+    assert "Falling back to mock options" in caplog.text
+
+
+def test_get_compare_falls_back_when_reports_missing(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    payload = get_compare(["atlas"], "YTD")
+
+    assert payload.model_dump() == services._get_compare_mock(["atlas"], "YTD").model_dump()
+    assert "Falling back to mock compare" in caplog.text

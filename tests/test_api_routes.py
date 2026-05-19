@@ -12,6 +12,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    OptionsPayload,
     OverviewPayload,
     ReportEntry,
     RunDetailPayload,
@@ -65,11 +66,13 @@ def test_overview_endpoint_returns_r3_payload(client: TestClient):
     assert payload.rebalance.swaps[0].in_ == "DOT"
 
 
-def test_options_endpoint_returns_empty_payload(client: TestClient):
+def test_options_endpoint_returns_options_payload(client: TestClient):
     response = client.get("/api/options")
 
     assert response.status_code == 200
-    assert response.json() == {}
+    payload = OptionsPayload.model_validate(response.json())
+    assert payload.presets == mock_data.fallback_options["presets"]
+    assert payload.feeBpsRange == [0.0, 10.0, 50.0]
 
 
 def test_runs_queue_endpoint_returns_summaries(client: TestClient):

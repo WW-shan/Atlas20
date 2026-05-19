@@ -410,6 +410,29 @@ fallback_compare = {
     },
 }
 
+fallback_options = {
+    "presets": [
+        "ATLAS Adaptive v3",
+        "Momentum Top-10",
+        "Mean Reversion v2",
+        "ATLAS Adaptive v2",
+        "Carry Top-5",
+    ],
+    "universes": [
+        {"topN": 5, "label": "Top 5"},
+        {"topN": 10, "label": "Top 10"},
+        {"topN": 20, "label": "Top 20"},
+    ],
+    "rebalances": [
+        {"value": "Weekly", "label": "Weekly"},
+        {"value": "Biweekly", "label": "Biweekly"},
+        {"value": "Monthly", "label": "Monthly"},
+    ],
+    "feeBpsRange": [0.0, 10.0, 50.0],
+    "slippageBpsRange": [0.0, 5.0, 25.0],
+    "sectors": ["DeFi", "Layer1", "Layer2", "Meme", "Oracle", "Payments"],
+}
+
 universe_tickers = [
     "BTC",
     "ETH",

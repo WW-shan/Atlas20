@@ -230,6 +230,25 @@ class BacktestConfig(StrictApiModel):
     costs: BacktestCosts
 
 
+class OptionsUniverseSize(ApiModel):
+    topN: int
+    label: str
+
+
+class OptionsRebalance(ApiModel):
+    value: Literal["Weekly", "Biweekly", "Monthly"]
+    label: str
+
+
+class OptionsPayload(ApiModel):
+    presets: list[str]
+    universes: list[OptionsUniverseSize]
+    rebalances: list[OptionsRebalance]
+    feeBpsRange: list[float]
+    slippageBpsRange: list[float]
+    sectors: list[str]
+
+
 class HistoryFilter(ApiModel):
     q: str = ""
     chips: list[str] = Field(default_factory=list)

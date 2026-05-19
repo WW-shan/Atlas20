@@ -141,6 +141,15 @@ export type BacktestConfig = {
   costs: { feeBps: number; slippageBps: number };
 };
 
+export type OptionsPayload = {
+  presets: string[];
+  universes: { topN: number; label: string }[];
+  rebalances: { value: "Weekly" | "Biweekly" | "Monthly"; label: string }[];
+  feeBpsRange: number[];
+  slippageBpsRange: number[];
+  sectors: string[];
+};
+
 export const defaultBacktestConfig: BacktestConfig = {
   preset: "ATLAS Adaptive v3",
   universe: { topN: 20, excludeStable: true, excludeWrapped: true },
@@ -527,7 +536,7 @@ export function getOverview() {
 }
 
 export function getOptions() {
-  return requestJson<Record<string, unknown>>("/options");
+  return requestJson<OptionsPayload>("/options");
 }
 
 export function runBacktest(payload: BacktestConfig) {
