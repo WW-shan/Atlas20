@@ -203,7 +203,7 @@ def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
 
 
 def get_compare(ids: list[str], range_: str) -> ComparePayload:
-    settings = get_settings()
+    settings = get_settings().model_copy(update={"anchor_date": _today()})
     try:
         payload = load_compare_from_reports(settings, ids, range_)
     except (FileNotFoundError, ValueError) as exc:

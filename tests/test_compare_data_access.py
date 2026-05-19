@@ -145,6 +145,15 @@ def test_load_compare_range_filter(tmp_path):
     assert payload["equity"][-1]["ts"] == "2026-05-19"
 
 
+def test_load_compare_requires_anchor_for_bounded_ranges(tmp_path, monkeypatch):
+    monkeypatch.delenv("ATLAS20_ANCHOR_DATE", raising=False)
+    _write_compare_csvs(tmp_path)
+    settings = Settings(report_root=tmp_path / "reports", data_root=tmp_path / "data")
+
+    with pytest.raises(ValueError, match="anchor_date"):
+        load_compare_from_reports(settings, ["ATLAS_ALPHA"], "1M")
+
+
 def test_load_compare_caps_at_180_points(tmp_path):
     dates = pd.date_range("2025-01-01", "2026-05-19", freq="D").strftime("%Y-%m-%d").tolist()
     _write_compare_csvs(tmp_path, dates=dates)

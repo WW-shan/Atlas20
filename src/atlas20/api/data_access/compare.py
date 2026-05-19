@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -153,8 +153,9 @@ def _filter_equity_range(frame: pd.DataFrame, range_: str, settings: Settings) -
 
 
 def _effective_anchor(index: pd.Index, settings: Settings) -> pd.Timestamp:
-    anchor_date = settings.anchor_date or datetime.now(timezone.utc).date()
-    anchor = pd.Timestamp(anchor_date)
+    if settings.anchor_date is None:
+        raise ValueError("settings.anchor_date is required for bounded compare ranges")
+    anchor = pd.Timestamp(settings.anchor_date)
     latest = pd.Timestamp(index.max()).normalize()
     if anchor > latest:
         return latest
@@ -276,4 +277,3 @@ def _strategy_holdings(strategy: str, latest_universe: list[str]) -> set[str]:
     if upper.startswith("ETH_BH"):
         return {"ETH"}
     return set(latest_universe[:TOP_UNIVERSE_SIZE])
-

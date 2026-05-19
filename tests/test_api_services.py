@@ -190,3 +190,22 @@ def test_get_compare_falls_back_when_reports_missing(tmp_path, monkeypatch, capl
 
     assert payload.model_dump() == services._get_compare_mock(["atlas"], "YTD").model_dump()
     assert "Falling back to mock compare" in caplog.text
+
+
+def test_get_compare_routes_anchor_through_today(monkeypatch):
+    monkeypatch.delenv("ATLAS20_ANCHOR_DATE", raising=False)
+    get_settings.cache_clear()
+    anchor = date(2026, 5, 19)
+    seen_anchor_dates = []
+
+    def fake_load_compare_from_reports(settings, ids, range_):
+        seen_anchor_dates.append(settings.anchor_date)
+        return deepcopy(mock_data.fallback_compare)
+
+    monkeypatch.setattr(services, "_today", lambda: anchor)
+    monkeypatch.setattr(services, "load_compare_from_reports", fake_load_compare_from_reports)
+
+    payload = get_compare(["atlas"], "YTD")
+
+    assert seen_anchor_dates == [anchor]
+    assert set(payload.metrics.cagr) == set(mock_data.fallback_compare["metrics"]["cagr"])
