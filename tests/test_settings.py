@@ -23,6 +23,8 @@ def test_settings_defaults(monkeypatch):
     assert settings.anchor_date is None
     assert settings.log_level == "INFO"
     assert settings.log_format == "json"
+    assert settings.worker_heartbeat_interval_seconds == 2.0
+    assert settings.worker_cancel_grace_seconds == 3.0
 
 
 def test_settings_project_root_defaults_to_repo_root(tmp_path, monkeypatch):
@@ -46,6 +48,8 @@ def test_settings_reads_env_overrides(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     monkeypatch.setenv("ATLAS20_ANCHOR_DATE", "2026-05-19")
     monkeypatch.setenv("ATLAS20_LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("ATLAS20_WORKER_HEARTBEAT_INTERVAL_SECONDS", "0.1")
+    monkeypatch.setenv("ATLAS20_WORKER_CANCEL_GRACE_SECONDS", "0.2")
 
     settings = Settings()
 
@@ -54,6 +58,8 @@ def test_settings_reads_env_overrides(monkeypatch):
     assert settings.enable_docs is False
     assert settings.anchor_date == date(2026, 5, 19)
     assert settings.log_level == "DEBUG"
+    assert settings.worker_heartbeat_interval_seconds == 0.1
+    assert settings.worker_cancel_grace_seconds == 0.2
 
 
 def test_settings_accepts_anchor_date():

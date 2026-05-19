@@ -44,12 +44,12 @@ def setup_signal_handlers() -> None:
     signal.signal(signal.SIGINT, request_shutdown)
 
 
-def _terminate_process(proc: subprocess.Popen) -> None:
+def _terminate_process(proc: subprocess.Popen, grace_seconds: float) -> None:
     if proc.poll() is not None:
         return
     proc.terminate()
     try:
-        proc.wait(timeout=5)
+        proc.wait(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
@@ -99,7 +99,7 @@ def _heartbeat_loop(
 
         if should_cancel:
             cancelled_event.set()
-            _terminate_process(proc)
+            _terminate_process(proc, settings.worker_cancel_grace_seconds)
             _mark_cancelled(run_id, settings)
             return
 
@@ -109,13 +109,14 @@ def start_heartbeat_thread(
     proc: subprocess.Popen,
     settings: Settings,
     *,
-    heartbeat_interval_seconds: float = 10.0,
+    heartbeat_interval_seconds: float | None = None,
 ) -> tuple[threading.Event, threading.Event, threading.Thread]:
     stop_event = threading.Event()
     cancelled_event = threading.Event()
+    interval = heartbeat_interval_seconds if heartbeat_interval_seconds is not None else settings.worker_heartbeat_interval_seconds
     thread = threading.Thread(
         target=_heartbeat_loop,
-        args=(run_id, proc, settings, stop_event, cancelled_event, heartbeat_interval_seconds),
+        args=(run_id, proc, settings, stop_event, cancelled_event, interval),
         name=f"atlas20-heartbeat-{run_id}",
         daemon=True,
     )
@@ -136,17 +137,18 @@ def _subprocess_error(stdout: bytes | str | None, stderr: bytes | str | None) ->
     return message[-1000:] if message else "subprocess failed"
 
 
-def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds: float = 10.0) -> None:
+def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds: float | None = None) -> None:
     proc = subprocess.Popen(
         [sys.executable, "-m", "atlas20.api.worker.run_one", run_id],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    interval = heartbeat_interval_seconds if heartbeat_interval_seconds is not None else settings.worker_heartbeat_interval_seconds
     stop_event, cancelled_event, thread = start_heartbeat_thread(
         run_id,
         proc,
         settings,
-        heartbeat_interval_seconds=heartbeat_interval_seconds,
+        heartbeat_interval_seconds=interval,
     )
     try:
         try:
@@ -164,7 +166,7 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
             _mark_failed(run_id, settings, _subprocess_error(stdout, stderr))
     finally:
         stop_event.set()
-        thread.join(timeout=heartbeat_interval_seconds + 1)
+        thread.join(timeout=interval + 1)
 
 
 def _recover_on_startup(settings: Settings) -> None:

@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     log_format: Literal["json", "text"] = "json"
     run_timeout_seconds: int = 1800
     worker_poll_interval_seconds: float = 2.0
+    worker_heartbeat_interval_seconds: float = 2.0
+    worker_cancel_grace_seconds: float = 3.0
 
     model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
 

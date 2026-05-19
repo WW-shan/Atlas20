@@ -212,6 +212,31 @@ def test_cancel_sends_sigterm(tmp_path):
         assert cancelled.error == "cancelled by user"
 
 
+def test_cancel_uses_configured_heartbeat_under_one_second(tmp_path):
+    engine = _engine(tmp_path)
+    settings = _settings(tmp_path)
+    settings.worker_heartbeat_interval_seconds = 0.1
+    settings.worker_cancel_grace_seconds = 0.1
+    with Session(engine) as session:
+        run = _run("btk_0001", status="running")
+        run.requested_cancel = True
+        session.add(run)
+        session.commit()
+
+    process = FakeProcess()
+    started = time.monotonic()
+    stop_event, cancelled_event, thread = start_heartbeat_thread("btk_0001", process, settings)
+    try:
+        thread.join(timeout=1)
+        elapsed = time.monotonic() - started
+        assert cancelled_event.is_set()
+        assert process.terminated is True
+        assert elapsed <= 1
+    finally:
+        stop_event.set()
+        thread.join(timeout=1)
+
+
 def test_timeout_kills_subprocess(tmp_path, monkeypatch):
     engine = _engine(tmp_path)
     settings = _settings(tmp_path)
