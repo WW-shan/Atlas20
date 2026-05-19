@@ -7,15 +7,12 @@ import pytest
 
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.settings import Settings
-
-
-SUMMARY_HEADER = (
-    "strategy,total_return,cagr,annualized_volatility,sharpe,sortino,max_drawdown,"
-    "calmar,monthly_win_rate,annualized_turnover,avg_turnover_per_rebalance,average_holdings"
-)
-REBALANCE_HEADER = (
-    "coin_id,price,market_cap,volume_usd,history_days,symbol,name,sector,"
-    "rebalance_date,universe_rank"
+from tests.conftest import (
+    EQUITY_HEADER,
+    make_rebalance_row,
+    write_equity_csv,
+    write_rebalance_csv,
+    write_summary_csv,
 )
 
 
@@ -26,11 +23,6 @@ def _write_compare_csvs(
     summary_rows: list[str] | None = None,
     strategies: list[str] | None = None,
 ) -> None:
-    latest = root / "reports" / "latest"
-    latest.mkdir(parents=True)
-    processed = root / "data" / "processed"
-    processed.mkdir(parents=True)
-
     if summary_rows is None:
         summary_rows = [
             "BTC_BH__always_on,0.20,0.10,0.20,0.80,1.10,-0.30,0.33,0.50,0.20,0.10,1",
@@ -43,19 +35,16 @@ def _write_compare_csvs(
     if dates is None:
         dates = pd.date_range("2026-04-01", "2026-05-19", freq="D").strftime("%Y-%m-%d").tolist()
 
-    latest.joinpath("strategy_summary.csv").write_text(
-        "\n".join([SUMMARY_HEADER, *summary_rows]),
-        encoding="utf-8",
-    )
+    write_summary_csv(root / "reports", summary_rows)
 
-    equity_lines = ["," + ",".join(strategies)]
+    equity_lines = [f"{EQUITY_HEADER}{','.join(strategies)}"]
     for offset, row_date in enumerate(dates):
         values = [str(100000 + (offset * (index + 1) * 100)) for index, _ in enumerate(strategies)]
         equity_lines.append(",".join([row_date, *values]))
-    latest.joinpath("equity_curves.csv").write_text("\n".join(equity_lines), encoding="utf-8")
+    write_equity_csv(root / "reports", equity_lines[1:], header=equity_lines[0])
 
     rebalance_rows = [
-        f"{symbol.lower()},1,1000,100,30,{symbol},{symbol},{sector},2026-05-18,{rank}"
+        make_rebalance_row(symbol, "2026-05-18", rank, sector=sector)
         for rank, (symbol, sector) in enumerate(
             [
                 ("BTC", "Layer1"),
@@ -82,10 +71,7 @@ def _write_compare_csvs(
             1,
         )
     ]
-    processed.joinpath("rebalance_universe.csv").write_text(
-        "\n".join([REBALANCE_HEADER, *rebalance_rows]),
-        encoding="utf-8",
-    )
+    write_rebalance_csv(root / "data", rebalance_rows)
 
 
 def _settings(root) -> Settings:
