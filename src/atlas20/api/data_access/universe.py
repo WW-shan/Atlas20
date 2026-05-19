@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from atlas20.api.data_access._common import _date_string, _read_processed_csv
+from atlas20.api.data_access._common import _as_float, _as_text, _date_string, _read_processed_csv
 from atlas20.api.settings import Settings
 
 
@@ -163,7 +162,7 @@ def _alert_from_quality_row(
     ts = f"{latest_overlap_date}T00:00:00Z"
 
     if not validation_passed:
-        reason = _as_text(row["validation_reason"], default="validation failed")
+        reason = _as_text_or_default(row["validation_reason"], default="validation failed")
         return {
             "id": f"dq_{symbol.lower()}",
             "severity": "rose",
@@ -199,15 +198,10 @@ def _alert_from_quality_row(
 
 
 def _as_symbol(value: Any, column: str) -> str:
-    if pd.isna(value):
-        raise ValueError(f"Missing text value in {column}")
-    symbol = str(value).strip()
-    if not symbol:
-        raise ValueError(f"Missing text value in {column}")
-    return symbol
+    return _as_text(value, column)
 
 
-def _as_text(value: Any, *, default: str) -> str:
+def _as_text_or_default(value: Any, *, default: str) -> str:
     if pd.isna(value):
         return default
     text = str(value).strip()
@@ -215,6 +209,7 @@ def _as_text(value: Any, *, default: str) -> str:
 
 
 def _as_bool(value: Any, column: str) -> bool:
+    # Universe data accepts string-like booleans from exported CSV artifacts.
     if pd.isna(value):
         raise ValueError(f"Missing boolean value in {column}")
     normalized = str(value).strip().lower()
@@ -226,18 +221,8 @@ def _as_bool(value: Any, column: str) -> bool:
 
 
 def _as_date(value: Any, column: str) -> pd.Timestamp:
+    # Keep date parsing local because universe alerts use Timestamp semantics.
     parsed = pd.to_datetime(value, errors="coerce")
     if pd.isna(parsed):
         raise ValueError(f"Invalid date value in {column}: {value!r}")
     return pd.Timestamp(parsed)
-
-
-def _as_float(value: Any, column: str) -> float:
-    try:
-        result = float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid numeric value in {column}: {value!r}") from exc
-    if not math.isfinite(result):
-        raise ValueError(f"Non-finite numeric value in {column}: {value!r}")
-    return result
-

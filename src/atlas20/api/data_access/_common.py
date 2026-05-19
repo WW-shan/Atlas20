@@ -59,13 +59,17 @@ def _date_string(value: Any) -> str:
     return pd.Timestamp(value).date().isoformat()
 
 
-def _as_float(value: Any) -> float:
+def _as_float(value: Any, column: str | None = None) -> float:
     try:
         result = float(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid numeric value: {value!r}") from exc
+        if column is None:
+            raise ValueError(f"Invalid numeric value: {value!r}") from exc
+        raise ValueError(f"Invalid numeric value in {column}: {value!r}") from exc
     if not math.isfinite(result):
-        raise ValueError(f"Non-finite numeric value: {value!r}")
+        if column is None:
+            raise ValueError(f"Non-finite numeric value: {value!r}")
+        raise ValueError(f"Non-finite numeric value in {column}: {value!r}")
     return result
 
 
