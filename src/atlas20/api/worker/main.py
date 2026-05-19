@@ -142,6 +142,21 @@ def _subprocess_error(stdout: bytes | str | None, stderr: bytes | str | None) ->
 
 
 def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds: float | None = None) -> None:
+    with session_scope(settings) as session:
+        repo = RunsRepo(session)
+        run = repo.get(run_id)
+        if run is None:
+            return
+        if run.requested_cancel:
+            repo.update(
+                run_id,
+                status="cancelled",
+                error="cancelled before execution",
+                heartbeat_at=None,
+                worker_pid=None,
+            )
+            return
+
     proc = subprocess.Popen(
         [sys.executable, "-m", "atlas20.api.worker.run_one", run_id],
         stdout=subprocess.PIPE,

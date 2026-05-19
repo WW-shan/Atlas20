@@ -407,6 +407,39 @@ def test_cancel_queued_run_never_executes_subprocess(tmp_path, monkeypatch):
         assert popen_calls == []
 
 
+def test_execute_run_skips_subprocess_when_cancel_arrives_after_claim(tmp_path, monkeypatch):
+    engine = _engine(tmp_path)
+    settings = _settings(tmp_path)
+    with Session(engine) as session:
+        run = _run("btk_0001", status="running")
+        run.requested_cancel = True
+        session.add(run)
+        session.commit()
+
+    popen_calls = []
+
+    class CompletedProcess(FakeProcess):
+        def communicate(self, timeout=None):
+            del timeout
+            self.returncode = 0
+            return b"", b""
+
+    def fake_popen(*args, **kwargs):
+        popen_calls.append((args, kwargs))
+        return CompletedProcess()
+
+    monkeypatch.setattr("atlas20.api.worker.main.subprocess.Popen", fake_popen)
+
+    _execute_run("btk_0001", settings, heartbeat_interval_seconds=0.01)
+
+    with Session(engine) as session:
+        cancelled = RunsRepo(session).get("btk_0001")
+        assert cancelled is not None
+        assert cancelled.status == "cancelled"
+        assert cancelled.error == "cancelled before execution"
+        assert popen_calls == []
+
+
 def test_failed_subprocess_marks_status_failed_with_error(tmp_path, monkeypatch):
     engine = _engine(tmp_path)
     settings = _settings(tmp_path)
