@@ -72,7 +72,7 @@ Agent B: subagent_type=general-purpose, 包装 codex reviewer
 **注意**：
 - Claude 侧 reviewer **必须用 `model: "opus"`**，否则上下文不够（曾用 sonnet 报 "1m context not enabled" 错）
 - Codex 侧 reviewer 通过 stdin 传 prompt（`<<'EOF' ... EOF`），不要用 `--prompt-file`（曾因 `Start-Job` PowerShell 参数绑定失败导致 50min 卡死）
-- 如果 codex reviewer 超过 20min 无响应，`TaskStop` 杀掉重派
+- 如果 codex reviewer 超过 50min 无响应，`TaskStop` 杀掉重派
 
 ## 5. Fix dispatch（如有 Warning/Critical）
 
