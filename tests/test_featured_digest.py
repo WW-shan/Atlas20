@@ -27,6 +27,7 @@ def test_featured_digest_subtitle_contains_real_champion(tmp_path, monkeypatch):
     payload = get_featured_digest()
 
     assert "ALPHA" in payload.subtitle
+    assert "—" in payload.title
     assert "ALPHA · YTD" in payload.subtitle
     assert payload.generated_at == "2026-06-30T12:00:00Z"
 

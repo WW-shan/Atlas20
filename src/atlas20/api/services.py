@@ -279,7 +279,7 @@ def get_featured_digest() -> FeaturedDigest:
     return FeaturedDigest.model_validate(
         {
             "id": markdown.stem,
-            "title": f"Atlas20 Digest - {generated_date}",
+            "title": f"Atlas20 Digest — {generated_date}",
             "subtitle": f"{overview['champion']['strategy']} · YTD {ytd_pct:+,.2f}% · generated {generated_at}",
             "formats": deepcopy(mock_data.fallback_featured_digest["formats"]),
             "defaultFormat": "markdown",
