@@ -68,7 +68,7 @@ def _load_compare_summary(settings: Settings) -> pd.DataFrame:
     try:
         for column in NUMERIC_SUMMARY_COLUMNS:
             parsed[column] = pd.to_numeric(parsed[column], errors="raise")
-            parsed[column].map(_as_float)
+            parsed[column] = parsed[column].map(_as_float)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{path} has invalid numeric values") from exc
     return parsed
@@ -222,7 +222,7 @@ def _load_latest_universe(settings: Settings) -> list[str]:
         raise ValueError(f"{path} has invalid dates in rebalance_date")
     try:
         parsed["universe_rank"] = pd.to_numeric(parsed["universe_rank"], errors="raise")
-        parsed["universe_rank"].map(_as_float)
+        parsed["universe_rank"] = parsed["universe_rank"].map(_as_float)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{path} has invalid numeric values in universe_rank") from exc
 

@@ -124,6 +124,17 @@ def test_load_compare_all_unknown_raises_valueerror(tmp_path):
         load_compare_from_reports(_settings(tmp_path), ["x", "y"], "ALL")
 
 
+def test_load_compare_rejects_nan_numeric_summary_values(tmp_path):
+    summary_rows = [
+        "BTC_BH__always_on,0.20,0.10,0.20,0.80,1.10,-0.30,0.33,0.50,0.20,0.10,1",
+        "ATLAS_ALPHA,0.70,0.30,NaN,2.40,3.00,-0.12,2.50,0.65,3.00,0.35,20",
+    ]
+    _write_compare_csvs(tmp_path, summary_rows=summary_rows)
+
+    with pytest.raises(ValueError, match="invalid numeric values"):
+        load_compare_from_reports(_settings(tmp_path), ["ATLAS_ALPHA"], "ALL")
+
+
 def test_load_compare_range_filter(tmp_path):
     dates = pd.date_range("2026-03-01", "2026-05-19", freq="D").strftime("%Y-%m-%d").tolist()
     _write_compare_csvs(tmp_path, dates=dates)
