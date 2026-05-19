@@ -171,6 +171,9 @@ def run(run_id: str, settings: Settings | None = None) -> int:
         )
         _write_manifest(tmp_dir, settings, params_json)
         metrics = _completion_metrics(tmp_dir)
+        # Batch 1's publisher uses backup-rename semantics: move existing to
+        # .backup, move tmp to final, then delete .backup after success.
+        # This keeps rollback behavior for partial publish failures.
         _publish_report_dir(tmp_dir, final_dir)
         duration_s = max(0, int(time.monotonic() - started))
 
