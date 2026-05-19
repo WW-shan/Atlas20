@@ -75,7 +75,7 @@ def post_run_favorite(run_id: str, session: Session = Depends(get_session)) -> d
 @router.post("/runs/{run_id}/cancel", status_code=202)
 def cancel_run(run_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
     repo = RunsRepo(session)
-    run = repo.get(run_id)
+    run = repo.request_cancel(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     if run.status == "cancelled":
@@ -84,5 +84,4 @@ def cancel_run(run_id: str, session: Session = Depends(get_session)) -> dict[str
         raise HTTPException(status_code=409, detail="run already completed; cannot cancel")
     if run.status == "failed":
         raise HTTPException(status_code=409, detail="run already failed; cannot cancel")
-    repo.update(run_id, requested_cancel=True)
     return {"run_id": run_id, "requested_cancel": True}

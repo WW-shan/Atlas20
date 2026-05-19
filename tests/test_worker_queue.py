@@ -384,6 +384,74 @@ def test_failed_with_cancel_flag_becomes_cancelled(tmp_path):
         assert updated.requested_cancel is True
 
 
+def test_failed_completion_after_accepted_cancel_uses_fresh_cancel_flag(tmp_path):
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        session.add(_run("btk_0001", status="running"))
+        session.commit()
+
+    stale_session = Session(engine)
+    try:
+        stale_repo = RunsRepo(stale_session)
+        preloaded = stale_repo.get("btk_0001")
+        assert preloaded is not None
+        assert preloaded.requested_cancel is False
+
+        with Session(engine) as cancel_session:
+            RunsRepo(cancel_session).update("btk_0001", requested_cancel=True)
+            cancel_session.commit()
+
+        updated = stale_repo.update_metrics_from_completion(
+            "btk_0001",
+            status="failed",
+            error="pipeline crash",
+            heartbeat_at=None,
+            worker_pid=None,
+        )
+        stale_session.commit()
+
+        assert updated is not None
+        assert updated.status == "cancelled"
+        assert "would have been failed" in str(updated.error)
+        assert "pipeline crash" in str(updated.error)
+        assert updated.requested_cancel is True
+    finally:
+        stale_session.close()
+
+
+def test_cancel_request_after_terminal_write_does_not_reopen_run(tmp_path):
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        session.add(_run("btk_0001", status="running"))
+        session.commit()
+
+    stale_cancel_session = Session(engine)
+    try:
+        stale_repo = RunsRepo(stale_cancel_session)
+        preloaded = stale_repo.get("btk_0001")
+        assert preloaded is not None
+        assert preloaded.status == "running"
+
+        with Session(engine) as terminal_session:
+            RunsRepo(terminal_session).update_metrics_from_completion(
+                "btk_0001",
+                return_pct=0.42,
+                sharpe=1.9,
+                max_dd=-0.18,
+                duration_s=12,
+            )
+            terminal_session.commit()
+
+        updated = stale_repo.request_cancel("btk_0001")
+        stale_cancel_session.commit()
+
+        assert updated is not None
+        assert updated.status == "completed"
+        assert updated.requested_cancel is False
+    finally:
+        stale_cancel_session.close()
+
+
 def test_cancel_queued_run_never_executes_subprocess(tmp_path, monkeypatch):
     engine = _engine(tmp_path)
     settings = _settings(tmp_path)

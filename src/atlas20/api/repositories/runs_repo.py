@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Any
 
-from sqlalchemy import func, or_, text
+from sqlalchemy import case, func, or_, text, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -110,9 +110,6 @@ class RunsRepo:
         worker_pid: int | None = None,
         heartbeat_at: datetime | None = None,
     ) -> Run | None:
-        run = self.get(run_id)
-        if run is None:
-            return None
         if status == "completed" and duration_s is None:
             raise ValueError("duration_s is required for completed runs")
         fields: dict[str, object] = {
@@ -131,20 +128,36 @@ class RunsRepo:
                     "duration_s": duration_s,
                 }
             )
-        if run.requested_cancel and fields.get("status") in {"completed", "failed"}:
-            original_status = fields["status"]
-            original_error = fields.get("error")
-            fields["status"] = "cancelled"
-            if original_error:
-                fields["error"] = f"cancelled during execution (would have been {original_status}: {original_error})"
+        if status in {"completed", "failed"}:
+            if error:
+                cancel_error = f"cancelled during execution (would have been {status}: {error})"
             else:
-                fields["error"] = f"cancelled during execution (would have been {original_status})"
-        for key, value in fields.items():
-            setattr(run, key, value)
-        self._s.add(run)
+                cancel_error = f"cancelled during execution (would have been {status})"
+            fields["status"] = case((Run.requested_cancel.is_(True), "cancelled"), else_=status)
+            fields["error"] = case((Run.requested_cancel.is_(True), cancel_error), else_=error)
+
+        result = self._s.exec(
+            sa_update(Run)
+            .where(Run.run_id == run_id)
+            .values(**fields)
+            .execution_options(synchronize_session=False)
+        )
         self._s.flush()
-        self._s.refresh(run)
-        return run
+        if result.rowcount == 0:
+            return None
+        self._s.expire_all()
+        return self.get(run_id)
+
+    def request_cancel(self, run_id: str) -> Run | None:
+        self._s.exec(
+            sa_update(Run)
+            .where(Run.run_id == run_id, Run.status.in_(("queued", "running")))
+            .values(requested_cancel=True)
+            .execution_options(synchronize_session=False)
+        )
+        self._s.flush()
+        self._s.expire_all()
+        return self.get(run_id)
 
     def toggle_favorite(self, run_id: str) -> Run | None:
         run = self.get(run_id)
