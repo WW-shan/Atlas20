@@ -71,7 +71,30 @@ def test_backtest_config_rejects_combined_costs_over_1000_bps():
     with pytest.raises(ValidationError) as exc:
         BacktestConfig.model_validate(data)
 
-    assert "transaction costs" in str(exc.value)
+    message = str(exc.value)
+    assert "feeBps" in message
+    assert "slippageBps" in message
+
+
+def test_validator_errors_include_field_names():
+    costs = valid_config()
+    costs["costs"]["feeBps"] = 750
+    costs["costs"]["slippageBps"] = 300
+
+    with pytest.raises(ValidationError) as exc:
+        BacktestConfig.model_validate(costs)
+
+    assert "feeBps" in str(exc.value)
+
+    slots = valid_config()
+    slots["universe"]["topN"] = 5
+    slots["allocation"]["slots"] = 10
+
+    with pytest.raises(ValidationError) as exc:
+        BacktestConfig.model_validate(slots)
+
+    message = str(exc.value)
+    assert "slots" in message or "topN" in message
 
 
 def test_backtest_config_accepts_valid_config():

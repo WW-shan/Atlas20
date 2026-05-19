@@ -238,9 +238,9 @@ class BacktestConfig(StrictApiModel):
         if self.window.end > _time.today():
             raise ValueError("end date must not be in the future")
         if self.allocation.slots > self.universe.topN:
-            raise ValueError("slots must be <= topN")
+            raise ValueError("allocation.slots must be ≤ universe.topN")
         if self.costs.feeBps + self.costs.slippageBps > 1000:
-            raise ValueError("combined transaction costs must be <= 1000 bps")
+            raise ValueError("costs.feeBps + costs.slippageBps must be ≤ 1000")
         return self
 
 
