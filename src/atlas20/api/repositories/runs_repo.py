@@ -68,6 +68,17 @@ class RunsRepo:
         raise RuntimeError("could not allocate unique run_id after 3 attempts")
 
     def _begin_immediate_for_sqlite(self) -> None:
+        """Promote SQLite read-transaction to write-transaction immediately.
+
+        Why: SQLite's default 'deferred' mode delays acquiring the reserved lock
+        until first write, creating a TOCTOU window in MAX+1 id allocation.
+        BEGIN IMMEDIATE acquires the lock at transaction start, serializing
+        concurrent inserts across SEPARATE sessions/connections.
+
+        Within a single session reused across calls, this helper short-circuits
+        via in_transaction() -- the outer scope already holds the write lock.
+        The race we guard against is cross-session, not intra-session.
+        """
         if self._s.in_transaction():
             return
         if self._s.get_bind().dialect.name == "sqlite":
