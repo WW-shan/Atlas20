@@ -128,52 +128,6 @@ fallback_overview = {
     "hero_kpi": {"ytdReturn": 12.4756, "sharpe": 3.42, "maxDd": -0.3204, "winRate": 0.685},
 }
 
-fallback_runs_queue = [
-    {
-        "run_id": "btk_0148",
-        "strategy": "ATLAS Adaptive v3",
-        "status": "running",
-        "duration_s": 42,
-        "eta_s": 90,
-        "params_summary": "N=20 · Weekly · 2024→2026",
-    },
-    {
-        "run_id": "btk_0147",
-        "strategy": "Momentum Top-10",
-        "status": "running",
-        "duration_s": 24,
-        "eta_s": 60,
-        "params_summary": "N=10 · Daily · 2024→2026",
-    },
-    {
-        "run_id": "btk_0146",
-        "strategy": "Mean Reversion v2",
-        "status": "completed",
-        "duration_s": 88,
-        "params_summary": "N=15 · Biweekly · 2024→2026",
-    },
-    {
-        "run_id": "btk_0145",
-        "strategy": "ATLAS Adaptive v2",
-        "status": "completed",
-        "duration_s": 102,
-        "params_summary": "N=20 · Weekly · 2023→2026",
-    },
-    {
-        "run_id": "btk_0144",
-        "strategy": "Carry Top-5",
-        "status": "failed",
-        "duration_s": 12,
-        "params_summary": "N=5 · Weekly · 2024→2026",
-    },
-    {
-        "run_id": "btk_0149",
-        "strategy": "ATLAS Adaptive v3",
-        "status": "queued",
-        "params_summary": "N=20 · Weekly · 2024→2026",
-    },
-]
-
 fallback_runs_list = [
     {
         "run_id": "btk_0148",
