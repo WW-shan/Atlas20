@@ -1,6 +1,6 @@
 """Backtest API routes."""
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlmodel import Session
 
 from atlas20.api.repositories import IdempotencyRepo, get_session
@@ -27,7 +27,10 @@ def post_backtest(
         if cached is not None:
             return RunRowSummary.model_validate_json(cached.response_json)
 
-    response = register_new_backtest(session, config)
+    try:
+        response = register_new_backtest(session, config)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if idempotency_key:
         repo.store(idempotency_key, "POST", "/backtests/run", response.model_dump_json(), ttl_seconds=86400)
     return response

@@ -69,6 +69,13 @@ def test_to_research_config_missing_preset_yaml_falls_back_to_base():
     assert config.paths.processed_dir == "data/processed"
 
 
+def test_config_adapter_raises_when_base_yaml_missing(tmp_path: Path):
+    api_config = valid_config(preset="does not exist")
+
+    with pytest.raises(ValueError, match="base.yaml"):
+        to_research_config(api_config, api_config.preset, settings(tmp_path))
+
+
 def test_to_research_config_loads_slugged_preset_file():
     api_config = valid_config(preset="Five Year 2020 2024")
 

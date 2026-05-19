@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 from atlas20.api.settings import Settings
 from atlas20.api.settings import get_settings
@@ -22,6 +23,15 @@ def test_settings_defaults(monkeypatch):
     assert settings.anchor_date is None
     assert settings.log_level == "INFO"
     assert settings.log_format == "json"
+
+
+def test_settings_project_root_defaults_to_repo_root(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    settings = Settings()
+
+    assert settings.project_root == Path(__file__).resolve().parents[1]
+    assert settings.project_root.name == "Atlas20"
 
 
 def test_settings_accepts_custom_cors_origins():

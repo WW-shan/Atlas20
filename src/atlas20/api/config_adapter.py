@@ -53,7 +53,10 @@ def _config_path(project_root: Path, preset_slug: str) -> Path:
     candidate = config_dir / f"{preset_slug}.yaml"
     if candidate.exists():
         return candidate
-    return config_dir / "base.yaml"
+    base = config_dir / "base.yaml"
+    if not base.exists():
+        raise ValueError(f"base config 'config/base.yaml' not found at {project_root}")
+    return base
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
