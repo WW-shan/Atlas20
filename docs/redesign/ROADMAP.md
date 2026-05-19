@@ -1,614 +1,620 @@
-# Atlas20 全栈完工清单 (Post-R3 Roadmap)
+# Atlas20 全栈完工清单 v2 (Post-R3 Roadmap)
 
 **生成时间**: 2026-05-19  
-**基线 commit**: `cef7f1b`  
-**当前状态**: R3 UI 重设计 + mock 后端契约对齐已完成（三轮交叉审查），但真实数据/真实回测/持久化/部署全部缺失。
+**基线 commit**: `a43a304` → 本次修订 `HEAD`  
+**v2 修订原因**: codex 交叉审查 (session `019e3f06`) 指出事实错误 14 处、遗漏 11 项、范围漂移 7 项、顺序错位 6 项。本版本全部吃进。
+
+---
+
+## 修订总览（vs v1）
+
+**强制修正（codex 验证后属实）**
+- R1 "31 strategies" → **30 strategies**；`hero_kpi.ytdReturn` 不能从 `strategy_summary.csv` 取（全窗指标），必须从 `daily_returns.csv` 或 `equity_curves.csv` 计算 YTD
+- R2 不要从目录名派生 RunRow 字段；用 `params.json` / DB 作 source of truth，目录名只作 id
+- R3/R6 `selection_history.csv` 仅 `profit_max_refine` 子配置导出，**标准 pipeline 不导**；必须先在 pipeline 加 `weights.csv` 或 `rebalance_targets.csv` 导出
+- R7 删除 HEAD probe（会烧 CoinGecko 速率配额）；改用「缓存 last-sync + 可选轻量 authenticated GET」
+- R10/E2/E4/E5/E6 `BackgroundTasks + asyncio.Semaphore` **不是生产安全方案**（pandas 是 CPU-bound，GIL 阻塞；进程重启丢任务；多 worker 部署下竞态）。改用 **DB-backed 作业队列 + 子进程 worker**
+- E1 配置字段映射写错——`positionPct/slots` 不映射到 `StrategyConfig.max_weight/max_positions`（不存在）；实际是 `FrictionConfig.max_weight_per_coin`，slots 按 strategy family 各不相同
+- F1 `app.mount("/static", StaticFiles(directory="reports"))` **不安全**；用鉴权检查的 download 路由替代
+- F4 Playwright 截 PNG 是错工具——研究截图要确定性，用 matplotlib 出图；Playwright 保留给 visual regression test
+- U1/U2/U3 **三个组件已存在**（`components/ui/Skeleton.tsx` / `ErrorBanner.tsx` / `EmptyState.tsx`）；改为「把现有组件接到 query 状态」
+- U4 Overview query 在 `pages/ResearchConsolePage.tsx`，不在 `features/overview/OverviewTab.tsx`；wiring 要在 page 层做
+- S7 `constr(regex=...)` 是 pydantic v1 写法；v2 用 `Annotated[str, StringConstraints(pattern=...)]` 或 `Field(pattern=...)`
+- C3 `date.today()` 是 timezone-naive；该用 `datetime.now(timezone.utc).date()` 或注入时钟
+- D6 CI **已存在** (`.github/workflows/ci.yml`)；改为「扩展现有 CI 加 lint / type-check / deploy」
+
+**新增（codex 指出遗漏，全部纳入）**
+- 持久化作业表 + 重启恢复
+- 报告产物原子写入（immutable dir + `latest` symlink）
+- 每个 run 的可复现性 manifest（config hash, code commit, data snapshot mtimes）
+- Pipeline 增加 `weights.csv` / `selection_history.csv` 标准导出
+- DB 与产物的备份/恢复/保留策略
+- Backtest 资源校验（max window, topN/slots 上限, 未来日期策略, idempotency key）
+- 鉴权 download 路径
+- 日志保留/轮转/密钥脱敏
+- OpenAPI snapshot 测试 / TS client 自动生成防契约漂移
+- `/api/options` 必须暴露真实 strategy id 列表（compare modal 用）
+- SaaS 部署的法律基线（隐私/条款/数据导出删除）—— 仅外网部署时
+
+**移除/降级**（scope drift）
+- Q1 mock data 拆 JSON（DB seeding 之后冗余）
+- Q7 「每文件 < 100 LOC」（武断指标）
+- C6 query 字段顺序对齐（非功能）
+- C7 `/api/v1` 路径版本化（本地研究 MVP 不需要）
+- A5 i18n（无翻译需求前过度工程）
+- A6 light mode（dark-only 研究控制台不是生产 readiness）
+- O6 SIEM（措辞过企业化）
+
+**顺序重排**
+- **P 早于 E2-E6** — 作业表/migration 早于异步引擎、取消、超时、并发
+- **S 早于 F1 和 D 公开部署** — settings/auth/path 校验早于静态下载和部署
+- **U4-U9 与 R 并行** — 真数据接入时同步移除 initialData mock 遮蔽
+- **T 嵌入各 phase** — 集成/契约测试附在 R/E/P/F，不集中到末期
+- **R7/R10 在 settings + rate limit 之后**
+- **F2-F5 在 E/P 之后**
 
 ---
 
 ## 目录
 
-- [Phase R — 真实数据接入 (Real-data integration)](#phase-r--真实数据接入-real-data-integration)
-- [Phase E — 真实回测执行 (Engine integration)](#phase-e--真实回测执行-engine-integration)
-- [Phase P — 持久化 (Persistence)](#phase-p--持久化-persistence)
-- [Phase F — 报告生成与静态文件 (File generation)](#phase-f--报告生成与静态文件-file-generation)
-- [Phase U — 前端 UI 收尾 (Loading/Error/Modals)](#phase-u--前端-ui-收尾-loadingerrormodals)
-- [Phase S — 安全与认证 (Security & Auth)](#phase-s--安全与认证-security--auth)
-- [Phase O — 可观测性 (Observability)](#phase-o--可观测性-observability)
-- [Phase D — 部署与 DX (Deployment & DX)](#phase-d--部署与-dx-deployment--dx)
-- [Phase T — 测试与质量门 (Tests & Quality gates)](#phase-t--测试与质量门-tests--quality-gates)
-- [Phase Q — 代码质量重构 (Code quality)](#phase-q--代码质量重构-code-quality)
-- [Phase C — 契约边角 (Contract edges)](#phase-c--契约边角-contract-edges)
-- [Phase A — A11y & 国际化 (Accessibility / i18n)](#phase-a--a11y--国际化-accessibility--i18n)
+- [Phase R — 真实数据接入](#phase-r--真实数据接入)
+- [Phase E — 真实回测执行](#phase-e--真实回测执行)
+- [Phase P — 持久化](#phase-p--持久化)
+- [Phase F — 报告生成与下载](#phase-f--报告生成与下载)
+- [Phase U — 前端 UI 收尾](#phase-u--前端-ui-收尾)
+- [Phase S — 安全与认证](#phase-s--安全与认证)
+- [Phase O — 可观测性](#phase-o--可观测性)
+- [Phase D — 部署与 DX](#phase-d--部署与-dx)
+- [Phase T — 测试与质量门（嵌入各 phase）](#phase-t--测试与质量门嵌入各-phase)
+- [Phase Q — 代码质量](#phase-q--代码质量)
+- [Phase C — 契约边角](#phase-c--契约边角)
+- [Phase A — A11y](#phase-a--a11y)
+- [Phase X — Pipeline 输出扩展（新增）](#phase-x--pipeline-输出扩展新增)
+- [Phase L — 合规与法律（新增，按需）](#phase-l--合规与法律新增按需)
 
 ---
 
-## Phase R — 真实数据接入 (Real-data integration)
+## Phase X — Pipeline 输出扩展（前置依赖）
 
-> 目标：把 `mock_data.py` 的字面量替换为从 `reports/` 和 `data/processed/` 读真实 CSV。
+> **必须先做**：R3/R6/E3 都依赖 pipeline 导出的 `weights.csv` / `selection_history.csv`；当前标准 pipeline 不导这些。
 
-### R1 — Overview champion + top_strategies + equity 真实化
-- [ ] `src/atlas20/api/services.py:get_overview` — 从 `reports/latest/strategy_summary.csv` 读 31 个策略，按 sharpe 降序取 top 3 → `top_strategies`；最高 sharpe 行 → `champion`
-- [ ] 从 `reports/latest/equity_curves.csv` 读 champion 列时间序列 → `equity_curve`（按月 resample 取 6 个点）
-- [ ] 从 `reports/latest/daily_returns.csv` 读 champion 列 → `daily_returns`
-- [ ] `equity_overlay.series` 用 champion 累计回报 vs BTC_BH__always_on 列
-- [ ] `hero_kpi.ytdReturn / sharpe / maxDd / winRate` 从同 csv 计算
-- [ ] `aum / regime / rebalance` 暂时维持半字面量（无真实数据源），但 `rebalance.ts` 用 `equity_curves.csv` 最后一个交易日
-- [ ] **Acceptance**: GET `/api/overview` 返回的 `champion.strategy` 是真实 strategy_summary.csv 里 sharpe 最高那行；hero_kpi 与该行的 sharpe / max_drawdown 一致
-- **Files**: `services.py`, 新增 `services_real.py` 或 `data_access.py` 拆分
+### X1 — 标准 pipeline 导出 `weights.csv`
+- [ ] `src/atlas20/reporting/report.py:export_result_tables` — 每个策略写 `{run_dir}/weights/{strategy_name}.csv`（rebalance_date × coin_id matrix）
+- [ ] 触发：`pipeline.py` 跑全集时；POST `/backtests/run` 执行时
+- [ ] **Acceptance**: `reports/latest/weights/` 目录有 30 个文件
+
+### X2 — 标准 pipeline 导出 `selection_history.csv`
+- [ ] 当前仅 `profit_max_refine` 子配置导出；提到所有策略
+- [ ] schema: `rebalance_date, coin_id, coin_rank, coin_score, coin_weight, strategy`
+- [ ] **Acceptance**: `reports/latest/selection_history.csv` 包含全部策略行
+
+### X3 — 每个 run 的可复现性 manifest
+- [ ] 每个 `reports/app_runs/{run_id}/manifest.json` 包含：
+  - `config_path`, `config_hash` (sha256 of yaml)
+  - `code_commit` (`git rev-parse HEAD`)
+  - `data_snapshot`: `{provider: latest_file_mtime}`
+  - `pipeline_version`, `engine_version`
+  - `artifacts: [{kind, path, size, sha256}]`
+- [ ] **Acceptance**: rerun 同 config 同代码同数据应得到相同 manifest（除 timestamp）
+
+### X4 — 原子产物写入
+- [ ] 每次 pipeline / backtest 写到 `{run_dir}.tmp/`，最后 `os.replace(tmp, run_dir)`
+- [ ] `reports/latest` 改为指向最新 run_dir 的 symlink（Windows 用 `mklink /J`）
+- [ ] API 读 `reports/latest/...` 不会读到半写状态
+- [ ] **Acceptance**: 跑 pipeline 期间 GET `/api/overview` 不会 500
+
+---
+
+## Phase R — 真实数据接入
+
+> 依赖：Phase X 完成。所有 services 改为读真实 CSV。
+
+### R1 — Overview 真实化
+- [ ] `services.get_overview` 改用真实数据 adapter
+- [ ] `top_strategies`: 读 **全部 30 行** `strategy_summary.csv`，按 sharpe 降序取 top 3
+- [ ] `champion`: top_strategies[0]
+- [ ] `equity_curve`: 从 `equity_curves.csv` 取 champion 列，按月 resample 6 个点
+- [ ] `daily_returns`: 从 `daily_returns.csv` 取 champion 列
+- [ ] `hero_kpi.ytdReturn`: **从 `daily_returns.csv` 当前年份首日到末日累积**（不是 strategy_summary.csv 的 total_return）
+- [ ] `hero_kpi.sharpe / maxDd`: 可用 strategy_summary.csv 全窗（要在 UI 标注「since inception」）；如果要 YTD 一致，从 daily_returns 自己算
+- [ ] `aum / regime / rebalance`: 保留半字面量（无真实数据源），但 `rebalance.ts` 用真实最近 rebalance_date
+- [ ] `equity_overlay.series`: champion 列 vs `BTC_BH__always_on` 列，按 ChartRange 截取
+- [ ] **Acceptance**: GET `/api/overview` `champion.strategy` 与 strategy_summary.csv 真实 sharpe 最高行一致
 
 ### R2 — Run History 真实化
-- [ ] 在 `services.list_runs` 之前，扫描 `reports/app_runs/*/summary.csv`
-- [ ] 每个 dir 一个 RunRow，缺字段从 dir name 派生（`btk_NNNN_strategy_window` 规范化）
-- [ ] 如果 `reports/app_runs/` 为空，fallback 到 mock_data
-- [ ] `services.get_run` / `get_run_detail` 同步走目录扫描
-- [ ] `get_run_detail.kpi` 从 `summary.csv` 直接读，不再 derive
-- [ ] `get_run_detail.equity_overlay` 从 `reports/app_runs/{id}/equity_curve.csv` 读
-- [ ] **Acceptance**: 跑一次 `python -m atlas20.pipeline` 之后 GET `/api/runs` 看到真实 run
+- [ ] `services.list_runs` 从 **DB**（不是目录名）查询；DB 由 Phase P 提供
+- [ ] 缺 DB 时 fallback: `glob(reports/app_runs/*/manifest.json)`，**从 manifest 读字段**，不解析目录名
+- [ ] `services.get_run_detail`: 从 `{run_dir}/manifest.json` + `summary.csv` + `equity_curve.csv` 组装
+- [ ] `mock_data.fallback_runs_list` 只在 DB 空且 `app_runs/` 空时启用
+- [ ] **Acceptance**: 跑一次回测后 GET `/api/runs` 看到真实 run；重启后仍在
 
 ### R3 — Compare 真实化
-- [ ] `services.get_compare` — 从 `reports/latest/strategy_summary.csv` 按 frontend 传入的 strategy id 精确匹配
-- [ ] `equity` 数据用 `equity_curves.csv` 多列拼接
-- [ ] `overlap.matrix` 用 `selection_history` 计算真实 Jaccard（暂可保留 mock）
-- [ ] unknown ids → 404 而不是静默回退
-- [ ] **Acceptance**: 用 strategy_summary.csv 真实列名调 `/api/compare?ids=BTC_BH__always_on,TOP20_MOM_top4_monthly__always_on` 拿到真实指标
+- [ ] `services.get_compare(ids, range)`:
+  - `ids` 是 `strategy_summary.csv` 第一列的 strategy slug（如 `BTC_BH__always_on`）
+  - unknown id → **404**（不是静默回退）
+  - `equity` 从 `equity_curves.csv` 取传入 ids 各列
+  - `metrics` 从 `strategy_summary.csv` 行映射；缺字段（sortino/calmar/win_rate 等已在 csv）
+  - `overlap.matrix`: 从 `weights.csv`（Phase X1）按 rebalance_date 求 Jaccard
+  - `sharedHoldings`: 从 `weights.csv` 各策略 union（出现次数 × 总策略数）
+- [ ] **Acceptance**: 调真实 strategy 名 `?ids=BTC_BH__always_on,TOP20_MOM_top4_monthly__always_on` 返回真实指标
 
-### R4 — Reports 真实化
-- [ ] `services.list_reports` — 扫描 `reports/latest/` 和 `reports/{config}/*` 目录
-- [ ] `*.md / *.pdf / *.png` → ReportEntry
-- [ ] `report_type` 推断：含 "weekly" → weekly；含 "btk_" → run；含 "compare" → compare；含 "universe" → universe
-- [ ] `thumbnail` 推断：含 equity → equity；含 drawdown → lines；含 sector → bars
-- [ ] `size_bytes` 来自 `path.stat().st_size`
-- [ ] `generated_at` 来自 `path.stat().st_mtime` ISO
-- [ ] **Acceptance**: GET `/api/reports` 至少返回 `atlas20_report.md` 一项
+### R4 — Reports archive 真实化
+- [ ] `services.list_reports` 扫描多个目录：`reports/latest/`, `reports/{config}/*/`, `reports/app_runs/*/`
+- [ ] 每个 `*.md` / `*.pdf` / `*.png` → ReportEntry
+- [ ] `report_type` 推断规则文档化
+- [ ] `thumbnail` 推断规则文档化
+- [ ] `size_bytes`: `path.stat().st_size`
+- [ ] `generated_at`: `path.stat().st_mtime` ISO
+- [ ] **Acceptance**: GET `/api/reports` 至少返回 `reports/latest/atlas20_report.md`
 
 ### R5 — Featured Digest 真实化
-- [ ] `services.get_featured_digest` — 取 `reports/latest/` 中最新 `*.md` 文件作 featured
-- [ ] subtitle 包含 champion strategy + YTD + universe 信息（拼自 strategy_summary）
-- [ ] **Acceptance**: GET `/api/reports/digest/featured` `title` 含真实 generated date
+- [ ] `services.get_featured_digest`: 找 `reports/` 下最新 mtime 的 `*.md`
+- [ ] `subtitle`: 拼自 strategy_summary champion + YTD（来自 R1 计算）
+- [ ] **Acceptance**: title 含真实 generated date
 
 ### R6 — Universe Timeline 真实化
-- [ ] `services.get_universe_timeline` — 读 `data/processed/rebalance_universe.csv`
-- [ ] 每个 rebalance date 的 top-20 token 列表 → 转 segments
-- [ ] rotations 用 selection_history 的 major-change 行（≥2 个 token 进出）
-- [ ] `range.start/end` 用 csv 第一/最后日期
-- [ ] **Acceptance**: 真实数据下应该看到 BTC、ETH 占满 180 天，altcoin 轮换
+- [ ] `services.get_universe_timeline`: 读 `data/processed/rebalance_universe.csv`
+- [ ] 每个 rebalance_date 的 top-N tokens → segments（按 token 聚合连续区间）
+- [ ] `rotations`: 当连续两次 rebalance 进/出 ≥ 2 个 token 时标 MAJOR ROTATION
+- [ ] **Acceptance**: BTC、ETH 占满 180 天，altcoin 有真实进出
 
-### R7 — Data Sources 真实化
-- [ ] `services.get_data_sources` — probe CoinGecko / CryptoCompare 真实状态（HEAD 请求 + 计时）
-- [ ] 用 `requests.get(timeout=2)`；网络不通设 `error`；>500ms 设 `degraded`；<200ms 设 `healthy`
-- [ ] `last_sync_seconds` 从 `data/raw/{provider}/` 最新文件 mtime 算
-- [ ] 用 in-memory TTL cache 5 分钟避免每请求都 probe
-- [ ] **Acceptance**: GET `/api/universe/sources` 真实显示 CoinGecko/CryptoCompare 状态
+### R7 — Data Sources 真实化（**等 S2/S6 完成后再做**）
+- [ ] `services.get_data_sources` 用缓存的 last-sync 状态，不每请求都 probe
+- [ ] last_sync_seconds: 从 `data/raw/{provider}/` 最新文件 mtime 算
+- [ ] status 推断：< 1h 健康；< 24h degraded；> 24h error
+- [ ] 不做 HEAD probe（会烧 CoinGecko 速率配额）
+- [ ] 可选：5 分钟 TTL cache 内做一次轻量 authenticated GET 验活
+- [ ] **Acceptance**: 不依赖外网即可返回；如外网通有 cache TTL
 
 ### R8 — Data Alerts 真实化
-- [ ] `services.get_data_alerts` — 读 `data/processed/data_quality.csv`
-- [ ] 每行（gap/outlier/stale）→ DataAlert
-- [ ] `severity` 从列 `severity` 或按规则推断（gap → rose；stale → cyan；resolved → emerald）
-- [ ] **Acceptance**: data_quality.csv 是空时返回 `[]`，有行时正确映射
+- [ ] `services.get_data_alerts` 读 `data/processed/data_quality.csv`
+- [ ] 列映射 `severity` / `title` / `meta` / `ts` / `icon`
+- [ ] data_quality.csv 缺时返回 `[]`
+- [ ] **Acceptance**: 改 data_quality.csv 后 API 反映
 
 ### R9 — Options 真实化
-- [ ] `services.get_options_payload` — 当前返回 `{}`，扩为：
+- [ ] `services.get_options_payload` 扩展为：
   ```json
   {
-    "strategy_families": ["ATLAS", "Momentum", "MeanRev", "Carry", "Other"],
-    "rebalance_frequencies": ["Weekly", "Biweekly", "Monthly"],
-    "presets": [list of preset names from config/*.yaml],
-    "date_ranges": ["7d", "30d", "90d", "ytd", "all"]
+    "strategy_families": [...],
+    "rebalance_frequencies": [...],
+    "presets": [list from config/*.yaml],
+    "strategies": [{"id": "BTC_BH__always_on", "label": "BTC Buy & Hold", "family": "Other"}, ...],
+    "date_ranges": [...]
   }
   ```
-- [ ] 前端 `ParameterSidebar` 的 `<select>` 改从 `/api/options` 拉
-- [ ] **Acceptance**: 改 `config/*.yaml` 添加新 preset 后，前端下拉框自动看到
+- [ ] **Acceptance**: compare modal (U10) 拉的 strategies 是真实列表
 
-### R10 — Universe Refresh 真实化
-- [ ] `services.refresh_universe` — 调 `atlas20.data.processor.download_and_cache_raw_data`
-- [ ] 在 FastAPI BackgroundTasks 中执行，不阻塞响应
-- [ ] 返回 `{"refreshed_at": now, "status": "queued"}`
-- [ ] 加新端点 GET `/api/universe/refresh-status` 看进度
-- [ ] **Acceptance**: 点 FORCE REFRESH 后 raw 目录里有新文件 mtime
+### R10 — Universe Refresh 真实化（**等 P/S 完成**）
+- [ ] `services.refresh_universe` 调 `atlas20.data.processor.download_and_cache_raw_data`
+- [ ] 异步执行（用 Phase E2 的作业队列，不是 BackgroundTasks）
+- [ ] 加 GET `/api/universe/refresh-status` 查进度
+- [ ] **Acceptance**: 点 FORCE REFRESH 后 `data/raw/` 新文件 mtime；前端轮询 status
 
 ---
 
-## Phase E — 真实回测执行 (Engine integration)
+## Phase E — 真实回测执行
 
-> 目标：POST `/backtests/run` 真跑 `atlas20.backtest.engine.run_backtest`。
+> 依赖 Phase P（作业表）。**`BackgroundTasks + asyncio.Semaphore` 不可用于 pandas CPU 任务**。
 
-### E1 — BacktestConfig → ResearchConfig 适配
-- [ ] 新增 `services.config_adapter.py`：把前端 R3 BacktestConfig 转换为 `atlas20.config.ResearchConfig`
-- [ ] `preset` → 找 `config/{slug}.yaml` 或 `config/base.yaml`
-- [ ] `universe.topN/excludeStable/excludeWrapped` → `UniverseConfig` 字段
-- [ ] `window.start/end/rebalance` → `RebalancingConfig`
-- [ ] `allocation.positionPct/slots` → `StrategyConfig.max_weight / max_positions`
-- [ ] `costs.feeBps/slippageBps` → `FrictionConfig`
-- [ ] **Acceptance**: 单测覆盖每种 BacktestConfig 都能合法转换
+### E1 — BacktestConfig → ResearchConfig 适配器
+- [ ] 新增 `src/atlas20/api/config_adapter.py`
+- [ ] 映射（**修正自 v1**）:
+  - `preset` → 选 `config/{slug}.yaml` 或 base + override
+  - `universe.topN` → `UniverseConfig.top_n`
+  - `universe.excludeStable/excludeWrapped` → `UniverseConfig.exclude_stablecoins / exclude_wrapped`
+  - `window.start/end` → `ResearchConfig.start_date / end_date`
+  - `window.rebalance` → `RebalancingConfig.frequencies` 单项
+  - `allocation.positionPct` → `FrictionConfig.max_weight_per_coin`（百分比转小数）
+  - `allocation.slots` → strategy-family 特定：momentum_hold_counts[0] / sector_top_k[0]
+  - `costs.feeBps` → `FrictionConfig.transaction_cost_bps`（若已有；否则在 FrictionConfig 加字段）
+  - `costs.slippageBps` → 新增 `FrictionConfig.slippage_bps`
+- [ ] **Acceptance**: 每种 BacktestConfig 都能合法转换，单测覆盖
 
-### E2 — 异步执行框架
-- [ ] FastAPI `BackgroundTasks` 模式（单进程内异步）—— MVP 选这个
-- [ ] 或 `arq`/Celery + Redis（生产推荐）—— 留 hook
-- [ ] `services.execute_backtest_async(run_id, config)` —— 在后台执行，写 status
-- [ ] 状态机：`queued` → `running` → `completed` / `failed`
-- [ ] 异常捕获并写入 `error` 字段
-- [ ] **Acceptance**: POST 立即 200 返回 queued；轮询 `/runs/{id}` 看到状态变化
+### E2 — DB-backed 作业队列（**取代 BackgroundTasks**）
+- [ ] 选型：`arq` (Redis-backed) / 简易 `apscheduler + DB poll` / Celery
+- [ ] MVP 选简易：`runs` 表加 `worker_pid` / `started_at` / `heartbeat` 列；独立 Python 进程 `python -m atlas20.api.worker` 轮询 `status='queued'` 取任务
+- [ ] 子进程隔离（`subprocess.Popen([sys.executable, "-m", "atlas20.api.run_one", run_id])`），避免主进程被 pandas 阻塞
+- [ ] **Acceptance**: 重启 uvicorn 后 queued 任务被 worker 重新拾起
 
-### E3 — 写盘
-- [ ] 每次回测结束写 `reports/app_runs/{run_id}/`：
-  - `summary.csv` — 与 strategy_summary.csv 同 schema 的单行
-  - `equity_curve.csv`
-  - `daily_returns.csv`
-  - `weights.csv`
-  - `params.json` — 原始 BacktestConfig
-- [ ] **Acceptance**: 跑完后 `reports/app_runs/btk_0150/` 目录齐全
+### E3 — 写盘（依赖 Phase X4 原子写入）
+- [ ] worker 进程为每个 run 写 `reports/app_runs/{run_id}.tmp/` → 完成时 `os.replace`
+- [ ] 产物：`summary.csv`、`equity_curve.csv`、`daily_returns.csv`、`weights/{strategy}.csv`、`selection_history.csv`、`manifest.json`、`params.json`（原始 BacktestConfig）
+- [ ] **Acceptance**: 跑完后 `reports/app_runs/btk_NNNN/` 完整
 
-### E4 — 失败/超时处理
-- [ ] 单次回测最长 5 分钟 timeout（可配）
-- [ ] 引擎抛 ValueError/RuntimeError → 写 `status=failed, error=<msg>`
-- [ ] **Acceptance**: 故意传 start>2030 触发数据缺失，状态变 failed 错误信息可读
+### E4 — 超时（**子进程模式**）
+- [ ] `subprocess.Popen(..., timeout=300)` 在父进程超时杀子
+- [ ] worker 检测到非 0 退出 → `status=failed`, `error="timeout"`
+- [ ] **Acceptance**: 故意构造慢 backtest，5 分钟后 failed
 
-### E5 — 并发限流
-- [ ] 同时跑回测数 ≤ N（默认 2，env 可配）
-- [ ] 超过用 asyncio.Semaphore 排队
-- [ ] **Acceptance**: 快速 POST 5 次，前 2 个 running，后 3 个 queued
+### E5 — 并发限流（**worker 池**）
+- [ ] worker 进程数 N（env `ATLAS20_WORKERS=2`）
+- [ ] N 个 worker 独立从 DB pull queued
+- [ ] **Acceptance**: POST 5 次，N=2 时两 running 三 queued
 
-### E6 — 取消
-- [ ] 加 POST `/api/runs/{id}/cancel` 路由
-- [ ] running → cancelled；queued → 移除
-- [ ] **Acceptance**: POST cancel 之后 status 是 cancelled
+### E6 — 取消（**子进程 SIGTERM**）
+- [ ] POST `/api/runs/{id}/cancel`：DB 标记 `requested_cancel=True`
+- [ ] worker 心跳时检查 flag，向子进程发 SIGTERM
+- [ ] Pandas 自身不响应 SIGTERM，但子进程会被 OS 杀
+- [ ] **Acceptance**: cancel running 任务 ≤ 5 秒内 status=cancelled
+
+### E7 — 资源校验（**S/E 交叉，新增**）
+- [ ] BacktestConfig 加约束：
+  - 窗口跨度 ≤ 10 年
+  - topN ≤ 50, slots ≤ topN
+  - end_date ≤ 今天（不允许未来）
+  - feeBps + slippageBps ≤ 1000
+- [ ] POST 带 `Idempotency-Key` header：同 key 24h 内返回原响应
+- [ ] **Acceptance**: 超界配置 422；重复 idem-key 同响应
+
+### E8 — 重启恢复
+- [ ] uvicorn / worker 启动时扫描 `status='running'` 但 `heartbeat < now-60s` 的任务 → 标记 failed/timeout 或重新 queued
+- [ ] **Acceptance**: kill -9 worker 后 60 秒内 stale running 被恢复
 
 ---
 
-## Phase P — 持久化 (Persistence)
+## Phase P — 持久化（**早于 E2-E6**）
 
-> 目标：进程重启后所有状态保留。
-
-### P1 — 选型决策
-- [ ] **MVP**: SQLite + SQLModel（FastAPI 同生态、零运维）
-- [ ] **生产**: 后续可迁 PostgreSQL（同 ORM 无痛切换）
+### P1 — 选型
+- [ ] MVP: SQLite + SQLModel；可平迁 PostgreSQL
+- [ ] DB 路径 `data/atlas20.sqlite`（从 settings 配）
 
 ### P2 — 表设计
-- [ ] `runs` — id, strategy, family, universe, window_start, window_end, status, return_pct, sharpe, max_dd, duration_s, eta_s, spark (JSON), created_at, favorited, params (JSON), error
-- [ ] `report_files` — id, run_id (FK), kind, path, size_bytes, generated_at
-- [ ] `favorites` — 也可以就用 runs.favorited 列，单用户没必要单独表
-- [ ] `kv_settings` — key, value, updated_at（杂项：anchor_date 覆盖、global counters）
+- [ ] `runs`: id, strategy, family, universe, window_start, window_end, status, return_pct, sharpe, max_dd, duration_s, eta_s, spark (JSON), created_at, favorited, params (JSON), error, worker_pid, started_at, heartbeat_at, requested_cancel
+- [ ] `report_files`: id, run_id (FK nullable), kind, path, size_bytes, sha256, generated_at
+- [ ] `kv_settings`: key, value, updated_at
+- [ ] `idempotency_keys`: key (PK), method, path, response_json, created_at, expires_at
 
 ### P3 — Repository 层
-- [ ] `src/atlas20/api/repositories/runs_repo.py` — get/list/save/update/toggle_favorite
-- [ ] `services.py` 改用 repository，不再直接读 mock_data
-- [ ] mock_data 仅在表为空时作 seed 启动数据
-- [ ] **Acceptance**: kill uvicorn 重启后 GET `/api/runs` 仍看到刚 POST 的回测
+- [ ] `src/atlas20/api/repositories/runs_repo.py`、`reports_repo.py`
+- [ ] services 改用 repo，FastAPI `Depends(get_repo)` 注入
 
-### P4 — Migration
-- [ ] Alembic 初始化（或简单的 startup auto-create_all）
-- [ ] `atlas20.api.db.init_db()` 在 app startup hook 执行
-- [ ] **Acceptance**: `rm db.sqlite && uvicorn ...` 仍能正常启动并建表
+### P4 — Alembic migrations
+- [ ] `alembic init` + 第一版 schema
+- [ ] startup hook 自动 `upgrade head`
+- [ ] **Acceptance**: `rm data/atlas20.sqlite && uvicorn ...` 仍可启动
 
 ### P5 — Seed 命令
-- [ ] `python -m atlas20.api.seed` 把 mock_data 写入 db（demo 用）
-- [ ] **Acceptance**: 新开发者 clone 之后一行命令初始化 demo 数据
+- [ ] `python -m atlas20.api.seed` 把 `mock_data` 写入 DB
+- [ ] **Acceptance**: 新 clone 一行命令初始化 demo
+
+### P6 — 备份/保留（**新增 codex**）
+- [ ] `python -m atlas20.api.backup` 把 DB + `reports/app_runs/` 打 tar 写到 `backups/`
+- [ ] 保留策略：30 天滚动
+- [ ] **Acceptance**: 文档化 RPO/RTO
 
 ---
 
-## Phase F — 报告生成与静态文件 (File generation)
+## Phase F — 报告生成与下载
 
-### F1 — 静态文件 mount
-- [ ] `app.mount("/static", StaticFiles(directory="reports"))`
-- [ ] `services.build_digest_download_url` / `build_report_download_url` 返回 `/static/{config}/{file}` 真实 URL
-- [ ] **Acceptance**: 浏览器打开 download URL 真下载文件
+> 依赖 S（auth + path 校验）。**不要 mount StaticFiles 直接服务 reports/**。
 
-### F2 — Featured Digest 自动生成
-- [ ] 每周一 0:00 UTC 用 `atlas20.reporting.report.build_markdown_report` 生成 weekly digest
-- [ ] APScheduler 或 cron 触发
-- [ ] **Acceptance**: 可手动调 `python -m atlas20.api.scripts.generate_digest --week 20`
+### F1 — 鉴权 download 路由（**取代 static mount**）
+- [ ] `GET /api/reports/{report_id}/file?format=...` 流式返回 `FileResponse`
+- [ ] services 层做：(a) report_id 正则校验；(b) DB 查 `report_files` 确认 ownership；(c) 路径 resolve 在白名单根目录内
+- [ ] 同样替换 `/api/reports/digest/download` 直接返回 `FileResponse`，不返回 URL
+- [ ] **Acceptance**: 路径穿越 attempt 400；正常下载流式 200
+
+### F2 — Markdown 生成
+- [ ] 复用 `atlas20.reporting.report.build_markdown_report`
+- [ ] 写到 `reports/{config}/{week}/digest.md` + 入 `report_files`
 
 ### F3 — PDF 渲染
-- [ ] `weasyprint` 把 markdown → PDF（或 `pandoc`）
-- [ ] 暴露 `/static/.../digest.pdf`
-- [ ] **Acceptance**: GET `/api/reports/digest/download?format=pdf` 返回 URL，URL 真下 PDF
+- [ ] `weasyprint`(MD→PDF) 或 `pandoc`
+- [ ] **Acceptance**: format=pdf 真下 PDF
 
-### F4 — PNG snapshot
-- [ ] `playwright` 截前端 hero card 作 PNG
-- [ ] 或 `matplotlib` 出 equity curve PNG
-- [ ] **Acceptance**: format=png 真下载图片
+### F4 — PNG 图表（**修正**：matplotlib，不是 Playwright）
+- [ ] 复用 `atlas20.reporting.charts:plot_equity_curves` 等已有函数
+- [ ] **Acceptance**: format=png 真下确定性图片
 
 ### F5 — Bundle ZIP
-- [ ] format=bundle 时 zip 所有格式打包
-- [ ] **Acceptance**: 下载 ZIP 解开有 md/pdf/png/csv
+- [ ] `zipfile.ZipFile` 打包同 run 的全部 artifact
+- [ ] **Acceptance**: 下 ZIP 解开看到 md/pdf/png/csv
 
-### F6 — 防路径穿越
-- [ ] `build_report_download_url(report_id)` 校验 `report_id` 不含 `..` / `/`
-- [ ] 用 `Path.resolve()` 检查在白名单目录内
-- [ ] **Acceptance**: POST `/api/reports/..%2F..%2Fetc%2Fpasswd/download` 返回 400
+### F6 — 定时 Featured Digest 生成
+- [ ] APScheduler 周一 00:00 UTC 触发；产物入 DB
+- [ ] **Acceptance**: 可手动 `python -m atlas20.api.scripts.generate_digest --week N`
+
+### F7 — 报告 manifest
+- [ ] 每次生成写 `{run_dir}/report_manifest.json` 列举 artifact + sha256
+- [ ] download 路由用 manifest 做白名单校验
+- [ ] **Acceptance**: 直接 GET `path` not in manifest → 403
 
 ---
 
-## Phase U — 前端 UI 收尾 (Loading/Error/Modals)
+## Phase U — 前端 UI 收尾
 
-> 三轮审查中标记为 "deferred until real backend" 的全部前端项。
+> **修正**：U1-U3 组件已存在，本 phase 只是「接到 query 状态」。
 
-### U1 — `<Skeleton>` 组件
-- [ ] 新建 `components/ui/Skeleton.tsx` — 灰色 placeholder + shimmer 动画
-- [ ] 多种尺寸：line/card/chart
-- [ ] **Acceptance**: 加 storybook story 看效果
+### U4 — Overview wire（**修正**：在 ResearchConsolePage.tsx）
+- [ ] `pages/ResearchConsolePage.tsx` — 用 `<Skeleton>` `<ErrorBanner>` 包 overviewQuery
+- [ ] 移除 `initialData: fallbackOverview`；改 `placeholderData` 仅在 SSR/cold-cache
+- [ ] **Acceptance**: 断网时不再静默显示 mock
 
-### U2 — `<ErrorBanner>` 组件
-- [ ] 新建 `components/ui/ErrorBanner.tsx` — rose 边框 + 重试按钮
-- [ ] Props: `error: Error, onRetry?: () => void`
-- [ ] **Acceptance**: 全局 retry 一次会重发 query
+### U5 — Backtest Studio wire
+- [ ] `BacktestStudioTab.tsx` — detailQuery + queue 各自 isLoading/isError 分支
 
-### U3 — `<EmptyState>` 组件
-- [ ] 新建 `components/ui/EmptyState.tsx` — 居中 muted 文字 + 可选 CTA
-- [ ] **Acceptance**: history 过滤无结果时显示
+### U6 — Compare wire
+- [ ] `StrategyCompareTab.tsx` — query 状态
 
-### U4 — Overview 接 loading/error
-- [ ] `features/overview/OverviewTab.tsx` — `if (overviewQuery.isLoading) return <Skeleton />; if (overviewQuery.isError) return <ErrorBanner />;`
-- [ ] 移除 `initialData: fallbackOverview` （改用 `placeholderData`）
-- [ ] **Acceptance**: 断网/后端关时不再静默显示 mock
+### U7 — Run History wire
+- [ ] `RunHistoryTab.tsx` — listRuns 状态 + 过滤空结果用 `<EmptyState>`
 
-### U5 — Backtest Studio 同步
-- [ ] 同上对 `detailQuery` 和 `queue`
+### U8 — Universe wire
+- [ ] `UniverseHealthTab.tsx` — 3 queries 各自
 
-### U6 — Compare 同步
-- [ ] 同上对 `getCompare` query
-
-### U7 — Run History 同步
-- [ ] 同上对 `listRuns` query
-- [ ] 添加 EmptyState 当过滤无结果
-
-### U8 — Universe 同步
-- [ ] 同上对 3 个 query
-
-### U9 — Reports 同步
-- [ ] 同上对 featured + archive
+### U9 — Reports wire
+- [ ] `ReportsExportsTab.tsx` — featured + archive
 
 ### U10 — `+ ADD STRATEGY` modal
-- [ ] `components/compare/AddStrategyModal.tsx` — multi-select 真改 selections state
-- [ ] 与 `/api/options` 拉取的策略列表联动
-- [ ] **Acceptance**: 加策略后 compare 表格多一列
+- [ ] 真做 multi-select，selections 拉 `/api/options.strategies`（R9）
+- [ ] **Acceptance**: 加策略后 compare 表多一列；URL 反映
 
 ### U11 — `+ NEW REPORT` modal
-- [ ] `components/reports/NewReportModal.tsx` — 选 type/format/strategy → POST `/api/reports/generate`
-- [ ] 后端加对应 endpoint（Phase F1 后做）
-- [ ] **Acceptance**: 提交后 archive 出现 generating 卡片
+- [ ] 选 type/format/strategy → POST `/api/reports/generate`（需 F 完成）
 
-### U12 — Loading 期间禁用按钮
-- [ ] `RUN BACKTEST` / `FORCE REFRESH` / `DOWNLOAD` 在 isLoading 时 disabled
-- [ ] 已部分实现，需全面 audit
+### U12 — 全局 disabled-on-loading audit
+- [ ] 所有 mutation 触发按钮（RUN BACKTEST、FORCE REFRESH、DOWNLOAD、+ NEW REPORT）isLoading 时 disabled
 
 ---
 
-## Phase S — 安全与认证 (Security & Auth)
+## Phase S — 安全与认证（**早于 F1 和 D**）
 
 ### S1 — Settings 中心
 - [ ] `src/atlas20/api/settings.py` — pydantic-settings BaseSettings
-- [ ] 字段：`env`, `cors_origins`, `db_url`, `secret_key`, `api_keys`, `enable_docs`
-- [ ] 从 `.env` 读
-- [ ] **Acceptance**: `ATLAS20_ENV=prod uvicorn ...` 启动行为变化
+- [ ] 字段: `env`, `cors_origins: list[str]`, `db_url`, `secret_key`, `api_keys: set[str]`, `enable_docs`, `report_root: Path`, `anchor_date: date | None`, `data_root`
+- [ ] **Acceptance**: env 变量覆盖默认；缺关键字段启动 fail-fast
 
 ### S2 — CORS 配置化
-- [ ] `app.py` 改读 settings.cors_origins
-- [ ] **Acceptance**: prod 设 `cors_origins=https://atlas20.example.com` 后 vite dev 5173 被拒
+- [ ] `app.py` 从 settings 读
+- [ ] dev 默认 `["http://localhost:5173", "http://127.0.0.1:5173"]`
+- [ ] prod 必须显式设
+- [ ] **Acceptance**: prod 模式 + 未配 origin → 启动 fail
 
 ### S3 — 文档开关
-- [ ] `FastAPI(docs_url=None if settings.env == "prod" else "/docs", redoc_url=None if ...)` 
-- [ ] **Acceptance**: prod 模式 GET `/docs` 404
+- [ ] `docs_url=None` 当 `settings.env == "prod"` 且 `enable_docs=False`
 
 ### S4 — API Key 认证（MVP）
-- [ ] `Depends(verify_api_key)` 从 `X-API-Key` header
-- [ ] settings.api_keys 是 set
-- [ ] 401 if missing/invalid
-- [ ] **Acceptance**: 没带 header 的请求 401
+- [ ] `Depends(verify_api_key)` 检 `X-API-Key`
+- [ ] settings.api_keys 集合校验
+- [ ] **Acceptance**: 无 header 401
 
-### S5 — JWT/OAuth（生产，可选）
-- [ ] FastAPI `OAuth2PasswordBearer` + Authlib
-- [ ] 留 hook，先不实现
+### S5 — JWT/OAuth（**生产留 hook，先不做**）
 
-### S6 — Rate limiting
-- [ ] `slowapi` 中间件
-- [ ] POST `/backtests/run` 限 10/分钟/key
-- [ ] POST `/universe/refresh` 限 1/分钟
-- [ ] **Acceptance**: 11 次提交第 11 次 429
+### S6 — Rate limit
+- [ ] `slowapi`
+- [ ] POST `/backtests/run` 10/分/key
+- [ ] POST `/universe/refresh` 1/分
 
-### S7 — Input sanitization
-- [ ] `report_id` / `run_id` 用正则 `^btk_\d{4}$` / `^r\d+$` 校验
-- [ ] 所有路径参数走 pydantic `constr(regex=...)`
-- [ ] **Acceptance**: 路径穿越尝试返回 400
+### S7 — 路径与正则校验（**修正语法**：pydantic v2）
+- [ ] run_id: `Annotated[str, StringConstraints(pattern=r"^btk_\d{4,6}$")]`
+- [ ] report_id: 同模式
+- [ ] download 路径 resolve + 白名单 root 检查
 
 ### S8 — Secret 管理
-- [ ] `.env` 加入 `.gitignore`（验证）
-- [ ] CoinGecko/CryptoCompare API key 走 env
-- [ ] **Acceptance**: `git grep -i "api_key" -- '*.py'` 找不到硬编码
+- [ ] `.env` in `.gitignore`（验证已加）
+- [ ] CoinGecko / CryptoCompare API key 走 env
+- [ ] grep 全仓无硬编码 secret
+
+### S9 — Authorized static delivery（**新增 codex**）
+- [ ] 见 F1；不用 mount
 
 ---
 
-## Phase O — 可观测性 (Observability)
+## Phase O — 可观测性
 
 ### O1 — 结构化日志
-- [ ] `structlog` 或 `logging` + JSON formatter
-- [ ] 每请求记录 method/path/status/duration/run_id
-- [ ] **Acceptance**: 日志可被 `jq` parse
+- [ ] `structlog` JSON formatter
+- [ ] 每请求记录 method/path/status/duration_ms/run_id（如有）
 
-### O2 — Request ID
-- [ ] 中间件加 `X-Request-ID` header（uuid4）
-- [ ] 日志带 request_id 字段
-- [ ] **Acceptance**: 一次请求所有日志行同 request_id
+### O2 — Request ID 中间件
+- [ ] 加 `X-Request-ID` (uuid4)；日志带 request_id
 
-### O3 — Prometheus metrics
+### O3 — Prometheus
 - [ ] `prometheus-fastapi-instrumentator`
-- [ ] 暴露 `/metrics`
-- [ ] 自定义业务指标：`atlas20_backtests_total`, `atlas20_backtest_duration_seconds`
-- [ ] **Acceptance**: `curl /metrics` 输出 Prometheus exposition
+- [ ] 暴露 `/metrics`（auth 后或 internal only）
+- [ ] 业务指标：`atlas20_backtests_total{status}`, `atlas20_backtest_duration_seconds`
 
 ### O4 — Error tracking
-- [ ] Sentry SDK 集成（env-gated）
-- [ ] **Acceptance**: 故意 raise 后 Sentry 仪表板看到
+- [ ] Sentry SDK env-gated
 
-### O5 — Health endpoint
-- [ ] GET `/healthz` — 简单 200 OK
-- [ ] GET `/readyz` — 检查 DB 连接、数据目录可写
-- [ ] **Acceptance**: 容器编排可挂
+### O5 — Health/Readiness
+- [ ] `/healthz` 简单 200
+- [ ] `/readyz` 检 DB 连接 + report_root 可写
 
-### O6 — 业务事件日志
-- [ ] favorite/cancel/run_complete 等关键事件单独 log
-- [ ] **Acceptance**: 业务事件可被 SIEM 索引
+### O6 — 日志保留/轮转/脱敏（**新增 codex**）
+- [ ] `logging.handlers.RotatingFileHandler`（local）或 stdout + journald（容器）
+- [ ] redact: `X-API-Key`, `Authorization`, `secret_key` 任何字段
+- [ ] 保留策略文档化
 
 ---
 
-## Phase D — 部署与 DX (Deployment & DX)
+## Phase D — 部署与 DX
 
-### D1 — Dockerfile (backend)
-- [ ] Multi-stage: builder（uv/pip install）+ runtime（python:3.11-slim）
-- [ ] Healthcheck 指 `/healthz`
-- [ ] Non-root user
-- [ ] **Acceptance**: `docker build` + `docker run -p 8000:8000` 跑通
+### D1 — Backend Dockerfile
+- [ ] Multi-stage builder + runtime；non-root user；HEALTHCHECK `/healthz`
 
-### D2 — Dockerfile (frontend)
-- [ ] Multi-stage: builder（vite build）+ nginx 服务静态文件
-- [ ] **Acceptance**: 同上
+### D2 — Frontend Dockerfile
+- [ ] Multi-stage vite build + nginx serve
 
 ### D3 — docker-compose
-- [ ] `compose.yml`：backend + frontend + （可选 postgres + redis）
-- [ ] 一键 `docker compose up`
-- [ ] **Acceptance**: 浏览器访问 localhost:80 看到完整应用
+- [ ] backend + frontend + （可选 redis 给 arq）
+- [ ] Volume: `data/` + `reports/`
 
-### D4 — .env.example
-- [ ] backend `.env.example` 列所有 settings 字段 + 默认值
-- [ ] frontend `apps/web/.env.example` 已存在，校验完整
+### D4 — `.env.example` (backend)
+- [ ] 列全部 settings 字段
 
-### D5 — Makefile / npm-run-all
-- [ ] `make dev` 同时启 uvicorn + vite
-- [ ] `make test` 跑 pytest + vitest
-- [ ] `make build` 双向构建
-- [ ] `make lint` ruff + eslint
-- [ ] **Acceptance**: 单命令启动所有
+### D5 — Makefile
+- [ ] `make dev` / `make test` / `make build` / `make lint` / `make backup`
 
-### D6 — CI (GitHub Actions)
-- [ ] `.github/workflows/test.yml` — push/PR 跑 pytest + vitest + build
-- [ ] `.github/workflows/lint.yml` — ruff + eslint + tsc --noEmit
-- [ ] `.github/workflows/deploy.yml` — tag push 触发 docker build & push
-- [ ] **Acceptance**: PR 自动 status check
+### D6 — CI（**扩展现有 `.github/workflows/ci.yml`**）
+- [ ] 加 `ruff check`
+- [ ] 加 `mypy --strict src/atlas20/api/`
+- [ ] 加 `tsc --noEmit`
+- [ ] 加 deploy job（tag 触发）
 
-### D7 — Pre-commit hooks
-- [ ] `.pre-commit-config.yaml` — ruff/black/eslint/prettier
-- [ ] **Acceptance**: `git commit` 触发自动 format
+### D7 — Pre-commit
+- [ ] `.pre-commit-config.yaml`: ruff / prettier / eslint
 
 ### D8 — Release 流程
-- [ ] CHANGELOG.md 模板
-- [ ] semver tag 规范
-- [ ] **Acceptance**: `git tag v0.1.0` 触发自动 release
+- [ ] CHANGELOG.md 模板 + semver tag
 
-### D9 — README 完善
-- [ ] Quickstart：clone → make dev → 浏览器
-- [ ] 架构图
-- [ ] 配置项一览
-- [ ] **Acceptance**: 新人能 30 分钟跑起来
+### D9 — README
+- [ ] Quickstart 30 分钟可跑
+
+### D10 — 磁盘配额监控（**新增 codex P/D**）
+- [ ] cron: `reports/` + `data/` 用量；超阈值告警
 
 ---
 
-## Phase T — 测试与质量门 (Tests & Quality gates)
+## Phase T — 测试与质量门（**嵌入各 phase**）
 
-### T1 — 集成测试覆盖
-- [ ] tests/test_api_routes.py 加：非 canonical run detail 200
-- [ ] 加：extra field → 422
-- [ ] 加：bad date format → 422
-- [ ] 加：start > end → 422
-- [ ] 加：unknown compare ids → 404
-- [ ] **Acceptance**: 这些 case 各 1 个测试
+> **修正**：不是末期一次性写，而是每个 R/E/P/F 项 PR 自带测试。
+
+### T1 — Schema validation 测试（嵌入 E7/S7）
+- [ ] POST extra field → 422
+- [ ] POST bad date → 422
+- [ ] POST start > end → 422
+- [ ] POST unknown compare ids → 404
+- [ ] POST 越界 topN/slots → 422
 
 ### T2 — Fixture 复位
-- [ ] tests/conftest.py 提一份全局 `restore_mock_data` autouse
-- [ ] **Acceptance**: services 和 routes 测试都受保护
+- [ ] `tests/conftest.py` 提全局 autouse `restore_mock_data`
 
-### T3 — Engine 真集成测试
-- [ ] tests/test_api_engine_integration.py — POST `/backtests/run` 真跑（用小窗口快测）
-- [ ] **Acceptance**: 端到端 60 秒内完成
+### T3 — Engine 集成
+- [ ] 用小窗口（30 天 Top-5）真跑一次 backtest，断言产物齐 + DB 行写
 
 ### T4 — Playwright e2e
-- [ ] `apps/web/e2e/` 加 spec：6 个 page 各 1 个 smoke
-- [ ] 验证：hero 数字、表格行数、tab 切换、download 触发
-- [ ] **Acceptance**: `npm run e2e` 全过
+- [ ] `apps/web/e2e/` 6 page × 1 smoke
+- [ ] **嵌入 U phase**
 
 ### T5 — axe-core a11y
-- [ ] vitest 集成 `@axe-core/react`
-- [ ] 每个 page 一个 a11y test
-- [ ] **Acceptance**: 0 violations
+- [ ] vitest 集成；每 page 一个 a11y test
 
 ### T6 — Load test
-- [ ] `locust` 或 `k6` 脚本
-- [ ] Target: 100 RPS、p95 < 200ms（mock data）
-- [ ] **Acceptance**: 文档化 baseline
+- [ ] `locust` 或 `k6`：100 RPS, p95 < 200ms（mock data 时基线）
 
-### T7 — Type check 严格化
-- [ ] backend `mypy --strict src/atlas20/api/` 通过
-- [ ] frontend `tsc --noEmit --strict` 通过
-- [ ] **Acceptance**: 双 0 error
+### T7 — Type strict
+- [ ] `mypy --strict src/atlas20/api/`
+- [ ] `tsc --strict --noEmit`
 
-### T8 — Lint
-- [ ] backend `ruff check src/ tests/` 0 warning
-- [ ] frontend `eslint . --max-warnings 0` 0
-- [ ] **Acceptance**: 双 0
+### T8 — Lint 严格
+- [ ] `ruff check` 0
+- [ ] `eslint --max-warnings 0`
+
+### T9 — OpenAPI snapshot（**新增 codex**）
+- [ ] CI 跑 `fastapi.openapi()` 写到 `apps/web/src/lib/api-schema.json`
+- [ ] frontend `lib/api.ts` 类型与 schema 不一致时 CI fail
+- [ ] 可选：`openapi-typescript` 自动生成 TS client
 
 ---
 
-## Phase Q — 代码质量重构 (Code quality)
-
-### Q1 — mock_data 拆分
-- [ ] 把 `mock_data.py` 拆成 `mock/overview.json`、`mock/runs.json` 等
-- [ ] 加载用 `json.loads(Path(...).read_text())`
-- [ ] **Acceptance**: 文件结构更清晰；非代码改动易 diff
+## Phase Q — 代码质量（**降级 Q1/Q7**）
 
 ### Q2 — Dependency Injection
-- [ ] FastAPI `Depends(get_runs_repo)` 注入
-- [ ] 测试时换 InMemoryRunsRepo
-- [ ] **Acceptance**: 单测无需 patch 模块
+- [ ] FastAPI `Depends` 注入 repository / config_adapter
 
 ### Q3 — Service 接口抽象
-- [ ] `services/protocols.py` 定义 Protocol
-- [ ] 实现 `services/mock_impl.py` + `services/real_impl.py`
-- [ ] settings 切换
-- [ ] **Acceptance**: 一行 env 切 mock/real
+- [ ] `services/protocols.py` Protocol；mock_impl + real_impl
 
-### Q4 — Pydantic Settings 配置中心
-- [ ] 见 S1
-- [ ] **Acceptance**: 所有常量集中
+### Q4 — Settings 中心（见 S1）
 
 ### Q5 — 时间戳 helper
-- [ ] `utils/time.py:utc_now_iso()` 替换手撕字符串
-- [ ] **Acceptance**: 一处定义
+- [ ] `utils/time.py:utc_now_iso()` 替手撕字符串
 
 ### Q6 — 错误处理统一
-- [ ] FastAPI exception_handler 全局拦 ValidationError / not found
-- [ ] 统一 error response shape `{error: {code, message, details}}`
-- [ ] **Acceptance**: 前端可统一处理
+- [ ] FastAPI exception_handler 全局；统一 `{error: {code, message, details, request_id}}`
 
-### Q7 — services.py 拆分
-- [ ] 按 domain 拆：`services/overview.py`、`services/runs.py`、`services/compare.py`、`services/universe.py`、`services/reports.py`
-- [ ] **Acceptance**: 每文件 < 100 LOC
+### ~~Q1 mock_data 拆 JSON~~ — 删除（DB seeding 后冗余）
+
+### ~~Q7 每文件 < 100 LOC~~ — 删除（武断指标）
 
 ---
 
-## Phase C — 契约边角 (Contract edges)
+## Phase C — 契约边角
 
-### C1 — `view` 参数
-- [ ] 后端 `list_runs` 删 `view`，路由签名也删
-- [ ] 前端 listRuns 不传
-- [ ] **Acceptance**: query string 不含 view
+### C1 — 删 `view` 参数（前端 + 后端）
+### C2 — chip 语义对齐（家族 chip OR strategy substring）
+### C3 — anchor date 用 UTC 时钟（**修正语法**）
+- [ ] `datetime.now(timezone.utc).date()` 或注入时钟 `Depends(get_today)`
 
-### C2 — chip 语义对齐
-- [ ] 后端 `_matches_chip` 家族 chip 改为 `family OR strategy.includes(chip)`
-- [ ] **Acceptance**: 单测覆盖 family + strategy 不同名场景
+### C4 — register_new_backtest 双写 runs_list（Phase P 之后自然解决）
+### C5 — favorite 同步 queue（Phase P 之后自然解决）
 
-### C3 — ANCHOR_DATE 动态化
-- [ ] `ANCHOR_DATE = date.today()`
-- [ ] 测试 mock today() 用 freezegun
-- [ ] **Acceptance**: 5 月跑 5 月 7d 范围正确
-
-### C4 — register_new_backtest 双写
-- [ ] 新 RunRowSummary 也插入 runs_list 头部（completed/queued 状态根据 engine 结果）
-- [ ] **Acceptance**: POST 后 GET `/runs/{newId}` 200
-
-### C5 — favorite 同步 queue
-- [ ] toggle_run_favorite 扫描 queue 也更新
-- [ ] **Acceptance**: queue 里的 favorited 字段一致
-
-### C6 — _matches_query 字段顺序
-- [ ] 后端字段顺序与前端对齐 `run_id, strategy, universe`
-- [ ] **Acceptance**: 顺序一致（非功能修复，避免漂移）
-
-### C7 — API versioning
-- [ ] 全部 routers prefix 改 `/api/v1`
-- [ ] 前端 `buildApiUrl` base 改 `/api/v1`
-- [ ] **Acceptance**: 留 v2 演进空间
-
-### C8 — Pagination 一致性
-- [ ] `/api/runs` 已有；如果 `/api/reports` 列表变长也加
-- [ ] 统一 `{items, total, page, pageSize}` shape
-- [ ] **Acceptance**: 同 shape 跨 endpoint
+### ~~C6 query 字段顺序对齐~~ — 删除（非功能）
+### ~~C7 `/api/v1`~~ — 延期（本地 MVP 不需要）
 
 ---
 
-## Phase A — A11y & 国际化 (Accessibility / i18n)
+## Phase A — A11y（**精简**）
 
-### A1 — axe-core 在 CI 跑
-- [ ] 见 T5
-- [ ] **Acceptance**: PR 自动 a11y check
+### A1 — axe-core 在 CI 跑（同 T5）
+### A2 — 键盘导航 audit + skip-to-content + focus trap
+### A3 — Screen reader live regions（Pill / Toast）
+### A4 — 颜色对比度 WCAG AA
+### A7 — Mobile responsive audit at 375/768/1024
+### A8 — React `<ErrorBoundary>` 每 page 包
 
-### A2 — 键盘导航完整 audit
-- [ ] 所有交互元素可 Tab 到达
-- [ ] Skip-to-content 链接
-- [ ] Focus trap on modals
-- [ ] **Acceptance**: 仅键盘走完全部 6 个 page
-
-### A3 — Screen reader live regions
-- [ ] Pill status 变化 `aria-live="polite"`（SPEC §1.6 已写）
-- [ ] toast / 错误消息 live region
-- [ ] **Acceptance**: NVDA / VoiceOver 朗读
-
-### A4 — 颜色对比度
-- [ ] 跑 axe contrast check
-- [ ] 必要时调 tokens
-- [ ] **Acceptance**: WCAG AA pass
-
-### A5 — i18n 框架
-- [ ] react-i18next 集成（仅基础设施，先不译）
-- [ ] 提取所有 hardcoded 字符串到 `messages.en.json`
-- [ ] **Acceptance**: 切换语言不报错（即使内容不变）
-
-### A6 — Dark/light mode
-- [ ] R3 是 dark-only；如需 light，添加 `[data-theme="light"]` 覆盖 token
-- [ ] **Acceptance**: 切主题不破布局
-
-### A7 — Mobile responsive
-- [ ] 现 CSS 有部分 media query；audit 6 个 page 在 375/768/1024 宽度
-- [ ] **Acceptance**: 无横向滚动
-
-### A8 — Error Boundary
-- [ ] React `<ErrorBoundary>` 包每个 page
-- [ ] **Acceptance**: 某 page 崩溃不带挂全应用
-
-### A9 — 404 page
-- [ ] 应用不在路由层；如未来加路由，加 NotFoundPage
-- [ ] 暂不适用
+### ~~A5 i18n~~ — 删除
+### ~~A6 light mode~~ — 删除
+### ~~A9 404 page~~ — 不适用（单页无路由）
 
 ---
 
-## 优先级与里程碑建议
+## Phase L — 合规与法律（按需，外网部署才做）
 
-### MS-1 (1 周) — Real Data Demo
-完成：R1, R2, R3, R6, R8, F1, U1-U9 子集
-价值：演示给真实用户时数据是真的
+### L1 — 隐私政策模板
+### L2 — Terms / Disclaimer（金融数据非投资建议）
+### L3 — 用户数据导出/删除接口（GDPR）
+### L4 — Cookie 横幅（如有 tracking）
+### L5 — 数据保留承诺文档化
 
-### MS-2 (1-2 周) — Real Backtests
-完成：E1-E6, P1-P5, U10
-价值：用户可以真跑回测
-
-### MS-3 (1 周) — Production-ready
-完成：S1-S8, O1-O6, D1-D6, T1-T4
-价值：可部署上线
-
-### MS-4 (按需) — Polish
-完成：Q1-Q7, C1-C8, A1-A9, T5-T8, F2-F6, U11-U12
-价值：长期可维护性 + a11y + i18n
+> **本地/内网部署可全部跳过**，文档明示「不暴露外网」。
 
 ---
 
-## 工作量估算
+## 优先级与里程碑（**修订自 v1**）
 
-| Phase | 估算（人天） | 备注 |
-|---|---|---|
-| R | 3-4 | 数据接入直接但量大 |
-| E | 3-5 | 异步 + 状态机有坑 |
-| P | 2-3 | SQLite + repository |
-| F | 2 | 静态 + PDF 渲染 |
-| U | 2-3 | 三个新组件 + 多页接入 |
-| S | 2 | API key MVP |
-| O | 1-2 | 标准库 |
-| D | 2-3 | Docker + CI |
-| T | 2-3 | 写测试本身 |
-| Q | 2-3 | 重构 |
-| C | 1 | 边角修复 |
-| A | 2-3 | a11y audit |
-| **总** | **24-36 人天** | ≈ 5-7 周单人 / 2-3 周两人 |
+### MS-1 — Real Data Demo（**7-10 天**，原 1 周低估）
+- Phase X + R1/R2/R3/R6/R8 + U4-U9 部分（接现成组件）
+- 不做 R7/R10（要等 S/E）
+
+### MS-2 — Real Backtests + 持久化（**12-15 天**）
+- P1-P6 + E1-E8 + X3/X4 完成
+- T3 嵌入
+
+### MS-3 — Production-ready（**8-12 天**）
+- S1-S9 + O1-O6 + F1-F7 + D1-D10
+- T9 OpenAPI snapshot
+
+### MS-4 — Polish（按需）
+- Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
 
-**Last updated**: 2026-05-19  
-**Maintainer**: Atlas20 team
+## 工作量估算（**用 codex 修订值**）
+
+| Phase | v1 估算 | v2 修订 | 修订原因 |
+|---|---|---|---|
+| X | — | 2-3 | 新增 |
+| R | 3-4 | 5-7 | 加 CSV 适配 + 缓存 + provenance + race handling |
+| E | 3-5 | 7-10 | 子进程 worker + 状态机 + 资源校验 |
+| P | 2-3 | 4-6 | migration + 备份 + idempotency |
+| F | 2 | 4-6 | 安全下载 + manifest + 多格式 |
+| U | 2-3 | 2-3 | 不变（组件已有） |
+| S | 2 | 4-6 | settings + authz + headers + secrets |
+| O | 1-2 | 2-3 | + 日志轮转 + 脱敏 |
+| D | 2-3 | 4-6 | + 卷 + envs + 健康检查 + 部署 workflow |
+| T | 2-3 | 嵌入各 phase | 不单算 |
+| Q | 2-3 | 2-3 | 删 Q1/Q7 后量等 |
+| C | 1 | 0.5 | 删 C6/C7 |
+| A | 2-3 | 2-3 | 删 A5/A6 |
+| L | — | 2-3 | 仅外网部署 |
+| **总** | **24-36** | **39-58** | **codex 翻倍属实**：约 8-12 周单人 / 4-6 周两人 |
+
+---
+
+**Last updated**: 2026-05-19 (v2 post-codex)  
+**Maintainer**: Atlas20 team  
+**v1**: `a43a304`  
+**v2**: this commit
