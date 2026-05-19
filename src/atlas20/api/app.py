@@ -1,9 +1,11 @@
 """FastAPI application factory for the Atlas20 research console."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from filelock import FileLock
 
 from atlas20.api.logging_config import configure_logging
 from atlas20.api.middleware.access_log import AccessLogMiddleware
@@ -20,11 +22,15 @@ from atlas20.api.settings import get_settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from alembic import command
     from alembic.config import Config
+    from alembic import command
 
-    cfg = Config("alembic.ini")
-    command.upgrade(cfg, "head")
+    settings = get_settings()
+    lock_path = Path(settings.db_url.replace("sqlite:///", "")).with_suffix(".alembic.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(str(lock_path), timeout=60):
+        cfg = Config("alembic.ini")
+        command.upgrade(cfg, "head")
     yield
 
 
