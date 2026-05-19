@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from atlas20.api import mock_data
+from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now_iso
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
@@ -38,15 +39,8 @@ RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
 
 
-def _today() -> date:
-    settings = get_settings()
-    if settings.anchor_date is not None:
-        return settings.anchor_date
-    return datetime.now(timezone.utc).date()
-
-
 def get_overview() -> OverviewPayload:
-    settings = get_settings().model_copy(update={"anchor_date": _today()})
+    settings = get_settings().model_copy(update={"anchor_date": today()})
     payload, _used_fallback = _load_overview_payload(settings, log_warning=True)
     return OverviewPayload.model_validate(payload)
 
@@ -72,11 +66,11 @@ def _created_date(row: dict[str, Any]) -> date:
 def _date_cutoff(date_range: str) -> date | None:
     if date_range == "all":
         return None
-    today = _today()
+    current_day = today()
     if date_range == "ytd":
-        return date(today.year, 1, 1)
+        return date(current_day.year, 1, 1)
     days = {"7d": 7, "30d": 30, "90d": 90}.get(date_range, 30)
-    return today - timedelta(days=days)
+    return current_day - timedelta(days=days)
 
 
 def _matches_query(row: dict[str, Any], q: str) -> bool:
@@ -203,7 +197,7 @@ def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
 
 
 def get_compare(ids: list[str], range_: str) -> ComparePayload:
-    settings = get_settings().model_copy(update={"anchor_date": _today()})
+    settings = get_settings().model_copy(update={"anchor_date": today()})
     try:
         payload = load_compare_from_reports(settings, ids, range_)
     except (FileNotFoundError, ValueError) as exc:
@@ -266,12 +260,11 @@ def get_data_alerts() -> list[DataAlert]:
 
 
 def refresh_universe() -> dict[str, str]:
-    refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    return {"refreshed_at": refreshed_at}
+    return {"refreshed_at": utc_now_iso()}
 
 
 def get_featured_digest() -> FeaturedDigest:
-    settings = get_settings().model_copy(update={"anchor_date": _today()})
+    settings = get_settings().model_copy(update={"anchor_date": today()})
     markdown = _newest_markdown(settings.report_root)
     if markdown is None:
         return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
@@ -280,7 +273,7 @@ def get_featured_digest() -> FeaturedDigest:
     if used_fallback:
         return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
 
-    generated_at = _mtime_iso(markdown)
+    generated_at = utc_iso_from_path_mtime(markdown)
     generated_date = generated_at[:10]
     ytd_pct = overview["hero_kpi"]["ytdReturn"] * 100.0
     return FeaturedDigest.model_validate(
@@ -300,15 +293,6 @@ def _newest_markdown(report_root: Path) -> Path | None:
     if not reports:
         return None
     return max(reports, key=lambda path: path.stat().st_mtime)
-
-
-def _mtime_iso(path: Path) -> str:
-    return (
-        datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z")
-    )
-
 
 def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[dict[str, Any], bool]:
     try:

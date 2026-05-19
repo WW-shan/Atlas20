@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from atlas20.api import mock_data
+from atlas20.api._time import today
 from atlas20.api.data_access._common import _as_float, _date_string, _latest_report_dir, _load_date_indexed_csv, _read_csv
 from atlas20.api.settings import Settings
 
@@ -31,7 +32,6 @@ def load_overview_from_reports(settings: Settings) -> dict[str, Any]:
     summary_df = _load_strategy_summary(settings.report_root)
     equity_curves_df = _load_equity_curves(settings.report_root)
     daily_returns_df = _load_daily_returns(settings.report_root)
-    anchor_date = settings.anchor_date or datetime.now(timezone.utc).date()
 
     champion_row = _pick_champion(summary_df)
     champion_col = str(champion_row["strategy"])
@@ -43,7 +43,7 @@ def load_overview_from_reports(settings: Settings) -> dict[str, Any]:
     champion_equity = _numeric_series(equity_curves_df[champion_col], champion_col)
     champion_daily_returns = _numeric_series(daily_returns_df[champion_col], champion_col)
     mixed_source_fields = _build_aum_strategies_regime()
-
+    anchor_date = settings.anchor_date or today()
     return {
         "champion": _build_champion(champion_row, champion_equity),
         "top_strategies": _build_top_strategies(summary_df),
@@ -227,4 +227,3 @@ def _numeric_series(series: pd.Series, name: str) -> pd.Series:
     values = pd.to_numeric(series, errors="raise")
     values.name = name
     return values
-

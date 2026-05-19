@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -14,6 +13,7 @@ import time
 
 import pandas as pd
 
+from atlas20.api._time import utc_iso_from_timestamp, utc_now_iso
 from atlas20.backtest.engine import BacktestResult
 from atlas20.config import ResearchConfig
 
@@ -93,14 +93,6 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _utc_iso_from_timestamp(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
 def _code_commit() -> str:
     try:
         completed = subprocess.run(
@@ -157,7 +149,7 @@ def _data_snapshot() -> dict[str, str]:
                 newest_file = path
                 newest_mtime = mtime
         if newest_file is not None:
-            snapshot[provider_dir.name] = _utc_iso_from_timestamp(newest_mtime)
+            snapshot[provider_dir.name] = utc_iso_from_timestamp(newest_mtime)
     return snapshot
 
 
@@ -202,7 +194,7 @@ def _write_manifest(report_dir: Path) -> None:
         "code_commit": _code_commit(),
         "pipeline_version": _pipeline_version(),
         "data_snapshot": _data_snapshot(),
-        "generated_at": _utc_now_iso(),
+        "generated_at": utc_now_iso(),
         "artifacts": _artifact_rows(report_dir),
     }
     (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
