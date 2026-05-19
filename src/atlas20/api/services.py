@@ -189,10 +189,15 @@ def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
 
 
 def get_run_detail(session: Session, run_id: str) -> RunDetailPayload | None:
+    if run_id == mock_data.fallback_run_detail["run_id"]:
+        canonical = deepcopy(mock_data.fallback_run_detail)
+        db_row = RunsRepo(session).get(run_id)
+        if db_row is not None:
+            canonical["favorited"] = db_row.favorited
+        return RunDetailPayload.model_validate(canonical)
+
     run = RunsRepo(session).get(run_id)
     if run is None:
-        if run_id == mock_data.fallback_run_detail["run_id"]:
-            return RunDetailPayload.model_validate(deepcopy(mock_data.fallback_run_detail))
         return None
     row = _run_to_row(run).model_dump(mode="json")
     detail = {

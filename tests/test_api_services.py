@@ -80,6 +80,9 @@ def test_get_run_detail_returns_derived_kpi_for_listed_runs(db_session: Session)
 
     canonical = get_run_detail(db_session, "btk_0142")
     assert canonical is not None and canonical.kpi.sharpe == 3.42
+    assert canonical.kpi.sortino == mock_data.fallback_run_detail["kpi"]["sortino"]
+    assert canonical.kpi.win_rate == mock_data.fallback_run_detail["kpi"]["win_rate"]
+    assert canonical.kpi.calmar == mock_data.fallback_run_detail["kpi"]["calmar"]
 
     derived = get_run_detail(db_session, "btk_0146")
     assert derived is not None
