@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from functools import lru_cache
 from pathlib import Path
 
 from sqlalchemy.engine import Engine, make_url
@@ -19,11 +18,23 @@ def _ensure_sqlite_parent(db_url: str) -> None:
     Path(url.database).expanduser().parent.mkdir(parents=True, exist_ok=True)
 
 
-@lru_cache
+_ENGINES: dict[str, Engine] = {}
+
+
 def _engine_for_url(db_url: str) -> Engine:
+    if db_url in _ENGINES:
+        return _ENGINES[db_url]
     _ensure_sqlite_parent(db_url)
     connect_args = {"check_same_thread": False} if make_url(db_url).get_backend_name() == "sqlite" else {}
-    return create_engine(db_url, connect_args=connect_args)
+    engine = create_engine(db_url, connect_args=connect_args)
+    _ENGINES[db_url] = engine
+    return engine
+
+
+def dispose_all_engines() -> None:
+    for engine in _ENGINES.values():
+        engine.dispose()
+    _ENGINES.clear()
 
 
 def get_engine(settings: Settings) -> Engine:

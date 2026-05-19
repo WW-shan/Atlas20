@@ -9,6 +9,7 @@ from sqlmodel import SQLModel, Session, create_engine
 
 from atlas20.api import mock_data
 from atlas20.api.db.models import Run
+from atlas20.api.repositories._session import dispose_all_engines
 from atlas20.api.settings import get_settings
 
 
@@ -32,6 +33,7 @@ def atlas20_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("ATLAS20_ANCHOR_DATE", "2026-05-19")
     get_settings.cache_clear()
     yield
+    dispose_all_engines()
     get_settings.cache_clear()
 
 
@@ -131,6 +133,7 @@ def db_session() -> Iterator[Session]:
         session.commit()
         yield session
         session.rollback()
+    engine.dispose()
 
 
 def make_summary_row(strategy: str, **overrides: object) -> str:
