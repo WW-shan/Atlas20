@@ -32,6 +32,8 @@ const SORT_OPTIONS: { key: ReportSortKey; label: string }[] = [
 export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
   const [format, setFormat] = useState<ReportFormat>(fallbackFeaturedDigest.defaultFormat);
+  const [digestDownloadPending, setDigestDownloadPending] = useState(false);
+  const [reportDownloadPendingId, setReportDownloadPendingId] = useState<string | undefined>(undefined);
 
   const featured = useQuery({
     queryKey: qk.reports.featured(),
@@ -61,13 +63,23 @@ export function ReportsExportsTab() {
   };
 
   const handleDownloadAll = () => {
+    if (digestDownloadPending) return;
     // Bundle archive (all formats); single-format download lives on individual cards
-    downloadDigest("bundle").then((r) => openDownload(r.url)).catch(() => {});
+    setDigestDownloadPending(true);
+    void downloadDigest("bundle")
+      .then((r) => openDownload(r.url))
+      .catch(() => {})
+      .finally(() => setDigestDownloadPending(false));
   };
 
   const handleDownloadOne = (id: string, fmt?: ReportFormat) => {
+    if (reportDownloadPendingId) return;
     // Honor the page-level format selection when card doesn't override
-    downloadReport(id, fmt ?? format).then((r) => openDownload(r.url)).catch(() => {});
+    setReportDownloadPendingId(id);
+    void downloadReport(id, fmt ?? format)
+      .then((r) => openDownload(r.url))
+      .catch(() => {})
+      .finally(() => setReportDownloadPendingId(undefined));
   };
 
   const handleNewReport = () => {
@@ -88,6 +100,7 @@ export function ReportsExportsTab() {
           selectedFormat={format}
           onSelectFormat={setFormat}
           onDownloadAll={handleDownloadAll}
+          downloadLoading={digestDownloadPending}
         />
       )}
 
@@ -155,7 +168,12 @@ export function ReportsExportsTab() {
           >
             {sorted.map((entry) => (
               <div role="listitem" key={entry.id}>
-                <ReportCard entry={entry} onDownload={handleDownloadOne} />
+                <ReportCard
+                  entry={entry}
+                  onDownload={handleDownloadOne}
+                  downloadBusy={reportDownloadPendingId === entry.id}
+                  downloadsDisabled={Boolean(reportDownloadPendingId)}
+                />
               </div>
             ))}
           </div>

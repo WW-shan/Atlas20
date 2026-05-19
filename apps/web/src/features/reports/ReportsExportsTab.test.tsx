@@ -59,18 +59,53 @@ describe("ReportsExportsTab", () => {
   });
 
   it("clicking DOWNLOAD ALL invokes downloadDigest('bundle') regardless of selected format", async () => {
+    vi.mocked(api.downloadDigest).mockImplementationOnce(() => new Promise<Awaited<ReturnType<typeof api.downloadDigest>>>(() => {}));
+
     renderWithQuery(<ReportsExportsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
     fireEvent.click(screen.getByRole("button", { name: /DOWNLOAD ALL/ }));
     expect(api.downloadDigest).toHaveBeenCalledWith("bundle");
   });
 
+  it("disables DOWNLOAD ALL while the bundle download is pending", async () => {
+    vi.mocked(api.downloadDigest).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.downloadDigest>>>(() => {}));
+
+    renderWithQuery(<ReportsExportsTab />);
+    const button = await screen.findByRole("button", { name: /DOWNLOAD ALL/ });
+
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
   it("per-card DOWNLOAD honors the selected page-level format", async () => {
+    vi.mocked(api.downloadReport).mockImplementationOnce(() => new Promise<Awaited<ReturnType<typeof api.downloadReport>>>(() => {}));
+
     renderWithQuery(<ReportsExportsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
     const firstCardDownload = document.querySelector('button[aria-label^="Download "]') as HTMLButtonElement;
     fireEvent.click(firstCardDownload);
     expect(api.downloadReport).toHaveBeenCalledWith(expect.any(String), "pdf");
+  });
+
+  it("disables report download buttons while a card download is pending", async () => {
+    vi.mocked(api.downloadReport).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.downloadReport>>>(() => {}));
+
+    renderWithQuery(<ReportsExportsTab />);
+    await screen.findByRole("list", { name: "Reports archive list" });
+
+    const firstDownload = screen.getByRole("button", { name: /Download Atlas20/ });
+    const secondDownload = screen.getByRole("button", { name: /Download ATLAS Adaptive v3/ });
+
+    fireEvent.click(firstDownload);
+
+    await waitFor(() => expect(firstDownload).toBeDisabled());
+    expect(firstDownload).toHaveAttribute("aria-busy", "true");
+    expect(secondDownload).toBeDisabled();
+
+    fireEvent.click(secondDownload);
+    expect(api.downloadReport).toHaveBeenCalledTimes(1);
   });
 
   it("renders 6 archive cards (5 ready + 1 generating)", async () => {

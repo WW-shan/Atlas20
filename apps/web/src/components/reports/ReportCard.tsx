@@ -6,6 +6,8 @@ import { ReportThumbnail } from "./ReportThumbnail";
 type Props = {
   entry: ReportEntry;
   onDownload: (id: string, fmt?: ReportFormat) => void;
+  downloadBusy?: boolean;
+  downloadsDisabled?: boolean;
 };
 
 function formatBytes(n: number): string {
@@ -23,8 +25,9 @@ const reportTypeTone: Record<ReportEntry["report_type"], "cyan" | "violet" | "mu
   universe: "emerald",
 };
 
-export function ReportCard({ entry, onDownload }: Props) {
+export function ReportCard({ entry, onDownload, downloadBusy, downloadsDisabled }: Props) {
   const isGenerating = entry.status === "generating";
+  const downloadDisabled = Boolean(isGenerating || downloadBusy || downloadsDisabled);
   return (
     <Card
       variant="report"
@@ -65,17 +68,21 @@ export function ReportCard({ entry, onDownload }: Props) {
           <button
             type="button"
             aria-label={`Download ${entry.title}`}
-            onClick={() => onDownload(entry.id)}
-            disabled={isGenerating}
+            aria-busy={downloadBusy ? "true" : undefined}
+            onClick={() => {
+              if (!downloadDisabled) onDownload(entry.id);
+            }}
+            disabled={downloadDisabled}
             style={{
               background: "transparent",
               border: "none",
-              color: isGenerating ? "var(--muted)" : "var(--gold)",
+              color: downloadDisabled ? "var(--muted)" : "var(--gold)",
               fontSize: 11,
               fontFamily: "var(--font-sans)",
               fontWeight: 600,
               letterSpacing: "0.06em",
-              cursor: isGenerating ? "not-allowed" : "pointer",
+              cursor: downloadDisabled ? "not-allowed" : "pointer",
+              opacity: downloadDisabled ? 0.5 : 1,
               padding: 0,
               textTransform: "uppercase",
             }}

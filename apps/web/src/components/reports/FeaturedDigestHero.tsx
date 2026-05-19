@@ -8,9 +8,10 @@ type Props = {
   selectedFormat: ReportFormat;
   onSelectFormat: (fmt: ReportFormat) => void;
   onDownloadAll: () => void;
+  downloadLoading?: boolean;
 };
 
-export function FeaturedDigestHero({ digest, selectedFormat, onSelectFormat, onDownloadAll }: Props) {
+export function FeaturedDigestHero({ digest, selectedFormat, onSelectFormat, onDownloadAll, downloadLoading }: Props) {
   return (
     <Card variant="hero" ariaLabel="Featured digest hero">
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 24, alignItems: "center" }}>
@@ -57,7 +58,7 @@ export function FeaturedDigestHero({ digest, selectedFormat, onSelectFormat, onD
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-          <Button variant="gold" onClick={onDownloadAll}>↓ DOWNLOAD ALL · BUNDLE</Button>
+          <Button variant="gold" loading={downloadLoading} onClick={onDownloadAll}>↓ DOWNLOAD ALL · BUNDLE</Button>
           <span className="mono muted" style={{ fontSize: 11 }}>
             Generated {digest.generated_at.slice(0, 10)}
           </span>
