@@ -35,7 +35,7 @@ from atlas20.api.schemas import (
     UniverseTimelinePayload,
 )
 from atlas20.api.db.models import Run
-from atlas20.api.repositories import RunsRepo
+from atlas20.api.repositories import IdempotencyRepo, RunsRepo
 from atlas20.api.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -246,6 +246,7 @@ def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSum
             "created_at": utc_now(),
         }
     )
+    IdempotencyRepo(session).purge_expired()
     return _run_to_summary(run)
 
 
