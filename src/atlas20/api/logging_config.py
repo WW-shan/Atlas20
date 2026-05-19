@@ -26,6 +26,7 @@ def configure_logging(settings: Settings) -> None:
         structlog.stdlib.add_log_level,
         _uppercase_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True, key="ts"),
+        structlog.processors.format_exc_info,
         structlog.processors.EventRenamer("message"),
     ]
 

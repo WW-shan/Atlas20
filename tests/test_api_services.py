@@ -1,8 +1,13 @@
 from copy import deepcopy
+from datetime import date
+from datetime import datetime
+from datetime import timezone
 
 import pytest
 
 from atlas20.api import mock_data
+from atlas20.api import services
+from atlas20.api.settings import get_settings
 from atlas20.api.services import list_reports, list_runs, toggle_run_favorite
 
 
@@ -61,6 +66,30 @@ def test_list_runs_filters_by_date_range_cutoff():
 
     assert total == 13
     assert all(row.run_id != "btk_0135" for row in rows)
+
+
+def test_today_uses_anchor_date_override(monkeypatch):
+    monkeypatch.setenv("ATLAS20_ANCHOR_DATE", "2026-01-02")
+    get_settings.cache_clear()
+
+    assert services._today() == date(2026, 1, 2)
+
+
+def test_today_fallback_uses_utc(monkeypatch):
+    monkeypatch.delenv("ATLAS20_ANCHOR_DATE", raising=False)
+    get_settings.cache_clear()
+    seen_timezones = []
+
+    class FrozenDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            seen_timezones.append(tz)
+            return datetime(2026, 5, 19, 0, 30, tzinfo=tz)
+
+    monkeypatch.setattr(services, "datetime", FrozenDateTime)
+
+    assert services._today() == date(2026, 5, 19)
+    assert seen_timezones == [timezone.utc]
 
 
 def test_list_runs_paginates_rows():
