@@ -11,8 +11,18 @@ from pandas.errors import EmptyDataError, ParserError
 
 
 def _latest_report_dir(report_root: Path) -> Path:
-    latest = report_root / "latest"
-    return latest if latest.exists() else report_root
+    pointer = report_root / "latest.txt"
+    if pointer.exists():
+        try:
+            target_name = pointer.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise ValueError(f"Could not read {pointer}: {exc}") from exc
+        if target_name:
+            target = report_root / target_name
+            if target.exists():
+                return target
+    fallback = report_root / "latest"
+    return fallback if fallback.exists() else report_root
 
 
 def _read_csv(path: Path, *, index_col: int | None = None) -> pd.DataFrame:
