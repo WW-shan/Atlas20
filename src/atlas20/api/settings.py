@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     anchor_date: date | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "json"
+    run_timeout_seconds: int = 1800
+    worker_poll_interval_seconds: float = 2.0
 
     model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
 

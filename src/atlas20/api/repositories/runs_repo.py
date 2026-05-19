@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from atlas20.api.db.models import Run
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
-RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
+RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 
 
 class RunsRepo:
@@ -95,6 +95,29 @@ class RunsRepo:
         self._s.flush()
         self._s.refresh(run)
         return run
+
+    def update_metrics_from_completion(
+        self,
+        run_id: str,
+        *,
+        return_pct: float | None,
+        sharpe: float | None,
+        max_dd: float | None,
+        duration_s: int,
+    ) -> Run | None:
+        return self.update(
+            run_id,
+            status="completed",
+            return_pct=return_pct,
+            sharpe=sharpe,
+            max_dd=max_dd,
+            duration_s=duration_s,
+            eta_s=None,
+            error=None,
+            worker_pid=None,
+            heartbeat_at=None,
+            requested_cancel=False,
+        )
 
     def toggle_favorite(self, run_id: str) -> Run | None:
         run = self.get(run_id)

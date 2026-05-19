@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from atlas20.api import _time
 
 
-RunStatusEnum = Literal["queued", "running", "completed", "failed"]
+RunStatusEnum = Literal["queued", "running", "completed", "failed", "cancelled"]
 StrategyFamily = Literal["ATLAS", "Momentum", "MeanRev", "Carry", "Other"]
 ChartRange = Literal["1M", "3M", "YTD", "1Y", "ALL"]
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
 from atlas20.api import services
-from atlas20.api.repositories import get_session
+from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.schemas import HistoryFilter, RunDetailPayload, RunRow, RunRowSummary, RunsListResponse
 
 router = APIRouter(prefix="/api", tags=["runs"])
@@ -70,3 +70,15 @@ def post_run_favorite(run_id: str, session: Session = Depends(get_session)) -> d
     if result is None:
         raise HTTPException(status_code=404, detail="run not found")
     return result
+
+
+@router.post("/runs/{run_id}/cancel", status_code=202)
+def cancel_run(run_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+    repo = RunsRepo(session)
+    run = repo.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    if run.status not in {"queued", "running"}:
+        raise HTTPException(status_code=409, detail=f"cannot cancel {run.status} run")
+    repo.update(run_id, requested_cancel=True)
+    return {"run_id": run_id, "requested_cancel": True}

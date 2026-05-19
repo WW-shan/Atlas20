@@ -42,7 +42,7 @@ from atlas20.api.settings import Settings, get_settings
 logger = logging.getLogger(__name__)
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
-RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
+RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 
 
 def get_overview() -> OverviewPayload:

@@ -1,6 +1,7 @@
 """FastAPI application factory for the Atlas20 research console."""
 
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -19,6 +20,10 @@ from atlas20.api.routes.reports import router as reports_router
 from atlas20.api.routes.runs import router as runs_router
 from atlas20.api.routes.universe import router as universe_router
 from atlas20.api.settings import get_settings
+from atlas20.api.worker.main import session_scope
+from atlas20.api.worker.recovery import recover_stale_runs
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -39,6 +44,16 @@ async def lifespan(app: FastAPI):
         # Postgres/MySQL: rely on alembic_version table + advisory locks (Batch 14 follow-up)
         cfg = Config("alembic.ini")
         command.upgrade(cfg, "head")
+    try:
+        with session_scope(settings) as session:
+            recovered = recover_stale_runs(session, stale_after_seconds=60)
+    except ModuleNotFoundError:
+        if url.get_backend_name() == "sqlite":
+            raise
+        logger.warning("Skipping stale run recovery because the DB driver is unavailable")
+        recovered = 0
+    if recovered:
+        logger.info("Recovered %d stale running runs", recovered)
     yield
 
 

@@ -1,5 +1,8 @@
 from collections.abc import Iterator
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -166,3 +169,25 @@ def make_data_quality_row(
     }
     values.update(overrides)
     return ",".join(str(values[field]) for field in DATA_QUALITY_HEADER.split(","))
+
+
+@pytest.fixture
+def worker_subprocess():
+    def run_worker(run_id: str, settings, timeout: int = 10) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["ATLAS20_WORKER_MOCK"] = "1"
+        env["ATLAS20_DB_URL"] = settings.db_url
+        env["ATLAS20_REPORT_ROOT"] = str(settings.report_root)
+        env["ATLAS20_PROJECT_ROOT"] = str(settings.project_root)
+        env["ATLAS20_RUN_TIMEOUT_SECONDS"] = str(settings.run_timeout_seconds)
+        env["ATLAS20_WORKER_POLL_INTERVAL_SECONDS"] = str(settings.worker_poll_interval_seconds)
+        return subprocess.run(
+            [sys.executable, "-m", "atlas20.api.worker.run_one", run_id],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+            cwd=Path(__file__).resolve().parents[1],
+        )
+
+    return run_worker
