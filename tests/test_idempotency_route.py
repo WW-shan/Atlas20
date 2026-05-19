@@ -54,7 +54,27 @@ def test_post_backtest_with_same_idempotency_key_returns_cached_response(client:
     assert len(RunsRepo(db_session).list_queue()) == 3
 
 
-def test_post_backtest_rejects_invalid_idempotency_key(client: TestClient):
+def test_post_backtest_accepts_64_char_idempotency_key(client: TestClient):
+    response = client.post(
+        "/api/backtests/run",
+        json=DEFAULT_BACKTEST_CONFIG,
+        headers={"Idempotency-Key": "a" * 64},
+    )
+
+    assert response.status_code == 200
+
+
+def test_post_backtest_rejects_65_char_idempotency_key(client: TestClient):
+    response = client.post(
+        "/api/backtests/run",
+        json=DEFAULT_BACKTEST_CONFIG,
+        headers={"Idempotency-Key": "a" * 65},
+    )
+
+    assert response.status_code == 422
+
+
+def test_post_backtest_rejects_special_character_idempotency_key(client: TestClient):
     response = client.post(
         "/api/backtests/run",
         json=DEFAULT_BACKTEST_CONFIG,
