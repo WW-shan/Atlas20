@@ -49,8 +49,7 @@ def _load_presets(settings: Settings) -> list[str]:
     parsed = frame.copy()
     parsed["strategy"] = parsed["strategy"].map(lambda value: _as_text(value, "strategy"))
     try:
-        parsed["sharpe"] = pd.to_numeric(parsed["sharpe"], errors="raise")
-        parsed["sharpe"] = parsed["sharpe"].map(_as_float)
+        parsed["sharpe"] = parsed["sharpe"].map(lambda value: _as_float(value, "sharpe"))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{path} has invalid numeric values in sharpe") from exc
 

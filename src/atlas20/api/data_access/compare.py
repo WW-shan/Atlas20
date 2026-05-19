@@ -72,12 +72,11 @@ def _load_compare_summary(settings: Settings) -> pd.DataFrame:
 
     parsed = frame.copy()
     parsed["strategy"] = parsed["strategy"].map(lambda value: _as_text(value, "strategy"))
-    try:
-        for column in NUMERIC_SUMMARY_COLUMNS:
-            parsed[column] = pd.to_numeric(parsed[column], errors="raise")
-            parsed[column] = parsed[column].map(_as_float)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{path} has invalid numeric values") from exc
+    for column in NUMERIC_SUMMARY_COLUMNS:
+        try:
+            parsed[column] = parsed[column].map(lambda value, column=column: _as_float(value, column))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{path} has invalid numeric values in {column}") from exc
     return parsed
 
 
@@ -229,8 +228,7 @@ def _load_latest_universe(settings: Settings) -> list[str]:
     if parsed["rebalance_date"].isna().any():
         raise ValueError(f"{path} has invalid dates in rebalance_date")
     try:
-        parsed["universe_rank"] = pd.to_numeric(parsed["universe_rank"], errors="raise")
-        parsed["universe_rank"] = parsed["universe_rank"].map(_as_float)
+        parsed["universe_rank"] = parsed["universe_rank"].map(lambda value: _as_float(value, "universe_rank"))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{path} has invalid numeric values in universe_rank") from exc
 
