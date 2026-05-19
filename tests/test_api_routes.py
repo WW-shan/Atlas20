@@ -19,6 +19,7 @@ from atlas20.api.schemas import (
     RunRowSummary,
     UniverseTimelinePayload,
 )
+from atlas20.api.settings import get_settings
 
 
 DEFAULT_BACKTEST_CONFIG = {
@@ -46,7 +47,9 @@ def restore_mock_data():
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(tmp_path, monkeypatch) -> TestClient:
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
     return TestClient(create_app())
 
 
@@ -56,7 +59,7 @@ def test_overview_endpoint_returns_r3_payload(client: TestClient):
     assert response.status_code == 200
     raw = response.json()
     payload = OverviewPayload.model_validate(raw)
-    assert payload.hero_kpi.ytdReturn == 12.4756
+    assert payload.hero_kpi.ytdReturn == mock_data.fallback_overview["hero_kpi"]["ytdReturn"]
     assert raw["rebalance"]["swaps"][0]["in"] == "DOT"
     assert payload.rebalance.swaps[0].in_ == "DOT"
 
@@ -177,7 +180,7 @@ def test_featured_digest_endpoint_returns_digest(client: TestClient):
     assert response.status_code == 200
     payload = FeaturedDigest.model_validate(response.json())
     assert payload.defaultFormat == "markdown"
-    assert payload.id == "digest_w20_2026"
+    assert payload.id == mock_data.fallback_featured_digest["id"]
 
 
 def test_reports_endpoint_returns_sorted_reports(client: TestClient):

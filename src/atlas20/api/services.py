@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from atlas20.api import mock_data
+from atlas20.api.data_access.overview import load_overview_from_reports
 from atlas20.api.schemas import (
     BacktestConfig,
     ComparePayload,
@@ -20,14 +23,15 @@ from atlas20.api.schemas import (
     RunRowSummary,
     UniverseTimelinePayload,
 )
+from atlas20.api.settings import Settings, get_settings
+
+logger = logging.getLogger(__name__)
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
 
 
 def _today() -> date:
-    from atlas20.api.settings import get_settings
-
     settings = get_settings()
     if settings.anchor_date is not None:
         return settings.anchor_date
@@ -35,7 +39,9 @@ def _today() -> date:
 
 
 def get_overview() -> OverviewPayload:
-    return OverviewPayload.model_validate(deepcopy(mock_data.fallback_overview))
+    settings = get_settings().model_copy(update={"anchor_date": _today()})
+    payload, _used_fallback = _load_overview_payload(settings, log_warning=True)
+    return OverviewPayload.model_validate(payload)
 
 
 def get_options_payload() -> dict[str, Any]:
@@ -230,7 +236,52 @@ def refresh_universe() -> dict[str, str]:
 
 
 def get_featured_digest() -> FeaturedDigest:
-    return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
+    settings = get_settings().model_copy(update={"anchor_date": _today()})
+    markdown = _newest_markdown(settings.report_root)
+    if markdown is None:
+        return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
+
+    overview, used_fallback = _load_overview_payload(settings, log_warning=True)
+    if used_fallback:
+        return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
+
+    generated_at = _mtime_iso(markdown)
+    generated_date = generated_at[:10]
+    ytd_pct = overview["hero_kpi"]["ytdReturn"] * 100.0
+    return FeaturedDigest.model_validate(
+        {
+            "id": markdown.stem,
+            "title": f"Atlas20 Digest - {generated_date}",
+            "subtitle": f"{overview['champion']['strategy']} - YTD {ytd_pct:+,.2f}% - generated {generated_at}",
+            "formats": deepcopy(mock_data.fallback_featured_digest["formats"]),
+            "defaultFormat": "markdown",
+            "generated_at": generated_at,
+        }
+    )
+
+
+def _newest_markdown(report_root: Path) -> Path | None:
+    reports = [path for path in report_root.rglob("*.md") if path.is_file()]
+    if not reports:
+        return None
+    return max(reports, key=lambda path: path.stat().st_mtime)
+
+
+def _mtime_iso(path: Path) -> str:
+    return (
+        datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[dict[str, Any], bool]:
+    try:
+        return load_overview_from_reports(settings), False
+    except (FileNotFoundError, ValueError) as exc:
+        if log_warning:
+            logger.warning("Falling back to mock overview: %s", exc)
+        return deepcopy(mock_data.fallback_overview), True
 
 
 def list_reports(sort: str = "recent") -> list[ReportEntry]:
