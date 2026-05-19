@@ -36,6 +36,28 @@ def test_list_runs_filters_by_family_chip(db_session: Session):
     assert all(row.strategy_family == "ATLAS" for row in rows)
 
 
+def test_list_runs_atlas_chip_excludes_non_family_decoy(db_session: Session):
+    RunsRepo(db_session).create(
+        Run(
+            run_id="btk_9998",
+            strategy="ATLAS_LIKE_DECOY",
+            strategy_family="Other",
+            universe="Top-20",
+            window_start=date(2024, 1, 1),
+            window_end=date(2026, 5, 18),
+            status="completed",
+            created_at=datetime(2026, 5, 19, tzinfo=timezone.utc),
+        )
+    )
+
+    rows, total = list_runs(db_session, chips=["ATLAS"], date_range="all")
+
+    assert total == 5
+    assert rows
+    assert all(row.strategy != "ATLAS_LIKE_DECOY" for row in rows)
+    assert all(row.strategy_family == "ATLAS" for row in rows)
+
+
 def test_list_runs_filters_by_combined_chips(db_session: Session):
     rows, total = list_runs(db_session, chips=["ATLAS", "completed"], date_range="all")
 
