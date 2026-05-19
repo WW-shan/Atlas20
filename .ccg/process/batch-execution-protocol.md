@@ -74,12 +74,18 @@ Agent B: subagent_type=general-purpose, 包装 codex reviewer
 - Codex 侧 reviewer 通过 stdin 传 prompt（`<<'EOF' ... EOF`），不要用 `--prompt-file`（曾因 `Start-Job` PowerShell 参数绑定失败导致 50min 卡死）
 - 如果 codex reviewer 超过 5h 无响应，`TaskStop` 杀掉重派
 
-## 5. Fix dispatch（如有 Warning/Critical）
+## 5. Fix dispatch（任何 finding 都要修，包括 Info）
 
-把两边 reviewer 的 findings 合并到一个 `fixer-prompt.md`。每个 finding 包含：
+把两边 reviewer 的 findings 合并到一个 `fixer-prompt.md`。**所有 finding 都派 codex 修一遍**——Critical / Warning / Info 一视同仁，不要因为是 Info 就放过。
+
+**唯一例外**：纯 UX/审美判断（比如 "is double-rendering ErrorBanner + cached data acceptable?"）由 Claude 在 fixer-prompt 里给出明确指令——告诉 codex"按这个方式修"，不要让 codex 自由发挥审美。
+
+Codex 不做审美决策；Claude 决策，codex 执行。
+
+每个 finding 包含：
 - 具体文件路径 + 行号
 - 问题描述
-- 期望的修复方式（reassignment / 重构 / API 变化）
+- **Claude 决定的修复方式**（reassignment / 重构 / API 变化 / UX 取舍）
 - 是否需要 regression test
 
 Codex fixer 要求：**每个 finding 一个独立 commit**（不要合并），消息格式：
@@ -116,7 +122,7 @@ test(api): batch N reviewer pass — <one-line summary>
 - 写一个一句话的总结回给用户：commit list + 测试数 + cross-val 矩阵
 - 准备下一 batch brief
 
-## 关键教训（来自 Batch 1-5）
+## 关键教训（来自 Batch 1-6）
 
 1. **不要在 brief 里写 codex 能自由发挥的部分**。例如 Batch 3 codex 自作主张加了 BTC_BH 排除逻辑——虽然没坏但越界。Brief 越精确，越好 review。
 
@@ -133,6 +139,10 @@ test(api): batch N reviewer pass — <one-line summary>
 7. **每个 fix commit 单独提**，不要合并多个 fix 到一个 commit。这样 reviewer round 2 能精确对应每个 Warning。
 
 8. **回归测试要写在 brief 里**：让 builder 直接产出，而不是等 fixer round 加。Batch 5 round 2 才补 options NaN test 是个浪费。
+
+9. **Info 级别 finding 也要修**：Batch 6 Opus 提了 4 个 Info，全部要 Claude 决策方向后派 codex 修，不留 tech-debt 给后面。
+
+10. **审美/UX 决策不外包**：codex 不做 "should we render X or Y" 这类取舍。Claude 在 fixer-prompt 里给明确指令，codex 只负责实现。
 
 ## 流程图
 
