@@ -102,6 +102,23 @@ describe("RunHistoryTab", () => {
     expect(headers.length).toBeGreaterThanOrEqual(13);
   });
 
+  it("switches list and grid views without sending view to the API", async () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await screen.findByRole("table", { name: "Runs list" });
+
+    fireEvent.click(screen.getByRole("radio", { name: "Grid" }));
+    expect(await screen.findByTestId("run-history-grid")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Runs list" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "List" }));
+    expect(await screen.findByRole("table", { name: "Runs list" })).toBeInTheDocument();
+    expect(screen.queryByTestId("run-history-grid")).not.toBeInTheDocument();
+
+    for (const [filter] of vi.mocked(api.listRuns).mock.calls) {
+      expect("view" in filter).toBe(false);
+    }
+  });
+
   it("renders RUNNING pill with pulse for in-flight runs", async () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     expect((await screen.findAllByText("running")).length).toBeGreaterThanOrEqual(1);

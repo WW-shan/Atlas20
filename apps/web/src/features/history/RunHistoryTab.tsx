@@ -2,12 +2,16 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Toolbar } from "../../components/history/Toolbar";
+import type { HistoryViewMode } from "../../components/history/Toolbar";
 import { RunTable } from "../../components/history/RunTable";
 import { Pager } from "../../components/ui/Pager";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
+import { Pill } from "../../components/ui/Pill";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { SparklineChart } from "../../components/charts/SparklineChart";
 
 import {
   defaultHistoryFilter,
@@ -24,6 +28,7 @@ type Props = {
 
 export function RunHistoryTab({ onNavigate }: Props) {
   const [filter, setFilter] = useState<HistoryFilter>(defaultHistoryFilter);
+  const [viewMode, setViewMode] = useState<HistoryViewMode>("list");
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   // Tracks which runs have been optimistically flipped relative to their server baseline
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
@@ -106,7 +111,14 @@ export function RunHistoryTab({ onNavigate }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
-      <Toolbar filter={filter} onChange={setFilter} total={total} chipsDisabled={query.isLoading} />
+      <Toolbar
+        filter={filter}
+        onChange={setFilter}
+        total={total}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        chipsDisabled={query.isLoading}
+      />
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
         {selectedId && (
@@ -140,7 +152,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
         />
       )}
 
-      {!query.isLoading && rows.length > 0 && (
+      {!query.isLoading && rows.length > 0 && viewMode === "list" && (
         <RunTable
           rows={rows}
           selectedId={selectedId}
@@ -151,6 +163,14 @@ export function RunHistoryTab({ onNavigate }: Props) {
         />
       )}
 
+      {!query.isLoading && rows.length > 0 && viewMode === "grid" && (
+        <RunGrid
+          rows={rows}
+          selectedId={selectedId}
+          onSelect={(id) => setSelectedId((prev) => (prev === id ? undefined : id))}
+        />
+      )}
+
       <Pager
         total={total}
         page={filter.page}
@@ -158,6 +178,110 @@ export function RunHistoryTab({ onNavigate }: Props) {
         disabled={query.isLoading || query.isFetching}
         onChange={(p) => setFilter({ ...filter, page: p })}
       />
+    </div>
+  );
+}
+
+function gridStatusTone(status: RunRow["status"]): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean } {
+  switch (status) {
+    case "queued":    return { tone: "muted",   pulse: false };
+    case "running":   return { tone: "cyan",    pulse: true };
+    case "completed": return { tone: "emerald", pulse: false };
+    case "failed":    return { tone: "rose",    pulse: false };
+  }
+}
+
+function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: string; onSelect: (runId: string) => void }) {
+  return (
+    <div
+      data-testid="run-history-grid"
+      role="list"
+      aria-label="Runs grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gap: 12,
+      }}
+    >
+      {rows.map((row) => {
+        const status = gridStatusTone(row.status);
+        const isSelected = row.run_id === selectedId;
+        return (
+          <div key={row.run_id} role="listitem">
+            <Card
+              ariaLabel={`Run ${row.run_id}`}
+              style={{
+                padding: 0,
+                borderColor: isSelected ? "var(--gold)" : "var(--border)",
+              }}
+            >
+              <button
+                type="button"
+                data-run-id={row.run_id}
+                data-selected={isSelected ? "true" : undefined}
+                aria-pressed={isSelected}
+                onClick={() => onSelect(row.run_id)}
+                style={{
+                  width: "100%",
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  font: "inherit",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="mono muted" style={{ fontSize: 11 }}>{row.run_id}</div>
+                    <div style={{ marginTop: 4, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {row.strategy}
+                    </div>
+                  </div>
+                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{row.status}</Pill>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>Sharpe</div>
+                    <div className="mono" style={{ marginTop: 4, fontSize: 18, fontWeight: 700 }}>
+                      {row.sharpe !== undefined ? row.sharpe.toFixed(2) : "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>Universe</div>
+                    <div className="mono" style={{ marginTop: 6, color: "var(--muted)", fontSize: 12 }}>{row.universe}</div>
+                  </div>
+                </div>
+
+                <div style={{ minHeight: 28, display: "flex", alignItems: "center" }}>
+                  {row.spark && row.spark.length > 0 ? (
+                    <SparklineChart
+                      points={row.spark}
+                      tone={row.return_pct !== undefined && row.return_pct < 0 ? "rose" : "violet"}
+                      width={160}
+                      height={28}
+                      ariaLabel={`Trend for ${row.run_id}`}
+                    />
+                  ) : (
+                    <div
+                      aria-label={`Trend placeholder for ${row.run_id}`}
+                      style={{
+                        width: 160,
+                        borderTop: "1px dashed var(--border)",
+                      }}
+                    />
+                  )}
+                </div>
+              </button>
+            </Card>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,16 +1,22 @@
+import { LayoutGrid, List } from "lucide-react";
+
 import type { HistoryFilter } from "../../lib/api";
+
+export type HistoryViewMode = "list" | "grid";
 
 type Props = {
   filter: HistoryFilter;
   onChange: (next: HistoryFilter) => void;
   total: number;
+  viewMode: HistoryViewMode;
+  onViewModeChange: (mode: HistoryViewMode) => void;
   chipsDisabled?: boolean;
 };
 
 const CHIPS = ["queued", "running", "completed", "failed", "favorited", "ATLAS", "Momentum", "MeanRev", "Carry"];
 const DATE_RANGES: HistoryFilter["dateRange"][] = ["7d", "30d", "90d", "ytd", "all"];
 
-export function Toolbar({ filter, onChange, total, chipsDisabled }: Props) {
+export function Toolbar({ filter, onChange, total, viewMode, onViewModeChange, chipsDisabled }: Props) {
   const toggleChip = (chip: string) => {
     const next = filter.chips.includes(chip)
       ? filter.chips.filter((c) => c !== chip)
@@ -116,9 +122,49 @@ export function Toolbar({ filter, onChange, total, chipsDisabled }: Props) {
             );
           })}
         </div>
-        <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-          <span className="mono">{total.toLocaleString()}</span> runs
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            role="radiogroup"
+            aria-label="View mode"
+            style={{ display: "flex", gap: 2, border: "1px solid var(--border)", borderRadius: "var(--radius-input)", padding: 2 }}
+          >
+            {[
+              { mode: "list" as const, label: "List", Icon: List },
+              { mode: "grid" as const, label: "Grid", Icon: LayoutGrid },
+            ].map(({ mode, label, Icon }) => {
+              const active = viewMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => onViewModeChange(mode)}
+                  className="mono"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 9px",
+                    fontSize: 11,
+                    border: "none",
+                    borderRadius: 3,
+                    background: active ? "rgba(139,92,246,0.12)" : "transparent",
+                    color: active ? "var(--violet)" : "var(--muted)",
+                    fontWeight: active ? 700 : 400,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Icon size={13} aria-hidden="true" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+            <span className="mono">{total.toLocaleString()}</span> runs
+          </span>
+        </div>
       </div>
     </div>
   );
