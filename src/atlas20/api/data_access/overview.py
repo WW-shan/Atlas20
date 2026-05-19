@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -264,4 +265,10 @@ def _date_string(value: Any) -> str:
 
 
 def _as_float(value: Any) -> float:
-    return float(value)
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid numeric value: {value!r}") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"Non-finite numeric value: {value!r}")
+    return result

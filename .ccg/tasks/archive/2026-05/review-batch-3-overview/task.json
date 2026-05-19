@@ -1,0 +1,12 @@
+{
+  "id": "review-batch-3-overview",
+  "title": "Cross-validate Batch 3 Overview and Featured Digest commit",
+  "status": "in_progress",
+  "complexity": "M",
+  "risk": "medium",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Archive task after committing reviewer fix",
+  "createdAt": "2026-05-19T00:00:00+08:00",
+  "branch": "redesign/r3-premium"
+}

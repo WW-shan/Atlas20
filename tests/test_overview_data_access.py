@@ -96,6 +96,31 @@ def test_load_overview_from_reports_empty_csv_raises_value_error(tmp_path):
         load_overview_from_reports(Settings(report_root=tmp_path, anchor_date=date(2026, 1, 1)))
 
 
+def test_load_overview_from_reports_rejects_non_finite_numbers(tmp_path):
+    latest = tmp_path / "latest"
+    latest.mkdir()
+    latest.joinpath("strategy_summary.csv").write_text(
+        "\n".join(
+            [
+                SUMMARY_HEADER,
+                "ALPHA,,0.20,0.30,1.70,2.00,-0.20,1.00,0.60,4.00,0.50,2.00",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    latest.joinpath("daily_returns.csv").write_text(
+        ",ALPHA,BTC_BH__always_on\n2026-01-01,0.01,0.005",
+        encoding="utf-8",
+    )
+    latest.joinpath("equity_curves.csv").write_text(
+        ",ALPHA,BTC_BH__always_on\n2026-01-01,101000,100500",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Non-finite numeric value"):
+        load_overview_from_reports(Settings(report_root=tmp_path, anchor_date=date(2026, 1, 1)))
+
+
 def test_load_overview_from_reports_excludes_btc_benchmark_when_ranking(tmp_path):
     latest = tmp_path / "latest"
     latest.mkdir(parents=True)
