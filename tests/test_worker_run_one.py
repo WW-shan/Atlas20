@@ -97,6 +97,21 @@ def test_run_one_writes_atomic_artifacts(tmp_path, monkeypatch):
     assert (final_dir / "selection_history.csv").exists()
 
 
+def test_run_one_mock_preserves_existing_tmp_artifacts(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_WORKER_MOCK", "1")
+    settings = _settings(tmp_path)
+    engine = _engine(settings)
+    _create_run(engine)
+    tmp_dir = tmp_path / "reports" / "app_runs" / "btk_0001.tmp"
+    tmp_dir.mkdir(parents=True)
+    (tmp_dir / "debug.log").write_text("keep this artifact\n", encoding="utf-8")
+
+    assert run_one.run("btk_0001", settings) == 0
+
+    final_dir = tmp_path / "reports" / "app_runs" / "btk_0001"
+    assert (final_dir / "debug.log").read_text(encoding="utf-8") == "keep this artifact\n"
+
+
 def test_run_one_missing_run_id_returns_one_without_db_change(tmp_path, monkeypatch):
     monkeypatch.setenv("ATLAS20_WORKER_MOCK", "1")
     settings = _settings(tmp_path)

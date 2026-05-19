@@ -130,9 +130,7 @@ def _completion_metrics(report_dir: Path) -> dict[str, float | None]:
 
 
 def _prepare_tmp_dir(path: Path) -> None:
-    if path.exists():
-        shutil.rmtree(path)
-    path.mkdir(parents=True, exist_ok=False)
+    path.mkdir(parents=True, exist_ok=True)
 
 
 def _execute_pipeline(params_json: str, settings: Settings, tmp_dir: Path) -> None:
