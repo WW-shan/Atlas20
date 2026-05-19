@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import sqlite3
 import tarfile
+import tempfile
 
 from sqlalchemy.engine import make_url
 
@@ -28,6 +31,21 @@ def _purge_old(backup_root: Path, *, retention_days: int) -> int:
     return purged
 
 
+def _backup_sqlite_safely(db_path: Path) -> Path:
+    """Copy SQLite DB to a temp file using the SQLite backup API."""
+    fd, tmp = tempfile.mkstemp(suffix=".sqlite", prefix="atlas20-backup-")
+    os.close(fd)
+    tmp_path = Path(tmp)
+    src = sqlite3.connect(str(db_path))
+    dst = sqlite3.connect(str(tmp_path))
+    try:
+        src.backup(dst)
+    finally:
+        src.close()
+        dst.close()
+    return tmp_path
+
+
 def main() -> None:
     settings = get_settings()
     backup_root = settings.backup_root
@@ -37,7 +55,11 @@ def main() -> None:
     with tarfile.open(archive_path, "w:gz") as tf:
         db_path = _db_path_from_url(settings.db_url)
         if db_path and db_path.exists():
-            tf.add(db_path, arcname=db_path.name)
+            tmp_db_path = _backup_sqlite_safely(db_path)
+            try:
+                tf.add(tmp_db_path, arcname=db_path.name)
+            finally:
+                tmp_db_path.unlink(missing_ok=True)
         reports_dir = settings.report_root / "app_runs"
         if reports_dir.exists():
             tf.add(reports_dir, arcname="app_runs")
