@@ -1,0 +1,4 @@
+{"path":"src/atlas20/api/services.py","reason":"register_new_backtest now validates adapter inputs before persistence"}
+{"path":"src/atlas20/api/routes/backtests.py","reason":"existing ValueError-to-422 route guard is exercised by the new regression test"}
+{"path":"tests/test_api_routes.py","reason":"route-level missing base.yaml 422 regression"}
+{"path":"tests/test_api_services.py","reason":"service-level missing base.yaml ValueError and no-persistence regression"}

@@ -131,6 +131,18 @@ def test_backtests_run_endpoint_registers_queued_run(client: TestClient):
     assert payload.params_summary == "N=20 · Weekly · 2024→2026"
 
 
+def test_backtests_run_endpoint_returns_422_when_base_yaml_missing(client: TestClient, tmp_path, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "project_root", tmp_path)
+
+    response = client.post("/api/backtests/run", json=DEFAULT_BACKTEST_CONFIG)
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert "config/base.yaml" in detail
+    assert "not found" in detail
+
+
 def test_compare_endpoint_returns_compare_payload(client: TestClient):
     response = client.get("/api/compare?ids=atlas,momentum,meanrev&range=YTD")
 

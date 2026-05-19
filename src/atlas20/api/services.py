@@ -13,6 +13,7 @@ from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now, utc_now_iso
+from atlas20.api.config_adapter import to_research_config
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
@@ -230,6 +231,9 @@ def _strategy_family(strategy: str) -> str:
 
 
 def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSummary:
+    settings = get_settings()
+    # Validate adapter inputs before persisting; the worker rebuilds this config when executing.
+    to_research_config(config, config.preset, settings)
     repo = RunsRepo(session)
     run = repo.create_with_unique_id(
         {

@@ -1,0 +1,12 @@
+{
+  "id": "batch-8-round-2-wire-config-adapter",
+  "title": "Wire to_research_config into register_new_backtest as fail-fast validation",
+  "status": "completed",
+  "complexity": "M",
+  "risk": "medium",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Archive task and commit",
+  "createdAt": "2026-05-20T00:00:00Z",
+  "branch": "redesign/r3-premium"
+}

@@ -1,0 +1,1 @@
+Wire `to_research_config` into `register_new_backtest` before persisting a queued run so invalid adapter inputs fail fast. Add a route-level 422 regression test and a service-level ValueError regression test for missing `config/base.yaml`.

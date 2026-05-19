@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import date, datetime, timezone
+from pathlib import Path
 
 import pytest
 from sqlmodel import Session
@@ -8,8 +9,16 @@ from atlas20.api import mock_data
 from atlas20.api import services
 from atlas20.api.db.models import Run
 from atlas20.api.repositories import RunsRepo
+from atlas20.api.schemas import BacktestConfig
 from atlas20.api.settings import get_settings
-from atlas20.api.services import get_compare, get_options_payload, list_reports, list_runs, toggle_run_favorite
+from atlas20.api.services import (
+    get_compare,
+    get_options_payload,
+    list_reports,
+    list_runs,
+    register_new_backtest,
+    toggle_run_favorite,
+)
 
 
 def test_list_runs_filters_by_query(db_session: Session):
@@ -225,3 +234,24 @@ def test_get_compare_routes_anchor_through_today(monkeypatch):
 
     assert seen_anchor_dates == [anchor]
     assert set(payload.metrics.cagr) == set(mock_data.fallback_compare["metrics"]["cagr"])
+
+
+def test_register_new_backtest_raises_when_base_yaml_missing(tmp_path: Path, monkeypatch, db_session: Session):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "project_root", tmp_path)
+    _, before_total = RunsRepo(db_session).list(date_cutoff=None)
+    config = BacktestConfig.model_validate(
+        {
+            "preset": "ATLAS Adaptive v3",
+            "universe": {"topN": 20, "excludeStable": True, "excludeWrapped": True},
+            "window": {"start": "2024-01-01", "end": "2026-05-18", "rebalance": "Weekly"},
+            "allocation": {"positionPct": 5.0, "slots": 10},
+            "costs": {"feeBps": 10, "slippageBps": 5},
+        }
+    )
+
+    with pytest.raises(ValueError, match="base.yaml"):
+        register_new_backtest(db_session, config)
+
+    _, after_total = RunsRepo(db_session).list(date_cutoff=None)
+    assert after_total == before_total
