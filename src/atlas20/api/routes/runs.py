@@ -23,7 +23,6 @@ def get_runs(
     q: str = "",
     chips: str = "",
     dateRange: Literal["7d", "30d", "90d", "ytd", "all"] = "30d",
-    view: Literal["list", "grid"] = "list",
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=14, ge=1),
 ) -> dict[str, Any]:
@@ -33,7 +32,6 @@ def get_runs(
         q=q,
         chips=chip_values,
         date_range=dateRange,
-        view=view,
         page=page,
         page_size=pageSize,
     )

@@ -83,39 +83,6 @@ export function Toolbar({ filter, onChange, total, chipsDisabled }: Props) {
             );
           })}
         </div>
-
-        <div
-          role="group"
-          aria-label="View mode"
-          style={{ display: "flex", gap: 2, border: "1px solid var(--border)", borderRadius: "var(--radius-input)", padding: 2 }}
-        >
-          {(["list", "grid"] as const).map((v) => {
-            const active = filter.view === v;
-            return (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onChange({ ...filter, view: v })}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: 11,
-                  border: "none",
-                  borderRadius: 3,
-                  background: active ? "var(--border)" : "transparent",
-                  color: active ? "var(--text)" : "var(--muted)",
-                  fontWeight: active ? 600 : 400,
-                  cursor: "pointer",
-                  textTransform: "uppercase",
-                  fontFamily: "var(--font-sans)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {v}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

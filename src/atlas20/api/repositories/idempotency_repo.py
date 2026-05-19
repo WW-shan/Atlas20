@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session, select
 
-from atlas20.api._time import utc_now
+from atlas20.api import _time
 from atlas20.api.db.models import IdempotencyKey
 
 
@@ -21,7 +21,7 @@ class IdempotencyRepo:
         return row
 
     def store(self, key: str, method: str, path: str, response_json: str, ttl_seconds: int = 86400) -> None:
-        now = utc_now()
+        now = _time.utc_now()
         row = self._s.get(IdempotencyKey, key)
         if row is None:
             row = IdempotencyKey(
@@ -50,7 +50,7 @@ class IdempotencyRepo:
         return len(expired)
 
     def _is_expired(self, row: IdempotencyKey) -> bool:
-        return _aware(row.expires_at) <= utc_now()
+        return _aware(row.expires_at) <= _time.utc_now()
 
 
 def _aware(value: datetime) -> datetime:

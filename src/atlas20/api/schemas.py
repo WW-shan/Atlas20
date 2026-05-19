@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from atlas20.api import _time
+
 
 RunStatusEnum = Literal["queued", "running", "completed", "failed"]
 StrategyFamily = Literal["ATLAS", "Momentum", "MeanRev", "Carry", "Other"]
@@ -195,7 +197,7 @@ class RunsListResponse(ApiModel):
 
 
 class BacktestUniverse(StrictApiModel):
-    topN: int = Field(ge=1)
+    topN: int = Field(ge=1, le=50)
     excludeStable: bool
     excludeWrapped: bool
 
@@ -229,6 +231,18 @@ class BacktestConfig(StrictApiModel):
     allocation: BacktestAllocation
     costs: BacktestCosts
 
+    @model_validator(mode="after")
+    def validate_resources(self) -> "BacktestConfig":
+        if (self.window.end - self.window.start).days > 365 * 10:
+            raise ValueError("window span must not exceed 10 years")
+        if self.window.end > _time.today():
+            raise ValueError("end date must not be in the future")
+        if self.allocation.slots > self.universe.topN:
+            raise ValueError("slots must be <= topN")
+        if self.costs.feeBps + self.costs.slippageBps > 1000:
+            raise ValueError("combined transaction costs must be <= 1000 bps")
+        return self
+
 
 class OptionsUniverseSize(ApiModel):
     topN: int
@@ -253,7 +267,6 @@ class HistoryFilter(ApiModel):
     q: str = ""
     chips: list[str] = Field(default_factory=list)
     dateRange: Literal["7d", "30d", "90d", "ytd", "all"] = "30d"
-    view: Literal["list", "grid"] = "list"
     page: int = Field(default=1, ge=1)
     pageSize: int = Field(default=14, ge=1)
 

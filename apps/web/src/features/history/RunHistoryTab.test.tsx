@@ -102,12 +102,6 @@ describe("RunHistoryTab", () => {
     expect(headers.length).toBeGreaterThanOrEqual(13);
   });
 
-  it("renders list/grid view toggle with list active", () => {
-    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
-    const listBtn = screen.getByRole("button", { name: "list" });
-    expect(listBtn.getAttribute("aria-pressed")).toBe("true");
-  });
-
   it("renders RUNNING pill with pulse for in-flight runs", async () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     expect((await screen.findAllByText("running")).length).toBeGreaterThanOrEqual(1);

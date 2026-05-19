@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api import services
+from atlas20.api.db.models import Run
 from atlas20.api.repositories import RunsRepo
 from atlas20.api.settings import get_settings
 from atlas20.api.services import get_compare, get_options_payload, list_reports, list_runs, toggle_run_favorite
@@ -41,6 +42,34 @@ def test_list_runs_filters_by_combined_chips(db_session: Session):
     assert total == 4
     assert rows
     assert all(row.strategy_family == "ATLAS" and row.status == "completed" for row in rows)
+
+
+def test_list_runs_filters_by_favorited_chip(db_session: Session):
+    rows, total = list_runs(db_session, chips=["favorited"], date_range="all")
+
+    assert total == 2
+    assert rows
+    assert all(row.favorited for row in rows)
+
+
+def test_list_runs_filters_by_strategy_substring_chip(db_session: Session):
+    RunsRepo(db_session).create(
+        Run(
+            run_id="btk_9999",
+            strategy="ALPHA_MOMENTUM_LEAD_v1",
+            strategy_family="Other",
+            universe="Top-20",
+            window_start=date(2024, 1, 1),
+            window_end=date(2026, 5, 18),
+            status="completed",
+            created_at=datetime(2026, 5, 19, tzinfo=timezone.utc),
+        )
+    )
+
+    rows, total = list_runs(db_session, chips=["MOMENTUM_LEAD"], date_range="all")
+
+    assert total == 1
+    assert rows[0].strategy == "ALPHA_MOMENTUM_LEAD_v1"
 
 
 def test_list_runs_filters_by_date_range_cutoff(db_session: Session):

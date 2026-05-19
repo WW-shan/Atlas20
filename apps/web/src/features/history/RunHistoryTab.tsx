@@ -93,8 +93,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
   const hasActiveFilter =
     filter.q.trim().length > 0 ||
     filter.chips.length > 0 ||
-    filter.dateRange !== defaultHistoryFilter.dateRange ||
-    filter.view !== defaultHistoryFilter.view;
+    filter.dateRange !== defaultHistoryFilter.dateRange;
   const favoriteBusyId =
     favoriteMutation.isPending && favoriteMutation.variables
       ? favoriteMutation.variables

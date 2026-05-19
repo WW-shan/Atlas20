@@ -166,7 +166,6 @@ export type HistoryFilter = {
   q: string;
   chips: string[];
   dateRange: "7d" | "30d" | "90d" | "ytd" | "all";
-  view: "list" | "grid";
   page: number;
   pageSize: number;
 };
@@ -175,7 +174,6 @@ export const defaultHistoryFilter: HistoryFilter = {
   q: "",
   chips: [],
   dateRange: "30d",
-  view: "list",
   page: 1,
   pageSize: 14,
 };
@@ -556,7 +554,6 @@ export function listRuns(filter: HistoryFilter) {
     q: filter.q,
     chips: filter.chips.join(","),
     dateRange: filter.dateRange,
-    view: filter.view,
     page: String(filter.page),
     pageSize: String(filter.pageSize),
   });

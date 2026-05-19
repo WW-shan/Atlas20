@@ -77,7 +77,7 @@ def test_runs_queue_endpoint_returns_summaries(client: TestClient):
 
 
 def test_runs_endpoint_filters_and_paginates_rows(client: TestClient):
-    response = client.get("/api/runs?page=1&pageSize=14&dateRange=all&q=&chips=&view=list")
+    response = client.get("/api/runs?page=1&pageSize=14&dateRange=all&q=&chips=")
 
     assert response.status_code == 200
     payload = response.json()

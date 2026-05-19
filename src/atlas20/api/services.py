@@ -145,11 +145,9 @@ def list_runs(
     q: str = "",
     chips: list[str] | None = None,
     date_range: str = "30d",
-    view: str = "list",
     page: int = 1,
     page_size: int = 14,
 ) -> tuple[list[RunRow], int]:
-    del view
     chip_values = [chip for chip in chips or [] if chip]
     rows, total = RunsRepo(session).list(
         q=q,

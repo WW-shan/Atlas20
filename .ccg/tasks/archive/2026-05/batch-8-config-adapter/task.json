@@ -1,0 +1,12 @@
+{
+  "id": "batch-8-config-adapter",
+  "title": "Atlas20 Batch 8 config adapter, resource validation, idempotency, and history view removal",
+  "status": "completed",
+  "complexity": "L+",
+  "risk": "high",
+  "domain": "fullstack",
+  "currentPhase": "completed",
+  "nextAction": "Task archived with implementation commit",
+  "createdAt": "2026-05-20T00:00:00+08:00",
+  "branch": "redesign/r3-premium"
+}

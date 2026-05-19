@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     backup_root: Path = Path("backups")
     backup_retention_days: int = 30
     data_root: Path = Path("data")
+    project_root: Path = Field(default_factory=Path.cwd)
     anchor_date: date | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "json"
