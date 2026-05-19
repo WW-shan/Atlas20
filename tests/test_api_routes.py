@@ -88,6 +88,12 @@ def test_runs_endpoint_filters_and_paginates_rows(client: TestClient):
     assert rows[6].run_id == "btk_0142"
 
 
+def test_runs_route_rejects_unknown_query_param(client: TestClient):
+    response = client.get("/api/runs?view=list")
+
+    assert response.status_code == 422
+
+
 def test_run_endpoint_returns_single_row(client: TestClient):
     response = client.get("/api/runs/btk_0142")
 

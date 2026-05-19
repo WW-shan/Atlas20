@@ -263,7 +263,7 @@ class OptionsPayload(ApiModel):
     sectors: list[str]
 
 
-class HistoryFilter(ApiModel):
+class HistoryFilter(StrictApiModel):
     q: str = ""
     chips: list[str] = Field(default_factory=list)
     dateRange: Literal["7d", "30d", "90d", "ytd", "all"] = "30d"

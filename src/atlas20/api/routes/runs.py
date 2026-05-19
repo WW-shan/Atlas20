@@ -2,12 +2,12 @@
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
 from atlas20.api import services
 from atlas20.api.repositories import get_session
-from atlas20.api.schemas import RunDetailPayload, RunRow, RunRowSummary, RunsListResponse
+from atlas20.api.schemas import HistoryFilter, RunDetailPayload, RunRow, RunRowSummary, RunsListResponse
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -19,6 +19,7 @@ def get_runs_queue(session: Session = Depends(get_session)) -> list[RunRowSummar
 
 @router.get("/runs", response_model=RunsListResponse, response_model_exclude_none=True)
 def get_runs(
+    request: Request,
     session: Session = Depends(get_session),
     q: str = "",
     chips: str = "",
@@ -26,6 +27,10 @@ def get_runs(
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=14, ge=1),
 ) -> dict[str, Any]:
+    allowed = set(HistoryFilter.model_fields)
+    unknown = sorted(key for key in request.query_params.keys() if key not in allowed)
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"unknown query parameter(s): {', '.join(unknown)}")
     chip_values = [chip for chip in chips.split(",") if chip]
     items, total = services.list_runs(
         session,
