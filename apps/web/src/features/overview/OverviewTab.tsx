@@ -2,7 +2,6 @@ import type { OverviewPayload } from "../../lib/api";
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
 import { Card } from "../../components/ui/Card";
 import { Pill } from "../../components/ui/Pill";
-import { KpiTile } from "../../components/ui/KpiTile";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { Button } from "../../components/ui/Button";
 import { SparklineChart } from "../../components/charts/SparklineChart";

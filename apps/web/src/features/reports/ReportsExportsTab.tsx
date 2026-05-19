@@ -46,17 +46,15 @@ export function ReportsExportsTab() {
     placeholderData: (previous) => previous,
   });
 
-  const aData = archive.data ?? [];
-
   const sorted = useMemo(() => {
-    const list = [...aData];
+    const list = [...(archive.data ?? [])];
     switch (sort) {
       case "recent": return list.sort((a, b) => b.generated_at.localeCompare(a.generated_at));
       case "oldest": return list.sort((a, b) => a.generated_at.localeCompare(b.generated_at));
       case "size":   return list.sort((a, b) => b.size_bytes - a.size_bytes);
       case "type":   return list.sort((a, b) => a.report_type.localeCompare(b.report_type));
     }
-  }, [aData, sort]);
+  }, [archive.data, sort]);
 
   const openDownload = (url: string) => {
     if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
@@ -84,7 +82,6 @@ export function ReportsExportsTab() {
 
   const handleNewReport = () => {
     // Modal spec deferred (SPEC §14) — stub for now
-    // eslint-disable-next-line no-console
     console.log("[reports] + NEW REPORT clicked");
   };
 

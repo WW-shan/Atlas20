@@ -20,7 +20,7 @@ export function TabSwitcher(props: {
   onChange: (value: ConsoleTab) => void;
 }) {
   return (
-    <nav className="topnav-tabs" role="tablist" aria-label="Console views">
+    <div className="topnav-tabs" role="tablist" aria-label="Console views">
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -33,6 +33,6 @@ export function TabSwitcher(props: {
           {tab.label}
         </button>
       ))}
-    </nav>
+    </div>
   );
 }
