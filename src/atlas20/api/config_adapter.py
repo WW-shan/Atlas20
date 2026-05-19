@@ -33,6 +33,9 @@ def to_research_config(api_config: BacktestConfig, preset: str, settings: Settin
     data["start_date"] = api_config.window.start.isoformat()
     data["end_date"] = api_config.window.end.isoformat()
     data["rebalancing"]["frequencies"] = _rebalance_frequencies(api_config.window.rebalance)
+    # Note: positionPct is interpreted as percent -> decimal via /100, with no
+    # rounding. For positionPct=33.33, max_weight_per_coin becomes 0.3333.
+    # Downstream consumers should be precision-tolerant.
     data["frictions"]["max_weight_per_coin"] = api_config.allocation.positionPct / 100
     data["frictions"]["fee_bps"] = api_config.costs.feeBps
     data["frictions"]["slippage_bps"] = api_config.costs.slippageBps
