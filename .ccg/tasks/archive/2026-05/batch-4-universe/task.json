@@ -1,0 +1,12 @@
+{
+  "id": "batch-4-universe",
+  "title": "Batch 4 R6 universe timeline and R8 data alerts real CSV adapters",
+  "status": "completed",
+  "complexity": "M",
+  "risk": "medium",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Archived and committed",
+  "createdAt": "2026-05-19T00:00:00Z",
+  "branch": "redesign/r3-premium"
+}

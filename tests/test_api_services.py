@@ -144,3 +144,25 @@ def test_list_reports_sorts_archive(sort: str, first_id: str):
     rows = list_reports(sort)
 
     assert rows[0].id == first_id
+
+
+def test_get_universe_timeline_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    payload = services.get_universe_timeline()
+
+    assert payload.model_dump() == mock_data.fallback_universe_timeline
+    assert "Falling back to mock universe timeline" in caplog.text
+
+
+def test_get_data_alerts_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    alerts = services.get_data_alerts()
+
+    assert [alert.model_dump() for alert in alerts] == mock_data.fallback_data_alerts
+    assert "Falling back to mock data alerts" in caplog.text

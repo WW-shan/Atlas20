@@ -49,6 +49,7 @@ def restore_mock_data():
 @pytest.fixture
 def client(tmp_path, monkeypatch) -> TestClient:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
     get_settings.cache_clear()
     return TestClient(create_app())
 

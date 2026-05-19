@@ -10,6 +10,10 @@ from typing import Any
 
 from atlas20.api import mock_data
 from atlas20.api.data_access.overview import load_overview_from_reports
+from atlas20.api.data_access.universe import (
+    load_data_alerts_from_processed,
+    load_universe_timeline_from_processed,
+)
 from atlas20.api.schemas import (
     BacktestConfig,
     ComparePayload,
@@ -219,7 +223,13 @@ def get_compare(ids: list[str], range_: str) -> ComparePayload:
 
 
 def get_universe_timeline() -> UniverseTimelinePayload:
-    return UniverseTimelinePayload.model_validate(deepcopy(mock_data.fallback_universe_timeline))
+    settings = get_settings()
+    try:
+        payload = load_universe_timeline_from_processed(settings)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Falling back to mock universe timeline: %s", exc)
+        payload = deepcopy(mock_data.fallback_universe_timeline)
+    return UniverseTimelinePayload.model_validate(payload)
 
 
 def get_data_sources() -> list[DataSource]:
@@ -227,7 +237,13 @@ def get_data_sources() -> list[DataSource]:
 
 
 def get_data_alerts() -> list[DataAlert]:
-    return [DataAlert.model_validate(row) for row in mock_data.fallback_data_alerts]
+    settings = get_settings()
+    try:
+        rows = load_data_alerts_from_processed(settings)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Falling back to mock data alerts: %s", exc)
+        rows = deepcopy(mock_data.fallback_data_alerts)
+    return [DataAlert.model_validate(row) for row in rows]
 
 
 def refresh_universe() -> dict[str, str]:
