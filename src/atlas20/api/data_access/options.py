@@ -6,8 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from atlas20.api.data_access.overview import _as_float, _latest_report_dir, _read_csv
-from atlas20.api.data_access.universe import _read_processed_csv
+from atlas20.api.data_access._common import _as_float, _as_text, _latest_report_dir, _read_csv, _read_processed_csv
 from atlas20.api.settings import Settings
 
 
@@ -76,15 +75,6 @@ def _load_latest_sectors(settings: Settings) -> list[str]:
     latest = parsed[parsed["rebalance_date"] == latest_date]
     sectors = {_as_optional_text(value) for value in latest["sector"]}
     return sorted(sector for sector in sectors if sector)
-
-
-def _as_text(value: Any, column: str) -> str:
-    if pd.isna(value):
-        raise ValueError(f"Missing text value in {column}")
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"Missing text value in {column}")
-    return text
 
 
 def _as_optional_text(value: Any) -> str:

@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pandas.errors import EmptyDataError, ParserError
 
+from atlas20.api.data_access._common import _date_string, _read_processed_csv
 from atlas20.api.settings import Settings
 
 
@@ -73,21 +73,6 @@ def load_data_alerts_from_processed(settings: Settings) -> list[dict[str, Any]]:
 
     alerts.sort(key=lambda item: (item[0], item[1]))
     return [alert for _, _, alert in alerts[:ALERT_LIMIT]]
-
-
-def _read_processed_csv(data_root: Path, filename: str) -> pd.DataFrame:
-    path = data_root / "processed" / filename
-    if not path.exists():
-        raise FileNotFoundError(f"Missing required processed CSV: {path}")
-    try:
-        frame = pd.read_csv(path)
-    except EmptyDataError as exc:
-        raise ValueError(f"Processed CSV is empty: {path}") from exc
-    except ParserError as exc:
-        raise ValueError(f"Processed CSV is malformed: {path}") from exc
-    if frame.empty:
-        raise ValueError(f"Processed CSV has no rows: {path}")
-    return frame
 
 
 def _parse_rebalance_frame(frame: pd.DataFrame, path: Path) -> pd.DataFrame:
@@ -256,6 +241,3 @@ def _as_float(value: Any, column: str) -> float:
         raise ValueError(f"Non-finite numeric value in {column}: {value!r}")
     return result
 
-
-def _date_string(value: Any) -> str:
-    return pd.Timestamp(value).date().isoformat()

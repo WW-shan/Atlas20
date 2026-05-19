@@ -7,8 +7,15 @@ from typing import Any
 
 import pandas as pd
 
-from atlas20.api.data_access.overview import _as_float, _date_string, _latest_report_dir, _load_date_indexed_csv, _read_csv
-from atlas20.api.data_access.universe import _read_processed_csv
+from atlas20.api.data_access._common import (
+    _as_float,
+    _as_text,
+    _date_string,
+    _latest_report_dir,
+    _load_date_indexed_csv,
+    _read_csv,
+    _read_processed_csv,
+)
 from atlas20.api.settings import Settings
 
 
@@ -270,11 +277,3 @@ def _strategy_holdings(strategy: str, latest_universe: list[str]) -> set[str]:
         return {"ETH"}
     return set(latest_universe[:TOP_UNIVERSE_SIZE])
 
-
-def _as_text(value: Any, column: str) -> str:
-    if pd.isna(value):
-        raise ValueError(f"Missing text value in {column}")
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"Missing text value in {column}")
-    return text
