@@ -23,22 +23,36 @@
 
 Brief 的质量决定了 codex 的产出质量。**不要省略边界条件描述**。
 
-## 2. Builder dispatch
+## 2. Builder dispatch（CCG ROLE_FILE 流程）
+
+**统一调用方式**（自 Batch 6 后）：所有 codex 调用都通过 CCG 流程，加 `--progress`，用 stdin pipe 传 `ROLE_FILE` + `<TASK>`：
 
 ```bash
-"C:/Users/WW/.claude/bin/codeagent-wrapper.exe" --backend codex \
-  --cwd "D:/Code/Atlas20" \
-  --prompt-file ".ccg/tasks/batch-N-<topic>/builder-prompt.md" \
-  --mode builder
+"C:/Users/WW/.claude/bin/codeagent-wrapper.exe" --progress --backend codex - "D:/Code/Atlas20" <<'EOF'
+ROLE_FILE: C:\Users\WW\.claude\.ccg\prompts\codex\builder.md
+<TASK>
+读 `.ccg/tasks/batch-N-<topic>/brief.md` 实现全部 Scope。
+... 其他 task-specific 指令 ...
+</TASK>
+EOF
 ```
 
-通过 `Agent` 工具 `run_in_background=true` 跑 general-purpose subagent 包装上面那条命令。
+可用 ROLE_FILE：
+- `builder.md` — 实现新功能、refactor、fix
+- `reviewer.md` — read-only 审查
+- `analyzer.md` — 深度分析（数据流、性能瓶颈）
+- `debugger.md` — bug 复现 + root cause
+- `tester.md` — 写测试
+- `architect.md` — 架构设计
+- `optimizer.md` — 性能优化
 
-`builder-prompt.md` 要求 codex：
+通过 `Agent` 工具 `run_in_background=true` 跑 general-purpose subagent 包装上面的 shell。
+
+`<TASK>` 内容要求 codex：
 1. 读 brief.md 实现全部 Scope
 2. 写完跑 `python -m pytest tests/ -x -q` 自验
-3. 跑前端 typecheck（如有 frontend 改动）
-4. 自己跑一遍 review（gemini/claude/自查）并 apply 修复
+3. 跑前端 typecheck + lint（如有 frontend 改动）
+4. 自己跑一遍 review 并 apply 修复
 5. 提交 commit message：`feat(api): <one-line summary>`
 6. 报告 PASS/FAIL + 文件清单 + 测试增量
 
@@ -59,7 +73,22 @@ Brief 的质量决定了 codex 的产出质量。**不要省略边界条件描�
 
 ```
 Agent A: subagent_type=feature-dev:code-reviewer, model=opus
-Agent B: subagent_type=general-purpose, 包装 codex reviewer
+Agent B: subagent_type=general-purpose, 包装 codex CCG ROLE_FILE 流程
+```
+
+codex 侧用：
+```bash
+"C:/Users/WW/.claude/bin/codeagent-wrapper.exe" --progress --backend codex - "D:/Code/Atlas20" <<'EOF'
+ROLE_FILE: C:\Users\WW\.claude\.ccg\prompts\codex\reviewer.md
+<TASK>
+TARGET: commit <hash> "<title>"
+BRIEF: .ccg/tasks/batch-N-<topic>/brief.md
+... 审查维度 ...
+AUTHORITY: 发现 Critical/Warning 可直接 apply fix，commit 为
+  fix(api): batch N reviewer pass — <summary>
+... 报告格式 ...
+</TASK>
+EOF
 ```
 
 两边各给 commit hash + 完整的 brief 路径 + REVIEW DIMENSIONS。要求：
@@ -71,7 +100,7 @@ Agent B: subagent_type=general-purpose, 包装 codex reviewer
 
 **注意**：
 - Claude 侧 reviewer **必须用 `model: "opus"`**，否则上下文不够（曾用 sonnet 报 "1m context not enabled" 错）
-- Codex 侧 reviewer 通过 stdin 传 prompt（`<<'EOF' ... EOF`），不要用 `--prompt-file`（曾因 `Start-Job` PowerShell 参数绑定失败导致 50min 卡死）
+- Codex 侧 reviewer 通过 stdin pipe，永远用 ROLE_FILE 引用规范角色
 - 如果 codex reviewer 超过 5h 无响应，`TaskStop` 杀掉重派
 
 ## 5. Fix dispatch（任何 finding 都要修，包括 Info）
