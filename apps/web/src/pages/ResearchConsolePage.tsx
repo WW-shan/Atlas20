@@ -10,6 +10,7 @@ import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { Pill } from "../components/ui/Pill";
 import { Skeleton } from "../components/ui/Skeleton";
 import { getOverview } from "../lib/api";
 import { qk } from "../lib/qk";
@@ -50,6 +51,9 @@ export function ResearchConsolePage() {
 
   const pageTitle = tabLabels[nav.tab];
   const subtitle = getSubtitle(nav.tab);
+  const overviewData = overviewQuery.data;
+  const overviewFailed = overviewQuery.isError || overviewQuery.isRefetchError;
+  const showOverviewStale = nav.tab === "overview" && overviewFailed && overviewData !== undefined;
 
   return (
     <AppShell
@@ -60,10 +64,27 @@ export function ResearchConsolePage() {
           <h2 className="page-header__title">{pageTitle}</h2>
           <span className="page-header__sub muted">{subtitle}</span>
         </div>
+        {showOverviewStale && (
+          <button
+            type="button"
+            data-testid="overview-stale-indicator"
+            aria-live="polite"
+            onClick={() => { void overviewQuery.refetch(); }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "transparent",
+              border: 0,
+              padding: 0,
+            }}
+          >
+            <Pill tone="rose" size="xs">stale — refresh failed</Pill>
+          </button>
+        )}
       </div>
 
-      {nav.tab === "overview" && overviewQuery.isLoading && <PageSkeleton />}
-      {nav.tab === "overview" && overviewQuery.isError && (
+      {nav.tab === "overview" && overviewQuery.isLoading && overviewData === undefined && <PageSkeleton />}
+      {nav.tab === "overview" && overviewFailed && overviewData === undefined && (
         <div style={{ padding: 24 }}>
           <ErrorBanner
             message="Unable to load overview."
@@ -71,8 +92,8 @@ export function ResearchConsolePage() {
           />
         </div>
       )}
-      {nav.tab === "overview" && overviewQuery.data && (
-        <OverviewTab overview={overviewQuery.data} onNavigate={navigate} />
+      {nav.tab === "overview" && overviewData && (
+        <OverviewTab overview={overviewData} onNavigate={navigate} />
       )}
       {nav.tab === "backtest" && (
         <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />

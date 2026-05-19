@@ -3,6 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import { beforeEach, test, vi } from "vitest";
 
 import * as api from "../lib/api";
+import { qk } from "../lib/qk";
 import { ResearchConsolePage } from "./ResearchConsolePage";
 
 vi.mock("../lib/api", async () => {
@@ -19,7 +20,10 @@ const tabNames = ["Overview", "Backtest", "Compare", "History", "Universe", "Rep
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return {
+    client,
+    ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>),
+  };
 }
 
 beforeEach(() => {
@@ -71,4 +75,24 @@ test("shows an error banner when the overview query fails", async () => {
 
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("Unable to load overview");
+});
+
+test("keeps cached overview data visible and shows stale state when a refetch fails", async () => {
+  vi.mocked(api.getOverview)
+    .mockResolvedValueOnce(api.fallbackOverview)
+    .mockRejectedValueOnce(new Error("backend offline"));
+
+  const { client } = renderWithQuery(<ResearchConsolePage />);
+
+  expect(await screen.findByText("CURRENT CHAMPION")).toBeInTheDocument();
+
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: qk.overview() });
+  });
+
+  const staleIndicator = await screen.findByTestId("overview-stale-indicator");
+  expect(staleIndicator).toBeInTheDocument();
+  expect(staleIndicator).toHaveTextContent("stale — refresh failed");
+  expect(screen.getByText("CURRENT CHAMPION")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
