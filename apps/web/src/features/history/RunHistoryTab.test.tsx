@@ -233,7 +233,7 @@ describe("RunHistoryTab", () => {
     expect(screen.getByRole("button", { name: "favorited" })).toBeDisabled();
   });
 
-  it("disables favorite buttons while a favorite mutation is pending", async () => {
+  it("disables all favorite buttons while a favorite mutation is pending", async () => {
     vi.mocked(api.toggleFavorite).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.toggleFavorite>>>(() => {}));
 
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
@@ -244,9 +244,12 @@ describe("RunHistoryTab", () => {
     fireEvent.click(favBtn);
 
     await waitFor(() => {
-      const busy = targetRow.querySelector('button[aria-busy="true"]') as HTMLButtonElement | null;
-      expect(busy).not.toBeNull();
-      expect(busy).toBeDisabled();
+      const favoriteButtons = screen.getAllByRole("button", { name: /Favorite|Unfavorite/ });
+      expect(favoriteButtons.length).toBeGreaterThan(1);
+      for (const button of favoriteButtons) {
+        expect(button).toBeDisabled();
+        expect(button).toHaveAttribute("aria-busy", "true");
+      }
     });
   });
 });

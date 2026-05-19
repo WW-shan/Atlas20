@@ -72,7 +72,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
   });
 
   const handleToggleFavorite = (runId: string) => {
-    if (favoriteMutation.isPending || favoriteRefetchId === runId) return;
+    if (favoriteMutation.isPending || favoriteRefetchId || query.isFetching) return;
     setFlipped((prev) => ({ ...prev, [runId]: !prev[runId] }));
     favoriteMutation.mutate(runId);
   };
@@ -99,6 +99,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
     favoriteMutation.isPending && favoriteMutation.variables
       ? favoriteMutation.variables
       : favoriteRefetchId;
+  const favoritesDisabled = Boolean(favoriteMutation.isPending || favoriteRefetchId || query.isFetching);
 
   const handleRerun = () => {
     if (selectedId) onNavigate("backtest", selectedId);
@@ -147,6 +148,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
           onSelect={(id) => setSelectedId((prev) => (prev === id ? undefined : id))}
           onToggleFavorite={handleToggleFavorite}
           favoriteBusyId={favoriteBusyId}
+          favoritesDisabled={favoritesDisabled}
         />
       )}
 
