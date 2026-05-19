@@ -12,12 +12,13 @@ type Props = {
   favoritesDisabled?: boolean;
 };
 
-function statusTone(status: RunStatusEnum): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean } {
+function statusTone(status: RunStatusEnum): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean; label: string } {
   switch (status) {
-    case "queued":    return { tone: "muted",   pulse: false };
-    case "running":   return { tone: "cyan",    pulse: true };
-    case "completed": return { tone: "emerald", pulse: false };
-    case "failed":    return { tone: "rose",    pulse: false };
+    case "queued":    return { tone: "muted",   pulse: false, label: "queued" };
+    case "running":   return { tone: "cyan",    pulse: true,  label: "running" };
+    case "completed": return { tone: "emerald", pulse: false, label: "completed" };
+    case "failed":    return { tone: "rose",    pulse: false, label: "failed" };
+    case "cancelled": return { tone: "rose",    pulse: false, label: "CANCELLED" };
   }
 }
 
@@ -161,7 +162,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                   {formatDate(r.window.start)} → {formatDate(r.window.end)}
                 </td>
                 <td style={{ padding: "8px 12px" }}>
-                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{r.status}</Pill>
+                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{status.label}</Pill>
                 </td>
                 <td
                   className="mono"

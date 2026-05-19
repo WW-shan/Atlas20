@@ -32,7 +32,7 @@ function cloneRows(): RunRow[] {
 
 function matchesChip(row: RunRow, chip: string): boolean {
   if (chip === "favorited") return Boolean(row.favorited);
-  if (["queued", "running", "completed", "failed"].includes(chip)) return row.status === chip;
+  if (["queued", "running", "completed", "failed", "cancelled"].includes(chip)) return row.status === chip;
   return row.strategy_family === chip || row.strategy.includes(chip);
 }
 

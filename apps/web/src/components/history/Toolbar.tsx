@@ -13,7 +13,7 @@ type Props = {
   chipsDisabled?: boolean;
 };
 
-const CHIPS = ["queued", "running", "completed", "failed", "favorited", "ATLAS", "Momentum", "MeanRev", "Carry"];
+const CHIPS = ["queued", "running", "completed", "failed", "cancelled", "favorited", "ATLAS", "Momentum", "MeanRev", "Carry"];
 const DATE_RANGES: HistoryFilter["dateRange"][] = ["7d", "30d", "90d", "ytd", "all"];
 
 export function Toolbar({ filter, onChange, total, viewMode, onViewModeChange, chipsDisabled }: Props) {

@@ -182,12 +182,13 @@ export function RunHistoryTab({ onNavigate }: Props) {
   );
 }
 
-function gridStatusTone(status: RunRow["status"]): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean } {
+function gridStatusTone(status: RunRow["status"]): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean; label: string } {
   switch (status) {
-    case "queued":    return { tone: "muted",   pulse: false };
-    case "running":   return { tone: "cyan",    pulse: true };
-    case "completed": return { tone: "emerald", pulse: false };
-    case "failed":    return { tone: "rose",    pulse: false };
+    case "queued":    return { tone: "muted",   pulse: false, label: "queued" };
+    case "running":   return { tone: "cyan",    pulse: true,  label: "running" };
+    case "completed": return { tone: "emerald", pulse: false, label: "completed" };
+    case "failed":    return { tone: "rose",    pulse: false, label: "failed" };
+    case "cancelled": return { tone: "rose",    pulse: false, label: "CANCELLED" };
   }
 }
 
@@ -242,7 +243,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
                       {row.strategy}
                     </div>
                   </div>
-                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{row.status}</Pill>
+                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{status.label}</Pill>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

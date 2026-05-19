@@ -12,6 +12,7 @@ function statusToToneAndLabel(status: RunRowSummary["status"]): { tone: "cyan" |
     case "running":   return { tone: "cyan",    pulse: true,  label: "RUNNING" };
     case "completed": return { tone: "emerald", pulse: false, label: "COMPLETED" };
     case "failed":    return { tone: "rose",    pulse: false, label: "FAILED" };
+    case "cancelled": return { tone: "rose",    pulse: false, label: "CANCELLED" };
     case "queued":    return { tone: "muted",   pulse: false, label: "QUEUED" };
   }
 }
@@ -21,6 +22,7 @@ function statusToProgress(status: RunRowSummary["status"]): { fill: string; widt
     case "running":   return { fill: "var(--cyan)",    widthPct: 50 };
     case "completed": return { fill: "var(--emerald)", widthPct: 100 };
     case "failed":    return { fill: "var(--rose)",    widthPct: 100 };
+    case "cancelled": return { fill: "var(--rose)",    widthPct: 100 };
     case "queued":    return null;
   }
 }
