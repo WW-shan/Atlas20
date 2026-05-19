@@ -19,6 +19,14 @@ def _latest_report_dir(report_root: Path) -> Path:
             raise ValueError(f"Could not read {pointer}: {exc}") from exc
         if target_name:
             target = report_root / target_name
+            resolved_root = report_root.resolve()
+            resolved_target = target.resolve()
+            try:
+                resolved_target.relative_to(resolved_root)
+            except ValueError as exc:
+                raise ValueError(
+                    f"latest.txt points outside report_root: {target_name!r}"
+                ) from exc
             if target.exists():
                 return target
     fallback = report_root / "latest"
