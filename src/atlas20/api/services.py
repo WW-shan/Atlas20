@@ -228,19 +228,19 @@ def _strategy_family(strategy: str) -> str:
 
 def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSummary:
     repo = RunsRepo(session)
-    run = Run(
-        run_id=repo.next_btk_id(),
-        strategy=config.preset,
-        strategy_family=_strategy_family(config.preset),
-        universe=f"Top-{config.universe.topN}",
-        window_start=config.window.start,
-        window_end=config.window.end,
-        status="queued",
-        spark=json.dumps([]),
-        params=config.model_dump_json(),
-        created_at=utc_now(),
+    run = repo.create_with_unique_id(
+        {
+            "strategy": config.preset,
+            "strategy_family": _strategy_family(config.preset),
+            "universe": f"Top-{config.universe.topN}",
+            "window_start": config.window.start,
+            "window_end": config.window.end,
+            "status": "queued",
+            "spark": json.dumps([]),
+            "params": config.model_dump_json(),
+            "created_at": utc_now(),
+        }
     )
-    repo.create(run)
     return _run_to_summary(run)
 
 

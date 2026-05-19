@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
+from typing import Any
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from atlas20.api.db.models import Run
@@ -51,6 +53,26 @@ class RunsRepo:
         self._s.refresh(run)
         return run
 
+    def create_with_unique_id(self, base_attrs: dict[str, Any]) -> Run:
+        for _attempt in range(3):
+            self._begin_immediate_for_sqlite()
+            run_id = self._compute_next_btk_id()
+            try:
+                run = Run(run_id=run_id, **base_attrs)
+                self._s.add(run)
+                self._s.flush()
+                return run
+            except IntegrityError:
+                self._s.rollback()
+                continue
+        raise RuntimeError("could not allocate unique run_id after 3 attempts")
+
+    def _begin_immediate_for_sqlite(self) -> None:
+        if self._s.in_transaction():
+            return
+        if self._s.get_bind().dialect.name == "sqlite":
+            self._s.exec(text("BEGIN IMMEDIATE"))
+
     def update(self, run_id: str, **fields: object) -> Run | None:
         run = self.get(run_id)
         if run is None:
@@ -82,6 +104,10 @@ class RunsRepo:
         return list(self._s.exec(stmt).all())
 
     def next_btk_id(self) -> str:
+        """Deprecated: only use for non-concurrent call paths."""
+        return self._compute_next_btk_id()
+
+    def _compute_next_btk_id(self) -> str:
         ids = self._s.exec(select(Run.run_id).where(Run.run_id.like("btk_%"))).all()
         max_number = 0
         for run_id in ids:
