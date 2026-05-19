@@ -356,7 +356,31 @@ def test_update_metrics_respects_concurrent_cancel(tmp_path):
 
         assert updated is not None
         assert updated.status == "cancelled"
-        assert updated.error == "cancelled during execution"
+        assert "cancelled during execution" in str(updated.error)
+        assert "completed" in str(updated.error)
+        assert updated.requested_cancel is True
+
+
+def test_failed_with_cancel_flag_becomes_cancelled(tmp_path):
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        run = _run("btk_0001", status="running")
+        run.requested_cancel = True
+        session.add(run)
+        session.commit()
+
+        updated = RunsRepo(session).update_metrics_from_completion(
+            "btk_0001",
+            status="failed",
+            error="pipeline crash",
+            heartbeat_at=None,
+            worker_pid=None,
+        )
+
+        assert updated is not None
+        assert updated.status == "cancelled"
+        assert "cancelled during execution" in str(updated.error)
+        assert "pipeline crash" in str(updated.error)
         assert updated.requested_cancel is True
 
 

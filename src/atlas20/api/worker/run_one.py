@@ -189,7 +189,7 @@ def run(run_id: str, settings: Settings | None = None) -> int:
         return 0
     except Exception as exc:
         with Session(engine) as session:
-            RunsRepo(session).update(
+            RunsRepo(session).update_metrics_from_completion(
                 run_id,
                 status="failed",
                 error=str(exc)[:1000],

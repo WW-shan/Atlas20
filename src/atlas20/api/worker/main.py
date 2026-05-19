@@ -68,7 +68,7 @@ def _mark_cancelled(run_id: str, settings: Settings) -> None:
 
 def _mark_failed(run_id: str, settings: Settings, error: str) -> None:
     with session_scope(settings) as session:
-        RunsRepo(session).update(
+        RunsRepo(session).update_metrics_from_completion(
             run_id,
             status="failed",
             error=error[:1000],

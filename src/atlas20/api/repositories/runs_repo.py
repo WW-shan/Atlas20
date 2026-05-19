@@ -100,28 +100,45 @@ class RunsRepo:
         self,
         run_id: str,
         *,
-        return_pct: float | None,
-        sharpe: float | None,
-        max_dd: float | None,
-        duration_s: int,
+        return_pct: float | None = None,
+        sharpe: float | None = None,
+        max_dd: float | None = None,
+        duration_s: int | None = None,
+        status: str = "completed",
+        error: str | None = None,
+        eta_s: int | None = None,
+        worker_pid: int | None = None,
+        heartbeat_at: datetime | None = None,
     ) -> Run | None:
         run = self.get(run_id)
         if run is None:
             return None
+        if status == "completed" and duration_s is None:
+            raise ValueError("duration_s is required for completed runs")
         fields: dict[str, object] = {
-            "status": "completed",
-            "return_pct": return_pct,
-            "sharpe": sharpe,
-            "max_dd": max_dd,
-            "duration_s": duration_s,
-            "eta_s": None,
-            "error": None,
-            "worker_pid": None,
-            "heartbeat_at": None,
+            "status": status,
+            "error": error,
+            "eta_s": eta_s,
+            "worker_pid": worker_pid,
+            "heartbeat_at": heartbeat_at,
         }
-        if run.requested_cancel:
+        if status == "completed":
+            fields.update(
+                {
+                    "return_pct": return_pct,
+                    "sharpe": sharpe,
+                    "max_dd": max_dd,
+                    "duration_s": duration_s,
+                }
+            )
+        if run.requested_cancel and fields.get("status") in {"completed", "failed"}:
+            original_status = fields["status"]
+            original_error = fields.get("error")
             fields["status"] = "cancelled"
-            fields["error"] = "cancelled during execution"
+            if original_error:
+                fields["error"] = f"cancelled during execution (would have been {original_status}: {original_error})"
+            else:
+                fields["error"] = f"cancelled during execution (would have been {original_status})"
         for key, value in fields.items():
             setattr(run, key, value)
         self._s.add(run)
