@@ -4,6 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "../../components/ui/Card";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { Button } from "../../components/ui/Button";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ErrorBanner } from "../../components/ui/ErrorBanner";
+import { Pill } from "../../components/ui/Pill";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { FeaturedDigestHero } from "../../components/reports/FeaturedDigestHero";
 import { ReportCard } from "../../components/reports/ReportCard";
 
@@ -11,7 +15,6 @@ import {
   downloadDigest,
   downloadReport,
   fallbackFeaturedDigest,
-  fallbackReports,
   getFeaturedDigest,
   listReports,
 } from "../../lib/api";
@@ -29,24 +32,19 @@ const SORT_OPTIONS: { key: ReportSortKey; label: string }[] = [
 export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
   const [format, setFormat] = useState<ReportFormat>(fallbackFeaturedDigest.defaultFormat);
-  const apiEnabled = import.meta.env.MODE !== "test";
 
   const featured = useQuery({
     queryKey: qk.reports.featured(),
     queryFn: getFeaturedDigest,
-    initialData: fallbackFeaturedDigest,
-    enabled: apiEnabled,
   });
 
   const archive = useQuery({
     queryKey: qk.reports.archive(sort),
     queryFn: () => listReports(sort),
-    initialData: fallbackReports,
-    enabled: apiEnabled,
+    placeholderData: (previous) => previous,
   });
 
-  const fData = featured.data ?? fallbackFeaturedDigest;
-  const aData = archive.data ?? fallbackReports;
+  const aData = archive.data ?? [];
 
   const sorted = useMemo(() => {
     const list = [...aData];
@@ -80,12 +78,18 @@ export function ReportsExportsTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
-      <FeaturedDigestHero
-        digest={fData}
-        selectedFormat={format}
-        onSelectFormat={setFormat}
-        onDownloadAll={handleDownloadAll}
-      />
+      {featured.isLoading && <FeaturedDigestLoading />}
+      {featured.isError && (
+        <FeaturedDigestError onRetry={() => { void featured.refetch(); }} />
+      )}
+      {featured.data && !featured.isError && (
+        <FeaturedDigestHero
+          digest={featured.data}
+          selectedFormat={format}
+          onSelectFormat={setFormat}
+          onDownloadAll={handleDownloadAll}
+        />
+      )}
 
       <Card ariaLabel="Reports archive">
         <SectionHeader
@@ -127,22 +131,91 @@ export function ReportsExportsTab() {
         >
           REPORTS ARCHIVE
         </SectionHeader>
-        <div
-          role="list"
-          aria-label="Reports archive list"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: 16,
-          }}
-        >
-          {sorted.map((entry) => (
-            <div role="listitem" key={entry.id}>
-              <ReportCard entry={entry} onDownload={handleDownloadOne} />
-            </div>
-          ))}
-        </div>
+        {archive.isError && (
+          <div style={{ marginBottom: 16 }}>
+            <ErrorBanner
+              message="Unable to load reports archive."
+              onRetry={() => { void archive.refetch(); }}
+            />
+          </div>
+        )}
+        {archive.isLoading && <ArchiveSkeleton />}
+        {!archive.isLoading && !archive.isError && sorted.length === 0 && (
+          <EmptyState title="No reports archived yet" />
+        )}
+        {!archive.isLoading && sorted.length > 0 && (
+          <div
+            role="list"
+            aria-label="Reports archive list"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 16,
+            }}
+          >
+            {sorted.map((entry) => (
+              <div role="listitem" key={entry.id}>
+                <ReportCard entry={entry} onDownload={handleDownloadOne} />
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+    </div>
+  );
+}
+
+function FeaturedDigestLoading() {
+  return (
+    <Card variant="hero" ariaLabel="Featured digest hero">
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 24, alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Pill tone="gold-outline" size="xs">FEATURED DIGEST</Pill>
+            <span
+              role="status"
+              aria-label="Loading featured digest"
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                border: "2px solid var(--border)",
+                borderTopColor: "var(--violet)",
+                animation: "spin 0.8s linear infinite",
+              }}
+            />
+          </div>
+          <Skeleton variant="text" width="45%" height="28px" />
+          <Skeleton variant="text" width="70%" />
+        </div>
+        <Button variant="gold" loading>DOWNLOAD ALL · BUNDLE</Button>
+      </div>
+    </Card>
+  );
+}
+
+function FeaturedDigestError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Card variant="hero" ariaLabel="Featured digest hero">
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <Pill tone="gold-outline" size="xs">FEATURED DIGEST</Pill>
+          <Button variant="gold" disabled>DOWNLOAD ALL · BUNDLE</Button>
+        </div>
+        <ErrorBanner message="Unable to load featured digest." onRetry={onRetry} />
+      </div>
+    </Card>
+  );
+}
+
+function ArchiveSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} data-testid="archive-skeleton-row">
+          <Skeleton variant="card" height="76px" />
+        </div>
+      ))}
     </div>
   );
 }

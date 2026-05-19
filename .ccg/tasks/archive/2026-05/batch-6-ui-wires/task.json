@@ -1,0 +1,12 @@
+{
+  "id": "batch-6-ui-wires",
+  "title": "Atlas20 Batch 6 frontend UI loading error empty wires",
+  "status": "in_progress",
+  "complexity": "L+",
+  "risk": "medium",
+  "domain": "frontend",
+  "currentPhase": "completed",
+  "nextAction": "Archive task and commit final Batch 6 changes",
+  "createdAt": "2026-05-20T00:00:00+08:00",
+  "branch": "redesign/r3-premium"
+}

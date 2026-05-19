@@ -1,4 +1,4 @@
-import { useMemo, useReducer } from "react";
+import { useReducer } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { AppShell } from "../components/layout/AppShell";
@@ -9,7 +9,9 @@ import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
-import { fallbackOverview, getOverview } from "../lib/api";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { Skeleton } from "../components/ui/Skeleton";
+import { getOverview } from "../lib/api";
 import { qk } from "../lib/qk";
 
 type NavState = { tab: ConsoleTab; prefillRunId?: string };
@@ -37,14 +39,10 @@ const tabLabels: Record<ConsoleTab, string> = {
 
 export function ResearchConsolePage() {
   const [nav, dispatch] = useReducer(navReducer, { tab: "overview" });
-  const apiEnabled = import.meta.env.MODE !== "test";
   const overviewQuery = useQuery({
     queryKey: qk.overview(),
     queryFn: getOverview,
-    initialData: fallbackOverview,
-    enabled: apiEnabled,
   });
-  const overview = useMemo(() => overviewQuery.data ?? fallbackOverview, [overviewQuery.data]);
 
   const navigate = (tab: ConsoleTab, prefillRunId?: string) => {
     dispatch({ type: "NAVIGATE", tab, prefillRunId });
@@ -64,8 +62,17 @@ export function ResearchConsolePage() {
         </div>
       </div>
 
-      {nav.tab === "overview" && (
-        <OverviewTab overview={overview} onNavigate={navigate} />
+      {nav.tab === "overview" && overviewQuery.isLoading && <PageSkeleton />}
+      {nav.tab === "overview" && overviewQuery.isError && (
+        <div style={{ padding: 24 }}>
+          <ErrorBanner
+            message="Unable to load overview."
+            onRetry={() => { void overviewQuery.refetch(); }}
+          />
+        </div>
+      )}
+      {nav.tab === "overview" && overviewQuery.data && (
+        <OverviewTab overview={overviewQuery.data} onNavigate={navigate} />
       )}
       {nav.tab === "backtest" && (
         <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
@@ -83,6 +90,23 @@ export function ResearchConsolePage() {
         <ReportsExportsTab />
       )}
     </AppShell>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div
+      data-testid="page-skeleton"
+      style={{
+        minHeight: "55vh",
+        padding: 24,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Skeleton variant="card" width="min(720px, 100%)" height="260px" />
+    </div>
   );
 }
 

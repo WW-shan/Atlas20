@@ -2,10 +2,11 @@ export type PagerProps = {
   total: number;
   page: number;
   pageSize: number;
+  disabled?: boolean;
   onChange: (page: number) => void;
 };
 
-export function Pager({ total, page, pageSize, onChange }: PagerProps) {
+export function Pager({ total, page, pageSize, disabled, onChange }: PagerProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   const from = Math.min((page - 1) * pageSize + 1, total);
@@ -22,31 +23,35 @@ export function Pager({ total, page, pageSize, onChange }: PagerProps) {
         <span className="mono">{total.toLocaleString()}</span>
       </span>
       <div style={{ display: "flex", gap: 4 }}>
-        {pages.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onChange(p)}
-            disabled={p === page}
-            aria-label={`Page ${p}`}
-            aria-current={p === page ? "page" : undefined}
-            className="mono"
-            style={{
-              minWidth: 28,
-              height: 28,
-              border: "none",
-              borderRadius: 4,
-              fontSize: 12,
-              fontFamily: "var(--font-mono)",
-              fontWeight: p === page ? 700 : 400,
-              color: p === page ? "var(--bg)" : "var(--muted)",
-              background: p === page ? "var(--gold)" : "transparent",
-              cursor: p === page ? "default" : "pointer",
-            }}
-          >
-            {p}
-          </button>
-        ))}
+        {pages.map((p) => {
+          const buttonDisabled = Boolean(disabled || p === page);
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(p)}
+              disabled={buttonDisabled}
+              aria-label={`Page ${p}`}
+              aria-current={p === page ? "page" : undefined}
+              className="mono"
+              style={{
+                minWidth: 28,
+                height: 28,
+                border: "none",
+                borderRadius: 4,
+                fontSize: 12,
+                fontFamily: "var(--font-mono)",
+                fontWeight: p === page ? 700 : 400,
+                color: p === page ? "var(--bg)" : "var(--muted)",
+                background: p === page ? "var(--gold)" : "transparent",
+                cursor: buttonDisabled ? "default" : "pointer",
+                opacity: disabled && p !== page ? 0.5 : 1,
+              }}
+            >
+              {p}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

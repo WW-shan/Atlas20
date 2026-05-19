@@ -53,10 +53,13 @@ const sizeStyles: Record<string, React.CSSProperties> = {
 };
 
 export function Button({ variant, size = "md", loading, disabled, onClick, children }: ButtonProps) {
+  const isDisabled = Boolean(disabled || loading);
+
   return (
     <button
       type="button"
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      aria-busy={loading ? "true" : undefined}
       onClick={onClick}
       style={{
         display: "inline-flex",
@@ -64,10 +67,10 @@ export function Button({ variant, size = "md", loading, disabled, onClick, child
         justifyContent: "center",
         gap: 6,
         borderRadius: "var(--radius-input)",
-        cursor: disabled ? "not-allowed" : "pointer",
+        cursor: isDisabled ? "not-allowed" : "pointer",
         fontFamily: "var(--font-sans)",
         fontWeight: 600,
-        opacity: disabled ? 0.5 : 1,
+        opacity: isDisabled ? 0.5 : 1,
         ...variantStyles[variant],
         ...sizeStyles[size],
       }}

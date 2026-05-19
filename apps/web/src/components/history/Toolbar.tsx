@@ -4,12 +4,13 @@ type Props = {
   filter: HistoryFilter;
   onChange: (next: HistoryFilter) => void;
   total: number;
+  chipsDisabled?: boolean;
 };
 
 const CHIPS = ["queued", "running", "completed", "failed", "favorited", "ATLAS", "Momentum", "MeanRev", "Carry"];
 const DATE_RANGES: HistoryFilter["dateRange"][] = ["7d", "30d", "90d", "ytd", "all"];
 
-export function Toolbar({ filter, onChange, total }: Props) {
+export function Toolbar({ filter, onChange, total, chipsDisabled }: Props) {
   const toggleChip = (chip: string) => {
     const next = filter.chips.includes(chip)
       ? filter.chips.filter((c) => c !== chip)
@@ -126,6 +127,7 @@ export function Toolbar({ filter, onChange, total }: Props) {
                 key={chip}
                 type="button"
                 aria-pressed={active}
+                disabled={chipsDisabled}
                 onClick={() => toggleChip(chip)}
                 style={{
                   padding: "4px 10px",
@@ -134,7 +136,8 @@ export function Toolbar({ filter, onChange, total }: Props) {
                   border: `1px solid ${active ? "var(--violet)" : "var(--border)"}`,
                   background: active ? "rgba(139,92,246,0.10)" : "transparent",
                   color: active ? "var(--violet)" : "var(--muted)",
-                  cursor: "pointer",
+                  cursor: chipsDisabled ? "not-allowed" : "pointer",
+                  opacity: chipsDisabled ? 0.5 : 1,
                   fontFamily: "var(--font-sans)",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",

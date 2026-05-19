@@ -1,13 +1,27 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as api from "../../lib/api";
 import { UniverseHealthTab } from "./UniverseHealthTab";
+
+vi.mock("../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
+  return {
+    ...actual,
+    refreshUniverse: vi.fn(),
+  };
+});
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.refreshUniverse).mockResolvedValue({ refreshed_at: "2026-05-20T00:00:00Z" });
+});
 
 describe("UniverseHealthTab", () => {
   it("renders Universe Timeline svg with aria-label", () => {
@@ -15,9 +29,17 @@ describe("UniverseHealthTab", () => {
     expect(screen.getByRole("img", { name: /Universe composition timeline/ })).toBeInTheDocument();
   });
 
-  it("renders FORCE REFRESH button (outline-violet)", () => {
+  it("disables FORCE REFRESH while refreshUniverse is pending", async () => {
+    vi.mocked(api.refreshUniverse).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.refreshUniverse>>>(() => {}));
+
     renderWithQuery(<UniverseHealthTab />);
-    expect(screen.getByRole("button", { name: /FORCE REFRESH/ })).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: /FORCE REFRESH/ });
+    expect(button).toBeInTheDocument();
+
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(button).toHaveAttribute("aria-busy", "true");
   });
 
   it("renders 9 data source tiles", () => {

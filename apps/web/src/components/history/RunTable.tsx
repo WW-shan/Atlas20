@@ -8,6 +8,7 @@ type Props = {
   selectedId?: string;
   onSelect: (runId: string) => void;
   onToggleFavorite?: (runId: string) => void;
+  favoriteBusyId?: string;
 };
 
 function statusTone(status: RunStatusEnum): { tone: "muted" | "cyan" | "emerald" | "rose"; pulse: boolean } {
@@ -54,7 +55,7 @@ const COLS: { key: string; label: string }[] = [
   { key: "created",  label: "CREATED" },
 ];
 
-export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props) {
+export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favoriteBusyId }: Props) {
   return (
     <div
       role="region"
@@ -93,6 +94,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props
           {rows.map((r) => {
             const status = statusTone(r.status);
             const isSelected = r.run_id === selectedId;
+            const favoriteBusy = favoriteBusyId === r.run_id;
             return (
               <tr
                 key={r.run_id}
@@ -128,6 +130,8 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props
                     type="button"
                     aria-label={r.favorited ? `Unfavorite ${r.run_id}` : `Favorite ${r.run_id}`}
                     aria-pressed={r.favorited ?? false}
+                    aria-busy={favoriteBusy ? "true" : undefined}
+                    disabled={favoriteBusy}
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleFavorite?.(r.run_id);
@@ -135,9 +139,10 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite }: Props
                     style={{
                       background: "transparent",
                       border: "none",
-                      cursor: "pointer",
+                      cursor: favoriteBusy ? "not-allowed" : "pointer",
                       fontSize: 14,
                       color: r.favorited ? "var(--gold)" : "var(--muted)",
+                      opacity: favoriteBusy ? 0.5 : 1,
                       padding: 0,
                     }}
                   >
