@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
+from sqlalchemy import Column, DateTime
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, SQLModel
 
 from atlas20.api._time import utc_now
+
+
+class UtcDateTime(TypeDecorator):
+    impl = DateTime
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        return dialect.type_descriptor(DateTime(timezone=True))
+
+    def process_bind_param(self, value: datetime | None, dialect) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    def process_result_value(self, value: datetime | None, dialect) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
 
 class Run(SQLModel, table=True):
@@ -29,11 +53,11 @@ class Run(SQLModel, table=True):
     params: str | None = None
     error: str | None = None
     worker_pid: int | None = None
-    started_at: datetime | None = None
-    heartbeat_at: datetime | None = None
+    started_at: datetime | None = Field(default=None, sa_column=Column(UtcDateTime(), nullable=True))
+    heartbeat_at: datetime | None = Field(default=None, sa_column=Column(UtcDateTime(), nullable=True))
     requested_cancel: bool = False
     favorited: bool = False
-    created_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(UtcDateTime(), nullable=False, index=True))
 
 
 class ReportFile(SQLModel, table=True):
@@ -45,7 +69,7 @@ class ReportFile(SQLModel, table=True):
     path: str
     size_bytes: int
     sha256: str = Field(index=True)
-    generated_at: datetime = Field(default_factory=utc_now)
+    generated_at: datetime = Field(default_factory=utc_now, sa_column=Column(UtcDateTime(), nullable=False))
 
 
 class KvSetting(SQLModel, table=True):
@@ -53,7 +77,7 @@ class KvSetting(SQLModel, table=True):
 
     key: str = Field(primary_key=True)
     value: str
-    updated_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(UtcDateTime(), nullable=False))
 
 
 class IdempotencyKey(SQLModel, table=True):
@@ -63,5 +87,5 @@ class IdempotencyKey(SQLModel, table=True):
     method: str
     path: str
     response_json: str
-    created_at: datetime = Field(default_factory=utc_now)
-    expires_at: datetime
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(UtcDateTime(), nullable=False))
+    expires_at: datetime = Field(sa_column=Column(UtcDateTime(), nullable=False))

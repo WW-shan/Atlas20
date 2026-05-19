@@ -25,14 +25,14 @@ def upgrade() -> None:
     sa.Column('method', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('path', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('response_json', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('expires_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('key')
     )
     op.create_table('kv_settings',
     sa.Column('key', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('value', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('key')
     )
     op.create_table('runs',
@@ -53,11 +53,11 @@ def upgrade() -> None:
     sa.Column('params', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('error', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('worker_pid', sa.Integer(), nullable=True),
-    sa.Column('started_at', sa.DateTime(), nullable=True),
-    sa.Column('heartbeat_at', sa.DateTime(), nullable=True),
+    sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('heartbeat_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('requested_cancel', sa.Boolean(), nullable=False),
     sa.Column('favorited', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_runs_created_at'), 'runs', ['created_at'], unique=False)
@@ -70,7 +70,7 @@ def upgrade() -> None:
     sa.Column('path', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('size_bytes', sa.Integer(), nullable=False),
     sa.Column('sha256', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.Column('generated_at', sa.DateTime(), nullable=False),
+    sa.Column('generated_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['run_id'], ['runs.run_id'], ),
     sa.PrimaryKeyConstraint('id')
     )
