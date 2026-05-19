@@ -23,6 +23,14 @@ class WorkerQueue:
         if candidate is None:
             self._s.commit()
             return None
+        if candidate.requested_cancel:
+            candidate.status = "cancelled"
+            candidate.error = "cancelled before execution"
+            candidate.started_at = utc_now()
+            candidate.heartbeat_at = None
+            self._s.add(candidate)
+            self._s.commit()
+            return None
 
         now = utc_now()
         candidate.status = "running"

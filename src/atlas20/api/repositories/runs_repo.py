@@ -105,19 +105,29 @@ class RunsRepo:
         max_dd: float | None,
         duration_s: int,
     ) -> Run | None:
-        return self.update(
-            run_id,
-            status="completed",
-            return_pct=return_pct,
-            sharpe=sharpe,
-            max_dd=max_dd,
-            duration_s=duration_s,
-            eta_s=None,
-            error=None,
-            worker_pid=None,
-            heartbeat_at=None,
-            requested_cancel=False,
-        )
+        run = self.get(run_id)
+        if run is None:
+            return None
+        fields: dict[str, object] = {
+            "status": "completed",
+            "return_pct": return_pct,
+            "sharpe": sharpe,
+            "max_dd": max_dd,
+            "duration_s": duration_s,
+            "eta_s": None,
+            "error": None,
+            "worker_pid": None,
+            "heartbeat_at": None,
+        }
+        if run.requested_cancel:
+            fields["status"] = "cancelled"
+            fields["error"] = "cancelled during execution"
+        for key, value in fields.items():
+            setattr(run, key, value)
+        self._s.add(run)
+        self._s.flush()
+        self._s.refresh(run)
+        return run
 
     def toggle_favorite(self, run_id: str) -> Run | None:
         run = self.get(run_id)

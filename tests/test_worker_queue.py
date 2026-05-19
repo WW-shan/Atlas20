@@ -3,11 +3,13 @@ from datetime import date, timedelta
 import subprocess
 import time
 
+from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from atlas20.api.app import create_app
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
-from atlas20.api.repositories import RunsRepo
+from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.settings import Settings
 from atlas20.api.worker.main import _execute_run, start_heartbeat_thread
 from atlas20.api.worker.queue import WorkerQueue
@@ -91,6 +93,25 @@ def test_claim_marks_status_running_and_sets_worker_pid(tmp_path):
         assert claimed.worker_pid is not None
         assert claimed.started_at is not None
         assert claimed.heartbeat_at is not None
+
+
+def test_claim_one_skips_queued_with_requested_cancel(tmp_path):
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        run = _run("btk_0001")
+        run.requested_cancel = True
+        session.add(run)
+        session.commit()
+
+        claimed = WorkerQueue(session).claim_one()
+
+        cancelled = RunsRepo(session).get("btk_0001")
+        assert claimed is None
+        assert cancelled is not None
+        assert cancelled.status == "cancelled"
+        assert cancelled.error == "cancelled before execution"
+        assert cancelled.started_at is not None
+        assert cancelled.heartbeat_at is None
 
 
 def test_concurrent_claim_from_two_workers_returns_different_runs(tmp_path):
@@ -239,6 +260,75 @@ def test_completed_run_updates_status_and_metrics(tmp_path):
         assert updated.max_dd == -0.18
         assert updated.duration_s == 12
         assert updated.heartbeat_at is None
+
+
+def test_update_metrics_respects_concurrent_cancel(tmp_path):
+    engine = _engine(tmp_path)
+    with Session(engine) as session:
+        run = _run("btk_0001", status="running")
+        run.requested_cancel = True
+        session.add(run)
+        session.commit()
+
+        updated = RunsRepo(session).update_metrics_from_completion(
+            "btk_0001",
+            return_pct=0.42,
+            sharpe=1.9,
+            max_dd=-0.18,
+            duration_s=12,
+        )
+
+        assert updated is not None
+        assert updated.status == "cancelled"
+        assert updated.error == "cancelled during execution"
+        assert updated.requested_cancel is True
+
+
+def test_cancel_queued_run_never_executes_subprocess(tmp_path, monkeypatch):
+    engine = _engine(tmp_path)
+    settings = _settings(tmp_path)
+    with Session(engine) as session:
+        session.add(_run("btk_0001"))
+        session.commit()
+
+        app = create_app()
+
+        def override_get_session():
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+
+        app.dependency_overrides[get_session] = override_get_session
+        response = TestClient(app).post("/api/runs/btk_0001/cancel")
+        assert response.status_code == 202
+
+    popen_calls = []
+
+    class CompletedProcess(FakeProcess):
+        def communicate(self, timeout=None):
+            del timeout
+            self.returncode = 0
+            return b"", b""
+
+    def fake_popen(*args, **kwargs):
+        popen_calls.append((args, kwargs))
+        return CompletedProcess()
+
+    monkeypatch.setattr("atlas20.api.worker.main.subprocess.Popen", fake_popen)
+
+    with Session(engine) as session:
+        claimed = WorkerQueue(session).claim_one()
+        if claimed is not None:
+            _execute_run(claimed.run_id, settings, heartbeat_interval_seconds=0.01)
+
+    with Session(engine) as session:
+        cancelled = RunsRepo(session).get("btk_0001")
+        assert cancelled is not None
+        assert cancelled.status == "cancelled"
+        assert popen_calls == []
 
 
 def test_failed_subprocess_marks_status_failed_with_error(tmp_path, monkeypatch):
