@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../lib/api";
+import { qk } from "../../lib/qk";
 import { BacktestStudioTab } from "./BacktestStudioTab";
 
 vi.mock("../../lib/api", async () => {
@@ -17,7 +18,10 @@ vi.mock("../../lib/api", async () => {
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return {
+    client,
+    ...render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>),
+  };
 }
 
 beforeEach(() => {
@@ -85,6 +89,25 @@ describe("BacktestStudioTab", () => {
     renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
 
     expect(screen.getByTestId("backtest-detail-skeleton")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Backtest parameters")).not.toBeInTheDocument();
+  });
+
+  it("keeps the parameter sidebar visible with a refreshing badge during cached detail refetch", async () => {
+    vi.mocked(api.getRunDetail)
+      .mockResolvedValueOnce(api.fallbackRunDetail)
+      .mockImplementationOnce(() => new Promise<api.RunDetailPayload>(() => {}));
+
+    const { client } = renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    expect(await screen.findByLabelText("Backtest parameters")).toBeInTheDocument();
+
+    act(() => {
+      void client.invalidateQueries({ queryKey: qk.runs.detail("btk_0142") });
+    });
+
+    await waitFor(() => expect(api.getRunDetail).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText("Backtest parameters")).toBeInTheDocument();
+    expect(screen.getByTestId("parameter-sidebar-refreshing")).toHaveTextContent("REFRESHING");
   });
 
   it("renders detail error banner and retries the detail query", async () => {

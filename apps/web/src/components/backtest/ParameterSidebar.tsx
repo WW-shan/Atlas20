@@ -7,6 +7,7 @@ type Props = {
   onChange: (next: BacktestConfig) => void;
   onRun: () => void;
   isRunning: boolean;
+  refreshing?: boolean;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -25,7 +26,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius-input)",
 };
 
-export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
+export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing }: Props) {
   return (
     <aside
       style={{
@@ -42,7 +43,7 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
       aria-label="Backtest parameters"
     >
       <div>
-        <SectionHeader>STRATEGY</SectionHeader>
+        <SectionHeader rightSlot={refreshing ? <RefreshingBadge /> : undefined}>STRATEGY</SectionHeader>
         <select
           value={value.preset}
           onChange={(e) => onChange({ ...value, preset: e.target.value })}
@@ -184,5 +185,42 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning }: Props) {
         ▶ RUN BACKTEST
       </Button>
     </aside>
+  );
+}
+
+function RefreshingBadge() {
+  return (
+    <span
+      data-testid="parameter-sidebar-refreshing"
+      role="status"
+      aria-label="Refreshing backtest parameters"
+      className="mono"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        borderRadius: "var(--radius-pill)",
+        border: "1px solid rgba(6,182,212,0.30)",
+        background: "rgba(6,182,212,0.08)",
+        color: "var(--cyan)",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        padding: "2px 8px",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          border: "1px solid rgba(6,182,212,0.30)",
+          borderTopColor: "var(--cyan)",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      REFRESHING
+    </span>
   );
 }

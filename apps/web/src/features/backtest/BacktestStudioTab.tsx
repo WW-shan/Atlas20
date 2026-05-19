@@ -60,6 +60,9 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
     queryKey: qk.runs.detail(selectedRunId),
     queryFn: () => getRunDetail(selectedRunId),
   });
+  const detailData = detailQuery.data;
+  const isInitialDetailLoading = detailQuery.isLoading && detailData === undefined;
+  const isDetailRefreshing = detailQuery.isFetching && detailData !== undefined;
 
   // When user clicks RE-RUN from history, hydrate the sidebar from that run's detail.
   const hydratedFor = useRef<string | undefined>(undefined);
@@ -84,25 +87,29 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
         <div style={{ width: 340, flex: "0 0 340px", display: "flex", flexDirection: "column", gap: 12 }}>
-          {detailQuery.isLoading && <DetailPrefillSkeleton />}
-          <ParameterSidebar
-            value={config}
-            onChange={(next) => dispatch({ type: "set", patch: next })}
-            onRun={() => runMutation.mutate(config)}
-            isRunning={runMutation.isPending}
-          />
+          {isInitialDetailLoading ? (
+            <DetailPrefillSkeleton />
+          ) : (
+            <ParameterSidebar
+              value={config}
+              onChange={(next) => dispatch({ type: "set", patch: next })}
+              onRun={() => runMutation.mutate(config)}
+              isRunning={runMutation.isPending}
+              refreshing={isDetailRefreshing}
+            />
+          )}
         </div>
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          {detailQuery.isLoading && <WorkspaceSkeleton />}
+          {isInitialDetailLoading && <WorkspaceSkeleton />}
           {detailQuery.isError && (
             <ErrorBanner
               message="Unable to load run detail."
               onRetry={() => { void detailQuery.refetch(); }}
             />
           )}
-          {detailQuery.data && (
-            <EquityWorkspace detail={detailQuery.data} />
+          {detailData && (
+            <EquityWorkspace detail={detailData} />
           )}
         </div>
 
