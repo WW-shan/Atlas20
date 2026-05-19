@@ -147,7 +147,8 @@ def test_universe_timeline_endpoint_returns_timeline(client: TestClient):
 
     assert response.status_code == 200
     payload = UniverseTimelinePayload.model_validate(response.json())
-    assert len(payload.tokens) == 32
+    assert len(payload.tokens) == 20
+    assert payload.tokens[0] == "BTC"
     assert payload.segments[0].token == "ETH"
 
 
