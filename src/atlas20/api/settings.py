@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     api_keys: set[str] = Field(default_factory=set)
     enable_docs: bool = True
     report_root: Path = Path("reports")
+    backup_root: Path = Path("backups")
+    backup_retention_days: int = 30
     data_root: Path = Path("data")
     anchor_date: date | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

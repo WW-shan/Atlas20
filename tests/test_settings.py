@@ -16,6 +16,8 @@ def test_settings_defaults(monkeypatch):
     assert settings.api_keys == set()
     assert settings.enable_docs is True
     assert settings.report_root.name == "reports"
+    assert settings.backup_root.name == "backups"
+    assert settings.backup_retention_days == 30
     assert settings.data_root.name == "data"
     assert settings.anchor_date is None
     assert settings.log_level == "INFO"

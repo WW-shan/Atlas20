@@ -1,0 +1,37 @@
+"""Report files repository."""
+
+from __future__ import annotations
+
+from sqlmodel import Session, select
+
+from atlas20.api.db.models import ReportFile
+
+
+class ReportsRepo:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def list(self, *, sort: str = "recent") -> list[ReportFile]:
+        stmt = select(ReportFile)
+        if sort == "oldest":
+            stmt = stmt.order_by(ReportFile.generated_at.asc(), ReportFile.id.asc())
+        elif sort == "size":
+            stmt = stmt.order_by(ReportFile.size_bytes.desc(), ReportFile.id.asc())
+        elif sort == "type":
+            stmt = stmt.order_by(ReportFile.kind.asc(), ReportFile.generated_at.desc())
+        else:
+            stmt = stmt.order_by(ReportFile.generated_at.desc(), ReportFile.id.asc())
+        return list(self._s.exec(stmt).all())
+
+    def get(self, report_id: int) -> ReportFile | None:
+        return self._s.get(ReportFile, report_id)
+
+    def create(self, report: ReportFile) -> ReportFile:
+        self._s.add(report)
+        self._s.flush()
+        self._s.refresh(report)
+        return report
+
+    def by_run(self, run_id: str) -> list[ReportFile]:
+        stmt = select(ReportFile).where(ReportFile.run_id == run_id).order_by(ReportFile.generated_at.desc())
+        return list(self._s.exec(stmt).all())

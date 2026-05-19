@@ -1,15 +1,18 @@
-"""Services for the Atlas20 R3 mock-backed API."""
+﻿"""Services for the Atlas20 R3 mock-backed API."""
 
 from __future__ import annotations
 
 import logging
+import json
 from copy import deepcopy
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from sqlmodel import Session
+
 from atlas20.api import mock_data
-from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now_iso
+from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now, utc_now_iso
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
@@ -31,6 +34,8 @@ from atlas20.api.schemas import (
     RunRowSummary,
     UniverseTimelinePayload,
 )
+from atlas20.api.db.models import Run
+from atlas20.api.repositories import RunsRepo
 from atlas20.api.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -55,12 +60,8 @@ def get_options_payload() -> OptionsPayload:
     return OptionsPayload.model_validate(payload)
 
 
-def list_runs_queue() -> list[RunRowSummary]:
-    return [RunRowSummary.model_validate(row) for row in mock_data.fallback_runs_queue]
-
-
-def _created_date(row: dict[str, Any]) -> date:
-    return datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")).date()
+def list_runs_queue(session: Session) -> list[RunRowSummary]:
+    return [_run_to_summary(row) for row in RunsRepo(session).list_queue()]
 
 
 def _date_cutoff(date_range: str) -> date | None:
@@ -73,34 +74,74 @@ def _date_cutoff(date_range: str) -> date | None:
     return current_day - timedelta(days=days)
 
 
-def _matches_query(row: dict[str, Any], q: str) -> bool:
-    if not q:
-        return True
-    needle = q.lower()
-    return (
-        needle in row["strategy"].lower()
-        or needle in row["run_id"].lower()
-        or needle in row.get("universe", "").lower()
-        or needle in row.get("strategy_family", "").lower()
+def _datetime_to_api_iso(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _spark_values(value: str | None) -> list[float] | None:
+    if not value:
+        return None
+    try:
+        raw = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    return raw if isinstance(raw, list) else None
+
+
+def _run_to_row(run: Run) -> RunRow:
+    return RunRow.model_validate(
+        {
+            "run_id": run.run_id,
+            "strategy": run.strategy,
+            "strategy_family": run.strategy_family,
+            "universe": run.universe,
+            "window": {"start": run.window_start.isoformat(), "end": run.window_end.isoformat()},
+            "status": run.status,
+            "return_pct": run.return_pct,
+            "sharpe": run.sharpe,
+            "max_dd": run.max_dd,
+            "duration_s": run.duration_s,
+            "eta_s": run.eta_s,
+            "spark": _spark_values(run.spark),
+            "created_at": _datetime_to_api_iso(run.created_at),
+            "favorited": run.favorited,
+        }
     )
 
 
-def _matches_chip(row: dict[str, Any], chip: str) -> bool:
-    if chip == "favorited":
-        return bool(row.get("favorited"))
-    if chip in RUN_STATUS_CHIPS:
-        return row["status"] == chip
-    if chip in RUN_FAMILY_CHIPS:
-        return row.get("strategy_family") == chip
-    return chip in row["strategy"]
+def _run_to_summary(run: Run) -> RunRowSummary:
+    return RunRowSummary.model_validate(
+        {
+            "run_id": run.run_id,
+            "strategy": run.strategy,
+            "status": run.status,
+            "duration_s": run.duration_s,
+            "eta_s": run.eta_s,
+            "params_summary": _params_summary_from_run(run),
+        }
+    )
 
 
-def _matches_date_range(row: dict[str, Any], date_range: str) -> bool:
-    cutoff = _date_cutoff(date_range)
-    return cutoff is None or _created_date(row) >= cutoff
+def _params_summary_from_run(run: Run) -> str:
+    if run.params:
+        try:
+            return _params_summary_from_config(BacktestConfig.model_validate(json.loads(run.params)))
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return f"{run.universe} \u00b7 {run.window_start.year}\u2192{run.window_end.year}"
+
+
+def _params_summary_from_config(config: BacktestConfig) -> str:
+    return (
+        f"N={config.universe.topN} \u00b7 {config.window.rebalance} \u00b7 "
+        f"{config.window.start.year}\u2192{config.window.end.year}"
+    )
 
 
 def list_runs(
+    session: Session,
     q: str = "",
     chips: list[str] | None = None,
     date_range: str = "30d",
@@ -110,24 +151,19 @@ def list_runs(
 ) -> tuple[list[RunRow], int]:
     del view
     chip_values = [chip for chip in chips or [] if chip]
-    rows = [
-        row
-        for row in mock_data.fallback_runs_list
-        if _matches_query(row, q)
-        and all(_matches_chip(row, chip) for chip in chip_values)
-        and _matches_date_range(row, date_range)
-    ]
-    total = len(rows)
-    safe_page = max(page, 1)
-    safe_page_size = max(page_size, 1)
-    start = (safe_page - 1) * safe_page_size
-    end = start + safe_page_size
-    return [RunRow.model_validate(row) for row in rows[start:end]], total
+    rows, total = RunsRepo(session).list(
+        q=q,
+        chips=chip_values,
+        date_cutoff=_date_cutoff(date_range),
+        page=page,
+        page_size=page_size,
+    )
+    return [_run_to_row(row) for row in rows], total
 
 
-def get_run(run_id: str) -> RunRow | None:
-    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
-    return RunRow.model_validate(row) if row else None
+def get_run(session: Session, run_id: str) -> RunRow | None:
+    row = RunsRepo(session).get(run_id)
+    return _run_to_row(row) if row else None
 
 
 def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
@@ -152,48 +188,60 @@ def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
     }
 
 
-def get_run_detail(run_id: str) -> RunDetailPayload | None:
-    if run_id == mock_data.fallback_run_detail["run_id"]:
-        return RunDetailPayload.model_validate(deepcopy(mock_data.fallback_run_detail))
-    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
-    if row is None:
+def get_run_detail(session: Session, run_id: str) -> RunDetailPayload | None:
+    run = RunsRepo(session).get(run_id)
+    if run is None:
+        if run_id == mock_data.fallback_run_detail["run_id"]:
+            return RunDetailPayload.model_validate(deepcopy(mock_data.fallback_run_detail))
         return None
+    row = _run_to_row(run).model_dump(mode="json")
     detail = {
-        **deepcopy(row),
+        **row,
         "equity_overlay": {"series": mock_data.fallback_overview["equity_overlay"]["series"]},
         "kpi": _derive_kpi_from_row(row),
     }
     return RunDetailPayload.model_validate(detail)
 
 
-def toggle_run_favorite(run_id: str) -> dict[str, Any] | None:
-    row = next((item for item in mock_data.fallback_runs_list if item["run_id"] == run_id), None)
-    if row is None:
+def toggle_run_favorite(session: Session, run_id: str) -> dict[str, Any] | None:
+    run = RunsRepo(session).toggle_favorite(run_id)
+    if run is None:
         return None
-    row["favorited"] = not bool(row.get("favorited"))
-    if mock_data.fallback_run_detail["run_id"] == run_id:
-        mock_data.fallback_run_detail["favorited"] = row["favorited"]
-    return {"run_id": run_id, "favorited": row["favorited"]}
+    return {"run_id": run_id, "favorited": run.favorited}
 
 
-def _next_backtest_id() -> str:
-    ids = [row["run_id"] for row in mock_data.fallback_runs_list + mock_data.fallback_runs_queue]
-    max_number = max((int(run_id.rsplit("_", 1)[1]) for run_id in ids if run_id.startswith("btk_")), default=0)
-    return f"btk_{max_number + 1:04d}"
 
 
-def register_new_backtest(config: BacktestConfig) -> RunRowSummary:
-    summary = {
-        "run_id": _next_backtest_id(),
-        "strategy": config.preset,
-        "status": "queued",
-        "params_summary": (
-            f"N={config.universe.topN} · {config.window.rebalance} · "
-            f"{config.window.start.year}→{config.window.end.year}"
-        ),
-    }
-    mock_data.fallback_runs_queue.insert(0, summary)
-    return RunRowSummary.model_validate(summary)
+def _strategy_family(strategy: str) -> str:
+    if "ATLAS" in strategy:
+        return "ATLAS"
+    if "Momentum" in strategy:
+        return "Momentum"
+    if "Mean" in strategy:
+        return "MeanRev"
+    if "Carry" in strategy:
+        return "Carry"
+    return "Other"
+
+
+
+
+def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSummary:
+    repo = RunsRepo(session)
+    run = Run(
+        run_id=repo.next_btk_id(),
+        strategy=config.preset,
+        strategy_family=_strategy_family(config.preset),
+        universe=f"Top-{config.universe.topN}",
+        window_start=config.window.start,
+        window_end=config.window.end,
+        status="queued",
+        spark=json.dumps([]),
+        params=config.model_dump_json(),
+        created_at=utc_now(),
+    )
+    repo.create(run)
+    return _run_to_summary(run)
 
 
 def get_compare(ids: list[str], range_: str) -> ComparePayload:
@@ -279,8 +327,8 @@ def get_featured_digest() -> FeaturedDigest:
     return FeaturedDigest.model_validate(
         {
             "id": markdown.stem,
-            "title": f"Atlas20 Digest — {generated_date}",
-            "subtitle": f"{overview['champion']['strategy']} · YTD {ytd_pct:+,.2f}% · generated {generated_at}",
+            "title": f"Atlas20 Digest \u2014 {generated_date}",
+            "subtitle": f"{overview['champion']['strategy']} \u00b7 YTD {ytd_pct:+,.2f}% \u00b7 generated {generated_at}",
             "formats": deepcopy(mock_data.fallback_featured_digest["formats"]),
             "defaultFormat": "markdown",
             "generated_at": generated_at,

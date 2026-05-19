@@ -1,0 +1,27 @@
+from sqlmodel import Session, func, select
+
+from atlas20.api import mock_data
+from atlas20.api.cli.seed import main as seed_main
+from atlas20.api.db.models import Run
+from atlas20.api.repositories import get_engine
+from atlas20.api.settings import get_settings
+
+
+def test_seed_cli_populates_db_and_skips_when_rows_exist(tmp_path, monkeypatch, capsys):
+    db_path = tmp_path / "atlas20.sqlite"
+    monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{db_path.as_posix()}")
+    get_settings.cache_clear()
+
+    seed_main()
+    first_output = capsys.readouterr().out
+
+    settings = get_settings()
+    with Session(get_engine(settings)) as session:
+        count = session.exec(select(func.count()).select_from(Run)).one()
+
+    seed_main()
+    second_output = capsys.readouterr().out
+
+    assert f"Seeded {len(mock_data.fallback_runs_list)} runs" in first_output
+    assert count == len(mock_data.fallback_runs_list)
+    assert "DB already seeded, skipping" in second_output

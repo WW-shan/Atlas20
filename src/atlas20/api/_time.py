@@ -12,11 +12,15 @@ def today() -> date:
     settings = get_settings()
     if settings.anchor_date is not None:
         return settings.anchor_date
-    return datetime.now(timezone.utc).date()
+    return utc_now().date()
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return utc_now().isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def utc_iso_from_timestamp(ts: float) -> str:

@@ -1,0 +1,124 @@
+"""Runs repository."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time, timezone
+
+from sqlalchemy import func, or_
+from sqlmodel import Session, select
+
+from atlas20.api.db.models import Run
+
+RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
+RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed"}
+
+
+class RunsRepo:
+    def __init__(self, session: Session):
+        self._s = session
+
+    def list(
+        self,
+        *,
+        q: str = "",
+        chips: tuple[str, ...] | list[str] = (),
+        date_cutoff: date | None = None,
+        page: int = 1,
+        page_size: int = 14,
+    ) -> tuple[list[Run], int]:
+        filters = self._filters(q=q, chips=chips, date_cutoff=date_cutoff)
+        count_stmt = select(func.count()).select_from(Run)
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+        total = int(self._s.exec(count_stmt).one())
+        safe_page = max(page, 1)
+        safe_page_size = max(page_size, 1)
+        stmt = (
+            select(Run)
+            .where(*filters)
+            .order_by(Run.created_at.desc(), Run.run_id.desc())
+            .offset((safe_page - 1) * safe_page_size)
+            .limit(safe_page_size)
+        )
+        return list(self._s.exec(stmt).all()), total
+
+    def get(self, run_id: str) -> Run | None:
+        return self._s.exec(select(Run).where(Run.run_id == run_id)).first()
+
+    def create(self, run: Run) -> Run:
+        self._s.add(run)
+        self._s.flush()
+        self._s.refresh(run)
+        return run
+
+    def update(self, run_id: str, **fields: object) -> Run | None:
+        run = self.get(run_id)
+        if run is None:
+            return None
+        for key, value in fields.items():
+            if hasattr(run, key):
+                setattr(run, key, value)
+        self._s.add(run)
+        self._s.flush()
+        self._s.refresh(run)
+        return run
+
+    def toggle_favorite(self, run_id: str) -> Run | None:
+        run = self.get(run_id)
+        if run is None:
+            return None
+        run.favorited = not run.favorited
+        self._s.add(run)
+        self._s.flush()
+        self._s.refresh(run)
+        return run
+
+    def list_queue(self) -> list[Run]:
+        stmt = (
+            select(Run)
+            .where(Run.status.in_(("queued", "running")))
+            .order_by(Run.created_at.desc(), Run.run_id.desc())
+        )
+        return list(self._s.exec(stmt).all())
+
+    def next_btk_id(self) -> str:
+        ids = self._s.exec(select(Run.run_id).where(Run.run_id.like("btk_%"))).all()
+        max_number = 0
+        for run_id in ids:
+            try:
+                max_number = max(max_number, int(run_id.rsplit("_", 1)[1]))
+            except (IndexError, ValueError):
+                continue
+        return f"btk_{max_number + 1:04d}"
+
+    def _filters(
+        self,
+        *,
+        q: str,
+        chips: tuple[str, ...] | list[str],
+        date_cutoff: date | None,
+    ) -> list[object]:
+        filters: list[object] = []
+        if q:
+            pattern = f"%{q.lower()}%"
+            filters.append(
+                or_(
+                    func.lower(Run.strategy).like(pattern),
+                    func.lower(Run.run_id).like(pattern),
+                    func.lower(Run.universe).like(pattern),
+                    func.lower(Run.strategy_family).like(pattern),
+                )
+            )
+        for chip in [item for item in chips if item]:
+            if chip == "favorited":
+                filters.append(Run.favorited.is_(True))
+            elif chip in RUN_STATUS_CHIPS:
+                filters.append(Run.status == chip)
+            elif chip in RUN_FAMILY_CHIPS:
+                filters.append(Run.strategy_family == chip)
+            else:
+                filters.append(func.lower(Run.strategy).like(f"%{chip.lower()}%"))
+        if date_cutoff is not None:
+            cutoff = datetime.combine(date_cutoff, time.min, tzinfo=timezone.utc)
+            filters.append(Run.created_at >= cutoff)
+        return filters

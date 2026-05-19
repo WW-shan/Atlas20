@@ -1,5 +1,7 @@
 """FastAPI application factory for the Atlas20 research console."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +18,16 @@ from atlas20.api.routes.universe import router as universe_router
 from atlas20.api.settings import get_settings
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config("alembic.ini")
+    command.upgrade(cfg, "head")
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings)
@@ -28,6 +40,7 @@ def create_app() -> FastAPI:
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,

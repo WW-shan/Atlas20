@@ -1,11 +1,12 @@
-from copy import deepcopy
 from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api.app import create_app
+from atlas20.api.repositories import get_session
 from atlas20.api.schemas import (
     BacktestConfig,
     ComparePayload,
@@ -31,28 +32,19 @@ DEFAULT_BACKTEST_CONFIG = {
     "costs": {"feeBps": 10, "slippageBps": 5},
 }
 
-MUTABLE_FIXTURES = {
-    "fallback_runs_queue": deepcopy(mock_data.fallback_runs_queue),
-    "fallback_runs_list": deepcopy(mock_data.fallback_runs_list),
-    "fallback_run_detail": deepcopy(mock_data.fallback_run_detail),
-}
-
-
-@pytest.fixture(autouse=True)
-def restore_mock_data():
-    yield
-    mock_data.fallback_runs_queue[:] = deepcopy(MUTABLE_FIXTURES["fallback_runs_queue"])
-    mock_data.fallback_runs_list[:] = deepcopy(MUTABLE_FIXTURES["fallback_runs_list"])
-    mock_data.fallback_run_detail.clear()
-    mock_data.fallback_run_detail.update(deepcopy(MUTABLE_FIXTURES["fallback_run_detail"]))
-
-
 @pytest.fixture
-def client(tmp_path, monkeypatch) -> TestClient:
+def client(tmp_path, monkeypatch, db_session: Session) -> TestClient:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{(tmp_path / 'atlas20.sqlite').as_posix()}")
     get_settings.cache_clear()
-    return TestClient(create_app())
+    app = create_app()
+
+    def override_get_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    return TestClient(app)
 
 
 def test_overview_endpoint_returns_r3_payload(client: TestClient):
@@ -80,7 +72,7 @@ def test_runs_queue_endpoint_returns_summaries(client: TestClient):
 
     assert response.status_code == 200
     payload = [RunRowSummary.model_validate(row) for row in response.json()]
-    assert len(payload) == 6
+    assert len(payload) == 2
     assert payload[0].run_id == "btk_0148"
 
 
@@ -128,7 +120,7 @@ def test_backtests_run_endpoint_registers_queued_run(client: TestClient):
 
     assert response.status_code == 200
     payload = RunRowSummary.model_validate(response.json())
-    assert payload.run_id == "btk_0150"
+    assert payload.run_id == "btk_0149"
     assert payload.status == "queued"
     assert payload.params_summary == "N=20 · Weekly · 2024→2026"
 
