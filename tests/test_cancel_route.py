@@ -14,7 +14,13 @@ def client_session(tmp_path):
     engine = create_engine(f"sqlite:///{(tmp_path / 'cancel.sqlite').as_posix()}", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        for run_id, status in (("btk_queued", "queued"), ("btk_running", "running"), ("btk_completed", "completed")):
+        for run_id, status in (
+            ("btk_queued", "queued"),
+            ("btk_running", "running"),
+            ("btk_completed", "completed"),
+            ("btk_failed", "failed"),
+            ("btk_cancelled", "cancelled"),
+        ):
             session.add(
                 Run(
                     run_id=run_id,
@@ -51,7 +57,21 @@ def test_cancel_route_returns_409_for_completed_run(client: TestClient):
     response = client.post("/api/runs/btk_completed/cancel")
 
     assert response.status_code == 409
-    assert "cannot cancel completed run" in response.json()["detail"]
+    assert response.json()["detail"] == "run already completed; cannot cancel"
+
+
+def test_cancel_route_returns_409_for_failed_run(client: TestClient):
+    response = client.post("/api/runs/btk_failed/cancel")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "run already failed; cannot cancel"
+
+
+def test_cancel_route_returns_409_for_cancelled_run(client: TestClient):
+    response = client.post("/api/runs/btk_cancelled/cancel")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "run is already cancelled"
 
 
 def test_cancel_route_accepts_queued_run(client: TestClient):

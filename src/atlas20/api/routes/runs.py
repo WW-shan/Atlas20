@@ -78,7 +78,11 @@ def cancel_run(run_id: str, session: Session = Depends(get_session)) -> dict[str
     run = repo.get(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
-    if run.status not in {"queued", "running"}:
-        raise HTTPException(status_code=409, detail=f"cannot cancel {run.status} run")
+    if run.status == "cancelled":
+        raise HTTPException(status_code=409, detail="run is already cancelled")
+    if run.status == "completed":
+        raise HTTPException(status_code=409, detail="run already completed; cannot cancel")
+    if run.status == "failed":
+        raise HTTPException(status_code=409, detail="run already failed; cannot cancel")
     repo.update(run_id, requested_cancel=True)
     return {"run_id": run_id, "requested_cancel": True}
