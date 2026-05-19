@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from filelock import FileLock
+from sqlalchemy.engine import make_url
 
 from atlas20.api.logging_config import configure_logging
 from atlas20.api.middleware.access_log import AccessLogMiddleware
@@ -26,9 +27,16 @@ async def lifespan(app: FastAPI):
     from alembic import command
 
     settings = get_settings()
-    lock_path = Path(settings.db_url.replace("sqlite:///", "")).with_suffix(".alembic.lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with FileLock(str(lock_path), timeout=60):
+    url = make_url(settings.db_url)
+    if url.drivername.startswith("sqlite") and url.database:
+        db_path = Path(url.database)
+        lock_path = db_path.with_suffix(".alembic.lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with FileLock(str(lock_path), timeout=60):
+            cfg = Config("alembic.ini")
+            command.upgrade(cfg, "head")
+    else:
+        # Postgres/MySQL: rely on alembic_version table + advisory locks (Batch 14 follow-up)
         cfg = Config("alembic.ini")
         command.upgrade(cfg, "head")
     yield
