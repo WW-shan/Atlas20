@@ -17,7 +17,7 @@ def _parse_utc_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def _run_from_seed_row(row: dict[str, object]) -> Run:
+def run_from_seed_row(row: dict[str, object]) -> Run:
     window = row["window"]
     assert isinstance(window, dict)
     return Run.model_validate(
@@ -51,6 +51,6 @@ def main() -> None:
             print("DB already seeded, skipping")
             return
         for row in mock_data.fallback_runs_list:
-            runs_repo.create(_run_from_seed_row(row))
+            runs_repo.create(run_from_seed_row(row))
         session.commit()
     print(f"Seeded {len(mock_data.fallback_runs_list)} runs")

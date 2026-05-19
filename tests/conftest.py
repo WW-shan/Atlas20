@@ -1,6 +1,4 @@
 from collections.abc import Iterator
-from datetime import date, datetime
-import json
 from pathlib import Path
 
 import pytest
@@ -8,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
 from atlas20.api import mock_data
-from atlas20.api.db.models import Run
+from atlas20.api.cli.seed import run_from_seed_row
 from atlas20.api.repositories._session import dispose_all_engines
 from atlas20.api.settings import get_settings
 
@@ -97,39 +95,13 @@ def write_alpha_btc_report_csvs(report_root: Path) -> None:
     )
 
 
-def _parse_utc_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
-def _run_from_seed_row(row: dict[str, object]) -> Run:
-    window = row["window"]
-    assert isinstance(window, dict)
-    return Run(
-        run_id=str(row["run_id"]),
-        strategy=str(row["strategy"]),
-        strategy_family=str(row.get("strategy_family")) if row.get("strategy_family") is not None else None,
-        universe=str(row["universe"]),
-        window_start=date.fromisoformat(str(window["start"])),
-        window_end=date.fromisoformat(str(window["end"])),
-        status=str(row["status"]),
-        return_pct=row.get("return_pct"),
-        sharpe=row.get("sharpe"),
-        max_dd=row.get("max_dd"),
-        duration_s=row.get("duration_s"),
-        eta_s=row.get("eta_s"),
-        spark=json.dumps(row.get("spark") or []),
-        created_at=_parse_utc_datetime(str(row["created_at"])),
-        favorited=bool(row.get("favorited", False)),
-    )
-
-
 @pytest.fixture
 def db_session() -> Iterator[Session]:
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         for row in mock_data.fallback_runs_list:
-            session.add(_run_from_seed_row(row))
+            session.add(run_from_seed_row(row))
         session.commit()
         yield session
         session.rollback()
