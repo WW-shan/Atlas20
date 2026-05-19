@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.settings import Settings
 
@@ -59,3 +61,31 @@ def test_load_options_payload_from_real_data(tmp_path):
     assert payload["feeBpsRange"] == [0.0, 10.0, 50.0]
     assert payload["slippageBpsRange"] == [0.0, 5.0, 25.0]
     assert payload["sectors"] == ["DeFi", "Layer1"]
+
+
+def test_load_options_rejects_nan_sharpe(tmp_path):
+    latest = tmp_path / "reports" / "latest"
+    latest.mkdir(parents=True)
+    latest.joinpath("strategy_summary.csv").write_text(
+        "\n".join(
+            [
+                SUMMARY_HEADER,
+                "BAD,0.20,0.10,0.20,nan,1.10,-0.30,0.33,0.50,0.20,0.10,1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    processed.joinpath("rebalance_universe.csv").write_text(
+        "\n".join(
+            [
+                REBALANCE_HEADER,
+                "btc,1,1000,100,30,BTC,BTC,Layer1,2026-05-18,1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        load_options_from_reports(Settings(report_root=tmp_path / "reports", data_root=tmp_path / "data"))
