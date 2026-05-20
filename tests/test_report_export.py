@@ -173,6 +173,37 @@ def test_export_result_tables_publish_failure_restores_previous_report(tmp_path:
     assert not (report_dir / "partial.txt").exists()
 
 
+def test_publish_report_dir_restores_backup_when_tmp_move_raises(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+    report_dir.mkdir(parents=True)
+    (report_dir / "manifest.json").write_text('{"version": "previous"}\n', encoding="utf-8")
+    (report_dir / "keep.txt").write_text("previous\n", encoding="utf-8")
+    tmp_dir = tmp_path / "reports" / "run_001.tmp_manual"
+    tmp_dir.mkdir()
+    (tmp_dir / "manifest.json").write_text('{"version": "new"}\n', encoding="utf-8")
+    real_move = report.shutil.move
+    move_calls = 0
+
+    def flaky_move(src: str, dst: str) -> str:
+        nonlocal move_calls
+        move_calls += 1
+        if move_calls == 2:
+            raise OSError("mid-publish failure")
+        return real_move(src, dst)
+
+    monkeypatch.setattr(report.shutil, "move", flaky_move)
+
+    with pytest.raises(OSError, match="mid-publish failure"):
+        report._publish_report_dir(tmp_dir, report_dir)
+
+    assert (report_dir / "manifest.json").read_text(encoding="utf-8") == '{"version": "previous"}\n'
+    assert (report_dir / "keep.txt").read_text(encoding="utf-8") == "previous\n"
+    assert not any(report_dir.parent.glob("run_001.bak_*"))
+
+
 def test_export_result_tables_writes_latest_pointer(tmp_path: Path) -> None:
     report_dir = tmp_path / "reports" / "app_runs" / "run_001"
 
@@ -275,4 +306,3 @@ def test_selection_history_collapses_duplicate_rebalance_dates(tmp_path: Path) -
     weights_by_coin = first_date.set_index("coin_id")["coin_weight"].to_dict()
     assert pytest.approx(weights_by_coin["bitcoin"], rel=1e-6) == 0.60
     assert pytest.approx(weights_by_coin["ethereum"], rel=1e-6) == 0.40
-
