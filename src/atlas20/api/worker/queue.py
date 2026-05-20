@@ -7,8 +7,10 @@ import os
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
+from atlas20.api.repositories.runs_repo import terminal_duration_seconds
 
 
 class WorkerQueue:
@@ -27,6 +29,7 @@ class WorkerQueue:
             candidate.status = "cancelled"
             candidate.error = "cancelled before execution"
             candidate.started_at = utc_now()
+            record_backtest_terminal("cancelled", terminal_duration_seconds(candidate))
             candidate.heartbeat_at = None
             self._s.add(candidate)
             self._s.commit()

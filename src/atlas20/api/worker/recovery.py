@@ -7,8 +7,10 @@ from datetime import timedelta
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
+from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
+from atlas20.api.repositories.runs_repo import terminal_duration_seconds
 
 
 STALE_HEARTBEAT_ERROR = "worker died - heartbeat stale"
@@ -26,6 +28,7 @@ def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
     for run in stale_runs:
         run.status = "failed"
         run.error = STALE_HEARTBEAT_ERROR
+        record_backtest_terminal("failed", terminal_duration_seconds(run))
         run.worker_pid = None
         run.heartbeat_at = None
         session.add(run)
@@ -41,6 +44,7 @@ def recover_my_own_stale_runs(session: Session, my_pid: int) -> int:
     for run in runs:
         run.status = "failed"
         run.error = RESTART_RECOVERY_ERROR
+        record_backtest_terminal("failed", terminal_duration_seconds(run))
         session.add(run)
         count += 1
     session.commit()

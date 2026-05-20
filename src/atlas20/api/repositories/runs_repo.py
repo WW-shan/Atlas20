@@ -17,7 +17,7 @@ RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 
 
-def _terminal_duration_seconds(run: Run) -> float | None:
+def terminal_duration_seconds(run: Run) -> float | None:
     if run.duration_s is not None:
         return float(run.duration_s)
     if run.started_at is None:
@@ -30,7 +30,7 @@ def _record_terminal_transition(previous_status: str | None, run: Run | None) ->
         return
     if previous_status in TERMINAL_BACKTEST_STATUSES:
         return
-    record_backtest_terminal(run.status, _terminal_duration_seconds(run))
+    record_backtest_terminal(run.status, terminal_duration_seconds(run))
 
 
 class RunsRepo:

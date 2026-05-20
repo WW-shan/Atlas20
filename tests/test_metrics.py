@@ -9,7 +9,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from atlas20.api import _metrics
 from atlas20.api import services_report
@@ -19,6 +19,8 @@ from atlas20.api.db.models import Run
 from atlas20.api.dependencies import ratelimit
 from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.settings import get_settings
+from atlas20.api.worker.queue import WorkerQueue
+from atlas20.api.worker.recovery import recover_stale_runs
 
 
 def _app(tmp_path, monkeypatch):
@@ -89,6 +91,57 @@ def test_completed_run_increments_backtest_counter(tmp_path, monkeypatch, db_ses
             duration_s=8,
         )
         after = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "completed")
+
+    assert after == before + 1
+
+
+def test_queue_cancel_increments_cancelled_backtest_counter(tmp_path, monkeypatch, db_session: Session) -> None:
+    db_session.add(
+        Run(
+            run_id="btk_metrics_0002",
+            strategy="ATLAS Adaptive v4",
+            strategy_family="ATLAS",
+            universe="Top-20",
+            window_start=date(2024, 1, 1),
+            window_end=date(2026, 5, 18),
+            status="queued",
+            requested_cancel=True,
+        )
+    )
+    db_session.flush()
+
+    with TestClient(_app(tmp_path, monkeypatch)) as client:
+        before = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "cancelled")
+        assert WorkerQueue(db_session).claim_one() is None
+        after = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "cancelled")
+
+    assert after == before + 1
+
+
+def test_recovery_increments_failed_backtest_counter(tmp_path, monkeypatch, db_session: Session) -> None:
+    now = utc_now()
+    for existing in db_session.exec(select(Run).where(Run.status == "running")).all():
+        existing.heartbeat_at = now
+        db_session.add(existing)
+    db_session.add(
+        Run(
+            run_id="btk_metrics_0003",
+            strategy="ATLAS Adaptive v4",
+            strategy_family="ATLAS",
+            universe="Top-20",
+            window_start=date(2024, 1, 1),
+            window_end=date(2026, 5, 18),
+            status="running",
+            started_at=now - timedelta(seconds=10),
+            heartbeat_at=now - timedelta(seconds=120),
+        )
+    )
+    db_session.flush()
+
+    with TestClient(_app(tmp_path, monkeypatch)) as client:
+        before = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "failed")
+        assert recover_stale_runs(db_session, stale_after_seconds=60) == 1
+        after = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "failed")
 
     assert after == before + 1
 
