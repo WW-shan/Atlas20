@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   defaultBacktestConfig,
@@ -139,5 +139,41 @@ describe("qk registry", () => {
     expect(qk.runs.queue()[0]).toBe("runs");
     expect(qk.universe.timeline()[0]).toBe("universe");
     expect(qk.reports.featured()[0]).toBe("reports");
+  });
+});
+
+describe("requestJson API key header", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("injects X-API-Key when VITE_ATLAS20_API_KEY is set", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_ATLAS20_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(fallbackRunsQueue[0]))));
+    const api = await import("./api");
+
+    await api.runBacktest(api.defaultBacktestConfig);
+
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      "X-API-Key": "test-key",
+    });
+  });
+
+  it("omits X-API-Key when VITE_ATLAS20_API_KEY is empty", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_ATLAS20_API_KEY", "   ");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(fallbackRunsQueue[0]))));
+    const api = await import("./api");
+
+    await api.runBacktest(api.defaultBacktestConfig);
+
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(init.headers).not.toHaveProperty("X-API-Key");
   });
 });

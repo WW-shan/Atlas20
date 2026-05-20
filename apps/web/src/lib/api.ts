@@ -5,6 +5,8 @@
 
 import type { ChartRange, RunStatusEnum, ReportSortKey } from "../components/ui/types";
 
+const API_KEY = (import.meta.env.VITE_ATLAS20_API_KEY as string | undefined)?.trim();
+
 // ============================================================
 // §7.1 — Existing types (preserved & extended)
 // ============================================================
@@ -558,7 +560,11 @@ export function buildApiUrl(path: string, base = import.meta.env.VITE_ATLAS20_AP
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(buildApiUrl(path), init);
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const response = await fetch(buildApiUrl(path), { ...init, headers });
   if (!response.ok) {
     throw new Error(`Atlas20 API request failed: ${response.status}`);
   }
