@@ -49,7 +49,10 @@ def _first_existing(run_dir: Path, names: list[str]) -> Path:
         candidate = run_dir / name
         if candidate.exists():
             return candidate
-    raise FileNotFoundError(names[0])
+    raise HTTPException(
+        status_code=404,
+        detail=f"run output missing: expected one of {names} under {run_dir.name}",
+    )
 
 
 def _read_summary(path: Path) -> pd.DataFrame:

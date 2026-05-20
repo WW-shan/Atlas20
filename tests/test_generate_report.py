@@ -24,7 +24,13 @@ VALID_PARAMS = {
 }
 
 
-def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session) -> TestClient:
+def _client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+    *,
+    raise_server_exceptions: bool = True,
+) -> TestClient:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{(tmp_path / 'generate.sqlite').as_posix()}")
@@ -35,7 +41,7 @@ def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def _sha256(path: Path) -> str:
@@ -121,6 +127,20 @@ def test_generate_markdown_report_registers_file_and_sha256(
     assert markdown_file["sha256"] == _sha256(digest)
     db_row = db_session.exec(select(ReportFile).where(ReportFile.run_id == "btk_0142", ReportFile.kind == "markdown")).one()
     assert db_row.sha256 == _sha256(digest)
+
+
+def test_generate_report_returns_404_when_run_outputs_are_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session, raise_server_exceptions=False)
+    report_root = get_settings().report_root
+    run_dir = _prepare_run(db_session, report_root)
+    (run_dir / "summary.csv").unlink()
+
+    response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["markdown"]})
+
+    assert response.status_code == 404
+    assert "run output missing" in response.json()["detail"]
 
 
 def test_generate_multiple_formats_writes_png_and_bundle(
