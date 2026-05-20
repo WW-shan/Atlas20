@@ -41,8 +41,10 @@ class GeneratedReports:
     warnings: list[str]
 
 
-def _tmp_path(path: Path, suffix: str = ".tmp") -> Path:
-    return path.with_name(f"{path.name}{suffix}_{os.getpid()}_{uuid.uuid4().hex[:8]}")
+def _tmp_path(path: Path, suffix: str = ".tmp", extension: str | None = None) -> Path:
+    if extension is None:
+        return path.with_name(f"{path.name}{suffix}_{os.getpid()}_{uuid.uuid4().hex[:8]}")
+    return path.with_name(f"{path.stem}{suffix}_{os.getpid()}_{uuid.uuid4().hex[:8]}{extension}")
 
 
 def _first_existing(run_dir: Path, names: list[str]) -> Path:
@@ -180,7 +182,7 @@ def _equity_results(equity_path: Path) -> dict[str, object]:
 def _generate_png(run_dir: Path) -> Path:
     output_path = run_dir / "equity_curve.png"
     equity_path = _first_existing(run_dir, ["equity_curve.csv", "equity_curves.csv"])
-    tmp_path = output_path.with_name(f"{output_path.stem}.tmp_{os.getpid()}{output_path.suffix}")
+    tmp_path = _tmp_path(output_path, extension=output_path.suffix)
     try:
         plot_equity_curves(_equity_results(equity_path), tmp_path)
         os.replace(tmp_path, output_path)
