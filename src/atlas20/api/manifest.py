@@ -5,12 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 from atlas20.api._time import utc_now_iso
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -46,10 +49,18 @@ def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArti
     if manifest_path.exists():
         try:
             existing_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            for entry in existing_payload.get("artifacts", []):
-                existing[entry["kind"]] = entry
-        except (json.JSONDecodeError, KeyError, TypeError):
-            pass
+            if isinstance(existing_payload, dict):
+                for entry in existing_payload.get("artifacts", []):
+                    if isinstance(entry, dict) and "kind" in entry:
+                        existing[entry["kind"]] = entry
+            else:
+                logger.warning(
+                    "existing manifest at %s parsed to non-dict (%s); overwriting",
+                    manifest_path,
+                    type(existing_payload).__name__,
+                )
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("existing manifest at %s unreadable (%s); overwriting", manifest_path, exc)
 
     new_kinds = {artifact.kind for artifact in artifacts}
     rows = [existing[kind] for kind in existing if kind not in new_kinds]
