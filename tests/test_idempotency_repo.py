@@ -1,5 +1,6 @@
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from atlas20.api.db.models import IdempotencyKey
 from atlas20.api.repositories import IdempotencyRepo
 
 
@@ -17,6 +18,9 @@ def test_idempotency_repo_store_get_and_expiry(db_session: Session):
     assert row.response_json == '{"ok": true}'
 
     repo.store("expired", "POST", "/api/backtests/run", '{"ok": false}', ttl_seconds=-1)
+    repo.store("expired-2", "POST", "/api/backtests/run", '{"ok": false}', ttl_seconds=-1)
 
     assert repo.get("expired") is None
-    assert repo.purge_expired() == 1
+    assert repo.purge_expired() == 2
+    keys = db_session.exec(select(IdempotencyKey.key)).all()
+    assert keys == ["abc"]

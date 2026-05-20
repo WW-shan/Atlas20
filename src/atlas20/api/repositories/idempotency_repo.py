@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from atlas20.api import _time
@@ -42,12 +43,10 @@ class IdempotencyRepo:
         self._s.flush()
 
     def purge_expired(self) -> int:
-        rows = self._s.exec(select(IdempotencyKey)).all()
-        expired = [row for row in rows if self._is_expired(row)]
-        for row in expired:
-            self._s.delete(row)
+        stmt = delete(IdempotencyKey).where(IdempotencyKey.expires_at <= _time.utc_now())
+        result = self._s.exec(stmt)
         self._s.flush()
-        return len(expired)
+        return result.rowcount or 0
 
     def _is_expired(self, row: IdempotencyKey) -> bool:
         return _aware(row.expires_at) <= _time.utc_now()
