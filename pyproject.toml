@@ -36,6 +36,8 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "httpx>=0.28",
+  "ruff>=0.6",
+  "mypy>=1.11",
 ]
 
 [tool.setuptools]

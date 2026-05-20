@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: .
+    environment:
+      ATLAS20_ENV: dev
+      ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
+      ATLAS20_REPORT_ROOT: /app/reports
+      ATLAS20_DATA_ROOT: /app/data
+      ATLAS20_DISABLE_SCHEDULER: "0"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    ports:
+      - "8000:8000"
+  web:
+    build: ./apps/web
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"

@@ -69,6 +69,15 @@ Frontend:
 npm --prefix apps/web install
 ```
 
+## 30-Minute Quickstart
+
+1. Seed the local database once with `python -m atlas20.api.seed`.
+2. Start the API with `make dev`.
+3. Start the frontend with `npm --prefix apps/web run dev`, or launch both
+   containers with `docker compose up --build`.
+4. Check the API probe at `http://127.0.0.1:8000/healthz`.
+5. Open the web console and confirm the seeded runs and reports are visible.
+
 ## Research Commands
 
 Download and cache raw data:

@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ["v*"]
 
 jobs:
   python:
@@ -35,3 +36,53 @@ jobs:
         run: npm --prefix apps/web test
       - name: Build frontend
         run: npm --prefix apps/web run build
+
+  ruff:
+    name: Ruff lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+      - name: Run ruff
+        run: ruff check src tests
+
+  mypy:
+    name: Mypy strict API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+      - name: Run mypy
+        run: mypy --strict src/atlas20/api
+
+  tsc:
+    name: Web typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install dependencies
+        run: npm --prefix apps/web ci
+      - name: Run tsc
+        run: npm --prefix apps/web exec tsc --noEmit -p tsconfig.json
+
+  deploy:
+    name: Deploy stub
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [python, web, ruff, mypy, tsc]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print stub
+        run: echo "deploy stub"
