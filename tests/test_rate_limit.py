@@ -120,3 +120,18 @@ def test_cancel_route_rate_limited(tmp_path, monkeypatch, db_session: Session):
 
     assert statuses[:30] == [202] * 30
     assert statuses[30] == 429
+
+
+def test_favorite_route_rate_limited(tmp_path, monkeypatch, db_session: Session):
+    key = f"favorite-{uuid4().hex}"
+    client = _client(tmp_path, monkeypatch, db_session, [key])
+    headers = {"X-API-Key": key}
+
+    statuses = [
+        client.post("/api/runs/btk_0142/favorite", headers=headers).status_code for _ in range(60)
+    ]
+    response = client.post("/api/runs/btk_0142/favorite", headers=headers)
+
+    assert statuses == [200] * 60
+    assert response.status_code == 429
+    assert int(response.headers["Retry-After"]) >= 0

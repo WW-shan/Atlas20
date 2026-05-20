@@ -67,7 +67,14 @@ def get_run_detail(run_id: RunId, session: Session = Depends(get_session)) -> Ru
 
 
 @router.post("/runs/{run_id}/favorite", dependencies=[Depends(verify_api_key)])
-def post_run_favorite(run_id: RunId, session: Session = Depends(get_session)) -> dict[str, Any]:
+@limiter.limit("60/minute")
+def post_run_favorite(
+    request: Request,
+    response: Response,
+    run_id: RunId,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    del request, response
     result = services.toggle_run_favorite(session, run_id)
     if result is None:
         raise HTTPException(status_code=404, detail="run not found")
