@@ -199,7 +199,6 @@ def generate_bundle(run_id: str, run_dir: Path | None = None) -> Path:
         "summary.csv",
         "equity_curve.csv",
         "manifest.json",
-        "report_manifest.json",
     ]
     try:
         with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -271,7 +270,6 @@ def generate_run_report_with_warnings(
         files.append(_register_file(session, settings, run_id, "csv", summary_path))
 
     if "bundle" in requested:
-        write_report_manifest(run_id, run_dir, _artifacts_from_rows(settings, files))
         bundle_path = generate_bundle(run_id, run_dir)
         files.append(_register_file(session, settings, run_id, "bundle", bundle_path))
 

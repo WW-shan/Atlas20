@@ -30,3 +30,20 @@ def test_report_manifest_sha256_matches_file_content(tmp_path: Path) -> None:
     write_report_manifest("btk_0142", run_dir, [ReportArtifact(kind="markdown", path=digest)])
 
     assert verify_manifest_artifact(run_dir, digest) is True
+
+
+def test_report_manifest_merges_partial_regeneration_artifacts(tmp_path: Path) -> None:
+    run_dir = tmp_path / "reports" / "app_runs" / "btk_0142"
+    run_dir.mkdir(parents=True)
+    digest = run_dir / "digest.md"
+    digest.write_text("# Digest\n", encoding="utf-8")
+    png = run_dir / "equity_curve.png"
+    png.write_bytes(b"png-data")
+
+    write_report_manifest("btk_0142", run_dir, [ReportArtifact(kind="markdown", path=digest)])
+    manifest_path = write_report_manifest("btk_0142", run_dir, [ReportArtifact(kind="png", path=png)])
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert [artifact["kind"] for artifact in payload["artifacts"]] == ["markdown", "png"]
+    assert verify_manifest_artifact(run_dir, digest) is True
+    assert verify_manifest_artifact(run_dir, png) is True

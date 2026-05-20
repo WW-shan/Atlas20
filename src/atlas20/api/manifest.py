@@ -40,7 +40,18 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArtifact]) -> Path:
     run_dir = Path(run_dir)
-    rows = []
+    manifest_path = run_dir / "report_manifest.json"
+    existing: dict[str, dict[str, Any]] = {}
+    if manifest_path.exists():
+        try:
+            existing_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            for entry in existing_payload.get("artifacts", []):
+                existing[entry["kind"]] = entry
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
+    new_kinds = {artifact.kind for artifact in artifacts}
+    rows = [existing[kind] for kind in existing if kind not in new_kinds]
     for artifact in artifacts:
         artifact_path = Path(artifact.path)
         rows.append(
@@ -51,7 +62,6 @@ def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArti
                 "size": artifact_path.stat().st_size,
             }
         )
-    manifest_path = run_dir / "report_manifest.json"
     _atomic_write_json(
         manifest_path,
         {
