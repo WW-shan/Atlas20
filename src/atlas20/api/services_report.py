@@ -242,13 +242,13 @@ def generate_run_report_with_warnings(
 ) -> GeneratedReports:
     settings = settings or get_settings()
     requested = {str(item) for item in formats}
-    try:
-        unknown = requested - REPORT_FORMATS
-        if unknown:
-            raise HTTPException(status_code=422, detail=f"unsupported report format: {sorted(unknown)[0]}")
-        if not requested:
-            raise HTTPException(status_code=422, detail="formats must not be empty")
+    unknown = requested - REPORT_FORMATS
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"unsupported report format: {sorted(unknown)[0]}")
+    if not requested:
+        raise HTTPException(status_code=422, detail="formats must not be empty")
 
+    try:
         run = RunsRepo(session).get(run_id)
         if run is None:
             raise HTTPException(status_code=404, detail="run not found")
@@ -292,7 +292,7 @@ def generate_run_report_with_warnings(
 
         write_report_manifest(run_id, run_dir, _artifacts_from_rows(settings, files))
     except Exception:
-        for format_name in requested:
+        for format_name in requested & REPORT_FORMATS:
             record_report_generation(format_name, "failed")
         raise
     for format_name in requested:
