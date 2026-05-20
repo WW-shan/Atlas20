@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from atlas20.api.settings import Settings
 from atlas20.api.settings import get_settings
@@ -17,6 +18,7 @@ def test_settings_defaults(monkeypatch):
     assert settings.db_url == "sqlite:///./data/atlas20.sqlite"
     assert settings.secret_key == "dev-only-do-not-use-in-prod"
     assert settings.api_keys == set()
+    assert settings.cors_allow_credentials is True
     assert settings.enable_docs is True
     assert settings.report_root.name == "reports"
     assert settings.backup_root.name == "backups"
@@ -74,19 +76,52 @@ def test_prod_requires_explicit_cors_origins(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.delenv("ATLAS20_CORS_ORIGINS", raising=False)
 
-    with pytest.raises(RuntimeError, match="ATLAS20_CORS_ORIGINS must be set in prod"):
+    with pytest.raises(ValidationError, match="ATLAS20_CORS_ORIGINS must be set in prod"):
         Settings()
 
 
 def test_prod_forces_docs_disabled():
-    settings = Settings(env="prod", cors_origins=["https://example.com"], enable_docs=True)
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        secret_key="prod-secret",
+        enable_docs=True,
+    )
 
     assert settings.enable_docs is False
 
 
 def test_prod_rejects_wildcard_cors_origins():
-    with pytest.raises(RuntimeError, match="must not include"):
-        Settings(env="prod", cors_origins=["*"])
+    with pytest.raises(ValidationError, match="must not include"):
+        Settings(env="prod", cors_origins=["*"], secret_key="prod-secret")
+
+
+def test_prod_rejects_dev_cors_origins():
+    with pytest.raises(ValidationError, match="dev origins are not allowed in prod"):
+        Settings(env="prod", cors_origins=["http://localhost:5173"], secret_key="prod-secret")
+
+
+def test_prod_accepts_specific_origin_with_credentials_enabled():
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        cors_allow_credentials=True,
+        secret_key="prod-secret",
+    )
+
+    assert settings.cors_origins == ["https://example.com"]
+    assert settings.cors_allow_credentials is True
+
+
+def test_rejects_wildcard_cors_origins_with_credentials_enabled():
+    with pytest.raises(ValidationError, match=r"must not include '\*' when credentials are allowed"):
+        Settings(env="prod", cors_origins=["*"], cors_allow_credentials=True, secret_key="prod-secret")
+
+
+def test_dev_accepts_dev_cors_origins():
+    settings = Settings(env="dev", cors_origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+
+    assert settings.cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
 def test_prod_docs_can_be_disabled(monkeypatch):

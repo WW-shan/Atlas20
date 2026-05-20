@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 DEV_CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+DEV_LOCALHOST_PATTERNS = ("http://localhost:", "http://127.0.0.1:", "http://[::1]:")
 
 
 def _parse_string_collection(value: Any) -> list[str]:
@@ -35,6 +36,7 @@ def _parse_string_collection(value: Any) -> list[str]:
 class Settings(BaseSettings):
     env: Literal["dev", "test", "prod"] = "dev"
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: list(DEV_CORS_ORIGINS))
+    cors_allow_credentials: bool = True
     db_url: str = "sqlite:///./data/atlas20.sqlite"
     secret_key: str = "dev-only-do-not-use-in-prod"
     api_keys: Annotated[set[str], NoDecode] = Field(default_factory=set)
@@ -66,14 +68,22 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def enforce_prod_gates(self) -> "Settings":
+        if self.cors_allow_credentials and "*" in self.cors_origins:
+            raise ValueError("ATLAS20_CORS_ORIGINS must not include '*' when credentials are allowed")
         if self.env == "prod":
             self.enable_docs = False
             if "*" in self.cors_origins:
-                raise RuntimeError("ATLAS20_CORS_ORIGINS must not include '*' in prod")
+                raise ValueError("ATLAS20_CORS_ORIGINS must not include '*' in prod")
             if not self.cors_origins or (
                 self.cors_origins == DEV_CORS_ORIGINS and "ATLAS20_CORS_ORIGINS" not in os.environ
             ):
-                raise RuntimeError("ATLAS20_CORS_ORIGINS must be set in prod")
+                raise ValueError("ATLAS20_CORS_ORIGINS must be set in prod")
+            if any(
+                origin.startswith(pattern)
+                for origin in self.cors_origins
+                for pattern in DEV_LOCALHOST_PATTERNS
+            ):
+                raise ValueError("dev origins are not allowed in prod")
         return self
 
 
