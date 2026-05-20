@@ -101,8 +101,8 @@ export function ReportsExportsTab() {
   };
 
   const handleGenerateReport = async (payload: GenerateReportRequest) => {
-    await generateReport(payload);
-    setReportToast("Report queued for generation");
+    const response = await generateReport(payload);
+    setReportToast(response.warnings.length > 0 ? response.warnings.join("; ") : "Report queued for generation");
   };
 
   return (

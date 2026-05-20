@@ -37,7 +37,8 @@ beforeEach(() => {
   vi.mocked(api.generateReport).mockResolvedValue({
     job_id: "stub-job-001",
     status: "completed",
-    note: "report generation stubbed until Batch 12",
+    files: [],
+    warnings: [],
   });
 });
 
@@ -226,6 +227,24 @@ describe("ReportsExportsTab", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
 
     const toast = await screen.findByText("Report queued for generation");
+    expect(toast.closest("[role='status']")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("shows report generation warnings in the toast", async () => {
+    vi.mocked(api.generateReport).mockResolvedValueOnce({
+      job_id: "stub-job-002",
+      status: "completed",
+      files: [],
+      warnings: ["PDF skipped: weasyprint unavailable"],
+    });
+
+    renderWithQuery(<ReportsExportsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
+
+    const toast = await screen.findByText("PDF skipped: weasyprint unavailable");
     expect(toast.closest("[role='status']")).toHaveAttribute("aria-live", "polite");
   });
 

@@ -63,7 +63,8 @@ beforeEach(() => {
   vi.mocked(api.generateReport).mockResolvedValue({
     job_id: "stub-job-001",
     status: "completed",
-    note: "stub",
+    files: [],
+    warnings: [],
   });
 });
 

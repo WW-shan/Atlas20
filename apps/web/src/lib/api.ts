@@ -322,8 +322,9 @@ export type GenerateReportRequest = {
 
 export type GenerateReportResponse = {
   job_id: string;
-  status: "completed" | "queued";
-  note?: string;
+  status: "completed";
+  files: ReportEntry[];
+  warnings: string[];
 };
 
 // ============================================================
