@@ -8,6 +8,7 @@ services:
       ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
       ATLAS20_REPORT_ROOT: /app/reports
       ATLAS20_DATA_ROOT: /app/data
+      ATLAS20_PROJECT_ROOT: /app
       ATLAS20_DISABLE_SCHEDULER: "0"
     volumes:
       - ./data:/app/data

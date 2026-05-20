@@ -32,6 +32,21 @@ from atlas20.api.worker.recovery import recover_stale_runs
 logger = logging.getLogger(__name__)
 
 
+def _alembic_config(settings):
+    from alembic.config import Config
+
+    cwd_config = Path("alembic.ini")
+    root_config = Path(settings.project_root) / "alembic.ini"
+    config_path = cwd_config if cwd_config.exists() else root_config
+    cfg = Config(str(config_path))
+    script_location = cfg.get_main_option("script_location") if hasattr(cfg, "get_main_option") else None
+    if script_location and ":" not in script_location and hasattr(cfg, "set_main_option"):
+        script_path = Path(script_location)
+        if not script_path.is_absolute():
+            cfg.set_main_option("script_location", str((config_path.parent / script_path).resolve()))
+    return cfg
+
+
 def _init_sentry(settings) -> None:
     if not settings.sentry_dsn:
         return
@@ -57,7 +72,6 @@ def _include_health_routes(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from alembic.config import Config
     from alembic import command
 
     settings = get_settings()
@@ -70,11 +84,11 @@ async def lifespan(app: FastAPI):
         lock_path = db_path.with_suffix(".alembic.lock")
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         with FileLock(str(lock_path), timeout=60):
-            cfg = Config("alembic.ini")
+            cfg = _alembic_config(settings)
             command.upgrade(cfg, "head")
     else:
         # Postgres/MySQL: rely on alembic_version table + advisory locks (Batch 14 follow-up)
-        cfg = Config("alembic.ini")
+        cfg = _alembic_config(settings)
         command.upgrade(cfg, "head")
     try:
         with session_scope(settings) as session:

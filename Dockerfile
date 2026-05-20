@@ -24,6 +24,9 @@ USER atlas
 WORKDIR /app
 
 COPY --from=builder --chown=atlas:atlas /root/.local /home/atlas/.local
+COPY --chown=atlas:atlas alembic.ini ./alembic.ini
+COPY --chown=atlas:atlas src/atlas20/api/db/migrations ./src/atlas20/api/db/migrations
+COPY --chown=atlas:atlas config ./config
 COPY --chown=atlas:atlas docs ./docs
 
 ENV PATH=/home/atlas/.local/bin:$PATH
