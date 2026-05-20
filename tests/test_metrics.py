@@ -1,9 +1,12 @@
+import asyncio
 import json
 import logging
 import re
 from datetime import date, timedelta
+from types import SimpleNamespace
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 import pytest
 from sqlmodel import Session
@@ -13,7 +16,8 @@ from atlas20.api import services_report
 from atlas20.api._time import utc_now
 from atlas20.api.app import create_app
 from atlas20.api.db.models import Run
-from atlas20.api.repositories import RunsRepo
+from atlas20.api.dependencies import ratelimit
+from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.settings import get_settings
 
 
@@ -27,6 +31,16 @@ def _app(tmp_path, monkeypatch):
     monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{(tmp_path / 'metrics.sqlite').as_posix()}")
     get_settings.cache_clear()
     return create_app()
+
+
+def _app_with_session(tmp_path, monkeypatch, db_session: Session):
+    app = _app(tmp_path, monkeypatch)
+
+    def override_get_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    return app
 
 
 def _access_records(output: str) -> list[dict[str, object]]:
@@ -151,6 +165,85 @@ def test_report_generation_metric_failure_is_logged_without_breaking_flow(
 
     assert [file.kind for file in result.files] == ["markdown"]
     assert "failed to record report generation metric" in caplog.text
+
+
+def test_rate_limit_handler_does_not_emit_raw_path_for_unmatched_route(monkeypatch) -> None:
+    recorded: list[str] = []
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/runs/btk_0142/cancel",
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "client": ("testclient", 50000),
+        }
+    )
+
+    monkeypatch.setattr(ratelimit, "record_rate_limit_hit", recorded.append)
+    monkeypatch.setattr(
+        ratelimit,
+        "_rate_limit_exceeded_handler",
+        lambda request, exc: JSONResponse({"error": "limited"}, status_code=429),
+    )
+
+    response = asyncio.run(ratelimit.rate_limit_exceeded_handler(request, object()))
+
+    assert response.status_code == 429
+    assert recorded == []
+
+
+def test_rate_limit_metric_is_prewarmed_and_uses_templated_route(
+    tmp_path, monkeypatch, db_session: Session
+) -> None:
+    with TestClient(_app_with_session(tmp_path, monkeypatch, db_session)) as client:
+        initial_body = client.get("/metrics").text
+        statuses = [client.post("/api/runs/btk_0148/cancel").status_code for _ in range(31)]
+        body = client.get("/metrics").text
+
+    assert 'atlas20_rate_limit_hits_total{route="unmatched"} 0.0' in initial_body
+    assert statuses[:30] == [202] * 30
+    assert statuses[30] == 429
+    assert 'atlas20_rate_limit_hits_total{route="/api/runs/{run_id}/cancel"} 1.0' in body
+    assert 'route="/api/runs/btk_0148/cancel"' not in body
+
+
+def test_rate_limit_metric_failure_still_returns_429(
+    monkeypatch, caplog
+) -> None:
+    route_path = "/api/runs/{run_id}/cancel"
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/runs/btk_0148/cancel",
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "client": ("testclient", 50000),
+            "route": SimpleNamespace(path=route_path),
+        }
+    )
+    counter = _metrics.RATE_LIMIT_HITS_TOTAL.labels(route=route_path)
+
+    def fail_inc() -> None:
+        raise RuntimeError("counter unavailable")
+
+    monkeypatch.setattr(counter, "inc", fail_inc)
+    monkeypatch.setattr(
+        ratelimit,
+        "_rate_limit_exceeded_handler",
+        lambda request, exc: JSONResponse({"error": "limited"}, status_code=429),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="atlas20.api._metrics"):
+        response = asyncio.run(ratelimit.rate_limit_exceeded_handler(request, object()))
+
+    assert response.status_code == 429
+    assert "failed to record rate limit metric" in caplog.text
 
 
 def test_metrics_and_readiness_are_excluded_from_access_log(tmp_path, monkeypatch, capsys) -> None:

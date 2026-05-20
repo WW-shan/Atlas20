@@ -27,8 +27,9 @@ def reset_rate_limit_storage() -> None:
 
 async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
     route = request.scope.get("route")
-    route_path = getattr(route, "path", None) or request.url.path
-    record_rate_limit_hit(route_path)
+    route_path = getattr(route, "path", None)
+    if route_path:
+        record_rate_limit_hit(route_path)
     response = _rate_limit_exceeded_handler(request, exc)
     if inspect.isawaitable(response):
         return await response

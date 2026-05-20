@@ -37,6 +37,7 @@ for _status in TERMINAL_BACKTEST_STATUSES:
 for _format in REPORT_FORMATS:
     for _status in REPORT_STATUSES:
         REPORT_GENERATIONS_TOTAL.labels(format=_format, status=_status)
+RATE_LIMIT_HITS_TOTAL.labels(route="unmatched")
 
 
 def record_backtest_terminal(status: str, duration_seconds: float | None = None) -> None:
