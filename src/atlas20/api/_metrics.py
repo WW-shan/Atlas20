@@ -69,6 +69,9 @@ def record_report_generation(format_name: str, status: str) -> None:
     if format_name not in REPORT_FORMATS:
         logger.warning("ignoring metric for unknown report format: %s", format_name)
         return
+    if status not in REPORT_STATUSES:
+        logger.warning("ignoring metric for unknown report status: %s", status)
+        return
     try:
         REPORT_GENERATIONS_TOTAL.labels(format=format_name, status=status).inc()
     except Exception:

@@ -263,6 +263,26 @@ def test_record_report_generation_ignores_unknown_report_format(caplog) -> None:
     assert "ignoring metric for unknown report format: __not_a_format__" in caplog.text
 
 
+def test_record_report_generation_ignores_unknown_report_status(caplog) -> None:
+    unknown_status = "in_progress"
+
+    assert all(
+        sample.labels.get("status") != unknown_status
+        for metric in _metrics.REPORT_GENERATIONS_TOTAL.collect()
+        for sample in metric.samples
+    )
+
+    with caplog.at_level(logging.WARNING, logger="atlas20.api._metrics"):
+        _metrics.record_report_generation("markdown", unknown_status)
+
+    assert all(
+        sample.labels.get("status") != unknown_status
+        for metric in _metrics.REPORT_GENERATIONS_TOTAL.collect()
+        for sample in metric.samples
+    )
+    assert "ignoring metric for unknown report status: in_progress" in caplog.text
+
+
 def test_generate_report_without_completed_run_records_skipped_metric(
     tmp_path, monkeypatch, db_session: Session
 ) -> None:
