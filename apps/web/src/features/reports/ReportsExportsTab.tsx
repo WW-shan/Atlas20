@@ -9,6 +9,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { Pill } from "../../components/ui/Pill";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { Toast } from "../../components/ui/Toast";
 import { FeaturedDigestHero } from "../../components/reports/FeaturedDigestHero";
 import { ReportCard } from "../../components/reports/ReportCard";
 import { NewReportModal } from "./NewReportModal";
@@ -107,22 +108,7 @@ export function ReportsExportsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
       {reportToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            alignSelf: "flex-end",
-            padding: "8px 12px",
-            borderRadius: "var(--radius-input)",
-            border: "1px solid rgba(34,197,94,0.35)",
-            background: "rgba(34,197,94,0.10)",
-            color: "var(--text)",
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          {reportToast}
-        </div>
+        <Toast>{reportToast}</Toast>
       )}
       {featured.isLoading && <FeaturedDigestLoading />}
       {featured.isError && (

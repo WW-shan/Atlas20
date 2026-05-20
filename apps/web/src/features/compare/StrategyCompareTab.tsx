@@ -83,10 +83,12 @@ export function StrategyCompareTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
       {/* ===== Chip cluster ===== */}
       <Card ariaLabel="Strategy selection">
-        <div role="list" aria-label="Selected strategies" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-          {selections.map((s) => (
-            <StrategyChip key={s.id} item={s} />
-          ))}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <div role="list" aria-label="Selected strategies" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            {selections.map((s) => (
+              <StrategyChip key={s.id} item={s} />
+            ))}
+          </div>
           <AddStrategyChip onClick={() => setAddModalOpen(true)} />
           <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>
             <span className="mono">{selections.length}</span> selected
@@ -169,7 +171,6 @@ export function StrategyCompareTab() {
           <div style={{ marginTop: 12, fontSize: 11, color: "var(--muted)" }}>
             <span
               className="mono"
-              aria-label="Best per row legend"
               style={{
                 display: "inline-block",
                 padding: "1px 8px",

@@ -34,6 +34,11 @@ export function SharedHoldingsBars({ holdings }: Props) {
               {h.symbol}
             </span>
             <div
+              role="meter"
+              aria-valuemin={0}
+              aria-valuemax={h.total}
+              aria-valuenow={h.count}
+              aria-label={`${h.symbol} appears in ${h.count} of ${h.total} strategies`}
               style={{
                 position: "relative",
                 height: 8,
@@ -41,7 +46,6 @@ export function SharedHoldingsBars({ holdings }: Props) {
                 borderRadius: 4,
                 overflow: "hidden",
               }}
-              aria-label={`${h.symbol} appears in ${h.count} of ${h.total} strategies`}
             >
               <div
                 style={{

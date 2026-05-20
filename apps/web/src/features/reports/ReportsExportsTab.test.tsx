@@ -225,7 +225,8 @@ describe("ReportsExportsTab", () => {
     const dialog = await screen.findByRole("dialog", { name: "New report" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
 
-    expect(await screen.findByText("Report queued for generation")).toBeInTheDocument();
+    const toast = await screen.findByText("Report queued for generation");
+    expect(toast.closest("[role='status']")).toHaveAttribute("aria-live", "polite");
   });
 
   it("generating card disables its DOWNLOAD button", async () => {

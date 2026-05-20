@@ -80,6 +80,25 @@ body {
   color: var(--muted);
 }
 
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1001;
+  padding: 8px 12px;
+  border-radius: var(--radius-input);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  transform: translateY(-200%);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 .text-gold   { color: var(--gold); }
 .text-violet { color: var(--violet); }
 .text-emerald{ color: var(--emerald); }
@@ -489,6 +508,57 @@ select {
   .app-shell {
     width: min(100% - 24px, 1500px);
     padding-top: 14px;
+  }
+
+  .topnav {
+    height: auto !important;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .topnav-left,
+  .topnav-center,
+  .topnav-right {
+    width: 100%;
+  }
+
+  .topnav-center {
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .topnav-tabs {
+    width: max-content;
+    min-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .topnav-tab {
+    flex: 0 0 auto;
+  }
+
+  .topnav-right {
+    margin-left: 0;
+  }
+
+  .topnav-search__input {
+    width: 100%;
+  }
+
+  .page-header {
+    min-height: auto !important;
+    padding: 0 var(--space-3);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .page-header-left {
+    flex-wrap: wrap;
   }
 
   .topbar {

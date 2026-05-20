@@ -37,6 +37,7 @@ test("renders Atlas20 Research Console with 6 tabs", async () => {
   renderWithQuery(<ResearchConsolePage />);
 
   expect(screen.getByText("ATLAS20")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main-content");
 
   for (const name of tabNames) {
     expect(screen.getByRole("tab", { name })).toBeInTheDocument();
@@ -58,6 +59,19 @@ test("clicking tab switches content", async () => {
   expect(reportsTab).toHaveAttribute("aria-selected", "true");
   expect(overviewTab).toHaveAttribute("aria-selected", "false");
   expect(await screen.findByText("FEATURED DIGEST")).toBeInTheDocument();
+});
+
+test("skip link is the first focusable element in DOM order", () => {
+  renderWithQuery(<ResearchConsolePage />);
+
+  const focusables = Array.from(
+    document.querySelectorAll(
+      "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+    ),
+  ).filter((el): el is HTMLElement => el instanceof HTMLElement);
+
+  expect(focusables[0]).toBe(screen.getByRole("link", { name: "Skip to content" }));
+  expect(document.getElementById("main-content")).toBeInTheDocument();
 });
 
 test("shows a page skeleton while the overview query is loading", () => {

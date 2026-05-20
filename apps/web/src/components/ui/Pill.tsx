@@ -32,6 +32,7 @@ export function Pill({ tone, size = "sm", pulse, children }: PillProps) {
   return (
     <span
       role="status"
+      aria-live="polite"
       style={{
         display: "inline-flex",
         alignItems: "center",

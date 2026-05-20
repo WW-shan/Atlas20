@@ -10,6 +10,7 @@ import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { ErrorBoundary } from "../components/ui/ErrorBoundary";
 import { Pill } from "../components/ui/Pill";
 import { Skeleton } from "../components/ui/Skeleton";
 import { getOverview } from "../lib/api";
@@ -56,10 +57,13 @@ export function ResearchConsolePage() {
   const showOverviewStale = nav.tab === "overview" && overviewFailed && overviewData !== undefined;
 
   return (
-    <AppShell
-      actions={<TabSwitcher value={nav.tab} onChange={(t) => dispatch({ type: "SET_TAB", tab: t })} />}
-    >
-      <div className="page-header" style={{ height: "var(--pageheader-h)" }}>
+    <>
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      <AppShell
+        actions={<TabSwitcher value={nav.tab} onChange={(t) => dispatch({ type: "SET_TAB", tab: t })} />}
+      >
+        <div id="main-content">
+      <div className="page-header" style={{ minHeight: "var(--pageheader-h)" }}>
         <div className="page-header-left">
           <h2 className="page-header__title">{pageTitle}</h2>
           <span className="page-header__sub muted">{subtitle}</span>
@@ -93,24 +97,38 @@ export function ResearchConsolePage() {
         </div>
       )}
       {nav.tab === "overview" && overviewData && (
-        <OverviewTab overview={overviewData} onNavigate={navigate} />
+        <ErrorBoundary>
+          <OverviewTab overview={overviewData} onNavigate={navigate} />
+        </ErrorBoundary>
       )}
       {nav.tab === "backtest" && (
-        <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
+        <ErrorBoundary>
+          <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
+        </ErrorBoundary>
       )}
       {nav.tab === "compare" && (
-        <StrategyCompareTab />
+        <ErrorBoundary>
+          <StrategyCompareTab />
+        </ErrorBoundary>
       )}
       {nav.tab === "history" && (
-        <RunHistoryTab onNavigate={navigate} />
+        <ErrorBoundary>
+          <RunHistoryTab onNavigate={navigate} />
+        </ErrorBoundary>
       )}
       {nav.tab === "universe" && (
-        <UniverseHealthTab />
+        <ErrorBoundary>
+          <UniverseHealthTab />
+        </ErrorBoundary>
       )}
       {nav.tab === "reports" && (
-        <ReportsExportsTab />
+        <ErrorBoundary>
+          <ReportsExportsTab />
+        </ErrorBoundary>
       )}
-    </AppShell>
+        </div>
+      </AppShell>
+    </>
   );
 }
 
