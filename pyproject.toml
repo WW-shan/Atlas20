@@ -49,3 +49,31 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+disallow_any_explicit = false
+disallow_untyped_defs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+  "apscheduler",
+  "apscheduler.*",
+  "markdown",
+  "markdown.*",
+  "pandas",
+  "pandas.*",
+  "slowapi",
+  "slowapi.*",
+  "weasyprint",
+  "weasyprint.*",
+  "yaml",
+  "yaml.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "atlas20.config"
+follow_imports = "skip"

@@ -402,7 +402,7 @@ class GenerateReportRequest(StrictApiModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_single_format(cls, data):
+    def normalize_single_format(cls, data: object) -> object:
         if isinstance(data, dict) and not data.get("formats") and data.get("format"):
             data = dict(data)
             data["formats"] = [data["format"]]
