@@ -45,3 +45,30 @@ def test_detect_secret_patterns_allows_public_project_names(tmp_path):
     text.write_text('{"name": "Secret Network", "platform": "secret"}', encoding="utf-8")
 
     assert module.detect_secret_patterns([text]) == []
+
+
+def test_detect_secret_patterns_honors_exclude_paths(tmp_path, monkeypatch):
+    module = _load_module()
+    monkeypatch.setattr(module, "PROJECT_ROOT", tmp_path)
+
+    credential_name = "pass" + "word"
+    body = f"{credential_name} = 'cleartext'"
+
+    archived = tmp_path / ".ccg" / "tasks" / "archive" / "batch-x" / "notes.md"
+    archived.parent.mkdir(parents=True)
+    archived.write_text(body, encoding="utf-8")
+
+    test_dummy = tmp_path / "tests" / "test_dummy.py"
+    test_dummy.parent.mkdir(parents=True)
+    test_dummy.write_text(body, encoding="utf-8")
+
+    real_source = tmp_path / "src" / "real.py"
+    real_source.parent.mkdir(parents=True)
+    real_source.write_text(body, encoding="utf-8")
+
+    findings = module.detect_secret_patterns([archived, test_dummy, real_source])
+
+    # Archive + tests are excluded; only the real source file is flagged.
+    assert findings == [
+        module.Finding(path=real_source, message="matches secret pattern: credential assignment"),
+    ]
