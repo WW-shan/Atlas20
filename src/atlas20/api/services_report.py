@@ -295,7 +295,7 @@ def generate_run_report_with_warnings(
         for format_name in requested & REPORT_FORMATS:
             record_report_generation(format_name, "failed")
         raise
-    for format_name in requested:
+    for format_name in requested & REPORT_FORMATS:
         record_report_generation(format_name, "completed")
     return GeneratedReports(files=files, warnings=warnings)
 
