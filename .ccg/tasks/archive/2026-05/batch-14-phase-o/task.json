@@ -1,0 +1,31 @@
+{
+  "id": "batch-14-phase-o",
+  "title": "Batch 14 Phase O — observability (Prometheus, Sentry, health, log rotate+redact, scheduler file-lock)",
+  "status": "completed",
+  "complexity": "L+",
+  "risk": "medium",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Proceed to Batch 15 (Phase D + A polish)",
+  "createdAt": "2026-05-20T20:50:00+08:00",
+  "completedAt": "2026-05-20T22:15:00+08:00",
+  "branch": "redesign/r3-premium",
+  "builder_commit": "4d075be",
+  "commits": [
+    "4d075be",
+    "60bb6fd",
+    "8b32ec5",
+    "ea939e2",
+    "172ded5",
+    "6f0f753",
+    "ac60716",
+    "001e67a",
+    "f6fc3e6",
+    "913b20f",
+    "558bb7a",
+    "86e3fa0",
+    "b8dab71",
+    "31ad1ef",
+    "dc7a44e"
+  ]
+}
