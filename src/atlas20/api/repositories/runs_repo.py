@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timezone
 from typing import Any
 
+import structlog
 from sqlalchemy import case, func, or_, text, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -12,6 +13,8 @@ from sqlmodel import Session, select
 from atlas20.api._metrics import TERMINAL_BACKTEST_STATUSES, record_backtest_terminal
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
+
+logger = structlog.get_logger(__name__)
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
@@ -35,7 +38,16 @@ def _record_terminal_transition(previous_status: str | None, run: Run | None) ->
         return
     if previous_status in TERMINAL_BACKTEST_STATUSES:
         return
-    record_backtest_terminal(run.status, terminal_duration_seconds(run))
+    duration = terminal_duration_seconds(run)
+    record_backtest_terminal(run.status, duration)
+    logger.info(
+        "backtest.terminal",
+        run_id=run.run_id,
+        previous_status=previous_status,
+        status=run.status,
+        duration_s=duration,
+        strategy=run.strategy,
+    )
 
 
 class RunsRepo:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import structlog
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -11,6 +12,8 @@ from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
 from atlas20.api.repositories.runs_repo import terminal_duration_seconds
+
+logger = structlog.get_logger(__name__)
 
 
 class WorkerQueue:
@@ -36,6 +39,13 @@ class WorkerQueue:
             return None
 
         now = utc_now()
+        logger.info(
+            "backtest.claimed",
+            run_id=candidate.run_id,
+            previous_status=candidate.status,
+            status="running",
+            worker_pid=os.getpid(),
+        )
         candidate.status = "running"
         candidate.worker_pid = os.getpid()
         candidate.started_at = now

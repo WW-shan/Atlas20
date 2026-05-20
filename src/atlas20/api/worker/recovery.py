@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import structlog
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
@@ -11,6 +12,8 @@ from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
 from atlas20.api.repositories.runs_repo import terminal_duration_seconds
+
+logger = structlog.get_logger(__name__)
 
 
 STALE_HEARTBEAT_ERROR = "worker died - heartbeat stale"
@@ -26,9 +29,18 @@ def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
         )
     ).all()
     for run in stale_runs:
+        duration = terminal_duration_seconds(run)
         run.status = "failed"
         run.error = STALE_HEARTBEAT_ERROR
-        record_backtest_terminal("failed", terminal_duration_seconds(run))
+        record_backtest_terminal("failed", duration)
+        logger.info(
+            "backtest.terminal",
+            run_id=run.run_id,
+            previous_status="running",
+            status=run.status,
+            duration_s=duration,
+            strategy=run.strategy,
+        )
         run.worker_pid = None
         run.heartbeat_at = None
         session.add(run)
@@ -42,9 +54,18 @@ def recover_my_own_stale_runs(session: Session, my_pid: int) -> int:
     ).all()
     count = 0
     for run in runs:
+        duration = terminal_duration_seconds(run)
         run.status = "failed"
         run.error = RESTART_RECOVERY_ERROR
-        record_backtest_terminal("failed", terminal_duration_seconds(run))
+        record_backtest_terminal("failed", duration)
+        logger.info(
+            "backtest.terminal",
+            run_id=run.run_id,
+            previous_status="running",
+            status=run.status,
+            duration_s=duration,
+            strategy=run.strategy,
+        )
         session.add(run)
         count += 1
     session.commit()
