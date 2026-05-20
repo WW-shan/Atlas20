@@ -178,8 +178,6 @@ def _equity_results(equity_path: Path) -> dict[str, object]:
 
 def _generate_png(run_dir: Path) -> Path:
     output_path = run_dir / "equity_curve.png"
-    if output_path.exists():
-        return output_path
     equity_path = _first_existing(run_dir, ["equity_curve.csv", "equity_curves.csv"])
     tmp_path = output_path.with_name(f"{output_path.stem}.tmp_{os.getpid()}{output_path.suffix}")
     try:

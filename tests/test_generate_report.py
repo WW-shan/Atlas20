@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -161,6 +162,31 @@ def test_generate_multiple_formats_writes_png_and_bundle(
     assert {"markdown", "png", "bundle"}.issubset(kinds)
     for item in files:
         assert (report_root / item["path"]).exists()
+
+
+def test_generate_png_regenerates_existing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = _prepare_run(db_session, report_root)
+
+    first_response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["png"]})
+    assert first_response.status_code == 202
+    png = run_dir / "equity_curve.png"
+    first_mtime = png.stat().st_mtime_ns
+
+    time.sleep(1.1)
+    (run_dir / "equity_curve.csv").write_text(
+        "date,BTC_BH__always_on,TOP20_MOM_alpha\n"
+        "2026-01-01,1.0,1.0\n"
+        "2026-01-02,1.2,1.5\n",
+        encoding="utf-8",
+    )
+    second_response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["png"]})
+
+    assert second_response.status_code == 202
+    assert png.stat().st_mtime_ns > first_mtime
 
 
 def test_generate_pdf_skips_when_weasyprint_unavailable(
