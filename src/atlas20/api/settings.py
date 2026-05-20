@@ -6,15 +6,17 @@ import json
 import os
 from datetime import date
 from functools import lru_cache
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 DEV_CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
-DEV_LOCALHOST_PATTERNS = ("http://localhost:", "http://127.0.0.1:", "http://[::1]:")
+DEV_LOCALHOST_HOSTS = {"localhost"}
 
 
 def _parse_string_collection(value: Any) -> list[str]:
@@ -31,6 +33,18 @@ def _parse_string_collection(value: Any) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(item).strip() for item in value if str(item).strip()]
     raise TypeError("expected comma-separated string or collection")
+
+
+def _is_dev_origin(origin: str) -> bool:
+    hostname = urlsplit(origin).hostname
+    if hostname is None:
+        return False
+    if hostname.lower() in DEV_LOCALHOST_HOSTS:
+        return True
+    try:
+        return ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -78,11 +92,7 @@ class Settings(BaseSettings):
                 self.cors_origins == DEV_CORS_ORIGINS and "ATLAS20_CORS_ORIGINS" not in os.environ
             ):
                 raise ValueError("ATLAS20_CORS_ORIGINS must be set in prod")
-            if any(
-                origin.startswith(pattern)
-                for origin in self.cors_origins
-                for pattern in DEV_LOCALHOST_PATTERNS
-            ):
+            if any(_is_dev_origin(origin) for origin in self.cors_origins):
                 raise ValueError("dev origins are not allowed in prod")
             if self.secret_key == "dev-only-do-not-use-in-prod":
                 raise ValueError("ATLAS20_SECRET_KEY must be set to a real secret in prod")

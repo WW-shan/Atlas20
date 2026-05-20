@@ -96,9 +96,20 @@ def test_prod_rejects_wildcard_cors_origins():
         Settings(env="prod", cors_origins=["*"], secret_key="prod-secret")
 
 
-def test_prod_rejects_dev_cors_origins():
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://localhost:5173",
+        "http://localhost",
+        "https://localhost:5173",
+        "http://127.0.0.1",
+        "http://127.0.0.2",
+        "http://[::1]:5173",
+    ],
+)
+def test_prod_rejects_dev_cors_origins(origin):
     with pytest.raises(ValidationError, match="dev origins are not allowed in prod"):
-        Settings(env="prod", cors_origins=["http://localhost:5173"], secret_key="prod-secret")
+        Settings(env="prod", cors_origins=[origin], secret_key="prod-secret")
 
 
 def test_prod_accepts_specific_origin_with_credentials_enabled():
