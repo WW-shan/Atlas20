@@ -150,6 +150,13 @@ def test_compare_endpoint_returns_compare_payload(client: TestClient):
     assert payload.overlap.symbols == ["ATLAS v3", "Momentum", "MeanRev"]
 
 
+def test_compare_endpoint_rejects_unknown_query_params(client: TestClient):
+    response = client.get("/api/compare?ids=atlas&ranges=YTD")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "unknown query parameter(s): ranges"
+
+
 def test_universe_timeline_endpoint_returns_timeline(client: TestClient):
     response = client.get("/api/universe/timeline")
 
