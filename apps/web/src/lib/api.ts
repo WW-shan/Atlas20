@@ -113,7 +113,7 @@ export type RunRow = {
   favorited?: boolean;
 };
 
-export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "duration_s" | "eta_s"> & {
+export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "duration_s" | "eta_s" | "favorited"> & {
   params_summary: string;
 };
 

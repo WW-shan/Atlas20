@@ -121,6 +121,7 @@ def _run_to_summary(run: Run) -> RunRowSummary:
             "duration_s": run.duration_s,
             "eta_s": run.eta_s,
             "params_summary": _params_summary_from_run(run),
+            "favorited": run.favorited,
         }
     )
 

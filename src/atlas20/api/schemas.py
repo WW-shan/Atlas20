@@ -169,6 +169,7 @@ class RunRowSummary(ApiModel):
     duration_s: int | None = None
     eta_s: int | None = None
     params_summary: str
+    favorited: bool | None = None
 
 
 class RunDetailEquityOverlay(ApiModel):

@@ -61,5 +61,8 @@ def test_favorite_toggle_keeps_queue_endpoint_db_backed(client: TestClient, db_s
 
     after = client.get("/api/runs/queue")
     assert after.status_code == 200
-    after_ids = [item["run_id"] for item in after.json()]
+    after_payload = after.json()
+    after_ids = [item["run_id"] for item in after_payload]
     assert after_ids == before_ids
+    queue_row = next(item for item in after_payload if item["run_id"] == run_id)
+    assert queue_row["favorited"] is True
