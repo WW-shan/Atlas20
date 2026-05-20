@@ -15,6 +15,21 @@ services:
       - ./reports:/app/reports
     ports:
       - "8000:8000"
+  worker:
+    build: .
+    command: ["python", "-m", "atlas20.api.worker.main"]
+    environment:
+      ATLAS20_ENV: dev
+      ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
+      ATLAS20_REPORT_ROOT: /app/reports
+      ATLAS20_DATA_ROOT: /app/data
+      ATLAS20_PROJECT_ROOT: /app
+      ATLAS20_DISABLE_SCHEDULER: "1"
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    depends_on:
+      - backend
   web:
     build: ./apps/web
     depends_on:

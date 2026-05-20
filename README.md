@@ -74,11 +74,14 @@ npm --prefix apps/web install
 1. Seed the local database once with `python -m atlas20.api.seed`.
 2. Start the API with `make dev`.
 3. Start the frontend with `npm --prefix apps/web run dev`.
-4. For Docker, launch both containers with `docker compose up -d --build`,
+4. In another terminal, start the worker with
+   `python -m atlas20.api.worker.main`.
+5. For Docker, launch the API, worker, and web containers with
+   `docker compose up -d --build`,
    then seed the mounted data volume with
    `docker compose exec backend python -m atlas20.api.seed`.
-5. Check the API probe at `http://127.0.0.1:8000/healthz`.
-6. Open the web console and confirm the seeded runs and reports are visible.
+6. Check the API probe at `http://127.0.0.1:8000/healthz`.
+7. Open the web console and confirm the seeded runs and reports are visible.
 
 ## Research Commands
 
