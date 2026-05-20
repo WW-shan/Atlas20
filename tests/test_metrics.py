@@ -303,6 +303,32 @@ def test_generate_report_without_completed_run_records_skipped_metric(
     assert after == before + 1
 
 
+def test_generate_report_legacy_httpexception_fallback_records_skipped_metric(
+    tmp_path, monkeypatch, db_session: Session
+) -> None:
+    """When req.run_id is None and the auto-selected run raises HTTPException
+    during generation, the legacy fallback branch must still record skipped
+    metrics (mirrors the no-run path's metric emission)."""
+    from atlas20.api.routes import reports as reports_route
+    from fastapi import HTTPException
+
+    def _raise(*args, **kwargs):
+        raise HTTPException(status_code=404, detail="run output missing")
+
+    monkeypatch.setattr(reports_route, "generate_run_report_with_warnings", _raise)
+
+    with TestClient(_app_with_session(tmp_path, monkeypatch, db_session)) as client:
+        before = _report_metric_value(client.get("/metrics").text, "pdf", "skipped")
+        response = client.post("/api/reports/generate", json={"formats": ["pdf"]})
+        after = _report_metric_value(client.get("/metrics").text, "pdf", "skipped")
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
+    assert response.json()["files"] == []
+    assert "generation skipped" in response.json()["warnings"][0]
+    assert after == before + 1
+
+
 def test_report_generation_metric_failure_is_logged_without_breaking_flow(
     tmp_path, monkeypatch, caplog, db_session: Session
 ) -> None:
