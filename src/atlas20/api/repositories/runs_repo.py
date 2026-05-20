@@ -20,6 +20,11 @@ RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 def terminal_duration_seconds(run: Run) -> float | None:
     if run.duration_s is not None:
         return float(run.duration_s)
+    # Worker-written duration_s is authoritative when present.
+    # Otherwise use started_at to derive an upper-bound proxy for finished_at
+    # at the point the terminal update is committed.
+    # If neither timestamp is available, return None so the histogram stays
+    # silent rather than recording a misleading zero.
     if run.started_at is None:
         return None
     return (utc_now() - run.started_at).total_seconds()

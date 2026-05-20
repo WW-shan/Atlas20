@@ -18,6 +18,7 @@ from atlas20.api.app import create_app
 from atlas20.api.db.models import Run
 from atlas20.api.dependencies import ratelimit
 from atlas20.api.repositories import RunsRepo, get_session
+from atlas20.api.repositories.runs_repo import terminal_duration_seconds
 from atlas20.api.settings import get_settings
 from atlas20.api.worker.queue import WorkerQueue
 from atlas20.api.worker.recovery import recover_stale_runs
@@ -144,6 +145,26 @@ def test_recovery_increments_failed_backtest_counter(tmp_path, monkeypatch, db_s
         after = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "failed")
 
     assert after == before + 1
+
+
+def test_terminal_duration_semantics_drive_histogram_observation(monkeypatch) -> None:
+    observed: list[float] = []
+    monkeypatch.setattr(_metrics.BACKTEST_DURATION_SECONDS, "observe", observed.append)
+
+    authoritative = SimpleNamespace(duration_s=42.5, started_at=utc_now() - timedelta(seconds=90))
+    _metrics.record_backtest_terminal("completed", terminal_duration_seconds(authoritative))
+    assert observed == [42.5]
+
+    observed.clear()
+    started_only = SimpleNamespace(duration_s=None, started_at=utc_now() - timedelta(seconds=10))
+    _metrics.record_backtest_terminal("completed", terminal_duration_seconds(started_only))
+    assert len(observed) == 1
+    assert 9.0 <= observed[0] <= 12.0
+
+    observed.clear()
+    unknown = SimpleNamespace(duration_s=None, started_at=None)
+    _metrics.record_backtest_terminal("completed", terminal_duration_seconds(unknown))
+    assert observed == []
 
 
 def test_record_backtest_terminal_swallows_counter_errors(monkeypatch, caplog) -> None:
