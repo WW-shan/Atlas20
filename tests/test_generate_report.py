@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 
@@ -174,9 +175,9 @@ def test_generate_png_regenerates_existing_file(
     first_response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["png"]})
     assert first_response.status_code == 202
     png = run_dir / "equity_curve.png"
-    first_mtime = png.stat().st_mtime_ns
+    past_mtime_ns = time.time_ns() - 5_000_000_000
+    os.utime(png, ns=(past_mtime_ns, past_mtime_ns))
 
-    time.sleep(1.1)
     (run_dir / "equity_curve.csv").write_text(
         "date,BTC_BH__always_on,TOP20_MOM_alpha\n"
         "2026-01-01,1.0,1.0\n"
@@ -186,7 +187,7 @@ def test_generate_png_regenerates_existing_file(
     second_response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["png"]})
 
     assert second_response.status_code == 202
-    assert png.stat().st_mtime_ns > first_mtime
+    assert png.stat().st_mtime_ns > past_mtime_ns
 
 
 def test_generate_pdf_skips_when_weasyprint_unavailable(
