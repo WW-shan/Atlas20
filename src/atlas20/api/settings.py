@@ -84,6 +84,8 @@ class Settings(BaseSettings):
                 for pattern in DEV_LOCALHOST_PATTERNS
             ):
                 raise ValueError("dev origins are not allowed in prod")
+            if self.secret_key == "dev-only-do-not-use-in-prod":
+                raise ValueError("ATLAS20_SECRET_KEY must be set to a real secret in prod")
         return self
 
 

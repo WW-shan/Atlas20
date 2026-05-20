@@ -124,6 +124,17 @@ def test_dev_accepts_dev_cors_origins():
     assert settings.cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
+def test_prod_rejects_default_secret_key():
+    with pytest.raises(ValidationError, match="ATLAS20_SECRET_KEY must be set to a real secret in prod"):
+        Settings(env="prod", cors_origins=["https://example.com"])
+
+
+def test_prod_accepts_explicit_secret_key():
+    settings = Settings(env="prod", cors_origins=["https://example.com"], secret_key="prod-secret")
+
+    assert settings.secret_key == "prod-secret"
+
+
 def test_prod_docs_can_be_disabled(monkeypatch):
     from fastapi.testclient import TestClient
 
@@ -131,6 +142,7 @@ def test_prod_docs_can_be_disabled(monkeypatch):
 
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     get_settings.cache_clear()
 
@@ -147,6 +159,7 @@ def test_prod_docs_are_disabled_even_when_enabled_in_env(monkeypatch):
 
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "true")
     get_settings.cache_clear()
 
