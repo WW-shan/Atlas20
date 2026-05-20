@@ -316,6 +316,7 @@ export type ReportEntry = {
 export type GenerateReportRequest = {
   type: ReportEntry["report_type"];
   formats: ReportFormat[];
+  run_id?: string;
   strategy?: string | null;
   notes?: string | null;
 };

@@ -13,6 +13,7 @@ vi.mock("../../lib/api", async () => {
     getRunDetail: vi.fn(),
     listRunsQueue: vi.fn(),
     runBacktest: vi.fn(),
+    generateReport: vi.fn(),
   };
 });
 
@@ -29,6 +30,12 @@ beforeEach(() => {
   vi.mocked(api.getRunDetail).mockResolvedValue(api.fallbackRunDetail);
   vi.mocked(api.listRunsQueue).mockResolvedValue(api.fallbackRunsQueue);
   vi.mocked(api.runBacktest).mockResolvedValue(api.fallbackRunsQueue[0]);
+  vi.mocked(api.generateReport).mockResolvedValue({
+    job_id: "report-btk_0142",
+    status: "completed",
+    files: [],
+    warnings: [],
+  });
 });
 
 describe("BacktestStudioTab", () => {
@@ -64,6 +71,19 @@ describe("BacktestStudioTab", () => {
   it("renders + NEW RUN button", async () => {
     renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
     expect(await screen.findByRole("button", { name: /\+ NEW RUN/ })).toBeInTheDocument();
+  });
+
+  it("regenerates a report for the selected run", async () => {
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    const button = await screen.findByRole("button", { name: "Regenerate this run's report" });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+
+    await waitFor(() => expect(api.generateReport).toHaveBeenCalledWith({
+      type: "run",
+      run_id: "btk_0142",
+      formats: ["markdown", "pdf", "png", "bundle"],
+    }));
   });
 
   it("renders Run Queue header with active count", async () => {

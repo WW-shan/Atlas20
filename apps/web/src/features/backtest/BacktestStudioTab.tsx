@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
@@ -6,11 +6,13 @@ import { Pill } from "../../components/ui/Pill";
 import { Button } from "../../components/ui/Button";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { Toast } from "../../components/ui/Toast";
 import { ParameterSidebar } from "../../components/backtest/ParameterSidebar";
 import { EquityWorkspace } from "../../components/backtest/EquityWorkspace";
 import { RunQueue } from "../../components/backtest/RunQueue";
 import {
   defaultBacktestConfig,
+  generateReport,
   getRunDetail,
   type BacktestConfig,
   type RunDetailPayload,
@@ -52,6 +54,8 @@ function hydrateFromDetail(detail: RunDetailPayload): BacktestConfig {
 
 export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const [config, dispatch] = useReducer(reducer, defaultBacktestConfig);
+  const [reportPending, setReportPending] = useState(false);
+  const [reportToast, setReportToast] = useState<string | undefined>(undefined);
   const runMutation = useRunBacktest();
   const queue = useRunQueue();
 
@@ -74,14 +78,44 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
     }
   }, [prefillRunId, detailQuery.data]);
 
+  useEffect(() => {
+    if (!reportToast) return;
+    const timer = window.setTimeout(() => setReportToast(undefined), 4000);
+    return () => window.clearTimeout(timer);
+  }, [reportToast]);
+
+  const handleRegenerateReport = () => {
+    if (!detailData || reportPending) return;
+    setReportPending(true);
+    void generateReport({
+      type: "run",
+      run_id: detailData.run_id,
+      formats: ["markdown", "pdf", "png", "bundle"],
+    })
+      .then((response) => {
+        setReportToast(response.warnings.length > 0 ? response.warnings.join("; ") : "Report regenerated");
+      })
+      .catch(() => setReportToast("Report regeneration failed"))
+      .finally(() => setReportPending(false));
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
+      {reportToast && <Toast>{reportToast}</Toast>}
 
       {/* Mini page header with RUN ID pill + NEW RUN button */}
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
         <Pill tone="cyan-outline" size="sm">
           RUN ID: <span className="mono" style={{ marginLeft: 4 }}>{selectedRunId}</span>
         </Pill>
+        <Button
+          variant="outline-violet"
+          loading={reportPending}
+          disabled={!detailData}
+          onClick={handleRegenerateReport}
+        >
+          Regenerate this run's report
+        </Button>
         <Button variant="gold" onClick={() => { hydratedFor.current = undefined; dispatch({ type: "reset" }); }}>+ NEW RUN</Button>
       </div>
 
