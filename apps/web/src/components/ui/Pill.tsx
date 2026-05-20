@@ -4,6 +4,7 @@ export type PillProps = {
   tone: PillTone;
   size?: "xs" | "sm" | "md";
   pulse?: boolean;
+  live?: boolean;
   children: React.ReactNode;
 };
 
@@ -25,14 +26,16 @@ const sizeStyles: Record<string, { fontSize: string; padding: string }> = {
   md: { fontSize: "12px", padding: "5px 14px" },
 };
 
-export function Pill({ tone, size = "sm", pulse, children }: PillProps) {
+export function Pill({ tone, size = "sm", pulse, live, children }: PillProps) {
   const s = toneStyles[tone];
   const sz = sizeStyles[size];
+  const liveProps = live || pulse
+    ? { role: "status", "aria-live": "polite" as const }
+    : {};
 
   return (
     <span
-      role="status"
-      aria-live="polite"
+      {...liveProps}
       style={{
         display: "inline-flex",
         alignItems: "center",

@@ -162,7 +162,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                   {formatDate(r.window.start)} → {formatDate(r.window.end)}
                 </td>
                 <td style={{ padding: "8px 12px" }}>
-                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{status.label}</Pill>
+                  <Pill tone={status.tone} size="xs" pulse={status.pulse} live>{status.label}</Pill>
                 </td>
                 <td
                   className="mono"

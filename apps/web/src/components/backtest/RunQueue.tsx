@@ -72,7 +72,7 @@ export function RunQueue({ runs, onViewAll }: Props) {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <Pill tone={s.tone} pulse={s.pulse} size="xs">{s.label}</Pill>
+                <Pill tone={s.tone} pulse={s.pulse} size="xs" live>{s.label}</Pill>
                 <span className="mono muted" style={{ fontSize: 11 }}>{run.run_id}</span>
               </div>
 

@@ -243,7 +243,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
                       {row.strategy}
                     </div>
                   </div>
-                  <Pill tone={status.tone} size="xs" pulse={status.pulse}>{status.label}</Pill>
+                  <Pill tone={status.tone} size="xs" pulse={status.pulse} live>{status.label}</Pill>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

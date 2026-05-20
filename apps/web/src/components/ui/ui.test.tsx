@@ -14,9 +14,21 @@ import { ErrorBanner } from "./ErrorBanner";
 import { Skeleton } from "./Skeleton";
 
 describe("Pill", () => {
-  it("renders text with status role", () => {
+  it("renders default pill without live-region attributes", () => {
     render(<Pill tone="emerald">COMPLETED</Pill>);
-    expect(screen.getByRole("status")).toHaveTextContent("COMPLETED");
+    const pill = screen.getByText("COMPLETED");
+    expect(pill).not.toHaveAttribute("role");
+    expect(pill).not.toHaveAttribute("aria-live");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("adds live-region attributes when pulse or live is set", () => {
+    const { unmount } = render(<Pill tone="cyan" pulse>RUNNING</Pill>);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    unmount();
+
+    render(<Pill tone="emerald" live>COMPLETED</Pill>);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
   });
 
   it("renders pulse dot when pulse=true", () => {
