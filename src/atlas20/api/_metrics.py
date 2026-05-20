@@ -1,4 +1,17 @@
-"""Prometheus business metrics for the API."""
+"""Atlas20 Prometheus metric recorders.
+
+Recorder timing trade-off
+-------------------------
+All counters/histograms here are emitted BEFORE the surrounding DB transaction
+commits (see worker/queue.py, worker/recovery.py, repositories/runs_repo.py).
+A rollback after a recorder call leaves Prometheus permanently over-counted
+versus the DB. We accept this trade-off because (a) post-flush commits
+rarely fail in this codebase, (b) Prometheus counters are monotonic so
+"slightly high" is operationally tolerable, and (c) an after-commit hook
+would couple metric emission to ORM lifecycle events in ways that hurt
+testability. Track for future hardening if the divergence ever becomes
+operationally visible.
+"""
 
 from __future__ import annotations
 
