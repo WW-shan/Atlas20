@@ -21,6 +21,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
   const [strategy, setStrategy] = useState("");
   const [notes, setNotes] = useState("");
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -29,6 +30,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
     setStrategy(presets[0] ?? "");
     setNotes("");
     setPending(false);
+    setError(null);
   }, [open, presets]);
 
   const needsStrategy = type === "run" || type === "compare";
@@ -42,6 +44,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
   }, [open, strategy, uniquePresets]);
 
   const toggleFormat = (format: ReportFormat) => {
+    setError(null);
     setFormats((current) =>
       current.includes(format)
         ? current.filter((item) => item !== format)
@@ -51,6 +54,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
 
   const handleGenerate = () => {
     if (pending || formats.length === 0) return;
+    setError(null);
     const payload: GenerateReportRequest = {
       type,
       formats,
@@ -60,6 +64,9 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
     setPending(true);
     void onGenerate(payload)
       .then(() => onClose())
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Generation failed");
+      })
       .finally(() => setPending(false));
   };
 
@@ -111,7 +118,10 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
                 type="radio"
                 name="report-type"
                 checked={type === item}
-                onChange={() => setType(item)}
+                onChange={() => {
+                  setError(null);
+                  setType(item);
+                }}
               />
               {item}
             </label>
@@ -151,7 +161,10 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
             Strategy
             <select
               value={strategy}
-              onChange={(event) => setStrategy(event.target.value)}
+              onChange={(event) => {
+                setError(null);
+                setStrategy(event.target.value);
+              }}
               disabled={uniquePresets.length === 0}
               style={{
                 minHeight: 36,
@@ -177,7 +190,10 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
           <textarea
             aria-label="Notes"
             value={notes}
-            onChange={(event) => setNotes(event.target.value)}
+            onChange={(event) => {
+              setError(null);
+              setNotes(event.target.value);
+            }}
             rows={4}
             style={{
               resize: "vertical",
@@ -192,6 +208,22 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
             }}
           />
         </label>
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              padding: "10px 12px",
+              borderTop: "3px solid var(--rose)",
+              borderRadius: "var(--radius-card)",
+              background: "rgba(244,63,94,0.06)",
+              color: "var(--text)",
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button variant="outline-muted" disabled={pending} onClick={onClose}>Cancel</Button>

@@ -195,6 +195,24 @@ describe("ReportsExportsTab", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "New report" })).not.toBeInTheDocument());
   });
 
+  it("shows generateReport errors and keeps the new report modal open", async () => {
+    vi.mocked(api.generateReport).mockRejectedValueOnce(new Error("validation failed"));
+
+    renderWithQuery(<ReportsExportsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Notes" }), {
+      target: { value: "needs validation" },
+    });
+    const generate = within(dialog).getByRole("button", { name: "Generate" });
+    fireEvent.click(generate);
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("validation failed");
+    expect(screen.getByRole("dialog", { name: "New report" })).toBeInTheDocument();
+    await waitFor(() => expect(generate).not.toBeDisabled());
+  });
+
   it("shows queued toast after report submission", async () => {
     renderWithQuery(<ReportsExportsTab />);
 
