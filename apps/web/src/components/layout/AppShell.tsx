@@ -27,7 +27,7 @@ export function AppShell(props: {
           </div>
         </div>
       </header>
-      <main>{props.children}</main>
+      <div className="app-shell-main">{props.children}</div>
     </div>
   );
 }

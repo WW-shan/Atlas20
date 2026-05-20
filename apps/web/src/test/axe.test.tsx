@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
@@ -9,12 +9,14 @@ import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
 import { ReportsExportsTab } from "../features/reports/ReportsExportsTab";
+import { ResearchConsolePage } from "../pages/ResearchConsolePage";
 import * as api from "../lib/api";
 
 vi.mock("../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../lib/api")>("../lib/api");
   return {
     ...actual,
+    getOverview: vi.fn(),
     getRunDetail: vi.fn(),
     listRunsQueue: vi.fn(),
     listRuns: vi.fn(),
@@ -40,6 +42,7 @@ const axeOptions = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(api.getOverview).mockResolvedValue(api.fallbackOverview);
   vi.mocked(api.getRunDetail).mockResolvedValue(api.fallbackRunDetail);
   vi.mocked(api.listRunsQueue).mockResolvedValue(api.fallbackRunsQueue);
   vi.mocked(api.listRuns).mockResolvedValue({
@@ -63,6 +66,12 @@ beforeEach(() => {
 describe("axe accessibility", () => {
   it("OverviewTab has no axe violations", async () => {
     const { container } = render(<OverviewTab overview={api.fallbackOverview} onNavigate={() => {}} />);
+    expect(await axe(container, axeOptions)).toHaveNoViolations();
+  });
+
+  it("ResearchConsolePage composed with AppShell has no axe violations", async () => {
+    const { container } = renderWithQuery(<ResearchConsolePage />);
+    await screen.findByText("CURRENT CHAMPION");
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 
