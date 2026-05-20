@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ReportArtifact:
     kind: str
-    path: Path
+    path: Path | str
+    sha256: str
+    size: int
 
 
 def sha256_file(path: Path) -> str:
@@ -34,6 +36,12 @@ def _relative_to_run_dir(run_dir: Path, artifact_path: Path) -> str:
     run_root = run_dir.resolve()
     resolved = artifact_path.resolve()
     return resolved.relative_to(run_root).as_posix()
+
+
+def _artifact_manifest_path(run_dir: Path, artifact_path: Path) -> str:
+    if artifact_path.is_absolute():
+        return _relative_to_run_dir(run_dir, artifact_path)
+    return artifact_path.as_posix()
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -89,9 +97,9 @@ def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArti
         rows.append(
             {
                 "kind": artifact.kind,
-                "path": _relative_to_run_dir(run_dir, artifact_path),
-                "sha256": sha256_file(artifact_path),
-                "size": artifact_path.stat().st_size,
+                "path": _artifact_manifest_path(run_dir, artifact_path),
+                "sha256": artifact.sha256,
+                "size": artifact.size,
             }
         )
     _atomic_write_json(

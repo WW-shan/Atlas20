@@ -118,7 +118,18 @@ def _register_file(session: Session, settings: Settings, run_id: str, kind: str,
 
 def _artifacts_from_rows(settings: Settings, rows: list[ReportFile]) -> list[ReportArtifact]:
     report_root = Path(settings.report_root)
-    return [ReportArtifact(kind=row.kind, path=report_root / row.path) for row in rows]
+    artifacts: list[ReportArtifact] = []
+    for row in rows:
+        path = report_root / row.path
+        artifacts.append(
+            ReportArtifact(
+                kind=row.kind,
+                path=path,
+                sha256=row.sha256 or sha256_file(path),
+                size=row.size_bytes,
+            )
+        )
+    return artifacts
 
 
 def _generate_markdown(run_id: str, run_dir: Path, run_params: str | None, settings: Settings) -> Path:
