@@ -77,6 +77,26 @@ def test_report_download_streams_markdown_with_attachment_headers(
     assert b"# Digest" in response.content
 
 
+def test_featured_digest_download_ignores_unrelated_disk_artifacts_without_db_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = report_root / "app_runs" / "btk_unrelated"
+    run_dir.mkdir(parents=True)
+    digest = run_dir / "digest.md"
+    digest.write_text("# Unrelated\n", encoding="utf-8")
+    digest_sha = _sha256(digest)
+    _write_manifest(run_dir, "markdown", "digest.md", digest_sha, digest.stat().st_size)
+
+    response = client.get("/api/reports/digest/download?format=markdown")
+    assert response.status_code == 404
+
+    KvRepo(db_session).set("featured_digest_run_id", "btk_0142")
+    response = client.get("/api/reports/digest/download?format=markdown")
+    assert response.status_code == 404
+
+
 def test_featured_digest_download_streams_bundle(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
 ) -> None:

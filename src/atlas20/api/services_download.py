@@ -97,15 +97,6 @@ def _fallback_run_path(report_id: str, fmt: str, settings: Settings) -> Path | N
     return None
 
 
-def _fallback_featured_path(fmt: str, settings: Settings) -> Path | None:
-    report_root = Path(settings.report_root)
-    pattern = FORMAT_FILENAME[fmt]
-    candidates = [path for path in report_root.rglob(pattern) if path.is_file()]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
-
-
 def _resolve_report_file(
     report_id: str,
     fmt: str,
@@ -138,10 +129,10 @@ def _resolve_featured_file(fmt: str, session: Session, settings: Settings) -> tu
         row = ReportsRepo(session).by_run_kind(run_id, FORMAT_KIND[fmt])
         if row is not None:
             return Path(settings.report_root) / row.path, row.run_id, row.sha256
-    fallback = _fallback_featured_path(fmt, settings)
-    if fallback is not None:
-        return fallback, None, None
-    raise HTTPException(status_code=404, detail="featured digest not found")
+    raise HTTPException(
+        status_code=404,
+        detail="featured digest not yet generated; trigger via POST /api/reports/generate or the weekly scheduler",
+    )
 
 
 def resolve_download(
