@@ -1,5 +1,7 @@
 services:
   backend:
+    # After first `docker compose up -d`, seed fixture data with:
+    # docker compose exec backend python -m atlas20.api.seed
     build: .
     environment:
       ATLAS20_ENV: dev
