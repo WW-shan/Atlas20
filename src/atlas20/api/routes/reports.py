@@ -25,7 +25,8 @@ def get_digest_featured(session: Session = Depends(get_session)) -> FeaturedDige
     return get_featured_digest(session)
 
 
-@router.get("/reports/digest/download", dependencies=[Depends(verify_api_key)])
+# MVP GET report downloads are unauthenticated; see docs/operations/security.md.
+@router.get("/reports/digest/download")
 def get_digest_download(
     format: ReportFormat = "markdown",
     session: Session = Depends(get_session),
@@ -82,7 +83,7 @@ def generate_report(
     }
 
 
-@router.get("/reports/{report_id}/download", dependencies=[Depends(verify_api_key)])
+@router.get("/reports/{report_id}/download")
 def get_report_download(
     report_id: ReportId,
     format: ReportFormat | None = None,

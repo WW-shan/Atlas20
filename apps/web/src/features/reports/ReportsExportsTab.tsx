@@ -14,8 +14,8 @@ import { ReportCard } from "../../components/reports/ReportCard";
 import { NewReportModal } from "./NewReportModal";
 
 import {
-  downloadDigest,
-  downloadReport,
+  downloadDigestUrl,
+  downloadReportUrl,
   fallbackFeaturedDigest,
   fallbackOptions,
   generateReport,
@@ -75,28 +75,24 @@ export function ReportsExportsTab() {
     return () => window.clearTimeout(timer);
   }, [reportToast]);
 
-  const openDownload = (url: string) => {
-    if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
-  };
-
   const handleDownloadAll = () => {
     if (digestDownloadPending) return;
-    // Bundle archive (all formats); single-format download lives on individual cards
     setDigestDownloadPending(true);
-    void downloadDigest("bundle")
-      .then((r) => openDownload(r.url))
-      .catch(() => {})
-      .finally(() => setDigestDownloadPending(false));
+    try {
+      window.open(downloadDigestUrl("bundle"), "_blank", "noopener,noreferrer");
+    } finally {
+      setDigestDownloadPending(false);
+    }
   };
 
   const handleDownloadOne = (id: string, fmt?: ReportFormat) => {
     if (reportDownloadPendingId) return;
-    // Honor the page-level format selection when card doesn't override
     setReportDownloadPendingId(id);
-    void downloadReport(id, fmt ?? format)
-      .then((r) => openDownload(r.url))
-      .catch(() => {})
-      .finally(() => setReportDownloadPendingId(undefined));
+    try {
+      window.open(downloadReportUrl(id, fmt ?? format), "_blank", "noopener,noreferrer");
+    } finally {
+      setReportDownloadPendingId(undefined);
+    }
   };
 
   const handleNewReport = () => {

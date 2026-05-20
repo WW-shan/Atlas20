@@ -280,7 +280,7 @@ export type DataAlert = {
 // §7.2 — Reports (page6)
 // ============================================================
 
-export type ReportFormat = "markdown" | "pdf" | "png" | "csv";
+export type ReportFormat = "markdown" | "pdf" | "png" | "csv" | "bundle";
 export type ReportStatus = "ready" | "generating";
 export type ReportThumbKind =
   | "equity"
@@ -320,7 +320,7 @@ export type GenerateReportRequest = {
 
 export type GenerateReportResponse = {
   job_id: string;
-  status: "queued";
+  status: "completed" | "queued";
   note?: string;
 };
 
@@ -642,13 +642,13 @@ export function listReports(sort: ReportSortKey) {
   return requestJson<ReportEntry[]>(`/reports?sort=${encodeURIComponent(sort)}`);
 }
 
-export function downloadDigest(format: ReportFormat | "bundle") {
-  return requestJson<{ url: string }>(`/reports/digest/download?format=${encodeURIComponent(format)}`);
+export function downloadDigestUrl(format: ReportFormat): string {
+  return buildApiUrl(`/reports/digest/download?format=${encodeURIComponent(format)}`);
 }
 
-export function downloadReport(id: string, fmt?: ReportFormat) {
+export function downloadReportUrl(id: string, fmt?: ReportFormat): string {
   const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
-  return requestJson<{ url: string }>(`/reports/${encodeURIComponent(id)}/download${q}`);
+  return buildApiUrl(`/reports/${encodeURIComponent(id)}/download${q}`);
 }
 
 export function generateReport(payload: GenerateReportRequest) {

@@ -11,8 +11,8 @@ vi.mock("../../lib/api", async () => {
     ...actual,
     getFeaturedDigest: vi.fn(),
     listReports: vi.fn(),
-    downloadDigest: vi.fn(),
-    downloadReport: vi.fn(),
+    downloadDigestUrl: vi.fn(),
+    downloadReportUrl: vi.fn(),
     getOptions: vi.fn(),
     generateReport: vi.fn(),
   };
@@ -28,12 +28,15 @@ beforeEach(() => {
   Object.defineProperty(window, "open", { writable: true, value: vi.fn() });
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
-  vi.mocked(api.downloadDigest).mockResolvedValue({ url: "stub" });
-  vi.mocked(api.downloadReport).mockResolvedValue({ url: "stub" });
+  vi.mocked(api.downloadDigestUrl).mockReturnValue("https://atlas.test/reports/digest/download?format=bundle");
+  vi.mocked(api.downloadReportUrl).mockImplementation((id, fmt) => {
+    const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
+    return `https://atlas.test/reports/${encodeURIComponent(id)}/download${q}`;
+  });
   vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
   vi.mocked(api.generateReport).mockResolvedValue({
     job_id: "stub-job-001",
-    status: "queued",
+    status: "completed",
     note: "report generation stubbed until Batch 12",
   });
 });
@@ -66,54 +69,56 @@ describe("ReportsExportsTab", () => {
     expect(await screen.findByRole("button", { name: /DOWNLOAD ALL/ })).toBeInTheDocument();
   });
 
-  it("clicking DOWNLOAD ALL invokes downloadDigest('bundle') regardless of selected format", async () => {
-    vi.mocked(api.downloadDigest).mockImplementationOnce(() => new Promise<Awaited<ReturnType<typeof api.downloadDigest>>>(() => {}));
-
+  it("clicking DOWNLOAD ALL opens the bundle URL regardless of selected format", async () => {
     renderWithQuery(<ReportsExportsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
     fireEvent.click(screen.getByRole("button", { name: /DOWNLOAD ALL/ }));
-    expect(api.downloadDigest).toHaveBeenCalledWith("bundle");
+    expect(api.downloadDigestUrl).toHaveBeenCalledWith("bundle");
+    expect(window.open).toHaveBeenCalledWith(
+      "https://atlas.test/reports/digest/download?format=bundle",
+      "_blank",
+      "noopener,noreferrer",
+    );
   });
 
-  it("disables DOWNLOAD ALL while the bundle download is pending", async () => {
-    vi.mocked(api.downloadDigest).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.downloadDigest>>>(() => {}));
-
+  it("leaves DOWNLOAD ALL ready after opening the bundle URL", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    const button = await screen.findByRole("button", { name: /DOWNLOAD ALL/ });
+    await screen.findByText(api.fallbackFeaturedDigest.title);
+    const button = screen.getByRole("button", { name: /DOWNLOAD ALL/ });
 
     fireEvent.click(button);
 
-    await waitFor(() => expect(button).toBeDisabled());
-    expect(button).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).not.toBeDisabled());
+    expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).not.toHaveAttribute("aria-busy");
+    expect(window.open).toHaveBeenCalledTimes(1);
   });
 
   it("per-card DOWNLOAD honors the selected page-level format", async () => {
-    vi.mocked(api.downloadReport).mockImplementationOnce(() => new Promise<Awaited<ReturnType<typeof api.downloadReport>>>(() => {}));
-
     renderWithQuery(<ReportsExportsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
     const firstCardDownload = document.querySelector('button[aria-label^="Download "]') as HTMLButtonElement;
     fireEvent.click(firstCardDownload);
-    expect(api.downloadReport).toHaveBeenCalledWith(expect.any(String), "pdf");
+    expect(api.downloadReportUrl).toHaveBeenCalledWith(expect.any(String), "pdf");
+    expect(window.open).toHaveBeenCalledWith(
+      expect.stringContaining("?format=pdf"),
+      "_blank",
+      "noopener,noreferrer",
+    );
   });
 
-  it("disables report download buttons while a card download is pending", async () => {
-    vi.mocked(api.downloadReport).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.downloadReport>>>(() => {}));
-
+  it("opens per-card report downloads in a new tab", async () => {
     renderWithQuery(<ReportsExportsTab />);
     await screen.findByRole("list", { name: "Reports archive list" });
 
     const firstDownload = screen.getByRole("button", { name: /Download Atlas20/ });
-    const secondDownload = screen.getByRole("button", { name: /Download ATLAS Adaptive v3/ });
-
     fireEvent.click(firstDownload);
 
-    await waitFor(() => expect(firstDownload).toBeDisabled());
-    expect(firstDownload).toHaveAttribute("aria-busy", "true");
-    expect(secondDownload).toBeDisabled();
-
-    fireEvent.click(secondDownload);
-    expect(api.downloadReport).toHaveBeenCalledTimes(1);
+    expect(api.downloadReportUrl).toHaveBeenCalledTimes(1);
+    expect(window.open).toHaveBeenCalledWith(
+      expect.stringContaining("/reports/r1/download?format=markdown"),
+      "_blank",
+      "noopener,noreferrer",
+    );
   });
 
   it("renders 6 archive cards (5 ready + 1 generating)", async () => {
