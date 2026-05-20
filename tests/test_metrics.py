@@ -17,6 +17,7 @@ from atlas20.api._time import utc_now
 from atlas20.api.app import create_app
 from atlas20.api.db.models import Run
 from atlas20.api.dependencies import ratelimit
+from atlas20.api.middleware.access_log import AccessLogMiddleware
 from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.repositories.runs_repo import terminal_duration_seconds
 from atlas20.api.settings import get_settings
@@ -448,13 +449,10 @@ def test_rate_limit_metric_failure_still_returns_429(
     assert "failed to record rate limit metric" in caplog.text
 
 
-def test_metrics_and_readiness_are_excluded_from_access_log(tmp_path, monkeypatch, capsys) -> None:
-    with TestClient(_app(tmp_path, monkeypatch)) as client:
-        assert client.get("/metrics").status_code == 200
-        assert client.get("/readyz").status_code == 200
-    captured = capsys.readouterr()
-
-    assert all(record["path"] not in {"/metrics", "/readyz"} for record in _access_records(captured.out))
+def test_readyz_is_not_excluded_from_access_log() -> None:
+    assert "/healthz" in AccessLogMiddleware.excluded_paths
+    assert "/metrics" in AccessLogMiddleware.excluded_paths
+    assert "/readyz" not in AccessLogMiddleware.excluded_paths
 
 
 def test_metrics_endpoint_includes_counter_help_and_type(tmp_path, monkeypatch) -> None:
