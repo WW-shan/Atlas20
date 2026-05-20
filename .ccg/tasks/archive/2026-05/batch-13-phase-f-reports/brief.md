@@ -175,7 +175,7 @@ F1's download handler reads this manifest to whitelist artifact access.
    - Path in manifest but file content sha256 mismatch → 403
    - Valid path + valid sha256 → 200 streaming bytes
 2. `tests/test_download_streaming.py`:
-   - GET `/api/reports/{report_id}/download?format=markdown` → 200 + 
+   - GET `/api/reports/{report_id}/download?format=markdown` → 200 +
      `Content-Type: text/markdown` + `Content-Disposition: attachment`
    - GET `/api/reports/digest/download?format=bundle` → 200 + ZIP body
 3. `tests/test_generate_report.py`:

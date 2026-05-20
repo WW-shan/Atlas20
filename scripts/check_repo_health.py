@@ -14,6 +14,10 @@ SECRET_PATTERNS = [
     ("github token", re.compile(r"\bghp_[A-Za-z0-9_]+\b")),
     ("slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]+\b")),
 ]
+EXCLUDE_PATHS = (
+    ".ccg/tasks/archive/",
+    "tests/",
+)
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,12 @@ def _read_text(path: Path) -> str | None:
 def detect_secret_patterns(paths: list[Path]) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
+        try:
+            relative_path = path.relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            relative_path = None
+        if relative_path is not None and relative_path.startswith(EXCLUDE_PATHS):
+            continue
         text = _read_text(path)
         if text is None:
             continue

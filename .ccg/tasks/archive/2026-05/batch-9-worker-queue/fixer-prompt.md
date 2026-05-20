@@ -123,7 +123,7 @@ In `src/atlas20/api/worker/recovery.py`:
 ```python
 def recover_my_own_stale_runs(session: Session, my_pid: int) -> int:
     """Mark runs failed that are stuck on a dead PID (the current worker's PID before crash).
-    
+
     On worker startup, only recovers runs that claim THIS worker's PID, since
     sibling workers may still be alive with valid heartbeats.
     """

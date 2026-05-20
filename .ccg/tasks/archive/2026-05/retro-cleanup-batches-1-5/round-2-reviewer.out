@@ -80,10 +80,10 @@ t.
 At line:2 char:1
 + Get-Content -Raw apps/web/src/components/universe/Timeline.tsx
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (D:\Code\Atlas20...se\Timeline.tsx:String) [Get-Content], ItemNotFoundEx 
+    + CategoryInfo          : ObjectNotFound: (D:\Code\Atlas20...se\Timeline.tsx:String) [Get-Content], ItemNotFoundEx
    ception
     + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
- 
+
 
 [PROGRESS] cmd_done cmd="\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Raw apps/web/src/components/u..." exit=1
 [PROGRESS] cmd_done cmd="\"C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe\" -Command 'Get-Content -Raw apps/web/src/components/u..." exit=0

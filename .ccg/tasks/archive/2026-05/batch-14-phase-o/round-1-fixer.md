@@ -2,7 +2,7 @@ ROLE_FILE: C:\Users\WW\.claude\.ccg\prompts\codex\builder.md
 <TASK>
 Apply Batch 14 Round-1 reviewer findings. Combined Opus 4.7 (86/100) + codex
 (77/100) review on commit `4d075be feat(api): R14 batch 14 — phase O
-observability`. 
+observability`.
 
 11 atomic fixes (2 Critical, 5 Warning, 4 Info per user directive "info 也都改完").
 **Each = separate commit.** Run pytest after each. Frontend test count stays
