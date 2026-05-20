@@ -51,6 +51,11 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.mypy]
+# Strict typing pilot — see .github/workflows/ci.yml `mypy` job for the
+# enforced file scope (currently a narrow set of strict-clean leaf modules:
+# schemas.py + settings.py + _metrics.py). The pyproject defaults here are
+# the configuration the pilot applies to those files. Expanding the CI
+# scope to more of src/atlas20/api/ should reuse this section unchanged.
 python_version = "3.11"
 strict = true
 disallow_any_explicit = false
@@ -74,6 +79,9 @@ module = [
 ]
 ignore_missing_imports = true
 
+# atlas20.config is the legacy YAML-driven research pipeline config; it has
+# not been migrated to strict typing yet. Skipping import-follow keeps the
+# API strict pilot decoupled from pipeline-side type debt.
 [[tool.mypy.overrides]]
 module = "atlas20.config"
 follow_imports = "skip"
