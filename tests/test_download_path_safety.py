@@ -62,6 +62,14 @@ def _add_report_row(
 
 
 def test_download_rejects_symlink_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session) -> None:
+    """Reject downloads when a symlink points outside report_root.
+
+    NOTE: this test will pytest.skip() on Windows hosts without symlink
+    creation privilege (common dev case). The symlink-escape attack
+    surface is real and this test MUST run on Linux CI to actually
+    exercise the rejection path. Do not interpret a green run on a
+    Windows dev box as coverage of this case.
+    """
     client = _client(tmp_path, monkeypatch, db_session)
     report_root = get_settings().report_root
     run_dir = report_root / "app_runs" / "btk_0142"
