@@ -85,6 +85,7 @@ def test_prod_forces_docs_disabled():
         env="prod",
         cors_origins=["https://example.com"],
         secret_key="prod-secret",
+        api_keys={"prod-key"},
         enable_docs=True,
     )
 
@@ -118,6 +119,7 @@ def test_prod_accepts_specific_origin_with_credentials_enabled():
         cors_origins=["https://example.com"],
         cors_allow_credentials=True,
         secret_key="prod-secret",
+        api_keys={"prod-key"},
     )
 
     assert settings.cors_origins == ["https://example.com"]
@@ -141,9 +143,36 @@ def test_prod_rejects_default_secret_key():
 
 
 def test_prod_accepts_explicit_secret_key():
-    settings = Settings(env="prod", cors_origins=["https://example.com"], secret_key="prod-secret")
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        secret_key="prod-secret",
+        api_keys={"prod-key"},
+    )
 
     assert settings.secret_key == "prod-secret"
+
+
+def test_prod_rejects_empty_api_keys():
+    with pytest.raises(ValidationError, match="ATLAS20_API_KEYS must be set to a non-empty list in prod"):
+        Settings(env="prod", cors_origins=["https://example.com"], secret_key="prod-secret")
+
+
+def test_prod_accepts_non_empty_api_keys():
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        secret_key="prod-secret",
+        api_keys={"prod-key"},
+    )
+
+    assert settings.api_keys == {"prod-key"}
+
+
+def test_dev_accepts_empty_api_keys():
+    settings = Settings(env="dev", api_keys=set())
+
+    assert settings.api_keys == set()
 
 
 def test_prod_docs_can_be_disabled(monkeypatch):
@@ -154,6 +183,7 @@ def test_prod_docs_can_be_disabled(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
     monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
+    monkeypatch.setenv("ATLAS20_API_KEYS", "prod-key")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     get_settings.cache_clear()
 
@@ -171,6 +201,7 @@ def test_prod_docs_are_disabled_even_when_enabled_in_env(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
     monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
+    monkeypatch.setenv("ATLAS20_API_KEYS", "prod-key")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "true")
     get_settings.cache_clear()
 

@@ -98,6 +98,8 @@ class Settings(BaseSettings):
                 raise ValueError("dev origins are not allowed in prod")
             if self.secret_key == "dev-only-do-not-use-in-prod":
                 raise ValueError("ATLAS20_SECRET_KEY must be set to a real secret in prod")
+            if not self.api_keys:
+                raise ValueError("ATLAS20_API_KEYS must be set to a non-empty list in prod")
         return self
 
 
