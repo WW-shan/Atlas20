@@ -78,10 +78,32 @@ jobs:
       - name: Run tsc
         run: npm --prefix apps/web exec tsc --noEmit -p tsconfig.json
 
+  security-scan:
+    name: Dependency security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install pip-audit
+        run: python -m pip install pip-audit
+      - name: Audit Python dependencies
+        run: pip-audit --strict
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install web dependencies
+        run: npm --prefix apps/web ci --ignore-scripts
+      - name: Audit web dependencies
+        run: npm --prefix apps/web audit --audit-level=moderate
+
   deploy:
     name: Deploy stub
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [python, web, ruff, mypy, tsc]
+    needs: [python, web, ruff, mypy, tsc, security-scan]
     runs-on: ubuntu-latest
     steps:
       - name: Print stub
