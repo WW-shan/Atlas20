@@ -150,22 +150,28 @@ def list_runs(
     page_size: int = 14,
 ) -> tuple[list[RunRow], int]:
     chip_values = [chip for chip in chips or [] if chip]
-    rows, total = RunsRepo(session).list(
+    date_cutoff = _date_cutoff(date_range)
+    repo = RunsRepo(session)
+    rows, total = repo.list(
         q=q,
         chips=chip_values,
-        date_cutoff=_date_cutoff(date_range),
+        date_cutoff=date_cutoff,
         page=page,
         page_size=page_size,
     )
     if total > 0:
         return [_run_to_row(row) for row in rows], total
 
+    _, unfiltered_total = repo.list(date_cutoff=None, page=1, page_size=1)
+    if unfiltered_total > 0:
+        return [], 0
+
     settings = get_settings()
     disk_rows = _load_runs_from_disk(
         settings.report_root / "app_runs",
         q=q,
         chips=chip_values,
-        date_cutoff=_date_cutoff(date_range),
+        date_cutoff=date_cutoff,
     )
     if not disk_rows:
         return [], 0

@@ -88,6 +88,22 @@ def test_list_runs_prefers_db_when_db_has_rows(
     assert all(row.run_id != "btk_disk_only" for row in rows)
 
 
+def test_list_runs_does_not_fall_back_when_db_filter_matches_nothing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+) -> None:
+    report_root = tmp_path / "reports"
+    _write_manifest(report_root, "disk-only", _disk_manifest("btk_disk_only"))
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    rows, total = list_runs(db_session, q="Disk", date_range="all")
+
+    assert rows == []
+    assert total == 0
+
+
 def test_list_runs_empty_db_without_disk_returns_empty_not_mock(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
