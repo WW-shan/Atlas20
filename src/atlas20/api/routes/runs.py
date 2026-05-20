@@ -2,11 +2,12 @@
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlmodel import Session
 
 from atlas20.api import services
 from atlas20.api.dependencies.auth import verify_api_key
+from atlas20.api.dependencies.ratelimit import limiter
 from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.schemas import HistoryFilter, RunDetailPayload, RunId, RunRow, RunRowSummary, RunsListResponse
 
@@ -74,7 +75,15 @@ def post_run_favorite(run_id: RunId, session: Session = Depends(get_session)) ->
 
 
 @router.post("/runs/{run_id}/cancel", status_code=202, dependencies=[Depends(verify_api_key)])
-def cancel_run(run_id: RunId, session: Session = Depends(get_session)) -> dict[str, Any]:
+@limiter.limit("30/minute")
+def cancel_run(
+    request: Request,
+    response: Response,
+    run_id: RunId,
+    session: Session = Depends(get_session),
+) -> dict[str, Any]:
+    del request
+    del response
     repo = RunsRepo(session)
     run = repo.request_cancel(run_id)
     if run is None:

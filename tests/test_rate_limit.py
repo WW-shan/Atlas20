@@ -108,3 +108,15 @@ def test_backcompat_mode_ignores_unconfigured_api_key_headers_for_rate_limit(tmp
 
     assert statuses[:10] == [200] * 10
     assert statuses[10] == 429
+
+
+def test_cancel_route_rate_limited(tmp_path, monkeypatch, db_session: Session):
+    key = f"cancel-{uuid4().hex}"
+    client = _client(tmp_path, monkeypatch, db_session, [key])
+
+    statuses = [
+        client.post("/api/runs/btk_0148/cancel", headers={"X-API-Key": key}).status_code for _ in range(31)
+    ]
+
+    assert statuses[:30] == [202] * 30
+    assert statuses[30] == 429
