@@ -64,10 +64,10 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} ariaLabel="New report" width={620}>
+    <Dialog open={open} onClose={onClose} ariaLabelledBy="new-report-modal-title" width={620}>
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>New report</h2>
+          <h2 id="new-report-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>New report</h2>
           <button
             type="button"
             aria-label="Close new report"

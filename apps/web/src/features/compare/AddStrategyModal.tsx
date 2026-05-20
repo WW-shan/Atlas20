@@ -43,11 +43,11 @@ export function AddStrategyModal({ open, strategies, selected, onClose, onAdd }:
   };
 
   return (
-    <Dialog open={open} onClose={onClose} ariaLabel="Add strategy">
+    <Dialog open={open} onClose={onClose} ariaLabelledBy="add-strategy-modal-title">
       <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add strategy</h2>
+            <h2 id="add-strategy-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add strategy</h2>
             <span className="mono muted" style={{ display: "block", marginTop: 4, fontSize: 11 }}>
               {selectedItems.length} selected
             </span>

@@ -160,6 +160,8 @@ describe("ReportsExportsTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
 
     const dialog = await screen.findByRole("dialog", { name: "New report" });
+    expect(dialog).toHaveAttribute("aria-labelledby", "new-report-modal-title");
+    expect(within(dialog).getByRole("heading", { name: "New report" })).toHaveAttribute("id", "new-report-modal-title");
     expect(within(dialog).getByRole("radiogroup", { name: "Report type" })).toBeInTheDocument();
     expect(within(dialog).getByRole("radio", { name: "weekly" })).toBeChecked();
     expect(within(dialog).getByRole("checkbox", { name: "markdown" })).toBeChecked();

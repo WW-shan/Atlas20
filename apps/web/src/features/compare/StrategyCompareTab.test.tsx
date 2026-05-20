@@ -127,6 +127,8 @@ describe("StrategyCompareTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    expect(dialog).toHaveAttribute("aria-labelledby", "add-strategy-modal-title");
+    expect(within(dialog).getByRole("heading", { name: "Add strategy" })).toHaveAttribute("id", "add-strategy-modal-title");
     expect(within(dialog).getByRole("searchbox", { name: "Search strategies" })).toBeInTheDocument();
     const listbox = within(dialog).getByRole("listbox", { name: "Available strategies" });
     expect(within(listbox).getByRole("option", { name: "ATLAS Adaptive v3" })).toHaveAttribute("aria-selected", "true");
