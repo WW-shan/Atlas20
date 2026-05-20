@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 import zipfile
@@ -41,7 +42,7 @@ class GeneratedReports:
 
 
 def _tmp_path(path: Path, suffix: str = ".tmp") -> Path:
-    return path.with_name(f"{path.name}{suffix}_{os.getpid()}")
+    return path.with_name(f"{path.name}{suffix}_{os.getpid()}_{uuid.uuid4().hex[:8]}")
 
 
 def _first_existing(run_dir: Path, names: list[str]) -> Path:

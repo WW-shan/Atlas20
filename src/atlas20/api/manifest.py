@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +34,7 @@ def _relative_to_run_dir(run_dir: Path, artifact_path: Path) -> str:
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    tmp_path = path.with_name(f"{path.name}.tmp_{os.getpid()}")
+    tmp_path = path.with_name(f"{path.name}.tmp_{os.getpid()}_{uuid.uuid4().hex[:8]}")
     tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp_path, path)
 
