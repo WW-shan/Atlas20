@@ -39,6 +39,24 @@ def atlas20_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_sentry_hub() -> Iterator[None]:
+    """Reset Sentry global state before and after each test."""
+    import sentry_sdk
+    from sentry_sdk.hub import SentryHubDeprecationWarning
+
+    def bind_client_none() -> None:
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", SentryHubDeprecationWarning)
+            sentry_sdk.Hub.current.bind_client(None)
+
+    bind_client_none()
+    yield
+    bind_client_none()
+
+
 def _write_csv(directory: Path, filename: str, header: str, rows: list[str]) -> None:
     target = directory / filename
     target.parent.mkdir(parents=True, exist_ok=True)

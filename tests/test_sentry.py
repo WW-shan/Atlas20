@@ -1,3 +1,5 @@
+"""Sentry tests monkeypatch sentry_sdk.init to avoid accidental real SDK initialization."""
+
 from fastapi.testclient import TestClient
 
 from atlas20.api.app import create_app
