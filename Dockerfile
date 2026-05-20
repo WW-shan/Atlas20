@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml ./
 COPY src ./src
 
-RUN pip install --no-cache-dir --user -e ".[dev]"
+RUN pip install --no-cache-dir --user .
 
 FROM python:3.11-slim
 
@@ -20,12 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN useradd --create-home --uid 1000 atlas
 
-WORKDIR /app
 USER atlas
+WORKDIR /app
 
 COPY --from=builder --chown=atlas:atlas /root/.local /home/atlas/.local
-COPY --chown=atlas:atlas pyproject.toml ./
-COPY --chown=atlas:atlas src ./src
 COPY --chown=atlas:atlas docs ./docs
 
 ENV PATH=/home/atlas/.local/bin:$PATH
