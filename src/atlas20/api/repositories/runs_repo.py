@@ -82,6 +82,22 @@ class RunsRepo:
     def get(self, run_id: str) -> Run | None:
         return self._s.exec(select(Run).where(Run.run_id == run_id)).first()
 
+    def find_latest_by_strategy_status(self, strategy: str, statuses: tuple[str, ...]) -> Run | None:
+        stmt = (
+            select(Run)
+            .where(Run.strategy == strategy, Run.status.in_(statuses))
+            .order_by(Run.created_at.desc(), Run.run_id.desc())
+            .limit(1)
+        )
+        return self._s.exec(stmt).first()
+
+    def find_latest_completed_by_strategy(self, strategy: str | None) -> Run | None:
+        stmt = select(Run).where(Run.status == "completed")
+        if strategy:
+            stmt = stmt.where(Run.strategy == strategy)
+        stmt = stmt.order_by(Run.created_at.desc(), Run.run_id.desc()).limit(1)
+        return self._s.exec(stmt).first()
+
     def create(self, run: Run) -> Run:
         self._s.add(run)
         self._s.flush()

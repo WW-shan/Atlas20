@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
@@ -582,17 +582,13 @@ def get_data_alerts() -> list[DataAlert]:
 
 
 def refresh_universe(session: Session) -> dict[str, str]:
-    existing = session.exec(
-        select(Run)
-        .where(Run.strategy == "universe_refresh", Run.status.in_(("queued", "running")))
-        .order_by(Run.created_at.desc(), Run.run_id.desc())
-        .limit(1)
-    ).first()
+    repo = RunsRepo(session)
+    existing = repo.find_latest_by_strategy_status("universe_refresh", ("queued", "running"))
     if existing is not None:
         return {"run_id": existing.run_id, "status": existing.status}
 
     current_day = today()
-    run = RunsRepo(session).create_with_unique_id(
+    run = repo.create_with_unique_id(
         {
             "strategy": "universe_refresh",
             "strategy_family": "Other",
@@ -609,12 +605,7 @@ def refresh_universe(session: Session) -> dict[str, str]:
 
 
 def get_universe_refresh_status(session: Session) -> dict[str, str | None]:
-    row = session.exec(
-        select(Run)
-        .where(Run.strategy == "universe_refresh")
-        .order_by(Run.created_at.desc(), Run.run_id.desc())
-        .limit(1)
-    ).first()
+    row = RunsRepo(session).find_latest_by_strategy_status("universe_refresh", tuple(RUN_STATUS_CHIPS))
     if row is None:
         return {"run_id": None, "status": "idle"}
     return {"run_id": row.run_id, "status": row.status}

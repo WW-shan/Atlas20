@@ -6,13 +6,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from atlas20.api._metrics import REPORT_FORMATS, record_report_generation
-from atlas20.api.db.models import Run
 from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.dependencies.ratelimit import limiter
-from atlas20.api.repositories import get_session
+from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.schemas import FeaturedDigest, GenerateReportRequest, ReportEntry, ReportFormat, ReportId
 from atlas20.api.services import get_featured_digest, list_reports, resolve_download
 from atlas20.api.services_report import generate_run_report_with_warnings
@@ -97,10 +96,7 @@ def get_report_download(
 
 
 def _select_generate_run_id(req: GenerateReportRequest, session: Session) -> str | None:
-    stmt = select(Run).where(Run.status == "completed")
-    if req.strategy:
-        stmt = stmt.where(Run.strategy == req.strategy)
-    row = session.exec(stmt.order_by(Run.created_at.desc(), Run.run_id.desc()).limit(1)).first()
+    row = RunsRepo(session).find_latest_completed_by_strategy(req.strategy)
     return row.run_id if row is not None else None
 
 
