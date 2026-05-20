@@ -82,6 +82,11 @@ export function Dialog({ open, onClose, children, ariaLabel, ariaLabelledBy, wid
       data-dialog-overlay
       role="presentation"
       onKeyDown={handleKeyDown}
+      // We use onMouseDown (not onClick) plus a currentTarget check.
+      // This prevents accidental close when a user starts text-selection
+      // inside the dialog panel and releases the mouse outside it: onClick
+      // would fire on the backdrop and incorrectly close. mouseDown +
+      // currentTarget guarantees the press began on the backdrop itself.
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
