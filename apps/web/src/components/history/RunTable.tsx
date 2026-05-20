@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import type { RunRow } from "../../lib/api";
 import type { RunStatusEnum } from "../ui/types";
 import { Pill } from "../ui/Pill";
@@ -40,9 +42,9 @@ function formatDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
-const COLS: { key: string; label: string }[] = [
-  { key: "selected", label: "" },
-  { key: "favorite", label: "" },
+const COLS: { key: string; label: string; ariaLabel?: string }[] = [
+  { key: "selected", label: "", ariaLabel: "Selected run" },
+  { key: "favorite", label: "", ariaLabel: "Favorite" },
   { key: "run_id",   label: "RUN ID" },
   { key: "family",   label: "FAMILY" },
   { key: "strategy", label: "STRATEGY" },
@@ -56,6 +58,18 @@ const COLS: { key: string; label: string }[] = [
   { key: "spark",    label: "TREND" },
   { key: "created",  label: "CREATED" },
 ];
+
+const visuallyHiddenStyle: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
 
 export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favoriteBusyId, favoritesDisabled }: Props) {
   return (
@@ -76,6 +90,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
               <th
                 key={c.key}
                 scope="col"
+                aria-label={c.ariaLabel}
                 style={{
                   textAlign: "left",
                   padding: "10px 12px",
@@ -87,7 +102,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                   whiteSpace: "nowrap",
                 }}
               >
-                {c.label}
+                {c.label || <span style={visuallyHiddenStyle}>{c.ariaLabel}</span>}
               </th>
             ))}
           </tr>

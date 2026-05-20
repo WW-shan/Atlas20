@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 
@@ -40,6 +40,10 @@ const axeOptions = {
   },
 };
 
+async function waitForLoadingToSettle(container: HTMLElement) {
+  await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).not.toBeInTheDocument());
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.getOverview).mockResolvedValue(api.fallbackOverview);
@@ -77,16 +81,19 @@ describe("axe accessibility", () => {
 
   it("BacktestStudioTab has no axe violations", async () => {
     const { container } = renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    await waitForLoadingToSettle(container);
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 
   it("StrategyCompareTab has no axe violations", async () => {
     const { container } = renderWithQuery(<StrategyCompareTab />);
+    await waitForLoadingToSettle(container);
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 
   it("RunHistoryTab has no axe violations", async () => {
     const { container } = renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await waitForLoadingToSettle(container);
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 
@@ -97,6 +104,7 @@ describe("axe accessibility", () => {
 
   it("ReportsExportsTab has no axe violations", async () => {
     const { container } = renderWithQuery(<ReportsExportsTab />);
+    await waitForLoadingToSettle(container);
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 });
