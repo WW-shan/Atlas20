@@ -91,6 +91,36 @@ def test_write_manifest_recovers_from_non_list_artifacts(tmp_path: Path, caplog)
     ]
 
 
+def test_write_manifest_recovers_from_unreadable_existing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "report_manifest.json").write_text('{"artifacts": []}', encoding="utf-8")
+
+    original_read_text = Path.read_text
+    raised = False
+
+    def _boom(self: Path, *args, **kwargs):
+        nonlocal raised
+        if self.name == "report_manifest.json" and not raised:
+            raised = True
+            raise PermissionError("denied")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _boom)
+
+    artifact = ReportArtifact(kind="markdown", path="digest.md", sha256="abc", size=1)
+    with caplog.at_level("WARNING", logger="atlas20.api.manifest"):
+        write_report_manifest("btk_0001", run_dir, [artifact])
+
+    assert any("unreadable" in rec.message for rec in caplog.records)
+    payload = json.loads((run_dir / "report_manifest.json").read_text(encoding="utf-8"))
+    assert [a["kind"] for a in payload["artifacts"]] == ["markdown"]
+
+
 def test_artifacts_from_rows_uses_row_sha256(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
