@@ -50,9 +50,29 @@ def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArti
         try:
             existing_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
             if isinstance(existing_payload, dict):
-                for entry in existing_payload.get("artifacts", []):
-                    if isinstance(entry, dict) and "kind" in entry:
-                        existing[entry["kind"]] = entry
+                artifacts_payload = existing_payload.get("artifacts", [])
+                if isinstance(artifacts_payload, list):
+                    for entry in artifacts_payload:
+                        if not isinstance(entry, dict):
+                            logger.warning(
+                                "existing manifest at %s has non-dict artifact entry; skipping",
+                                manifest_path,
+                            )
+                            continue
+                        kind = entry.get("kind")
+                        if not isinstance(kind, str) or not kind:
+                            logger.warning(
+                                "existing manifest at %s has artifact entry without string kind; skipping",
+                                manifest_path,
+                            )
+                            continue
+                        existing[kind] = entry
+                else:
+                    logger.warning(
+                        "existing manifest at %s has non-list artifacts (%s); overwriting",
+                        manifest_path,
+                        type(artifacts_payload).__name__,
+                    )
             else:
                 logger.warning(
                     "existing manifest at %s parsed to non-dict (%s); overwriting",
