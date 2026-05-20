@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -180,13 +178,12 @@ def test_universe_alerts_endpoint_returns_alerts(client: TestClient):
     assert payload[0].id == "a1"
 
 
-def test_universe_refresh_endpoint_returns_timestamp(client: TestClient):
+def test_universe_refresh_endpoint_returns_queued_job(client: TestClient):
     response = client.post("/api/universe/refresh")
 
-    assert response.status_code == 200
-    refreshed_at = response.json()["refreshed_at"]
-    assert refreshed_at.endswith("Z")
-    datetime.fromisoformat(refreshed_at.replace("Z", "+00:00"))
+    assert response.status_code == 202
+    assert response.json()["run_id"].startswith("btk_")
+    assert response.json()["status"] == "queued"
 
 
 def test_featured_digest_endpoint_returns_digest(client: TestClient):

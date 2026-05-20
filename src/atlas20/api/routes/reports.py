@@ -2,9 +2,11 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from atlas20.api.schemas import FeaturedDigest, GenerateReportRequest, ReportEntry, ReportFormat
+from atlas20.api.dependencies.auth import verify_api_key
+from atlas20.api.dependencies.ratelimit import limiter
+from atlas20.api.schemas import FeaturedDigest, GenerateReportRequest, ReportEntry, ReportFormat, ReportId
 from atlas20.api.services import (
     build_digest_download_url,
     build_report_download_url,
@@ -34,8 +36,10 @@ def get_reports(
     return list_reports(sort)
 
 
-@router.post("/reports/generate", status_code=202)
-def generate_report(req: GenerateReportRequest) -> dict[str, str]:
+@router.post("/reports/generate", status_code=202, dependencies=[Depends(verify_api_key)])
+@limiter.limit("5/minute")
+def generate_report(request: Request, req: GenerateReportRequest) -> dict[str, str]:
+    del request
     del req
     return {
         "job_id": "stub-job-001",
@@ -46,7 +50,7 @@ def generate_report(req: GenerateReportRequest) -> dict[str, str]:
 
 @router.get("/reports/{report_id}/download")
 def get_report_download(
-    report_id: str,
+    report_id: ReportId,
     format: ReportFormat | None = None,
 ) -> dict[str, str]:
     result = build_report_download_url(report_id, format)

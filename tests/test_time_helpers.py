@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from atlas20.api import _time
 from atlas20.api.settings import get_settings
@@ -28,6 +28,15 @@ def test_today_falls_back_to_utc_date(monkeypatch):
 
     assert _time.today() == date(2026, 5, 20)
     assert seen_timezones == [timezone.utc]
+
+
+def test_today_uses_utc_now_override(monkeypatch):
+    monkeypatch.delenv("ATLAS20_ANCHOR_DATE", raising=False)
+    get_settings.cache_clear()
+    override = datetime(2026, 5, 20, 9, 30, tzinfo=timezone(timedelta(hours=9)))
+    monkeypatch.setattr(_time, "utc_now", lambda: override)
+
+    assert _time.today() == date(2026, 5, 20)
 
 
 def test_utc_now_iso_returns_z_suffix(monkeypatch):

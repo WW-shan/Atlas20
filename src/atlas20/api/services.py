@@ -9,10 +9,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from atlas20.api import mock_data
-from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now, utc_now_iso
+from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
@@ -43,6 +43,9 @@ logger = logging.getLogger(__name__)
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
+DATA_SOURCE_CACHE_TTL_SECONDS = 300
+DATA_SOURCE_STALE_SECONDS = 999999
+_DATA_SOURCES_CACHE: tuple[float, list[DataSource]] | None = None
 
 
 def get_overview() -> OverviewPayload:
@@ -520,7 +523,51 @@ def get_universe_timeline() -> UniverseTimelinePayload:
 
 
 def get_data_sources() -> list[DataSource]:
-    return [DataSource.model_validate(row) for row in mock_data.fallback_data_sources]
+    settings = get_settings()
+    raw_root = settings.data_root / "raw"
+    if not raw_root.exists():
+        return [DataSource.model_validate(row) for row in mock_data.fallback_data_sources]
+
+    global _DATA_SOURCES_CACHE
+    now_ts = utc_now().timestamp()
+    if _DATA_SOURCES_CACHE is not None:
+        cached_at, cached_sources = _DATA_SOURCES_CACHE
+        if now_ts - cached_at < DATA_SOURCE_CACHE_TTL_SECONDS:
+            return [source.model_copy(deep=True) for source in cached_sources]
+
+    sources = [
+        _data_source_status(row["id"], row["name"], raw_root / row["id"], now_ts)
+        for row in mock_data.fallback_data_sources
+    ]
+    _DATA_SOURCES_CACHE = (now_ts, sources)
+    return [source.model_copy(deep=True) for source in sources]
+
+
+def _data_source_status(source_id: str, name: str, path: Path, now_ts: float) -> DataSource:
+    latest_mtime = _latest_file_mtime(path)
+    if latest_mtime is None:
+        return DataSource(id=source_id, name=name, status="error", last_sync_seconds=DATA_SOURCE_STALE_SECONDS)
+
+    age_seconds = max(0, int(now_ts - latest_mtime))
+    if age_seconds < 3600:
+        status = "healthy"
+    elif age_seconds < 86400:
+        status = "degraded"
+    else:
+        status = "error"
+    return DataSource(id=source_id, name=name, status=status, last_sync_seconds=age_seconds)
+
+
+def _latest_file_mtime(path: Path) -> float | None:
+    if not path.exists():
+        return None
+    latest_mtime: float | None = None
+    for candidate in path.rglob("*"):
+        if not candidate.is_file():
+            continue
+        mtime = candidate.stat().st_mtime
+        latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
+    return latest_mtime
 
 
 def get_data_alerts() -> list[DataAlert]:
@@ -533,8 +580,43 @@ def get_data_alerts() -> list[DataAlert]:
     return [DataAlert.model_validate(row) for row in rows]
 
 
-def refresh_universe() -> dict[str, str]:
-    return {"refreshed_at": utc_now_iso()}
+def refresh_universe(session: Session) -> dict[str, str]:
+    existing = session.exec(
+        select(Run)
+        .where(Run.strategy == "universe_refresh", Run.status.in_(("queued", "running")))
+        .order_by(Run.created_at.desc(), Run.run_id.desc())
+        .limit(1)
+    ).first()
+    if existing is not None:
+        return {"run_id": existing.run_id, "status": existing.status}
+
+    current_day = today()
+    run = RunsRepo(session).create_with_unique_id(
+        {
+            "strategy": "universe_refresh",
+            "strategy_family": "Other",
+            "universe": "Data Sources",
+            "window_start": current_day,
+            "window_end": current_day,
+            "status": "queued",
+            "spark": json.dumps([]),
+            "params": json.dumps({"kind": "universe_refresh"}),
+            "created_at": utc_now(),
+        }
+    )
+    return {"run_id": run.run_id, "status": run.status}
+
+
+def get_universe_refresh_status(session: Session) -> dict[str, str | None]:
+    row = session.exec(
+        select(Run)
+        .where(Run.strategy == "universe_refresh")
+        .order_by(Run.created_at.desc(), Run.run_id.desc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return {"run_id": None, "status": "idle"}
+    return {"run_id": row.run_id, "status": row.status}
 
 
 def get_featured_digest() -> FeaturedDigest:

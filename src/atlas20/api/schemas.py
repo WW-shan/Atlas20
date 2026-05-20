@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from atlas20.api import _time
 
@@ -13,6 +13,8 @@ from atlas20.api import _time
 RunStatusEnum = Literal["queued", "running", "completed", "failed", "cancelled"]
 StrategyFamily = Literal["ATLAS", "Momentum", "MeanRev", "Carry", "Other"]
 ChartRange = Literal["1M", "3M", "YTD", "1Y", "ALL"]
+RunId = Annotated[str, StringConstraints(pattern=r"^btk_\d{4,6}$")]
+ReportId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_-]{1,64}$")]
 
 
 class ApiModel(BaseModel):

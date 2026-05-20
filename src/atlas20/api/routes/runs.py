@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
 from atlas20.api import services
+from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.repositories import RunsRepo, get_session
-from atlas20.api.schemas import HistoryFilter, RunDetailPayload, RunRow, RunRowSummary, RunsListResponse
+from atlas20.api.schemas import HistoryFilter, RunDetailPayload, RunId, RunRow, RunRowSummary, RunsListResponse
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -49,7 +50,7 @@ def get_runs(
 
 
 @router.get("/runs/{run_id}", response_model=RunRow, response_model_exclude_none=True)
-def get_run(run_id: str, session: Session = Depends(get_session)) -> RunRow:
+def get_run(run_id: RunId, session: Session = Depends(get_session)) -> RunRow:
     run = services.get_run(session, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
@@ -57,23 +58,23 @@ def get_run(run_id: str, session: Session = Depends(get_session)) -> RunRow:
 
 
 @router.get("/runs/{run_id}/detail", response_model=RunDetailPayload, response_model_exclude_none=True)
-def get_run_detail(run_id: str, session: Session = Depends(get_session)) -> RunDetailPayload:
+def get_run_detail(run_id: RunId, session: Session = Depends(get_session)) -> RunDetailPayload:
     detail = services.get_run_detail(session, run_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="run not found")
     return detail
 
 
-@router.post("/runs/{run_id}/favorite")
-def post_run_favorite(run_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+@router.post("/runs/{run_id}/favorite", dependencies=[Depends(verify_api_key)])
+def post_run_favorite(run_id: RunId, session: Session = Depends(get_session)) -> dict[str, Any]:
     result = services.toggle_run_favorite(session, run_id)
     if result is None:
         raise HTTPException(status_code=404, detail="run not found")
     return result
 
 
-@router.post("/runs/{run_id}/cancel", status_code=202)
-def cancel_run(run_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+@router.post("/runs/{run_id}/cancel", status_code=202, dependencies=[Depends(verify_api_key)])
+def cancel_run(run_id: RunId, session: Session = Depends(get_session)) -> dict[str, Any]:
     repo = RunsRepo(session)
     run = repo.request_cancel(run_id)
     if run is None:

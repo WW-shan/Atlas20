@@ -1,8 +1,10 @@
 """Backtest API routes."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlmodel import Session
 
+from atlas20.api.dependencies.auth import verify_api_key
+from atlas20.api.dependencies.ratelimit import limiter
 from atlas20.api.repositories import IdempotencyRepo, get_session
 from atlas20.api.schemas import BacktestConfig, RunRowSummary
 from atlas20.api.services import register_new_backtest
@@ -10,8 +12,15 @@ from atlas20.api.services import register_new_backtest
 router = APIRouter(prefix="/api", tags=["backtests"])
 
 
-@router.post("/backtests/run", response_model=RunRowSummary, response_model_exclude_none=True)
+@router.post(
+    "/backtests/run",
+    response_model=RunRowSummary,
+    response_model_exclude_none=True,
+    dependencies=[Depends(verify_api_key)],
+)
+@limiter.limit("10/minute")
 def post_backtest(
+    request: Request,
     config: BacktestConfig,
     session: Session = Depends(get_session),
     idempotency_key: str | None = Header(

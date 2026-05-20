@@ -1,6 +1,8 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from atlas20.api.settings import Settings
 from atlas20.api.settings import get_settings
 
@@ -44,7 +46,7 @@ def test_settings_accepts_custom_cors_origins():
 
 def test_settings_reads_env_overrides(monkeypatch):
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", '["https://example.com"]')
-    monkeypatch.setenv("ATLAS20_API_KEYS", '["key-a", "key-b"]')
+    monkeypatch.setenv("ATLAS20_API_KEYS", "key-a,key-b")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     monkeypatch.setenv("ATLAS20_ANCHOR_DATE", "2026-05-19")
     monkeypatch.setenv("ATLAS20_LOG_LEVEL", "DEBUG")
@@ -68,12 +70,32 @@ def test_settings_accepts_anchor_date():
     assert settings.anchor_date == date(2026, 5, 19)
 
 
+def test_prod_requires_explicit_cors_origins(monkeypatch):
+    monkeypatch.setenv("ATLAS20_ENV", "prod")
+    monkeypatch.delenv("ATLAS20_CORS_ORIGINS", raising=False)
+
+    with pytest.raises(RuntimeError, match="ATLAS20_CORS_ORIGINS must be set in prod"):
+        Settings()
+
+
+def test_prod_forces_docs_disabled():
+    settings = Settings(env="prod", cors_origins=["https://example.com"], enable_docs=True)
+
+    assert settings.enable_docs is False
+
+
+def test_prod_rejects_wildcard_cors_origins():
+    with pytest.raises(RuntimeError, match="must not include"):
+        Settings(env="prod", cors_origins=["*"])
+
+
 def test_prod_docs_can_be_disabled(monkeypatch):
     from fastapi.testclient import TestClient
 
     from atlas20.api.app import create_app
 
     monkeypatch.setenv("ATLAS20_ENV", "prod")
+    monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     get_settings.cache_clear()
 
@@ -81,3 +103,18 @@ def test_prod_docs_can_be_disabled(monkeypatch):
 
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
+
+
+def test_prod_docs_are_disabled_even_when_enabled_in_env(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from atlas20.api.app import create_app
+
+    monkeypatch.setenv("ATLAS20_ENV", "prod")
+    monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
+    monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "true")
+    get_settings.cache_clear()
+
+    client = TestClient(create_app())
+
+    assert client.get("/docs").status_code == 404

@@ -15,11 +15,11 @@ def client_session(tmp_path):
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         for run_id, status in (
-            ("btk_queued", "queued"),
-            ("btk_running", "running"),
-            ("btk_completed", "completed"),
-            ("btk_failed", "failed"),
-            ("btk_cancelled", "cancelled"),
+            ("btk_0001", "queued"),
+            ("btk_0002", "running"),
+            ("btk_0003", "completed"),
+            ("btk_0004", "failed"),
+            ("btk_0005", "cancelled"),
         ):
             session.add(
                 Run(
@@ -48,50 +48,50 @@ def client(client_session):
 
 
 def test_cancel_route_returns_404_for_missing_run(client: TestClient):
-    response = client.post("/api/runs/missing/cancel")
+    response = client.post("/api/runs/btk_9999/cancel")
 
     assert response.status_code == 404
 
 
 def test_cancel_route_returns_409_for_completed_run(client: TestClient):
-    response = client.post("/api/runs/btk_completed/cancel")
+    response = client.post("/api/runs/btk_0003/cancel")
 
     assert response.status_code == 409
     assert response.json()["detail"] == "run already completed; cannot cancel"
 
 
 def test_cancel_route_returns_409_for_failed_run(client: TestClient):
-    response = client.post("/api/runs/btk_failed/cancel")
+    response = client.post("/api/runs/btk_0004/cancel")
 
     assert response.status_code == 409
     assert response.json()["detail"] == "run already failed; cannot cancel"
 
 
 def test_cancel_route_returns_409_for_cancelled_run(client: TestClient):
-    response = client.post("/api/runs/btk_cancelled/cancel")
+    response = client.post("/api/runs/btk_0005/cancel")
 
     assert response.status_code == 409
     assert response.json()["detail"] == "run is already cancelled"
 
 
 def test_cancel_route_accepts_queued_run(client: TestClient):
-    response = client.post("/api/runs/btk_queued/cancel")
+    response = client.post("/api/runs/btk_0001/cancel")
 
     assert response.status_code == 202
-    assert response.json() == {"run_id": "btk_queued", "requested_cancel": True}
+    assert response.json() == {"run_id": "btk_0001", "requested_cancel": True}
 
 
 def test_cancel_route_accepts_running_run(client: TestClient):
-    response = client.post("/api/runs/btk_running/cancel")
+    response = client.post("/api/runs/btk_0002/cancel")
 
     assert response.status_code == 202
-    assert response.json() == {"run_id": "btk_running", "requested_cancel": True}
+    assert response.json() == {"run_id": "btk_0002", "requested_cancel": True}
 
 
 def test_cancel_route_sets_requested_cancel_in_db(client: TestClient, client_session: Session):
-    response = client.post("/api/runs/btk_running/cancel")
+    response = client.post("/api/runs/btk_0002/cancel")
 
-    run = RunsRepo(client_session).get("btk_running")
+    run = RunsRepo(client_session).get("btk_0002")
     assert response.status_code == 202
     assert run is not None
     assert run.requested_cancel is True

@@ -1,0 +1,12 @@
+{
+  "id": "batch-11-security",
+  "title": "Implement Atlas20 Batch 11 security hardening and R7/R10/C3",
+  "status": "completed",
+  "complexity": "L",
+  "risk": "high",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Archived with final implementation commit",
+  "createdAt": "2026-05-20T00:00:00+08:00",
+  "branch": "redesign/r3-premium"
+}

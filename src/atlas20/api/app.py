@@ -7,8 +7,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from filelock import FileLock
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.engine import make_url
 
+from atlas20.api.dependencies.ratelimit import limiter, reset_rate_limit_storage
 from atlas20.api.logging_config import configure_logging
 from atlas20.api.middleware.access_log import AccessLogMiddleware
 from atlas20.api.middleware.request_id import RequestIdMiddleware
@@ -71,6 +74,9 @@ def create_app() -> FastAPI:
         openapi_url=openapi_url,
         lifespan=lifespan,
     )
+    app.state.limiter = limiter
+    reset_rate_limit_storage()
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -78,6 +84,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # reports/ filesystem access stays behind API routes; do not mount StaticFiles here.
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.include_router(overview_router)

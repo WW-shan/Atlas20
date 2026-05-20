@@ -15,10 +15,12 @@ from typing import Any
 import pandas as pd
 from sqlmodel import Session
 
+from atlas20.config import load_config
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.settings import Settings, get_settings
+from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
 from atlas20.reporting.report import _publish_report_dir
 
@@ -146,6 +148,21 @@ def _execute_pipeline(params_json: str, settings: Settings, tmp_dir: Path) -> No
     _ensure_brief_artifact_names(tmp_dir)
 
 
+def _execute_universe_refresh(settings: Settings) -> None:
+    if os.environ.get("ATLAS20_WORKER_MOCK") == "1":
+        coingecko_dir = settings.data_root / "raw" / "coingecko"
+        cryptocompare_dir = settings.data_root / "raw" / "cryptocompare" / "histoday"
+        coingecko_dir.mkdir(parents=True, exist_ok=True)
+        cryptocompare_dir.mkdir(parents=True, exist_ok=True)
+        (coingecko_dir / "universe_refresh_mock.json").write_text('{"status": "ok"}\n', encoding="utf-8")
+        (cryptocompare_dir / "BTC.json").write_text('{"Response": "Success", "Data": {"Data": []}}\n', encoding="utf-8")
+        return
+
+    config = load_config(settings.project_root / "config" / "base.yaml")
+    config.paths.raw_dir = str(settings.data_root / "raw")
+    download_and_cache_raw_data(config)
+
+
 def run(run_id: str, settings: Settings | None = None) -> int:
     settings = settings or get_settings()
     engine = get_engine(settings)
@@ -160,8 +177,23 @@ def run(run_id: str, settings: Settings | None = None) -> int:
             print(f"run not found: {run_id}", file=sys.stderr)
             return 1
         params_json = run_row.params
+        strategy = run_row.strategy
 
     try:
+        if strategy == "universe_refresh":
+            _execute_universe_refresh(settings)
+            duration_s = max(0, int(time.monotonic() - started))
+            with Session(engine) as session:
+                RunsRepo(session).update_metrics_from_completion(
+                    run_id,
+                    return_pct=None,
+                    sharpe=None,
+                    max_dd=None,
+                    duration_s=duration_s,
+                )
+                session.commit()
+            return 0
+
         if not params_json:
             raise ValueError("run params are missing")
         _execute_pipeline(params_json, settings, tmp_dir)
