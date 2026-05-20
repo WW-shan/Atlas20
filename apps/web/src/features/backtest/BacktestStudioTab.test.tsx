@@ -134,4 +134,18 @@ describe("BacktestStudioTab", () => {
     expect(await screen.findByText("STRATEGY")).toBeInTheDocument();
     expect(screen.getByTestId("run-queue-skeleton")).toBeInTheDocument();
   });
+
+  it("renders queue error banner and retries the queue query", async () => {
+    vi.mocked(api.listRunsQueue)
+      .mockRejectedValueOnce(new Error("queue failed"))
+      .mockResolvedValueOnce(api.fallbackRunsQueue);
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load run queue");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.listRunsQueue).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("RUN QUEUE")).toBeInTheDocument();
+  });
 });

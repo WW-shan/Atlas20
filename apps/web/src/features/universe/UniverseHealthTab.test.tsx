@@ -83,4 +83,16 @@ describe("UniverseHealthTab", () => {
     expect(document.querySelectorAll('[data-icon="InfoCircle"]').length).toBe(0);
     expect(document.querySelectorAll('[data-icon="info-circle"]').length).toBe(0);
   });
+
+  it("keeps universe data visible after a refresh failure", async () => {
+    vi.mocked(api.refreshUniverse).mockRejectedValueOnce(new Error("refresh failed"));
+
+    renderWithQuery(<UniverseHealthTab />);
+    const button = screen.getByRole("button", { name: /FORCE REFRESH/ });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(api.refreshUniverse).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(button).not.toBeDisabled());
+    expect(screen.getByRole("list", { name: "Data sources" }).querySelectorAll("[role='listitem']")).toHaveLength(9);
+  });
 });

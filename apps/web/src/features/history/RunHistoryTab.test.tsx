@@ -244,6 +244,18 @@ describe("RunHistoryTab", () => {
     expect(screen.getByRole("button", { name: "favorited" })).toBeDisabled();
   });
 
+  it("renders run history error banner and retries the list query", async () => {
+    vi.mocked(api.listRuns).mockRejectedValueOnce(new Error("history failed"));
+
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load run history");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.listRuns).toHaveBeenCalledTimes(2));
+    await waitForRunRows(14);
+  });
+
   it("disables all favorite buttons while a favorite mutation is pending", async () => {
     vi.mocked(api.toggleFavorite).mockImplementation(() => new Promise<Awaited<ReturnType<typeof api.toggleFavorite>>>(() => {}));
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, test, vi } from "vitest";
 
 import * as api from "../lib/api";
@@ -89,6 +89,20 @@ test("shows an error banner when the overview query fails", async () => {
 
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("Unable to load overview");
+});
+
+test("retries the overview query after an initial error", async () => {
+  vi.mocked(api.getOverview)
+    .mockRejectedValueOnce(new Error("backend offline"))
+    .mockResolvedValueOnce(api.fallbackOverview);
+
+  renderWithQuery(<ResearchConsolePage />);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load overview");
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+  await waitFor(() => expect(api.getOverview).toHaveBeenCalledTimes(2));
+  expect(await screen.findByText("CURRENT CHAMPION")).toBeInTheDocument();
 });
 
 test("keeps cached overview data visible and shows stale state when a refetch fails", async () => {

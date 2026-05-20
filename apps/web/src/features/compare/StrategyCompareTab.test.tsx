@@ -164,4 +164,23 @@ describe("StrategyCompareTab", () => {
     expect(screen.queryByRole("columnheader", { name: "ATLAS Adaptive v2" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Strategy selection" })).toHaveTextContent("3 selected");
   });
+
+  it("keeps fallback compare data visible while the compare query is loading", () => {
+    vi.mocked(api.getCompare).mockImplementation(() => new Promise<api.ComparePayload>(() => {}));
+
+    renderWithQuery(<StrategyCompareTab />);
+
+    expect(screen.getByRole("table", { name: "Metric comparison table" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "ATLAS Adaptive v3" })).toBeInTheDocument();
+  });
+
+  it("keeps fallback strategy options visible while options are loading", async () => {
+    vi.mocked(api.getOptions).mockImplementation(() => new Promise<api.OptionsPayload>(() => {}));
+
+    renderWithQuery(<StrategyCompareTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    expect(within(dialog).getByRole("option", { name: "ATLAS Adaptive v2" })).toBeInTheDocument();
+  });
 });

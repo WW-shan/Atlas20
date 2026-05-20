@@ -247,6 +247,15 @@ describe("ReportsExportsTab", () => {
     expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).toBeDisabled();
   });
 
+  it("renders featured digest loading state while the hero query is pending", async () => {
+    vi.mocked(api.getFeaturedDigest).mockImplementation(() => new Promise<api.FeaturedDigest>(() => {}));
+
+    renderWithQuery(<ReportsExportsTab />);
+
+    expect(await screen.findByRole("status", { name: "Loading featured digest" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).toBeDisabled();
+  });
+
   it("shows archive empty state when no reports are returned", async () => {
     vi.mocked(api.listReports).mockResolvedValue([]);
 
@@ -262,5 +271,19 @@ describe("ReportsExportsTab", () => {
 
     expect(await screen.findByText("FEATURED DIGEST")).toBeInTheDocument();
     expect(screen.getAllByTestId("archive-skeleton-row")).toHaveLength(5);
+  });
+
+  it("renders archive error banner and retries the archive query", async () => {
+    vi.mocked(api.listReports)
+      .mockRejectedValueOnce(new Error("archive failed"))
+      .mockResolvedValueOnce(api.fallbackReports);
+
+    renderWithQuery(<ReportsExportsTab />);
+
+    expect(await screen.findByText("Unable to load reports archive.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.listReports).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("list", { name: "Reports archive list" })).toBeInTheDocument();
   });
 });
