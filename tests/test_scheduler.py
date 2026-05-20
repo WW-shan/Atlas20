@@ -9,7 +9,7 @@ import pytest
 from sqlmodel import Session
 
 from atlas20.api.db.models import Run
-from atlas20.api.repositories import KvRepo, RunsRepo
+from atlas20.api.repositories import KvRepo
 from atlas20.api.scheduler import generate_featured_digest, start_scheduler
 from atlas20.api.services import get_featured_digest
 from atlas20.api.settings import get_settings

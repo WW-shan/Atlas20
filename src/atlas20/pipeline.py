@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 
 from atlas20.analytics.metrics import performance_by_regime, summarize_backtests, yearly_return_table

@@ -8,7 +8,7 @@ from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import make_url
 from sqlmodel import SQLModel
 
-from atlas20.api.db import models as _models
+from atlas20.api.db import models as _models  # noqa: F401
 from atlas20.api.settings import get_settings
 
 config = context.config
