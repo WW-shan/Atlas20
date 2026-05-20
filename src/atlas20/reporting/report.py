@@ -35,6 +35,14 @@ SELECTION_HISTORY_COLUMNS = (
 )
 
 
+def _tmp_name(base: Path) -> Path:
+    """Return a sibling path with a tmp suffix unique per PID + monotonic ns.
+
+    Used for atomic writes inside the pipeline (publish-via-rename pattern).
+    """
+    return base.with_name(f"{base.name}.tmp_{os.getpid()}_{time.time_ns()}")
+
+
 def dataframe_to_markdown(
     df: pd.DataFrame,
     percent_columns: set[str] | None = None,
@@ -284,7 +292,7 @@ def _write_result_tables(
 
 
 def _temporary_report_dir(report_dir: Path) -> Path:
-    return report_dir.with_name(f"{report_dir.name}.tmp_{os.getpid()}_{time.time_ns()}")
+    return _tmp_name(report_dir)
 
 
 def _remove_path(path: Path) -> None:
@@ -299,6 +307,7 @@ def _publish_report_dir(tmp_dir: Path, report_dir: Path) -> None:
     report_dir.parent.mkdir(parents=True, exist_ok=True)
 
     if report_dir.exists() or report_dir.is_symlink():
+        # Backup names intentionally mirror _tmp_name's PID + monotonic ns uniqueness.
         backup_dir = report_dir.with_name(f"{report_dir.name}.bak_{os.getpid()}_{time.time_ns()}")
         _remove_path(backup_dir)
         shutil.move(str(report_dir), str(backup_dir))
@@ -330,7 +339,7 @@ def _write_latest_pointer(report_dir: Path) -> None:
     report_root = _report_root(report_dir)
     relative_report_dir = report_dir.relative_to(report_root)
     pointer_path = report_root / "latest.txt"
-    tmp_pointer_path = pointer_path.with_name(f"{pointer_path.name}.tmp_{os.getpid()}_{time.time_ns()}")
+    tmp_pointer_path = _tmp_name(pointer_path)
     tmp_pointer_path.write_text(relative_report_dir.as_posix() + "\n", encoding="utf-8")
     tmp_pointer_path.replace(pointer_path)
 
