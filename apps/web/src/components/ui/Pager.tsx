@@ -43,7 +43,7 @@ export function Pager({ total, page, pageSize, disabled, onChange }: PagerProps)
                 fontFamily: "var(--font-mono)",
                 fontWeight: p === page ? 700 : 400,
                 color: p === page ? "var(--bg)" : "var(--muted)",
-                background: p === page ? "var(--gold)" : "transparent",
+                background: p === page ? "var(--violet)" : "transparent",
                 cursor: buttonDisabled ? "default" : "pointer",
                 opacity: disabled && p !== page ? 0.5 : 1,
               }}

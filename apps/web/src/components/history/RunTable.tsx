@@ -123,7 +123,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                     style={{
                       width: 3,
                       height: 30,
-                      background: isSelected ? "var(--gold)" : "transparent",
+                      background: isSelected ? "var(--violet)" : "transparent",
                       borderRadius: 2,
                     }}
                   />

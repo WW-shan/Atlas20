@@ -213,7 +213,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
               ariaLabel={`Run ${row.run_id}`}
               style={{
                 padding: 0,
-                borderColor: isSelected ? "var(--gold)" : "var(--border)",
+                borderColor: isSelected ? "var(--violet)" : "var(--border)",
               }}
             >
               <button
