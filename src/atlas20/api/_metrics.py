@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from prometheus_client import Counter, Histogram
+
+logger = logging.getLogger(__name__)
 
 TERMINAL_BACKTEST_STATUSES = ("completed", "failed", "cancelled")
 REPORT_STATUSES = ("completed", "failed")
@@ -38,14 +42,23 @@ for _format in REPORT_FORMATS:
 def record_backtest_terminal(status: str, duration_seconds: float | None = None) -> None:
     if status not in TERMINAL_BACKTEST_STATUSES:
         return
-    BACKTESTS_TOTAL.labels(status=status).inc()
-    if duration_seconds is not None:
-        BACKTEST_DURATION_SECONDS.observe(max(0.0, duration_seconds))
+    try:
+        BACKTESTS_TOTAL.labels(status=status).inc()
+        if duration_seconds is not None:
+            BACKTEST_DURATION_SECONDS.observe(max(0.0, duration_seconds))
+    except Exception:
+        logger.warning("failed to record backtest terminal metric", exc_info=True)
 
 
 def record_report_generation(format_name: str, status: str) -> None:
-    REPORT_GENERATIONS_TOTAL.labels(format=format_name, status=status).inc()
+    try:
+        REPORT_GENERATIONS_TOTAL.labels(format=format_name, status=status).inc()
+    except Exception:
+        logger.warning("failed to record report generation metric", exc_info=True)
 
 
 def record_rate_limit_hit(route: str) -> None:
-    RATE_LIMIT_HITS_TOTAL.labels(route=route).inc()
+    try:
+        RATE_LIMIT_HITS_TOTAL.labels(route=route).inc()
+    except Exception:
+        logger.warning("failed to record rate limit metric", exc_info=True)

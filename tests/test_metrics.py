@@ -1,10 +1,12 @@
 import json
+import logging
 import re
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from atlas20.api import _metrics
 from atlas20.api._time import utc_now
 from atlas20.api.app import create_app
 from atlas20.api.db.models import Run
@@ -72,6 +74,20 @@ def test_completed_run_increments_backtest_counter(tmp_path, monkeypatch, db_ses
         after = _metric_value(client.get("/metrics").text, "atlas20_backtests_total", "completed")
 
     assert after == before + 1
+
+
+def test_record_backtest_terminal_swallows_counter_errors(monkeypatch, caplog) -> None:
+    counter = _metrics.BACKTESTS_TOTAL.labels(status="completed")
+
+    def fail_inc() -> None:
+        raise RuntimeError("counter unavailable")
+
+    monkeypatch.setattr(counter, "inc", fail_inc)
+
+    with caplog.at_level(logging.WARNING, logger="atlas20.api._metrics"):
+        _metrics.record_backtest_terminal("completed", 42.0)
+
+    assert "failed to record backtest terminal metric" in caplog.text
 
 
 def test_metrics_and_readiness_are_excluded_from_access_log(tmp_path, monkeypatch, capsys) -> None:
