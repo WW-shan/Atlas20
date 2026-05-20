@@ -12,7 +12,7 @@ def _key_func(request: Request) -> str:
     return api_key or get_remote_address(request)
 
 
-limiter = Limiter(key_func=_key_func)
+limiter = Limiter(key_func=_key_func, headers_enabled=True)
 
 
 def reset_rate_limit_storage() -> None:

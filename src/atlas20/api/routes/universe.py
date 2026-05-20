@@ -1,6 +1,6 @@
 """Universe and data-health API routes."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlmodel import Session
 
 from atlas20.api.dependencies.auth import verify_api_key
@@ -35,8 +35,9 @@ def get_alerts() -> list[DataAlert]:
 
 @router.post("/universe/refresh", status_code=202, dependencies=[Depends(verify_api_key)])
 @limiter.limit("1/minute")
-def post_refresh(request: Request, session: Session = Depends(get_session)) -> dict[str, str]:
+def post_refresh(request: Request, response: Response, session: Session = Depends(get_session)) -> dict[str, str]:
     del request
+    del response
     return refresh_universe(session)
 
 

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.dependencies.ratelimit import limiter
@@ -38,8 +38,9 @@ def get_reports(
 
 @router.post("/reports/generate", status_code=202, dependencies=[Depends(verify_api_key)])
 @limiter.limit("5/minute")
-def generate_report(request: Request, req: GenerateReportRequest) -> dict[str, str]:
+def generate_report(request: Request, response: Response, req: GenerateReportRequest) -> dict[str, str]:
     del request
+    del response
     del req
     return {
         "job_id": "stub-job-001",

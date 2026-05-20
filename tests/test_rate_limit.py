@@ -45,6 +45,19 @@ def test_backtest_run_rate_limit_returns_429_on_eleventh_post(tmp_path, monkeypa
     assert statuses[10] == 429
 
 
+def test_rate_limit_429_includes_retry_after_header(tmp_path, monkeypatch, db_session: Session):
+    key = f"retry-after-{uuid4().hex}"
+    client = _client(tmp_path, monkeypatch, db_session, [key])
+
+    headers = {"X-API-Key": key}
+    for _ in range(10):
+        assert client.post("/api/backtests/run", json=DEFAULT_BACKTEST_CONFIG, headers=headers).status_code == 200
+    response = client.post("/api/backtests/run", json=DEFAULT_BACKTEST_CONFIG, headers=headers)
+
+    assert response.status_code == 429
+    assert int(response.headers["Retry-After"]) >= 0
+
+
 def test_universe_refresh_rate_limit_returns_429_on_second_post(tmp_path, monkeypatch, db_session: Session):
     key = f"refresh-{uuid4().hex}"
     client = _client(tmp_path, monkeypatch, db_session, [key])

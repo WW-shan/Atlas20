@@ -1,6 +1,6 @@
 """Backtest API routes."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from sqlmodel import Session
 
 from atlas20.api.dependencies.auth import verify_api_key
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api", tags=["backtests"])
 @limiter.limit("10/minute")
 def post_backtest(
     request: Request,
+    response: Response,
     config: BacktestConfig,
     session: Session = Depends(get_session),
     idempotency_key: str | None = Header(
