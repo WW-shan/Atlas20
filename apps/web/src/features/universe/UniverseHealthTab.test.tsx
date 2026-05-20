@@ -9,6 +9,9 @@ vi.mock("../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
   return {
     ...actual,
+    getUniverseTimeline: vi.fn(),
+    getDataSources: vi.fn(),
+    getDataAlerts: vi.fn(),
     refreshUniverse: vi.fn(),
   };
 });
@@ -20,6 +23,9 @@ function renderWithQuery(ui: React.ReactElement) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(api.getUniverseTimeline).mockResolvedValue(api.fallbackUniverseTimeline);
+  vi.mocked(api.getDataSources).mockResolvedValue(api.fallbackDataSources);
+  vi.mocked(api.getDataAlerts).mockResolvedValue(api.fallbackDataAlerts);
   vi.mocked(api.refreshUniverse).mockResolvedValue({ refreshed_at: "2026-05-20T00:00:00Z" });
 });
 
@@ -94,5 +100,51 @@ describe("UniverseHealthTab", () => {
     await waitFor(() => expect(api.refreshUniverse).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(button).not.toBeDisabled());
     expect(screen.getByRole("list", { name: "Data sources" }).querySelectorAll("[role='listitem']")).toHaveLength(9);
+  });
+
+  it("renders tab-level skeletons while universe queries are loading", () => {
+    vi.mocked(api.getUniverseTimeline).mockImplementation(() => new Promise<api.UniverseTimelinePayload>(() => {}));
+    vi.mocked(api.getDataSources).mockImplementation(() => new Promise<api.DataSource[]>(() => {}));
+    vi.mocked(api.getDataAlerts).mockImplementation(() => new Promise<api.DataAlert[]>(() => {}));
+
+    renderWithQuery(<UniverseHealthTab apiEnabled />);
+
+    expect(screen.getAllByTestId("universe-skeleton")).toHaveLength(3);
+  });
+
+  it("renders tab-level error banner and retries universe queries", async () => {
+    vi.mocked(api.getUniverseTimeline)
+      .mockRejectedValueOnce(new Error("timeline failed"))
+      .mockResolvedValueOnce(api.fallbackUniverseTimeline);
+    vi.mocked(api.getDataSources)
+      .mockRejectedValueOnce(new Error("sources failed"))
+      .mockResolvedValueOnce(api.fallbackDataSources);
+    vi.mocked(api.getDataAlerts)
+      .mockRejectedValueOnce(new Error("alerts failed"))
+      .mockResolvedValueOnce(api.fallbackDataAlerts);
+
+    renderWithQuery(<UniverseHealthTab apiEnabled />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load universe data");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.getUniverseTimeline).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("img", { name: /Universe composition timeline/ })).toBeInTheDocument();
+  });
+
+  it("renders tab-level empty state when timeline and sources are empty", async () => {
+    vi.mocked(api.getUniverseTimeline).mockResolvedValue({
+      tokens: [],
+      segments: [],
+      rotations: [],
+      range: { start: "2026-01-01", end: "2026-01-02" },
+    });
+    vi.mocked(api.getDataSources).mockResolvedValue([]);
+    vi.mocked(api.getDataAlerts).mockResolvedValue([]);
+
+    renderWithQuery(<UniverseHealthTab apiEnabled />);
+
+    expect(await screen.findByText("No universe data available")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Universe composition timeline/ })).not.toBeInTheDocument();
   });
 });

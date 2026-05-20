@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { SectionHeader } from "../../components/ui/SectionHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { OverlayLineChart } from "../../components/charts/OverlayLineChart";
 import { StrategyChip, AddStrategyChip } from "../../components/compare/StrategyChip";
 import { ComparisonTable } from "../../components/compare/ComparisonTable";
@@ -29,17 +32,22 @@ const PRESET_COMPARE_IDS: Record<string, string> = {
   "Mean Reversion v2": "meanrev",
 };
 
+type Props = {
+  initialSelections?: CompareSelectionItem[];
+};
+
 const lineToneFor = (tone: CompareSelectionItem["tone"]) => tone;
 
 function resolveCompareId(label: string): string {
   return PRESET_COMPARE_IDS[label] ?? label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-export function StrategyCompareTab() {
-  const [selections, setSelections] = useState<CompareSelectionItem[]>(DEFAULT_SELECTIONS);
+export function StrategyCompareTab({ initialSelections = DEFAULT_SELECTIONS }: Props = {}) {
+  const [selections, setSelections] = useState<CompareSelectionItem[]>(initialSelections);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [range, setRange] = useState<ChartRange>("YTD");
   const ids = useMemo(() => selections.map((s) => s.id), [selections]);
+  const hasSelections = selections.length > 0;
   const selectedLabels = useMemo(() => selections.map((selection) => selection.label), [selections]);
 
   const options = useQuery({
@@ -51,11 +59,14 @@ export function StrategyCompareTab() {
   const query = useQuery({
     queryKey: qk.compare(ids, range),
     queryFn: () => getCompare(ids, range),
-    initialData: fallbackCompare,
-    placeholderData: (previous) => previous ?? fallbackCompare,
+    enabled: hasSelections,
+    initialData: hasSelections ? fallbackCompare : undefined,
+    placeholderData: (previous) => previous ?? (hasSelections ? fallbackCompare : undefined),
   });
 
   const data = query.data ?? fallbackCompare;
+  const compareFailed = query.isError || query.isRefetchError;
+  const compareLoading = hasSelections && query.isFetching;
   const strategyOptions = useMemo(() => {
     return Array.from(new Set([...selections.map((selection) => selection.label), ...(options.data?.presets ?? [])]));
   }, [options.data?.presets, selections]);
@@ -95,6 +106,22 @@ export function StrategyCompareTab() {
           </span>
         </div>
       </Card>
+
+      {!hasSelections ? (
+        <EmptyState
+          title="No strategies selected"
+          action={{ label: "Add strategy", onClick: () => setAddModalOpen(true) }}
+        />
+      ) : (
+        <>
+          {compareFailed && (
+            <ErrorBanner
+              message="Unable to load strategy comparison."
+              onRetry={() => { void query.refetch(); }}
+            />
+          )}
+
+          {compareLoading && <Skeleton variant="card" height="48px" />}
 
       {/* ===== Equity overlay ===== */}
       <Card ariaLabel="Strategy equity overlay">
@@ -202,6 +229,8 @@ export function StrategyCompareTab() {
           </Card>
         </div>
       </div>
+        </>
+      )}
 
       <AddStrategyModal
         open={addModalOpen}

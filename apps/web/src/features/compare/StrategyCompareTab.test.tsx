@@ -170,8 +170,30 @@ describe("StrategyCompareTab", () => {
 
     renderWithQuery(<StrategyCompareTab />);
 
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Metric comparison table" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "ATLAS Adaptive v3" })).toBeInTheDocument();
+  });
+
+  it("renders compare error banner and retries the compare query", async () => {
+    vi.mocked(api.getCompare)
+      .mockRejectedValueOnce(new Error("compare failed"))
+      .mockResolvedValueOnce(compareFor(["atlas", "momentum", "meanrev"]));
+
+    renderWithQuery(<StrategyCompareTab />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load strategy comparison");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.getCompare).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("table", { name: "Metric comparison table" })).toBeInTheDocument();
+  });
+
+  it("renders compare empty state when no strategies are selected", () => {
+    renderWithQuery(<StrategyCompareTab initialSelections={[]} />);
+
+    expect(screen.getByText("No strategies selected")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Metric comparison table" })).not.toBeInTheDocument();
   });
 
   it("keeps fallback strategy options visible while options are loading", async () => {

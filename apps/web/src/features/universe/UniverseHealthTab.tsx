@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { Pill } from "../../components/ui/Pill";
 import { Button } from "../../components/ui/Button";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { UniverseTimeline } from "../../components/universe/UniverseTimeline";
 import { DataSourceTile } from "../../components/universe/DataSourceTile";
 import { DataAlertRow } from "../../components/universe/DataAlertRow";
@@ -19,28 +22,32 @@ import {
 } from "../../lib/api";
 import { qk } from "../../lib/qk";
 
-export function UniverseHealthTab() {
-  const apiEnabled = import.meta.env.MODE !== "test";
+type Props = {
+  apiEnabled?: boolean;
+};
+
+export function UniverseHealthTab({ apiEnabled: apiEnabledOverride }: Props = {}) {
+  const apiEnabled = apiEnabledOverride ?? import.meta.env.MODE !== "test";
   const queryClient = useQueryClient();
 
   const timeline = useQuery({
     queryKey: qk.universe.timeline(),
     queryFn: getUniverseTimeline,
-    initialData: fallbackUniverseTimeline,
+    initialData: apiEnabled ? undefined : fallbackUniverseTimeline,
     enabled: apiEnabled,
   });
 
   const sources = useQuery({
     queryKey: qk.universe.sources(),
     queryFn: getDataSources,
-    initialData: fallbackDataSources,
+    initialData: apiEnabled ? undefined : fallbackDataSources,
     enabled: apiEnabled,
   });
 
   const alerts = useQuery({
     queryKey: qk.universe.alerts(),
     queryFn: getDataAlerts,
-    initialData: fallbackDataAlerts,
+    initialData: apiEnabled ? undefined : fallbackDataAlerts,
     enabled: apiEnabled,
   });
 
@@ -56,9 +63,25 @@ export function UniverseHealthTab() {
   const aData = alerts.data ?? fallbackDataAlerts;
 
   const openAlerts = aData.filter((a) => a.severity !== "emerald").length;
+  const isInitialLoading = [timeline, sources, alerts].some((query) => query.isLoading && query.data === undefined);
+  const tabFailed = [timeline, sources, alerts].some((query) => (query.isError || query.isRefetchError) && query.data === undefined);
+  const isEmpty = tData.tokens.length === 0 && tData.segments.length === 0 && sData.length === 0;
+  const retryUniverseQueries = () => {
+    void timeline.refetch();
+    void sources.refetch();
+    void alerts.refetch();
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+      {isInitialLoading ? (
+        <UniverseLoadingState />
+      ) : tabFailed ? (
+        <ErrorBanner message="Unable to load universe data." onRetry={retryUniverseQueries} />
+      ) : isEmpty ? (
+        <EmptyState title="No universe data available" />
+      ) : (
+        <>
       {/* ===== Timeline ===== */}
       <Card ariaLabel="Universe composition timeline">
         <SectionHeader
@@ -126,6 +149,20 @@ export function UniverseHealthTab() {
           </div>
         </Card>
       </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function UniverseLoadingState() {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 16 }}>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} data-testid="universe-skeleton">
+          <Skeleton variant="card" height={index === 0 ? "320px" : "180px"} />
+        </div>
+      ))}
     </div>
   );
 }
