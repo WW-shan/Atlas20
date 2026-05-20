@@ -9,10 +9,28 @@ from sqlalchemy import case, func, or_, text, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from atlas20.api._metrics import TERMINAL_BACKTEST_STATUSES, record_backtest_terminal
+from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
+
+
+def _terminal_duration_seconds(run: Run) -> float | None:
+    if run.duration_s is not None:
+        return float(run.duration_s)
+    if run.started_at is None:
+        return None
+    return (utc_now() - run.started_at).total_seconds()
+
+
+def _record_terminal_transition(previous_status: str | None, run: Run | None) -> None:
+    if run is None or run.status not in TERMINAL_BACKTEST_STATUSES:
+        return
+    if previous_status in TERMINAL_BACKTEST_STATUSES:
+        return
+    record_backtest_terminal(run.status, _terminal_duration_seconds(run))
 
 
 class RunsRepo:
@@ -88,12 +106,14 @@ class RunsRepo:
         run = self.get(run_id)
         if run is None:
             return None
+        previous_status = run.status
         for key, value in fields.items():
             if hasattr(run, key):
                 setattr(run, key, value)
         self._s.add(run)
         self._s.flush()
         self._s.refresh(run)
+        _record_terminal_transition(previous_status, run)
         return run
 
     def update_metrics_from_completion(
@@ -110,6 +130,8 @@ class RunsRepo:
         worker_pid: int | None = None,
         heartbeat_at: datetime | None = None,
     ) -> Run | None:
+        current = self.get(run_id)
+        previous_status = current.status if current is not None else None
         if status == "completed" and duration_s is None:
             raise ValueError("duration_s is required for completed runs")
         fields: dict[str, object] = {
@@ -146,7 +168,9 @@ class RunsRepo:
         if result.rowcount == 0:
             return None
         self._s.expire_all()
-        return self.get(run_id)
+        updated = self.get(run_id)
+        _record_terminal_transition(previous_status, updated)
+        return updated
 
     def request_cancel(self, run_id: str) -> Run | None:
         self._s.exec(

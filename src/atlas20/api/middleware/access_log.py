@@ -14,7 +14,7 @@ logger = structlog.get_logger("atlas20.api.access")
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):
-    excluded_paths = {"/healthz", "/metrics"}
+    excluded_paths = {"/healthz", "/readyz", "/metrics"}
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start = time.perf_counter_ns()

@@ -7,16 +7,18 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from filelock import FileLock
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.engine import make_url
 
-from atlas20.api.dependencies.ratelimit import limiter, reset_rate_limit_storage
+from atlas20.api._log_redact import scrub_sensitive_headers as _scrub_sensitive_headers
+from atlas20.api.dependencies.ratelimit import limiter, rate_limit_exceeded_handler, reset_rate_limit_storage
 from atlas20.api.logging_config import configure_logging
 from atlas20.api.middleware.access_log import AccessLogMiddleware
+from atlas20.api.middleware.metrics import expose_metrics, instrument_metrics
 from atlas20.api.middleware.request_id import RequestIdMiddleware
 from atlas20.api.routes.backtests import router as backtests_router
 from atlas20.api.routes.compare import router as compare_router
+from atlas20.api.routes.health import router as health_router
 from atlas20.api.routes.options import router as options_router
 from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.reports import router as reports_router
@@ -30,12 +32,38 @@ from atlas20.api.worker.recovery import recover_stale_runs
 logger = logging.getLogger(__name__)
 
 
+def _init_sentry(settings) -> None:
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.env,
+        traces_sample_rate=0.0,
+        send_default_pii=False,
+        before_send=_scrub_sensitive_headers,
+        integrations=[FastApiIntegration()],
+    )
+
+
+def _include_health_routes(app: FastAPI) -> None:
+    if getattr(app.state, "health_routes_included", False):
+        return
+    app.include_router(health_router)
+    app.state.health_routes_included = True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from alembic.config import Config
     from alembic import command
 
     settings = get_settings()
+    _init_sentry(settings)
+    _include_health_routes(app)
+    expose_metrics(app)
     url = make_url(settings.db_url)
     if url.drivername.startswith("sqlite") and url.database:
         db_path = Path(url.database)
@@ -82,7 +110,7 @@ def create_app() -> FastAPI:
     )
     app.state.limiter = limiter
     reset_rate_limit_storage()
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -100,6 +128,7 @@ def create_app() -> FastAPI:
     app.include_router(compare_router)
     app.include_router(universe_router)
     app.include_router(reports_router)
+    instrument_metrics(app)
     return app
 
 

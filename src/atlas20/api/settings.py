@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     anchor_date: date | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "json"
+    log_file_path: Path | None = None
+    sentry_dsn: str | None = None
     run_timeout_seconds: int = 1800
     worker_poll_interval_seconds: float = 2.0
     worker_heartbeat_interval_seconds: float = 2.0

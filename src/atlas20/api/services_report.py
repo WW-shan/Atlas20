@@ -16,6 +16,7 @@ import matplotlib
 import pandas as pd
 from sqlmodel import Session
 
+from atlas20.api._metrics import record_report_generation
 from atlas20.api._time import utc_now
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.db.models import ReportFile
@@ -241,54 +242,61 @@ def generate_run_report_with_warnings(
 ) -> GeneratedReports:
     settings = settings or get_settings()
     requested = {str(item) for item in formats}
-    unknown = requested - REPORT_FORMATS
-    if unknown:
-        raise HTTPException(status_code=422, detail=f"unsupported report format: {sorted(unknown)[0]}")
-    if not requested:
-        raise HTTPException(status_code=422, detail="formats must not be empty")
+    try:
+        unknown = requested - REPORT_FORMATS
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"unsupported report format: {sorted(unknown)[0]}")
+        if not requested:
+            raise HTTPException(status_code=422, detail="formats must not be empty")
 
-    run = RunsRepo(session).get(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail="run not found")
-    run_dir = _run_dir(settings, run_id)
-    files: list[ReportFile] = []
-    warnings: list[str] = []
+        run = RunsRepo(session).get(run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="run not found")
+        run_dir = _run_dir(settings, run_id)
+        files: list[ReportFile] = []
+        warnings: list[str] = []
 
-    needs_markdown = bool(requested & {"markdown", "pdf", "bundle"})
-    markdown_path: Path | None = None
-    if needs_markdown:
-        markdown_path = _generate_markdown(run_id, run_dir, run.params, settings)
-        if "markdown" in requested:
-            files.append(_register_file(session, settings, run_id, "markdown", markdown_path))
+        needs_markdown = bool(requested & {"markdown", "pdf", "bundle"})
+        markdown_path: Path | None = None
+        if needs_markdown:
+            markdown_path = _generate_markdown(run_id, run_dir, run.params, settings)
+            if "markdown" in requested:
+                files.append(_register_file(session, settings, run_id, "markdown", markdown_path))
 
-    if "pdf" in requested:
-        markdown_path = markdown_path or _generate_markdown(run_id, run_dir, run.params, settings)
-        pdf_path = run_dir / "digest.pdf"
-        tmp_pdf = _tmp_path(pdf_path)
-        try:
-            if generate_pdf(markdown_path, tmp_pdf):
-                os.replace(tmp_pdf, pdf_path)
-                files.append(_register_file(session, settings, run_id, "pdf", pdf_path))
-            else:
-                warnings.append(PDF_UNAVAILABLE_WARNING)
-        finally:
-            if tmp_pdf.exists():
-                tmp_pdf.unlink()
+        if "pdf" in requested:
+            markdown_path = markdown_path or _generate_markdown(run_id, run_dir, run.params, settings)
+            pdf_path = run_dir / "digest.pdf"
+            tmp_pdf = _tmp_path(pdf_path)
+            try:
+                if generate_pdf(markdown_path, tmp_pdf):
+                    os.replace(tmp_pdf, pdf_path)
+                    files.append(_register_file(session, settings, run_id, "pdf", pdf_path))
+                else:
+                    warnings.append(PDF_UNAVAILABLE_WARNING)
+            finally:
+                if tmp_pdf.exists():
+                    tmp_pdf.unlink()
 
-    if requested & {"png", "bundle"}:
-        png_path = _generate_png(run_dir)
-        if "png" in requested:
-            files.append(_register_file(session, settings, run_id, "png", png_path))
+        if requested & {"png", "bundle"}:
+            png_path = _generate_png(run_dir)
+            if "png" in requested:
+                files.append(_register_file(session, settings, run_id, "png", png_path))
 
-    if "csv" in requested:
-        summary_path = _first_existing(run_dir, ["summary.csv", "strategy_summary.csv"])
-        files.append(_register_file(session, settings, run_id, "csv", summary_path))
+        if "csv" in requested:
+            summary_path = _first_existing(run_dir, ["summary.csv", "strategy_summary.csv"])
+            files.append(_register_file(session, settings, run_id, "csv", summary_path))
 
-    if "bundle" in requested:
-        bundle_path = generate_bundle(run_id, run_dir)
-        files.append(_register_file(session, settings, run_id, "bundle", bundle_path))
+        if "bundle" in requested:
+            bundle_path = generate_bundle(run_id, run_dir)
+            files.append(_register_file(session, settings, run_id, "bundle", bundle_path))
 
-    write_report_manifest(run_id, run_dir, _artifacts_from_rows(settings, files))
+        write_report_manifest(run_id, run_dir, _artifacts_from_rows(settings, files))
+    except Exception:
+        for format_name in requested:
+            record_report_generation(format_name, "failed")
+        raise
+    for format_name in requested:
+        record_report_generation(format_name, "completed")
     return GeneratedReports(files=files, warnings=warnings)
 
 
