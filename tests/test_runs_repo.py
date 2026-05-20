@@ -1,8 +1,9 @@
 from datetime import date
 
-from sqlmodel import Session
+from sqlalchemy import text
+from sqlmodel import Session, select
 
-from atlas20.api.db.models import Run
+from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import RunsRepo
 
 
@@ -75,3 +76,25 @@ def test_runs_repo_lists_queue_and_next_btk_id(db_session: Session):
     repo.create(_new_run("btk_0149"))
 
     assert repo.next_btk_id() == "btk_0150"
+
+
+def test_deleting_run_sets_report_files_run_id_to_null(db_session: Session):
+    db_session.exec(text("PRAGMA foreign_keys=ON"))
+    run = _new_run("btk_report_fk")
+    db_session.add(run)
+    db_session.commit()
+    report = ReportFile(
+        run_id=run.run_id,
+        kind="markdown",
+        path="reports/btk_report_fk/digest.md",
+        size_bytes=123,
+        sha256="sha-report-fk",
+    )
+    db_session.add(report)
+    db_session.commit()
+
+    db_session.delete(run)
+    db_session.commit()
+
+    row = db_session.exec(select(ReportFile).where(ReportFile.sha256 == "sha-report-fk")).one()
+    assert row.run_id is None

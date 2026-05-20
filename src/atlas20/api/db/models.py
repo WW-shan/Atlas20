@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, SQLModel
 
@@ -64,7 +64,10 @@ class ReportFile(SQLModel, table=True):
     __tablename__ = "report_files"
 
     id: int | None = Field(default=None, primary_key=True)
-    run_id: str | None = Field(index=True, foreign_key="runs.run_id", nullable=True)
+    run_id: str | None = Field(
+        default=None,
+        sa_column=Column(String, ForeignKey("runs.run_id", ondelete="SET NULL"), nullable=True, index=True),
+    )
     kind: str
     path: str
     size_bytes: int
