@@ -14,6 +14,8 @@ Structured log events are redacted before JSON rendering. Header fields named `X
 
 The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route exposure policy. Production deployments should keep the API bound to a private interface or place `/metrics` behind a reverse proxy allow-list such as nginx internal IP rules.
 
+`/readyz` is excluded from Prometheus instrumentation because the probe is too short-lived (< 5ms typical) for histogram bucket distribution to be meaningful. Alert on 503 rate via the access log instead (`status_code >= 500 AND path == "/readyz"`).
+
 ## Scheduler Lock
 
 The weekly digest scheduler uses `{ATLAS20_DATA_ROOT}/.scheduler.lock` for single-node multi-worker leader election. This prevents duplicate scheduled jobs across multiple uvicorn or gunicorn workers on one host. Multi-node deployments need a Redis or database-backed leader election mechanism before enabling the scheduler on more than one host.
