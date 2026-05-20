@@ -38,9 +38,9 @@ def post_backtest(
             return RunRowSummary.model_validate_json(cached.response_json)
 
     try:
-        response = register_new_backtest(session, config)
+        summary = register_new_backtest(session, config)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if idempotency_key:
-        repo.store(idempotency_key, "POST", "/backtests/run", response.model_dump_json(), ttl_seconds=86400)
-    return response
+        repo.store(idempotency_key, "POST", "/backtests/run", summary.model_dump_json(), ttl_seconds=86400)
+    return summary
