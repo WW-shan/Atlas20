@@ -1,0 +1,16 @@
+{
+  "id": "batch-11-round-2-reviewer-fixes",
+  "title": "Batch 11 round-2 cross-validation (Opus + codex) and fixes",
+  "status": "completed",
+  "complexity": "M",
+  "risk": "low",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Proceed to Batch 12 (Phase F report generation)",
+  "createdAt": "2026-05-20T00:00:00+08:00",
+  "completedAt": "2026-05-20T18:30:00+08:00",
+  "branch": "redesign/r3-premium",
+  "commits": [
+    "5105363"
+  ]
+}
