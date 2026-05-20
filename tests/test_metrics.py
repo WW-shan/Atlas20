@@ -201,6 +201,26 @@ def test_unknown_report_format_is_rejected_without_custom_metric_label(
         assert f'format="{unknown_format}"' not in client.get("/metrics").text
 
 
+def test_record_report_generation_ignores_unknown_report_format(caplog) -> None:
+    unknown_format = "__not_a_format__"
+
+    assert all(
+        sample.labels.get("format") != unknown_format
+        for metric in _metrics.REPORT_GENERATIONS_TOTAL.collect()
+        for sample in metric.samples
+    )
+
+    with caplog.at_level(logging.WARNING, logger="atlas20.api._metrics"):
+        _metrics.record_report_generation(unknown_format, "completed")
+
+    assert all(
+        sample.labels.get("format") != unknown_format
+        for metric in _metrics.REPORT_GENERATIONS_TOTAL.collect()
+        for sample in metric.samples
+    )
+    assert "ignoring metric for unknown report format: __not_a_format__" in caplog.text
+
+
 def test_report_generation_metric_failure_is_logged_without_breaking_flow(
     tmp_path, monkeypatch, caplog, db_session: Session
 ) -> None:
