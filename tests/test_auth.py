@@ -1,8 +1,11 @@
+import re
+
 from fastapi.testclient import TestClient
 import pytest
 from sqlmodel import Session
 
 from atlas20.api.app import create_app
+from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.repositories import get_session
 from atlas20.api.settings import get_settings
 
@@ -112,3 +115,14 @@ def test_get_routes_remain_unauthenticated_when_api_keys_are_configured(tmp_path
     response = client.get("/api/reports")
 
     assert response.status_code == 200
+
+
+def test_verify_api_key_returns_non_secret_principal(monkeypatch):
+    raw_key = "valid-secret-key"
+    monkeypatch.setenv("ATLAS20_API_KEYS", raw_key)
+    get_settings.cache_clear()
+
+    principal = verify_api_key(raw_key)
+
+    assert re.fullmatch(r"client-[0-9a-f]{8}", principal)
+    assert raw_key not in principal

@@ -1,5 +1,6 @@
 """API key authentication dependency."""
 
+import hashlib
 import hmac
 
 from fastapi import Header, HTTPException
@@ -13,6 +14,7 @@ def verify_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key
         return "anonymous"
     if x_api_key is None:
         raise HTTPException(status_code=401, detail="X-API-Key header required")
-    if not any(hmac.compare_digest(x_api_key, api_key) for api_key in settings.api_keys):
-        raise HTTPException(status_code=401, detail="invalid API key")
-    return x_api_key
+    for api_key in settings.api_keys:
+        if hmac.compare_digest(x_api_key, api_key):
+            return "client-" + hashlib.sha256(x_api_key.encode()).hexdigest()[:8]
+    raise HTTPException(status_code=401, detail="invalid API key")
