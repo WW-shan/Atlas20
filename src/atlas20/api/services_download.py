@@ -34,7 +34,7 @@ CONTENT_TYPES = {
     "csv": "text/csv",
     "bundle": "application/zip",
 }
-SAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+SAFE_FILENAME_CHARS = re.compile(r"[^\w.-]+", re.UNICODE)
 
 
 def _sanitize_filename(filename: str) -> str:

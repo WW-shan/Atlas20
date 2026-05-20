@@ -11,6 +11,7 @@ from sqlmodel import Session
 from atlas20.api.app import create_app
 from atlas20.api.db.models import ReportFile
 from atlas20.api.repositories import ReportsRepo, get_session
+from atlas20.api.services_download import _sanitize_filename
 from atlas20.api.settings import get_settings
 
 
@@ -59,6 +60,10 @@ def _add_report_row(
     ReportsRepo(db_session).create(
         ReportFile(run_id=run_id, kind=kind, path=path, sha256=sha256, size_bytes=size_bytes)
     )
+
+
+def test_sanitize_filename_preserves_unicode_word_chars() -> None:
+    assert _sanitize_filename("atlas20_报告.md") == "atlas20_报告.md"
 
 
 def test_download_rejects_symlink_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session) -> None:
