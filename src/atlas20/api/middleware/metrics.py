@@ -12,7 +12,7 @@ def instrument_metrics(app: FastAPI) -> None:
     instrumentator = Instrumentator(
         should_group_status_codes=True,
         should_ignore_untemplated=True,
-        excluded_handlers=["/healthz", "/readyz"],
+        excluded_handlers=["^/healthz$", "^/readyz$"],
     ).instrument(app)
     app.state.metrics_instrumentator = instrumentator
     app.state.metrics_instrumented = True
