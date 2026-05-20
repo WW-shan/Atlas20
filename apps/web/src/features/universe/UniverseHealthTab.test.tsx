@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.mocked(api.getUniverseTimeline).mockResolvedValue(api.fallbackUniverseTimeline);
   vi.mocked(api.getDataSources).mockResolvedValue(api.fallbackDataSources);
   vi.mocked(api.getDataAlerts).mockResolvedValue(api.fallbackDataAlerts);
-  vi.mocked(api.refreshUniverse).mockResolvedValue({ refreshed_at: "2026-05-20T00:00:00Z" });
+  vi.mocked(api.refreshUniverse).mockResolvedValue({ run_id: "btk_9999", status: "queued" });
 });
 
 describe("UniverseHealthTab", () => {

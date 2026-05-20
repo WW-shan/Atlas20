@@ -637,7 +637,7 @@ export function getDataAlerts() {
 }
 
 export function refreshUniverse() {
-  return requestJson<{ refreshed_at: string }>("/universe/refresh", { method: "POST" });
+  return requestJson<{ run_id: string; status: string }>("/universe/refresh", { method: "POST" });
 }
 
 export function getFeaturedDigest() {
