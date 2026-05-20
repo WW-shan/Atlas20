@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from atlas20.api.schemas import FeaturedDigest, ReportEntry, ReportFormat
+from atlas20.api.schemas import FeaturedDigest, GenerateReportRequest, ReportEntry, ReportFormat
 from atlas20.api.services import (
     build_digest_download_url,
     build_report_download_url,
@@ -32,6 +32,16 @@ def get_reports(
     sort: Literal["recent", "oldest", "size", "type"] = Query(default="recent"),
 ) -> list[ReportEntry]:
     return list_reports(sort)
+
+
+@router.post("/reports/generate", status_code=202)
+def generate_report(req: GenerateReportRequest) -> dict[str, str]:
+    del req
+    return {
+        "job_id": "stub-job-001",
+        "status": "queued",
+        "note": "report generation stubbed until Batch 12",
+    }
 
 
 @router.get("/reports/{report_id}/download")

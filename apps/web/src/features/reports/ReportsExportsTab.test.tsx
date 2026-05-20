@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../lib/api";
@@ -13,6 +13,8 @@ vi.mock("../../lib/api", async () => {
     listReports: vi.fn(),
     downloadDigest: vi.fn(),
     downloadReport: vi.fn(),
+    getOptions: vi.fn(),
+    generateReport: vi.fn(),
   };
 });
 
@@ -28,6 +30,12 @@ beforeEach(() => {
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
   vi.mocked(api.downloadDigest).mockResolvedValue({ url: "stub" });
   vi.mocked(api.downloadReport).mockResolvedValue({ url: "stub" });
+  vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
+  vi.mocked(api.generateReport).mockResolvedValue({
+    job_id: "stub-job-001",
+    status: "queued",
+    note: "report generation stubbed until Batch 12",
+  });
 });
 
 describe("ReportsExportsTab", () => {
@@ -144,6 +152,55 @@ describe("ReportsExportsTab", () => {
   it("renders + NEW REPORT button (outline-violet)", async () => {
     renderWithQuery(<ReportsExportsTab />);
     expect(await screen.findByRole("button", { name: /\+ NEW REPORT/ })).toBeInTheDocument();
+  });
+
+  it("clicking + NEW REPORT opens modal controls", async () => {
+    renderWithQuery(<ReportsExportsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    expect(within(dialog).getByRole("radiogroup", { name: "Report type" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("radio", { name: "weekly" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "markdown" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "pdf" })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("radio", { name: "run" }));
+    expect(within(dialog).getByRole("combobox", { name: "Strategy" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Notes" })).toBeInTheDocument();
+  });
+
+  it("submitting new report calls generateReport and closes modal", async () => {
+    renderWithQuery(<ReportsExportsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "run" }));
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Strategy" }), {
+      target: { value: "Momentum Top-10" },
+    });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "pdf" }));
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Notes" }), {
+      target: { value: "include drawdown notes" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
+
+    await waitFor(() => expect(api.generateReport).toHaveBeenCalledWith({
+      type: "run",
+      formats: ["markdown", "pdf"],
+      strategy: "Momentum Top-10",
+      notes: "include drawdown notes",
+    }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "New report" })).not.toBeInTheDocument());
+  });
+
+  it("shows queued toast after report submission", async () => {
+    renderWithQuery(<ReportsExportsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
+
+    expect(await screen.findByText("Report queued for generation")).toBeInTheDocument();
   });
 
   it("generating card disables its DOWNLOAD button", async () => {

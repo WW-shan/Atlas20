@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { FilePlus2 } from "lucide-react";
 
 import { Card } from "../../components/ui/Card";
 import { SectionHeader } from "../../components/ui/SectionHeader";
@@ -10,15 +11,19 @@ import { Pill } from "../../components/ui/Pill";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { FeaturedDigestHero } from "../../components/reports/FeaturedDigestHero";
 import { ReportCard } from "../../components/reports/ReportCard";
+import { NewReportModal } from "./NewReportModal";
 
 import {
   downloadDigest,
   downloadReport,
   fallbackFeaturedDigest,
+  fallbackOptions,
+  generateReport,
   getFeaturedDigest,
+  getOptions,
   listReports,
 } from "../../lib/api";
-import type { ReportFormat } from "../../lib/api";
+import type { GenerateReportRequest, ReportFormat } from "../../lib/api";
 import type { ReportSortKey } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
 
@@ -34,6 +39,8 @@ export function ReportsExportsTab() {
   const [format, setFormat] = useState<ReportFormat>(fallbackFeaturedDigest.defaultFormat);
   const [digestDownloadPending, setDigestDownloadPending] = useState(false);
   const [reportDownloadPendingId, setReportDownloadPendingId] = useState<string | undefined>(undefined);
+  const [newReportOpen, setNewReportOpen] = useState(false);
+  const [reportToast, setReportToast] = useState<string | undefined>(undefined);
 
   const featured = useQuery({
     queryKey: qk.reports.featured(),
@@ -46,6 +53,12 @@ export function ReportsExportsTab() {
     placeholderData: (previous) => previous,
   });
 
+  const options = useQuery({
+    queryKey: qk.options(),
+    queryFn: getOptions,
+    initialData: fallbackOptions,
+  });
+
   const sorted = useMemo(() => {
     const list = [...(archive.data ?? [])];
     switch (sort) {
@@ -55,6 +68,12 @@ export function ReportsExportsTab() {
       case "type":   return list.sort((a, b) => a.report_type.localeCompare(b.report_type));
     }
   }, [archive.data, sort]);
+
+  useEffect(() => {
+    if (!reportToast) return;
+    const timer = window.setTimeout(() => setReportToast(undefined), 4000);
+    return () => window.clearTimeout(timer);
+  }, [reportToast]);
 
   const openDownload = (url: string) => {
     if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
@@ -81,12 +100,34 @@ export function ReportsExportsTab() {
   };
 
   const handleNewReport = () => {
-    // Modal spec deferred (SPEC §14) — stub for now
-    console.log("[reports] + NEW REPORT clicked");
+    setNewReportOpen(true);
+  };
+
+  const handleGenerateReport = async (payload: GenerateReportRequest) => {
+    await generateReport(payload);
+    setReportToast("Report queued for generation");
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+      {reportToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            alignSelf: "flex-end",
+            padding: "8px 12px",
+            borderRadius: "var(--radius-input)",
+            border: "1px solid rgba(34,197,94,0.35)",
+            background: "rgba(34,197,94,0.10)",
+            color: "var(--text)",
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {reportToast}
+        </div>
+      )}
       {featured.isLoading && <FeaturedDigestLoading />}
       {featured.isError && (
         <FeaturedDigestError onRetry={() => { void featured.refetch(); }} />
@@ -135,7 +176,10 @@ export function ReportsExportsTab() {
                   );
                 })}
               </div>
-              <Button variant="outline-violet" size="sm" onClick={handleNewReport}>+ NEW REPORT</Button>
+              <Button variant="outline-violet" size="sm" onClick={handleNewReport}>
+                <FilePlus2 size={13} aria-hidden="true" />
+                + NEW REPORT
+              </Button>
             </div>
           }
         >
@@ -176,6 +220,12 @@ export function ReportsExportsTab() {
           </div>
         )}
       </Card>
+      <NewReportModal
+        open={newReportOpen}
+        presets={options.data?.presets ?? fallbackOptions.presets}
+        onClose={() => setNewReportOpen(false)}
+        onGenerate={handleGenerateReport}
+      />
     </div>
   );
 }

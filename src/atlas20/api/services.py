@@ -157,7 +157,24 @@ def list_runs(
         page=page,
         page_size=page_size,
     )
-    return [_run_to_row(row) for row in rows], total
+    if total > 0:
+        return [_run_to_row(row) for row in rows], total
+
+    settings = get_settings()
+    disk_rows = _load_runs_from_disk(
+        settings.report_root / "app_runs",
+        q=q,
+        chips=chip_values,
+        date_cutoff=_date_cutoff(date_range),
+    )
+    if not disk_rows:
+        return [], 0
+
+    safe_page = max(page, 1)
+    safe_page_size = max(page_size, 1)
+    start = (safe_page - 1) * safe_page_size
+    end = start + safe_page_size
+    return disk_rows[start:end], len(disk_rows)
 
 
 def get_run(session: Session, run_id: str) -> RunRow | None:
@@ -212,6 +229,200 @@ def toggle_run_favorite(session: Session, run_id: str) -> dict[str, Any] | None:
     if run is None:
         return None
     return {"run_id": run_id, "favorited": run.favorited}
+
+
+def _load_runs_from_disk(
+    app_runs_root: Path,
+    *,
+    q: str = "",
+    chips: list[str] | tuple[str, ...] = (),
+    date_cutoff: date | None = None,
+) -> list[RunRow]:
+    if not app_runs_root.exists():
+        return []
+
+    manifests = sorted(
+        app_runs_root.glob("*/manifest.json"),
+        key=lambda path: (path.stat().st_mtime, path.as_posix()),
+        reverse=True,
+    )
+    rows: list[RunRow] = []
+    for manifest_path in manifests:
+        try:
+            row = _load_run_row_from_manifest(manifest_path)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            logger.warning("Skipping disk run manifest %s: %s", manifest_path, exc)
+            continue
+        if _disk_run_matches_filters(row, q=q, chips=chips, date_cutoff=date_cutoff):
+            rows.append(row)
+    return rows
+
+
+def _load_run_row_from_manifest(manifest_path: Path) -> RunRow:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a JSON object")
+
+    metrics = manifest.get("metrics")
+    metrics_dict = metrics if isinstance(metrics, dict) else {}
+    window = manifest.get("window")
+    if isinstance(window, dict):
+        window_start = _manifest_string(window, "start", "start_date", "from")
+        window_end = _manifest_string(window, "end", "end_date", "to")
+    else:
+        window_start = None
+        window_end = None
+    created_at = _manifest_created_at(manifest, manifest_path)
+    if window_start is None or window_end is None:
+        created_date = created_at[:10]
+        window_start = window_start or created_date
+        window_end = window_end or created_date
+
+    return RunRow.model_validate(
+        {
+            "run_id": _manifest_string(manifest, "run_id", "id", "runId"),
+            "strategy": _manifest_string(manifest, "strategy", "preset", "name"),
+            "strategy_family": _manifest_string(manifest, "strategy_family", "family"),
+            "universe": _manifest_universe(manifest),
+            "window": {"start": window_start, "end": window_end},
+            "status": _manifest_string(manifest, "status") or "completed",
+            "return_pct": _manifest_metric_float(manifest, metrics_dict, "return_pct", "total_return", "cagr"),
+            "sharpe": _manifest_metric_float(manifest, metrics_dict, "sharpe"),
+            "max_dd": _manifest_metric_float(manifest, metrics_dict, "max_dd", "max_drawdown"),
+            "duration_s": _manifest_metric_int(manifest, metrics_dict, "duration_s", "duration"),
+            "eta_s": _manifest_metric_int(manifest, metrics_dict, "eta_s", "eta"),
+            "spark": _manifest_spark(manifest, metrics_dict),
+            "created_at": created_at,
+            "favorited": bool(manifest.get("favorited", False)),
+        }
+    )
+
+
+def _disk_run_matches_filters(
+    row: RunRow,
+    *,
+    q: str,
+    chips: list[str] | tuple[str, ...],
+    date_cutoff: date | None,
+) -> bool:
+    if q:
+        pattern = q.lower()
+        if not any(
+            pattern in value
+            for value in [
+                row.run_id.lower(),
+                row.strategy.lower(),
+                row.universe.lower(),
+                (row.strategy_family or "").lower(),
+            ]
+        ):
+            return False
+
+    for chip in [item for item in chips if item]:
+        if chip == "favorited":
+            if not row.favorited:
+                return False
+        elif chip in RUN_STATUS_CHIPS:
+            if row.status != chip:
+                return False
+        elif chip in RUN_FAMILY_CHIPS:
+            if row.strategy_family != chip:
+                return False
+        else:
+            if chip.lower() not in row.strategy.lower():
+                return False
+
+    if date_cutoff is not None:
+        created_at = _parse_api_datetime(row.created_at)
+        if created_at.date() < date_cutoff:
+            return False
+    return True
+
+
+def _manifest_string(manifest: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = manifest.get(key)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                return stripped
+    return None
+
+
+def _manifest_universe(manifest: dict[str, Any]) -> str:
+    universe = manifest.get("universe")
+    if isinstance(universe, str) and universe.strip():
+        return universe.strip()
+
+    params = manifest.get("params")
+    if isinstance(params, dict):
+        nested_universe = params.get("universe")
+        if isinstance(nested_universe, dict):
+            top_n = nested_universe.get("topN")
+            if top_n is not None:
+                return f"Top-{top_n}"
+    return "Unknown"
+
+
+def _manifest_metric_float(
+    manifest: dict[str, Any],
+    metrics: dict[str, Any],
+    *keys: str,
+) -> float | None:
+    for source in (metrics, manifest):
+        for key in keys:
+            value = source.get(key)
+            if value is None:
+                continue
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _manifest_metric_int(
+    manifest: dict[str, Any],
+    metrics: dict[str, Any],
+    *keys: str,
+) -> int | None:
+    for source in (metrics, manifest):
+        for key in keys:
+            value = source.get(key)
+            if value is None:
+                continue
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _manifest_spark(manifest: dict[str, Any], metrics: dict[str, Any]) -> list[float] | None:
+    for source in (metrics, manifest):
+        value = source.get("spark")
+        if isinstance(value, list):
+            try:
+                return [float(item) for item in value]
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _manifest_created_at(manifest: dict[str, Any], manifest_path: Path) -> str:
+    for key in ("created_at", "generated_at", "timestamp"):
+        value = manifest.get(key)
+        if isinstance(value, str) and value.strip():
+            parsed = _parse_api_datetime(value)
+            return _datetime_to_api_iso(parsed)
+    return utc_iso_from_path_mtime(manifest_path)
+
+
+def _parse_api_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 

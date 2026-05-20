@@ -387,3 +387,10 @@ class ReportEntry(ApiModel):
     generated_at: str
     size_bytes: int
     report_type: Literal["weekly", "run", "compare", "universe"]
+
+
+class GenerateReportRequest(StrictApiModel):
+    type: Literal["weekly", "run", "compare", "universe"]
+    formats: list[ReportFormat] = Field(min_length=1)
+    strategy: str | None = None
+    notes: str | None = None

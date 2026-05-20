@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
@@ -8,36 +8,76 @@ import { StrategyChip, AddStrategyChip } from "../../components/compare/Strategy
 import { ComparisonTable } from "../../components/compare/ComparisonTable";
 import { JaccardHeatmap } from "../../components/compare/JaccardHeatmap";
 import { SharedHoldingsBars } from "../../components/compare/SharedHoldingsBars";
+import { AddStrategyModal } from "./AddStrategyModal";
 
-import { fallbackCompare, getCompare } from "../../lib/api";
+import { fallbackCompare, fallbackOptions, getCompare, getOptions } from "../../lib/api";
 import type { CompareSelectionItem } from "../../lib/api";
 import type { ChartRange } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
 
 const DEFAULT_SELECTIONS: CompareSelectionItem[] = [
   { id: "atlas",    label: "ATLAS Adaptive v3", tone: "gold" },
-  { id: "momentum", label: "Momentum Family",   tone: "violet" },
-  { id: "meanrev",  label: "Mean Reversion",    tone: "cyan" },
+  { id: "momentum", label: "Momentum Top-10",   tone: "violet" },
+  { id: "meanrev",  label: "Mean Reversion v2", tone: "cyan" },
 ];
 
 const RANGES: ChartRange[] = ["1M", "3M", "YTD", "1Y", "ALL"];
+const TONES: CompareSelectionItem["tone"][] = ["gold", "violet", "cyan", "emerald"];
+const PRESET_COMPARE_IDS: Record<string, string> = {
+  "ATLAS Adaptive v3": "atlas",
+  "Momentum Top-10": "momentum",
+  "Mean Reversion v2": "meanrev",
+};
 
 const lineToneFor = (tone: CompareSelectionItem["tone"]) => tone;
 
+function resolveCompareId(label: string): string {
+  return PRESET_COMPARE_IDS[label] ?? label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
 export function StrategyCompareTab() {
-  const [selections] = useState<CompareSelectionItem[]>(DEFAULT_SELECTIONS);
+  const [selections, setSelections] = useState<CompareSelectionItem[]>(DEFAULT_SELECTIONS);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [range, setRange] = useState<ChartRange>("YTD");
   const ids = useMemo(() => selections.map((s) => s.id), [selections]);
+  const selectedLabels = useMemo(() => selections.map((selection) => selection.label), [selections]);
 
-  const apiEnabled = import.meta.env.MODE !== "test";
+  const options = useQuery({
+    queryKey: qk.options(),
+    queryFn: getOptions,
+    initialData: fallbackOptions,
+  });
+
   const query = useQuery({
     queryKey: qk.compare(ids, range),
     queryFn: () => getCompare(ids, range),
     initialData: fallbackCompare,
-    enabled: apiEnabled,
+    placeholderData: (previous) => previous ?? fallbackCompare,
   });
 
   const data = query.data ?? fallbackCompare;
+  const strategyOptions = useMemo(() => {
+    return Array.from(new Set([...selections.map((selection) => selection.label), ...(options.data?.presets ?? [])]));
+  }, [options.data?.presets, selections]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("ids", ids.join(","));
+    params.set("range", range);
+    const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+    window.history.replaceState(null, "", next);
+  }, [ids, range]);
+
+  const handleAddStrategies = (labels: string[]) => {
+    setSelections((current) => labels.map((label, index) => {
+      const id = resolveCompareId(label);
+      const existing = current.find((selection) => selection.id === id);
+      if (existing) return { ...existing, label };
+      return { id, label, tone: TONES[index % TONES.length] };
+    }));
+    setAddModalOpen(false);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
@@ -47,7 +87,7 @@ export function StrategyCompareTab() {
           {selections.map((s) => (
             <StrategyChip key={s.id} item={s} />
           ))}
-          <AddStrategyChip />
+          <AddStrategyChip onClick={() => setAddModalOpen(true)} />
           <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>
             <span className="mono">{selections.length}</span> selected
           </span>
@@ -161,6 +201,14 @@ export function StrategyCompareTab() {
           </Card>
         </div>
       </div>
+
+      <AddStrategyModal
+        open={addModalOpen}
+        strategies={strategyOptions}
+        selected={selectedLabels}
+        onClose={() => setAddModalOpen(false)}
+        onAdd={handleAddStrategies}
+      />
     </div>
   );
 }

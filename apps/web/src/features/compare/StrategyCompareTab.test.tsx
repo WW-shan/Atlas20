@@ -1,13 +1,52 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as api from "../../lib/api";
 import { StrategyCompareTab } from "./StrategyCompareTab";
+
+vi.mock("../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
+  return {
+    ...actual,
+    getCompare: vi.fn(),
+    getOptions: vi.fn(),
+  };
+});
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
+
+function compareFor(ids: string[]): api.ComparePayload {
+  const metricKeys = Object.keys(api.fallbackCompare.metrics) as api.CompareMetricKey[];
+  const metrics = {} as api.ComparePayload["metrics"];
+  for (const key of metricKeys) {
+    metrics[key] = Object.fromEntries(
+      ids.map((id, index) => [id, index === 0 ? 1.5 : 0.8 - index * 0.1]),
+    );
+  }
+  return {
+    equity: api.fallbackCompare.equity.map((point, pointIndex) => ({
+      ts: point.ts,
+      values: Object.fromEntries(ids.map((id, index) => [id, pointIndex * (index + 1)])),
+    })),
+    metrics,
+    overlap: {
+      symbols: ids,
+      matrix: ids.map((_, row) => ids.map((__, column) => (row === column ? 1 : 0.25))),
+      sharedHoldings: api.fallbackCompare.overlap.sharedHoldings,
+    },
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  window.history.replaceState(null, "", "/");
+  vi.mocked(api.getCompare).mockImplementation((ids) => Promise.resolve(compareFor(ids)));
+  vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
+});
 
 describe("StrategyCompareTab", () => {
   it("renders 3 default strategy chips", () => {
@@ -16,8 +55,8 @@ describe("StrategyCompareTab", () => {
     const items = list.querySelectorAll("[role='listitem']");
     expect(items.length).toBe(3);
     expect(screen.getAllByText("ATLAS Adaptive v3").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Momentum Family").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Mean Reversion").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Momentum Top-10").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Mean Reversion v2").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders + ADD STRATEGY dashed chip", () => {
@@ -80,5 +119,47 @@ describe("StrategyCompareTab", () => {
   it("equity overlay chart has accessible name with range", () => {
     renderWithQuery(<StrategyCompareTab />);
     expect(screen.getByRole("img", { name: /Equity overlay across 3 strategies, range YTD/ })).toBeInTheDocument();
+  });
+
+  it("opens add strategy modal with presets from getOptions", async () => {
+    renderWithQuery(<StrategyCompareTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    expect(within(dialog).getByRole("searchbox", { name: "Search strategies" })).toBeInTheDocument();
+    const listbox = within(dialog).getByRole("listbox", { name: "Available strategies" });
+    expect(within(listbox).getByRole("option", { name: "ATLAS Adaptive v3" })).toHaveAttribute("aria-selected", "true");
+    expect(within(listbox).getByRole("option", { name: "ATLAS Adaptive v2" })).toBeInTheDocument();
+    expect(within(listbox).getByRole("option", { name: "Carry Top-5" })).toBeInTheDocument();
+  });
+
+  it("adds selected strategies as compare columns and refetches with new ids", async () => {
+    renderWithQuery(<StrategyCompareTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    fireEvent.click(within(dialog).getByRole("option", { name: "ATLAS Adaptive v2" }));
+    fireEvent.click(within(dialog).getByRole("option", { name: "Carry Top-5" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add strategy" })).not.toBeInTheDocument());
+    expect(screen.getByRole("columnheader", { name: "ATLAS Adaptive v2" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Carry Top-5" })).toBeInTheDocument();
+    await waitFor(() => expect(vi.mocked(api.getCompare).mock.calls.at(-1)?.[0]).toHaveLength(5));
+    expect(new URLSearchParams(window.location.search).get("ids")?.split(",")).toHaveLength(5);
+  });
+
+  it("canceling add strategy preserves the previous compare selection", async () => {
+    renderWithQuery(<StrategyCompareTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    fireEvent.click(within(dialog).getByRole("option", { name: "ATLAS Adaptive v2" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add strategy" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("columnheader", { name: "ATLAS Adaptive v2" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Strategy selection" })).toHaveTextContent("3 selected");
   });
 });

@@ -150,6 +150,29 @@ export type OptionsPayload = {
   sectors: string[];
 };
 
+export const fallbackOptions: OptionsPayload = {
+  presets: [
+    "ATLAS Adaptive v3",
+    "Momentum Top-10",
+    "Mean Reversion v2",
+    "ATLAS Adaptive v2",
+    "Carry Top-5",
+  ],
+  universes: [
+    { topN: 5, label: "Top 5" },
+    { topN: 10, label: "Top 10" },
+    { topN: 20, label: "Top 20" },
+  ],
+  rebalances: [
+    { value: "Weekly", label: "Weekly" },
+    { value: "Biweekly", label: "Biweekly" },
+    { value: "Monthly", label: "Monthly" },
+  ],
+  feeBpsRange: [0.0, 10.0, 50.0],
+  slippageBpsRange: [0.0, 5.0, 25.0],
+  sectors: ["DeFi", "Layer1", "Layer2", "Meme", "Oracle", "Payments"],
+};
+
 export const defaultBacktestConfig: BacktestConfig = {
   preset: "ATLAS Adaptive v3",
   universe: { topN: 20, excludeStable: true, excludeWrapped: true },
@@ -286,6 +309,19 @@ export type ReportEntry = {
   generated_at: string;
   size_bytes: number;
   report_type: "weekly" | "run" | "compare" | "universe";
+};
+
+export type GenerateReportRequest = {
+  type: ReportEntry["report_type"];
+  formats: ReportFormat[];
+  strategy?: string | null;
+  notes?: string | null;
+};
+
+export type GenerateReportResponse = {
+  job_id: string;
+  status: "queued";
+  note?: string;
 };
 
 // ============================================================
@@ -613,4 +649,12 @@ export function downloadDigest(format: ReportFormat | "bundle") {
 export function downloadReport(id: string, fmt?: ReportFormat) {
   const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
   return requestJson<{ url: string }>(`/reports/${encodeURIComponent(id)}/download${q}`);
+}
+
+export function generateReport(payload: GenerateReportRequest) {
+  return requestJson<GenerateReportResponse>("/reports/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
