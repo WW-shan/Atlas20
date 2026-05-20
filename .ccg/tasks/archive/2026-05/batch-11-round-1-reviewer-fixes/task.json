@@ -1,0 +1,12 @@
+{
+  "id": "batch-11-round-1-reviewer-fixes",
+  "title": "Apply Batch 11 round-1 reviewer findings",
+  "status": "completed",
+  "complexity": "L",
+  "risk": "high",
+  "domain": "backend",
+  "currentPhase": "completed",
+  "nextAction": "Archive task",
+  "createdAt": "2026-05-20T08:40:35Z",
+  "branch": "redesign/r3-premium"
+}
