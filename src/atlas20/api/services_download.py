@@ -70,12 +70,19 @@ def _run_dir_for_path(path: Path, settings: Settings, run_id: str | None) -> Pat
 
 def _validate_manifest_and_hash(path: Path, settings: Settings, *, run_id: str | None, expected_sha: str | None) -> None:
     run_dir = _run_dir_for_path(path, settings, run_id)
-    if run_dir is not None and (run_dir / "report_manifest.json").exists():
+    manifest_path = (run_dir / "report_manifest.json") if run_dir is not None else None
+    if manifest_path is not None and manifest_path.exists():
         if not verify_manifest_artifact(run_dir, path):
             raise HTTPException(status_code=403, detail="report artifact failed manifest verification")
         return
-    if expected_sha and expected_sha != sha256_file(path):
-        raise HTTPException(status_code=403, detail="report artifact sha256 mismatch")
+    if expected_sha is not None:
+        if expected_sha != sha256_file(path):
+            raise HTTPException(status_code=403, detail="report artifact sha256 mismatch")
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="report artifact has no manifest or registered sha256; regenerate via POST /api/reports/generate",
+    )
 
 
 def _fallback_run_path(report_id: str, fmt: str, settings: Settings) -> Path | None:

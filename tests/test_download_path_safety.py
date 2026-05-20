@@ -152,3 +152,17 @@ def test_download_allows_valid_manifest_sha256(
 
     assert response.status_code == 200
     assert response.content == b"# Digest\n"
+
+
+def test_download_rejects_bare_disk_fallback_without_manifest_or_db_sha(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = report_root / "app_runs" / "btk_0001"
+    run_dir.mkdir(parents=True)
+    (run_dir / "digest.md").write_text("# Planted\n", encoding="utf-8")
+
+    response = client.get("/api/reports/btk_0001/download?format=markdown")
+
+    assert response.status_code == 403
