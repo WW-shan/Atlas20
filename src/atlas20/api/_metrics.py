@@ -22,7 +22,7 @@ from prometheus_client import Counter, Histogram
 logger = logging.getLogger(__name__)
 
 TERMINAL_BACKTEST_STATUSES = ("completed", "failed", "cancelled")
-REPORT_STATUSES = ("completed", "failed")
+REPORT_STATUSES = ("completed", "failed", "skipped")
 REPORT_FORMATS = ("markdown", "pdf", "png", "csv", "bundle")
 
 BACKTESTS_TOTAL = Counter(
@@ -65,6 +65,7 @@ def record_backtest_terminal(status: str, duration_seconds: float | None = None)
 
 
 def record_report_generation(format_name: str, status: str) -> None:
+    """Record report generation status: completed, failed, or skipped."""
     if format_name not in REPORT_FORMATS:
         logger.warning("ignoring metric for unknown report format: %s", format_name)
         return

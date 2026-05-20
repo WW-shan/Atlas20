@@ -57,6 +57,15 @@ def _metric_value(body: str, name: str, label: str) -> float:
     return float(match.group("value"))
 
 
+def _report_metric_value(body: str, format_name: str, status: str) -> float:
+    pattern = re.compile(
+        rf'^atlas20_report_generations_total\{{format="{format_name}",status="{status}"\}} (?P<value>[0-9.]+)$',
+        re.MULTILINE,
+    )
+    match = pattern.search(body)
+    return float(match.group("value")) if match is not None else 0.0
+
+
 def test_metrics_endpoint_exposes_prometheus_text(tmp_path, monkeypatch) -> None:
     with TestClient(_app(tmp_path, monkeypatch)) as client:
         response = client.get("/metrics")
@@ -252,6 +261,26 @@ def test_record_report_generation_ignores_unknown_report_format(caplog) -> None:
         for sample in metric.samples
     )
     assert "ignoring metric for unknown report format: __not_a_format__" in caplog.text
+
+
+def test_generate_report_without_completed_run_records_skipped_metric(
+    tmp_path, monkeypatch, db_session: Session
+) -> None:
+    for run in db_session.exec(select(Run).where(Run.status == "completed")).all():
+        run.status = "failed"
+        db_session.add(run)
+    db_session.flush()
+
+    with TestClient(_app_with_session(tmp_path, monkeypatch, db_session)) as client:
+        before = _report_metric_value(client.get("/metrics").text, "markdown", "skipped")
+        response = client.post("/api/reports/generate", json={"formats": ["markdown"]})
+        after = _report_metric_value(client.get("/metrics").text, "markdown", "skipped")
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "completed"
+    assert response.json()["files"] == []
+    assert response.json()["warnings"] == ["no completed run available for report generation"]
+    assert after == before + 1
 
 
 def test_report_generation_metric_failure_is_logged_without_breaking_flow(

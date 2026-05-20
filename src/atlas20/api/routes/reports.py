@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
+from atlas20.api._metrics import REPORT_FORMATS, record_report_generation
 from atlas20.api.db.models import Run
 from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.dependencies.ratelimit import limiter
@@ -54,6 +55,7 @@ def generate_report(
     del request, response
     run_id = req.run_id or _select_generate_run_id(req, session)
     if run_id is None:
+        _record_report_skipped(req.formats)
         return {
             "job_id": "report-none",
             "status": "completed",
@@ -68,6 +70,7 @@ def generate_report(
             raise
         detail = getattr(exc, "detail", str(exc))
         logger.warning("Skipping legacy report generation for %s: %s", run_id, detail)
+        _record_report_skipped(req.formats)
         return {
             "job_id": f"report-{run_id}",
             "status": "completed",
@@ -99,6 +102,12 @@ def _select_generate_run_id(req: GenerateReportRequest, session: Session) -> str
         stmt = stmt.where(Run.strategy == req.strategy)
     row = session.exec(stmt.order_by(Run.created_at.desc(), Run.run_id.desc()).limit(1)).first()
     return row.run_id if row is not None else None
+
+
+def _record_report_skipped(formats: list[ReportFormat]) -> None:
+    for fmt in formats:
+        if fmt in REPORT_FORMATS:
+            record_report_generation(fmt, "skipped")
 
 
 def _report_file_payload(row) -> dict[str, object]:
