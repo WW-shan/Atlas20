@@ -45,7 +45,7 @@ RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 DATA_SOURCE_CACHE_TTL_SECONDS = 300
 DATA_SOURCE_STALE_SECONDS = 999999
-_DATA_SOURCES_CACHE: tuple[float, list[DataSource]] | None = None
+_DATA_SOURCES_CACHE: tuple[Path, float, list[DataSource]] | None = None
 
 
 def get_overview() -> OverviewPayload:
@@ -531,15 +531,15 @@ def get_data_sources() -> list[DataSource]:
     global _DATA_SOURCES_CACHE
     now_ts = utc_now().timestamp()
     if _DATA_SOURCES_CACHE is not None:
-        cached_at, cached_sources = _DATA_SOURCES_CACHE
-        if now_ts - cached_at < DATA_SOURCE_CACHE_TTL_SECONDS:
+        cached_root, cached_at, cached_sources = _DATA_SOURCES_CACHE
+        if cached_root == settings.data_root and now_ts - cached_at < DATA_SOURCE_CACHE_TTL_SECONDS:
             return [source.model_copy(deep=True) for source in cached_sources]
 
     sources = [
         _data_source_status(row["id"], row["name"], raw_root / row["id"], now_ts)
         for row in mock_data.fallback_data_sources
     ]
-    _DATA_SOURCES_CACHE = (now_ts, sources)
+    _DATA_SOURCES_CACHE = (settings.data_root, now_ts, sources)
     return [source.model_copy(deep=True) for source in sources]
 
 

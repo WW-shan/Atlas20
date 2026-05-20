@@ -64,3 +64,23 @@ def test_get_data_sources_uses_five_minute_cache(tmp_path, monkeypatch):
     assert first["coingecko"].status == "healthy"
     assert second["coingecko"].status == "healthy"
     assert third["coingecko"].status == "error"
+
+
+def test_get_data_sources_recomputes_when_data_root_changes_inside_cache_ttl(tmp_path, monkeypatch):
+    fixed_now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    _write_raw_file(root_a / "raw" / "coingecko" / "snapshots" / "markets.json", fixed_now - timedelta(seconds=30))
+    _write_raw_file(root_b / "raw" / "coingecko" / "snapshots" / "markets.json", fixed_now - timedelta(days=2))
+    monkeypatch.setattr(services, "utc_now", lambda: fixed_now)
+    _clear_data_sources_cache(monkeypatch)
+
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(root_a))
+    get_settings.cache_clear()
+    first = {source.id: source for source in services.get_data_sources()}
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(root_b))
+    get_settings.cache_clear()
+    second = {source.id: source for source in services.get_data_sources()}
+
+    assert first["coingecko"].status == "healthy"
+    assert second["coingecko"].status == "error"
