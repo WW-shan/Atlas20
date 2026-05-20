@@ -44,9 +44,9 @@ def test_report_download_rejects_malformed_report_id(tmp_path, monkeypatch, db_s
     assert response.status_code == 422
 
 
-def test_report_download_accepts_valid_report_id(tmp_path, monkeypatch, db_session: Session):
+def test_report_download_rejects_valid_but_missing_report_id(tmp_path, monkeypatch, db_session: Session):
     client = _client(tmp_path, monkeypatch, db_session)
 
     response = client.get("/api/reports/r2/download")
 
-    assert response.status_code == 200
+    assert response.status_code == 404

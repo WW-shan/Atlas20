@@ -204,15 +204,13 @@ def test_reports_endpoint_returns_sorted_reports(client: TestClient):
     assert payload[0].id == "r2"
 
 
-def test_digest_download_endpoint_returns_placeholder_url(client: TestClient):
+def test_digest_download_endpoint_returns_404_when_bundle_is_missing(client: TestClient):
     response = client.get("/api/reports/digest/download?format=bundle")
 
-    assert response.status_code == 200
-    assert response.json() == {"url": "/static/reports/digest.bundle"}
+    assert response.status_code == 404
 
 
-def test_report_download_endpoint_returns_placeholder_url(client: TestClient):
+def test_report_download_endpoint_returns_404_when_artifact_is_missing(client: TestClient):
     response = client.get("/api/reports/r2/download?format=pdf")
 
-    assert response.status_code == 200
-    assert response.json() == {"url": "/static/reports/r2.pdf"}
+    assert response.status_code == 404

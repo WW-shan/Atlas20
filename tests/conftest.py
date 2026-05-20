@@ -32,6 +32,7 @@ DATA_QUALITY_HEADER = (
 @pytest.fixture(autouse=True)
 def atlas20_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("ATLAS20_ANCHOR_DATE", "2026-05-19")
+    monkeypatch.setenv("ATLAS20_DISABLE_SCHEDULER", "1")
     get_settings.cache_clear()
     yield
     dispose_all_engines()

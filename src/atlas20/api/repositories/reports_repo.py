@@ -32,6 +32,34 @@ class ReportsRepo:
         self._s.refresh(report)
         return report
 
+    def upsert(self, report: ReportFile) -> ReportFile:
+        stmt = select(ReportFile).where(ReportFile.kind == report.kind)
+        if report.run_id is None:
+            stmt = stmt.where(ReportFile.run_id.is_(None), ReportFile.path == report.path)
+        else:
+            stmt = stmt.where(ReportFile.run_id == report.run_id)
+        existing = self._s.exec(stmt.order_by(ReportFile.generated_at.desc(), ReportFile.id.desc())).first()
+        if existing is None:
+            return self.create(report)
+        existing.path = report.path
+        existing.size_bytes = report.size_bytes
+        existing.sha256 = report.sha256
+        existing.generated_at = report.generated_at
+        self._s.add(existing)
+        self._s.flush()
+        self._s.refresh(existing)
+        return existing
+
     def by_run(self, run_id: str) -> list[ReportFile]:
         stmt = select(ReportFile).where(ReportFile.run_id == run_id).order_by(ReportFile.generated_at.desc())
         return list(self._s.exec(stmt).all())
+
+    def by_run_kind(self, run_id: str | None, kind: str) -> ReportFile | None:
+        if run_id is None:
+            return None
+        stmt = (
+            select(ReportFile)
+            .where(ReportFile.run_id == run_id, ReportFile.kind == kind)
+            .order_by(ReportFile.generated_at.desc(), ReportFile.id.desc())
+        )
+        return self._s.exec(stmt).first()

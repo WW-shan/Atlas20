@@ -18,7 +18,7 @@ def client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         yield test_client
 
 
-def test_generate_report_stub_returns_202_with_job_id(client: TestClient) -> None:
+def test_generate_report_without_run_id_returns_202_with_warning(client: TestClient) -> None:
     response = client.post(
         "/api/reports/generate",
         json={
@@ -31,9 +31,10 @@ def test_generate_report_stub_returns_202_with_job_id(client: TestClient) -> Non
 
     assert response.status_code == 202
     assert response.json() == {
-        "job_id": "stub-job-001",
-        "status": "queued",
-        "note": "report generation stubbed until Batch 12",
+        "job_id": "report-none",
+        "status": "completed",
+        "files": [],
+        "warnings": ["no completed run available for report generation"],
     }
 
 

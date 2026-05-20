@@ -22,6 +22,7 @@ from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.reports import router as reports_router
 from atlas20.api.routes.runs import router as runs_router
 from atlas20.api.routes.universe import router as universe_router
+from atlas20.api.scheduler import start_scheduler
 from atlas20.api.settings import get_settings
 from atlas20.api.worker.main import session_scope
 from atlas20.api.worker.recovery import recover_stale_runs
@@ -57,7 +58,12 @@ async def lifespan(app: FastAPI):
         recovered = 0
     if recovered:
         logger.info("Recovered %d stale running runs", recovered)
-    yield
+    scheduler = start_scheduler(settings)
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
 
 
 def create_app() -> FastAPI:

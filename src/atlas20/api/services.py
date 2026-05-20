@@ -36,7 +36,8 @@ from atlas20.api.schemas import (
     UniverseTimelinePayload,
 )
 from atlas20.api.db.models import Run
-from atlas20.api.repositories import IdempotencyRepo, RunsRepo
+from atlas20.api.repositories import IdempotencyRepo, KvRepo, ReportsRepo, RunsRepo
+from atlas20.api.services_download import resolve_download as _resolve_download
 from atlas20.api.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -619,8 +620,13 @@ def get_universe_refresh_status(session: Session) -> dict[str, str | None]:
     return {"run_id": row.run_id, "status": row.status}
 
 
-def get_featured_digest() -> FeaturedDigest:
+def get_featured_digest(session: Session | None = None) -> FeaturedDigest:
     settings = get_settings().model_copy(update={"anchor_date": today()})
+    if session is not None:
+        featured = _featured_digest_from_kv(session, settings)
+        if featured is not None:
+            return featured
+
     markdown = _newest_markdown(settings.report_root)
     if markdown is None:
         return FeaturedDigest.model_validate(deepcopy(mock_data.fallback_featured_digest))
@@ -644,6 +650,38 @@ def get_featured_digest() -> FeaturedDigest:
     )
 
 
+def _featured_digest_from_kv(session: Session, settings: Settings) -> FeaturedDigest | None:
+    run_id = KvRepo(session).get("featured_digest_run_id")
+    if not run_id:
+        return None
+    run = RunsRepo(session).get(run_id)
+    if run is None:
+        return None
+    reports_repo = ReportsRepo(session)
+    markdown = reports_repo.by_run_kind(run_id, "markdown")
+    if markdown is None:
+        return None
+    markdown_path = settings.report_root / markdown.path
+    if not markdown_path.exists():
+        return None
+    generated_at = _datetime_to_api_iso(markdown.generated_at)
+    available_formats = [
+        kind
+        for kind in ("markdown", "pdf", "png", "csv")
+        if reports_repo.by_run_kind(run_id, kind) is not None
+    ]
+    return FeaturedDigest.model_validate(
+        {
+            "id": run_id,
+            "title": f"Atlas20 Digest - {generated_at[:10]}",
+            "subtitle": f"{run.strategy} - generated {generated_at}",
+            "formats": available_formats or ["markdown"],
+            "defaultFormat": "markdown",
+            "generated_at": generated_at,
+        }
+    )
+
+
 def _newest_markdown(report_root: Path) -> Path | None:
     reports = [path for path in report_root.rglob("*.md") if path.is_file()]
     if not reports:
@@ -659,7 +697,36 @@ def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[di
         return deepcopy(mock_data.fallback_overview), True
 
 
-def list_reports(sort: str = "recent") -> list[ReportEntry]:
+def _report_file_to_entry(row) -> ReportEntry:
+    report_id = str(row.id or row.run_id or row.sha256[:12])
+    title_id = row.run_id or report_id
+    thumbnail_by_kind = {
+        "markdown": "lines",
+        "pdf": "bars",
+        "png": "equity",
+        "csv": "horizontal-bars",
+        "bundle": "sparkbar",
+    }
+    return ReportEntry.model_validate(
+        {
+            "id": report_id,
+            "title": f"{title_id} {row.kind} report",
+            "subtitle": f"{row.path} - {row.size_bytes} bytes",
+            "thumbnail": thumbnail_by_kind.get(row.kind, "lines"),
+            "status": "ready",
+            "generated_at": _datetime_to_api_iso(row.generated_at),
+            "size_bytes": row.size_bytes,
+            "report_type": "run" if row.run_id else "weekly",
+        }
+    )
+
+
+def list_reports(sort: str = "recent", session: Session | None = None) -> list[ReportEntry]:
+    if session is not None:
+        rows = ReportsRepo(session).list(sort=sort)
+        if rows:
+            return [_report_file_to_entry(row) for row in rows]
+
     rows = list(mock_data.fallback_reports)
     if sort == "oldest":
         rows.sort(key=lambda row: row["generated_at"])
@@ -672,12 +739,5 @@ def list_reports(sort: str = "recent") -> list[ReportEntry]:
     return [ReportEntry.model_validate(row) for row in rows]
 
 
-def build_digest_download_url(fmt: str) -> dict[str, str]:
-    return {"url": f"/static/reports/digest.{fmt}"}
-
-
-def build_report_download_url(report_id: str, fmt: str | None = None) -> dict[str, str] | None:
-    if not any(row["id"] == report_id for row in mock_data.fallback_reports):
-        return None
-    extension = fmt or "markdown"
-    return {"url": f"/static/reports/{report_id}.{extension}"}
+def resolve_download(report_id: str, fmt: str | None, session: Session):
+    return _resolve_download(report_id, fmt, session)

@@ -1,0 +1,103 @@
+"""Report manifest hashing and whitelist checks."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import hashlib
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from atlas20.api._time import utc_now_iso
+
+
+@dataclass(frozen=True)
+class ReportArtifact:
+    kind: str
+    path: Path
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _relative_to_run_dir(run_dir: Path, artifact_path: Path) -> str:
+    run_root = run_dir.resolve()
+    resolved = artifact_path.resolve()
+    return resolved.relative_to(run_root).as_posix()
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    tmp_path = path.with_name(f"{path.name}.tmp_{os.getpid()}")
+    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def write_report_manifest(run_id: str, run_dir: Path, artifacts: list[ReportArtifact]) -> Path:
+    run_dir = Path(run_dir)
+    rows = []
+    for artifact in artifacts:
+        artifact_path = Path(artifact.path)
+        rows.append(
+            {
+                "kind": artifact.kind,
+                "path": _relative_to_run_dir(run_dir, artifact_path),
+                "sha256": sha256_file(artifact_path),
+                "size": artifact_path.stat().st_size,
+            }
+        )
+    manifest_path = run_dir / "report_manifest.json"
+    _atomic_write_json(
+        manifest_path,
+        {
+            "run_id": run_id,
+            "generated_at": utc_now_iso(),
+            "artifacts": rows,
+        },
+    )
+    return manifest_path
+
+
+def read_report_manifest(run_dir: Path) -> dict[str, Any] | None:
+    manifest_path = Path(run_dir) / "report_manifest.json"
+    if not manifest_path.exists():
+        return None
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def verify_manifest_artifact(run_dir: Path, artifact_path: Path) -> bool:
+    payload = read_report_manifest(run_dir)
+    if payload is None:
+        return True
+    try:
+        relative_path = _relative_to_run_dir(Path(run_dir), Path(artifact_path))
+    except ValueError:
+        return False
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, list):
+        return False
+    for artifact in artifacts:
+        if not isinstance(artifact, dict) or artifact.get("path") != relative_path:
+            continue
+        expected_sha = artifact.get("sha256")
+        if not isinstance(expected_sha, str):
+            return False
+        if expected_sha != sha256_file(Path(artifact_path)):
+            return False
+        expected_size = artifact.get("size")
+        if expected_size is not None:
+            try:
+                if int(expected_size) != Path(artifact_path).stat().st_size:
+                    return False
+            except (TypeError, ValueError):
+                return False
+        return True
+    return False

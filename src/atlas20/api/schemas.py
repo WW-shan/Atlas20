@@ -366,7 +366,7 @@ class DataAlert(ApiModel):
     icon: DataAlertIcon
 
 
-ReportFormat = Literal["markdown", "pdf", "png", "csv"]
+ReportFormat = Literal["markdown", "pdf", "png", "csv", "bundle"]
 ReportStatus = Literal["ready", "generating"]
 ReportThumbKind = Literal["equity", "lines", "heatmap", "bars", "horizontal-bars", "sparkbar"]
 
@@ -393,7 +393,17 @@ class ReportEntry(ApiModel):
 
 
 class GenerateReportRequest(StrictApiModel):
-    type: Literal["weekly", "run", "compare", "universe"]
-    formats: list[ReportFormat] = Field(min_length=1)
+    run_id: RunId | None = None
+    type: Literal["weekly", "run", "compare", "universe"] = "run"
+    formats: list[ReportFormat] = Field(default_factory=list, min_length=1)
+    format: ReportFormat | None = None
     strategy: str | None = None
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_single_format(cls, data):
+        if isinstance(data, dict) and not data.get("formats") and data.get("format"):
+            data = dict(data)
+            data["formats"] = [data["format"]]
+        return data
