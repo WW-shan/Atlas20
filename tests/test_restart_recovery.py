@@ -88,7 +88,7 @@ def test_multiple_stale_runs_are_recovered(tmp_path):
 
 
 def test_worker_startup_recovery_skips_other_workers_runs(tmp_path):
-    from atlas20.api.worker.recovery import recover_my_own_stale_runs
+    from atlas20.api.worker.recovery import recover_runs_owned_by_pid
 
     engine = _engine(tmp_path)
     with Session(engine) as session:
@@ -100,7 +100,7 @@ def test_worker_startup_recovery_skips_other_workers_runs(tmp_path):
         session.add(other)
         session.commit()
 
-        recovered = recover_my_own_stale_runs(session, my_pid=111)
+        recovered = recover_runs_owned_by_pid(session, my_pid=111)
 
         mine_after = RunsRepo(session).get("btk_0001")
         other_after = RunsRepo(session).get("btk_0002")

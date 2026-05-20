@@ -158,12 +158,12 @@ def test_recovery_increments_failed_backtest_counter(tmp_path, monkeypatch, db_s
     assert after == before + 1
 
 
-def test_recover_my_own_stale_runs_emits_backtests_total(
+def test_recover_runs_owned_by_pid_emits_backtests_total(
     db_session: Session,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verify recover_my_own_stale_runs increments atlas20_backtests_total{status=failed}."""
-    from atlas20.api.worker.recovery import recover_my_own_stale_runs
+    """Verify recover_runs_owned_by_pid increments atlas20_backtests_total{status=failed}."""
+    from atlas20.api.worker.recovery import recover_runs_owned_by_pid
 
     del monkeypatch
     my_pid = 99999
@@ -184,7 +184,7 @@ def test_recover_my_own_stale_runs_emits_backtests_total(
     db_session.commit()
 
     before = _metrics.BACKTESTS_TOTAL.labels(status="failed")._value.get()
-    recovered = recover_my_own_stale_runs(db_session, my_pid)
+    recovered = recover_runs_owned_by_pid(db_session, my_pid)
     after = _metrics.BACKTESTS_TOTAL.labels(status="failed")._value.get()
 
     assert recovered == 1

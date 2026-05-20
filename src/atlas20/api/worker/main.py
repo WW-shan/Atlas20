@@ -17,7 +17,7 @@ from atlas20.api._time import utc_now
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.settings import Settings, get_settings
 from atlas20.api.worker.queue import WorkerQueue
-from atlas20.api.worker.recovery import recover_my_own_stale_runs
+from atlas20.api.worker.recovery import recover_runs_owned_by_pid
 
 logger = logging.getLogger(__name__)
 _shutdown_requested = threading.Event()
@@ -190,7 +190,7 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
 
 def _recover_on_startup(settings: Settings) -> None:
     with session_scope(settings) as session:
-        recovered = recover_my_own_stale_runs(session, my_pid=os.getpid())
+        recovered = recover_runs_owned_by_pid(session, my_pid=os.getpid())
     if recovered:
         logger.info("Recovered %d stale running runs", recovered)
 

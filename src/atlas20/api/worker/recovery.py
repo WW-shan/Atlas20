@@ -48,7 +48,12 @@ def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
     return len(stale_runs)
 
 
-def recover_my_own_stale_runs(session: Session, my_pid: int) -> int:
+def recover_runs_owned_by_pid(session: Session, my_pid: int) -> int:
+    """Recover running rows whose recorded worker_pid equals my_pid.
+
+    On a normal restart this returns 0 because the new PID differs from the
+    dead worker's PID. Use recover_stale_runs for the general restart case.
+    """
     runs = session.exec(
         select(Run).where(Run.status == "running", Run.worker_pid == my_pid)
     ).all()
