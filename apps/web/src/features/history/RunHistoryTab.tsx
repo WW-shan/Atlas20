@@ -44,7 +44,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
     mutationFn: (runId: string) => toggleFavorite(runId),
     onSuccess: (data, runId) => {
       queryClient.setQueriesData<{ items: RunRow[]; total: number; page: number; pageSize: number }>(
-        { queryKey: ["runs", "list"] },
+        { queryKey: qk.runs.listAll() },
         (old) => old
           ? {
               ...old,
@@ -61,7 +61,7 @@ export function RunHistoryTab({ onNavigate }: Props) {
         return next;
       });
       setFavoriteRefetchId(runId);
-      void queryClient.invalidateQueries({ queryKey: ["runs", "list"] })
+      void queryClient.invalidateQueries({ queryKey: qk.runs.listAll() })
         .finally(() => setFavoriteRefetchId(undefined));
       void queryClient.invalidateQueries({ queryKey: qk.runs.detail(runId) });
     },

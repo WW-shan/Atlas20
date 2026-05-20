@@ -17,9 +17,10 @@ export const qk = {
   options: () => ["options"] as const,
 
   runs: {
-    queue:  () => ["runs", "queue"] as const,
-    list:   (f: HistoryFilter) => ["runs", "list", canonicalizeFilter(f)] as const,
-    detail: (id: string) => ["runs", "detail", id] as const,
+    queue:    () => ["runs", "queue"] as const,
+    list:     (f: HistoryFilter) => ["runs", "list", canonicalizeFilter(f)] as const,
+    listAll:  () => ["runs", "list"] as const,
+    detail:   (id: string) => ["runs", "detail", id] as const,
   },
 
   compare: (ids: string[], range: ChartRange) =>
