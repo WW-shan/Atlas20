@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from atlas20.api import _time
 from atlas20.api.db.models import IdempotencyKey

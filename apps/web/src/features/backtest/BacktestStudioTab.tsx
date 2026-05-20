@@ -114,7 +114,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
           disabled={!detailData}
           onClick={handleRegenerateReport}
         >
-          Regenerate this run's report
+          Regenerate this run&apos;s report
         </Button>
         <Button variant="gold" onClick={() => { hydratedFor.current = undefined; dispatch({ type: "reset" }); }}>+ NEW RUN</Button>
       </div>
