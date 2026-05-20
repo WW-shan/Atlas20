@@ -42,7 +42,6 @@ def configure_logging(settings: Settings) -> None:
             foreign_pre_chain=[*shared_processors, structlog.stdlib.ExtraAdder()],
             processors=[
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-                redact_sensitive,
                 structlog.processors.JSONRenderer(),
             ],
         )
