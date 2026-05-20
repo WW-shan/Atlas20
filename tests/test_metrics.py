@@ -20,6 +20,7 @@ from atlas20.api.dependencies import ratelimit
 from atlas20.api.middleware.access_log import AccessLogMiddleware
 from atlas20.api.repositories import RunsRepo, get_session
 from atlas20.api.repositories.runs_repo import terminal_duration_seconds
+from atlas20.api.routes import reports
 from atlas20.api.settings import get_settings
 from atlas20.api.worker.queue import WorkerQueue
 from atlas20.api.worker.recovery import recover_stale_runs
@@ -282,6 +283,13 @@ def test_record_report_generation_ignores_unknown_report_status(caplog) -> None:
         for sample in metric.samples
     )
     assert "ignoring metric for unknown report status: in_progress" in caplog.text
+
+
+def test_record_report_skipped_logs_unknown_format(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger="atlas20.api.routes.reports"):
+        reports._record_report_skipped(["__not_a_format__"])
+
+    assert "ignoring unknown format in skipped metric path: __not_a_format__" in caplog.text
 
 
 def test_generate_report_without_completed_run_records_skipped_metric(

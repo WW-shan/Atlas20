@@ -104,6 +104,8 @@ def _record_report_skipped(formats: list[ReportFormat]) -> None:
     for fmt in formats:
         if fmt in REPORT_FORMATS:
             record_report_generation(fmt, "skipped")
+        else:
+            logger.info("ignoring unknown format in skipped metric path: %s", fmt)
 
 
 def _report_file_payload(row) -> dict[str, object]:
