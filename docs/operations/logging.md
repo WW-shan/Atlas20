@@ -18,7 +18,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 
 ## Prometheus dual scrape targets (API + worker)
 
-`prometheus_client` counters live in **per-process memory**. The API process and worker process emit different metrics; each must be scraped on its own endpoint.
+`prometheus_client` counters live in **per-process memory**, with each process maintaining its own local registry. The API and worker processes emit largely disjoint series, but a few — `atlas20_backtests_total` and `atlas20_backtest_duration_seconds` — are emitted by both: the worker increments them on the main run path (and on its own startup recovery), and the API increments them during lifespan startup recovery. Scrape both endpoints to collect every contribution.
 
 | Metric | Process | Notes |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ scrape_configs:
       - targets: ["atlas20-worker:8001"]
 ```
 
-Counter queries that span both processes — `atlas20_backtests_total` and the histogram `atlas20_backtest_duration_seconds` are both emitted by the worker (main path) and by the API (lifespan recovery only), so spanning queries should aggregate across the `instance` and `job` labels:
+Queries that span both processes — `atlas20_backtests_total` and the histogram `atlas20_backtest_duration_seconds` are both emitted by the worker (main path) and by the API (lifespan recovery only), so spanning queries should aggregate across the `instance` and `job` labels:
 
 ```promql
 sum without (instance, job) (atlas20_backtests_total)
@@ -85,7 +85,7 @@ in-flight subprocesses at restart time (typically 1).
 
 `python -m atlas20.api.worker.spawn` with `ATLAS20_WORKERS>1` runs multiple worker processes on one host. On Linux every worker after the first raises `EADDRINUSE` when binding port 8001 and `start_metrics_server` (`src/atlas20/api/worker/main.py`) catches the error and proceeds without its own HTTP listener. On Windows, `http.server.HTTPServer.allow_reuse_address = 1` plus the OS-level `SO_REUSEADDR` semantics let every child socket bind to 8001 without raising; Windows then routes incoming connections to only one of the bound sockets (typically the first), so additional workers' `start_metrics_server` log lines (`"listening on port 8001 (multiproc=True)"`) are emitted but never reachable from Prometheus. Metric values are still correct because every worker writes counters to the shared `PROMETHEUS_MULTIPROC_DIR` mmap files that the reachable worker's `MultiProcessCollector` aggregates.
 
-If your monitoring requires every worker's HTTP endpoint to actually receive scrapes (e.g. for per-instance liveness alerts in a Prometheus job), launch each worker independently — not via `spawn.spawn_workers`, which currently shares parent env across all children — and give each one a distinct `ATLAS20_WORKER_METRICS_PORT`. Because all workers continue to share `PROMETHEUS_MULTIPROC_DIR`, every endpoint will serve the same aggregated counter snapshot; the only thing that changes is that every endpoint is independently reachable. True per-process metric isolation would require also giving each worker a distinct `PROMETHEUS_MULTIPROC_DIR`, which sacrifices cross-process counter aggregation and is rarely worth it.
+If your monitoring requires every worker's HTTP endpoint to actually receive scrapes (e.g. for per-instance liveness alerts in a Prometheus job), launch each worker independently — not via `spawn.spawn_workers`, which currently shares parent env across all children — and give each one a distinct `ATLAS20_WORKER_METRICS_PORT`. **Set `ATLAS20_WORKER_MULTIPROC_SKIP_WIPE=1` on every worker after the first**; otherwise each newly launched worker's `__main__.py` bootstrap will wipe `PROMETHEUS_MULTIPROC_DIR` and erase the prior workers' mmap files. The first worker should leave `ATLAS20_WORKER_MULTIPROC_SKIP_WIPE` unset so it performs the canonical startup wipe of stale dead-pid files. Because all workers continue to share `PROMETHEUS_MULTIPROC_DIR`, every endpoint will serve the same aggregated counter snapshot; the only thing that changes is that every endpoint is independently reachable. True per-process metric isolation would require also giving each worker a distinct `PROMETHEUS_MULTIPROC_DIR`, which sacrifices cross-process counter aggregation and is rarely worth it.
 
 ## Metrics correctness caveats
 
