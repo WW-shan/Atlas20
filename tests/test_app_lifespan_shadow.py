@@ -41,7 +41,7 @@ def test_warn_when_installed_copy_shadows_repo_src(
         SimpleNamespace(__file__=str(stale_file)),
     )
 
-    with caplog.at_level(logging.WARNING, logger="atlas20.api.app"):
+    with caplog.at_level(logging.WARNING, logger="atlas20.api.install_check"):
         app_module._warn_if_shadow_install()
 
     assert "stale installed copy" in caplog.text
@@ -58,7 +58,7 @@ def test_no_warning_when_no_repo_src(
     must not see this warning."""
     monkeypatch.chdir(tmp_path)
 
-    with caplog.at_level(logging.WARNING, logger="atlas20.api.app"):
+    with caplog.at_level(logging.WARNING, logger="atlas20.api.install_check"):
         app_module._warn_if_shadow_install()
 
     assert "stale installed copy" not in caplog.text
@@ -83,7 +83,7 @@ def test_no_warning_when_loaded_from_repo_src(
         SimpleNamespace(__file__=str(init_file)),
     )
 
-    with caplog.at_level(logging.WARNING, logger="atlas20.api.app"):
+    with caplog.at_level(logging.WARNING, logger="atlas20.api.install_check"):
         app_module._warn_if_shadow_install()
 
     assert "stale installed copy" not in caplog.text

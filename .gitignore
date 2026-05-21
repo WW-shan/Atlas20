@@ -29,6 +29,8 @@ reports/app_runs/*
 # Runtime artifacts under data/
 data/atlas20.sqlite
 data/atlas20.sqlite-journal
+data/atlas20.sqlite-wal
+data/atlas20.sqlite-shm
 data/.scheduler.lock
 data/.prom-multiproc-worker/
 data/.prom-multiproc-api/
