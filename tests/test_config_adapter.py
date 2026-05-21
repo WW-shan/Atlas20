@@ -101,6 +101,23 @@ def test_to_research_config_biweekly_rebalance_uses_single_frequency_entry():
     assert config.rebalancing.frequencies == {"biweekly": "14D"}
 
 
+def test_to_research_config_constrains_strategy_frequencies_to_chosen_cadence():
+    """Engine iterates strategies.momentum_frequencies and looks each up in
+    rebalancing.frequencies. If a strategies list still has 'biweekly' while
+    the chosen cadence dict only contains 'monthly', the unmatched lookup
+    falls through to the bare key and crashes calendar.py with
+    int('biweekly'). Adapter must constrain both strategy lists.
+    """
+    for rebalance, expected_key in [("Weekly", "weekly"), ("Biweekly", "biweekly"), ("Monthly", "monthly")]:
+        api_config = valid_config(window={"rebalance": rebalance})
+
+        config = to_research_config(api_config, api_config.preset, settings())
+
+        assert config.strategies.momentum_frequencies == [expected_key], rebalance
+        assert config.strategies.sector_frequencies == [expected_key], rebalance
+        assert expected_key in config.rebalancing.frequencies, rebalance
+
+
 def test_to_research_config_rejects_empty_preset_slug():
     api_config = valid_config()
 

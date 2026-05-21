@@ -32,7 +32,17 @@ def to_research_config(api_config: BacktestConfig, preset: str, settings: Settin
     data["universe"]["exclude_wrapped_assets"] = api_config.universe.excludeWrapped
     data["start_date"] = api_config.window.start.isoformat()
     data["end_date"] = api_config.window.end.isoformat()
-    data["rebalancing"]["frequencies"] = _rebalance_frequencies(api_config.window.rebalance)
+    chosen_frequencies = _rebalance_frequencies(api_config.window.rebalance)
+    data["rebalancing"]["frequencies"] = chosen_frequencies
+    # The engine iterates strategies.momentum_frequencies / sector_frequencies and
+    # looks each key up in rebalancing.frequencies. If the preset YAML keeps the
+    # default ["monthly","biweekly"] while the user requested a single cadence,
+    # the unmatched key falls through to the bare name and crashes calendar.py
+    # with int("biweekly"). Constrain both lists to the chosen cadence.
+    chosen_freq_key = next(iter(chosen_frequencies))
+    data.setdefault("strategies", {})
+    data["strategies"]["momentum_frequencies"] = [chosen_freq_key]
+    data["strategies"]["sector_frequencies"] = [chosen_freq_key]
     # Note: positionPct is interpreted as percent -> decimal via /100, with no
     # rounding. For positionPct=33.33, max_weight_per_coin becomes 0.3333.
     # Downstream consumers should be precision-tolerant.
