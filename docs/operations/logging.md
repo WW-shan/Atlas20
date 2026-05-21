@@ -25,7 +25,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 | `atlas20_request_total{status,...}` | API | HTTP instrumentation via fastapi-instrumentator |
 | `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
 | `atlas20_report_generations_total{format,status}` | API | Incremented inside POST `/api/reports/generate` handler |
-| `atlas20_backtests_total{status}` | Worker | Incremented in run_one subprocess; multiproc-aggregated |
+| `atlas20_backtests_total{status}` | Worker (main path) + API (lifespan recovery only) | Incremented per terminal transition. The API process emits this only during lifespan startup when `recover_stale_runs` reclassifies orphaned runs as failed; the dominant emitter is the worker subprocess via multiproc aggregation. |
 | `atlas20_backtest_duration_seconds` | Worker | Histogram; multiproc-aggregated |
 
 Configure Prometheus with both scrape targets:
@@ -45,6 +45,8 @@ Counter queries that span both processes (none currently, but if you add one):
 ```promql
 sum without (instance, job) (atlas20_backtests_total)
 ```
+
+INFO: The API contribution to `atlas20_backtests_total` is bounded and small because it only comes from lifespan startup recovery. No PromQL adjustment is needed beyond the `sum without (instance, job)` example above.
 
 Histogram queries - use `_sum` / `_count` / `_bucket` series, not the base name:
 
