@@ -61,12 +61,19 @@ def run_research_pipeline(config: ResearchConfig, refresh_raw: bool = False) -> 
     strategy_definitions = build_strategy_definitions(config)
     results: dict[str, BacktestResult] = {}
     sector_by_coin = metadata["sector"]
+    # market.returns extends back by min_history_days for universe eligibility
+    # (see processor.py and dd3bfba). The backtest itself must run only on
+    # [start_timestamp, end_timestamp]; otherwise daily_returns picks up the
+    # pre-window buffer rows (all zero), which dilutes CAGR / sharpe and skews
+    # yearly_return_table / regime_perf in analytics. Universe builder and
+    # regime detection still see the full panel.
+    backtest_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
 
     for strategy in strategy_definitions:
         targets, _ = build_rebalance_targets(strategy, market, universe, regime_frame, config)
         result = run_backtest(
             name=strategy.name,
-            asset_returns=market.returns,
+            asset_returns=backtest_returns,
             rebalance_targets=targets,
             sector_by_coin=sector_by_coin,
             friction=config.frictions,
