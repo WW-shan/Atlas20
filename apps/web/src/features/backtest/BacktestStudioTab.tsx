@@ -82,11 +82,15 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   // (we previously had a literal "btk_0142" fallback that surfaced fake
   // numbers for every fresh visit). Fallback chain:
   //   explicit prefillRunId  →  first run in queue (in-flight)
-  //                          →  most recent backtest in history
+  //                          →  most recent COMPLETED backtest in history
   //                          →  undefined (honest empty state)
+  // Filtering on status === "completed" (and return_pct present) prevents
+  // failed runs from prefilling — their detail payload turns into all
+  // zeros downstream, which would surface as ghost "CAGR 0%, Sharpe 0"
+  // KPIs as if the strategy had a flat year.
   const latestQueueRunId = queue.data?.[0]?.run_id;
   const latestHistoryRunId = recentRunsQuery.data?.items
-    .find((row) => row.strategy !== "universe_refresh")?.run_id;
+    .find((row) => row.strategy !== "universe_refresh" && row.status === "completed" && row.return_pct != null)?.run_id;
   const selectedRunId = prefillRunId ?? latestQueueRunId ?? latestHistoryRunId;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
