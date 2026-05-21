@@ -239,6 +239,9 @@ def _recover_on_startup(settings: Settings) -> None:
 def main() -> None:
     settings = get_settings()
     setup_signal_handlers()
+    from atlas20.api.app import _warn_if_shadow_install
+
+    _warn_if_shadow_install()
     start_metrics_server(settings.worker_metrics_port)
     _recover_on_startup(settings)
 

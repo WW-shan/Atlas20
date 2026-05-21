@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 
 import pytest
 
@@ -70,6 +71,25 @@ def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch) ->
         [sys.executable, "-m", "atlas20.api.worker"],
     ]
     assert [env["ATLAS20_WORKERS"] for _args, env in calls] == ["1", "1"]
+
+
+def test_worker_main_invokes_shadow_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    from atlas20.api import app as app_module
+
+    calls: list[None] = []
+    shutdown = threading.Event()
+    shutdown.set()
+
+    monkeypatch.setattr(app_module, "_warn_if_shadow_install", lambda: calls.append(None))
+    monkeypatch.setattr(worker_main, "_shutdown_requested", shutdown)
+    monkeypatch.setattr(worker_main, "setup_signal_handlers", lambda: None)
+    monkeypatch.setattr(worker_main, "start_metrics_server", lambda port: None)
+    monkeypatch.setattr(worker_main, "_recover_on_startup", lambda settings: None)
+    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self: None)
+
+    worker_main.main()
+
+    assert calls == [None]
 
 
 def test_start_metrics_server_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
