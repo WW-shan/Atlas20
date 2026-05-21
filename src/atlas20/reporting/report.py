@@ -388,6 +388,44 @@ def _pick_best(summary: pd.DataFrame, prefix: str) -> tuple[str, pd.Series]:
     return best_name, subset.loc[best_name]
 
 
+def _maybe_row(summary: pd.DataFrame, name: str) -> pd.Series | None:
+    return summary.loc[name] if name in summary.index else None
+
+
+def _fmt_pct(row: pd.Series | None, field: str) -> str:
+    if row is None or field not in row.index or pd.isna(row[field]):
+        return "N/A"
+    return f"{row[field]:.2%}"
+
+
+def _fmt_num(row: pd.Series | None, field: str) -> str:
+    if row is None or field not in row.index or pd.isna(row[field]):
+        return "N/A"
+    return f"{row[field]:.2f}"
+
+
+def _benchmark_verdict(
+    candidate: pd.Series,
+    benchmark: pd.Series | None,
+    field: str,
+    benchmark_label: str,
+) -> str:
+    if benchmark is None:
+        return f"N/A — no {benchmark_label} benchmark in this run"
+    if candidate.empty or field not in benchmark.index or field not in candidate.index:
+        return "No"
+    return "Yes" if candidate[field] > benchmark[field] else "No"
+
+
+def _sector_complexity_verdict(best_sector: pd.Series, eq: pd.Series | None) -> str:
+    if eq is None:
+        return "N/A — no equal-weight benchmark in this run"
+    if best_sector.empty:
+        return "No"
+    sharpe_improves = best_sector["sharpe"] > eq["sharpe"]
+    drawdown_ok = best_sector["max_drawdown"] >= eq["max_drawdown"]
+    return "Yes" if sharpe_improves and drawdown_ok else "No"
+
 
 def build_markdown_report(
     config: ResearchConfig,
@@ -397,8 +435,8 @@ def build_markdown_report(
     output_path: Path,
 ) -> str:
     """Create the final markdown research report."""
-    btc = summary.loc["BTC_BH__always_on"]
-    eq = summary.loc["TOP20_EQ__always_on"]
+    btc = _maybe_row(summary, "BTC_BH__always_on")
+    eq = _maybe_row(summary, "TOP20_EQ__always_on")
     best_mom_name, best_mom = _pick_best(summary, "TOP20_MOM_")
     best_sector_name, best_sector = _pick_best(summary, "TOP20_SECTOR_")
     bull_subset = summary[summary.index.to_series().str.endswith("__bull_only")]
@@ -432,20 +470,20 @@ def build_markdown_report(
 
 - Best momentum variant: **{best_mom_name}**
 - Best sector variant: **{best_sector_name}**
-- BTC benchmark CAGR: **{btc['cagr']:.2%}**
-- Equal-weight benchmark CAGR: **{eq['cagr']:.2%}**
+- BTC benchmark CAGR: **{_fmt_pct(btc, 'cagr')}**
+- Equal-weight benchmark CAGR: **{_fmt_pct(eq, 'cagr')}**
 
 ## Answers to the required questions
 
 1. **Does top-20 momentum rotation outperform BTC buy-and-hold?**
-   - Verdict: **{verdict(not best_mom.empty and best_mom['cagr'] > btc['cagr'])}** on CAGR.
+   - Verdict: **{_benchmark_verdict(best_mom, btc, 'cagr', 'BTC')}** on CAGR.
    - Best momentum CAGR / Sharpe: **{best_mom.get('cagr', 0.0):.2%} / {best_mom.get('sharpe', 0.0):.2f}**
-   - BTC CAGR / Sharpe: **{btc['cagr']:.2%} / {btc['sharpe']:.2f}**
+   - BTC CAGR / Sharpe: **{_fmt_pct(btc, 'cagr')} / {_fmt_num(btc, 'sharpe')}**
 
 2. **Does sector rotation outperform simple top-20 equal weight?**
-   - Verdict: **{verdict(not best_sector.empty and best_sector['sharpe'] > eq['sharpe'])}** on Sharpe.
+   - Verdict: **{_benchmark_verdict(best_sector, eq, 'sharpe', 'equal-weight')}** on Sharpe.
    - Best sector CAGR / Sharpe: **{best_sector.get('cagr', 0.0):.2%} / {best_sector.get('sharpe', 0.0):.2f}**
-   - Equal-weight CAGR / Sharpe: **{eq['cagr']:.2%} / {eq['sharpe']:.2f}**
+   - Equal-weight CAGR / Sharpe: **{_fmt_pct(eq, 'cagr')} / {_fmt_num(eq, 'sharpe')}**
 
 3. **Does the bull-market filter improve risk-adjusted returns?**
    - Verdict: **{verdict(avg_bull_sharpe > avg_always_sharpe)}** on average Sharpe across tested variants.
@@ -453,7 +491,7 @@ def build_markdown_report(
    - Average always-on Sharpe: **{avg_always_sharpe:.2f}**
 
 4. **Is the extra complexity of sector rotation justified?**
-   - Verdict: **{verdict(not best_sector.empty and best_sector['sharpe'] > eq['sharpe'] and best_sector['max_drawdown'] >= eq['max_drawdown'])}**
+   - Verdict: **{_sector_complexity_verdict(best_sector, eq)}**
    - Interpretation: sector rotation is only justified if it improves Sharpe meaningfully without materially worsening implementation risk.
 
 5. **What are the main practical risks and data limitations?**
