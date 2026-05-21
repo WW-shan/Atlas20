@@ -176,7 +176,11 @@ export const fallbackOptions: OptionsPayload = {
 };
 
 export const defaultBacktestConfig: BacktestConfig = {
-  preset: "ATLAS Adaptive v3",
+  // "base" is a real preset slug present in config/base.yaml — the engine
+  // resolves it directly without falling back to the legacy "ATLAS Adaptive
+  // v3" placeholder. Using a real default means a fresh visitor who clicks
+  // RUN BACKTEST without changing anything still submits a valid request.
+  preset: "base",
   universe: { topN: 20, excludeStable: true, excludeWrapped: true },
   window: { start: "2024-01-01", end: "2026-05-18", rebalance: "Weekly" },
   allocation: { positionPct: 5.0, slots: 10 },

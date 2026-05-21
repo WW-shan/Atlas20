@@ -19,7 +19,7 @@ import { qk } from "./qk";
 
 describe("Default config constants", () => {
   it("defaultBacktestConfig has all required fields", () => {
-    expect(defaultBacktestConfig.preset).toBe("ATLAS Adaptive v3");
+    expect(defaultBacktestConfig.preset).toBe("base");
     expect(defaultBacktestConfig.universe.topN).toBe(20);
     expect(defaultBacktestConfig.allocation.slots).toBe(10);
     expect(defaultBacktestConfig.costs.feeBps).toBe(10);
