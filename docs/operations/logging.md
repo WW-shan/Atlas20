@@ -24,7 +24,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 | --- | --- | --- |
 | `http_requests_total{method,handler,status}` | API | HTTP instrumentation via `prometheus-fastapi-instrumentator`. Default metric name (no namespace configured); `status` is grouped (`should_group_status_codes=True`) so the label is `"2xx" / "3xx" / "4xx" / "5xx"`, not the raw code. |
 | `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
-| `atlas20_report_generations_total{format,status}` | API | Incremented inside POST `/api/reports/generate` handler |
+| `atlas20_report_generations_total{format,status}` | API | `completed`/`failed` incremented inside `services_report.generate_run_report_with_warnings` (invoked from POST `/api/reports/generate` and the weekly digest scheduler); `skipped` incremented in the POST `/api/reports/generate` handler itself. |
 | `atlas20_backtests_total{status}` | Worker (main path) + API (lifespan recovery only) | Incremented per terminal transition. The API process emits this only during lifespan startup when `recover_stale_runs` reclassifies orphaned runs as failed; the dominant emitter is the worker subprocess via multiproc aggregation. |
 | `atlas20_backtest_duration_seconds` | Worker (main path) + API (lifespan recovery only) | Histogram; multiproc-aggregated. The API contribution comes from `recover_stale_runs` observing a duration when reclassifying orphaned runs as failed during lifespan startup; the dominant emitter is the worker subprocess. |
 
@@ -34,11 +34,13 @@ Configure Prometheus with both scrape targets:
 scrape_configs:
   - job_name: atlas20-api
     static_configs:
-      - targets: ["atlas20-backend:8000"]
+      - targets: ["backend:8000"]
   - job_name: atlas20-worker
     static_configs:
-      - targets: ["atlas20-worker:8001"]
+      - targets: ["worker:8001"]
 ```
+
+The hostnames `backend` and `worker` are the dev `docker-compose.yml` service names that resolve inside the compose project network; production deployments must substitute the actual DNS-resolvable hostnames their orchestrator assigns.
 
 Queries that span both processes — `atlas20_backtests_total` and the histogram `atlas20_backtest_duration_seconds` are both emitted by the worker (main path) and by the API (lifespan recovery only), so spanning queries should aggregate across the `instance` and `job` labels:
 
