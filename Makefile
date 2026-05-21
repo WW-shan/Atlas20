@@ -1,7 +1,7 @@
 .PHONY: dev test test-fast lint typecheck build docker-build backup clean
 
 dev:
-	uvicorn atlas20.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+	PYTHONPATH=src uvicorn atlas20.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
 
 test:
 	python -m pytest tests/ -q

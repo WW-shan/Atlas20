@@ -63,6 +63,15 @@ Python:
 python -m pip install -e ".[dev]"
 ```
 
+> **Editable (`-e`) is required for local development.** A non-editable
+> `pip install .` copies the package into `site-packages`, and on the
+> default Python `sys.path` that copy will shadow the repo's `src/` tree —
+> edits to `src/atlas20/**.py` then have no runtime effect even though
+> `pytest` still passes (pytest is configured with `pythonpath=["src"]`).
+> If you previously ran `pip install .` without `-e`, remove the stale
+> copy with `python -m pip uninstall -y atlas20-rotation` before
+> reinstalling.
+
 Frontend:
 
 ```bash
