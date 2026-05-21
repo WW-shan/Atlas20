@@ -26,4 +26,11 @@ Thumbs.db
 reports/app_runs/*
 !reports/app_runs/.gitkeep
 
+# Runtime artifacts under data/
+data/atlas20.sqlite
+data/atlas20.sqlite-journal
+data/.scheduler.lock
+data/.prom-multiproc-worker/
+data/.prom-multiproc-api/
+
 .ace-tool/
