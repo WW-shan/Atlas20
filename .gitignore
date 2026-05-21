@@ -25,6 +25,7 @@ Thumbs.db
 # Generated app runs
 reports/app_runs/*
 !reports/app_runs/.gitkeep
+reports/latest.txt
 
 # Runtime artifacts under data/
 data/atlas20.sqlite
