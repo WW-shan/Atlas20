@@ -36,4 +36,16 @@ data/.scheduler.lock
 data/.prom-multiproc-worker/
 data/.prom-multiproc-api/
 
+# Pipeline outputs (regeneratable from data/raw + config); used to be tracked
+# but ~47MB of CSV is too heavy for git.
+data/processed/
+
+# Raw provider snapshots (cryptocompare histoday + coingecko); deterministic
+# given API + time, but ~45MB total. Re-fetch via download_and_cache_raw_data.
+data/raw/
+
+# Design / imagegen mockups; kept locally for reference, not in version
+# control (each ~1.5MB; 21 PNGs).
+output/imagegen/
+
 .ace-tool/

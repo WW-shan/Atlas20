@@ -76,7 +76,7 @@ jobs:
       - name: Install dependencies
         run: npm --prefix apps/web ci
       - name: Run tsc
-        run: npm --prefix apps/web exec tsc --noEmit -p tsconfig.json
+        run: npm --prefix apps/web run typecheck
 
   security-scan:
     name: Dependency security scan

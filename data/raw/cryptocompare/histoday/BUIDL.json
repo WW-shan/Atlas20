@@ -1,9 +1,0 @@
-{
-  "Response": "Error",
-  "Message": "CCCAGG market does not exist for this coin pair (BUIDL-USD)",
-  "HasWarning": false,
-  "Type": 2,
-  "RateLimit": {},
-  "Data": {},
-  "Cooldown": 0
-}
