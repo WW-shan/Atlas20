@@ -40,18 +40,18 @@ scrape_configs:
       - targets: ["atlas20-worker:8001"]
 ```
 
-Counter queries that span both processes (none currently, but if you add one):
+Counter queries that span both processes — `atlas20_backtests_total` and the histogram `atlas20_backtest_duration_seconds` are both emitted by the worker (main path) and by the API (lifespan recovery only), so spanning queries should aggregate across the `instance` and `job` labels:
 
 ```promql
 sum without (instance, job) (atlas20_backtests_total)
 ```
 
-INFO: The API contribution to `atlas20_backtests_total` is bounded and small because it only comes from lifespan startup recovery. No PromQL adjustment is needed beyond the `sum without (instance, job)` example above.
+INFO: The API contribution to both series is bounded and small because it only comes from lifespan startup recovery. No PromQL adjustment is needed beyond the `sum without (instance, job)` example above.
 
 Histogram queries - use `_sum` / `_count` / `_bucket` series, not the base name:
 
 ```promql
-# p95 backtest duration over 1h, across all worker processes
+# p95 backtest duration over 1h, across all worker and API processes
 histogram_quantile(
   0.95,
   sum by (le) (
@@ -83,7 +83,9 @@ in-flight subprocesses at restart time (typically 1).
 
 ### Windows port-bind semantics (multi-worker)
 
-`python -m atlas20.api.worker.spawn` with `ATLAS20_WORKERS>1` runs multiple worker processes on one host. On Linux every worker after the first raises `EADDRINUSE` when binding port 8001 and `start_metrics_server` (`src/atlas20/api/worker/main.py`) catches the error and proceeds without its own HTTP listener. On Windows, `http.server.HTTPServer.allow_reuse_address = 1` plus the OS-level `SO_REUSEADDR` semantics let every child socket bind to 8001 without raising; Windows then routes incoming connections to only one of the bound sockets (typically the first), so additional workers' `start_metrics_server` log lines (`"listening on port 8001 (multiproc=True)"`) are emitted but never reachable from Prometheus. Metric values are still correct because every worker writes counters to the shared `PROMETHEUS_MULTIPROC_DIR` mmap files that the reachable worker's `MultiProcessCollector` aggregates. For deterministic per-process scrape on Windows, assign distinct `ATLAS20_WORKER_METRICS_PORT` values per worker.
+`python -m atlas20.api.worker.spawn` with `ATLAS20_WORKERS>1` runs multiple worker processes on one host. On Linux every worker after the first raises `EADDRINUSE` when binding port 8001 and `start_metrics_server` (`src/atlas20/api/worker/main.py`) catches the error and proceeds without its own HTTP listener. On Windows, `http.server.HTTPServer.allow_reuse_address = 1` plus the OS-level `SO_REUSEADDR` semantics let every child socket bind to 8001 without raising; Windows then routes incoming connections to only one of the bound sockets (typically the first), so additional workers' `start_metrics_server` log lines (`"listening on port 8001 (multiproc=True)"`) are emitted but never reachable from Prometheus. Metric values are still correct because every worker writes counters to the shared `PROMETHEUS_MULTIPROC_DIR` mmap files that the reachable worker's `MultiProcessCollector` aggregates.
+
+If your monitoring requires every worker's HTTP endpoint to actually receive scrapes (e.g. for per-instance liveness alerts in a Prometheus job), launch each worker independently — not via `spawn.spawn_workers`, which currently shares parent env across all children — and give each one a distinct `ATLAS20_WORKER_METRICS_PORT`. Because all workers continue to share `PROMETHEUS_MULTIPROC_DIR`, every endpoint will serve the same aggregated counter snapshot; the only thing that changes is that every endpoint is independently reachable. True per-process metric isolation would require also giving each worker a distinct `PROMETHEUS_MULTIPROC_DIR`, which sacrifices cross-process counter aggregation and is rarely worth it.
 
 ## Metrics correctness caveats
 
