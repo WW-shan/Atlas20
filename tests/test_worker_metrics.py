@@ -1,6 +1,7 @@
 """Tests for the worker process Prometheus /metrics endpoint."""
 from __future__ import annotations
 
+import errno
 import logging
 from pathlib import Path
 import sys
@@ -39,10 +40,12 @@ def test_start_metrics_server_binds_configured_port(monkeypatch: pytest.MonkeyPa
 def test_start_metrics_server_tolerates_port_in_use(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
 ) -> None:
-    def raise_port_in_use(port: int) -> None:
-        raise OSError("address already in use")
+    def raise_port_in_use(port: int, *args: object, **kwargs: object) -> None:
+        raise OSError(errno.EADDRINUSE, "address already in use")
 
+    monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
     monkeypatch.setattr(worker_main, "start_http_server", raise_port_in_use)
     monkeypatch.setattr(worker_main, "_metrics_server_started", False)
 
@@ -51,6 +54,40 @@ def test_start_metrics_server_tolerates_port_in_use(
 
     assert worker_main._metrics_server_started is True
     assert "worker prometheus /metrics port 8765 already bound" in caplog.text
+    assert f"PROMETHEUS_MULTIPROC_DIR={tmp_path}" in caplog.text
+
+
+def test_start_metrics_server_reraises_unrelated_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
+    def raise_permission_denied(port: int, *args: object, **kwargs: object) -> None:
+        raise PermissionError(13, "denied")
+
+    monkeypatch.delenv("PROMETHEUS_MULTIPROC_DIR", raising=False)
+    monkeypatch.setattr(worker_main, "start_http_server", raise_permission_denied)
+    monkeypatch.setattr(worker_main, "_metrics_server_started", False)
+
+    with pytest.raises(PermissionError):
+        worker_main.start_metrics_server(8765)
+
+    assert worker_main._metrics_server_started is False
+
+
+def test_start_metrics_server_warns_when_collision_without_multiproc(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def raise_port_in_use(port: int, *args: object, **kwargs: object) -> None:
+        raise OSError(errno.EADDRINUSE, "address already in use")
+
+    monkeypatch.delenv("PROMETHEUS_MULTIPROC_DIR", raising=False)
+    monkeypatch.setattr(worker_main, "start_http_server", raise_port_in_use)
+    monkeypatch.setattr(worker_main, "_metrics_server_started", False)
+
+    with caplog.at_level(logging.WARNING, logger=worker_main.logger.name):
+        worker_main.start_metrics_server(8765)
+
+    assert worker_main._metrics_server_started is True
+    assert "worker prometheus /metrics port 8765 already bound" in caplog.text
+    assert "DROPPED" in caplog.text
 
 
 def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

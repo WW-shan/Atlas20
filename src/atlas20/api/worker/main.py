@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+import errno
 import logging
 import os
 import signal
@@ -52,15 +53,31 @@ def start_metrics_server(port: int) -> None:
             _metrics_server_started = True
             logger.info("worker prometheus /metrics listening on port %d (multiproc=%s)", port, bool(multiproc_dir))
         except OSError as exc:
+            addr_in_use_codes = {errno.EADDRINUSE}
+            win_code = getattr(errno, "WSAEADDRINUSE", None)
+            if win_code is not None:
+                addr_in_use_codes.add(win_code)
+            if exc.errno not in addr_in_use_codes:
+                raise
             _metrics_server_started = True
-            logger.info(
-                "worker prometheus /metrics port %d already bound (%s); "
-                "this worker's counters will be aggregated by the bound "
-                "process via PROMETHEUS_MULTIPROC_DIR=%s",
-                port,
-                exc,
-                os.environ.get("PROMETHEUS_MULTIPROC_DIR"),
-            )
+            multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+            if multiproc_dir:
+                logger.info(
+                    "worker prometheus /metrics port %d already bound; this worker's "
+                    "counters will be aggregated by the bound process via "
+                    "PROMETHEUS_MULTIPROC_DIR=%s",
+                    port,
+                    multiproc_dir,
+                )
+            else:
+                logger.warning(
+                    "worker prometheus /metrics port %d already bound and "
+                    "PROMETHEUS_MULTIPROC_DIR is not configured; this worker's "
+                    "counter increments will be DROPPED (not visible in any /metrics "
+                    "scrape). Set PROMETHEUS_MULTIPROC_DIR to enable cross-worker "
+                    "aggregation.",
+                    port,
+                )
 
 
 @contextmanager
