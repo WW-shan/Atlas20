@@ -84,7 +84,7 @@ npm --prefix apps/web install
 2. Start the API with `make dev`.
 3. Start the frontend with `npm --prefix apps/web run dev`.
 4. In another terminal, start the worker with
-   `python -m atlas20.api.worker.main`.
+   `PYTHONPATH=src python -m atlas20.api.worker`.
 5. For Docker, launch the API, worker, and web containers with
    `docker compose up -d --build`,
    then seed the mounted data volume with

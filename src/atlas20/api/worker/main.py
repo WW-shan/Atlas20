@@ -39,9 +39,17 @@ def start_metrics_server(port: int) -> None:
     with _metrics_server_lock:
         if _metrics_server_started:
             return
-        start_http_server(port)
+        multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+        if multiproc_dir:
+            from prometheus_client import CollectorRegistry, multiprocess
+
+            registry = CollectorRegistry()
+            multiprocess.MultiProcessCollector(registry)
+            start_http_server(port, registry=registry)
+        else:
+            start_http_server(port)
         _metrics_server_started = True
-        logger.info("worker prometheus /metrics listening on port %d", port)
+        logger.info("worker prometheus /metrics listening on port %d (multiproc=%s)", port, bool(multiproc_dir))
 
 
 @contextmanager
@@ -182,6 +190,7 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
         [sys.executable, "-m", "atlas20.api.worker.run_one", run_id],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=os.environ.copy(),
     )
     interval = heartbeat_interval_seconds if heartbeat_interval_seconds is not None else settings.worker_heartbeat_interval_seconds
     stop_event, cancelled_event, thread = start_heartbeat_thread(

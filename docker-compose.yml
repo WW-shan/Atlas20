@@ -17,7 +17,7 @@ services:
       - "8000:8000"
   worker:
     build: .
-    command: ["python", "-m", "atlas20.api.worker.main"]
+    command: ["python", "-m", "atlas20.api.worker"]
     environment:
       ATLAS20_ENV: dev
       ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite

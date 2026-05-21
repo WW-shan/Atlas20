@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import os
@@ -23,6 +24,16 @@ from atlas20.api.settings import Settings, get_settings
 from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
 from atlas20.reporting.report import _publish_report_dir
+
+
+def _cleanup_metrics_files() -> None:
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        from prometheus_client import multiprocess
+
+        multiprocess.mark_process_dead(os.getpid())
+
+
+atexit.register(_cleanup_metrics_files)
 
 
 def _sha256_file(path: Path) -> str:
