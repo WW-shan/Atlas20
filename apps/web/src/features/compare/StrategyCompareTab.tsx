@@ -24,6 +24,11 @@ const DEFAULT_SELECTIONS: CompareSelectionItem[] = [
   { id: "meanrev",  label: "Mean Reversion v2", tone: "cyan" },
 ];
 
+/** Legacy default chip set, exported only for tests asserting the
+ *  pre-options-seeding shape. Production should never construct this
+ *  directly. */
+export const __TEST_DEFAULT_SELECTIONS = DEFAULT_SELECTIONS;
+
 const RANGES: ChartRange[] = ["1M", "3M", "YTD", "1Y", "ALL"];
 const TONES: CompareSelectionItem["tone"][] = ["gold", "violet", "cyan", "emerald"];
 const PRESET_COMPARE_IDS: Record<string, string> = {
@@ -39,7 +44,19 @@ type Props = {
 const lineToneFor = (tone: CompareSelectionItem["tone"]) => tone;
 
 function resolveCompareId(label: string): string {
-  return PRESET_COMPARE_IDS[label] ?? label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (PRESET_COMPARE_IDS[label]) return PRESET_COMPARE_IDS[label];
+  // Real backend strategy names are exact column headers in
+  // strategy_summary.csv and are accepted as-is by /api/compare's
+  // _resolve_strategy_ids. Slugifying them would lower-case + replace
+  // underscores and the backend would treat them as unknown ids and fall
+  // back to the mock payload. Only slugify when the label clearly is a
+  // free-form preset (no embedded "__" family separator and no known
+  // backend prefix).
+  const looksLikeBackendStrategy =
+    label.includes("__") ||
+    /^(BTC_BH|ETH_BH|TOP20_)/.test(label);
+  if (looksLikeBackendStrategy) return label;
+  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
 function buildSelectionsFromPresets(presets: string[] | undefined, count: number): CompareSelectionItem[] {
@@ -62,6 +79,12 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   const options = useQuery({
     queryKey: qk.options(),
     queryFn: getOptions,
+    // Keep the static fallback visible as initialData so the AddStrategy
+    // modal's preset list is never empty while /api/options is loading. The
+    // seeding effect below explicitly waits for `isFetched && !isPending`
+    // before consuming the data so it can distinguish "fallback placeholder"
+    // from "real backend response" — without that gate, the seeding would
+    // immediately fire with the hardcoded fallback labels.
     initialData: fallbackOptions,
   });
 
@@ -77,11 +100,15 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
       seededRef.current = true;
       return;
     }
+    // `isFetched && !isPending` is true only once the network call returns,
+    // which lets us reject the initialData fallback while still keeping it
+    // visible for the AddStrategy modal during load.
+    if (!options.isFetched || options.isPending) return;
     const seeded = buildSelectionsFromPresets(options.data?.presets, 3);
     if (seeded.length === 0) return;
     seededRef.current = true;
     setSelections(seeded);
-  }, [options.data?.presets, initialSelections, selections.length]);
+  }, [options.isFetched, options.isPending, options.data?.presets, initialSelections, selections.length]);
 
   const query = useQuery({
     queryKey: qk.compare(ids, range),
