@@ -456,13 +456,18 @@ def build_markdown_report(
     yearly_percent_cols = set(yearly_head.columns)
     regime_percent_cols = set(regime_head.columns)
 
+    cadences = sorted(
+        {*config.strategies.momentum_frequencies, *config.strategies.sector_frequencies}
+    )
+    cadences_text = " and ".join(cadences) if cadences else "(no rotation strategies)"
+
     text = f"""# {config.project_name} Research Report
 
 ## Scope
 
 - Universe: top-{config.universe.universe_size} non-stablecoin crypto assets by point-in-time market-cap proxy.
 - Portfolio construction: equal weight, momentum rotation, and sector rotation.
-- Rebalancing tested: monthly and biweekly.
+- Rebalancing tested: {cadences_text}.
 - Regime overlays tested: always-on and bull-only.
 - Frictions: {config.frictions.fee_bps:.1f} bps fee + {config.frictions.slippage_bps:.1f} bps slippage.
 

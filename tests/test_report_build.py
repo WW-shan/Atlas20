@@ -103,3 +103,34 @@ def test_build_markdown_report_preserves_benchmark_output_when_present(tmp_path:
     assert "Equal-weight benchmark CAGR: **15.00%**" in text
     assert "N/A — no BTC benchmark in this run" not in text
     assert "N/A — no equal-weight benchmark in this run" not in text
+
+
+def test_build_markdown_report_scope_uses_chosen_cadence_not_hardcoded_text(tmp_path: Path) -> None:
+    """Report scope line used to be hardcoded "monthly and biweekly". Once
+    config_adapter constrains strategies.{momentum,sector}_frequencies to the
+    user's choice, the report must reflect THAT cadence — not the
+    pre-adapter default. Otherwise reports lie about what was tested."""
+    api_config = BacktestConfig.model_validate(
+        {
+            "preset": "ATLAS Adaptive v3",
+            "universe": {"topN": 20, "excludeStable": True, "excludeWrapped": True},
+            "window": {"start": "2024-01-01", "end": "2026-05-18", "rebalance": "Weekly"},
+            "allocation": {"positionPct": 5.0, "slots": 10},
+            "costs": {"feeBps": 10, "slippageBps": 5},
+        }
+    )
+    config = to_research_config(api_config, api_config.preset, Settings(project_root=PROJECT_ROOT))
+    summary = pd.DataFrame(
+        {
+            "BTC_BH__always_on": _summary_row({"cagr": 0.10, "sharpe": 0.80}),
+            "TOP20_EQ__always_on": _summary_row({"cagr": 0.15, "sharpe": 1.00}),
+            "TOP20_MOM_alpha": _summary_row({"cagr": 0.25, "sharpe": 1.5}),
+            "TOP20_SECTOR_beta": _summary_row({"cagr": 0.22, "sharpe": 1.3}),
+        }
+    ).T
+    summary.index.name = "strategy"
+
+    text = build_markdown_report(config, summary, _yearly(), _regime(), tmp_path / "digest.md")
+
+    assert "Rebalancing tested: weekly." in text
+    assert "monthly and biweekly" not in text

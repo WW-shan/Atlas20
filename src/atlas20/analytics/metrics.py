@@ -71,6 +71,7 @@ def yearly_return_table(results: dict[str, BacktestResult]) -> pd.DataFrame:
     }
     frame = pd.DataFrame(data)
     frame.index = frame.index.year
+    frame.index.name = "year"
     return frame.sort_index()
 
 
