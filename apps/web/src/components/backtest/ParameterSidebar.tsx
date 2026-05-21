@@ -8,6 +8,7 @@ type Props = {
   onRun: () => void;
   isRunning: boolean;
   refreshing?: boolean;
+  presets?: string[];
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -26,7 +27,13 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius-input)",
 };
 
-export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing }: Props) {
+export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing, presets }: Props) {
+  const options = presets && presets.length > 0
+    ? presets
+    : ["ATLAS Adaptive v3", "Momentum Top-10", "Mean Reversion v2", "Carry Top-5"];
+  // Ensure currently-selected preset is in the dropdown even if not in the
+  // server list (preserves the prefilled preset from a hydrated past run).
+  const fullList = options.includes(value.preset) ? options : [value.preset, ...options];
   return (
     <aside
       style={{
@@ -50,10 +57,9 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing
           style={inputStyle}
           aria-label="Strategy preset"
         >
-          <option>ATLAS Adaptive v3</option>
-          <option>Momentum Top-10</option>
-          <option>Mean Reversion v2</option>
-          <option>Carry Top-5</option>
+          {fullList.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
         </select>
       </div>
 

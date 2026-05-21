@@ -60,7 +60,7 @@ function formatCompactCurrency(v: number): string {
 }
 
 export function OverviewTab({ overview, onNavigate }: Props) {
-  const { hero_kpi, aum, strategies, regime, rebalance, equity_overlay } = overview;
+  const { champion, hero_kpi, aum, strategies, regime, rebalance, equity_overlay } = overview;
   const maxBreakdown = Math.max(...strategies.breakdown.map((b) => b.count));
 
   return (
@@ -72,11 +72,10 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Pill tone="gold-outline" size="xs">CURRENT CHAMPION</Pill>
             <h2 style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.01em" }}>
-              ATLAS Adaptive v3
+              {champion.strategy}
             </h2>
             <span className="muted" style={{ fontSize: 13 }}>
-              Top-3 momentum × volatility filter ·{" "}
-              <span className="mono">2026-05-18</span>
+              {champion.window_start} → <span className="mono">{champion.window_end}</span>
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", gap: 32, alignItems: "end" }}>

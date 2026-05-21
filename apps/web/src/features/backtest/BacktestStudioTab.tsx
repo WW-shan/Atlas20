@@ -13,6 +13,7 @@ import { RunQueue } from "../../components/backtest/RunQueue";
 import {
   defaultBacktestConfig,
   generateReport,
+  getOptions,
   getRunDetail,
   type BacktestConfig,
   type RunDetailPayload,
@@ -58,6 +59,11 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
   const runMutation = useRunBacktest();
   const queue = useRunQueue();
+  const optionsQuery = useQuery({
+    queryKey: qk.options(),
+    queryFn: getOptions,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const selectedRunId = prefillRunId ?? "btk_0142";
   const detailQuery = useQuery({
@@ -130,6 +136,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
               onRun={() => runMutation.mutate(config)}
               isRunning={runMutation.isPending}
               refreshing={isDetailRefreshing}
+              presets={optionsQuery.data?.presets}
             />
           )}
         </div>

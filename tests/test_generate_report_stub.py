@@ -13,6 +13,7 @@ from atlas20.api.settings import get_settings
 def client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{(tmp_path / 'test.sqlite').as_posix()}")
     get_settings.cache_clear()
     with TestClient(create_app()) as test_client:
         yield test_client
