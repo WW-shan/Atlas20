@@ -58,7 +58,7 @@ describe("BacktestStudioTab", () => {
   it("renders RUN BACKTEST and disables it while the run mutation is pending", async () => {
     vi.mocked(api.runBacktest).mockImplementation(() => new Promise<api.RunRowSummary>(() => {}));
 
-    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
     const button = await screen.findByRole("button", { name: /RUN BACKTEST/ });
     expect(button).toBeInTheDocument();
 
@@ -106,7 +106,7 @@ describe("BacktestStudioTab", () => {
   it("renders detail skeletons while the run detail query is loading", () => {
     vi.mocked(api.getRunDetail).mockImplementation(() => new Promise<api.RunDetailPayload>(() => {}));
 
-    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
 
     expect(screen.getByTestId("backtest-detail-skeleton")).toBeInTheDocument();
     expect(screen.queryByLabelText("Backtest parameters")).not.toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("BacktestStudioTab", () => {
       .mockResolvedValueOnce(api.fallbackRunDetail)
       .mockImplementationOnce(() => new Promise<api.RunDetailPayload>(() => {}));
 
-    const { client } = renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    const { client } = renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
 
     expect(await screen.findByLabelText("Backtest parameters")).toBeInTheDocument();
 
@@ -135,7 +135,7 @@ describe("BacktestStudioTab", () => {
       .mockRejectedValueOnce(new Error("detail failed"))
       .mockResolvedValueOnce(api.fallbackRunDetail);
 
-    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Unable to load run detail");

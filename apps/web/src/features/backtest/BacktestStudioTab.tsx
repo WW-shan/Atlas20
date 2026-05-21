@@ -65,13 +65,19 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const selectedRunId = prefillRunId ?? "btk_0142";
+  // Default to the most recent real run instead of a hardcoded synthetic id;
+  // an id that doesn't exist would 404 here and the UI would show ghost KPIs
+  // (we previously had a literal "btk_0142" fallback that surfaced fake
+  // numbers for every fresh visit).
+  const latestQueueRunId = queue.data?.[0]?.run_id;
+  const selectedRunId = prefillRunId ?? latestQueueRunId;
   const detailQuery = useQuery({
-    queryKey: qk.runs.detail(selectedRunId),
-    queryFn: () => getRunDetail(selectedRunId),
+    queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
+    queryFn: () => getRunDetail(selectedRunId as string),
+    enabled: !!selectedRunId,
   });
   const detailData = detailQuery.data;
-  const isInitialDetailLoading = detailQuery.isLoading && detailData === undefined;
+  const isInitialDetailLoading = !!selectedRunId && detailQuery.isLoading && detailData === undefined;
   const isDetailRefreshing = detailQuery.isFetching && detailData !== undefined;
 
   // When user clicks RE-RUN from history, hydrate the sidebar from that run's detail.
@@ -112,7 +118,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
       {/* Mini page header with RUN ID pill + NEW RUN button */}
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
         <Pill tone="cyan-outline" size="sm">
-          RUN ID: <span className="mono" style={{ marginLeft: 4 }}>{selectedRunId}</span>
+          RUN ID: <span className="mono" style={{ marginLeft: 4 }}>{selectedRunId ?? "—"}</span>
         </Pill>
         <Button
           variant="outline-violet"

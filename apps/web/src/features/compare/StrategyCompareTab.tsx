@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
@@ -42,8 +42,17 @@ function resolveCompareId(label: string): string {
   return PRESET_COMPARE_IDS[label] ?? label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-export function StrategyCompareTab({ initialSelections = DEFAULT_SELECTIONS }: Props = {}) {
-  const [selections, setSelections] = useState<CompareSelectionItem[]>(initialSelections);
+function buildSelectionsFromPresets(presets: string[] | undefined, count: number): CompareSelectionItem[] {
+  if (!presets || presets.length === 0) return [];
+  return presets.slice(0, count).map((preset, index) => ({
+    id: resolveCompareId(preset),
+    label: preset,
+    tone: TONES[index % TONES.length],
+  }));
+}
+
+export function StrategyCompareTab({ initialSelections }: Props = {}) {
+  const [selections, setSelections] = useState<CompareSelectionItem[]>(initialSelections ?? []);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [range, setRange] = useState<ChartRange>("YTD");
   const ids = useMemo(() => selections.map((s) => s.id), [selections]);
@@ -55,6 +64,24 @@ export function StrategyCompareTab({ initialSelections = DEFAULT_SELECTIONS }: P
     queryFn: getOptions,
     initialData: fallbackOptions,
   });
+
+  // First-load: when no explicit initial selections were passed in props, seed
+  // from the real /api/options presets list as soon as it resolves. Previously
+  // this fell back to DEFAULT_SELECTIONS = ["ATLAS Adaptive v3", ...] which are
+  // not actual strategy names; the backend's alias map silently resolved them
+  // to real strategies but the UI labels lied.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || initialSelections) return;
+    if (selections.length > 0) {
+      seededRef.current = true;
+      return;
+    }
+    const seeded = buildSelectionsFromPresets(options.data?.presets, 3);
+    if (seeded.length === 0) return;
+    seededRef.current = true;
+    setSelections(seeded);
+  }, [options.data?.presets, initialSelections, selections.length]);
 
   const query = useQuery({
     queryKey: qk.compare(ids, range),
