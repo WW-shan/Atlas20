@@ -19,6 +19,19 @@ _REBALANCE_FREQUENCIES = {
     "Monthly": {"monthly": "month_end"},
 }
 
+# Complete lookup table preserved across user choice. Hardcoded benchmark and
+# equal-weight strategies in strategies/implementations.py use
+# `frequency="monthly"`; if the user picks Weekly the engine still has to be
+# able to resolve "monthly" -> "month_end" or calendar.py crashes with
+# "Unsupported rebalance frequency: monthly=monthly". The user choice still
+# governs WHICH rotation strategies run (momentum_frequencies /
+# sector_frequencies below).
+_ALL_REBALANCE_FREQUENCIES: dict[str, str] = {
+    key: value
+    for freq_map in _REBALANCE_FREQUENCIES.values()
+    for key, value in freq_map.items()
+}
+
 
 def to_research_config(api_config: BacktestConfig, preset: str, settings: Settings) -> ResearchConfig:
     preset_slug = _preset_slug(preset or api_config.preset)
@@ -33,12 +46,17 @@ def to_research_config(api_config: BacktestConfig, preset: str, settings: Settin
     data["start_date"] = api_config.window.start.isoformat()
     data["end_date"] = api_config.window.end.isoformat()
     chosen_frequencies = _rebalance_frequencies(api_config.window.rebalance)
-    data["rebalancing"]["frequencies"] = chosen_frequencies
-    # The engine iterates strategies.momentum_frequencies / sector_frequencies and
-    # looks each key up in rebalancing.frequencies. If the preset YAML keeps the
-    # default ["monthly","biweekly"] while the user requested a single cadence,
-    # the unmatched key falls through to the bare name and crashes calendar.py
-    # with int("biweekly"). Constrain both lists to the chosen cadence.
+    # Merge into the full lookup table so hardcoded benchmark/equal-weight
+    # strategies that say frequency="monthly" still resolve when the user
+    # picked Weekly or Biweekly. Without the merge, replacing the dict with
+    # only the chosen entry causes calendar.py to raise "Unsupported
+    # rebalance frequency: monthly=monthly".
+    data["rebalancing"]["frequencies"] = {**_ALL_REBALANCE_FREQUENCIES, **chosen_frequencies}
+    # The engine iterates strategies.momentum_frequencies / sector_frequencies
+    # and creates one strategy variant per name. Constraining both lists to
+    # the chosen cadence is what actually expresses the user's choice for
+    # rotation strategies; benchmarks stay on their hardcoded "monthly"
+    # cadence (sampling, not rebalancing).
     chosen_freq_key = next(iter(chosen_frequencies))
     data.setdefault("strategies", {})
     data["strategies"]["momentum_frequencies"] = [chosen_freq_key]

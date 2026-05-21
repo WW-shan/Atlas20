@@ -46,7 +46,7 @@ def test_to_research_config_maps_api_fields_to_engine_config():
     assert config.universe.exclude_wrapped_assets is False
     assert config.start_date == "2022-01-01"
     assert config.end_date == "2024-12-31"
-    assert config.rebalancing.frequencies == {"weekly": "7D"}
+    assert config.rebalancing.frequencies["weekly"] == "7D"
     assert config.frictions.fee_bps == 12.5
     assert config.frictions.slippage_bps == 3.5
     assert config.project_root == PROJECT_ROOT
@@ -98,7 +98,7 @@ def test_to_research_config_biweekly_rebalance_uses_single_frequency_entry():
 
     config = to_research_config(api_config, api_config.preset, settings())
 
-    assert config.rebalancing.frequencies == {"biweekly": "14D"}
+    assert config.rebalancing.frequencies["biweekly"] == "14D"
 
 
 def test_to_research_config_constrains_strategy_frequencies_to_chosen_cadence():
@@ -116,6 +116,24 @@ def test_to_research_config_constrains_strategy_frequencies_to_chosen_cadence():
         assert config.strategies.momentum_frequencies == [expected_key], rebalance
         assert config.strategies.sector_frequencies == [expected_key], rebalance
         assert expected_key in config.rebalancing.frequencies, rebalance
+
+
+def test_to_research_config_keeps_hardcoded_benchmark_frequency_resolvable():
+    """benchmark and equal-weight strategy definitions hardcode
+    frequency='monthly' regardless of user choice. The adapter's lookup table
+    must keep 'monthly' resolvable so calendar.py does not crash with
+    'Unsupported rebalance frequency: monthly=monthly' when user picks Weekly
+    or Biweekly.
+    """
+    for rebalance in ("Weekly", "Biweekly", "Monthly"):
+        api_config = valid_config(window={"rebalance": rebalance})
+
+        config = to_research_config(api_config, api_config.preset, settings())
+
+        freqs = config.rebalancing.frequencies
+        assert freqs.get("monthly") == "month_end", rebalance
+        assert freqs.get("biweekly") == "14D", rebalance
+        assert freqs.get("weekly") == "7D", rebalance
 
 
 def test_to_research_config_rejects_empty_preset_slug():
