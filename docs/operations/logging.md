@@ -26,7 +26,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 | `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
 | `atlas20_report_generations_total{format,status}` | API | Incremented inside POST `/api/reports/generate` handler |
 | `atlas20_backtests_total{status}` | Worker (main path) + API (lifespan recovery only) | Incremented per terminal transition. The API process emits this only during lifespan startup when `recover_stale_runs` reclassifies orphaned runs as failed; the dominant emitter is the worker subprocess via multiproc aggregation. |
-| `atlas20_backtest_duration_seconds` | Worker | Histogram; multiproc-aggregated |
+| `atlas20_backtest_duration_seconds` | Worker (main path) + API (lifespan recovery only) | Histogram; multiproc-aggregated. The API contribution comes from `recover_stale_runs` observing a duration when reclassifying orphaned runs as failed during lifespan startup; the dominant emitter is the worker subprocess. |
 
 Configure Prometheus with both scrape targets:
 
@@ -80,6 +80,10 @@ On Windows, a wipe that races with an in-flight subprocess's open mmap
 will fail to delete the locked file; this is acceptable -- the wipe is
 `ignore_errors=True` and the leftover is bounded by the number of
 in-flight subprocesses at restart time (typically 1).
+
+### Windows port-bind semantics (multi-worker)
+
+`python -m atlas20.api.worker.spawn` with `ATLAS20_WORKERS>1` runs multiple worker processes on one host. On Linux every worker after the first raises `EADDRINUSE` when binding port 8001 and `start_metrics_server` (`src/atlas20/api/worker/main.py`) catches the error and proceeds without its own HTTP listener. On Windows, `http.server.HTTPServer.allow_reuse_address = 1` plus the OS-level `SO_REUSEADDR` semantics let every child socket bind to 8001 without raising; Windows then routes incoming connections to only one of the bound sockets (typically the first), so additional workers' `start_metrics_server` log lines (`"listening on port 8001 (multiproc=True)"`) are emitted but never reachable from Prometheus. Metric values are still correct because every worker writes counters to the shared `PROMETHEUS_MULTIPROC_DIR` mmap files that the reachable worker's `MultiProcessCollector` aggregates. For deterministic per-process scrape on Windows, assign distinct `ATLAS20_WORKER_METRICS_PORT` values per worker.
 
 ## Metrics correctness caveats
 
