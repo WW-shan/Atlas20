@@ -123,17 +123,20 @@ def test_to_research_config_keeps_hardcoded_benchmark_frequency_resolvable():
     frequency='monthly' regardless of user choice. The adapter's lookup table
     must keep 'monthly' resolvable so calendar.py does not crash with
     'Unsupported rebalance frequency: monthly=monthly' when user picks Weekly
-    or Biweekly.
+    or Biweekly. The table does NOT include unused cadences so pipeline.py
+    doesn't waste work materializing those rebalance dates.
     """
-    for rebalance in ("Weekly", "Biweekly", "Monthly"):
+    cases = [
+        ("Weekly", {"weekly": "7D", "monthly": "month_end"}),
+        ("Biweekly", {"biweekly": "14D", "monthly": "month_end"}),
+        ("Monthly", {"monthly": "month_end"}),
+    ]
+    for rebalance, expected in cases:
         api_config = valid_config(window={"rebalance": rebalance})
 
         config = to_research_config(api_config, api_config.preset, settings())
 
-        freqs = config.rebalancing.frequencies
-        assert freqs.get("monthly") == "month_end", rebalance
-        assert freqs.get("biweekly") == "14D", rebalance
-        assert freqs.get("weekly") == "7D", rebalance
+        assert config.rebalancing.frequencies == expected, rebalance
 
 
 def test_to_research_config_rejects_empty_preset_slug():

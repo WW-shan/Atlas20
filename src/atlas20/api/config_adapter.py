@@ -46,12 +46,13 @@ def to_research_config(api_config: BacktestConfig, preset: str, settings: Settin
     data["start_date"] = api_config.window.start.isoformat()
     data["end_date"] = api_config.window.end.isoformat()
     chosen_frequencies = _rebalance_frequencies(api_config.window.rebalance)
-    # Merge into the full lookup table so hardcoded benchmark/equal-weight
-    # strategies that say frequency="monthly" still resolve when the user
-    # picked Weekly or Biweekly. Without the merge, replacing the dict with
-    # only the chosen entry causes calendar.py to raise "Unsupported
-    # rebalance frequency: monthly=monthly".
-    data["rebalancing"]["frequencies"] = {**_ALL_REBALANCE_FREQUENCIES, **chosen_frequencies}
+    # Keep the chosen cadence plus the benchmarks' hardcoded "monthly" sampling
+    # so calendar.py never falls back to a bare key. We do NOT carry every
+    # default cadence: pipeline.py iterates rebalancing.frequencies when
+    # generating the union rebalance schedule, and the universe builder would
+    # waste work materializing snapshots for cadences no live strategy uses.
+    benchmark_frequencies = {"monthly": _ALL_REBALANCE_FREQUENCIES["monthly"]}
+    data["rebalancing"]["frequencies"] = {**benchmark_frequencies, **chosen_frequencies}
     # The engine iterates strategies.momentum_frequencies / sector_frequencies
     # and creates one strategy variant per name. Constraining both lists to
     # the chosen cadence is what actually expresses the user's choice for
