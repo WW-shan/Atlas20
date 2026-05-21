@@ -32,6 +32,6 @@ Workers launch through Python module entry points and the standard library `subp
 
 ## Restart Recovery
 
-Worker startup performs PID-scoped recovery: it only marks running jobs failed when they were claimed by the current worker PID before restart. This avoids failing sibling workers' active runs.
+Worker startup runs a narrow PID-scoped sweep (`recover_runs_owned_by_pid`) that fails any running rows whose recorded `worker_pid` happens to equal the new worker process's PID. Under normal restart this is a no-op because the new PID rarely matches a previously-recorded one; the sweep exists as a defensive guard against accidental PID reuse and never touches sibling workers' active runs.
 
-The FastAPI application lifespan still performs broad stale-heartbeat recovery as the central coordinator. It marks running jobs failed when their heartbeat is missing or stale after the configured startup check.
+The FastAPI application lifespan performs the actual restart recovery as the central coordinator. `recover_stale_runs` marks running jobs failed when their `heartbeat_at` is missing or older than the configured staleness threshold; it does not consult `worker_pid` at all.

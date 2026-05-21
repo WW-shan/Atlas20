@@ -404,23 +404,23 @@
 ## Phase O — 可观测性
 
 ### O1 — 结构化日志
-- [ ] `structlog` JSON formatter
-- [ ] 每请求记录 method/path/status/duration_ms/run_id（如有）
+- [x] `structlog` JSON formatter
+- [x] 每请求记录 method/path/status/duration_ms/run_id（如有）
 
 ### O2 — Request ID 中间件
-- [ ] 加 `X-Request-ID` (uuid4)；日志带 request_id
+- [x] 加 `X-Request-ID` (uuid4)；日志带 request_id
 
 ### O3 — Prometheus
-- [ ] `prometheus-fastapi-instrumentator`
-- [ ] 暴露 `/metrics`（auth 后或 internal only）
-- [ ] 业务指标：`atlas20_backtests_total{status}`, `atlas20_backtest_duration_seconds`
+- [x] `prometheus-fastapi-instrumentator`
+- [x] 暴露 `/metrics`（auth 后或 internal only）
+- [x] 业务指标：`atlas20_backtests_total{status}`, `atlas20_backtest_duration_seconds`
 
 ### O4 — Error tracking
-- [ ] Sentry SDK env-gated
+- [x] Sentry SDK env-gated
 
 ### O5 — Health/Readiness
-- [ ] `/healthz` 简单 200
-- [ ] `/readyz` 检 DB 连接 + report_root 可写
+- [x] `/healthz` 简单 200
+- [x] `/readyz` 检 DB 连接 + report_root 可写
 
 ### O6 — 日志保留/轮转/脱敏（**新增 codex**）
 - [ ] `logging.handlers.RotatingFileHandler`（local）或 stdout + journald（容器）
