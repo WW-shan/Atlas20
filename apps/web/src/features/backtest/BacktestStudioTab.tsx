@@ -15,6 +15,7 @@ import {
   generateReport,
   getOptions,
   getRunDetail,
+  listRuns,
   type BacktestConfig,
   type RunDetailPayload,
 } from "../../lib/api";
@@ -64,13 +65,29 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
     queryFn: getOptions,
     staleTime: 5 * 60 * 1000,
   });
+  // Latest backtest run from history, used as a graceful prefill fallback
+  // when no run is currently in flight (queue is empty). Without this, a
+  // fresh visit to Backtest would show "—" and an empty workspace even
+  // though plenty of past runs exist. Pull a small page and pick the first
+  // entry that's an actual backtest — skipping `universe_refresh` and other
+  // background jobs that don't have a return_pct to plot.
+  const recentRunsQuery = useQuery({
+    queryKey: qk.runs.list({ q: "", chips: [], dateRange: "30d", page: 1, pageSize: 10 }),
+    queryFn: () => listRuns({ q: "", chips: [], dateRange: "30d", page: 1, pageSize: 10 }),
+    staleTime: 60 * 1000,
+  });
 
-  // Default to the most recent real run instead of a hardcoded synthetic id;
-  // an id that doesn't exist would 404 here and the UI would show ghost KPIs
+  // Default to the most recent run instead of a hardcoded synthetic id. An
+  // id that doesn't exist would 404 here and the UI would show ghost KPIs
   // (we previously had a literal "btk_0142" fallback that surfaced fake
-  // numbers for every fresh visit).
+  // numbers for every fresh visit). Fallback chain:
+  //   explicit prefillRunId  →  first run in queue (in-flight)
+  //                          →  most recent backtest in history
+  //                          →  undefined (honest empty state)
   const latestQueueRunId = queue.data?.[0]?.run_id;
-  const selectedRunId = prefillRunId ?? latestQueueRunId;
+  const latestHistoryRunId = recentRunsQuery.data?.items
+    .find((row) => row.strategy !== "universe_refresh")?.run_id;
+  const selectedRunId = prefillRunId ?? latestQueueRunId ?? latestHistoryRunId;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
     queryFn: () => getRunDetail(selectedRunId as string),
