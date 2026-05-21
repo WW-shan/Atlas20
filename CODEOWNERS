@@ -1,0 +1,4 @@
+# Default owners for any path not explicitly listed below. Reviews from
+# CODEOWNERS are automatically requested when a PR touches matching files.
+
+*   @WW-shan

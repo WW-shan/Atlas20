@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a capability addition, observability hook, or workflow improvement
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem / motivation
+      description: What user need or operator gap does this address?
+      placeholder: |
+        When reviewing backtests, I can't easily filter the history list by sharpe range.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you want built. Mention any backend / frontend / metric / docs split.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Briefly.
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / out-of-scope
+      description: Specifically what this issue should NOT cover, to prevent scope creep.

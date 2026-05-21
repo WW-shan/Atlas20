@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a defect, regression, or contract drift
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. A reproducible case turns this into a fix
+        much faster than a description alone.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw vs what you expected.
+      placeholder: |
+        I clicked X on the Compare tab and Y rendered an empty chart even though /api/compare returned 200.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Exact steps. Include API request body / URL when relevant.
+      placeholder: |
+        1. Start backend (`python -m atlas20.api.worker` + uvicorn)
+        2. Start web (`npm --prefix apps/web run dev`)
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, Node version, browser, anything custom in `.env`.
+      value: |
+        - OS:
+        - Python: `python --version`
+        - Node: `node --version`
+        - Browser:
+        - Relevant env vars:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Worker log, API access log, browser console, or screenshot of the broken surface.
+      placeholder: |
+        (paste logs here, redact API keys)

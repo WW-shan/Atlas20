@@ -1,5 +1,9 @@
 # Atlas20 Rotation
 
+[![CI](https://github.com/WW-shan/Atlas20/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WW-shan/Atlas20/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/WW-shan/Atlas20?sort=semver)](https://github.com/WW-shan/Atlas20/releases/latest)
+[![License](https://img.shields.io/github/license/WW-shan/Atlas20)](LICENSE)
+
 Atlas20 Rotation is a reproducible crypto research framework for testing
 whether rotation inside a top-20 non-stablecoin universe can outperform simple
 benchmarks such as BTC buy-and-hold and top-20 equal weight.
