@@ -18,9 +18,17 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 
 ## Prometheus dual scrape targets (API + worker)
 
-`prometheus_client` counters live in **per-process memory**. The API and worker run in separate processes (see `docker-compose.yml` `backend` + `worker` services), so a single scrape against the API's `/metrics` would miss every counter the worker increments — `atlas20_backtests_total`, `atlas20_report_generations_total`, and `atlas20_backtest_duration_seconds` would all appear stuck at zero for any work the worker performed.
+`prometheus_client` counters live in **per-process memory**. The API process and worker process emit different metrics; each must be scraped on its own endpoint.
 
-The worker therefore exposes its own `/metrics` endpoint on a dedicated port (default `8001`, overridable via `ATLAS20_WORKER_METRICS_PORT`). Prometheus must be configured with **both** scrape targets:
+| Metric | Process | Notes |
+| --- | --- | --- |
+| `atlas20_request_total{status,...}` | API | HTTP instrumentation via fastapi-instrumentator |
+| `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
+| `atlas20_report_generations_total{format,status}` | API | Incremented inside POST `/api/reports/generate` handler |
+| `atlas20_backtests_total{status}` | Worker | Incremented in run_one subprocess; multiproc-aggregated |
+| `atlas20_backtest_duration_seconds` | Worker | Histogram; multiproc-aggregated |
+
+Configure Prometheus with both scrape targets:
 
 ```yaml
 scrape_configs:
@@ -32,13 +40,25 @@ scrape_configs:
       - targets: ["atlas20-worker:8001"]
 ```
 
-Queries that combine API-side and worker-side counts must aggregate across the `instance` (and `job`) labels, e.g.
+Counter queries that span both processes (none currently, but if you add one):
 
 ```promql
 sum without (instance, job) (atlas20_backtests_total)
 ```
 
-Dashboards and alerts authored before this split (i.e. before commit b4b9ed8) need this aggregation added; otherwise they read only one process's view and may falsely report zero traffic.
+Histogram queries - use `_sum` / `_count` / `_bucket` series, not the base name:
+
+```promql
+# p95 backtest duration over 1h, across all worker processes
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(atlas20_backtest_duration_seconds_bucket[1h])
+  )
+)
+```
+
+Worker counters are aggregated across the run_one subprocess via `PROMETHEUS_MULTIPROC_DIR` (see `src/atlas20/api/worker/__main__.py`). The bootstrap is essential - without it every backtest completion is silently dropped.
 
 ## Metrics correctness caveats
 
