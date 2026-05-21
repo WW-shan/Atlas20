@@ -5,16 +5,18 @@
 Run a single worker with:
 
 ```bash
-python -m atlas20.api.worker.main
+PYTHONPATH=src python -m atlas20.api.worker
 ```
 
 Run multiple local workers with the spawn helper:
 
 ```bash
-ATLAS20_WORKERS=2 python -m atlas20.api.worker.spawn
+PYTHONPATH=src ATLAS20_WORKERS=2 python -m atlas20.api.worker.spawn
 ```
 
 `ATLAS20_WORKERS` controls how many child worker processes the spawn helper starts. Each child sets `ATLAS20_WORKERS=1` for itself to avoid recursive fan-out.
+
+`PYTHONPATH=src` is only needed when running from a source checkout. Packaged installs can omit it and still use `python -m atlas20.api.worker` so the worker bootstrap configures `PROMETHEUS_MULTIPROC_DIR` before worker modules import.
 
 ## Runtime Settings
 
