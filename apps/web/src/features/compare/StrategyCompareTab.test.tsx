@@ -196,6 +196,60 @@ describe("StrategyCompareTab", () => {
     expect(screen.queryByRole("table", { name: "Metric comparison table" })).not.toBeInTheDocument();
   });
 
+  it("seeds 3 chips from real /api/options presets when no initialSelections prop is given", async () => {
+    vi.mocked(api.getOptions).mockResolvedValue({
+      ...api.fallbackOptions,
+      presets: ["ETH_BH__bull_only", "BTC_BH__always_on", "TOP20_MOM_top4_weekly__always_on", "TOP20_SECTOR_top3_monthly__always_on"],
+    });
+
+    renderWithQuery(<StrategyCompareTab />);
+
+    await waitFor(() => {
+      const list = screen.getByRole("list", { name: "Selected strategies" });
+      expect(list.querySelectorAll("[role='listitem']").length).toBe(3);
+    });
+
+    expect(screen.getAllByText("ETH_BH__bull_only").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("BTC_BH__always_on").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("TOP20_MOM_top4_weekly__always_on").length).toBeGreaterThanOrEqual(1);
+    // Ensure /api/compare was called with the EXACT real names (no slugification).
+    await waitFor(() => {
+      const lastCall = vi.mocked(api.getCompare).mock.calls.at(-1);
+      expect(lastCall?.[0]).toEqual([
+        "ETH_BH__bull_only",
+        "BTC_BH__always_on",
+        "TOP20_MOM_top4_weekly__always_on",
+      ]);
+    });
+  });
+
+  it("does not reseed selections when /api/options refetches with a different list", async () => {
+    vi.mocked(api.getOptions).mockResolvedValueOnce({
+      ...api.fallbackOptions,
+      presets: ["ETH_BH__bull_only", "BTC_BH__always_on", "TOP20_MOM_top4_weekly__always_on"],
+    });
+
+    renderWithQuery(<StrategyCompareTab />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("ETH_BH__bull_only").length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Simulate a fresh fetch with a completely different preset order/content.
+    vi.mocked(api.getOptions).mockResolvedValueOnce({
+      ...api.fallbackOptions,
+      presets: ["TOP20_SECTOR_top4_monthly__bull_only", "ETH_BH__always_on", "BTC_BH__bull_only"],
+    });
+
+    // Give the effect a chance to re-run if it would.
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    // The originally seeded chips MUST persist; reseeding from the new preset
+    // list would clobber any user edits.
+    expect(screen.getAllByText("ETH_BH__bull_only").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("TOP20_SECTOR_top4_monthly__bull_only")).not.toBeInTheDocument();
+  });
+
   it("keeps fallback strategy options visible while options are loading", async () => {
     vi.mocked(api.getOptions).mockImplementation(() => new Promise<api.OptionsPayload>(() => {}));
 

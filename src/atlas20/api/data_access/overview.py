@@ -283,8 +283,16 @@ def _build_regime(settings: Settings) -> dict[str, Any]:
     output for every preset. Atlas20's research console doesn't have a
     "current" regime per-strategy, so we pick the dataset whose regime_frame
     has the most recent row and use that as the global market regime.
+
+    Searches both `data/processed/regime_frame.csv` (used by base/default
+    preset runs that don't carve out a preset subdir) and
+    `data/processed/<preset>/regime_frame.csv` (preset-specific runs).
     """
-    candidates = sorted((settings.data_root / "processed").glob("*/regime_frame.csv"))
+    processed_root = settings.data_root / "processed"
+    candidates = sorted(processed_root.glob("*/regime_frame.csv"))
+    root_candidate = processed_root / "regime_frame.csv"
+    if root_candidate.exists():
+        candidates.append(root_candidate)
     fallback = {
         "label": "NEUTRAL",
         "score": 0.5,
@@ -300,13 +308,18 @@ def _build_regime(settings: Settings) -> dict[str, Any]:
             continue
         if frame.empty:
             continue
+        # frame.index.max() handles unsorted files; iloc[-1] would silently
+        # pick the wrong row when the pipeline rebuilds and rewrites in
+        # different ordering.
         latest_ts = frame.index.max()
         if best is None or latest_ts > best[0]:
             best = (latest_ts, frame)
     if best is None:
         return fallback
-    _, frame = best
-    last_row = frame.iloc[-1]
+    latest_ts, frame = best
+    last_row = frame.loc[latest_ts] if latest_ts in frame.index else frame.iloc[-1]
+    if isinstance(last_row, pd.DataFrame):  # duplicate timestamp -> pick last
+        last_row = last_row.iloc[-1]
     bull = bool(last_row.get("bull", False))
     btc_above = bool(last_row.get("btc_above_ma", False))
     mcap_above = bool(last_row.get("tracked_total_mcap_above_ma", False))
