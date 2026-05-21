@@ -40,4 +40,9 @@ The FastAPI application lifespan performs the actual restart recovery as the cen
 
 The worker's docker-compose healthcheck probes both the HTTP listener thread (port `8001`) and the queue loop. The Python one-liner scrapes `/metrics`, extracts `atlas20_worker_last_poll_timestamp_seconds`, and fails the check if the gauge is older than 30 seconds or absent entirely. A stuck queue loop with a healthy listener thread is therefore caught, whereas a bare `curl /metrics` 200 would have passed.
 
-The worker queue loop updates the gauge on every iteration regardless of whether a run was claimed, so an idle worker still publishes a fresh timestamp at the configured `ATLAS20_WORKER_POLL_INTERVAL_SECONDS` cadence. Tune the healthcheck's 30-second freshness window if you set a longer poll interval.
+Two code paths refresh the gauge:
+
+1. The worker's main queue loop calls `record_worker_poll_tick()` at the top of every iteration, so an idle worker still publishes a fresh timestamp at the configured `ATLAS20_WORKER_POLL_INTERVAL_SECONDS` cadence (default `2.0s`).
+2. The per-run heartbeat thread calls `record_worker_poll_tick()` every `ATLAS20_WORKER_HEARTBEAT_INTERVAL_SECONDS` (default `2.0s`) for the duration of an in-flight backtest. Without this path the gauge would age past the 30s threshold during any run longer than that, and docker would kill a perfectly healthy worker.
+
+The 30-second freshness window assumes both interval settings stay well below it. If you raise either `ATLAS20_WORKER_POLL_INTERVAL_SECONDS` or `ATLAS20_WORKER_HEARTBEAT_INTERVAL_SECONDS`, widen the healthcheck window in `docker-compose.yml` to keep at least one stamp inside every check interval.
