@@ -31,7 +31,12 @@ services:
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8001/metrics"]
+      # Probes BOTH the HTTP listener (port 8001) and the queue loop liveness
+      # via the atlas20_worker_last_poll_timestamp_seconds gauge. A frozen
+      # queue loop with a healthy listener thread would otherwise look healthy
+      # to a bare `curl /metrics` check. The regex accepts scientific notation
+      # because prometheus_client renders gauges that way.
+      test: ["CMD-SHELL", "python -c \"import re,time,urllib.request as u; m=re.search(r'^atlas20_worker_last_poll_timestamp_seconds\\s+(\\S+)', u.urlopen('http://127.0.0.1:8001/metrics',timeout=2).read().decode(), re.M); v=float(m.group(1)) if m else 0; exit(0 if v and time.time()-v < 30 else 1)\""]
       interval: 30s
       timeout: 5s
       start_period: 30s

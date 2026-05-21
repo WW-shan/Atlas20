@@ -269,6 +269,9 @@ def main() -> None:
             if claimed is not None:
                 run_id = claimed.run_id
 
+        from atlas20.api._metrics import record_worker_poll_tick
+
+        record_worker_poll_tick()
         if run_id is None:
             _shutdown_requested.wait(settings.worker_poll_interval_seconds)
             continue

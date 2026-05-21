@@ -35,3 +35,9 @@ Workers launch through Python module entry points and the standard library `subp
 Worker startup runs a narrow PID-scoped sweep (`recover_runs_owned_by_pid`) that fails any running rows whose recorded `worker_pid` happens to equal the new worker process's PID. Under normal restart this is a no-op because the new PID rarely matches a previously-recorded one; the sweep exists as a defensive guard against accidental PID reuse and never touches sibling workers' active runs.
 
 The FastAPI application lifespan performs the actual restart recovery as the central coordinator. `recover_stale_runs` marks running jobs failed when their `heartbeat_at` is missing or older than the configured staleness threshold; it does not consult `worker_pid` at all.
+
+## Healthcheck
+
+The worker's docker-compose healthcheck probes both the HTTP listener thread (port `8001`) and the queue loop. The Python one-liner scrapes `/metrics`, extracts `atlas20_worker_last_poll_timestamp_seconds`, and fails the check if the gauge is older than 30 seconds or absent entirely. A stuck queue loop with a healthy listener thread is therefore caught, whereas a bare `curl /metrics` 200 would have passed.
+
+The worker queue loop updates the gauge on every iteration regardless of whether a run was claimed, so an idle worker still publishes a fresh timestamp at the configured `ATLAS20_WORKER_POLL_INTERVAL_SECONDS` cadence. Tune the healthcheck's 30-second freshness window if you set a longer poll interval.

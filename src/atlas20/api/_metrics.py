@@ -16,8 +16,9 @@ operationally visible.
 from __future__ import annotations
 
 import logging
+import time
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ RATE_LIMIT_HITS_TOTAL = Counter(
     "atlas20_rate_limit_hits_total",
     "Rate limit hits by route.",
     ["route"],
+)
+WORKER_LAST_POLL_TIMESTAMP = Gauge(
+    "atlas20_worker_last_poll_timestamp_seconds",
+    "Unix timestamp the worker queue loop last completed an iteration. "
+    "Healthchecks scraping the worker /metrics endpoint can compare this to "
+    "the current time to detect a stuck queue loop even when the metrics "
+    "HTTP listener is still serving 200.",
+    multiprocess_mode="max",
 )
 
 for _status in TERMINAL_BACKTEST_STATUSES:
@@ -83,3 +92,17 @@ def record_rate_limit_hit(route: str) -> None:
         RATE_LIMIT_HITS_TOTAL.labels(route=route).inc()
     except Exception:
         logger.warning("failed to record rate limit metric", exc_info=True)
+
+
+def record_worker_poll_tick() -> None:
+    """Stamp the worker queue loop's last iteration timestamp.
+
+    Called from the worker's main poll loop each time it either claims a run
+    or sleeps after finding the queue empty. Healthchecks can read this gauge
+    to distinguish a stuck queue loop (gauge stale) from a healthy idle
+    worker (gauge advances every poll_interval).
+    """
+    try:
+        WORKER_LAST_POLL_TIMESTAMP.set(time.time())
+    except Exception:
+        logger.warning("failed to record worker poll tick", exc_info=True)
