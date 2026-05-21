@@ -39,17 +39,28 @@ def start_metrics_server(port: int) -> None:
     with _metrics_server_lock:
         if _metrics_server_started:
             return
-        multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
-        if multiproc_dir:
-            from prometheus_client import CollectorRegistry, multiprocess
+        try:
+            multiproc_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+            if multiproc_dir:
+                from prometheus_client import CollectorRegistry, multiprocess
 
-            registry = CollectorRegistry()
-            multiprocess.MultiProcessCollector(registry)
-            start_http_server(port, registry=registry)
-        else:
-            start_http_server(port)
-        _metrics_server_started = True
-        logger.info("worker prometheus /metrics listening on port %d (multiproc=%s)", port, bool(multiproc_dir))
+                registry = CollectorRegistry()
+                multiprocess.MultiProcessCollector(registry)
+                start_http_server(port, registry=registry)
+            else:
+                start_http_server(port)
+            _metrics_server_started = True
+            logger.info("worker prometheus /metrics listening on port %d (multiproc=%s)", port, bool(multiproc_dir))
+        except OSError as exc:
+            _metrics_server_started = True
+            logger.info(
+                "worker prometheus /metrics port %d already bound (%s); "
+                "this worker's counters will be aggregated by the bound "
+                "process via PROMETHEUS_MULTIPROC_DIR=%s",
+                port,
+                exc,
+                os.environ.get("PROMETHEUS_MULTIPROC_DIR"),
+            )
 
 
 @contextmanager

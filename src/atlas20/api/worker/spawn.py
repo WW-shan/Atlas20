@@ -13,7 +13,7 @@ def spawn_workers(count: int | None = None) -> list[subprocess.Popen]:
     for _ in range(worker_count):
         env = os.environ.copy()
         env["ATLAS20_WORKERS"] = "1"
-        processes.append(subprocess.Popen([sys.executable, "-m", "atlas20.api.worker.main"], env=env))
+        processes.append(subprocess.Popen([sys.executable, "-m", "atlas20.api.worker"], env=env))
     return processes
 
 
