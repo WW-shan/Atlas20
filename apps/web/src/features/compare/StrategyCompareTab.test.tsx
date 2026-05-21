@@ -224,28 +224,36 @@ describe("StrategyCompareTab", () => {
   });
 
   it("does not reseed selections when /api/options refetches with a different list", async () => {
-    vi.mocked(api.getOptions).mockResolvedValueOnce({
+    vi.mocked(api.getOptions).mockResolvedValue({
       ...api.fallbackOptions,
       presets: ["ETH_BH__bull_only", "BTC_BH__always_on", "TOP20_MOM_top4_weekly__always_on"],
     });
 
-    renderWithQuery(<StrategyCompareTab />);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><StrategyCompareTab /></QueryClientProvider>);
 
     await waitFor(() => {
       expect(screen.getAllByText("ETH_BH__bull_only").length).toBeGreaterThanOrEqual(1);
     });
+    const firstCallCount = vi.mocked(api.getOptions).mock.calls.length;
 
-    // Simulate a fresh fetch with a completely different preset order/content.
-    vi.mocked(api.getOptions).mockResolvedValueOnce({
+    // Swap the getOptions mock to return a DIFFERENT preset list, then force
+    // React Query to actually refetch by invalidating the cached entry. The
+    // previous test only mocked a second response and waited for a timer
+    // without triggering a fetch -- queryFn was never re-invoked, so the
+    // "no reseed" assertion was trivial. Now we exercise the real refetch
+    // path and verify seededRef prevents the chips from being clobbered.
+    vi.mocked(api.getOptions).mockResolvedValue({
       ...api.fallbackOptions,
       presets: ["TOP20_SECTOR_top4_monthly__bull_only", "ETH_BH__always_on", "BTC_BH__bull_only"],
     });
-
-    // Give the effect a chance to re-run if it would.
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    await client.invalidateQueries({ queryKey: ["options"] });
+    await waitFor(() => {
+      expect(vi.mocked(api.getOptions).mock.calls.length).toBeGreaterThan(firstCallCount);
+    });
 
     // The originally seeded chips MUST persist; reseeding from the new preset
-    // list would clobber any user edits.
+    // list would clobber any user edits made between the two fetches.
     expect(screen.getAllByText("ETH_BH__bull_only").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("TOP20_SECTOR_top4_monthly__bull_only")).not.toBeInTheDocument();
   });

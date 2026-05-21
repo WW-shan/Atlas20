@@ -90,14 +90,14 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       {/* ===== KPI Triplet ===== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 24 }}>
 
-        {/* AUM */}
-        <Card ariaLabel="Total AUM tracked">
-          <SectionHeader>TOTAL AUM TRACKED</SectionHeader>
+        {/* Tracked notional (research, not real AUM) */}
+        <Card ariaLabel="Tracked notional across all strategies (research)">
+          <SectionHeader>TRACKED NOTIONAL · RESEARCH</SectionHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <span className="mono" style={{ fontSize: 28 }}>{formatCompactCurrency(aum.current)}</span>
-            <SparklineChart points={aum.sparkline} tone="violet" height={36} width={280} ariaLabel="30-day AUM trend" />
+            <SparklineChart points={aum.sparkline} tone="violet" height={36} width={280} ariaLabel="Champion equity trend (14 samples)" />
             <span className="mono" style={{ fontSize: 12, color: "var(--emerald)" }}>
-              {formatPct(aum.deltaPct, 1)} vs prev 30d
+              {formatPct(aum.deltaPct, 1)} champion over 14 samples
             </span>
           </div>
         </Card>

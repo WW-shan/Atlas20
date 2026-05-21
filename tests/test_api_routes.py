@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from pathlib import Path
 from sqlmodel import Session
 
 from atlas20.api import mock_data
@@ -61,7 +62,13 @@ def test_options_endpoint_returns_options_payload(client: TestClient):
 
     assert response.status_code == 200
     payload = OptionsPayload.model_validate(response.json())
-    assert payload.presets == mock_data.fallback_options["presets"]
+    # No real strategy_summary.csv under tmp_path's report_root, so the
+    # endpoint falls back via load_options_from_reports → config/*.yaml
+    # slugs (project_root defaults to the repo root, which has yaml
+    # presets) rather than the legacy mock_data fallback names.
+    # `sectors.yaml` is shared config, not a runnable preset.
+    expected_presets = sorted(p.stem for p in Path("config").glob("*.yaml") if p.stem != "sectors")
+    assert payload.presets == expected_presets
     assert payload.feeBpsRange == [0.0, 10.0, 50.0]
 
 

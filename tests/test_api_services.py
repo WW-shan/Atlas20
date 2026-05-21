@@ -196,12 +196,36 @@ def test_get_data_alerts_falls_back_on_missing_data(tmp_path, monkeypatch, caplo
 def test_load_options_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    # Point project_root at an empty dir too so the config/*.yaml fallback
+    # finds nothing and we get the pure mock-options payload. The default
+    # project_root is the repo root, which has config/*.yaml that would
+    # override mock presets with real preset slugs.
+    monkeypatch.setenv("ATLAS20_PROJECT_ROOT", str(tmp_path))
     get_settings.cache_clear()
     caplog.set_level("WARNING", logger="atlas20.api.services")
 
     payload = get_options_payload()
 
     assert payload.model_dump() == mock_data.fallback_options
+    assert "Falling back to mock options" in caplog.text
+
+
+def test_load_options_uses_config_yaml_slugs_when_reports_missing(tmp_path, monkeypatch, caplog):
+    project_root = tmp_path / "project"
+    config_dir = project_root / "config"
+    config_dir.mkdir(parents=True)
+    for slug in ("base", "five_year_2020_2024"):
+        (config_dir / f"{slug}.yaml").write_text("project_name: x\n", encoding="utf-8")
+    (config_dir / "sectors.yaml").write_text("sectors: []\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("ATLAS20_PROJECT_ROOT", str(project_root))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    payload = get_options_payload()
+
+    assert payload.presets == ["base", "five_year_2020_2024"]
     assert "Falling back to mock options" in caplog.text
 
 

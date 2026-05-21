@@ -62,7 +62,31 @@ def get_options_payload() -> OptionsPayload:
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Falling back to mock options: %s", exc)
         payload = deepcopy(mock_data.fallback_options)
+        # Fresh install (no reports yet): replace the hardcoded mock preset
+        # names with the real preset slugs derivable from config/*.yaml so a
+        # new clone of the repo still shows real, runnable preset names in
+        # the dropdown instead of "ATLAS Adaptive v3" etc. that don't map to
+        # any actual yaml.
+        yaml_presets = _preset_names_from_configs(settings)
+        if yaml_presets:
+            payload["presets"] = yaml_presets
     return OptionsPayload.model_validate(payload)
+
+
+def _preset_names_from_configs(settings: Settings) -> list[str]:
+    """List preset slugs from config/*.yaml (excluding sectors.yaml shared config)."""
+    config_dir = settings.project_root / "config"
+    if not config_dir.is_dir():
+        return []
+    presets: list[str] = []
+    for candidate in sorted(config_dir.glob("*.yaml")):
+        slug = candidate.stem
+        if slug == "sectors":
+            # sectors.yaml carries the sector-mapping shared across runs and
+            # is not itself a runnable preset.
+            continue
+        presets.append(slug)
+    return presets
 
 
 def list_runs_queue(session: Session) -> list[RunRowSummary]:

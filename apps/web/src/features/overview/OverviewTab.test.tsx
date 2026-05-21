@@ -22,7 +22,7 @@ describe("OverviewTab", () => {
 
   it("renders 3 KPI section labels", () => {
     render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
-    expect(screen.getByText("TOTAL AUM TRACKED")).toBeInTheDocument();
+    expect(screen.getByText("TRACKED NOTIONAL · RESEARCH")).toBeInTheDocument();
     expect(screen.getByText("ACTIVE STRATEGIES")).toBeInTheDocument();
     expect(screen.getByText("MARKET REGIME")).toBeInTheDocument();
   });

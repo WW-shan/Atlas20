@@ -48,7 +48,7 @@ def load_overview_from_reports(settings: Settings) -> dict[str, Any]:
         "equity_curve": _build_equity_curve(champion_equity),
         "daily_returns": _build_daily_returns(champion_daily_returns),
         "selection_history": _build_selection_history_payload(selection_history),
-        "aum": _build_aum(summary_df, champion_equity),
+        "aum": _build_aum(summary_df, equity_curves_df, champion_equity),
         "strategies": _build_strategies_breakdown(summary_df),
         "regime": _build_regime(settings),
         "rebalance": _build_rebalance(daily_returns_df.index, champion_row, selection_history),
@@ -245,32 +245,52 @@ def _build_strategies_breakdown(summary_df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _build_aum(summary_df: pd.DataFrame, champion_equity: pd.Series) -> dict[str, Any]:
-    """Synthetic capital-tracked figure: research-only stand-in for production AUM.
+def _build_aum(
+    summary_df: pd.DataFrame,
+    equity_curves_df: pd.DataFrame,
+    champion_equity: pd.Series,
+) -> dict[str, Any]:
+    """Research-only "tracked notional" total surfaced through the AUM schema slot.
 
-    Atlas20 is a research console; there is no real AUM. We expose a derived
-    value so downstream callers can render a non-mock number: the sum of the
-    most recent equity-curve value across all tracked strategies, treated as
-    notional dollars of "capital under test". The sparkline is the champion
-    strategy's last 14 equity samples, rebased to its starting value so the
-    delta makes sense in absolute terms.
+    Atlas20 is a research console — there is no real production AUM. The
+    OverviewPayload.aum schema is reused here to expose a "tracked notional"
+    figure with a defensible interpretation: SUM across every strategy in
+    strategy_summary.csv of that strategy's most recent equity-curve value.
+    Each backtest is run from the same config.initial_capital starting
+    point, so the sum answers: "if you had simulated $initial_capital on
+    every strategy independently, what's the combined notional now?"
+
+    - `current`: sum of final equity values across all tracked strategies.
+    - `sparkline`: champion equity tail (14 samples) as a representative
+      shape; the per-strategy sum would average out interesting movement,
+      while the champion's trajectory is what the user is tracking anyway.
+    - `deltaPct`: relative move across the champion sparkline window.
+
+    The UI labels this "TRACKED NOTIONAL · RESEARCH" so a reader does not
+    confuse it with production AUM (which would require broker / custody
+    integration that Atlas20 does not have).
     """
-    columns = [str(name) for name in summary_df["strategy"].astype(str)]
-    total = float(champion_equity.iloc[-1]) if not champion_equity.empty else 0.0
-    # If we have per-strategy equity curves the caller already filtered for,
-    # we could sum across — for now use champion as a research-only proxy
-    # scaled by strategy count so the figure changes when more strategies run.
-    capital_under_test = total * max(1, len(columns))
-    if len(champion_equity) >= 2:
-        spark_window = champion_equity.iloc[-14:]
-        sparkline = [float(v) for v in spark_window.tolist()]
+    tracked_strategies = [
+        column
+        for column in equity_curves_df.columns
+        if column in set(summary_df["strategy"].astype(str))
+    ]
+    if not tracked_strategies:
+        current = 0.0
+    else:
+        latest_row = equity_curves_df[tracked_strategies].dropna(how="all").iloc[-1]
+        current = float(latest_row.fillna(0.0).sum())
+    if champion_equity.empty:
+        return {"current": current, "deltaPct": 0.0, "sparkline": []}
+    spark_window = champion_equity.iloc[-14:]
+    sparkline = [float(v) for v in spark_window.tolist()]
+    if len(sparkline) >= 2:
         first = sparkline[0] or 1.0
         delta_pct = (sparkline[-1] - first) / first
     else:
-        sparkline = [float(total)]
         delta_pct = 0.0
     return {
-        "current": capital_under_test,
+        "current": current,
         "deltaPct": delta_pct,
         "sparkline": sparkline,
     }
