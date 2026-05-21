@@ -187,7 +187,16 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             continue
 
         blended = validation.blended_history.copy()
-        blended = blended[(blended["date"] >= config.start_timestamp) & (blended["date"] <= config.end_timestamp)].copy()
+        # Include pre-window history so universe eligibility (history_days) can
+        # be satisfied at start_timestamp. Without this, history_count begins at
+        # 0 on the backtest start date and the universe builder rejects every
+        # coin until min_history_days has accumulated -- which for short
+        # windows means no eligible assets at any rebalance, raising
+        # "No rebalance universes could be built". The end of the window stays
+        # fixed because no data after the backtest end is needed.
+        history_buffer = pd.Timedelta(days=config.universe.min_history_days)
+        data_start = config.start_timestamp - history_buffer
+        blended = blended[(blended["date"] >= data_start) & (blended["date"] <= config.end_timestamp)].copy()
         if blended.empty:
             continue
 
