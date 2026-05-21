@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     worker_poll_interval_seconds: float = 2.0
     worker_heartbeat_interval_seconds: float = 2.0
     worker_cancel_grace_seconds: float = 3.0
+    worker_metrics_port: int = 8001
 
     model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
 

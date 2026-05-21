@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 
+from prometheus_client import start_http_server
 from sqlmodel import Session
 
 from atlas20.api._time import utc_now
@@ -21,6 +22,26 @@ from atlas20.api.worker.recovery import recover_runs_owned_by_pid
 
 logger = logging.getLogger(__name__)
 _shutdown_requested = threading.Event()
+_metrics_server_started = False
+_metrics_server_lock = threading.Lock()
+
+
+def start_metrics_server(port: int) -> None:
+    """Expose this worker process's Prometheus registry on the given port.
+
+    Prometheus counters are per-process memory; without a dedicated worker
+    scrape target every increment recorded by the worker (backtest lifecycle,
+    report generation) would be invisible to the API process's /metrics
+    endpoint. Idempotent: only binds on the first call per process so unit
+    tests that import this module repeatedly do not collide on the port.
+    """
+    global _metrics_server_started
+    with _metrics_server_lock:
+        if _metrics_server_started:
+            return
+        start_http_server(port)
+        _metrics_server_started = True
+        logger.info("worker prometheus /metrics listening on port %d", port)
 
 
 @contextmanager
@@ -198,6 +219,7 @@ def _recover_on_startup(settings: Settings) -> None:
 def main() -> None:
     settings = get_settings()
     setup_signal_handlers()
+    start_metrics_server(settings.worker_metrics_port)
     _recover_on_startup(settings)
 
     while not _shutdown_requested.is_set():

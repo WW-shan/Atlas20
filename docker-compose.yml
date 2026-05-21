@@ -28,6 +28,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./reports:/app/reports
+    ports:
+      - "8001:8001"
     depends_on:
       - backend
   web:
