@@ -113,13 +113,13 @@ def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch, tm
 
 
 def test_worker_main_invokes_shadow_warning(monkeypatch: pytest.MonkeyPatch) -> None:
-    from atlas20.api import app as app_module
+    from atlas20.api import install_check
 
     calls: list[None] = []
     shutdown = threading.Event()
     shutdown.set()
 
-    monkeypatch.setattr(app_module, "_warn_if_shadow_install", lambda: calls.append(None))
+    monkeypatch.setattr(install_check, "warn_if_shadow_install", lambda: calls.append(None))
     monkeypatch.setattr(worker_main, "_shutdown_requested", shutdown)
     monkeypatch.setattr(worker_main, "setup_signal_handlers", lambda: None)
     monkeypatch.setattr(worker_main, "start_metrics_server", lambda port: None)

@@ -66,30 +66,13 @@ def _init_sentry(settings) -> None:
 def _warn_if_shadow_install() -> None:
     """Warn when an installed copy of `atlas20` shadows the repo `src/` tree.
 
-    A non-editable `pip install .` plants the package in site-packages, which
-    sys.path resolves before the repo's `src/` layout. Edits to `src/` then
-    have no runtime effect, while pytest still passes because pyproject sets
-    `pythonpath=["src"]`. This is silent in Docker (the image has no
-    `src/atlas20/__init__.py` at `/app`) and silent under PYTHONPATH=src or
-    editable installs (atlas20.__file__ already lives under the repo).
+    Thin compatibility shim; the real implementation lives in
+    `atlas20.api.install_check` so the worker can call it without importing
+    this whole module's FastAPI / middleware / routes tree.
     """
-    import atlas20
+    from atlas20.api.install_check import warn_if_shadow_install
 
-    repo_init = Path.cwd() / "src" / "atlas20" / "__init__.py"
-    if not repo_init.exists():
-        return
-    loaded_from = Path(atlas20.__file__).resolve()
-    expected_under = repo_init.parent.resolve()
-    try:
-        loaded_from.relative_to(expected_under)
-    except ValueError:
-        logger.warning(
-            "atlas20 was imported from %s but the repo has src/atlas20/ at %s; "
-            "runtime is using a stale installed copy. Run "
-            "`python -m pip install -e .` or set PYTHONPATH=src so edits take effect.",
-            loaded_from,
-            expected_under,
-        )
+    warn_if_shadow_install()
 
 
 def _include_health_routes(app: FastAPI) -> None:
