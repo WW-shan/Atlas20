@@ -60,6 +60,25 @@ histogram_quantile(
 
 Worker counters are aggregated across the run_one subprocess via `PROMETHEUS_MULTIPROC_DIR` (see `src/atlas20/api/worker/__main__.py`). The bootstrap is essential - without it every backtest completion is silently dropped.
 
+### Multiprocess metric file lifecycle
+
+The worker's `PROMETHEUS_MULTIPROC_DIR` (default
+`{ATLAS20_DATA_ROOT}/.prom-multiproc-worker`) accumulates per-pid mmap
+files for every `run_one` subprocess. The bootstrap shim
+(`src/atlas20/api/worker/__main__.py`) wipes the directory on every
+worker startup to prevent unbounded growth, per upstream
+`prometheus_client` guidance.
+
+For the multi-worker local helper (`atlas20.api.worker.spawn`), the
+parent process wipes the directory once and sets
+`ATLAS20_WORKER_MULTIPROC_SKIP_WIPE=1` on each spawned child so the
+children do not race-wipe each other's mmap files.
+
+On Windows, a wipe that races with an in-flight subprocess's open mmap
+will fail to delete the locked file; this is acceptable -- the wipe is
+`ignore_errors=True` and the leftover is bounded by the number of
+in-flight subprocesses at restart time (typically 1).
+
 ## Metrics correctness caveats
 
 **Counters may slightly over-count on rollback.** Backtest terminal counters and report-generation counters are incremented before the surrounding DB transaction commits. A commit failure leaves Prometheus over-reporting by 1. We accept this as Prometheus counters are monotonic and commit failures are rare in this codebase. Track via the existing 5xx alert if the divergence ever becomes visible.

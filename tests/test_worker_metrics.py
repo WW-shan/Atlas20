@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 import sys
 import threading
 
@@ -52,7 +53,7 @@ def test_start_metrics_server_tolerates_port_in_use(
     assert "worker prometheus /metrics port 8765 already bound" in caplog.text
 
 
-def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from atlas20.api.worker import spawn
 
     calls: list[tuple[list[str], dict[str, str]]] = []
@@ -61,6 +62,7 @@ def test_spawn_workers_uses_worker_bootstrap(monkeypatch: pytest.MonkeyPatch) ->
         calls.append((args, env))
         return object()
 
+    monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path / "prom"))
     monkeypatch.setattr(spawn.subprocess, "Popen", fake_popen)
 
     processes = spawn.spawn_workers(count=2)
