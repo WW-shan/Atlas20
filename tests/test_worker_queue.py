@@ -185,6 +185,38 @@ def test_heartbeat_thread_updates_heartbeat_at(tmp_path):
         assert not cancelled_event.is_set()
 
 
+def test_heartbeat_thread_advances_worker_poll_gauge_during_runs(tmp_path, monkeypatch):
+    """During an in-flight backtest the main poll loop is blocked inside
+    _execute_run for up to run_timeout_seconds. Without an in-flight gauge
+    tick, the worker liveness gauge ages past the docker healthcheck threshold
+    and a healthy long-running worker gets killed. The heartbeat thread must
+    stamp the gauge each tick so liveness signal stays fresh."""
+    from atlas20.api import _metrics
+    from atlas20.api.worker.main import start_heartbeat_thread
+
+    engine = _engine(tmp_path)
+    settings = _settings(tmp_path)
+    with Session(engine) as session:
+        session.add(_run("btk_0001", status="running"))
+        session.commit()
+
+    ticks: list[float] = []
+    monkeypatch.setattr(_metrics, "record_worker_poll_tick", lambda: ticks.append(1.0))
+
+    process = FakeProcess()
+    stop_event, _cancelled, thread = start_heartbeat_thread(
+        "btk_0001",
+        process,
+        settings,
+        heartbeat_interval_seconds=0.01,
+    )
+    time.sleep(0.05)
+    stop_event.set()
+    thread.join(timeout=1)
+
+    assert len(ticks) >= 1
+
+
 def test_cancel_sends_sigterm(tmp_path):
     engine = _engine(tmp_path)
     settings = _settings(tmp_path)

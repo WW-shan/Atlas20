@@ -142,7 +142,15 @@ def _heartbeat_loop(
     cancelled_event: threading.Event,
     heartbeat_interval_seconds: float,
 ) -> None:
+    from atlas20.api._metrics import record_worker_poll_tick
+
     while not stop_event.wait(heartbeat_interval_seconds):
+        # Refresh the worker liveness gauge here too: the main poll loop is
+        # blocked inside _execute_run while this run is in flight, so without
+        # an in-flight stamp the gauge would age past the docker healthcheck
+        # threshold during long backtests and the worker would be falsely
+        # killed.
+        record_worker_poll_tick()
         should_cancel = False
         try:
             with session_scope(settings) as session:
