@@ -143,3 +143,31 @@ def test_start_metrics_server_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> 
     worker_main.start_metrics_server(9999)
 
     assert calls == [8765]
+
+
+def test_worker_main_stamps_poll_tick_gauge(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each queue-loop iteration must advance atlas20_worker_last_poll_timestamp_seconds.
+    The docker-compose healthcheck reads this gauge to distinguish a frozen
+    queue loop from a healthy idle worker."""
+    from atlas20.api import _metrics, install_check
+
+    shutdown = threading.Event()
+    ticks: list[float] = []
+
+    def fake_tick() -> None:
+        # First poll completes -> stamp + ask the loop to stop so the test
+        # doesn't spin on the idle-poll wait.
+        ticks.append(123.456)
+        shutdown.set()
+
+    monkeypatch.setattr(_metrics, "record_worker_poll_tick", fake_tick)
+    monkeypatch.setattr(install_check, "warn_if_shadow_install", lambda: None)
+    monkeypatch.setattr(worker_main, "_shutdown_requested", shutdown)
+    monkeypatch.setattr(worker_main, "setup_signal_handlers", lambda: None)
+    monkeypatch.setattr(worker_main, "start_metrics_server", lambda port: None)
+    monkeypatch.setattr(worker_main, "_recover_on_startup", lambda settings: None)
+    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self: None)
+
+    worker_main.main()
+
+    assert ticks == [123.456]
