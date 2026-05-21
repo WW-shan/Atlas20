@@ -2,7 +2,7 @@
 
 ## Log Rotation
 
-When `ATLAS20_LOG_FILE_PATH` is set, the API writes the same structured JSON log stream to that file and to stdout. The file handler rotates at 50 MB with 10 retained backups, capping local log storage at roughly 500 MB per API process.
+When `ATLAS20_LOG_FILE_PATH` is set, the API writes the same structured log stream to that file and to stdout. The format defaults to JSON; setting `ATLAS20_LOG_FORMAT=text` switches both stdout and the file to a plain-text `asctime level [logger] message` layout (see `src/atlas20/api/logging_config.py`). The file handler rotates at 50 MB with 10 retained backups, capping local log storage at roughly 500 MB per API process.
 
 For the MVP, run either local file rotation through this setting or rely on container, journald, or platform log rotation. Development retention is 30 days; production retention should be set by the deployment log pipeline.
 
@@ -14,7 +14,7 @@ Structured log events are redacted before JSON rendering. Header fields named `X
 
 The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route exposure policy. Production deployments should keep the API bound to a private interface or place `/metrics` behind a reverse proxy allow-list such as nginx internal IP rules.
 
-`/readyz` is excluded from Prometheus instrumentation because the probe is too short-lived (< 5ms typical) for histogram bucket distribution to be meaningful. Alert on 503 rate via the access log instead (`status_code >= 500 AND path == "/readyz"`).
+`/readyz` is excluded from Prometheus instrumentation because the probe is too short-lived (< 5ms typical) for histogram bucket distribution to be meaningful. Alert on 503 rate via the access log instead (`status >= 500 AND path == "/readyz"`; the access-log JSON field is `status`, not `status_code` — see `src/atlas20/api/middleware/access_log.py`).
 
 ## Prometheus dual scrape targets (API + worker)
 
@@ -22,7 +22,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 
 | Metric | Process | Notes |
 | --- | --- | --- |
-| `atlas20_request_total{status,...}` | API | HTTP instrumentation via fastapi-instrumentator |
+| `http_requests_total{method,handler,status}` | API | HTTP instrumentation via `prometheus-fastapi-instrumentator`. Default metric name (no namespace configured); `status` is grouped (`should_group_status_codes=True`) so the label is `"2xx" / "3xx" / "4xx" / "5xx"`, not the raw code. |
 | `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
 | `atlas20_report_generations_total{format,status}` | API | Incremented inside POST `/api/reports/generate` handler |
 | `atlas20_backtests_total{status}` | Worker (main path) + API (lifespan recovery only) | Incremented per terminal transition. The API process emits this only during lifespan startup when `recover_stale_runs` reclassifies orphaned runs as failed; the dominant emitter is the worker subprocess via multiproc aggregation. |
