@@ -49,3 +49,6 @@ data/raw/
 output/imagegen/
 
 .ace-tool/
+
+# CCG task artifacts (local only, not uploaded)
+.ccg/
