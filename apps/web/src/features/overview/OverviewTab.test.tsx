@@ -116,6 +116,13 @@ describe("OverviewTab", () => {
     expect(screen.getByText("MARKET REGIME")).toBeInTheDocument();
   });
 
+  it("describes tracked notional movement over the last 14 data points", () => {
+    render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
+
+    expect(screen.getByText(/over last 14 data points/)).toBeInTheDocument();
+    expect(screen.queryByText(/champion over 14 samples/)).not.toBeInTheDocument();
+  });
+
   it("renders 4 rebalance swap rows with OUT/IN labels", () => {
     const { container } = render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
     const outCount = Array.from(container.querySelectorAll("span")).filter((el) => el.textContent === "OUT").length;

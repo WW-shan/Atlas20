@@ -7,6 +7,7 @@ import pytest
 
 from atlas20.api.data_access.overview import (
     BTC_BENCHMARK,
+    _build_aum,
     _build_equity_overlay,
     _compute_last_sync_seconds,
     _format_display_name,
@@ -177,6 +178,52 @@ def test_load_overview_from_reports_excludes_btc_benchmark_when_ranking(tmp_path
     payload = load_overview_from_reports(Settings(report_root=tmp_path, anchor_date=date(2026, 6, 30)))
 
     assert payload["champion"]["strategy"] == "ALPHA"
+
+
+def _aum_fixture() -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    index = pd.date_range("2026-01-01", periods=20)
+    champion_equity = pd.Series([100.0 + i for i in range(20)], index=index, name="ALPHA")
+    beta_equity = pd.Series([200.0 + (i * 10.0) for i in range(20)], index=index, name="BETA")
+    summary_df = pd.DataFrame({"strategy": ["ALPHA", "BETA"]})
+    equity_curves_df = pd.DataFrame({"ALPHA": champion_equity, "BETA": beta_equity})
+    return summary_df, equity_curves_df, champion_equity
+
+
+def test_build_aum_current_uses_champion_last_equity_not_strategy_sum():
+    summary_df, equity_curves_df, champion_equity = _aum_fixture()
+
+    result = _build_aum(summary_df, equity_curves_df, champion_equity)
+
+    assert result["current"] == pytest.approx(float(champion_equity.iloc[-1]))
+
+
+def test_build_aum_sparkline_uses_champion_last_14_values():
+    summary_df, equity_curves_df, champion_equity = _aum_fixture()
+
+    result = _build_aum(summary_df, equity_curves_df, champion_equity)
+
+    assert result["sparkline"] == [float(v) for v in champion_equity.iloc[-14:].tolist()]
+
+
+def test_build_aum_delta_pct_matches_sparkline_relative_move():
+    summary_df, equity_curves_df, champion_equity = _aum_fixture()
+    sparkline = [float(v) for v in champion_equity.iloc[-14:].tolist()]
+
+    result = _build_aum(summary_df, equity_curves_df, champion_equity)
+
+    assert result["deltaPct"] == pytest.approx((sparkline[-1] - sparkline[0]) / sparkline[0])
+
+
+def test_build_aum_empty_champion_returns_zero_payload():
+    summary_df = pd.DataFrame({"strategy": ["ALPHA", "BETA"]})
+    equity_curves_df = pd.DataFrame({"ALPHA": [100.0, 101.0], "BETA": [200.0, 205.0]})
+    champion_equity = pd.Series(dtype=float)
+
+    assert _build_aum(summary_df, equity_curves_df, champion_equity) == {
+        "current": 0.0,
+        "deltaPct": 0.0,
+        "sparkline": [],
+    }
 
 
 def test_format_display_name_produces_stable_labels():

@@ -323,40 +323,11 @@ def _build_aum(
     equity_curves_df: pd.DataFrame,
     champion_equity: pd.Series,
 ) -> dict[str, Any]:
-    """Research-only "tracked notional" total surfaced through the AUM schema slot.
-
-    Atlas20 is a research console — there is no real production AUM. The
-    OverviewPayload.aum schema is reused here to expose a "tracked notional"
-    figure with a defensible interpretation: SUM across every strategy in
-    strategy_summary.csv of that strategy's most recent equity-curve value.
-    Each backtest is run from the same config.initial_capital starting
-    point, so the sum answers: "if you had simulated $initial_capital on
-    every strategy independently, what's the combined notional now?"
-
-    - `current`: sum of final equity values across all tracked strategies.
-    - `sparkline`: champion equity tail (14 samples) as a representative
-      shape; the per-strategy sum would average out interesting movement,
-      while the champion's trajectory is what the user is tracking anyway.
-    - `deltaPct`: relative move across the champion sparkline window.
-
-    The UI labels this "TRACKED NOTIONAL · RESEARCH" so a reader does not
-    confuse it with production AUM (which would require broker / custody
-    integration that Atlas20 does not have).
-    """
-    tracked_strategies = [
-        column
-        for column in equity_curves_df.columns
-        if column in set(summary_df["strategy"].astype(str))
-    ]
-    if not tracked_strategies:
-        current = 0.0
-    else:
-        latest_row = equity_curves_df[tracked_strategies].dropna(how="all").iloc[-1]
-        current = float(latest_row.fillna(0.0).sum())
     if champion_equity.empty:
-        return {"current": current, "deltaPct": 0.0, "sparkline": []}
+        return {"current": 0.0, "deltaPct": 0.0, "sparkline": []}
     spark_window = champion_equity.iloc[-14:]
     sparkline = [float(v) for v in spark_window.tolist()]
+    current = float(spark_window.iloc[-1])
     if len(sparkline) >= 2:
         first = sparkline[0] or 1.0
         delta_pct = (sparkline[-1] - first) / first

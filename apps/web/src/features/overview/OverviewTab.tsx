@@ -104,7 +104,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
             <span className="mono" style={{ fontSize: 28 }}>{formatCompactCurrency(aum.current)}</span>
             <SparklineChart points={aum.sparkline} tone="violet" height={36} width={280} ariaLabel="Champion equity trend (14 samples)" />
             <span className="mono" style={{ fontSize: 12, color: "var(--emerald)" }}>
-              {formatPct(aum.deltaPct, 1)} champion over 14 samples
+              {formatPct(aum.deltaPct, 1)} over last 14 data points
             </span>
           </div>
         </Card>
