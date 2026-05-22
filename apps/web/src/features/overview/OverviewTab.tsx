@@ -98,7 +98,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 24 }}>
 
         {/* Tracked notional (research, not real AUM) */}
-        <Card ariaLabel="Tracked notional across all strategies (research)">
+        <Card ariaLabel="Champion equity trend (research)">
           <SectionHeader>TRACKED NOTIONAL · RESEARCH</SectionHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <span className="mono" style={{ fontSize: 28 }}>{formatCompactCurrency(aum.current)}</span>
