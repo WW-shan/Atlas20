@@ -7,12 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Known UI gaps (B23 candidates)
+### B23a — Overview UX honesty + chart empty state (2026-05-22)
 
-- Overview "Equity Curve · YTD" chart renders empty (legend visible, lines missing) when champion's window is outside the current YTD range.
-- Overview equity overlay legend hardcoded `"ATLAS Adaptive v3" / "BTC Benchmark"`; should reflect the real champion strategy name.
-- Overview "Latest Rebalance" subtitle hardcodes `"weekly"` regardless of the cadence the most-recent backtest actually ran.
-- Tracked Notional sparkline shows the champion strategy's tail while the headline number is the sum across all strategies — value source and sparkline source are inconsistent.
+Closes three of the four known B23 UI lies plus four new findings from the post-v0.2.0 dual-reviewer audit. Sixth commit on `feat/b23a-overview-honesty`: builder `dd640af` plus reviewer-pass commits `b246ef4` (F1 aria), `6f53d4a` (F2 path-validation reuse), `ea087a8` (F3 edge tests), `6b139b2` (F4 cadence-token precedence), `3355fef` (F5 NaN-only YTD).
+
+**Added**
+- `ChampionSummary.display_name` — friendly strategy name derived via `_format_display_name` (family prefix → "Momentum Rotation · ..." / fallback to title-cased slug). Rendered in Overview hero `<h2>` instead of raw strategy column header.
+- `OverviewPayload.last_sync_seconds` — seconds since the resolved report dir's mtime; `_compute_last_sync_seconds` delegates to `_latest_report_dir` so the shared `relative_to(report_root)` guard handles pointer validation in one place.
+- `EquityOverlay.atlas_label` / `EquityOverlay.btc_label` — payload-driven strategy + benchmark labels for the chart legend.
+- `_parse_cadence` populates `ChampionSummary.rebalance_frequency` (was always `None`). Slug match first (`_biweekly_` / `_weekly_` / `_monthly_` / `_14D_` / `_7D_` / `_30D_`), fall back to median diff of unique rebalance dates in selection_history.
+- `OverlayLineChart` empty-state copy ("No data in selected range") when `series.length === 0` — replaces the prior blank-SVG silent-fail.
+- `frontend formatRelativeAge(seconds)` helper with 60s / 3600s / 86400s boundaries.
+
+**Fixed**
+- Overview equity overlay legend now follows `champion.display_name` and `"BTC Benchmark"` — no more hardcoded `"ATLAS Adaptive v3"`.
+- Overview rebalance subtitle now renders `champion.rebalance_frequency ?? "—"` — no more hardcoded `"weekly"`.
+- Equity Curve title now reads `EQUITY CURVE · ${range}`; backend falls back to `range="ALL"` when the YTD slice is empty (either temporally or after dropna) so the title is honest about what's shown.
+- Card and chart `ariaLabel`s now derive from `equity_overlay.range`/`atlas_label`/`btc_label` — screen readers no longer announce "YTD" when range is "ALL".
+- Removed the disabled `1M/3M/YTD/1Y/ALL` range tablist (decorative, all `disabled`, hardcoded active=YTD). Will return when wired to real backend range-switching.
+
+**Tests**
+- pytest: 368 → 380 (+12). New regression tests cover all 5 new helpers + 4 edge cases (clock skew, escaping pointer, duplicate rebalance dates, NaN-only YTD via dropna).
+- vitest: 163 → 169 (+6). Display name in hero, payload-driven chart legend, payload-driven rebalance cadence, `formatRelativeAge` boundaries, chart empty-state copy, range-driven aria labels.
+
+**Cross-validation matrix (Opus 4.7 + codex)**
+- Round 1: Opus APPROVE 92/100, codex REQUEST_CHANGES 84/100 → 4 findings (F1-F4)
+- Round 2: Opus APPROVE 96/100, codex REQUEST_CHANGES 90/100 → 1 finding (F5, NaN-only YTD subcase)
+- Round 3: Opus APPROVE 96/100, codex APPROVE 100/100 → 0 findings ✅
+
+### Known UI gaps (remaining B23 candidates)
+
+- Tracked Notional sparkline shows the champion strategy's tail while the headline number is the sum across all strategies — value source and sparkline source are inconsistent. (Deferred to B23b.)
 
 ## [0.2.0] — 2026-05-21
 
