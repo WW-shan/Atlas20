@@ -13,6 +13,7 @@ const API_KEY = (import.meta.env.VITE_ATLAS20_API_KEY as string | undefined)?.tr
 
 export type ChampionSummary = {
   strategy: string;
+  display_name: string;
   window_start: string;
   window_end: string;
   min_history_days?: number;
@@ -79,8 +80,11 @@ export type OverviewPayload = {
   equity_overlay: {
     series: { ts: string; atlas: number; btc: number }[];
     range: ChartRange;
+    atlas_label: string;
+    btc_label: string;
   };
   hero_kpi: { ytdReturn: number; sharpe: number; maxDd: number; winRate: number };
+  last_sync_seconds: number;
 };
 
 // Pre-redesign RunStatus (kept for backward compat with runBacktest signature)
@@ -339,11 +343,12 @@ export type GenerateReportResponse = {
 export const fallbackOverview: OverviewPayload = {
   champion: {
     strategy: "MOMENTUM_LEAD_TOP1_ALL_14D_STOP11_CONFIRM2_BTC_PARK",
+    display_name: "Momentum Lead Top1 All 14D Stop11 Confirm2 Btc Park",
     window_start: "2022-11-21",
     window_end: "2026-04-21",
     min_history_days: 30,
     min_daily_dollar_volume: 1_000_000,
-    rebalance_frequency: "14D",
+    rebalance_frequency: "Biweekly",
     regime_mode: "always_on",
     risk_off_asset: "BTC",
     btc_stop_lookback_days: 11,
@@ -423,8 +428,11 @@ export const fallbackOverview: OverviewPayload = {
       { ts: "May 2026", atlas: 1247, btc: 124 },
     ],
     range: "YTD",
+    atlas_label: "Momentum Lead Top1 All 14D Stop11 Confirm2 Btc Park",
+    btc_label: "BTC Benchmark",
   },
   hero_kpi: { ytdReturn: 12.4756, sharpe: 3.42, maxDd: -0.3204, winRate: 0.685 },
+  last_sync_seconds: 18,
 };
 
 export const fallbackRunsQueue: RunRowSummary[] = [

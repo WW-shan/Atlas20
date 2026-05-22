@@ -55,7 +55,30 @@ export function OverlayLineChart({
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
 
-  if (series.length === 0 || lines.length === 0) {
+  if (series.length === 0) {
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={ariaLabel ?? "Empty chart"}
+        style={{ width: "100%", height, display: "block" }}
+      >
+        <text
+          x="50%"
+          y="50%"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={12}
+          fill="var(--muted)"
+          className="mono"
+        >
+          No data in selected range
+        </text>
+      </svg>
+    );
+  }
+
+  if (lines.length === 0) {
     return (
       <svg
         viewBox={`0 0 ${width} ${height}`}

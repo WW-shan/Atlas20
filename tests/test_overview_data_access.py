@@ -1,8 +1,18 @@
+import os
+import time
 from datetime import date
 
+import pandas as pd
 import pytest
 
-from atlas20.api.data_access.overview import load_overview_from_reports
+from atlas20.api.data_access.overview import (
+    BTC_BENCHMARK,
+    _build_equity_overlay,
+    _compute_last_sync_seconds,
+    _format_display_name,
+    _parse_cadence,
+    load_overview_from_reports,
+)
 from atlas20.api.schemas import OverviewPayload
 from atlas20.api.settings import Settings
 
@@ -167,3 +177,76 @@ def test_load_overview_from_reports_excludes_btc_benchmark_when_ranking(tmp_path
     payload = load_overview_from_reports(Settings(report_root=tmp_path, anchor_date=date(2026, 6, 30)))
 
     assert payload["champion"]["strategy"] == "ALPHA"
+
+
+def test_format_display_name_produces_stable_labels():
+    assert _format_display_name("TOP20_MOM_top8_biweekly__bull_only") == "Momentum Rotation · Top8 Biweekly · Bull Only"
+    assert _format_display_name("TOP20_SECTOR_top3_biweekly__bull_only") == "Sector Rotation · Top3 Biweekly · Bull Only"
+    assert _format_display_name("BTC_BH__always_on") == "BTC Benchmark · Always On"
+    assert (
+        _format_display_name("MOMENTUM_LEAD_TOP1_ALL_14D_STOP11_CONFIRM2_BTC_PARK")
+        == "Momentum Lead Top1 All 14D Stop11 Confirm2 Btc Park"
+    )
+
+
+def test_parse_cadence_uses_slug_token():
+    assert _parse_cadence("TOP20_MOM_top8_biweekly__bull_only", None) == "Biweekly"
+
+
+def test_parse_cadence_falls_back_to_selection_history_median():
+    history = pd.DataFrame(
+        {
+            "strategy": ["CUSTOM_ROTATION"] * 4,
+            "rebalance_date": ["2026-01-01", "2026-01-15", "2026-01-29", "2026-02-12"],
+        }
+    )
+
+    assert _parse_cadence("CUSTOM_ROTATION", history) == "Biweekly"
+
+
+def test_parse_cadence_returns_none_without_slug_or_history():
+    assert _parse_cadence("CUSTOM_ROTATION", None) is None
+    assert _parse_cadence("CUSTOM_ROTATION", pd.DataFrame()) is None
+
+
+def test_compute_last_sync_seconds_uses_latest_pointer_and_missing_files(tmp_path):
+    report_dir = tmp_path / "report_2026"
+    report_dir.mkdir()
+    (tmp_path / "latest.txt").write_text("report_2026", encoding="utf-8")
+    stale_mtime = time.time() - 120
+    os.utime(report_dir, (stale_mtime, stale_mtime))
+
+    assert _compute_last_sync_seconds(tmp_path) >= 100
+    assert _compute_last_sync_seconds(tmp_path / "missing") == 0
+
+
+def test_build_equity_overlay_falls_back_to_all_when_ytd_empty():
+    champion = "TOP20_MOM_top8_biweekly__bull_only"
+    frame = pd.DataFrame(
+        {
+            champion: [100.0, 125.0],
+            BTC_BENCHMARK: [100.0, 110.0],
+        },
+        index=pd.to_datetime(["2024-01-31", "2024-02-29"]),
+    )
+
+    overlay = _build_equity_overlay(frame, champion, date(2026, 1, 31))
+
+    assert overlay["range"] == "ALL"
+    assert overlay["series"]
+
+
+def test_build_equity_overlay_includes_display_labels():
+    champion = "TOP20_SECTOR_top3_biweekly__bull_only"
+    frame = pd.DataFrame(
+        {
+            champion: [100.0, 125.0],
+            BTC_BENCHMARK: [100.0, 110.0],
+        },
+        index=pd.to_datetime(["2026-01-31", "2026-02-28"]),
+    )
+
+    overlay = _build_equity_overlay(frame, champion, date(2026, 2, 28))
+
+    assert overlay["atlas_label"] == _format_display_name(champion)
+    assert overlay["btc_label"] == "BTC Benchmark"

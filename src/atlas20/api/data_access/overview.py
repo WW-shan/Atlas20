@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -43,7 +44,7 @@ def load_overview_from_reports(settings: Settings) -> dict[str, Any]:
     selection_history = _load_selection_history(settings.report_root)
     anchor_date = settings.anchor_date or today()
     return {
-        "champion": _build_champion(champion_row, champion_equity),
+        "champion": _build_champion(champion_row, champion_equity, selection_history),
         "top_strategies": _build_top_strategies(summary_df),
         "equity_curve": _build_equity_curve(champion_equity),
         "daily_returns": _build_daily_returns(champion_daily_returns),
@@ -54,6 +55,7 @@ def load_overview_from_reports(settings: Settings) -> dict[str, Any]:
         "rebalance": _build_rebalance(daily_returns_df.index, champion_row, selection_history),
         "equity_overlay": _build_equity_overlay(equity_curves_df, champion_col, anchor_date),
         "hero_kpi": _compute_hero_kpi(champion_daily_returns, champion_row, anchor_date),
+        "last_sync_seconds": _compute_last_sync_seconds(settings.report_root),
     }
 
 
@@ -103,18 +105,24 @@ def _strategy_summary_from_row(row: pd.Series) -> dict[str, Any]:
     }
 
 
-def _build_champion(summary_row: pd.Series, equity_curve_col: pd.Series) -> dict[str, Any]:
+def _build_champion(
+    summary_row: pd.Series,
+    equity_curve_col: pd.Series,
+    selection_history: pd.DataFrame | None,
+) -> dict[str, Any]:
     curve = equity_curve_col.dropna()
     if curve.empty:
         raise ValueError(f"Champion equity curve has no values: {summary_row['strategy']}")
+    strategy = str(summary_row["strategy"])
     return {
-        "strategy": str(summary_row["strategy"]),
+        "strategy": strategy,
+        "display_name": _format_display_name(strategy),
         "window_start": _date_string(curve.index[0]),
         "window_end": _date_string(curve.index[-1]),
         "min_history_days": None,
         "min_daily_dollar_volume": None,
         "leader_pool": None,
-        "rebalance_frequency": None,
+        "rebalance_frequency": _parse_cadence(strategy, selection_history),
         "regime_mode": None,
         "risk_off_asset": None,
         "initial_asset": None,
@@ -180,11 +188,16 @@ def _build_equity_overlay(equity_curves_df: pd.DataFrame, champion_col: str, anc
         },
         axis=1,
     ).dropna()
+    if series.empty:
+        raise ValueError("equity_curves.csv has no overlapping atlas+btc data")
     start = pd.Timestamp(date(anchor_date.year, 1, 1))
     end = pd.Timestamp(anchor_date)
     ytd = series[(series.index >= start) & (series.index <= end)]
     if ytd.empty:
-        return {"series": [], "range": "YTD"}
+        ytd = series
+        range_label = "ALL"
+    else:
+        range_label = "YTD"
     base = ytd.iloc[0]
     if not pd.Series([base["atlas"], base["btc"]]).map(pd.notna).all() or (base["atlas"] <= 0) or (base["btc"] <= 0):
         raise ValueError("Equity overlay base values must be positive")
@@ -197,7 +210,12 @@ def _build_equity_overlay(equity_curves_df: pd.DataFrame, champion_col: str, anc
         }
         for index, row in monthly.iterrows()
     ]
-    return {"series": points, "range": "YTD"}
+    return {
+        "series": points,
+        "range": range_label,
+        "atlas_label": _format_display_name(champion_col),
+        "btc_label": "BTC Benchmark",
+    }
 
 
 def _build_rebalance(
@@ -229,6 +247,65 @@ def _strategy_family(name: str) -> str:
         if name.startswith(prefix):
             return label
     return "Other"
+
+
+def _format_display_name(strategy: str) -> str:
+    family = _strategy_family(strategy)
+    for prefix, _ in _STRATEGY_FAMILY_PREFIXES:
+        if strategy.startswith(prefix):
+            variant = strategy[len(prefix):].lstrip("_")
+            if not variant:
+                return family
+            cleaned = variant.replace("__", " · ").replace("_", " ")
+            return f"{family} · {cleaned.title()}"
+    return strategy.replace("__", " · ").replace("_", " ").title()
+
+
+def _parse_cadence(strategy: str, selection_history: pd.DataFrame | None) -> str | None:
+    strategy_lower = strategy.lower()
+    for token, label in [
+        ("_weekly_", "Weekly"),
+        ("_biweekly_", "Biweekly"),
+        ("_monthly_", "Monthly"),
+        ("_14d_", "Biweekly"),
+        ("_7d_", "Weekly"),
+        ("_30d_", "Monthly"),
+    ]:
+        if token in strategy_lower:
+            return label
+    if selection_history is None or selection_history.empty:
+        return None
+    if "strategy" not in selection_history.columns or "rebalance_date" not in selection_history.columns:
+        return None
+    scope = selection_history[selection_history["strategy"].astype(str) == strategy]
+    if scope.empty:
+        return None
+    dates = pd.to_datetime(scope["rebalance_date"], errors="coerce").dropna().drop_duplicates().sort_values()
+    if len(dates) < 2:
+        return None
+    diffs = dates.diff().dropna().dt.days
+    if diffs.empty:
+        return None
+    median_days = int(round(float(diffs.median())))
+    if median_days <= 8:
+        return "Weekly"
+    if median_days <= 21:
+        return "Biweekly"
+    if median_days <= 45:
+        return "Monthly"
+    return f"{median_days}D"
+
+
+def _compute_last_sync_seconds(report_root: Path) -> int:
+    latest_txt = report_root / "latest.txt"
+    if latest_txt.exists():
+        target = (report_root / latest_txt.read_text(encoding="utf-8").strip()).resolve()
+        if target.exists():
+            return max(0, int(time.time() - target.stat().st_mtime))
+    try:
+        return max(0, int(time.time() - _latest_report_dir(report_root).stat().st_mtime))
+    except (FileNotFoundError, ValueError):
+        return 0
 
 
 def _build_strategies_breakdown(summary_df: pd.DataFrame) -> dict[str, Any]:

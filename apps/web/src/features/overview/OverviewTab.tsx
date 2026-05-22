@@ -59,6 +59,13 @@ function formatCompactCurrency(v: number): string {
   return `$${v.toFixed(0)}`;
 }
 
+function formatRelativeAge(s: number): string {
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
 export function OverviewTab({ overview, onNavigate }: Props) {
   const { champion, hero_kpi, aum, strategies, regime, rebalance, equity_overlay } = overview;
   const maxBreakdown = Math.max(...strategies.breakdown.map((b) => b.count));
@@ -72,7 +79,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Pill tone="gold-outline" size="xs">CURRENT CHAMPION</Pill>
             <h2 style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.01em" }}>
-              {champion.strategy}
+              {champion.display_name}
             </h2>
             <span className="muted" style={{ fontSize: 13 }}>
               {champion.window_start} → <span className="mono">{champion.window_end}</span>
@@ -127,38 +134,12 @@ export function OverviewTab({ overview, onNavigate }: Props) {
 
         {/* Equity Curve */}
         <Card ariaLabel="Champion equity curve YTD">
-          <SectionHeader rightSlot={
-            <div role="tablist" aria-label="Equity range" style={{ display: "flex", gap: 4 }}>
-              {(["1M", "3M", "YTD", "1Y", "ALL"] as const).map((r) => {
-                const active = r === "YTD";
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    disabled
-                    className="mono"
-                    style={{
-                      fontSize: 11,
-                      padding: "2px 8px",
-                      color: active ? "var(--text)" : "var(--muted)",
-                      borderBottom: active ? "2px solid var(--violet)" : "2px solid transparent",
-                      background: "transparent",
-                      cursor: "default",
-                    }}
-                  >
-                    {r}
-                  </button>
-                );
-              })}
-            </div>
-          }>EQUITY CURVE · YTD</SectionHeader>
+          <SectionHeader>{`EQUITY CURVE · ${equity_overlay.range}`}</SectionHeader>
           <OverlayLineChart
             series={equity_overlay.series.map((p) => ({ ts: p.ts, values: { atlas: p.atlas, btc: p.btc } }))}
             lines={[
-              { id: "atlas", label: "ATLAS Adaptive v3", tone: "gold", glow: true },
-              { id: "btc",   label: "BTC Benchmark",     tone: "violet" },
+              { id: "atlas", label: equity_overlay.atlas_label, tone: "gold", glow: true },
+              { id: "btc",   label: equity_overlay.btc_label,   tone: "violet" },
             ]}
             range={equity_overlay.range}
             yFormat="percent"
@@ -168,11 +149,11 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           <div style={{ display: "flex", gap: 24, marginTop: 12, fontSize: 12 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--gold)", display: "inline-block" }} />
-              <span>ATLAS Adaptive v3</span>
+              <span>{equity_overlay.atlas_label}</span>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--violet)", display: "inline-block" }} />
-              <span>BTC Benchmark</span>
+              <span>{equity_overlay.btc_label}</span>
             </span>
           </div>
         </Card>
@@ -181,7 +162,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
         <Card ariaLabel="Latest rebalance swaps">
           <SectionHeader>LATEST REBALANCE</SectionHeader>
           <span className="muted" style={{ fontSize: 12, display: "block", marginBottom: 16 }}>
-            <span className="mono">{rebalance.ts}</span> weekly · {rebalance.swaps.length} swaps
+            <span className="mono">{rebalance.ts}</span> {champion.rebalance_frequency ?? "—"} · {rebalance.swaps.length} swaps
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {rebalance.swaps.map((s, i) => (
@@ -232,7 +213,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
             <span className="muted">Last sync:</span>
-            <span className="mono">18s ago</span>
+            <span className="mono">{formatRelativeAge(overview.last_sync_seconds)}</span>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--emerald)", display: "inline-block" }} />
           </div>
         </div>

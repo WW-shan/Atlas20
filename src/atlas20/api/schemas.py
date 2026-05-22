@@ -29,6 +29,7 @@ class StrictApiModel(BaseModel):
 
 class ChampionSummary(ApiModel):
     strategy: str
+    display_name: str
     window_start: str
     window_end: str
     min_history_days: int | None = None
@@ -119,6 +120,8 @@ class EquityOverlayPoint(ApiModel):
 class EquityOverlay(ApiModel):
     series: list[EquityOverlayPoint]
     range: ChartRange
+    atlas_label: str
+    btc_label: str
 
 
 class HeroKpi(ApiModel):
@@ -140,6 +143,7 @@ class OverviewPayload(ApiModel):
     rebalance: RebalanceInfo
     equity_overlay: EquityOverlay
     hero_kpi: HeroKpi
+    last_sync_seconds: int
 
 
 class RunWindow(ApiModel):
