@@ -264,8 +264,8 @@ def _format_display_name(strategy: str) -> str:
 def _parse_cadence(strategy: str, selection_history: pd.DataFrame | None) -> str | None:
     strategy_lower = strategy.lower()
     for token, label in [
-        ("_weekly_", "Weekly"),
         ("_biweekly_", "Biweekly"),
+        ("_weekly_", "Weekly"),
         ("_monthly_", "Monthly"),
         ("_14d_", "Biweekly"),
         ("_7d_", "Weekly"),
