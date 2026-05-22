@@ -46,6 +46,26 @@ describe("OverviewTab", () => {
     expect(screen.queryByText("ATLAS Adaptive v3")).not.toBeInTheDocument();
   });
 
+  it("uses equity overlay range in aria labels", () => {
+    const overview = withOverview({
+      equity_overlay: {
+        ...fallbackOverview.equity_overlay,
+        range: "ALL",
+        atlas_label: "Payload Atlas Label",
+        btc_label: "Payload BTC Label",
+      },
+    });
+
+    render(<OverviewTab overview={overview} onNavigate={() => {}} />);
+
+    expect(screen.getByLabelText("Champion equity curve ALL")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "Payload Atlas Label vs Payload BTC Label equity curve ALL",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("renders rebalance cadence from champion payload", () => {
     const overview = withOverview({
       champion: { ...fallbackOverview.champion, rebalance_frequency: "Monthly" },
@@ -106,7 +126,7 @@ describe("OverviewTab", () => {
 
   it("equity overlay renders with two lines (gold ATLAS + violet BTC)", () => {
     render(<OverviewTab overview={fallbackOverview} onNavigate={() => {}} />);
-    expect(screen.getByRole("img", { name: /ATLAS vs BTC equity curve/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /equity curve YTD/ })).toBeInTheDocument();
   });
 
   it("RegimeGauge has role=meter", () => {

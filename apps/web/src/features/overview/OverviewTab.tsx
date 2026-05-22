@@ -133,7 +133,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24 }}>
 
         {/* Equity Curve */}
-        <Card ariaLabel="Champion equity curve YTD">
+        <Card ariaLabel={`Champion equity curve ${equity_overlay.range}`}>
           <SectionHeader>{`EQUITY CURVE · ${equity_overlay.range}`}</SectionHeader>
           <OverlayLineChart
             series={equity_overlay.series.map((p) => ({ ts: p.ts, values: { atlas: p.atlas, btc: p.btc } }))}
@@ -144,7 +144,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
             range={equity_overlay.range}
             yFormat="percent"
             height={280}
-            ariaLabel="ATLAS vs BTC equity curve year to date"
+            ariaLabel={`${equity_overlay.atlas_label} vs ${equity_overlay.btc_label} equity curve ${equity_overlay.range}`}
           />
           <div style={{ display: "flex", gap: 24, marginTop: 12, fontSize: 12 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
