@@ -288,6 +288,23 @@ def test_build_equity_overlay_nan_in_ytd_slice_uses_dropna():
     assert all(pd.notna(point["atlas"]) and pd.notna(point["btc"]) for point in overlay["series"])
 
 
+def test_build_equity_overlay_falls_back_to_all_when_ytd_rows_are_all_nan():
+    champion = "TOP20_MOM_top8_biweekly__bull_only"
+    frame = pd.DataFrame(
+        {
+            champion: [100.0, 112.0, 125.0, float("nan"), 150.0],
+            BTC_BENCHMARK: [100.0, 108.0, 118.0, 132.0, float("nan")],
+        },
+        index=pd.to_datetime(["2025-10-31", "2025-11-30", "2025-12-31", "2026-01-31", "2026-02-28"]),
+    )
+
+    overlay = _build_equity_overlay(frame, champion, date(2026, 2, 28))
+
+    assert overlay["range"] == "ALL"
+    assert overlay["series"]
+    assert all(pd.notna(point["atlas"]) and pd.notna(point["btc"]) for point in overlay["series"])
+
+
 def test_build_equity_overlay_includes_display_labels():
     champion = "TOP20_SECTOR_top3_biweekly__bull_only"
     frame = pd.DataFrame(
