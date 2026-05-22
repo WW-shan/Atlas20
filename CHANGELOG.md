@@ -35,9 +35,20 @@ Closes three of the four known B23 UI lies plus four new findings from the post-
 - Round 2: Opus APPROVE 96/100, codex REQUEST_CHANGES 90/100 → 1 finding (F5, NaN-only YTD subcase)
 - Round 3: Opus APPROVE 96/100, codex APPROVE 100/100 → 0 findings ✅
 
-### Known UI gaps (remaining B23 candidates)
+### B23b — Tracked Notional champion-only headline (2026-05-22)
 
-- Tracked Notional sparkline shows the champion strategy's tail while the headline number is the sum across all strategies — value source and sparkline source are inconsistent. (Deferred to B23b.)
+Closes the last B23 UI lie: the "Tracked Notional" card headline now shows the champion strategy's last equity value instead of the sum across all strategies. The sparkline, delta%, and headline are now all champion-sourced.
+
+**Fixed**
+- `_build_aum` headline (`aum.current`) changed from sum of all strategies' final equity to champion's last equity value. All three card values (headline, sparkline, delta%) now derive from the same source.
+- Frontend subtitle changed from "{deltaPct} champion over 14 samples" to "{deltaPct} over last 14 data points".
+- Card `ariaLabel` changed from "Tracked notional across all strategies (research)" to "Champion equity trend (research)".
+
+**Tests**
+- pytest: 380 → 384 (+4). Champion-only current, sparkline, delta%, empty fallback.
+- vitest: 169 → 170 (+1). Subtitle wording.
+
+**Cross-validation:** Opus APPROVE 95/100, codex APPROVE 92/100 → 0 findings requiring code changes.
 
 ## [0.2.0] — 2026-05-21
 
