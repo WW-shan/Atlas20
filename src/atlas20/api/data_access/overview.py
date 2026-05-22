@@ -297,13 +297,9 @@ def _parse_cadence(strategy: str, selection_history: pd.DataFrame | None) -> str
 
 
 def _compute_last_sync_seconds(report_root: Path) -> int:
-    latest_txt = report_root / "latest.txt"
-    if latest_txt.exists():
-        target = (report_root / latest_txt.read_text(encoding="utf-8").strip()).resolve()
-        if target.exists():
-            return max(0, int(time.time() - target.stat().st_mtime))
     try:
-        return max(0, int(time.time() - _latest_report_dir(report_root).stat().st_mtime))
+        target_dir = _latest_report_dir(report_root)
+        return max(0, int(time.time() - target_dir.stat().st_mtime))
     except (FileNotFoundError, ValueError):
         return 0
 
