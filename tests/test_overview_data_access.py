@@ -204,6 +204,24 @@ def test_parse_cadence_falls_back_to_selection_history_median():
     assert _parse_cadence("CUSTOM_ROTATION", history) == "Biweekly"
 
 
+def test_parse_cadence_dedupes_rebalance_dates():
+    history = pd.DataFrame(
+        {
+            "strategy": ["CUSTOM_ROTATION"] * 6,
+            "rebalance_date": [
+                "2026-01-01",
+                "2026-01-01",
+                "2026-01-15",
+                "2026-01-15",
+                "2026-01-29",
+                "2026-01-29",
+            ],
+        }
+    )
+
+    assert _parse_cadence("CUSTOM_ROTATION", history) == "Biweekly"
+
+
 def test_parse_cadence_returns_none_without_slug_or_history():
     assert _parse_cadence("CUSTOM_ROTATION", None) is None
     assert _parse_cadence("CUSTOM_ROTATION", pd.DataFrame()) is None
@@ -220,6 +238,23 @@ def test_compute_last_sync_seconds_uses_latest_pointer_and_missing_files(tmp_pat
     assert _compute_last_sync_seconds(tmp_path / "missing") == 0
 
 
+def test_compute_last_sync_seconds_clock_skew_returns_non_negative(tmp_path, monkeypatch):
+    report_dir = tmp_path / "report_2026"
+    report_dir.mkdir()
+    (tmp_path / "latest.txt").write_text("report_2026", encoding="utf-8")
+    future_mtime = time.time() + 120
+    os.utime(report_dir, (future_mtime, future_mtime))
+    monkeypatch.setattr(time, "time", lambda: future_mtime - 60)
+
+    assert _compute_last_sync_seconds(tmp_path) == 0
+
+
+def test_compute_last_sync_seconds_rejects_escaping_pointer(tmp_path):
+    (tmp_path / "latest.txt").write_text("../escape", encoding="utf-8")
+
+    assert _compute_last_sync_seconds(tmp_path) == 0
+
+
 def test_build_equity_overlay_falls_back_to_all_when_ytd_empty():
     champion = "TOP20_MOM_top8_biweekly__bull_only"
     frame = pd.DataFrame(
@@ -234,6 +269,23 @@ def test_build_equity_overlay_falls_back_to_all_when_ytd_empty():
 
     assert overlay["range"] == "ALL"
     assert overlay["series"]
+
+
+def test_build_equity_overlay_nan_in_ytd_slice_uses_dropna():
+    champion = "TOP20_MOM_top8_biweekly__bull_only"
+    frame = pd.DataFrame(
+        {
+            champion: [100.0, float("nan"), 130.0],
+            BTC_BENCHMARK: [100.0, 110.0, 140.0],
+        },
+        index=pd.to_datetime(["2026-01-31", "2026-02-28", "2026-03-31"]),
+    )
+
+    overlay = _build_equity_overlay(frame, champion, date(2026, 3, 31))
+
+    assert overlay["range"] == "YTD"
+    assert overlay["series"]
+    assert all(pd.notna(point["atlas"]) and pd.notna(point["btc"]) for point in overlay["series"])
 
 
 def test_build_equity_overlay_includes_display_labels():
