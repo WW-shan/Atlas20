@@ -13,6 +13,7 @@ from atlas20.api import _time
 RunStatusEnum = Literal["queued", "running", "completed", "failed", "cancelled"]
 StrategyFamily = Literal["ATLAS", "Momentum", "MeanRev", "Carry", "Other"]
 ChartRange = Literal["1M", "3M", "YTD", "1Y", "ALL"]
+DataSourceKind = Literal["real", "fallback"]
 RunId = Annotated[str, StringConstraints(pattern=r"^btk_\d{4,6}$")]
 ReportId = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_-]{1,64}$")]
 
@@ -144,6 +145,7 @@ class OverviewPayload(ApiModel):
     equity_overlay: EquityOverlay
     hero_kpi: HeroKpi
     last_sync_seconds: int
+    data_source: DataSourceKind = "real"
 
 
 class RunWindow(ApiModel):
@@ -261,8 +263,19 @@ class OptionsRebalance(ApiModel):
     label: str
 
 
+class PresetOption(ApiModel):
+    slug: str
+    display_name: str
+
+
+class StrategyOption(ApiModel):
+    strategy: str
+    display_name: str
+
+
 class OptionsPayload(ApiModel):
-    presets: list[str]
+    presets: list[PresetOption]
+    strategies: list[StrategyOption] = Field(default_factory=list)
     universes: list[OptionsUniverseSize]
     rebalances: list[OptionsRebalance]
     feeBpsRange: list[float]
@@ -319,9 +332,11 @@ class CompareEquityPoint(ApiModel):
 
 
 class ComparePayload(ApiModel):
+    strategies: list[StrategyOption] = Field(default_factory=list)
     equity: list[CompareEquityPoint]
     metrics: CompareMetrics
     overlap: CompareOverlap
+    data_source: DataSourceKind = "real"
 
 
 class UniverseTimelineSegment(ApiModel):
@@ -345,6 +360,7 @@ class UniverseTimelinePayload(ApiModel):
     segments: list[UniverseTimelineSegment]
     rotations: list[UniverseRotation]
     range: UniverseRange
+    data_source: DataSourceKind = "real"
 
 
 DataSourceStatus = Literal["healthy", "degraded", "error"]
@@ -368,6 +384,7 @@ class DataAlert(ApiModel):
     meta: str
     ts: str
     icon: DataAlertIcon
+    source: str
 
 
 ReportFormat = Literal["markdown", "pdf", "png", "csv", "bundle"]

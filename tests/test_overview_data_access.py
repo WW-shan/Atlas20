@@ -10,10 +10,10 @@ from atlas20.api.data_access.overview import (
     _build_aum,
     _build_equity_overlay,
     _compute_last_sync_seconds,
-    _format_display_name,
     _parse_cadence,
     load_overview_from_reports,
 )
+from atlas20.api.data_access._common import _format_display_name
 from atlas20.api.schemas import OverviewPayload
 from atlas20.api.settings import Settings
 
@@ -234,6 +234,14 @@ def test_format_display_name_produces_stable_labels():
         _format_display_name("MOMENTUM_LEAD_TOP1_ALL_14D_STOP11_CONFIRM2_BTC_PARK")
         == "Momentum Lead Top1 All 14D Stop11 Confirm2 Btc Park"
     )
+
+
+def test_format_display_name_base_preset():
+    assert _format_display_name("base") == "Base Config"
+
+
+def test_format_display_name_universe_refresh():
+    assert _format_display_name("universe_refresh") == "Universe Refresh"
 
 
 def test_parse_cadence_uses_slug_token():

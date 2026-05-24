@@ -29,6 +29,7 @@ def test_load_options_payload_from_real_data(tmp_path):
     payload = load_options_from_reports(Settings(report_root=tmp_path / "reports", data_root=tmp_path / "data"))
 
     assert payload["presets"] == ["HIGH_SHARPE", "MID_SHARPE", "LOW_SHARPE"]
+    assert payload["strategies"] == ["LOW_SHARPE", "HIGH_SHARPE", "MID_SHARPE"]
     assert payload["universes"] == [
         {"topN": 5, "label": "Top 5"},
         {"topN": 10, "label": "Top 10"},

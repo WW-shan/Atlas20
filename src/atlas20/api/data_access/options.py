@@ -28,8 +28,10 @@ REBALANCES = [
 
 def load_options_from_reports(settings: Settings) -> dict[str, Any]:
     """Build OptionsPayload from summary and latest rebalance universe CSVs."""
+    summary = _load_summary(settings)
     return {
-        "presets": _load_presets(settings),
+        "presets": _rank_presets(summary),
+        "strategies": [str(strategy) for strategy in summary["strategy"]],
         "universes": UNIVERSES,
         "rebalances": REBALANCES,
         "feeBpsRange": FEE_BPS_RANGE,
@@ -39,6 +41,10 @@ def load_options_from_reports(settings: Settings) -> dict[str, Any]:
 
 
 def _load_presets(settings: Settings) -> list[str]:
+    return _rank_presets(_load_summary(settings))
+
+
+def _load_summary(settings: Settings) -> pd.DataFrame:
     path = _latest_report_dir(settings.report_root) / "strategy_summary.csv"
     frame = _read_csv(path)
     missing = SUMMARY_COLUMNS - set(frame.columns)
@@ -53,6 +59,10 @@ def _load_presets(settings: Settings) -> list[str]:
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{path} has invalid numeric values in sharpe") from exc
 
+    return parsed
+
+
+def _rank_presets(parsed: pd.DataFrame) -> list[str]:
     ranked = parsed.sort_values(["sharpe", "strategy"], ascending=[False, True])
     return [str(strategy) for strategy in ranked["strategy"].head(30)]
 

@@ -370,12 +370,18 @@ fallback_compare = {
 
 fallback_options = {
     "presets": [
-        "ATLAS Adaptive v3",
-        "Momentum Top-10",
-        "Mean Reversion v2",
-        "ATLAS Adaptive v2",
-        "Carry Top-5",
+        {"slug": "base", "display_name": "Base Config"},
+        {"slug": "five_year_2020_2024", "display_name": "Five Year 2020 2024"},
+        {
+            "slug": "five_year_exact_2021_04_22_2026_04_22",
+            "display_name": "Five Year Exact 2021 04 22 2026 04 22",
+        },
+        {
+            "slug": "bear_bottom_to_current_2022_11_21_2026_04_22",
+            "display_name": "Bear Bottom To Current 2022 11 21 2026 04 22",
+        },
     ],
+    "strategies": [],
     "universes": [
         {"topN": 5, "label": "Top 5"},
         {"topN": 10, "label": "Top 10"},
@@ -469,6 +475,7 @@ fallback_data_alerts = [
         "meta": "Gap 14m · CoinGecko · auto-fill",
         "ts": "2026-05-18T13:42:00Z",
         "icon": "alert-triangle",
+        "source": "fallback",
     },
     {
         "id": "a2",
@@ -477,6 +484,7 @@ fallback_data_alerts = [
         "meta": "Δ5.2σ · Binance · pending",
         "ts": "2026-05-18T12:18:00Z",
         "icon": "alert-triangle",
+        "source": "fallback",
     },
     {
         "id": "a3",
@@ -485,6 +493,7 @@ fallback_data_alerts = [
         "meta": "Stale 38s · Coinbase",
         "ts": "2026-05-18T11:40:00Z",
         "icon": "info",
+        "source": "fallback",
     },
     {
         "id": "a4",
@@ -493,6 +502,7 @@ fallback_data_alerts = [
         "meta": "Δ0.4% · 2026-05-18 04:00 UTC",
         "ts": "2026-05-18T05:00:00Z",
         "icon": "alert-triangle",
+        "source": "fallback",
     },
     {
         "id": "a5",
@@ -501,6 +511,7 @@ fallback_data_alerts = [
         "meta": "Slash 0.1% · resolved",
         "ts": "2026-05-17T23:14:00Z",
         "icon": "check-circle",
+        "source": "fallback",
     },
     {
         "id": "a6",
@@ -509,6 +520,7 @@ fallback_data_alerts = [
         "meta": "+TIA +SEI / -ATOM -FTM",
         "ts": "2026-05-15T00:00:00Z",
         "icon": "info",
+        "source": "fallback",
     },
 ]
 

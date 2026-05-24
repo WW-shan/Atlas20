@@ -98,3 +98,38 @@ def _as_text(value: Any, column: str) -> str:
     if not text:
         raise ValueError(f"Missing text value in {column}")
     return text
+
+
+_DISPLAY_NAME_OVERRIDES = {
+    "base": "Base Config",
+    "universe_refresh": "Universe Refresh",
+}
+_STRATEGY_FAMILY_PREFIXES: list[tuple[str, str]] = [
+    ("BTC_BH", "BTC Benchmark"),
+    ("ETH_BH", "ETH Benchmark"),
+    ("TOP20_EQ", "Equal Weight"),
+    ("TOP20_MOM", "Momentum Rotation"),
+    ("TOP20_SECTOR", "Sector Rotation"),
+]
+
+
+def _strategy_family(name: str) -> str:
+    for prefix, label in _STRATEGY_FAMILY_PREFIXES:
+        if name.startswith(prefix):
+            return label
+    return "Other"
+
+
+def _format_display_name(strategy: str) -> str:
+    if strategy in _DISPLAY_NAME_OVERRIDES:
+        return _DISPLAY_NAME_OVERRIDES[strategy]
+
+    family = _strategy_family(strategy)
+    for prefix, _ in _STRATEGY_FAMILY_PREFIXES:
+        if strategy.startswith(prefix):
+            variant = strategy[len(prefix):].lstrip("_")
+            if not variant:
+                return family
+            cleaned = variant.replace("__", " \u00b7 ").replace("_", " ")
+            return f"{family} \u00b7 {cleaned.title()}"
+    return strategy.replace("__", " \u00b7 ").replace("_", " ").title()

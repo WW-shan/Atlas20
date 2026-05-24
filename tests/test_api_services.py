@@ -19,6 +19,7 @@ from atlas20.api.services import (
     register_new_backtest,
     toggle_run_favorite,
 )
+from tests.conftest import write_alpha_btc_report_csvs
 
 
 def test_list_runs_filters_by_query(db_session: Session):
@@ -171,6 +172,25 @@ def test_list_reports_sorts_archive(sort: str, first_id: str):
     assert rows[0].id == first_id
 
 
+def test_overview_data_source_real(tmp_path, monkeypatch):
+    write_alpha_btc_report_csvs(tmp_path / "reports")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    get_settings.cache_clear()
+
+    payload = services.get_overview()
+
+    assert payload.data_source == "real"
+
+
+def test_overview_data_source_fallback(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    get_settings.cache_clear()
+
+    payload = services.get_overview()
+
+    assert payload.data_source == "fallback"
+
+
 def test_get_universe_timeline_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
     get_settings.cache_clear()
@@ -178,8 +198,20 @@ def test_get_universe_timeline_falls_back_on_missing_data(tmp_path, monkeypatch,
 
     payload = services.get_universe_timeline()
 
-    assert payload.model_dump() == mock_data.fallback_universe_timeline
+    assert payload.data_source == "fallback"
+    dumped = payload.model_dump()
+    dumped.pop("data_source", None)
+    assert dumped == mock_data.fallback_universe_timeline
     assert "Falling back to mock universe timeline" in caplog.text
+
+
+def test_universe_data_source_fallback(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    payload = services.get_universe_timeline()
+
+    assert payload.data_source == "fallback"
 
 
 def test_get_data_alerts_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
@@ -225,7 +257,8 @@ def test_load_options_uses_config_yaml_slugs_when_reports_missing(tmp_path, monk
 
     payload = get_options_payload()
 
-    assert payload.presets == ["base", "five_year_2020_2024"]
+    assert [preset.slug for preset in payload.presets] == ["base", "five_year_2020_2024"]
+    assert [preset.display_name for preset in payload.presets] == ["Base Config", "Five Year 2020 2024"]
     assert "Falling back to mock options" in caplog.text
 
 
@@ -239,6 +272,16 @@ def test_get_compare_falls_back_when_reports_missing(tmp_path, monkeypatch, capl
 
     assert payload.model_dump() == services._get_compare_mock(["atlas"], "YTD").model_dump()
     assert "Falling back to mock compare" in caplog.text
+
+
+def test_compare_data_source_fallback(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+
+    payload = get_compare(["atlas"], "YTD")
+
+    assert payload.data_source == "fallback"
 
 
 def test_get_compare_routes_anchor_through_today(monkeypatch):

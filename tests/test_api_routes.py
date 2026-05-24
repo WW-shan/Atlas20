@@ -68,8 +68,22 @@ def test_options_endpoint_returns_options_payload(client: TestClient):
     # presets) rather than the legacy mock_data fallback names.
     # `sectors.yaml` is shared config, not a runnable preset.
     expected_presets = sorted(p.stem for p in Path("config").glob("*.yaml") if p.stem != "sectors")
-    assert payload.presets == expected_presets
+    assert [preset.slug for preset in payload.presets] == expected_presets
+    assert [preset.display_name for preset in payload.presets] == [
+        "Base Config" if slug == "base" else slug.replace("_", " ").title()
+        for slug in expected_presets
+    ]
     assert payload.feeBpsRange == [0.0, 10.0, 50.0]
+
+
+def test_options_payload_includes_display_names(client: TestClient):
+    response = client.get("/api/options")
+
+    assert response.status_code == 200
+    raw = response.json()
+    assert raw["presets"]
+    assert {"slug", "display_name"} <= set(raw["presets"][0])
+    assert "strategies" in raw
 
 
 def test_runs_queue_endpoint_returns_summaries(client: TestClient):
@@ -155,6 +169,18 @@ def test_compare_endpoint_returns_compare_payload(client: TestClient):
     payload = ComparePayload.model_validate(response.json())
     assert payload.metrics.cagr["atlas"] == 1.584
     assert payload.overlap.symbols == ["ATLAS v3", "Momentum", "MeanRev"]
+
+
+def test_compare_payload_includes_display_names(client: TestClient):
+    response = client.get("/api/compare?ids=atlas,momentum,meanrev&range=YTD")
+
+    assert response.status_code == 200
+    raw = response.json()
+    assert raw["strategies"] == [
+        {"strategy": "atlas", "display_name": "Atlas"},
+        {"strategy": "momentum", "display_name": "Momentum"},
+        {"strategy": "meanrev", "display_name": "Meanrev"},
+    ]
 
 
 def test_compare_endpoint_rejects_unknown_query_params(client: TestClient):

@@ -14,6 +14,7 @@ from sqlmodel import Session
 from atlas20.api import mock_data
 from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
 from atlas20.api.config_adapter import to_research_config
+from atlas20.api.data_access._common import _format_display_name
 from atlas20.api.data_access.compare import load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
@@ -70,7 +71,32 @@ def get_options_payload() -> OptionsPayload:
         yaml_presets = _preset_names_from_configs(settings)
         if yaml_presets:
             payload["presets"] = yaml_presets
-    return OptionsPayload.model_validate(payload)
+    return OptionsPayload.model_validate(_options_with_display_names(payload))
+
+
+def _options_with_display_names(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    normalized["presets"] = [_preset_option(item) for item in normalized.get("presets", [])]
+    normalized["strategies"] = [_strategy_option(item) for item in normalized.get("strategies", [])]
+    return normalized
+
+
+def _preset_option(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        slug = str(item.get("slug", ""))
+        display_name = str(item.get("display_name") or _format_display_name(slug))
+        return {"slug": slug, "display_name": display_name}
+    slug = str(item)
+    return {"slug": slug, "display_name": _format_display_name(slug)}
+
+
+def _strategy_option(item: Any) -> dict[str, str]:
+    if isinstance(item, dict):
+        strategy = str(item.get("strategy", ""))
+        display_name = str(item.get("display_name") or _format_display_name(strategy))
+        return {"strategy": strategy, "display_name": display_name}
+    strategy = str(item)
+    return {"strategy": strategy, "display_name": _format_display_name(strategy)}
 
 
 def _preset_names_from_configs(settings: Settings) -> list[str]:
@@ -511,6 +537,7 @@ def get_compare(ids: list[str], range_: str) -> ComparePayload:
 def _get_compare_mock(ids: list[str], range_: str) -> ComparePayload:
     del range_
     payload = deepcopy(mock_data.fallback_compare)
+    payload["data_source"] = "fallback"
     present = [run_id for run_id in ids if run_id in payload["metrics"]["cagr"]]
     if not present:
         return ComparePayload.model_validate(payload)
@@ -544,6 +571,7 @@ def get_universe_timeline() -> UniverseTimelinePayload:
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Falling back to mock universe timeline: %s", exc)
         payload = deepcopy(mock_data.fallback_universe_timeline)
+        payload["data_source"] = "fallback"
     return UniverseTimelinePayload.model_validate(payload)
 
 
@@ -709,7 +737,9 @@ def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[di
     except (FileNotFoundError, ValueError) as exc:
         if log_warning:
             logger.warning("Falling back to mock overview: %s", exc)
-        return deepcopy(mock_data.fallback_overview), True
+        payload = deepcopy(mock_data.fallback_overview)
+        payload["data_source"] = "fallback"
+        return payload, True
 
 
 def _report_file_to_entry(row) -> ReportEntry:

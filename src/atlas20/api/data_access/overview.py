@@ -10,7 +10,15 @@ from typing import Any
 import pandas as pd
 
 from atlas20.api._time import today
-from atlas20.api.data_access._common import _as_float, _date_string, _latest_report_dir, _load_date_indexed_csv, _read_csv
+from atlas20.api.data_access._common import (
+    _as_float,
+    _date_string,
+    _format_display_name,
+    _latest_report_dir,
+    _load_date_indexed_csv,
+    _read_csv,
+    _strategy_family,
+)
 from atlas20.api.settings import Settings
 
 
@@ -231,34 +239,6 @@ def _build_rebalance(
         "ts": _date_string(daily_returns_index[-1]),
         "swaps": swaps,
     }
-
-
-_STRATEGY_FAMILY_PREFIXES: list[tuple[str, str]] = [
-    ("BTC_BH", "BTC Benchmark"),
-    ("ETH_BH", "ETH Benchmark"),
-    ("TOP20_EQ", "Equal Weight"),
-    ("TOP20_MOM", "Momentum Rotation"),
-    ("TOP20_SECTOR", "Sector Rotation"),
-]
-
-
-def _strategy_family(name: str) -> str:
-    for prefix, label in _STRATEGY_FAMILY_PREFIXES:
-        if name.startswith(prefix):
-            return label
-    return "Other"
-
-
-def _format_display_name(strategy: str) -> str:
-    family = _strategy_family(strategy)
-    for prefix, _ in _STRATEGY_FAMILY_PREFIXES:
-        if strategy.startswith(prefix):
-            variant = strategy[len(prefix):].lstrip("_")
-            if not variant:
-                return family
-            cleaned = variant.replace("__", " · ").replace("_", " ")
-            return f"{family} · {cleaned.title()}"
-    return strategy.replace("__", " · ").replace("_", " ").title()
 
 
 def _parse_cadence(strategy: str, selection_history: pd.DataFrame | None) -> str | None:
