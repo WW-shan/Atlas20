@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### B24 — Centralized display names + fallback data indicator (2026-05-25)
+
+Two systemic bugs from live browser audit: raw strategy slugs leaking into every dropdown/pill/table header, and no visual indicator distinguishing real research data from hardcoded mock fallbacks.
+
+**Added**
+- `_format_display_name` centralized in `_common.py` with family-prefix mapping + `_DISPLAY_NAME_OVERRIDES` for `"base"` → `"Base Config"` and `"universe_refresh"` → `"Universe Refresh"`.
+- `PresetOption(slug, display_name)` and `StrategyOption(strategy, display_name)` schemas. `/api/options` and `/api/compare` now return `display_name` for every entry.
+- `data_source: "real" | "fallback"` discriminator on `OverviewPayload`, `ComparePayload`, `UniverseTimelinePayload`, and `DataAlert.source`.
+- `DemoDataBanner` component (amber `⚠ DEMO DATA` banner) rendered on Overview, Compare, Universe, Reports tabs when `data_source === "fallback"`.
+- Overview sync dot turns amber when `last_sync_seconds > 86400` (> 1 day stale).
+- Overview KPI row gap increased to 32px for breathing room.
+
+**Fixed**
+- Backtest preset dropdown now shows `display_name` (e.g. "Base Config") instead of raw slug (`"base"`).
+- Compare strategy pills, chart legend, and table headers now show `display_name` instead of raw slug.
+- Error banner in Compare now renders even when data is unavailable (was hidden inside data-dependent branch).
+- Removed `fallbackCompare` as `initialData` for Compare query — mock data no longer flashes on first paint.
+
+**Removed**
+- `DEFAULT_SELECTIONS`, `PRESET_COMPARE_IDS`, `__TEST_DEFAULT_SELECTIONS` from `StrategyCompareTab.tsx` (dead code from B22 era).
+
+**Tests**
+- pytest: 384 → 392 (+8). Display name unit tests, options/compare payload display_name tests, data_source real/fallback tests.
+- vitest: 170 passed (test updates for new preset type, no count change).
+
 ### B23a — Overview UX honesty + chart empty state (2026-05-22)
 
 Closes three of the four known B23 UI lies plus four new findings from the post-v0.2.0 dual-reviewer audit. Sixth commit on `feat/b23a-overview-honesty`: builder `dd640af` plus reviewer-pass commits `b246ef4` (F1 aria), `6f53d4a` (F2 path-validation reuse), `ea087a8` (F3 edge tests), `6b139b2` (F4 cadence-token precedence), `3355fef` (F5 NaN-only YTD).
