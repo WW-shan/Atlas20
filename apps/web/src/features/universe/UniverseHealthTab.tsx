@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
+import { DemoDataBanner } from "../../components/ui/DemoDataBanner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { SectionHeader } from "../../components/ui/SectionHeader";
@@ -74,6 +75,7 @@ export function UniverseHealthTab({ apiEnabled: apiEnabledOverride }: Props = {}
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+      <DemoDataBanner visible={timeline.data?.data_source === "fallback"} />
       {isInitialLoading ? (
         <UniverseLoadingState />
       ) : tabFailed ? (

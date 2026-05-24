@@ -289,6 +289,7 @@ export type DataAlert = {
   meta: string;
   ts: string;
   icon: "alert-triangle" | "info" | "check-circle";
+  source?: string;
 };
 
 // ============================================================

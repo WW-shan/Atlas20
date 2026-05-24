@@ -121,8 +121,11 @@ def _strategy_family(name: str) -> str:
 
 
 def _format_display_name(strategy: str) -> str:
-    if strategy in _DISPLAY_NAME_OVERRIDES:
-        return _DISPLAY_NAME_OVERRIDES[strategy]
+    slug = strategy.strip().replace("_", "")
+    if not slug:
+        return strategy
+    if strategy.strip() in _DISPLAY_NAME_OVERRIDES:
+        return _DISPLAY_NAME_OVERRIDES[strategy.strip()]
 
     family = _strategy_family(strategy)
     for prefix, _ in _STRATEGY_FAMILY_PREFIXES:

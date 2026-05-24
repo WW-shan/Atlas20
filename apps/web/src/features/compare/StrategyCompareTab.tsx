@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
+import { DemoDataBanner } from "../../components/ui/DemoDataBanner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { SectionHeader } from "../../components/ui/SectionHeader";
@@ -114,7 +115,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
-      {/* ===== Chip cluster ===== */}
+      <DemoDataBanner visible={data?.data_source === "fallback"} />
       <Card ariaLabel="Strategy selection">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <div role="list" aria-label="Selected strategies" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
