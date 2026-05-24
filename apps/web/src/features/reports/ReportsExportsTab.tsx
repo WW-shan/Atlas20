@@ -204,7 +204,7 @@ export function ReportsExportsTab() {
       </Card>
       <NewReportModal
         open={newReportOpen}
-        presets={options.data?.presets ?? fallbackOptions.presets}
+        presets={options.data?.presets ?? []}
         onClose={() => setNewReportOpen(false)}
         onGenerate={handleGenerateReport}
       />

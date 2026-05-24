@@ -18,24 +18,8 @@ import type { CompareSelectionItem } from "../../lib/api";
 import type { ChartRange } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
 
-const DEFAULT_SELECTIONS: CompareSelectionItem[] = [
-  { id: "atlas",    label: "ATLAS Adaptive v3", tone: "gold" },
-  { id: "momentum", label: "Momentum Top-10",   tone: "violet" },
-  { id: "meanrev",  label: "Mean Reversion v2", tone: "cyan" },
-];
-
-/** Legacy default chip set, exported only for tests asserting the
- *  pre-options-seeding shape. Production should never construct this
- *  directly. */
-export const __TEST_DEFAULT_SELECTIONS = DEFAULT_SELECTIONS;
-
 const RANGES: ChartRange[] = ["1M", "3M", "YTD", "1Y", "ALL"];
 const TONES: CompareSelectionItem["tone"][] = ["gold", "violet", "cyan", "emerald"];
-const PRESET_COMPARE_IDS: Record<string, string> = {
-  "ATLAS Adaptive v3": "atlas",
-  "Momentum Top-10": "momentum",
-  "Mean Reversion v2": "meanrev",
-};
 
 type Props = {
   initialSelections?: CompareSelectionItem[];
@@ -43,27 +27,11 @@ type Props = {
 
 const lineToneFor = (tone: CompareSelectionItem["tone"]) => tone;
 
-function resolveCompareId(label: string): string {
-  if (PRESET_COMPARE_IDS[label]) return PRESET_COMPARE_IDS[label];
-  // Real backend strategy names are exact column headers in
-  // strategy_summary.csv and are accepted as-is by /api/compare's
-  // _resolve_strategy_ids. Slugifying them would lower-case + replace
-  // underscores and the backend would treat them as unknown ids and fall
-  // back to the mock payload. Only slugify when the label clearly is a
-  // free-form preset (no embedded "__" family separator and no known
-  // backend prefix).
-  const looksLikeBackendStrategy =
-    label.includes("__") ||
-    /^(BTC_BH|ETH_BH|TOP20_)/.test(label);
-  if (looksLikeBackendStrategy) return label;
-  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-}
-
-function buildSelectionsFromPresets(presets: string[] | undefined, count: number): CompareSelectionItem[] {
+function buildSelectionsFromPresets(presets: { slug: string; display_name: string }[] | undefined, count: number): CompareSelectionItem[] {
   if (!presets || presets.length === 0) return [];
   return presets.slice(0, count).map((preset, index) => ({
-    id: resolveCompareId(preset),
-    label: preset,
+    id: preset.slug,
+    label: preset.display_name,
     tone: TONES[index % TONES.length],
   }));
 }
@@ -114,15 +82,14 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
     queryKey: qk.compare(ids, range),
     queryFn: () => getCompare(ids, range),
     enabled: hasSelections,
-    initialData: hasSelections ? fallbackCompare : undefined,
-    placeholderData: (previous) => previous ?? (hasSelections ? fallbackCompare : undefined),
   });
 
-  const data = query.data ?? fallbackCompare;
   const compareFailed = query.isError || query.isRefetchError;
   const compareLoading = hasSelections && query.isFetching;
+  const data = query.data ?? (compareFailed ? undefined : fallbackCompare);
   const strategyOptions = useMemo(() => {
-    return Array.from(new Set([...selections.map((selection) => selection.label), ...(options.data?.presets ?? [])]));
+    const presetLabels = (options.data?.presets ?? []).map((p) => p.display_name);
+    return Array.from(new Set([...selections.map((s) => s.label), ...presetLabels]));
   }, [options.data?.presets, selections]);
 
   useEffect(() => {
@@ -135,8 +102,9 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   }, [ids, range]);
 
   const handleAddStrategies = (labels: string[]) => {
+    const presetByLabel = new Map((options.data?.presets ?? []).map((p) => [p.display_name, p.slug]));
     setSelections((current) => labels.map((label, index) => {
-      const id = resolveCompareId(label);
+      const id = presetByLabel.get(label) ?? label;
       const existing = current.find((selection) => selection.id === id);
       if (existing) return { ...existing, label };
       return { id, label, tone: TONES[index % TONES.length] };
@@ -174,8 +142,11 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
               onRetry={() => { void query.refetch(); }}
             />
           )}
-
-          {compareLoading && <Skeleton variant="card" height="48px" />}
+          {!data ? (
+            compareLoading ? <Skeleton variant="card" height="320px" /> : null
+          ) : (
+            <>
+              {compareLoading && <Skeleton variant="card" height="48px" />}
 
       {/* ===== Equity overlay ===== */}
       <Card ariaLabel="Strategy equity overlay">
@@ -283,6 +254,8 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
           </Card>
         </div>
       </div>
+            </>
+          )}
         </>
       )}
 

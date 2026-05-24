@@ -10,7 +10,7 @@ const FORMATS: ReportFormat[] = ["markdown", "pdf", "png", "csv"];
 
 type Props = {
   open: boolean;
-  presets: string[];
+  presets: { slug: string; display_name: string }[];
   onClose: () => void;
   onGenerate: (payload: GenerateReportRequest) => Promise<void>;
 };
@@ -27,7 +27,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
     if (!open) return;
     setType("weekly");
     setFormats(["markdown"]);
-    setStrategy(presets[0] ?? "");
+    setStrategy(presets[0]?.slug ?? "");
     setNotes("");
     setPending(false);
     setError(null);
@@ -35,12 +35,12 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
 
   const needsStrategy = type === "run" || type === "compare";
   const uniquePresets = useMemo(() => {
-    return Array.from(new Set(presets.filter((preset) => preset.trim().length > 0)));
+    return presets.filter((p) => p.slug.trim().length > 0);
   }, [presets]);
 
   useEffect(() => {
     if (!open || uniquePresets.length === 0) return;
-    if (!uniquePresets.includes(strategy)) setStrategy(uniquePresets[0]);
+    if (!uniquePresets.some((p) => p.slug === strategy)) setStrategy(uniquePresets[0]?.slug ?? "");
   }, [open, strategy, uniquePresets]);
 
   const toggleFormat = (format: ReportFormat) => {
@@ -179,7 +179,7 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
               {uniquePresets.length === 0 ? (
                 <option value="">No strategies available</option>
               ) : uniquePresets.map((preset) => (
-                <option key={preset} value={preset}>{preset}</option>
+                <option key={preset.slug} value={preset.slug}>{preset.display_name}</option>
               ))}
             </select>
           </label>

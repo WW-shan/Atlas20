@@ -85,6 +85,7 @@ export type OverviewPayload = {
   };
   hero_kpi: { ytdReturn: number; sharpe: number; maxDd: number; winRate: number };
   last_sync_seconds: number;
+  data_source?: "real" | "fallback";
 };
 
 // Pre-redesign RunStatus (kept for backward compat with runBacktest signature)
@@ -148,7 +149,8 @@ export type BacktestConfig = {
 };
 
 export type OptionsPayload = {
-  presets: string[];
+  presets: { slug: string; display_name: string }[];
+  strategies: { strategy: string; display_name: string }[];
   universes: { topN: number; label: string }[];
   rebalances: { value: "Weekly" | "Biweekly" | "Monthly"; label: string }[];
   feeBpsRange: number[];
@@ -158,12 +160,12 @@ export type OptionsPayload = {
 
 export const fallbackOptions: OptionsPayload = {
   presets: [
-    "ATLAS Adaptive v3",
-    "Momentum Top-10",
-    "Mean Reversion v2",
-    "ATLAS Adaptive v2",
-    "Carry Top-5",
+    { slug: "base", display_name: "Base Config" },
+    { slug: "five_year_2020_2024", display_name: "Five Year 2020 2024" },
+    { slug: "five_year_exact_2021_04_22_2026_04_22", display_name: "Five Year Exact 2021 04 22 2026 04 22" },
+    { slug: "bear_bottom_to_current_2022_11_21_2026_04_22", display_name: "Bear Bottom To Current 2022 11 21 2026 04 22" },
   ],
+  strategies: [],
   universes: [
     { topN: 5, label: "Top 5" },
     { topN: 10, label: "Top 10" },
@@ -246,6 +248,7 @@ export type CompareSelectionItem = {
 };
 
 export type ComparePayload = {
+  strategies: { strategy: string; display_name: string }[];
   equity: { ts: string; values: Record<string, number> }[];
   metrics: Record<CompareMetricKey, Record<string, number>>;
   overlap: {
@@ -253,6 +256,7 @@ export type ComparePayload = {
     matrix: number[][];
     sharedHoldings: { symbol: string; count: number; total: number }[];
   };
+  data_source?: "real" | "fallback";
 };
 
 // ============================================================
@@ -264,6 +268,7 @@ export type UniverseTimelinePayload = {
   segments: { token: string; start: string; end: string }[];
   rotations: { ts: string; label: string }[];
   range: { start: string; end: string };
+  data_source?: "real" | "fallback";
 };
 
 export type DataSourceStatus = "healthy" | "degraded" | "error";
@@ -468,6 +473,11 @@ export const fallbackRunDetail: RunDetailPayload = {
 };
 
 export const fallbackCompare: ComparePayload = {
+  strategies: [
+    { strategy: "atlas", display_name: "ATLAS v3" },
+    { strategy: "momentum", display_name: "Momentum" },
+    { strategy: "meanrev", display_name: "MeanRev" },
+  ],
   equity: [
     { ts: "Jan 2026", values: { atlas: 0,    momentum: 0,   meanrev: 0 } },
     { ts: "Feb 2026", values: { atlas: 180,  momentum: 110, meanrev: 32 } },

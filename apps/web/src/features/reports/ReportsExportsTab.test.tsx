@@ -184,7 +184,7 @@ describe("ReportsExportsTab", () => {
     const dialog = await screen.findByRole("dialog", { name: "New report" });
     fireEvent.click(within(dialog).getByRole("radio", { name: "run" }));
     fireEvent.change(within(dialog).getByRole("combobox", { name: "Strategy" }), {
-      target: { value: "Momentum Top-10" },
+      target: { value: "five_year_2020_2024" },
     });
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "pdf" }));
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Notes" }), {
@@ -195,7 +195,7 @@ describe("ReportsExportsTab", () => {
     await waitFor(() => expect(api.generateReport).toHaveBeenCalledWith({
       type: "run",
       formats: ["markdown", "pdf"],
-      strategy: "Momentum Top-10",
+      strategy: "five_year_2020_2024",
       notes: "include drawdown notes",
     }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "New report" })).not.toBeInTheDocument());

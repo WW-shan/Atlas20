@@ -8,7 +8,7 @@ type Props = {
   onRun: () => void;
   isRunning: boolean;
   refreshing?: boolean;
-  presets?: string[];
+  presets?: { slug: string; display_name: string }[];
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -27,13 +27,16 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius-input)",
 };
 
+const FALLBACK_PRESETS = [
+  { slug: "base", display_name: "Base Config" },
+  { slug: "five_year_2020_2024", display_name: "Five Year 2020 2024" },
+  { slug: "five_year_exact_2021_04_22_2026_04_22", display_name: "Five Year Exact 2021 04 22 2026 04 22" },
+  { slug: "bear_bottom_to_current_2022_11_21_2026_04_22", display_name: "Bear Bottom To Current 2022 11 21 2026 04 22" },
+];
+
 export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing, presets }: Props) {
-  const options = presets && presets.length > 0
-    ? presets
-    : ["ATLAS Adaptive v3", "Momentum Top-10", "Mean Reversion v2", "Carry Top-5"];
-  // Ensure currently-selected preset is in the dropdown even if not in the
-  // server list (preserves the prefilled preset from a hydrated past run).
-  const fullList = options.includes(value.preset) ? options : [value.preset, ...options];
+  const options = presets && presets.length > 0 ? presets : FALLBACK_PRESETS;
+  const fullList = options.some((p) => p.slug === value.preset) ? options : [{ slug: value.preset, display_name: value.preset }, ...options];
   return (
     <aside
       style={{
@@ -58,7 +61,7 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing
           aria-label="Strategy preset"
         >
           {fullList.map((p) => (
-            <option key={p} value={p}>{p}</option>
+            <option key={p.slug} value={p.slug}>{p.display_name}</option>
           ))}
         </select>
       </div>
