@@ -1,6 +1,7 @@
 import type { OverviewPayload } from "../../lib/api";
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
 import { Card } from "../../components/ui/Card";
+import { DemoDataBanner } from "../../components/ui/DemoDataBanner";
 import { Pill } from "../../components/ui/Pill";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { Button } from "../../components/ui/Button";
@@ -72,6 +73,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+      <DemoDataBanner visible={overview.data_source === "fallback"} />
 
       {/* ===== Hero ===== */}
       <Card variant="hero" ariaLabel="Current champion summary">
@@ -95,7 +97,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       </Card>
 
       {/* ===== KPI Triplet ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 32 }}>
 
         {/* Tracked notional (research, not real AUM) */}
         <Card ariaLabel="Champion equity trend (research)">
@@ -214,7 +216,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
             <span className="muted">Last sync:</span>
             <span className="mono">{formatRelativeAge(overview.last_sync_seconds)}</span>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--emerald)", display: "inline-block" }} />
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: overview.last_sync_seconds > 86400 ? "var(--amber)" : "var(--emerald)", display: "inline-block" }} />
           </div>
         </div>
       </Card>
