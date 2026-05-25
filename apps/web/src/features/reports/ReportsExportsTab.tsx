@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { FilePlus2 } from "lucide-react";
 
 import { Card } from "../../components/ui/Card";
-import { DemoDataBanner } from "../../components/ui/DemoDataBanner";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
