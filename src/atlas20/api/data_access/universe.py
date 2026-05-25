@@ -170,6 +170,7 @@ def _alert_from_quality_row(
             "meta": meta,
             "ts": ts,
             "icon": "alert-triangle",
+            "source": "real",
         }
 
     price_correlation = _as_float(row["price_correlation"], "price_correlation")
@@ -181,6 +182,7 @@ def _alert_from_quality_row(
             "meta": meta,
             "ts": ts,
             "icon": "info",
+            "source": "real",
         }
 
     latest_price_gap = _as_float(row["latest_price_gap"], "latest_price_gap")
@@ -192,6 +194,7 @@ def _alert_from_quality_row(
             "meta": meta,
             "ts": ts,
             "icon": "info",
+            "source": "real",
         }
 
     return None
