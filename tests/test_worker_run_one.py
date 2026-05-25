@@ -4,9 +4,9 @@ import json
 import os
 from pathlib import Path
 
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
-from atlas20.api.db.models import Run
+from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import RunsRepo
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.settings import Settings
@@ -26,7 +26,7 @@ def _settings(tmp_path) -> Settings:
     return Settings(
         db_url=f"sqlite:///{(tmp_path / 'run_one.sqlite').as_posix()}",
         report_root=tmp_path / "reports",
-        project_root=tmp_path,
+        project_root=Path(os.getcwd()),
         run_timeout_seconds=5,
         worker_poll_interval_seconds=0.01,
     )
@@ -77,6 +77,38 @@ def test_run_one_mock_happy_path_completes_run(tmp_path, monkeypatch):
     assert completed.return_pct == 0.25
     assert completed.sharpe == 1.5
     assert completed.max_dd == -0.1
+
+
+def test_completion_metrics_prefers_matching_strategy_row(tmp_path):
+    report_dir = tmp_path / "reports"
+    report_dir.mkdir()
+    (report_dir / "summary.csv").write_text(
+        "strategy,total_return,cagr,sharpe,max_drawdown\n"
+        "Other Leader,0.50,0.20,1.00,-0.10\n"
+        "ATLAS Adaptive v3,0.21,0.11,1.23,-0.15\n",
+        encoding="utf-8",
+    )
+
+    metrics = run_one._completion_metrics(report_dir, "ATLAS Adaptive v3")
+
+    assert metrics == {"return_pct": 0.21, "sharpe": 1.23, "max_dd": -0.15}
+
+
+def test_run_one_mock_registers_completion_reports(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_WORKER_MOCK", "1")
+    settings = _settings(tmp_path)
+    engine = _engine(settings)
+    _create_run(engine)
+
+    assert run_one.run("btk_0001", settings) == 0
+
+    with Session(engine) as session:
+        rows = session.exec(select(ReportFile).where(ReportFile.run_id == "btk_0001")).all()
+
+    kinds = {row.kind for row in rows}
+    assert {"markdown", "png", "csv", "bundle"}.issubset(kinds)
+    for row in rows:
+        assert (settings.report_root / row.path).exists()
 
 
 def test_run_one_writes_atomic_artifacts(tmp_path, monkeypatch):

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-import logging
+import csv
 import json
+import logging
+import math
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from sqlmodel import Session
 
@@ -215,7 +217,8 @@ def list_runs(
         page_size=page_size,
     )
     if total > 0:
-        return [_run_to_row(row) for row in rows], total
+        settings = get_settings()
+        return [_run_to_row_with_artifacts(settings, row) for row in rows], total
 
     _, unfiltered_total = repo.list(date_cutoff=None, page=1, page_size=1)
     if unfiltered_total > 0:
@@ -240,7 +243,7 @@ def list_runs(
 
 def get_run(session: Session, run_id: str) -> RunRow | None:
     row = RunsRepo(session).get(run_id)
-    return _run_to_row(row) if row else None
+    return _run_to_row_with_artifacts(get_settings(), row) if row else None
 
 
 def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
@@ -265,22 +268,443 @@ def _derive_kpi_from_row(row: dict[str, Any]) -> dict[str, float]:
     }
 
 
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        parsed = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def _safe_int(value: Any) -> int | None:
+    parsed = _safe_float(value)
+    return int(parsed) if parsed is not None else None
+
+
+def _run_output_dir(settings: Settings, run: Run) -> Path:
+    return Path(settings.report_root) / "app_runs" / run.run_id
+
+
+def _normalised_name(value: str) -> str:
+    return "".join(ch for ch in value.lower() if ch.isalnum())
+
+
+def _read_csv_dict_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fields = [field or "" for field in (reader.fieldnames or [])]
+        return fields, list(reader)
+
+
+def _run_artifact_csv(run_dir: Path, names: tuple[str, ...]) -> Path | None:
+    for name in names:
+        candidate = run_dir / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _strategy_field(fields: list[str]) -> str | None:
+    if "strategy" in fields:
+        return "strategy"
+    return fields[0] if fields else None
+
+
+def _row_strategy_value(row: dict[str, str], strategy_field: str | None) -> str | None:
+    if strategy_field is None:
+        return None
+    value = row.get(strategy_field)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _summary_leader_strategy(run_dir: Path) -> str | None:
+    summary_path = _run_artifact_csv(run_dir, ("summary.csv", "strategy_summary.csv"))
+    if summary_path is None:
+        return None
+    try:
+        fields, rows = _read_csv_dict_rows(summary_path)
+    except OSError:
+        return None
+    if not rows:
+        return None
+    return _row_strategy_value(rows[0], _strategy_field(fields))
+
+
+def _summary_row_for_run(run: Run, run_dir: Path) -> tuple[str | None, dict[str, str] | None]:
+    summary_path = _run_artifact_csv(run_dir, ("summary.csv", "strategy_summary.csv"))
+    if summary_path is None:
+        return None, None
+    try:
+        fields, rows = _read_csv_dict_rows(summary_path)
+    except OSError as exc:
+        logger.warning("Unable to read summary for %s: %s", run.run_id, exc)
+        return None, None
+    if not rows:
+        return None, None
+
+    strategy_field = _strategy_field(fields)
+    leader = _row_strategy_value(rows[0], strategy_field)
+    for name in (run.strategy, leader):
+        if not name:
+            continue
+        target = _normalised_name(name)
+        for row in rows:
+            strategy = _row_strategy_value(row, strategy_field)
+            if strategy and _normalised_name(strategy) == target:
+                return strategy, row
+    return leader, rows[0]
+
+
+def _selected_strategy_from_artifacts(settings: Settings, run: Run) -> str:
+    strategy, _summary_row = _summary_row_for_run(run, _run_output_dir(settings, run))
+    return strategy or run.strategy
+
+
+def _coalesce_float(row: dict[str, str], *keys: str) -> float | None:
+    for key in keys:
+        value = _safe_float(row.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _float_or(value: float | None, fallback: float) -> float:
+    return value if value is not None else fallback
+
+
+def _kpi_from_artifacts(settings: Settings, run: Run, fallback_row: dict[str, Any]) -> dict[str, float]:
+    fallback = _derive_kpi_from_row(fallback_row)
+    _selected_strategy, summary_row = _summary_row_for_run(run, _run_output_dir(settings, run))
+    if summary_row is None:
+        return fallback
+
+    return {
+        "cagr": _float_or(_coalesce_float(summary_row, "cagr", "annualized_return", "total_return"), fallback["cagr"]),
+        "sharpe": _float_or(_coalesce_float(summary_row, "sharpe"), fallback["sharpe"]),
+        "sortino": _float_or(_coalesce_float(summary_row, "sortino"), fallback["sortino"]),
+        "max_dd": _float_or(_coalesce_float(summary_row, "max_drawdown", "max_dd"), fallback["max_dd"]),
+        "calmar": _float_or(_coalesce_float(summary_row, "calmar"), fallback["calmar"]),
+        "win_rate": _float_or(_coalesce_float(summary_row, "monthly_win_rate", "win_rate"), fallback["win_rate"]),
+    }
+
+
+def _matching_strategy_rows(
+    rows: list[dict[str, str]],
+    strategy_field: str | None,
+    selected_strategy: str | None,
+) -> list[dict[str, str]]:
+    if not selected_strategy:
+        return rows
+    target = _normalised_name(selected_strategy)
+    matches = [
+        row
+        for row in rows
+        if (strategy := _row_strategy_value(row, strategy_field)) and _normalised_name(strategy) == target
+    ]
+    return matches or rows
+
+
+def _pick_named_column(columns: list[str], names: list[str | None]) -> str | None:
+    for name in names:
+        if not name:
+            continue
+        if name in columns:
+            return name
+        target = _normalised_name(name)
+        for column in columns:
+            if _normalised_name(column) == target:
+                return column
+    return None
+
+
+def _pick_run_equity_columns(run: Run, run_dir: Path, numeric_columns: list[str]) -> tuple[str, str] | None:
+    leader = _summary_leader_strategy(run_dir)
+    atlas_col = _pick_named_column(numeric_columns, [run.strategy, leader])
+    if atlas_col is None:
+        atlas_col = next((column for column in numeric_columns if "btc" not in column.lower()), None)
+    if atlas_col is None and numeric_columns:
+        atlas_col = numeric_columns[0]
+    if atlas_col is None:
+        return None
+
+    btc_col = _pick_named_column(numeric_columns, ["BTC_BH__always_on", "BTC Benchmark", "BTC"])
+    if btc_col is None or btc_col == atlas_col:
+        btc_col = next((column for column in numeric_columns if column != atlas_col and "btc" in column.lower()), None)
+    if btc_col is None:
+        btc_col = next((column for column in numeric_columns if column != atlas_col), atlas_col)
+    return atlas_col, btc_col
+
+
+def _date_column(fields: list[str]) -> str | None:
+    for candidate in ("date", "", "index", "Unnamed: 0"):
+        if candidate in fields:
+            return candidate
+    return fields[0] if fields else None
+
+
+def _normalise_to_percent_points(value: float, base: float | None) -> float:
+    if base is None or base == 0:
+        return round(value, 6)
+    return round(((value / base) - 1) * 100, 6)
+
+
+def _decimal_to_percent_points(value: float) -> float:
+    return round(value * 100, 6)
+
+
+def _run_equity_overlay_from_artifacts(settings: Settings, run: Run) -> dict[str, Any] | None:
+    run_dir = _run_output_dir(settings, run)
+    equity_path = _run_artifact_csv(run_dir, ("equity_curve.csv", "equity_curves.csv"))
+    if equity_path is None:
+        return None
+    try:
+        fields, rows = _read_csv_dict_rows(equity_path)
+    except OSError as exc:
+        logger.warning("Unable to read equity curve for %s: %s", run.run_id, exc)
+        return None
+    if not fields or not rows:
+        return None
+
+    date_field = _date_column(fields)
+    numeric_columns = [
+        field
+        for field in fields
+        if field != date_field and any(_safe_float(row.get(field)) is not None for row in rows)
+    ]
+    columns = _pick_run_equity_columns(run, run_dir, numeric_columns)
+    if columns is None:
+        return None
+    atlas_col, btc_col = columns
+
+    atlas_base = next((_safe_float(row.get(atlas_col)) for row in rows if _safe_float(row.get(atlas_col)) is not None), None)
+    btc_base = next((_safe_float(row.get(btc_col)) for row in rows if _safe_float(row.get(btc_col)) is not None), None)
+    points: list[dict[str, float | str]] = []
+    for index, row in enumerate(rows, start=1):
+        atlas_value = _safe_float(row.get(atlas_col))
+        btc_value = _safe_float(row.get(btc_col))
+        if atlas_value is None or btc_value is None:
+            continue
+        ts = row.get(date_field) if date_field is not None else None
+        points.append(
+            {
+                "ts": str(ts).strip() if ts else str(index),
+                "atlas": _normalise_to_percent_points(atlas_value, atlas_base),
+                "btc": _normalise_to_percent_points(btc_value, btc_base),
+            }
+        )
+    return {"series": points} if points else None
+
+
+def _run_wide_series_from_artifacts(
+    settings: Settings,
+    run: Run,
+    names: tuple[str, ...],
+    transform: Callable[[float], float],
+) -> list[dict[str, float | str]]:
+    run_dir = _run_output_dir(settings, run)
+    path = _run_artifact_csv(run_dir, names)
+    if path is None:
+        return []
+    try:
+        fields, rows = _read_csv_dict_rows(path)
+    except OSError as exc:
+        logger.warning("Unable to read run series %s for %s: %s", path.name, run.run_id, exc)
+        return []
+    if not fields or not rows:
+        return []
+
+    date_field = _date_column(fields)
+    numeric_columns = [
+        field
+        for field in fields
+        if field != date_field and any(_safe_float(row.get(field)) is not None for row in rows)
+    ]
+    columns = _pick_run_equity_columns(run, run_dir, numeric_columns)
+    if columns is None:
+        return []
+    atlas_col, btc_col = columns
+
+    points: list[dict[str, float | str]] = []
+    for index, row in enumerate(rows, start=1):
+        atlas_value = _safe_float(row.get(atlas_col))
+        btc_value = _safe_float(row.get(btc_col))
+        if atlas_value is None or btc_value is None:
+            continue
+        ts = row.get(date_field) if date_field is not None else None
+        points.append(
+            {
+                "ts": str(ts).strip() if ts else str(index),
+                "atlas": transform(atlas_value),
+                "btc": transform(btc_value),
+            }
+        )
+    return points
+
+
+def _sample_spark(values: list[float], max_points: int = 24) -> list[float]:
+    if len(values) <= max_points:
+        return [round(value, 6) for value in values]
+    indexes = [
+        round(index * (len(values) - 1) / (max_points - 1))
+        for index in range(max_points)
+    ]
+    return [round(values[index], 6) for index in indexes]
+
+
+def _run_spark_from_artifacts(settings: Settings, run: Run) -> list[float] | None:
+    overlay = _run_equity_overlay_from_artifacts(settings, run)
+    if overlay is None:
+        return None
+    values = [
+        float(point["atlas"])
+        for point in overlay.get("series", [])
+        if isinstance(point.get("atlas"), int | float)
+    ]
+    return _sample_spark(values) if values else None
+
+
+def _run_to_row_with_artifacts(settings: Settings, run: Run) -> RunRow:
+    row = _run_to_row(run).model_dump(mode="json")
+    run_dir = _run_output_dir(settings, run)
+    selected_strategy, summary_row = _summary_row_for_run(run, run_dir)
+    if selected_strategy:
+        row["selected_strategy"] = selected_strategy
+    if summary_row is not None:
+        return_pct = _coalesce_float(summary_row, "total_return", "return_pct", "cagr")
+        sharpe = _coalesce_float(summary_row, "sharpe")
+        max_dd = _coalesce_float(summary_row, "max_drawdown", "max_dd")
+        if return_pct is not None:
+            row["return_pct"] = return_pct
+        if sharpe is not None:
+            row["sharpe"] = sharpe
+        if max_dd is not None:
+            row["max_dd"] = max_dd
+    artifact_spark = _run_spark_from_artifacts(settings, run)
+    if artifact_spark:
+        row["spark"] = artifact_spark
+    return RunRow.model_validate(row)
+
+
+def _run_turnover_rows_from_artifacts(
+    settings: Settings,
+    run: Run,
+    selected_strategy: str | None,
+) -> list[dict[str, Any]]:
+    path = _run_artifact_csv(_run_output_dir(settings, run), ("turnover_summary.csv",))
+    if path is None:
+        return []
+    try:
+        fields, rows = _read_csv_dict_rows(path)
+    except OSError as exc:
+        logger.warning("Unable to read turnover summary for %s: %s", run.run_id, exc)
+        return []
+
+    strategy_field = _strategy_field(fields)
+    selected_rows = _matching_strategy_rows(rows, strategy_field, selected_strategy)
+    return [
+        {
+            "strategy": _row_strategy_value(row, strategy_field) or selected_strategy or "",
+            "annualized_turnover": _coalesce_float(row, "annualized_turnover"),
+            "avg_turnover_per_rebalance": _coalesce_float(
+                row,
+                "avg_turnover_per_rebalance",
+                "avg_turnover",
+            ),
+            "average_holdings": _coalesce_float(row, "average_holdings"),
+        }
+        for row in selected_rows
+    ]
+
+
+def _run_trade_rows_from_artifacts(
+    settings: Settings,
+    run: Run,
+    selected_strategy: str | None,
+) -> list[dict[str, Any]]:
+    path = _run_artifact_csv(_run_output_dir(settings, run), ("selection_history.csv",))
+    if path is None:
+        return []
+    try:
+        fields, rows = _read_csv_dict_rows(path)
+    except OSError as exc:
+        logger.warning("Unable to read selection history for %s: %s", run.run_id, exc)
+        return []
+
+    strategy_field = "strategy" if "strategy" in fields else None
+    date_field = "rebalance_date" if "rebalance_date" in fields else _date_column(fields)
+    selected_rows = _matching_strategy_rows(rows, strategy_field, selected_strategy)[-50:]
+    trade_rows: list[dict[str, Any]] = []
+    for row in selected_rows:
+        coin_id = str(row.get("coin_id") or row.get("symbol") or row.get("asset") or "").strip()
+        if not coin_id:
+            continue
+        rebalance_date = row.get(date_field) if date_field is not None else None
+        trade_rows.append(
+            {
+                "rebalance_date": str(rebalance_date).strip() if rebalance_date else "",
+                "strategy": _row_strategy_value(row, strategy_field),
+                "coin_id": coin_id,
+                "coin_rank": _safe_int(row.get("coin_rank") or row.get("rank")),
+                "coin_score": _coalesce_float(row, "coin_score", "score"),
+                "coin_weight": _coalesce_float(row, "coin_weight", "weight"),
+            }
+        )
+    return trade_rows
+
+
 def get_run_detail(session: Session, run_id: str) -> RunDetailPayload | None:
     if run_id == mock_data.fallback_run_detail["run_id"]:
         canonical = deepcopy(mock_data.fallback_run_detail)
         db_row = RunsRepo(session).get(run_id)
         if db_row is not None:
+            settings = get_settings()
+            selected_strategy = _selected_strategy_from_artifacts(settings, db_row)
             canonical["favorited"] = db_row.favorited
+            canonical["selected_strategy"] = selected_strategy
+            canonical["equity_overlay"] = _run_equity_overlay_from_artifacts(settings, db_row) or canonical["equity_overlay"]
+            canonical["drawdown_series"] = _run_wide_series_from_artifacts(
+                settings,
+                db_row,
+                ("drawdowns.csv",),
+                _decimal_to_percent_points,
+            )
+            canonical["return_series"] = _run_wide_series_from_artifacts(
+                settings,
+                db_row,
+                ("daily_returns.csv",),
+                _decimal_to_percent_points,
+            )
+            canonical["turnover_rows"] = _run_turnover_rows_from_artifacts(settings, db_row, selected_strategy)
+            canonical["trade_rows"] = _run_trade_rows_from_artifacts(settings, db_row, selected_strategy)
         return RunDetailPayload.model_validate(canonical)
 
     run = RunsRepo(session).get(run_id)
     if run is None:
         return None
-    row = _run_to_row(run).model_dump(mode="json")
+    settings = get_settings()
+    row = _run_to_row_with_artifacts(settings, run).model_dump(mode="json")
+    selected_strategy = _selected_strategy_from_artifacts(settings, run)
     detail = {
         **row,
-        "equity_overlay": {"series": mock_data.fallback_overview["equity_overlay"]["series"]},
-        "kpi": _derive_kpi_from_row(row),
+        "selected_strategy": selected_strategy,
+        "equity_overlay": _run_equity_overlay_from_artifacts(settings, run) or {"series": []},
+        "kpi": _kpi_from_artifacts(settings, run, row),
+        "drawdown_series": _run_wide_series_from_artifacts(
+            settings,
+            run,
+            ("drawdowns.csv",),
+            _decimal_to_percent_points,
+        ),
+        "return_series": _run_wide_series_from_artifacts(
+            settings,
+            run,
+            ("daily_returns.csv",),
+            _decimal_to_percent_points,
+        ),
+        "turnover_rows": _run_turnover_rows_from_artifacts(settings, run, selected_strategy),
+        "trade_rows": _run_trade_rows_from_artifacts(settings, run, selected_strategy),
     }
     return RunDetailPayload.model_validate(detail)
 
@@ -710,7 +1134,7 @@ def _featured_digest_from_kv(session: Session, settings: Settings) -> FeaturedDi
     generated_at = _datetime_to_api_iso(markdown.generated_at)
     available_formats = [
         kind
-        for kind in ("markdown", "pdf", "png", "csv")
+        for kind in ("markdown", "pdf", "png", "csv", "bundle")
         if reports_repo.by_run_kind(run_id, kind) is not None
     ]
     return FeaturedDigest.model_validate(

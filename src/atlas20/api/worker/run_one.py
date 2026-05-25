@@ -20,6 +20,7 @@ from atlas20.config import load_config
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.schemas import BacktestConfig
+from atlas20.api.services_report import generate_run_report_with_warnings
 from atlas20.api.settings import Settings, get_settings
 from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
@@ -87,8 +88,28 @@ def _write_mock_artifacts(report_dir: Path) -> None:
     weights_dir = report_dir / "weights"
     weights_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "summary.csv").write_text(
-        "strategy,total_return,cagr,sharpe,max_drawdown\n"
-        "ATLAS_MOCK,0.25,0.25,1.5,-0.1\n",
+        "strategy,total_return,cagr,annualized_volatility,sharpe,sortino,max_drawdown,calmar,"
+        "monthly_win_rate,annualized_turnover,avg_turnover_per_rebalance,average_holdings\n"
+        "ATLAS_MOCK,0.25,0.25,0.20,1.5,1.8,-0.1,2.5,0.60,0.20,0.05,5\n"
+        "BTC_BH__always_on,0.12,0.12,0.25,0.8,1.0,-0.2,0.6,0.55,0.00,0.00,1\n"
+        "TOP20_EQ__always_on,0.18,0.18,0.22,1.1,1.2,-0.15,1.2,0.58,0.10,0.04,20\n"
+        "TOP20_MOM_alpha,0.25,0.25,0.20,1.5,1.8,-0.1,2.5,0.60,0.20,0.05,5\n"
+        "TOP20_SECTOR_beta,0.20,0.20,0.21,1.2,1.4,-0.12,1.7,0.57,0.18,0.04,5\n",
+        encoding="utf-8",
+    )
+    (report_dir / "yearly_returns.csv").write_text(
+        "year,ATLAS_MOCK,BTC_BH__always_on,TOP20_EQ__always_on,TOP20_MOM_alpha,TOP20_SECTOR_beta\n"
+        "2025,0.10,0.04,0.08,0.10,0.09\n"
+        "2026,0.15,0.08,0.10,0.15,0.11\n",
+        encoding="utf-8",
+    )
+    (report_dir / "regime_performance.csv").write_text(
+        "strategy,regime,annualized_return\n"
+        "ATLAS_MOCK,bull,0.25\n"
+        "BTC_BH__always_on,bull,0.12\n"
+        "TOP20_EQ__always_on,bull,0.18\n"
+        "TOP20_MOM_alpha,bull,0.25\n"
+        "TOP20_SECTOR_beta,bull,0.20\n",
         encoding="utf-8",
     )
     (report_dir / "equity_curve.csv").write_text(
@@ -127,14 +148,30 @@ def _float_or_none(value: Any) -> float | None:
     return float(value)
 
 
-def _completion_metrics(report_dir: Path) -> dict[str, float | None]:
+def _normalised_name(value: str) -> str:
+    return "".join(ch for ch in value.lower() if ch.isalnum())
+
+
+def _completion_summary_row(summary: pd.DataFrame, strategy: str | None) -> Any:
+    if summary.empty:
+        return None
+    if strategy and "strategy" in summary.columns:
+        target = _normalised_name(strategy)
+        for _, row in summary.iterrows():
+            row_strategy = row.get("strategy")
+            if isinstance(row_strategy, str) and _normalised_name(row_strategy) == target:
+                return row
+    return summary.iloc[0]
+
+
+def _completion_metrics(report_dir: Path, strategy: str | None = None) -> dict[str, float | None]:
     summary_path = report_dir / "summary.csv"
     if not summary_path.exists():
         summary_path = report_dir / "strategy_summary.csv"
     summary = pd.read_csv(summary_path)
-    if summary.empty:
+    row = _completion_summary_row(summary, strategy)
+    if row is None:
         return {"return_pct": None, "sharpe": None, "max_dd": None}
-    row = summary.iloc[0]
     return {
         "return_pct": _float_or_none(row.get("total_return", row.get("cagr"))),
         "sharpe": _float_or_none(row.get("sharpe")),
@@ -172,6 +209,18 @@ def _execute_universe_refresh(settings: Settings) -> None:
     config = load_config(settings.project_root / "config" / "base.yaml")
     config.paths.raw_dir = str(settings.data_root / "raw")
     download_and_cache_raw_data(config)
+
+
+def _register_completion_reports(run_id: str, settings: Settings) -> None:
+    engine = get_engine(settings)
+    with Session(engine) as session:
+        generate_run_report_with_warnings(
+            run_id,
+            {"markdown", "png", "csv", "bundle"},
+            session=session,
+            settings=settings,
+        )
+        session.commit()
 
 
 def run(run_id: str, settings: Settings | None = None) -> int:
@@ -213,7 +262,7 @@ def run(run_id: str, settings: Settings | None = None) -> int:
             encoding="utf-8",
         )
         _write_manifest(tmp_dir, settings, params_json)
-        metrics = _completion_metrics(tmp_dir)
+        metrics = _completion_metrics(tmp_dir, strategy)
         # Batch 1's publisher uses backup-rename semantics: move existing to
         # .backup, move tmp to final, then delete .backup after success.
         # This keeps rollback behavior for partial publish failures.
@@ -235,6 +284,10 @@ def run(run_id: str, settings: Settings | None = None) -> int:
                 duration_s=duration_s,
             )
             session.commit()
+        try:
+            _register_completion_reports(run_id, settings)
+        except Exception as exc:
+            print(f"report generation failed for {run_id}: {exc}", file=sys.stderr)
         return 0
     except Exception as exc:
         with Session(engine) as session:

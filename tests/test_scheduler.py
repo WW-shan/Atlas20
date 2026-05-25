@@ -79,3 +79,17 @@ def test_get_featured_digest_reads_kv_settings_first(
 
     assert payload.id == "btk_9004"
     assert "ATLAS Adaptive v3" in payload.subtitle
+
+
+def test_get_featured_digest_exposes_bundle_when_generated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    _create_completed_run(db_session, get_settings().report_root, "btk_9005", datetime(2026, 6, 8, tzinfo=timezone.utc))
+    generate_featured_digest(session=db_session, formats={"markdown", "bundle"})
+
+    payload = get_featured_digest(db_session)
+
+    assert "bundle" in payload.formats

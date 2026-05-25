@@ -125,3 +125,61 @@ def test_featured_digest_download_streams_bundle(
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/zip")
     assert response.content.startswith(b"PK")
+
+
+def test_report_download_allows_registered_artifact_when_manifest_omits_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = report_root / "app_runs" / "btk_0142"
+    run_dir.mkdir(parents=True)
+    digest = run_dir / "digest.md"
+    digest.write_text("# Digest\n", encoding="utf-8")
+    digest_sha = _sha256(digest)
+    csv = run_dir / "strategy_summary.csv"
+    csv.write_text("strategy,total_return\nbase,1.23\n", encoding="utf-8")
+    csv_sha = _sha256(csv)
+    _write_manifest(run_dir, "markdown", "digest.md", digest_sha, digest.stat().st_size)
+    row = ReportsRepo(db_session).create(
+        ReportFile(
+            run_id="btk_0142",
+            kind="csv",
+            path="app_runs/btk_0142/strategy_summary.csv",
+            sha256=csv_sha,
+            size_bytes=csv.stat().st_size,
+        )
+    )
+
+    response = client.get(f"/api/reports/{row.id}/download")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert response.text.startswith("strategy,total_return")
+
+
+def test_featured_digest_bundle_download_does_not_fallback_to_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = report_root / "app_runs" / "btk_0142"
+    run_dir.mkdir(parents=True)
+    digest = run_dir / "digest.md"
+    digest.write_text("# Digest\n", encoding="utf-8")
+    digest_sha = _sha256(digest)
+    _write_manifest(run_dir, "markdown", "digest.md", digest_sha, digest.stat().st_size)
+    ReportsRepo(db_session).create(
+        ReportFile(
+            run_id="btk_0142",
+            kind="markdown",
+            path="app_runs/btk_0142/digest.md",
+            sha256=digest_sha,
+            size_bytes=digest.stat().st_size,
+        )
+    )
+    KvRepo(db_session).set("featured_digest_run_id", "btk_0142")
+
+    response = client.get("/api/reports/digest/download?format=bundle")
+
+    assert response.status_code == 404

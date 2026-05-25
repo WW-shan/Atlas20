@@ -151,10 +151,157 @@ def test_get_run_detail_returns_derived_kpi_for_listed_runs(db_session: Session)
     assert derived.kpi.sharpe == 1.94
     assert derived.kpi.max_dd == -0.184
     assert derived.kpi.cagr == 0.416
-    # equity_overlay falls back to canonical series (mock backend simplification)
-    assert len(derived.equity_overlay.series) > 0
+    # Real DB runs without output artifacts should not borrow the mock champion curve.
+    assert derived.equity_overlay.series == []
 
     assert get_run_detail(db_session, "btk_NONEXIST") is None
+
+
+def test_get_run_detail_reads_equity_curve_from_run_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    from atlas20.api.services import get_run_detail
+
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "app_runs" / "btk_0146"
+    run_dir.mkdir(parents=True)
+    (run_dir / "equity_curve.csv").write_text(
+        "date,Mean Reversion v2,BTC_BH__always_on\n"
+        "2026-01-01,100,100\n"
+        "2026-01-02,150,110\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    detail = get_run_detail(db_session, "btk_0146")
+
+    assert detail is not None
+    assert [point.ts for point in detail.equity_overlay.series] == ["2026-01-01", "2026-01-02"]
+    assert detail.equity_overlay.series[0].atlas == 0
+    assert detail.equity_overlay.series[0].btc == 0
+    assert detail.equity_overlay.series[1].atlas == 50
+    assert detail.equity_overlay.series[1].btc == 10
+
+
+def test_get_run_detail_reads_tab_artifacts_and_kpi_from_run_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    from atlas20.api.services import get_run_detail
+
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "app_runs" / "btk_0146"
+    run_dir.mkdir(parents=True)
+    (run_dir / "summary.csv").write_text(
+        "strategy,total_return,cagr,sharpe,sortino,max_drawdown,calmar,monthly_win_rate,"
+        "annualized_turnover,avg_turnover,average_holdings\n"
+        "Mean Reversion v2,0.55,0.11,2.22,3.33,-0.12,0.92,0.64,1.5,0.25,4\n",
+        encoding="utf-8",
+    )
+    (run_dir / "equity_curve.csv").write_text(
+        "date,Mean Reversion v2,BTC_BH__always_on\n"
+        "2026-01-01,100,100\n"
+        "2026-01-02,155,105\n",
+        encoding="utf-8",
+    )
+    (run_dir / "drawdowns.csv").write_text(
+        "date,Mean Reversion v2,BTC_BH__always_on\n"
+        "2026-01-01,0,0\n"
+        "2026-01-02,-0.12,-0.05\n",
+        encoding="utf-8",
+    )
+    (run_dir / "daily_returns.csv").write_text(
+        "date,Mean Reversion v2,BTC_BH__always_on\n"
+        "2026-01-01,0,0\n"
+        "2026-01-02,0.02,0.01\n",
+        encoding="utf-8",
+    )
+    (run_dir / "turnover_summary.csv").write_text(
+        "strategy,annualized_turnover,avg_turnover_per_rebalance,average_holdings\n"
+        "Mean Reversion v2,1.5,0.25,4\n"
+        "Other Strategy,2.5,0.5,8\n",
+        encoding="utf-8",
+    )
+    (run_dir / "selection_history.csv").write_text(
+        "rebalance_date,strategy,coin_id,coin_rank,coin_score,coin_weight\n"
+        "2026-01-15,Mean Reversion v2,solana,1,0.91,0.5\n"
+        "2026-01-15,Mean Reversion v2,bitcoin,2,0.88,0.5\n"
+        "2026-01-15,Other Strategy,ethereum,1,0.8,1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    detail = get_run_detail(db_session, "btk_0146")
+
+    assert detail is not None
+    assert detail.selected_strategy == "Mean Reversion v2"
+    assert detail.kpi.cagr == 0.11
+    assert detail.kpi.sharpe == 2.22
+    assert detail.kpi.sortino == 3.33
+    assert detail.kpi.max_dd == -0.12
+    assert detail.kpi.calmar == 0.92
+    assert detail.kpi.win_rate == 0.64
+    assert [point.atlas for point in detail.drawdown_series] == [0, -12]
+    assert [point.btc for point in detail.return_series] == [0, 1]
+    assert detail.turnover_rows[0].strategy == "Mean Reversion v2"
+    assert detail.turnover_rows[0].annualized_turnover == 1.5
+    assert [row.coin_id for row in detail.trade_rows] == ["solana", "bitcoin"]
+
+
+def test_list_runs_uses_artifact_metrics_and_selected_strategy_for_history_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    run = RunsRepo(db_session).create(
+        Run(
+            run_id="btk_9997",
+            strategy="Mean Reversion v2",
+            strategy_family="Other",
+            universe="Top-20",
+            window_start=date(2024, 1, 1),
+            window_end=date(2026, 5, 18),
+            status="completed",
+            return_pct=9.0,
+            sharpe=9.0,
+            max_dd=-0.99,
+            spark="[]",
+            created_at=datetime(2026, 5, 25, tzinfo=timezone.utc),
+        )
+    )
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "app_runs" / run.run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "summary.csv").write_text(
+        "strategy,total_return,cagr,sharpe,sortino,max_drawdown,calmar,monthly_win_rate\n"
+        "Other Leader,0.50,0.20,1.00,1.50,-0.10,2.00,0.40\n"
+        "Mean Reversion v2,0.21,0.11,1.23,1.77,-0.15,0.73,0.33\n",
+        encoding="utf-8",
+    )
+    (run_dir / "equity_curve.csv").write_text(
+        "date,Mean Reversion v2,BTC_BH__always_on\n"
+        "2026-01-01,100,100\n"
+        "2026-01-02,105,101\n"
+        "2026-01-03,110,102\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    rows, total = list_runs(db_session, q="btk_9997", date_range="all")
+
+    assert total == 1
+    assert rows[0].strategy == "Mean Reversion v2"
+    assert rows[0].selected_strategy == "Mean Reversion v2"
+    assert rows[0].return_pct == 0.21
+    assert rows[0].sharpe == 1.23
+    assert rows[0].max_dd == -0.15
+    assert rows[0].spark == [0.0, 5.0, 10.0]
 
 
 @pytest.mark.parametrize(

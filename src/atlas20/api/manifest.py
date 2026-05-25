@@ -39,9 +39,12 @@ def _relative_to_run_dir(run_dir: Path, artifact_path: Path) -> str:
 
 
 def _artifact_manifest_path(run_dir: Path, artifact_path: Path) -> str:
-    if artifact_path.is_absolute():
-        return _relative_to_run_dir(run_dir, artifact_path)
-    return artifact_path.as_posix()
+    resolved = Path(artifact_path).resolve()
+    run_root = run_dir.resolve()
+    try:
+        return resolved.relative_to(run_root).as_posix()
+    except ValueError:
+        return artifact_path.as_posix()
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:

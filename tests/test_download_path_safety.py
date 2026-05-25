@@ -108,7 +108,7 @@ def test_download_rejects_path_outside_report_root(
     assert response.status_code == 403
 
 
-def test_download_rejects_file_missing_from_report_manifest(
+def test_download_allows_registered_sha_when_file_is_missing_from_report_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
 ) -> None:
     client = _client(tmp_path, monkeypatch, db_session)
@@ -119,6 +119,23 @@ def test_download_rejects_file_missing_from_report_manifest(
     digest.write_bytes(b"# Digest\n")
     _write_report_manifest(run_dir, [])
     _add_report_row(db_session, path="app_runs/btk_0142/digest.md", sha256=_sha256(digest), size_bytes=digest.stat().st_size)
+
+    response = client.get("/api/reports/btk_0142/download?format=markdown")
+
+    assert response.status_code == 200
+    assert response.content == b"# Digest\n"
+
+
+def test_download_rejects_unregistered_file_missing_from_report_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    run_dir = report_root / "app_runs" / "btk_0142"
+    run_dir.mkdir(parents=True)
+    digest = run_dir / "digest.md"
+    digest.write_bytes(b"# Digest\n")
+    _write_report_manifest(run_dir, [])
 
     response = client.get("/api/reports/btk_0142/download?format=markdown")
 

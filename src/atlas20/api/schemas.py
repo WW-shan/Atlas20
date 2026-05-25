@@ -156,6 +156,7 @@ class RunWindow(ApiModel):
 class RunRow(ApiModel):
     run_id: str
     strategy: str
+    selected_strategy: str | None = None
     strategy_family: StrategyFamily | None = None
     universe: str
     window: RunWindow
@@ -184,6 +185,12 @@ class RunDetailEquityOverlay(ApiModel):
     series: list[EquityOverlayPoint]
 
 
+class RunDetailSeriesPoint(ApiModel):
+    ts: str
+    atlas: float
+    btc: float
+
+
 class RunKpi(ApiModel):
     cagr: float
     sharpe: float
@@ -193,9 +200,30 @@ class RunKpi(ApiModel):
     win_rate: float
 
 
+class RunTurnoverRow(ApiModel):
+    strategy: str
+    annualized_turnover: float | None = None
+    avg_turnover_per_rebalance: float | None = None
+    average_holdings: float | None = None
+
+
+class RunTradeRow(ApiModel):
+    rebalance_date: str
+    strategy: str | None = None
+    coin_id: str
+    coin_rank: int | None = None
+    coin_score: float | None = None
+    coin_weight: float | None = None
+
+
 class RunDetailPayload(RunRow):
+    selected_strategy: str | None = None
     equity_overlay: RunDetailEquityOverlay
     kpi: RunKpi
+    drawdown_series: list[RunDetailSeriesPoint] = Field(default_factory=list)
+    return_series: list[RunDetailSeriesPoint] = Field(default_factory=list)
+    turnover_rows: list[RunTurnoverRow] = Field(default_factory=list)
+    trade_rows: list[RunTradeRow] = Field(default_factory=list)
 
 
 class RunsListResponse(ApiModel):

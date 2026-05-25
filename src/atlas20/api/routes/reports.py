@@ -2,6 +2,7 @@
 
 import logging
 from datetime import timezone
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -92,6 +93,11 @@ def get_report_download(
     session: Session = Depends(get_session),
 ) -> FileResponse:
     path, content_type, filename = resolve_download(report_id, format, session)
+    # Infer content type from file extension when no format was specified
+    if format is None:
+        ext = Path(path).suffix.lower()
+        mime_map = {".md": "text/markdown", ".png": "image/png", ".csv": "text/csv", ".pdf": "application/pdf", ".zip": "application/zip"}
+        content_type = mime_map.get(ext, content_type)
     return FileResponse(path, media_type=content_type, filename=filename)
 
 
