@@ -17,10 +17,13 @@ const ORDER: CompareMetricKey[] = [
   "trades_per_year",
 ];
 
-function formatValue(v: number, format: "percent" | "ratio" | "count"): string {
-  if (format === "percent") {
+function formatValue(v: number, format: "percent" | "signed-percent" | "ratio" | "count"): string {
+  if (format === "signed-percent") {
     const sign = v > 0 ? "+" : "";
     return `${sign}${(v * 100).toFixed(2)}%`;
+  }
+  if (format === "percent") {
+    return `${(v * 100).toFixed(2)}%`;
   }
   if (format === "count") return v.toFixed(0);
   return v.toFixed(2);
@@ -82,6 +85,10 @@ export function ComparisonTable({ selections, metrics }: Props) {
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   color: "var(--muted)",
+                  maxWidth: 120,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {s.label}

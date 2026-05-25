@@ -27,4 +27,24 @@ describe("RunTable", () => {
 
     expect(screen.getByText("CANCELLED")).toBeInTheDocument();
   });
+
+  it("renders the selected strategy name and sparkline for history rows", () => {
+    render(
+      <RunTable
+        rows={[
+          {
+            ...makeRow("completed" as RunRow["status"]),
+            strategy: "base",
+            selected_strategy: "Mean Reversion v2",
+            return_pct: 0.21,
+            spark: [0, 5, 10],
+          } as RunRow,
+        ]}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Mean Reversion v2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Trend for btk_cancelled")).toBeInTheDocument();
+  });
 });

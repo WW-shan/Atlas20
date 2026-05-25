@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ConsoleTab } from "../../components/navigation/TabSwitcher";
 import { Pill } from "../../components/ui/Pill";
@@ -56,8 +56,10 @@ function hydrateFromDetail(detail: RunDetailPayload): BacktestConfig {
 
 export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const [config, dispatch] = useReducer(reducer, defaultBacktestConfig);
+  const [submittedRunId, setSubmittedRunId] = useState<string | undefined>(undefined);
   const [reportPending, setReportPending] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
   const runMutation = useRunBacktest();
   const queue = useRunQueue();
   const optionsQuery = useQuery({
@@ -91,7 +93,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const latestQueueRunId = queue.data?.[0]?.run_id;
   const latestHistoryRunId = recentRunsQuery.data?.items
     .find((row) => row.strategy !== "universe_refresh" && row.status === "completed" && row.return_pct != null)?.run_id;
-  const selectedRunId = prefillRunId ?? latestQueueRunId ?? latestHistoryRunId;
+  const selectedRunId = prefillRunId ?? submittedRunId ?? latestQueueRunId ?? latestHistoryRunId;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
     queryFn: () => getRunDetail(selectedRunId as string),
@@ -110,6 +112,26 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
       hydratedFor.current = prefillRunId;
     }
   }, [prefillRunId, detailQuery.data]);
+
+  const previousQueueRunIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!queue.data) return;
+
+    const currentQueueRunIds = new Set(queue.data.map((run) => run.run_id));
+    if (
+      submittedRunId &&
+      previousQueueRunIds.current.has(submittedRunId) &&
+      !currentQueueRunIds.has(submittedRunId)
+    ) {
+      void queryClient.invalidateQueries({ queryKey: qk.runs.listAll() });
+      void queryClient.invalidateQueries({ queryKey: qk.runs.detail(submittedRunId) });
+      void queryClient.invalidateQueries({ queryKey: ["reports", "archive"] });
+      void queryClient.invalidateQueries({ queryKey: qk.reports.featured() });
+      void recentRunsQuery.refetch();
+      setReportToast(`Backtest completed: ${submittedRunId}`);
+    }
+    previousQueueRunIds.current = currentQueueRunIds;
+  }, [queryClient, queue.data, recentRunsQuery, submittedRunId]);
 
   useEffect(() => {
     if (!reportToast) return;
@@ -133,11 +155,11 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24, height: "calc(100vh - var(--topnav-h) - var(--space-6) - var(--pageheader-h))", overflow: "hidden" }}>
       {reportToast && <Toast>{reportToast}</Toast>}
 
       {/* Mini page header with RUN ID pill + NEW RUN button */}
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <Pill tone="cyan-outline" size="sm">
           RUN ID: <span className="mono" style={{ marginLeft: 4 }}>{selectedRunId ?? "—"}</span>
         </Pill>
@@ -149,18 +171,34 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
         >
           Regenerate this run&apos;s report
         </Button>
-        <Button variant="gold" onClick={() => { hydratedFor.current = undefined; dispatch({ type: "reset" }); }}>+ NEW RUN</Button>
+        <Button
+          variant="gold"
+          onClick={() => {
+            hydratedFor.current = undefined;
+            setSubmittedRunId(undefined);
+            dispatch({ type: "reset" });
+          }}
+        >
+          + NEW RUN
+        </Button>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ width: 340, flex: "0 0 340px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr 320px", gap: 16, flex: 1, minHeight: 0, alignItems: "stretch" }}>
+        <div style={{ overflowY: "auto", minHeight: 0 }}>
           {isInitialDetailLoading ? (
             <DetailPrefillSkeleton />
           ) : (
             <ParameterSidebar
               value={config}
               onChange={(next) => dispatch({ type: "set", patch: next })}
-              onRun={() => runMutation.mutate(config)}
+              onRun={() => {
+                runMutation.mutate(config, {
+                  onSuccess: (run) => {
+                    setSubmittedRunId(run.run_id);
+                    setReportToast(`Backtest queued: ${run.run_id}`);
+                  },
+                });
+              }}
               isRunning={runMutation.isPending}
               refreshing={isDetailRefreshing}
               presets={optionsQuery.data?.presets}
@@ -168,7 +206,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
           )}
         </div>
 
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
           {isInitialDetailLoading && <WorkspaceSkeleton />}
           {detailQuery.isError && (
             <ErrorBanner

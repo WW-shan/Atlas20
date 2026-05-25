@@ -1,42 +1,56 @@
-import type { FeaturedDigest, ReportFormat } from "../../lib/api";
+import type { FeaturedDigest, ReportEntry } from "../../lib/api";
 import { Card } from "../ui/Card";
 import { Pill } from "../ui/Pill";
-import { Button } from "../ui/Button";
+
+type ReportTypeFilter = "all" | ReportEntry["report_type"];
 
 type Props = {
   digest: FeaturedDigest;
-  selectedFormat: ReportFormat;
-  onSelectFormat: (fmt: ReportFormat) => void;
-  onDownloadAll: () => void;
-  downloadLoading?: boolean;
+  activeFilter: ReportTypeFilter;
+  onFilterChange: (filter: ReportTypeFilter) => void;
 };
 
-export function FeaturedDigestHero({ digest, selectedFormat, onSelectFormat, onDownloadAll, downloadLoading }: Props) {
+const FILTER_OPTIONS: { key: ReportTypeFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "weekly", label: "Weekly" },
+  { key: "run", label: "Run" },
+  { key: "compare", label: "Compare" },
+  { key: "universe", label: "Universe" },
+];
+
+export function FeaturedDigestHero({
+  digest,
+  activeFilter,
+  onFilterChange,
+}: Props) {
   return (
     <Card variant="hero" ariaLabel="Featured digest hero">
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 24, alignItems: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, alignItems: "flex-start" }}>
           <Pill tone="gold-outline" size="xs">FEATURED DIGEST</Pill>
-          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
             {digest.title}
           </h2>
           <span className="muted" style={{ fontSize: 13 }}>
             {digest.subtitle}
           </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", minWidth: 0 }}>
           <div
-            role="group"
-            aria-label="Digest format"
-            style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
+            role="tablist"
+            aria-label="Report type filter"
+            style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}
           >
-            {digest.formats.map((fmt) => {
-              const active = fmt === selectedFormat;
+            {FILTER_OPTIONS.map((opt) => {
+              const active = opt.key === activeFilter;
               return (
                 <button
-                  key={fmt}
+                  key={opt.key}
                   type="button"
-                  aria-pressed={active}
-                  data-format={fmt}
-                  onClick={() => onSelectFormat(fmt)}
+                  role="tab"
+                  aria-selected={active}
+                  data-filter={opt.key}
+                  onClick={() => onFilterChange(opt.key)}
                   style={{
                     padding: "6px 14px",
                     borderRadius: "var(--radius-pill)",
@@ -51,14 +65,11 @@ export function FeaturedDigestHero({ digest, selectedFormat, onSelectFormat, onD
                     fontFamily: "var(--font-sans)",
                   }}
                 >
-                  {fmt}
+                  {opt.label}
                 </button>
               );
             })}
           </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-          <Button variant="gold" loading={downloadLoading} onClick={onDownloadAll}>↓ DOWNLOAD ALL · BUNDLE</Button>
           <span className="mono muted" style={{ fontSize: 11 }}>
             Generated {digest.generated_at.slice(0, 10)}
           </span>

@@ -15,7 +15,6 @@ import { ReportCard } from "../../components/reports/ReportCard";
 import { NewReportModal } from "./NewReportModal";
 
 import {
-  downloadDigestUrl,
   downloadReportUrl,
   fallbackFeaturedDigest,
   fallbackOptions,
@@ -24,7 +23,7 @@ import {
   getOptions,
   listReports,
 } from "../../lib/api";
-import type { GenerateReportRequest, ReportFormat } from "../../lib/api";
+import type { GenerateReportRequest, ReportEntry } from "../../lib/api";
 import type { ReportSortKey } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
 
@@ -35,10 +34,11 @@ const SORT_OPTIONS: { key: ReportSortKey; label: string }[] = [
   { key: "type",   label: "Type" },
 ];
 
+type ReportTypeFilter = "all" | ReportEntry["report_type"];
+
 export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
-  const [format, setFormat] = useState<ReportFormat>(fallbackFeaturedDigest.defaultFormat);
-  const [digestDownloadPending, setDigestDownloadPending] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<ReportTypeFilter>("all");
   const [reportDownloadPendingId, setReportDownloadPendingId] = useState<string | undefined>(undefined);
   const [newReportOpen, setNewReportOpen] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
@@ -70,27 +70,22 @@ export function ReportsExportsTab() {
     }
   }, [archive.data, sort]);
 
+  const filtered = useMemo(() => {
+    if (typeFilter === "all") return sorted;
+    return sorted.filter((r) => r.report_type === typeFilter);
+  }, [sorted, typeFilter]);
+
   useEffect(() => {
     if (!reportToast) return;
     const timer = window.setTimeout(() => setReportToast(undefined), 4000);
     return () => window.clearTimeout(timer);
   }, [reportToast]);
 
-  const handleDownloadAll = () => {
-    if (digestDownloadPending) return;
-    setDigestDownloadPending(true);
-    try {
-      window.open(downloadDigestUrl("bundle"), "_blank", "noopener,noreferrer");
-    } finally {
-      setDigestDownloadPending(false);
-    }
-  };
-
-  const handleDownloadOne = (id: string, fmt?: ReportFormat) => {
+  const handleDownloadOne = (id: string) => {
     if (reportDownloadPendingId) return;
     setReportDownloadPendingId(id);
     try {
-      window.open(downloadReportUrl(id, fmt ?? format), "_blank", "noopener,noreferrer");
+      window.open(downloadReportUrl(id), "_blank", "noopener,noreferrer");
     } finally {
       setReportDownloadPendingId(undefined);
     }
@@ -117,10 +112,8 @@ export function ReportsExportsTab() {
       {featured.data && !featured.isError && (
         <FeaturedDigestHero
           digest={featured.data}
-          selectedFormat={format}
-          onSelectFormat={setFormat}
-          onDownloadAll={handleDownloadAll}
-          downloadLoading={digestDownloadPending}
+          activeFilter={typeFilter}
+          onFilterChange={setTypeFilter}
         />
       )}
 
@@ -176,10 +169,10 @@ export function ReportsExportsTab() {
           </div>
         )}
         {archive.isLoading && <ArchiveSkeleton />}
-        {!archive.isLoading && !archive.isError && sorted.length === 0 && (
-          <EmptyState title="No reports archived yet" />
+        {!archive.isLoading && !archive.isError && filtered.length === 0 && (
+          <EmptyState title={typeFilter === "all" ? "No reports archived yet" : `No ${typeFilter} reports found`} />
         )}
-        {!archive.isLoading && sorted.length > 0 && (
+        {!archive.isLoading && filtered.length > 0 && (
           <div
             role="list"
             aria-label="Reports archive list"
@@ -189,7 +182,7 @@ export function ReportsExportsTab() {
               gap: 16,
             }}
           >
-            {sorted.map((entry) => (
+            {filtered.map((entry) => (
               <div role="listitem" key={entry.id}>
                 <ReportCard
                   entry={entry}
@@ -215,8 +208,8 @@ export function ReportsExportsTab() {
 function FeaturedDigestLoading() {
   return (
     <Card variant="hero" ariaLabel="Featured digest hero">
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 24, alignItems: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Pill tone="gold-outline" size="xs">FEATURED DIGEST</Pill>
             <span
@@ -235,7 +228,6 @@ function FeaturedDigestLoading() {
           <Skeleton variant="text" width="45%" height="28px" />
           <Skeleton variant="text" width="70%" />
         </div>
-        <Button variant="gold" loading>DOWNLOAD ALL · BUNDLE</Button>
       </div>
     </Card>
   );
@@ -245,9 +237,8 @@ function FeaturedDigestError({ onRetry }: { onRetry: () => void }) {
   return (
     <Card variant="hero" ariaLabel="Featured digest hero">
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Pill tone="gold-outline" size="xs">FEATURED DIGEST</Pill>
-          <Button variant="gold" disabled>DOWNLOAD ALL · BUNDLE</Button>
         </div>
         <ErrorBanner message="Unable to load featured digest." onRetry={onRetry} />
       </div>

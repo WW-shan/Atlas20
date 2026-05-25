@@ -207,6 +207,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
       {rows.map((row) => {
         const status = gridStatusTone(row.status);
         const isSelected = row.run_id === selectedId;
+        const strategyLabel = row.selected_strategy ?? row.strategy;
         return (
           <div key={row.run_id} role="listitem">
             <Card
@@ -240,7 +241,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
                   <div style={{ minWidth: 0 }}>
                     <div className="mono muted" style={{ fontSize: 11 }}>{row.run_id}</div>
                     <div style={{ marginTop: 4, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {row.strategy}
+                      {strategyLabel}
                     </div>
                   </div>
                   <Pill tone={status.tone} size="xs" pulse={status.pulse} live>{status.label}</Pill>

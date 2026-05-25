@@ -8,5 +8,7 @@ export function useRunQueue() {
   return useQuery({
     queryKey: qk.runs.queue(),
     queryFn: listRunsQueue,
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
   });
 }

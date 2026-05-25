@@ -113,6 +113,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
             const isSelected = r.run_id === selectedId;
             const favoriteBusy = favoriteBusyId === r.run_id;
             const favoriteDisabled = Boolean(favoritesDisabled || favoriteBusy);
+            const strategyLabel = r.selected_strategy ?? r.strategy;
             return (
               <tr
                 key={r.run_id}
@@ -171,7 +172,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                 <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", whiteSpace: "nowrap" }}>
                   {r.strategy_family ?? "—"}
                 </td>
-                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{r.strategy}</td>
+                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{strategyLabel}</td>
                 <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", whiteSpace: "nowrap" }}>{r.universe}</td>
                 <td className="mono" style={{ padding: "8px 12px", color: "var(--muted)", fontSize: 11, whiteSpace: "nowrap" }}>
                   {formatDate(r.window.start)} → {formatDate(r.window.end)}

@@ -11,7 +11,6 @@ vi.mock("../../lib/api", async () => {
     ...actual,
     getFeaturedDigest: vi.fn(),
     listReports: vi.fn(),
-    downloadDigestUrl: vi.fn(),
     downloadReportUrl: vi.fn(),
     getOptions: vi.fn(),
     generateReport: vi.fn(),
@@ -28,7 +27,6 @@ beforeEach(() => {
   Object.defineProperty(window, "open", { writable: true, value: vi.fn() });
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
-  vi.mocked(api.downloadDigestUrl).mockReturnValue("https://atlas.test/reports/digest/download?format=bundle");
   vi.mocked(api.downloadReportUrl).mockImplementation((id, fmt) => {
     const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
     return `https://atlas.test/reports/${encodeURIComponent(id)}/download${q}`;
@@ -48,60 +46,60 @@ describe("ReportsExportsTab", () => {
     expect(await screen.findByText("FEATURED DIGEST")).toBeInTheDocument();
   });
 
-  it("renders 4 format buttons with markdown selected by default", async () => {
+  it("renders 5 filter tabs with All selected by default", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    const group = await screen.findByRole("group", { name: "Digest format" });
-    const buttons = group.querySelectorAll("button");
-    expect(buttons.length).toBe(4);
-    const md = screen.getByRole("button", { name: "markdown" });
-    expect(md.getAttribute("aria-pressed")).toBe("true");
+    const tablist = await screen.findByRole("tablist", { name: "Report type filter" });
+    const tabs = tablist.querySelectorAll("[role='tab']");
+    expect(tabs.length).toBe(5);
+    expect(screen.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("clicking a format toggles aria-pressed", async () => {
+  it("clicking a filter tab filters the archive", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    const pdf = await screen.findByRole("button", { name: "pdf" });
-    fireEvent.click(pdf);
-    expect(pdf.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "markdown" }).getAttribute("aria-pressed")).toBe("false");
+    await screen.findByRole("list", { name: "Reports archive list" });
+    fireEvent.click(screen.getByRole("tab", { name: "Run" }));
+    expect(screen.getByRole("tab", { name: "Run" }).getAttribute("aria-selected")).toBe("true");
+    await waitFor(() => {
+      const cards = document.querySelectorAll("[data-report-id]");
+      cards.forEach((c) => {
+        const entry = api.fallbackReports.find((r) => r.id === c.getAttribute("data-report-id"));
+        expect(entry?.report_type).toBe("run");
+      });
+    });
   });
 
-  it("renders DOWNLOAD ALL bundle button", async () => {
+  it("renders a digest download button for the selected format", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    expect(await screen.findByRole("button", { name: /DOWNLOAD ALL/ })).toBeInTheDocument();
+    expect(await screen.findByRole("tablist", { name: "Report type filter" })).toBeInTheDocument();
   });
 
-  it("clicking DOWNLOAD ALL opens the bundle URL regardless of selected format", async () => {
+  it("clicking the Run filter shows only run reports", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
-    fireEvent.click(screen.getByRole("button", { name: /DOWNLOAD ALL/ }));
-    expect(api.downloadDigestUrl).toHaveBeenCalledWith("bundle");
-    expect(window.open).toHaveBeenCalledWith(
-      "https://atlas.test/reports/digest/download?format=bundle",
-      "_blank",
-      "noopener,noreferrer",
-    );
+    await screen.findByRole("list", { name: "Reports archive list" });
+    const totalBefore = document.querySelectorAll("[data-report-id]").length;
+    fireEvent.click(screen.getByRole("tab", { name: "Run" }));
+    await waitFor(() => {
+      expect(document.querySelectorAll("[data-report-id]").length).toBeLessThan(totalBefore);
+    });
   });
 
-  it("leaves DOWNLOAD ALL ready after opening the bundle URL", async () => {
+  it("leaves the archive visible after switching filters", async () => {
     renderWithQuery(<ReportsExportsTab />);
     await screen.findByText(api.fallbackFeaturedDigest.title);
-    const button = screen.getByRole("button", { name: /DOWNLOAD ALL/ });
-
-    fireEvent.click(button);
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).not.toBeDisabled());
-    expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).not.toHaveAttribute("aria-busy");
-    expect(window.open).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("tab", { name: "Run" }));
+    await waitFor(() => {
+      const cards = document.querySelectorAll("[data-report-id]");
+      expect(cards.length).toBeGreaterThan(0);
+    });
   });
 
-  it("per-card DOWNLOAD honors the selected page-level format", async () => {
+  it("per-card DOWNLOAD uses the archive artifact id without the page-level format", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    fireEvent.click(await screen.findByRole("button", { name: "pdf" }));
-    const firstCardDownload = document.querySelector('button[aria-label^="Download "]') as HTMLButtonElement;
+    const firstCardDownload = await screen.findByRole("button", { name: /Download Atlas20/ });
     fireEvent.click(firstCardDownload);
-    expect(api.downloadReportUrl).toHaveBeenCalledWith(expect.any(String), "pdf");
+    expect(api.downloadReportUrl).toHaveBeenCalledWith(expect.any(String));
     expect(window.open).toHaveBeenCalledWith(
-      expect.stringContaining("?format=pdf"),
+      expect.not.stringContaining("?format="),
       "_blank",
       "noopener,noreferrer",
     );
@@ -116,7 +114,7 @@ describe("ReportsExportsTab", () => {
 
     expect(api.downloadReportUrl).toHaveBeenCalledTimes(1);
     expect(window.open).toHaveBeenCalledWith(
-      expect.stringContaining("/reports/r1/download?format=markdown"),
+      expect.stringContaining("/reports/r1/download"),
       "_blank",
       "noopener,noreferrer",
     );
@@ -257,13 +255,12 @@ describe("ReportsExportsTab", () => {
     expect(dl?.hasAttribute("disabled")).toBe(true);
   });
 
-  it("shows featured error banner and disables the digest download button", async () => {
+  it("shows featured error banner when featured digest fails", async () => {
     vi.mocked(api.getFeaturedDigest).mockRejectedValue(new Error("featured failed"));
 
     renderWithQuery(<ReportsExportsTab />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load featured digest");
-    expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).toBeDisabled();
   });
 
   it("renders featured digest loading state while the hero query is pending", async () => {
@@ -272,7 +269,6 @@ describe("ReportsExportsTab", () => {
     renderWithQuery(<ReportsExportsTab />);
 
     expect(await screen.findByRole("status", { name: "Loading featured digest" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /DOWNLOAD ALL/ })).toBeDisabled();
   });
 
   it("shows archive empty state when no reports are returned", async () => {

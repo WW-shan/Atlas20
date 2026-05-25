@@ -20,6 +20,7 @@ export type OverlayLineChartProps = {
   annotations?: { ts: string; label: string; tone?: "gold" | "violet" }[];
   height?: number;
   ariaLabel?: string;
+  fillContainer?: boolean;
 };
 
 const toneColors: Record<OverlayLineTone, string> = {
@@ -49,11 +50,16 @@ export function OverlayLineChart({
   annotations = [],
   height = 320,
   ariaLabel,
+  fillContainer,
 }: OverlayLineChartProps) {
   const width = 1000;
   const padding = { top: 16, right: 24, bottom: 32, left: 56 };
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
+
+  const svgStyle = fillContainer
+    ? { width: "100%" as const, flex: 1 as const, display: "block" as const }
+    : { width: "100%" as const, height, display: "block" as const };
 
   if (series.length === 0) {
     return (
@@ -61,7 +67,7 @@ export function OverlayLineChart({
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={ariaLabel ?? "Empty chart"}
-        style={{ width: "100%", height, display: "block" }}
+        style={svgStyle}
       >
         <text
           x="50%"
@@ -84,7 +90,7 @@ export function OverlayLineChart({
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label={ariaLabel ?? "Empty chart"}
-        style={{ width: "100%", height }}
+        style={svgStyle}
       />
     );
   }
@@ -123,7 +129,7 @@ export function OverlayLineChart({
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={ariaLabel ?? `Overlay chart, range ${range}, ${lines.length} series`}
-      style={{ width: "100%", height, display: "block" }}
+      style={svgStyle}
     >
       <defs>
         <filter id="gold-glow" x="-20%" y="-20%" width="140%" height="140%">

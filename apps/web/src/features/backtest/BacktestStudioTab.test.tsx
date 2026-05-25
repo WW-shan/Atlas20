@@ -11,6 +11,7 @@ vi.mock("../../lib/api", async () => {
   return {
     ...actual,
     getRunDetail: vi.fn(),
+    listRuns: vi.fn(),
     listRunsQueue: vi.fn(),
     runBacktest: vi.fn(),
     generateReport: vi.fn(),
@@ -28,6 +29,12 @@ function renderWithQuery(ui: React.ReactElement) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.getRunDetail).mockResolvedValue(api.fallbackRunDetail);
+  vi.mocked(api.listRuns).mockResolvedValue({
+    items: api.fallbackRunsList,
+    total: api.fallbackRunsList.length,
+    page: 1,
+    pageSize: 10,
+  });
   vi.mocked(api.listRunsQueue).mockResolvedValue(api.fallbackRunsQueue);
   vi.mocked(api.runBacktest).mockResolvedValue(api.fallbackRunsQueue[0]);
   vi.mocked(api.generateReport).mockResolvedValue({
@@ -66,6 +73,46 @@ describe("BacktestStudioTab", () => {
 
     await waitFor(() => expect(button).toBeDisabled());
     expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("keeps a submitted run selected after it leaves the active queue", async () => {
+    const historyRun = { ...api.fallbackRunsList[6], run_id: "btk_0100" };
+    const submittedRun: api.RunRowSummary = {
+      ...api.fallbackRunsQueue[0],
+      run_id: "btk_0200",
+      status: "queued",
+      params_summary: "N=20 / Weekly / 2024-2026",
+    };
+
+    vi.mocked(api.listRunsQueue).mockResolvedValue([]);
+    vi.mocked(api.listRuns).mockResolvedValue({
+      items: [historyRun],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+    });
+    vi.mocked(api.runBacktest).mockResolvedValue(submittedRun);
+    vi.mocked(api.getRunDetail).mockImplementation(async (runId: string) => ({
+      ...api.fallbackRunDetail,
+      run_id: runId,
+      status: runId === submittedRun.run_id ? "queued" : "completed",
+    }));
+
+    const { client } = renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    expect(await screen.findByText(historyRun.run_id)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: /RUN BACKTEST/ }));
+
+    expect((await screen.findAllByText(submittedRun.run_id)).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Waiting for backend output")).toBeInTheDocument();
+
+    act(() => {
+      client.setQueryData(qk.runs.queue(), []);
+    });
+
+    await waitFor(() => expect(screen.getAllByText(submittedRun.run_id).length).toBeGreaterThan(0));
+    expect(screen.queryByText(historyRun.run_id)).not.toBeInTheDocument();
   });
 
   it("renders + NEW RUN button", async () => {

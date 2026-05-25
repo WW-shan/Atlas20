@@ -1,11 +1,11 @@
-import type { ReportEntry, ReportFormat } from "../../lib/api";
+import type { ReportEntry } from "../../lib/api";
 import { Card } from "../ui/Card";
 import { Pill } from "../ui/Pill";
 import { ReportThumbnail } from "./ReportThumbnail";
 
 type Props = {
   entry: ReportEntry;
-  onDownload: (id: string, fmt?: ReportFormat) => void;
+  onDownload: (id: string) => void;
   downloadBusy?: boolean;
   downloadsDisabled?: boolean;
 };
@@ -87,7 +87,7 @@ export function ReportCard({ entry, onDownload, downloadBusy, downloadsDisabled 
               textTransform: "uppercase",
             }}
           >
-            DOWNLOAD ↓
+            {isGenerating ? "GENERATING..." : "DOWNLOAD"}
           </button>
         </div>
       </div>

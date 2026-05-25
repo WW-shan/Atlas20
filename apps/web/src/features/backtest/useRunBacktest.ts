@@ -9,9 +9,9 @@ export function useRunBacktest() {
   return useMutation({
     mutationFn: (payload: BacktestConfig) => runBacktest(payload),
     onSuccess: (result: RunRowSummary) => {
-      // Optimistically push to queue
       const prev = queryClient.getQueryData<RunRowSummary[]>(qk.runs.queue()) ?? [];
       queryClient.setQueryData<RunRowSummary[]>(qk.runs.queue(), [result, ...prev]);
+      void queryClient.invalidateQueries({ queryKey: qk.runs.listAll() });
     },
   });
 }

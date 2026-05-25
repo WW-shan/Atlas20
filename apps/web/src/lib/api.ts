@@ -106,6 +106,7 @@ export type StrategyFamily = "ATLAS" | "Momentum" | "MeanRev" | "Carry" | "Other
 export type RunRow = {
   run_id: string;
   strategy: string;
+  selected_strategy?: string | null;
   strategy_family?: StrategyFamily;
   universe: string;
   window: { start: string; end: string };
@@ -124,8 +125,27 @@ export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "dur
   params_summary: string;
 };
 
+export type RunDetailSeriesPoint = { ts: string; atlas: number; btc: number };
+
+export type RunTurnoverRow = {
+  strategy: string;
+  annualized_turnover?: number | null;
+  avg_turnover_per_rebalance?: number | null;
+  average_holdings?: number | null;
+};
+
+export type RunTradeRow = {
+  rebalance_date: string;
+  strategy?: string | null;
+  coin_id: string;
+  coin_rank?: number | null;
+  coin_score?: number | null;
+  coin_weight?: number | null;
+};
+
 export type RunDetailPayload = RunRow & {
-  equity_overlay: { series: { ts: string; atlas: number; btc: number }[] };
+  selected_strategy?: string | null;
+  equity_overlay: { series: RunDetailSeriesPoint[] };
   kpi: {
     cagr: number;
     sharpe: number;
@@ -134,6 +154,10 @@ export type RunDetailPayload = RunRow & {
     calmar: number;
     win_rate: number;
   };
+  drawdown_series: RunDetailSeriesPoint[];
+  return_series: RunDetailSeriesPoint[];
+  turnover_rows: RunTurnoverRow[];
+  trade_rows: RunTradeRow[];
 };
 
 // ============================================================
@@ -229,9 +253,9 @@ export type CompareMetricKey =
 
 export const compareMetricMeta: Record<
   CompareMetricKey,
-  { label: string; direction: "higher-is-better" | "lower-is-better"; format: "percent" | "ratio" | "count" }
+  { label: string; direction: "higher-is-better" | "lower-is-better"; format: "percent" | "signed-percent" | "ratio" | "count" }
 > = {
-  cagr:            { label: "CAGR",         direction: "higher-is-better", format: "percent" },
+  cagr:            { label: "CAGR",         direction: "higher-is-better", format: "signed-percent" },
   sharpe:          { label: "Sharpe",       direction: "higher-is-better", format: "ratio" },
   sortino:         { label: "Sortino",      direction: "higher-is-better", format: "ratio" },
   max_dd:          { label: "Max DD",       direction: "lower-is-better",  format: "percent" },
@@ -469,8 +493,13 @@ export const fallbackRunsList: RunRow[] = [
 
 export const fallbackRunDetail: RunDetailPayload = {
   ...fallbackRunsList[6], // btk_0142, the canonical "champion" reference run
+  selected_strategy: fallbackRunsList[6].strategy,
   equity_overlay: { series: fallbackOverview.equity_overlay.series },
   kpi: { cagr: 1.584, sharpe: 3.42, sortino: 5.18, max_dd: -0.3204, calmar: 4.95, win_rate: 0.685 },
+  drawdown_series: [],
+  return_series: [],
+  turnover_rows: [],
+  trade_rows: [],
 };
 
 export const fallbackCompare: ComparePayload = {
