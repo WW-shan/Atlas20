@@ -4,6 +4,8 @@ import { Check, Search, X } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 
+const MAX_SELECTIONS = 6;
+
 type Props = {
   open: boolean;
   strategies: string[];
@@ -34,12 +36,14 @@ export function AddStrategyModal({ open, strategies, selected, onClose, onAdd }:
 
   const selectedSet = useMemo(() => new Set(selectedItems), [selectedItems]);
 
+  const atLimit = selectedItems.length >= MAX_SELECTIONS;
+
   const toggle = (strategy: string) => {
-    setSelectedItems((current) =>
-      current.includes(strategy)
-        ? current.filter((item) => item !== strategy)
-        : [...current, strategy],
-    );
+    setSelectedItems((current) => {
+      if (current.includes(strategy)) return current.filter((item) => item !== strategy);
+      if (current.length >= MAX_SELECTIONS) return current;
+      return [...current, strategy];
+    });
   };
 
   return (
@@ -49,7 +53,7 @@ export function AddStrategyModal({ open, strategies, selected, onClose, onAdd }:
           <div>
             <h2 id="add-strategy-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add strategy</h2>
             <span className="mono muted" style={{ display: "block", marginTop: 4, fontSize: 11 }}>
-              {selectedItems.length} selected
+              {selectedItems.length} / {MAX_SELECTIONS} selected
             </span>
           </div>
           <button
@@ -118,13 +122,15 @@ export function AddStrategyModal({ open, strategies, selected, onClose, onAdd }:
         >
           {filtered.map((strategy) => {
             const active = selectedSet.has(strategy);
+            const disabled = !active && atLimit;
             return (
               <button
                 key={strategy}
                 type="button"
                 role="option"
                 aria-selected={active}
-                onClick={() => toggle(strategy)}
+                aria-disabled={disabled || undefined}
+                onClick={() => { if (!disabled) toggle(strategy); }}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "20px minmax(0, 1fr)",
@@ -135,8 +141,9 @@ export function AddStrategyModal({ open, strategies, selected, onClose, onAdd }:
                   borderRadius: "var(--radius-input)",
                   border: `1px solid ${active ? "var(--violet)" : "var(--border)"}`,
                   background: active ? "rgba(139,92,246,0.10)" : "transparent",
-                  color: "var(--text)",
-                  cursor: "pointer",
+                  color: disabled ? "var(--muted)" : "var(--text)",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  opacity: disabled ? 0.5 : 1,
                   textAlign: "left",
                   fontFamily: "var(--font-sans)",
                 }}

@@ -8,8 +8,8 @@ export function StrategyBarRow({ family, count, max }: StrategyBarRowProps) {
   const widthPct = (count / Math.max(max, 1)) * 100;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 32px", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 12, color: "var(--muted)" }}>{family}</span>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 120px) 1fr 32px", alignItems: "center", gap: 8 }}>
+      <span style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{family}</span>
       <div
         style={{
           height: 6,

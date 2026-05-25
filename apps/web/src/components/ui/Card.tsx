@@ -22,8 +22,7 @@ export function Card({ variant = "default", header, thumbnail, children, style, 
       className={variantClass[variant]}
       data-variant={variant}
       style={{
-        padding: variant === "report" ? 0 : 20,
-        ...(variant === "hero" ? { minHeight: 180 } : {}),
+        padding: variant === "hero" ? "12px 20px" : variant === "report" ? 0 : 20,
         ...style,
       }}
     >

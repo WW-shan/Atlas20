@@ -77,21 +77,21 @@ export function OverviewTab({ overview, onNavigate }: Props) {
 
       {/* ===== Hero ===== */}
       <Card variant="hero" ariaLabel="Current champion summary">
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 24, alignItems: "center" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, alignItems: "flex-start" }}>
             <Pill tone="gold-outline" size="xs">CURRENT CHAMPION</Pill>
-            <h2 style={{ margin: 0, fontSize: 28, fontWeight: 600, letterSpacing: "-0.01em" }}>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em" }}>
               {champion.display_name}
             </h2>
             <span className="muted" style={{ fontSize: 13 }}>
               {champion.window_start} → <span className="mono">{champion.window_end}</span>
             </span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", gap: 32, alignItems: "end" }}>
-            <HeroKpi label="YTD Return" value={formatPct(hero_kpi.ytdReturn)} valueColor="var(--gold)" valueSize={32} />
-            <HeroKpi label="Sharpe" value={hero_kpi.sharpe.toFixed(2)} valueSize={24} />
-            <HeroKpi label="Max DD" value={formatPctAbs(hero_kpi.maxDd)} valueColor="var(--rose)" valueSize={24} />
-            <HeroKpi label="Win Rate" value={formatPctAbs(hero_kpi.winRate, 1)} valueSize={24} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "end", minWidth: 0 }}>
+            <HeroKpi label="YTD Return" value={formatPct(hero_kpi.ytdReturn)} valueColor="var(--gold)" valueSize={28} />
+            <HeroKpi label="Sharpe" value={hero_kpi.sharpe.toFixed(2)} valueSize={20} />
+            <HeroKpi label="Max DD" value={formatPctAbs(hero_kpi.maxDd)} valueColor="var(--rose)" valueSize={20} />
+            <HeroKpi label="Win Rate" value={formatPctAbs(hero_kpi.winRate, 1)} valueSize={20} />
           </div>
         </div>
       </Card>
@@ -172,18 +172,18 @@ export function OverviewTab({ overview, onNavigate }: Props) {
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "auto auto auto auto auto auto",
+                  gridTemplateColumns: "auto minmax(0, 1fr) auto auto minmax(0, 1fr) auto",
                   alignItems: "center",
                   gap: 8,
                   fontSize: 13,
                 }}
               >
                 <span className="mono muted" style={{ fontSize: 11 }}>OUT</span>
-                <span className="mono" style={{ color: "var(--muted)" }}>{s.out}</span>
+                <span className="mono" style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.out}</span>
                 <span className="muted" style={{ textAlign: "center" }}>→</span>
                 <span className="mono muted" style={{ fontSize: 11 }}>IN</span>
-                <span className="mono">{s.in}</span>
-                <span className="mono" style={{ color: s.deltaPct >= 0 ? "var(--emerald)" : "var(--rose)", textAlign: "right", marginLeft: "auto" }}>
+                <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.in}</span>
+                <span className="mono" style={{ color: s.deltaPct >= 0 ? "var(--emerald)" : "var(--rose)", textAlign: "right", whiteSpace: "nowrap" }}>
                   {formatPct(s.deltaPct, 1)}
                 </span>
               </div>
@@ -207,8 +207,8 @@ export function OverviewTab({ overview, onNavigate }: Props) {
 
       {/* ===== Action Strip ===== */}
       <Card ariaLabel="Quick actions">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             <Button variant="gold" onClick={() => onNavigate("backtest")}>▶ RUN NEW BACKTEST</Button>
             <Button variant="outline-violet" onClick={() => onNavigate("compare")}>COMPARE STRATEGIES</Button>
             <Button variant="outline-muted" onClick={() => onNavigate("reports")}>GENERATE REPORT</Button>

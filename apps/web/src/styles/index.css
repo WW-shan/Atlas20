@@ -117,6 +117,11 @@ body {
   position: relative;
 }
 
+.card--hero,
+.card--report {
+  overflow: hidden;
+}
+
 .card::before {
   content: "";
   position: absolute;

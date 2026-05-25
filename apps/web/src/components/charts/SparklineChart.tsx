@@ -39,11 +39,10 @@ export function SparklineChart({ points, tone, height = 24, width = 120, ariaLab
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      width={width}
       height={height}
       role="img"
       aria-label={ariaLabel ?? "Sparkline"}
-      style={{ display: "block" }}
+      style={{ display: "block", width: "100%", maxWidth: width }}
     >
       <path
         d={path}

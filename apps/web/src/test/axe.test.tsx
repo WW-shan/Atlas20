@@ -88,6 +88,9 @@ describe("axe accessibility", () => {
 
   it("StrategyCompareTab has no axe violations", async () => {
     const { container } = renderWithQuery(<StrategyCompareTab />);
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Strategy selection" })).toHaveTextContent("3 selected");
+    });
     await waitForLoadingToSettle(container);
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });

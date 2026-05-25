@@ -216,8 +216,8 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
         </div>
       </Card>
 
-      {/* ===== Metrics 60% + Overlap 40% ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 24 }}>
+      {/* ===== Metrics + Overlap ===== */}
+      <div style={{ display: "grid", gridTemplateColumns: selections.length > 3 ? "1fr" : "3fr 2fr", gap: 24 }}>
         <Card ariaLabel="Metric comparison">
           <SectionHeader>METRIC COMPARISON</SectionHeader>
           <ComparisonTable selections={selections} metrics={data.metrics} />
@@ -241,7 +241,24 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
           </div>
         </Card>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {selections.length <= 3 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <Card ariaLabel="Holdings overlap heatmap">
+              <SectionHeader>HOLDINGS OVERLAP · JACCARD</SectionHeader>
+              <JaccardHeatmap
+                symbols={data.overlap.symbols}
+                matrix={data.overlap.matrix}
+              />
+            </Card>
+            <Card ariaLabel="Top shared holdings">
+              <SectionHeader>TOP SHARED HOLDINGS</SectionHeader>
+              <SharedHoldingsBars holdings={data.overlap.sharedHoldings} />
+            </Card>
+          </div>
+        )}
+      </div>
+      {selections.length > 3 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <Card ariaLabel="Holdings overlap heatmap">
             <SectionHeader>HOLDINGS OVERLAP · JACCARD</SectionHeader>
             <JaccardHeatmap
@@ -254,7 +271,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
             <SharedHoldingsBars holdings={data.overlap.sharedHoldings} />
           </Card>
         </div>
-      </div>
+      )}
             </>
           )}
         </>
