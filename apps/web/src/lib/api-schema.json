@@ -1,0 +1,3153 @@
+{
+  "components": {
+    "schemas": {
+      "Aum": {
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "number"
+          },
+          "deltaPct": {
+            "title": "Deltapct",
+            "type": "number"
+          },
+          "sparkline": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Sparkline",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current",
+          "deltaPct",
+          "sparkline"
+        ],
+        "title": "Aum",
+        "type": "object"
+      },
+      "BacktestAllocation": {
+        "additionalProperties": false,
+        "properties": {
+          "positionPct": {
+            "minimum": 0.0,
+            "title": "Positionpct",
+            "type": "number"
+          },
+          "slots": {
+            "minimum": 1.0,
+            "title": "Slots",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positionPct",
+          "slots"
+        ],
+        "title": "BacktestAllocation",
+        "type": "object"
+      },
+      "BacktestConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "allocation": {
+            "$ref": "#/components/schemas/BacktestAllocation"
+          },
+          "costs": {
+            "$ref": "#/components/schemas/BacktestCosts"
+          },
+          "preset": {
+            "title": "Preset",
+            "type": "string"
+          },
+          "universe": {
+            "$ref": "#/components/schemas/BacktestUniverse"
+          },
+          "window": {
+            "$ref": "#/components/schemas/BacktestWindow"
+          }
+        },
+        "required": [
+          "preset",
+          "universe",
+          "window",
+          "allocation",
+          "costs"
+        ],
+        "title": "BacktestConfig",
+        "type": "object"
+      },
+      "BacktestCosts": {
+        "additionalProperties": false,
+        "properties": {
+          "feeBps": {
+            "minimum": 0.0,
+            "title": "Feebps",
+            "type": "number"
+          },
+          "slippageBps": {
+            "minimum": 0.0,
+            "title": "Slippagebps",
+            "type": "number"
+          }
+        },
+        "required": [
+          "feeBps",
+          "slippageBps"
+        ],
+        "title": "BacktestCosts",
+        "type": "object"
+      },
+      "BacktestUniverse": {
+        "additionalProperties": false,
+        "properties": {
+          "excludeStable": {
+            "title": "Excludestable",
+            "type": "boolean"
+          },
+          "excludeWrapped": {
+            "title": "Excludewrapped",
+            "type": "boolean"
+          },
+          "topN": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Topn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "topN",
+          "excludeStable",
+          "excludeWrapped"
+        ],
+        "title": "BacktestUniverse",
+        "type": "object"
+      },
+      "BacktestWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "rebalance": {
+            "enum": [
+              "Weekly",
+              "Biweekly",
+              "Monthly"
+            ],
+            "title": "Rebalance",
+            "type": "string"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "rebalance"
+        ],
+        "title": "BacktestWindow",
+        "type": "object"
+      },
+      "ChampionSummary": {
+        "properties": {
+          "annualized_turnover": {
+            "title": "Annualized Turnover",
+            "type": "number"
+          },
+          "btc_stop_confirm_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Btc Stop Confirm Days"
+          },
+          "btc_stop_lookback_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Btc Stop Lookback Days"
+          },
+          "cagr": {
+            "title": "Cagr",
+            "type": "number"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ending_equity": {
+            "title": "Ending Equity",
+            "type": "number"
+          },
+          "initial_asset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Asset"
+          },
+          "leader_pool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leader Pool"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "min_daily_dollar_volume": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Daily Dollar Volume"
+          },
+          "min_history_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min History Days"
+          },
+          "monthly_win_rate": {
+            "title": "Monthly Win Rate",
+            "type": "number"
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "number"
+          },
+          "rebalance_frequency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rebalance Frequency"
+          },
+          "regime_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime Mode"
+          },
+          "risk_off_asset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Off Asset"
+          },
+          "sharpe": {
+            "title": "Sharpe",
+            "type": "number"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "total_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Return"
+          },
+          "weight_momentum_rank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Momentum Rank"
+          },
+          "weight_near_high_rank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Near High Rank"
+          },
+          "weight_ret_21_rank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Ret 21 Rank"
+          },
+          "weight_ret_42_rank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Ret 42 Rank"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy",
+          "display_name",
+          "window_start",
+          "window_end",
+          "multiple",
+          "cagr",
+          "sharpe",
+          "max_drawdown",
+          "annualized_turnover",
+          "monthly_win_rate",
+          "ending_equity"
+        ],
+        "title": "ChampionSummary",
+        "type": "object"
+      },
+      "CompareEquityPoint": {
+        "properties": {
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ts",
+          "values"
+        ],
+        "title": "CompareEquityPoint",
+        "type": "object"
+      },
+      "CompareMetrics": {
+        "properties": {
+          "avg_turnover": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Avg Turnover",
+            "type": "object"
+          },
+          "cagr": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Cagr",
+            "type": "object"
+          },
+          "calmar": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Calmar",
+            "type": "object"
+          },
+          "max_dd": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Max Dd",
+            "type": "object"
+          },
+          "sharpe": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Sharpe",
+            "type": "object"
+          },
+          "sortino": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Sortino",
+            "type": "object"
+          },
+          "trades_per_year": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Trades Per Year",
+            "type": "object"
+          },
+          "win_rate": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Win Rate",
+            "type": "object"
+          }
+        },
+        "required": [
+          "cagr",
+          "sharpe",
+          "sortino",
+          "max_dd",
+          "calmar",
+          "win_rate",
+          "avg_turnover",
+          "trades_per_year"
+        ],
+        "title": "CompareMetrics",
+        "type": "object"
+      },
+      "CompareOverlap": {
+        "properties": {
+          "matrix": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Matrix",
+            "type": "array"
+          },
+          "sharedHoldings": {
+            "items": {
+              "$ref": "#/components/schemas/CompareSharedHolding"
+            },
+            "title": "Sharedholdings",
+            "type": "array"
+          },
+          "symbols": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Symbols",
+            "type": "array"
+          }
+        },
+        "required": [
+          "symbols",
+          "matrix",
+          "sharedHoldings"
+        ],
+        "title": "CompareOverlap",
+        "type": "object"
+      },
+      "ComparePayload": {
+        "properties": {
+          "data_source": {
+            "default": "real",
+            "enum": [
+              "real",
+              "fallback"
+            ],
+            "title": "Data Source",
+            "type": "string"
+          },
+          "equity": {
+            "items": {
+              "$ref": "#/components/schemas/CompareEquityPoint"
+            },
+            "title": "Equity",
+            "type": "array"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/CompareMetrics"
+          },
+          "overlap": {
+            "$ref": "#/components/schemas/CompareOverlap"
+          },
+          "strategies": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyOption"
+            },
+            "title": "Strategies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "equity",
+          "metrics",
+          "overlap"
+        ],
+        "title": "ComparePayload",
+        "type": "object"
+      },
+      "CompareSharedHolding": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "symbol",
+          "count",
+          "total"
+        ],
+        "title": "CompareSharedHolding",
+        "type": "object"
+      },
+      "DataAlert": {
+        "properties": {
+          "icon": {
+            "enum": [
+              "alert-triangle",
+              "info",
+              "check-circle"
+            ],
+            "title": "Icon",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "meta": {
+            "title": "Meta",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "rose",
+              "cyan",
+              "emerald"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "title",
+          "meta",
+          "ts",
+          "icon",
+          "source"
+        ],
+        "title": "DataAlert",
+        "type": "object"
+      },
+      "DataSource": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sync_seconds": {
+            "title": "Last Sync Seconds",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "last_sync_seconds"
+        ],
+        "title": "DataSource",
+        "type": "object"
+      },
+      "EquityOverlay": {
+        "properties": {
+          "atlas_label": {
+            "title": "Atlas Label",
+            "type": "string"
+          },
+          "btc_label": {
+            "title": "Btc Label",
+            "type": "string"
+          },
+          "range": {
+            "enum": [
+              "1M",
+              "3M",
+              "YTD",
+              "1Y",
+              "ALL"
+            ],
+            "title": "Range",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/EquityOverlayPoint"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "series",
+          "range",
+          "atlas_label",
+          "btc_label"
+        ],
+        "title": "EquityOverlay",
+        "type": "object"
+      },
+      "EquityOverlayPoint": {
+        "properties": {
+          "atlas": {
+            "title": "Atlas",
+            "type": "number"
+          },
+          "btc": {
+            "title": "Btc",
+            "type": "number"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "atlas",
+          "btc"
+        ],
+        "title": "EquityOverlayPoint",
+        "type": "object"
+      },
+      "FeaturedDigest": {
+        "properties": {
+          "defaultFormat": {
+            "enum": [
+              "markdown",
+              "pdf",
+              "png",
+              "csv",
+              "bundle"
+            ],
+            "title": "Defaultformat",
+            "type": "string"
+          },
+          "formats": {
+            "items": {
+              "enum": [
+                "markdown",
+                "pdf",
+                "png",
+                "csv",
+                "bundle"
+              ],
+              "type": "string"
+            },
+            "title": "Formats",
+            "type": "array"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "subtitle": {
+            "title": "Subtitle",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "subtitle",
+          "formats",
+          "defaultFormat",
+          "generated_at"
+        ],
+        "title": "FeaturedDigest",
+        "type": "object"
+      },
+      "GenerateReportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "anyOf": [
+              {
+                "enum": [
+                  "markdown",
+                  "pdf",
+                  "png",
+                  "csv",
+                  "bundle"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "formats": {
+            "items": {
+              "enum": [
+                "markdown",
+                "pdf",
+                "png",
+                "csv",
+                "bundle"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Formats",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "pattern": "^btk_\\d{4,6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          },
+          "type": {
+            "default": "run",
+            "enum": [
+              "weekly",
+              "run",
+              "compare",
+              "universe"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "GenerateReportRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HeroKpi": {
+        "properties": {
+          "maxDd": {
+            "title": "Maxdd",
+            "type": "number"
+          },
+          "sharpe": {
+            "title": "Sharpe",
+            "type": "number"
+          },
+          "winRate": {
+            "title": "Winrate",
+            "type": "number"
+          },
+          "ytdReturn": {
+            "title": "Ytdreturn",
+            "type": "number"
+          }
+        },
+        "required": [
+          "ytdReturn",
+          "sharpe",
+          "maxDd",
+          "winRate"
+        ],
+        "title": "HeroKpi",
+        "type": "object"
+      },
+      "OptionsPayload": {
+        "properties": {
+          "feeBpsRange": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Feebpsrange",
+            "type": "array"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/PresetOption"
+            },
+            "title": "Presets",
+            "type": "array"
+          },
+          "rebalances": {
+            "items": {
+              "$ref": "#/components/schemas/OptionsRebalance"
+            },
+            "title": "Rebalances",
+            "type": "array"
+          },
+          "sectors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sectors",
+            "type": "array"
+          },
+          "slippageBpsRange": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Slippagebpsrange",
+            "type": "array"
+          },
+          "strategies": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyOption"
+            },
+            "title": "Strategies",
+            "type": "array"
+          },
+          "universes": {
+            "items": {
+              "$ref": "#/components/schemas/OptionsUniverseSize"
+            },
+            "title": "Universes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "presets",
+          "universes",
+          "rebalances",
+          "feeBpsRange",
+          "slippageBpsRange",
+          "sectors"
+        ],
+        "title": "OptionsPayload",
+        "type": "object"
+      },
+      "OptionsRebalance": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              "Weekly",
+              "Biweekly",
+              "Monthly"
+            ],
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "OptionsRebalance",
+        "type": "object"
+      },
+      "OptionsUniverseSize": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "topN": {
+            "title": "Topn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "topN",
+          "label"
+        ],
+        "title": "OptionsUniverseSize",
+        "type": "object"
+      },
+      "OverviewPayload": {
+        "properties": {
+          "aum": {
+            "$ref": "#/components/schemas/Aum"
+          },
+          "champion": {
+            "$ref": "#/components/schemas/ChampionSummary"
+          },
+          "daily_returns": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Daily Returns",
+            "type": "array"
+          },
+          "data_source": {
+            "default": "real",
+            "enum": [
+              "real",
+              "fallback"
+            ],
+            "title": "Data Source",
+            "type": "string"
+          },
+          "equity_curve": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Equity Curve",
+            "type": "array"
+          },
+          "equity_overlay": {
+            "$ref": "#/components/schemas/EquityOverlay"
+          },
+          "hero_kpi": {
+            "$ref": "#/components/schemas/HeroKpi"
+          },
+          "last_sync_seconds": {
+            "title": "Last Sync Seconds",
+            "type": "integer"
+          },
+          "rebalance": {
+            "$ref": "#/components/schemas/RebalanceInfo"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/RegimeInfo"
+          },
+          "selection_history": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionHistoryRow"
+            },
+            "title": "Selection History",
+            "type": "array"
+          },
+          "strategies": {
+            "$ref": "#/components/schemas/StrategiesBreakdown"
+          },
+          "top_strategies": {
+            "items": {
+              "$ref": "#/components/schemas/StrategySummary"
+            },
+            "title": "Top Strategies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "champion",
+          "top_strategies",
+          "equity_curve",
+          "daily_returns",
+          "selection_history",
+          "aum",
+          "strategies",
+          "regime",
+          "rebalance",
+          "equity_overlay",
+          "hero_kpi",
+          "last_sync_seconds"
+        ],
+        "title": "OverviewPayload",
+        "type": "object"
+      },
+      "PresetOption": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name"
+        ],
+        "title": "PresetOption",
+        "type": "object"
+      },
+      "RebalanceInfo": {
+        "properties": {
+          "swaps": {
+            "items": {
+              "$ref": "#/components/schemas/RebalanceSwap"
+            },
+            "title": "Swaps",
+            "type": "array"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "swaps"
+        ],
+        "title": "RebalanceInfo",
+        "type": "object"
+      },
+      "RebalanceSwap": {
+        "properties": {
+          "deltaPct": {
+            "title": "Deltapct",
+            "type": "number"
+          },
+          "in": {
+            "title": "In",
+            "type": "string"
+          },
+          "out": {
+            "title": "Out",
+            "type": "string"
+          }
+        },
+        "required": [
+          "out",
+          "in",
+          "deltaPct"
+        ],
+        "title": "RebalanceSwap",
+        "type": "object"
+      },
+      "RegimeInfo": {
+        "properties": {
+          "label": {
+            "enum": [
+              "RISK-ON",
+              "NEUTRAL",
+              "RISK-OFF"
+            ],
+            "title": "Label",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score",
+          "model"
+        ],
+        "title": "RegimeInfo",
+        "type": "object"
+      },
+      "ReportEntry": {
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "highlight": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highlight"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "report_type": {
+            "enum": [
+              "weekly",
+              "run",
+              "compare",
+              "universe"
+            ],
+            "title": "Report Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "generating"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subtitle": {
+            "title": "Subtitle",
+            "type": "string"
+          },
+          "thumbnail": {
+            "enum": [
+              "equity",
+              "lines",
+              "heatmap",
+              "bars",
+              "horizontal-bars",
+              "sparkbar"
+            ],
+            "title": "Thumbnail",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "subtitle",
+          "thumbnail",
+          "status",
+          "generated_at",
+          "size_bytes",
+          "report_type"
+        ],
+        "title": "ReportEntry",
+        "type": "object"
+      },
+      "RunDetailEquityOverlay": {
+        "properties": {
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/EquityOverlayPoint"
+            },
+            "title": "Series",
+            "type": "array"
+          }
+        },
+        "required": [
+          "series"
+        ],
+        "title": "RunDetailEquityOverlay",
+        "type": "object"
+      },
+      "RunDetailPayload": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "drawdown_series": {
+            "items": {
+              "$ref": "#/components/schemas/RunDetailSeriesPoint"
+            },
+            "title": "Drawdown Series",
+            "type": "array"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "equity_overlay": {
+            "$ref": "#/components/schemas/RunDetailEquityOverlay"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S"
+          },
+          "favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorited"
+          },
+          "kpi": {
+            "$ref": "#/components/schemas/RunKpi"
+          },
+          "max_dd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Dd"
+          },
+          "return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Pct"
+          },
+          "return_series": {
+            "items": {
+              "$ref": "#/components/schemas/RunDetailSeriesPoint"
+            },
+            "title": "Return Series",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "selected_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Strategy"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          },
+          "spark": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spark"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "strategy_family": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ATLAS",
+                  "Momentum",
+                  "MeanRev",
+                  "Carry",
+                  "Other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Family"
+          },
+          "trade_rows": {
+            "items": {
+              "$ref": "#/components/schemas/RunTradeRow"
+            },
+            "title": "Trade Rows",
+            "type": "array"
+          },
+          "turnover_rows": {
+            "items": {
+              "$ref": "#/components/schemas/RunTurnoverRow"
+            },
+            "title": "Turnover Rows",
+            "type": "array"
+          },
+          "universe": {
+            "title": "Universe",
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/RunWindow"
+          }
+        },
+        "required": [
+          "run_id",
+          "strategy",
+          "universe",
+          "window",
+          "status",
+          "created_at",
+          "equity_overlay",
+          "kpi"
+        ],
+        "title": "RunDetailPayload",
+        "type": "object"
+      },
+      "RunDetailSeriesPoint": {
+        "properties": {
+          "atlas": {
+            "title": "Atlas",
+            "type": "number"
+          },
+          "btc": {
+            "title": "Btc",
+            "type": "number"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "atlas",
+          "btc"
+        ],
+        "title": "RunDetailSeriesPoint",
+        "type": "object"
+      },
+      "RunKpi": {
+        "properties": {
+          "cagr": {
+            "title": "Cagr",
+            "type": "number"
+          },
+          "calmar": {
+            "title": "Calmar",
+            "type": "number"
+          },
+          "max_dd": {
+            "title": "Max Dd",
+            "type": "number"
+          },
+          "sharpe": {
+            "title": "Sharpe",
+            "type": "number"
+          },
+          "sortino": {
+            "title": "Sortino",
+            "type": "number"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "cagr",
+          "sharpe",
+          "sortino",
+          "max_dd",
+          "calmar",
+          "win_rate"
+        ],
+        "title": "RunKpi",
+        "type": "object"
+      },
+      "RunRow": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S"
+          },
+          "favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorited"
+          },
+          "max_dd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Dd"
+          },
+          "return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Pct"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "selected_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Strategy"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          },
+          "spark": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spark"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "strategy_family": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ATLAS",
+                  "Momentum",
+                  "MeanRev",
+                  "Carry",
+                  "Other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Family"
+          },
+          "universe": {
+            "title": "Universe",
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/RunWindow"
+          }
+        },
+        "required": [
+          "run_id",
+          "strategy",
+          "universe",
+          "window",
+          "status",
+          "created_at"
+        ],
+        "title": "RunRow",
+        "type": "object"
+      },
+      "RunRowSummary": {
+        "properties": {
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S"
+          },
+          "favorited": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorited"
+          },
+          "params_summary": {
+            "title": "Params Summary",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "strategy",
+          "status",
+          "params_summary"
+        ],
+        "title": "RunRowSummary",
+        "type": "object"
+      },
+      "RunTradeRow": {
+        "properties": {
+          "coin_id": {
+            "title": "Coin Id",
+            "type": "string"
+          },
+          "coin_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Rank"
+          },
+          "coin_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Score"
+          },
+          "coin_weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Weight"
+          },
+          "rebalance_date": {
+            "title": "Rebalance Date",
+            "type": "string"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          }
+        },
+        "required": [
+          "rebalance_date",
+          "coin_id"
+        ],
+        "title": "RunTradeRow",
+        "type": "object"
+      },
+      "RunTurnoverRow": {
+        "properties": {
+          "annualized_turnover": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annualized Turnover"
+          },
+          "average_holdings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Holdings"
+          },
+          "avg_turnover_per_rebalance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Turnover Per Rebalance"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy"
+        ],
+        "title": "RunTurnoverRow",
+        "type": "object"
+      },
+      "RunWindow": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "RunWindow",
+        "type": "object"
+      },
+      "RunsListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pageSize": {
+            "title": "Pagesize",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "title": "RunsListResponse",
+        "type": "object"
+      },
+      "SelectionHistoryRow": {
+        "properties": {
+          "coin_id": {
+            "title": "Coin Id",
+            "type": "string"
+          },
+          "coin_rank": {
+            "title": "Coin Rank",
+            "type": "integer"
+          },
+          "coin_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coin Score"
+          },
+          "coin_weight": {
+            "title": "Coin Weight",
+            "type": "number"
+          },
+          "rebalance_date": {
+            "title": "Rebalance Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rebalance_date",
+          "coin_id",
+          "coin_rank",
+          "coin_weight"
+        ],
+        "title": "SelectionHistoryRow",
+        "type": "object"
+      },
+      "SeriesPoint": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "value"
+        ],
+        "title": "SeriesPoint",
+        "type": "object"
+      },
+      "StrategiesBreakdown": {
+        "properties": {
+          "breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyBreakdownItem"
+            },
+            "title": "Breakdown",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "breakdown"
+        ],
+        "title": "StrategiesBreakdown",
+        "type": "object"
+      },
+      "StrategyBreakdownItem": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "count"
+        ],
+        "title": "StrategyBreakdownItem",
+        "type": "object"
+      },
+      "StrategyOption": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy",
+          "display_name"
+        ],
+        "title": "StrategyOption",
+        "type": "object"
+      },
+      "StrategySummary": {
+        "properties": {
+          "annualized_turnover": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annualized Turnover"
+          },
+          "cagr": {
+            "title": "Cagr",
+            "type": "number"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "monthly_win_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Win Rate"
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "number"
+          },
+          "sharpe": {
+            "title": "Sharpe",
+            "type": "number"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy",
+          "multiple",
+          "cagr",
+          "sharpe",
+          "max_drawdown"
+        ],
+        "title": "StrategySummary",
+        "type": "object"
+      },
+      "UniverseRange": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "UniverseRange",
+        "type": "object"
+      },
+      "UniverseRotation": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ts",
+          "label"
+        ],
+        "title": "UniverseRotation",
+        "type": "object"
+      },
+      "UniverseTimelinePayload": {
+        "properties": {
+          "data_source": {
+            "default": "real",
+            "enum": [
+              "real",
+              "fallback"
+            ],
+            "title": "Data Source",
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/UniverseRange"
+          },
+          "rotations": {
+            "items": {
+              "$ref": "#/components/schemas/UniverseRotation"
+            },
+            "title": "Rotations",
+            "type": "array"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/UniverseTimelineSegment"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "tokens": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tokens",
+          "segments",
+          "rotations",
+          "range"
+        ],
+        "title": "UniverseTimelinePayload",
+        "type": "object"
+      },
+      "UniverseTimelineSegment": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "start",
+          "end"
+        ],
+        "title": "UniverseTimelineSegment",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Atlas20 Research Console API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/backtests/run": {
+      "post": {
+        "operationId": "post_backtest_api_backtests_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9_-]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunRowSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Backtest",
+        "tags": [
+          "backtests"
+        ]
+      }
+    },
+    "/api/compare": {
+      "get": {
+        "operationId": "get_compare_api_compare_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Ids",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": "YTD",
+              "enum": [
+                "1M",
+                "3M",
+                "YTD",
+                "1Y",
+                "ALL"
+              ],
+              "title": "Range",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparePayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compare",
+        "tags": [
+          "compare"
+        ]
+      }
+    },
+    "/api/options": {
+      "get": {
+        "operationId": "get_options_api_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptionsPayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Options",
+        "tags": [
+          "options"
+        ]
+      }
+    },
+    "/api/overview": {
+      "get": {
+        "operationId": "get_overview_api_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewPayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Overview",
+        "tags": [
+          "overview"
+        ]
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "operationId": "get_reports_api_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "recent",
+              "enum": [
+                "recent",
+                "oldest",
+                "size",
+                "type"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportEntry"
+                  },
+                  "title": "Response Get Reports Api Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Reports",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/digest/download": {
+      "get": {
+        "operationId": "get_digest_download_api_reports_digest_download_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "markdown",
+              "enum": [
+                "markdown",
+                "pdf",
+                "png",
+                "csv",
+                "bundle"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Digest Download",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/digest/featured": {
+      "get": {
+        "operationId": "get_digest_featured_api_reports_digest_featured_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeaturedDigest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Digest Featured",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/generate": {
+      "post": {
+        "operationId": "generate_report_api_reports_generate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Generate Report Api Reports Generate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/{report_id}/download": {
+      "get": {
+        "operationId": "get_report_download_api_reports__report_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9_-]{1,64}$",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "markdown",
+                    "pdf",
+                    "png",
+                    "csv",
+                    "bundle"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Report Download",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "operationId": "get_runs_api_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "chips",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Chips",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dateRange",
+            "required": false,
+            "schema": {
+              "default": "30d",
+              "enum": [
+                "7d",
+                "30d",
+                "90d",
+                "ytd",
+                "all"
+              ],
+              "title": "Daterange",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "minimum": 1,
+              "title": "Pagesize",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Runs",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/queue": {
+      "get": {
+        "operationId": "get_runs_queue_api_runs_queue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunRowSummary"
+                  },
+                  "title": "Response Get Runs Queue Api Runs Queue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Runs Queue",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^btk_\\d{4,6}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_run_api_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^btk_\\d{4,6}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Run Api Runs  Run Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/detail": {
+      "get": {
+        "operationId": "get_run_detail_api_runs__run_id__detail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^btk_\\d{4,6}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetailPayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Detail",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/favorite": {
+      "post": {
+        "operationId": "post_run_favorite_api_runs__run_id__favorite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "pattern": "^btk_\\d{4,6}$",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Post Run Favorite Api Runs  Run Id  Favorite Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Run Favorite",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/universe/alerts": {
+      "get": {
+        "operationId": "get_alerts_api_universe_alerts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DataAlert"
+                  },
+                  "title": "Response Get Alerts Api Universe Alerts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Alerts",
+        "tags": [
+          "universe"
+        ]
+      }
+    },
+    "/api/universe/refresh": {
+      "post": {
+        "operationId": "post_refresh_api_universe_refresh_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Post Refresh Api Universe Refresh Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Refresh",
+        "tags": [
+          "universe"
+        ]
+      }
+    },
+    "/api/universe/refresh-status": {
+      "get": {
+        "operationId": "get_refresh_status_api_universe_refresh_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": "Response Get Refresh Status Api Universe Refresh Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Refresh Status",
+        "tags": [
+          "universe"
+        ]
+      }
+    },
+    "/api/universe/sources": {
+      "get": {
+        "operationId": "get_sources_api_universe_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DataSource"
+                  },
+                  "title": "Response Get Sources Api Universe Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Sources",
+        "tags": [
+          "universe"
+        ]
+      }
+    },
+    "/api/universe/timeline": {
+      "get": {
+        "operationId": "get_timeline_api_universe_timeline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniverseTimelinePayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Timeline",
+        "tags": [
+          "universe"
+        ]
+      }
+    }
+  }
+}
