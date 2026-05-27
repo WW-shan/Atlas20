@@ -16,7 +16,6 @@ import { NewReportModal } from "./NewReportModal";
 
 import {
   downloadReportUrl,
-  fallbackFeaturedDigest,
   fallbackOptions,
   generateReport,
   getFeaturedDigest,

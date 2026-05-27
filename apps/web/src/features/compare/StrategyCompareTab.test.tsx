@@ -143,6 +143,26 @@ describe("StrategyCompareTab", () => {
     expect(within(listbox).getByRole("option", { name: "Five Year 2020 2024" })).toBeInTheDocument();
   });
 
+  it("shows full strategy options in the add strategy modal", async () => {
+    vi.mocked(api.getOptions).mockResolvedValue({
+      ...api.fallbackOptions,
+      presets: [{ slug: "ALPHA_PRESET", display_name: "Alpha Preset" }],
+      strategies: [{ strategy: "OMEGA_REAL_STRATEGY", display_name: "Omega Real Strategy" }],
+    });
+    renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    expect(await within(dialog).findByRole("option", { name: "Omega Real Strategy" })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("option", { name: "Omega Real Strategy" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(api.getCompare).mock.calls.at(-1)?.[0]).toContain("OMEGA_REAL_STRATEGY");
+    });
+  });
+
   it("adds selected strategies as compare columns and refetches with new ids", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
 

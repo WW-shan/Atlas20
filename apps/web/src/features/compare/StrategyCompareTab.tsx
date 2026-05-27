@@ -89,9 +89,10 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   const compareLoading = hasSelections && query.isFetching;
   const data = query.data ?? (compareFailed ? undefined : fallbackCompare);
   const strategyOptions = useMemo(() => {
+    const strategyLabels = (options.data?.strategies ?? []).map((s) => s.display_name);
     const presetLabels = (options.data?.presets ?? []).map((p) => p.display_name);
-    return Array.from(new Set([...selections.map((s) => s.label), ...presetLabels]));
-  }, [options.data?.presets, selections]);
+    return Array.from(new Set([...selections.map((s) => s.label), ...strategyLabels, ...presetLabels]));
+  }, [options.data?.strategies, options.data?.presets, selections]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -104,8 +105,9 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
 
   const handleAddStrategies = (labels: string[]) => {
     const presetByLabel = new Map((options.data?.presets ?? []).map((p) => [p.display_name, p.slug]));
+    const strategyByLabel = new Map((options.data?.strategies ?? []).map((s) => [s.display_name, s.strategy]));
     setSelections((current) => labels.map((label, index) => {
-      const id = presetByLabel.get(label) ?? label;
+      const id = strategyByLabel.get(label) ?? presetByLabel.get(label) ?? label;
       const existing = current.find((selection) => selection.id === id);
       if (existing) return { ...existing, label };
       return { id, label, tone: TONES[index % TONES.length] };
