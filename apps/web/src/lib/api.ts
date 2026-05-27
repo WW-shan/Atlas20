@@ -703,7 +703,9 @@ async function requestBlob(path: string, fallbackFilename: string): Promise<Repo
     throw await apiErrorFromResponse(response, `Atlas20 API download failed: ${response.status}`);
   }
   const filename = parseAttachmentFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename;
-  return { blob: await response.blob(), filename };
+  const contentType = response.headers.get("Content-Type") ?? "";
+  const blob = new Blob([await response.arrayBuffer()], { type: contentType });
+  return { blob, filename };
 }
 
 function parseAttachmentFilename(header: string | null): string | undefined {
