@@ -7,6 +7,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
+import textwrap
 import zipfile
 
 from atlas20.backtest.engine import BacktestResult
@@ -158,12 +159,50 @@ def generate_pdf(markdown_path: Path, output_path: Path) -> bool:
         from markdown import markdown as md_to_html
         from weasyprint import HTML
     except (ImportError, OSError) as exc:
-        logger.warning("%s: %s", PDF_UNAVAILABLE_WARNING, exc)
-        return False
+        logger.warning("%s: %s; using plaintext fallback", PDF_UNAVAILABLE_WARNING, exc)
+        return _generate_plaintext_pdf(markdown_path, output_path)
 
     html = md_to_html(Path(markdown_path).read_text(encoding="utf-8"))
     try:
         HTML(string=html).write_pdf(output_path)
+    except OSError as exc:
+        logger.warning("%s: %s; using plaintext fallback", PDF_UNAVAILABLE_WARNING, exc)
+        return _generate_plaintext_pdf(markdown_path, output_path)
+    return True
+
+
+def _generate_plaintext_pdf(markdown_path: Path, output_path: Path) -> bool:
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_pdf import PdfPages
+    except (ImportError, OSError) as exc:
+        logger.warning("%s: %s", PDF_UNAVAILABLE_WARNING, exc)
+        return False
+
+    lines: list[str] = []
+    for source_line in Path(markdown_path).read_text(encoding="utf-8").splitlines():
+        wrapped = textwrap.wrap(source_line, width=92, replace_whitespace=False, drop_whitespace=False)
+        lines.extend(wrapped or [""])
+    if not lines:
+        lines = ["Atlas20 report"]
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with PdfPages(output_path) as pdf:
+            for page_index, start in enumerate(range(0, len(lines), 52), start=1):
+                fig = plt.figure(figsize=(8.27, 11.69))
+                fig.text(
+                    0.08,
+                    0.94,
+                    "\n".join(lines[start : start + 52]),
+                    va="top",
+                    ha="left",
+                    family="monospace",
+                    fontsize=8.5,
+                )
+                fig.text(0.08, 0.04, f"Atlas20 report - page {page_index}", fontsize=8, color="#555555")
+                pdf.savefig(fig)
+                plt.close(fig)
     except OSError as exc:
         logger.warning("%s: %s", PDF_UNAVAILABLE_WARNING, exc)
         return False

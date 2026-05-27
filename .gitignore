@@ -49,6 +49,7 @@ data/raw/
 # control (each ~1.5MB; 21 PNGs).
 output/imagegen/
 output/load/
+output/full-functional/
 
 .ace-tool/
 

@@ -93,7 +93,7 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit
       - name: Audit Python dependencies
-        run: pip-audit --strict
+        run: pip-audit --strict .
       - uses: actions/setup-node@v5
         with:
           node-version: "22"

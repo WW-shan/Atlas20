@@ -481,3 +481,11 @@ def test_metrics_endpoint_includes_counter_help_and_type(tmp_path, monkeypatch) 
 
     assert "# HELP atlas20_backtests_total" in body
     assert "# TYPE atlas20_backtests_total counter" in body
+
+
+def test_metrics_endpoint_includes_http_request_counter(tmp_path, monkeypatch) -> None:
+    with TestClient(_app(tmp_path, monkeypatch)) as client:
+        assert client.get("/api/options").status_code == 200
+        body = client.get("/metrics").text
+
+    assert 'http_requests_total{handler="/api/options",method="GET",status="2xx"}' in body

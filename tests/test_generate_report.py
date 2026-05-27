@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import time
 
 import pytest
@@ -220,6 +221,18 @@ def test_generate_pdf_writes_file_when_weasyprint_available(tmp_path: Path) -> N
 
     if not services_report.generate_pdf(markdown_path, pdf_path):
         pytest.skip("weasyprint runtime unavailable")
+    assert pdf_path.read_bytes().startswith(b"%PDF")
+
+
+def test_generate_pdf_writes_plaintext_fallback_when_weasyprint_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    markdown_path = tmp_path / "digest.md"
+    pdf_path = tmp_path / "digest.pdf"
+    markdown_path.write_text("# Digest\n\nFallback PDF body\n", encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "weasyprint", None)
+
+    assert services_report.generate_pdf(markdown_path, pdf_path)
     assert pdf_path.read_bytes().startswith(b"%PDF")
 
 
