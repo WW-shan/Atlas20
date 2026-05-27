@@ -6,6 +6,8 @@
 
 **2026-05-27 校准**: 代码已推进到「可用研究控制台 + 真实后端接入 + DB-backed 回测 worker + 多格式报告生成/下载」状态。本文件已按当前实现重新勾选；仍未勾选的项表示尚未达到本清单原定义的生产级验收，而不是 UI/MVP 不可用。
 
+**2026-05-27 执行校准**: 近期已补齐 reports/latest 当前产物、Compare 真 weights overlap、Reports archive 磁盘扫描、Featured Digest fallback、OpenAPI drift gate、全 `src/atlas20/api` mypy strict、Playwright 6 页真实浏览器 smoke。当前剩余可执行项收敛为 T6、Q3、Q6、A2、A4、A7；S5/JWT 继续按「生产 hook，公网部署前再做」处理。
+
 ---
 
 ## 修订总览（vs v1）
@@ -535,13 +537,13 @@
 
 ## Phase C — 契约边角
 
-### C1 — 删 `view` 参数（前端 + 后端）
-### C2 — chip 语义对齐（家族 chip OR strategy substring）
+### C1 — 删 `view` 参数（前端 + 后端） — [x] `/api/runs?view=list` 已 422；前端 viewMode 仅本地状态
+### C2 — chip 语义对齐（家族 chip OR strategy substring） — [x] status / family / favorited chips 已由 repo + service tests 覆盖
 ### C3 — anchor date 用 UTC 时钟（**修正语法**）
 - [x] `atlas20.api._time.today()` 使用 UTC 时钟并支持 `ATLAS20_ANCHOR_DATE`
 
-### C4 — register_new_backtest 双写 runs_list（Phase P 之后自然解决）
-### C5 — favorite 同步 queue（Phase P 之后自然解决）
+### C4 — register_new_backtest 双写 runs_list（Phase P 之后自然解决） — [x] DB-backed runs table 已替代 legacy runs_list 双写
+### C5 — favorite 同步 queue（Phase P 之后自然解决） — [x] favorite 持久化到 DB，queue/list/detail 同步读取
 
 ### ~~C6 query 字段顺序对齐~~ — 删除（非功能）
 ### ~~C7 `/api/v1`~~ — 延期（本地 MVP 不需要）
@@ -554,7 +556,7 @@
 ### A2 — 键盘导航 audit + skip-to-content + focus trap — [ ] skip link / Dialog focus trap 已落地，仍需人工全量键盘 audit
 ### A3 — Screen reader live regions（Pill / Toast） — [x]
 ### A4 — 颜色对比度 WCAG AA — [ ] 需要浏览器/设计 token 人工复核
-### A7 — Mobile responsive audit at 375/768/1024
+### A7 — Mobile responsive audit at 375/768/1024 — [ ] 需要 Playwright viewport smoke 或人工布局复核
 ### A8 — React `<ErrorBoundary>` 每 page 包 — [x]
 
 ### ~~A5 i18n~~ — 删除
@@ -577,6 +579,18 @@
 
 ## 优先级与里程碑（**修订自 v1**）
 
+### 当前剩余执行顺序（2026-05-27）
+- **Q6**: 统一 FastAPI error envelope（影响 API 契约与前端错误处理，优先于继续扩展测试）。
+- **T6**: 补 load-test 基线（100 RPS / p95 < 200ms，mock/seed 数据模式），输出可复跑脚本和阈值说明。
+- **A7**: 用 Playwright viewport smoke 或人工记录覆盖 375/768/1024 布局风险。
+- **A2/A4**: 键盘导航与 WCAG AA 颜色对比仍需浏览器/设计 token 复核，属于人工 audit 收口。
+- **Q3**: Service Protocol 抽象是重构型质量项，放在 Q6/T6 后，避免先重构再改错误契约。
+
+### 当前验证基线（2026-05-27）
+- Backend: `pytest -q` 414 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
+- Frontend: `npm --prefix apps/web test` 177 passed；`lint` clean；`typecheck` clean；`build` passed。
+- Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 6 passed。
+
 ### MS-1 — Real Data Demo（**7-10 天**，原 1 周低估）
 **Status 2026-05-27**: 基本完成。剩余为个别生产验收用例收口。
 - Phase X + R1/R2/R3/R6/R8 + U4-U9 部分（接现成组件）
@@ -593,7 +607,7 @@
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-27**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e 已落地；load test、统一错误 envelope 仍未做。
+**Status 2026-05-27**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角已落地；剩余为 load test、统一错误 envelope、Service Protocol 重构和人工 a11y/responsive audit。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
@@ -620,7 +634,7 @@
 
 ---
 
-**Last updated**: 2026-05-27 (implementation status calibration)
+**Last updated**: 2026-05-27 (post-T4 roadmap calibration)
 **Maintainer**: Atlas20 team  
 **v1**: `a43a304`  
 **v2**: post-codex roadmap, calibrated against current implementation
