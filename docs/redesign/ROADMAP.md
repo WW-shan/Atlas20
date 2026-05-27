@@ -484,7 +484,7 @@
 - [x] `tests/conftest.py` 提全局 autouse 环境/cache 隔离与 DB fixture seed
 
 ### T3 — Engine 集成
-- [ ] 用小窗口（30 天 Top-5）真跑一次 backtest，断言产物齐 + DB 行写（当前主要是 worker mock/adapter/route 集成）
+- [x] 用小窗口（30 天 Top-5）真跑一次 backtest，断言产物齐 + DB 行写
 
 ### T4 — Playwright e2e
 - [ ] `apps/web/e2e/` 6 page × 1 smoke
@@ -583,7 +583,7 @@
 - 不做 R7/R10（要等 S/E）
 
 ### MS-2 — Real Backtests + 持久化（**12-15 天**）
-**Status 2026-05-27**: MVP 主链路完成。剩余差距主要是 N worker API 场景验收、真实小窗口 engine 集成测试。
+**Status 2026-05-27**: MVP 主链路完成。N worker API 场景验收、真实小窗口 engine 集成测试已补齐；剩余差距转入生产安全、质量门和 DX 项。
 - P1-P6 + E1-E8 + X3/X4 完成
 - T3 嵌入
 
