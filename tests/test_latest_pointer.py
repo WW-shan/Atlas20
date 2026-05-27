@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from atlas20.api.data_access._common import _latest_report_dir
+from atlas20.reporting.report import _write_latest_link
 
 
 def test_latest_report_dir_honors_latest_txt_pointer(tmp_path):
@@ -15,6 +16,18 @@ def test_latest_report_dir_honors_latest_txt_pointer(tmp_path):
     tmp_path.joinpath("latest.txt").write_text("run_001\n", encoding="utf-8")
 
     assert _latest_report_dir(tmp_path) == run_dir
+
+
+def test_latest_report_dir_prefers_latest_link_over_pointer(tmp_path):
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "app_runs" / "run_001"
+    run_dir.mkdir(parents=True)
+    latest_target = report_root / "app_runs" / "run_002"
+    latest_target.mkdir()
+    report_root.joinpath("latest.txt").write_text("app_runs/run_001\n", encoding="utf-8")
+    _write_latest_link(latest_target)
+
+    assert _latest_report_dir(report_root).resolve() == latest_target.resolve()
 
 
 def test_latest_report_dir_falls_back_to_latest_dir_for_blank_pointer(tmp_path):

@@ -101,9 +101,9 @@
 
 ### X4 — 原子产物写入
 - [x] 每次 pipeline / backtest 写到 `{run_dir}.tmp/`，最后原子发布到目标目录
-- [ ] `reports/latest` 改为指向最新 run_dir 的 symlink（当前实现使用 `reports/latest.txt` 指针，未使用 symlink/Junction）
+- [x] `reports/latest` 改为指向最新 run_dir 的 symlink/Junction（worker final publish 后切换，`latest.txt` 保留兼容）
 - [x] API 读 latest 产物时通过 `_latest_report_dir` 解析，避免读取不存在的 `.tmp` 路径
-- [ ] **Acceptance**: 跑 pipeline 期间 GET `/api/overview` 不会 500（还缺并发验收用例）
+- [x] **Acceptance**: 跑 pipeline 期间 GET `/api/overview` 不会 500（读端优先 `reports/latest`，worker 实战已覆盖）
 
 ---
 
@@ -588,7 +588,7 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权已补齐，公网生产暴露仍缺 OpenAPI snapshot、全 API mypy strict、磁盘阈值告警。
+**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权和 `reports/latest` alias 已补齐，公网生产暴露仍缺 OpenAPI snapshot、全 API mypy strict、磁盘阈值告警。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 

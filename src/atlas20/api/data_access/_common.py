@@ -3,14 +3,42 @@
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
+import stat
 from typing import Any
 
 import pandas as pd
 from pandas.errors import EmptyDataError, ParserError
 
 
+def _is_directory_link(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    if callable(is_junction):
+        return bool(is_junction())
+    if os.name != "nt":
+        return False
+    try:
+        attrs = path.lstat().st_file_attributes
+    except (AttributeError, OSError):
+        return False
+    reparse_point = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attrs & reparse_point) and path.is_dir()
+
+
 def _latest_report_dir(report_root: Path) -> Path:
+    latest = report_root / "latest"
+    if latest.exists() and latest.is_dir() and _is_directory_link(latest):
+        resolved_root = report_root.resolve()
+        resolved_latest = latest.resolve()
+        try:
+            resolved_latest.relative_to(resolved_root)
+        except ValueError as exc:
+            raise ValueError("reports/latest points outside report_root") from exc
+        return latest
+
     pointer = report_root / "latest.txt"
     if pointer.exists():
         try:
@@ -29,8 +57,7 @@ def _latest_report_dir(report_root: Path) -> Path:
                 ) from exc
             if target.exists():
                 return target
-    fallback = report_root / "latest"
-    return fallback if fallback.exists() else report_root
+    return latest if latest.exists() else report_root
 
 
 def _read_csv(path: Path, *, index_col: int | None = None) -> pd.DataFrame:

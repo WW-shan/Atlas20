@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import stat
 import time
 
 import pandas as pd
@@ -295,9 +296,25 @@ def _temporary_report_dir(report_dir: Path) -> Path:
     return _tmp_name(report_dir)
 
 
+def _is_windows_junction(path: Path) -> bool:
+    is_junction = getattr(path, "is_junction", None)
+    if callable(is_junction):
+        return bool(is_junction())
+    if os.name != "nt":
+        return False
+    try:
+        attrs = path.lstat().st_file_attributes
+    except (AttributeError, OSError):
+        return False
+    reparse_point = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(attrs & reparse_point) and path.is_dir() and not path.is_symlink()
+
+
 def _remove_path(path: Path) -> None:
     if path.is_symlink() or path.is_file():
         path.unlink()
+    elif _is_windows_junction(path):
+        path.rmdir()
     elif path.exists():
         shutil.rmtree(path)
 
@@ -342,6 +359,54 @@ def _write_latest_pointer(report_dir: Path) -> None:
     tmp_pointer_path = _tmp_name(pointer_path)
     tmp_pointer_path.write_text(relative_report_dir.as_posix() + "\n", encoding="utf-8")
     tmp_pointer_path.replace(pointer_path)
+
+
+def _create_directory_link(link_path: Path, target_path: Path) -> None:
+    if os.name != "nt":
+        link_path.symlink_to(target_path, target_is_directory=True)
+        return
+    try:
+        link_path.symlink_to(target_path, target_is_directory=True)
+        return
+    except OSError:
+        _remove_path(link_path)
+    completed = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "& { param($link, $target) New-Item -ItemType Junction -Path $link -Target $target | Out-Null }",
+            str(link_path),
+            str(target_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()
+        raise OSError(f"Could not create directory junction {link_path} -> {target_path}: {detail}")
+
+
+def _write_latest_link(report_dir: Path) -> None:
+    report_root = _report_root(report_dir)
+    latest_path = report_root / "latest"
+    try:
+        if latest_path.resolve() == report_dir.resolve():
+            return
+    except OSError:
+        pass
+
+    tmp_link_path = _tmp_name(latest_path)
+    _remove_path(tmp_link_path)
+    try:
+        _create_directory_link(tmp_link_path, report_dir.resolve())
+        if latest_path.exists() or latest_path.is_symlink() or _is_windows_junction(latest_path):
+            _remove_path(latest_path)
+        tmp_link_path.replace(latest_path)
+    except Exception:
+        _remove_path(tmp_link_path)
+        raise
 
 
 def export_result_tables(

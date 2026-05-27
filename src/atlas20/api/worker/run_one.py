@@ -27,7 +27,7 @@ from atlas20.api.settings import Settings, get_settings
 from atlas20.backtest.engine import run_backtest
 from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
-from atlas20.reporting.report import _pipeline_version, _publish_report_dir, _write_latest_pointer
+from atlas20.reporting.report import _pipeline_version, _publish_report_dir, _write_latest_link, _write_latest_pointer
 
 
 PRESET_SLUG_PATTERN = re.compile(r"[^a-z0-9_]+")
@@ -342,12 +342,10 @@ def run(run_id: str, settings: Settings | None = None) -> int:
         # .backup, move tmp to final, then delete .backup after success.
         # This keeps rollback behavior for partial publish failures.
         _publish_report_dir(tmp_dir, final_dir)
-        # Re-point reports/latest.txt at the *final* directory, not the .tmp
-        # path the pipeline wrote during export_result_tables. Without this,
-        # /api/compare's `_latest_report_dir` resolves a non-existent
-        # `app_runs/<id>.tmp` and falls back to the mock payload even though
-        # a real run just completed.
+        # Re-point latest aliases at the *final* directory, not the .tmp path
+        # the pipeline wrote during export_result_tables.
         _write_latest_pointer(final_dir)
+        _write_latest_link(final_dir)
         duration_s = max(0, int(time.monotonic() - started))
 
         with Session(engine) as session:
