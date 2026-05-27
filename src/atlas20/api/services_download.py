@@ -117,6 +117,14 @@ def _fallback_run_path(report_id: str, fmt: str, settings: Settings) -> Path | N
     return None
 
 
+def _latest_markdown_report(settings: Settings) -> Path | None:
+    latest_dir = Path(settings.report_root) / "latest"
+    if not latest_dir.is_dir():
+        return None
+    candidates = [path for path in latest_dir.glob("*.md") if path.is_file()]
+    return max(candidates, key=lambda path: path.stat().st_mtime) if candidates else None
+
+
 def _resolve_report_file(
     report_id: str,
     fmt: str | None,
@@ -165,6 +173,10 @@ def _resolve_featured_file(fmt: str, session: Session, settings: Settings) -> tu
         fallback = _fallback_run_path(run_id, fmt, settings)
         if fallback is not None:
             return fallback, run_id, None
+    if fmt == "markdown":
+        latest_markdown = _latest_markdown_report(settings)
+        if latest_markdown is not None:
+            return latest_markdown, None, sha256_file(latest_markdown)
     raise HTTPException(
         status_code=404,
         detail="featured digest not yet generated; trigger via POST /api/reports/generate or the weekly scheduler",

@@ -6,6 +6,7 @@ import csv
 import json
 import logging
 import math
+import re
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ from atlas20.api import mock_data
 from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.data_access._common import _format_display_name
-from atlas20.api.data_access.compare import load_compare_from_reports
+from atlas20.api.data_access.compare import UnknownCompareIdError, load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
 from atlas20.api.data_access.universe import (
@@ -952,6 +953,8 @@ def get_compare(ids: list[str], range_: str) -> ComparePayload:
     settings = get_settings().model_copy(update={"anchor_date": today()})
     try:
         payload = load_compare_from_reports(settings, ids, range_)
+    except UnknownCompareIdError:
+        raise
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Falling back to mock compare: %s", exc)
         return _get_compare_mock(ids, range_)
@@ -1150,7 +1153,8 @@ def _featured_digest_from_kv(session: Session, settings: Settings) -> FeaturedDi
 
 
 def _newest_markdown(report_root: Path) -> Path | None:
-    reports = [path for path in report_root.rglob("*.md") if path.is_file()]
+    latest_dir = Path(report_root) / "latest"
+    reports = [path for path in latest_dir.glob("*.md") if path.is_file()] if latest_dir.is_dir() else []
     if not reports:
         return None
     return max(reports, key=lambda path: path.stat().st_mtime)
@@ -1190,11 +1194,103 @@ def _report_file_to_entry(row) -> ReportEntry:
     )
 
 
+REPORT_ARCHIVE_EXTENSIONS = {".md", ".pdf", ".png", ".csv", ".zip"}
+REPORT_ID_SAFE = re.compile(r"[^a-z0-9_-]+")
+
+
+def _disk_report_id(report_root: Path, path: Path) -> str:
+    relative = path.relative_to(report_root).as_posix().lower()
+    stem = REPORT_ID_SAFE.sub("_", relative).strip("_")
+    return stem[:64] or "report"
+
+
+def _disk_report_type(relative: Path) -> str:
+    parts = relative.parts
+    name = relative.name.lower()
+    if parts and parts[0] == "app_runs":
+        return "run"
+    if "universe" in name:
+        return "universe"
+    if "compare" in name or "comparison" in name:
+        return "compare"
+    return "weekly"
+
+
+def _disk_report_thumbnail(path: Path) -> str:
+    name = path.name.lower()
+    suffix = path.suffix.lower()
+    if suffix == ".png" and "equity" in name:
+        return "equity"
+    if suffix == ".md":
+        return "lines"
+    if suffix == ".pdf":
+        return "bars"
+    if suffix == ".csv":
+        return "horizontal-bars"
+    if suffix == ".zip":
+        return "sparkbar"
+    return "equity" if suffix == ".png" else "lines"
+
+
+def _should_skip_report_path(relative: Path) -> bool:
+    if any(part.startswith(".") for part in relative.parts):
+        return True
+    if any(".tmp" in part or ".bak_" in part for part in relative.parts):
+        return True
+    return relative.suffix.lower() not in REPORT_ARCHIVE_EXTENSIONS
+
+
+def _discover_report_entries(report_root: Path) -> list[ReportEntry]:
+    root = Path(report_root)
+    if not root.exists():
+        return []
+    entries: list[ReportEntry] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if _should_skip_report_path(relative):
+            continue
+        size_bytes = path.stat().st_size
+        entries.append(
+            ReportEntry.model_validate(
+                {
+                    "id": _disk_report_id(root, path),
+                    "title": path.name,
+                    "subtitle": f"{relative.as_posix()} - {size_bytes} bytes",
+                    "thumbnail": _disk_report_thumbnail(path),
+                    "status": "ready",
+                    "generated_at": utc_iso_from_path_mtime(path),
+                    "size_bytes": size_bytes,
+                    "report_type": _disk_report_type(relative),
+                }
+            )
+        )
+    return entries
+
+
+def _sort_report_entries(rows: list[ReportEntry], sort: str) -> list[ReportEntry]:
+    sorted_rows = list(rows)
+    if sort == "oldest":
+        sorted_rows.sort(key=lambda row: (row.generated_at, row.id))
+    elif sort == "size":
+        sorted_rows.sort(key=lambda row: (-row.size_bytes, row.id))
+    elif sort == "type":
+        sorted_rows.sort(key=lambda row: (row.report_type, row.generated_at, row.id))
+    else:
+        sorted_rows.sort(key=lambda row: (row.generated_at, row.id), reverse=True)
+    return sorted_rows
+
+
 def list_reports(sort: str = "recent", session: Session | None = None) -> list[ReportEntry]:
     if session is not None:
         rows = ReportsRepo(session).list(sort=sort)
         if rows:
             return [_report_file_to_entry(row) for row in rows]
+
+    disk_rows = _discover_report_entries(get_settings().report_root)
+    if disk_rows:
+        return _sort_report_entries(disk_rows, sort)
 
     rows = list(mock_data.fallback_reports)
     if sort == "oldest":

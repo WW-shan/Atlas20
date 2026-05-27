@@ -41,21 +41,21 @@ def test_featured_digest_falls_back_when_no_markdown_exists(tmp_path, monkeypatc
     assert payload.id == mock_data.fallback_featured_digest["id"]
 
 
-def test_featured_digest_selects_newest_markdown_by_mtime(tmp_path, monkeypatch):
+def test_featured_digest_prefers_latest_markdown_over_unowned_archive_markdown(tmp_path, monkeypatch):
     write_alpha_btc_report_csvs(tmp_path)
-    old_md = tmp_path / "latest" / "old.md"
-    new_md = tmp_path / "archive" / "new.md"
-    new_md.parent.mkdir()
-    _set_mtime(old_md, datetime(2026, 6, 1, 12, 0))
-    _set_mtime(new_md, datetime(2026, 6, 30, 12, 0))
+    latest_md = tmp_path / "latest" / "atlas20_report.md"
+    archive_md = tmp_path / "archive" / "newer_but_unowned.md"
+    archive_md.parent.mkdir()
+    _set_mtime(latest_md, datetime(2026, 6, 1, 12, 0))
+    _set_mtime(archive_md, datetime(2026, 6, 30, 12, 0))
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
     monkeypatch.setenv("ATLAS20_ANCHOR_DATE", date(2026, 6, 30).isoformat())
     get_settings.cache_clear()
 
     payload = get_featured_digest()
 
-    assert payload.id == "new"
-    assert payload.generated_at == "2026-06-30T12:00:00Z"
+    assert payload.id == "atlas20_report"
+    assert payload.generated_at == "2026-06-01T12:00:00Z"
 
 
 def test_featured_digest_falls_back_when_csv_is_malformed_even_if_markdown_exists(tmp_path, monkeypatch):

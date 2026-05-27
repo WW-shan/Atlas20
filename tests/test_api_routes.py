@@ -183,6 +183,28 @@ def test_compare_payload_includes_display_names(client: TestClient):
     ]
 
 
+def test_compare_endpoint_returns_404_for_unknown_strategy_id(client: TestClient, tmp_path: Path):
+    latest = tmp_path / "latest"
+    latest.mkdir(parents=True)
+    latest.joinpath("strategy_summary.csv").write_text(
+        "strategy,total_return,cagr,annualized_volatility,sharpe,sortino,max_drawdown,calmar,"
+        "monthly_win_rate,annualized_turnover,avg_turnover_per_rebalance,average_holdings\n"
+        "ALPHA,0.2,0.2,0.1,1.1,1.2,-0.1,2.0,0.6,0.2,0.1,2\n",
+        encoding="utf-8",
+    )
+    latest.joinpath("equity_curves.csv").write_text(
+        ",ALPHA\n"
+        "2026-01-01,100\n"
+        "2026-01-02,110\n",
+        encoding="utf-8",
+    )
+
+    response = client.get("/api/compare?ids=UNKNOWN_STRATEGY&range=YTD")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "unknown compare id(s): UNKNOWN_STRATEGY"
+
+
 def test_compare_endpoint_rejects_unknown_query_params(client: TestClient):
     response = client.get("/api/compare?ids=atlas&ranges=YTD")
 

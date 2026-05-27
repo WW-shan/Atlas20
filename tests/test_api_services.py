@@ -313,10 +313,54 @@ def test_list_runs_uses_artifact_metrics_and_selected_strategy_for_history_rows(
         ("type", "r3"),
     ],
 )
-def test_list_reports_sorts_archive(sort: str, first_id: str):
+def test_list_reports_sorts_archive(sort: str, first_id: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    get_settings.cache_clear()
+
     rows = list_reports(sort)
 
     assert rows[0].id == first_id
+
+
+def test_list_reports_discovers_report_files_when_db_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    report_root = tmp_path / "reports"
+    latest = report_root / "latest"
+    latest.mkdir(parents=True)
+    digest = latest / "atlas20_report.md"
+    digest.write_text("# Real report\n", encoding="utf-8")
+    png = latest / "equity_curves.png"
+    png.write_bytes(b"png")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    reports = list_reports("recent", db_session)
+
+    titles = [report.title for report in reports]
+    assert any("atlas20_report.md" in title for title in titles)
+    assert any(report.thumbnail == "equity" for report in reports)
+    assert all(report.id not in {"r1", "r2", "r3", "r4", "r5", "r6"} for report in reports)
+
+
+def test_list_reports_sorts_discovered_report_files_by_size(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    report_root = tmp_path / "reports"
+    latest = report_root / "latest"
+    latest.mkdir(parents=True)
+    (latest / "small.md").write_text("small\n", encoding="utf-8")
+    (latest / "large.csv").write_text("x" * 100, encoding="utf-8")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    reports = list_reports("size", db_session)
+
+    assert reports[0].title == "large.csv"
 
 
 def test_overview_data_source_real(tmp_path, monkeypatch):

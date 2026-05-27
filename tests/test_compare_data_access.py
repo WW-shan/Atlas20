@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from atlas20.api.data_access.compare import load_compare_from_reports
+from atlas20.api.data_access.compare import UnknownCompareIdError, load_compare_from_reports
 from atlas20.api.settings import Settings
 from tests.conftest import (
     EQUITY_HEADER,
@@ -95,18 +95,17 @@ def test_load_compare_resolves_legacy_aliases(tmp_path):
     assert set(payload["metrics"]["sharpe"]) == {"ATLAS_ALPHA", "TOP20_MOM_FAST", "TOP20_SECTOR_VALUE"}
 
 
-def test_load_compare_unknown_id_skipped(tmp_path):
+def test_load_compare_rejects_unknown_id(tmp_path):
     _write_compare_csvs(tmp_path)
 
-    payload = load_compare_from_reports(_settings(tmp_path), ["BTC_BH__always_on", "NO_SUCH_STRATEGY"], "ALL")
+    with pytest.raises(UnknownCompareIdError, match="NO_SUCH_STRATEGY"):
+        load_compare_from_reports(_settings(tmp_path), ["BTC_BH__always_on", "NO_SUCH_STRATEGY"], "ALL")
 
-    assert list(payload["metrics"]["cagr"]) == ["BTC_BH__always_on"]
 
-
-def test_load_compare_all_unknown_raises_valueerror(tmp_path):
+def test_load_compare_all_unknown_raises_unknown_id_error(tmp_path):
     _write_compare_csvs(tmp_path)
 
-    with pytest.raises(ValueError, match="No compare ids resolved"):
+    with pytest.raises(UnknownCompareIdError, match="unknown compare id\\(s\\): x, y"):
         load_compare_from_reports(_settings(tmp_path), ["x", "y"], "ALL")
 
 
@@ -157,6 +156,35 @@ def test_load_compare_normalizes_to_base_one(tmp_path):
     payload = load_compare_from_reports(_settings(tmp_path), ["BTC_BH__always_on", "ATLAS_ALPHA"], "ALL")
 
     assert payload["equity"][0]["values"] == {"BTC_BH__always_on": 1.0, "ATLAS_ALPHA": 1.0}
+
+
+def test_load_compare_overlap_uses_strategy_weights(tmp_path):
+    summary_rows = [
+        "ALPHA,0.20,0.20,0.10,1.10,1.20,-0.10,2.00,0.60,0.20,0.10,2",
+        "BETA,0.10,0.10,0.10,0.80,1.00,-0.20,0.50,0.50,0.20,0.10,2",
+    ]
+    _write_compare_csvs(tmp_path, summary_rows=summary_rows)
+    weights_dir = tmp_path / "reports" / "latest" / "weights"
+    weights_dir.mkdir(parents=True)
+    (weights_dir / "ALPHA.csv").write_text(
+        "date,BTC,ETH,SOL\n"
+        "2026-05-18,0.50,0.50,0.00\n"
+        "2026-05-19,0.50,0.50,0.00\n",
+        encoding="utf-8",
+    )
+    (weights_dir / "BETA.csv").write_text(
+        "date,BTC,ETH,SOL\n"
+        "2026-05-18,0.50,0.00,0.50\n"
+        "2026-05-19,0.50,0.00,0.50\n",
+        encoding="utf-8",
+    )
+
+    payload = load_compare_from_reports(_settings(tmp_path), ["ALPHA", "BETA"], "ALL")
+
+    assert payload["overlap"]["symbols"] == ["ALPHA", "BETA"]
+    assert payload["overlap"]["matrix"][0][1] == pytest.approx(1 / 3, abs=1e-4)
+    assert payload["overlap"]["matrix"][1][0] == pytest.approx(1 / 3, abs=1e-4)
+    assert payload["overlap"]["sharedHoldings"][0] == {"symbol": "BTC", "count": 2, "total": 2}
 
 
 def test_load_compare_metrics_from_summary(tmp_path):

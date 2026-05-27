@@ -97,6 +97,22 @@ def test_featured_digest_download_ignores_unrelated_disk_artifacts_without_db_ro
     assert response.status_code == 404
 
 
+def test_featured_digest_download_falls_back_to_latest_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    report_root = get_settings().report_root
+    latest = report_root / "latest"
+    latest.mkdir(parents=True)
+    latest.joinpath("atlas20_report.md").write_text("# Latest Digest\n", encoding="utf-8")
+
+    response = client.get("/api/reports/digest/download?format=markdown")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    assert b"Latest Digest" in response.content
+
+
 def test_featured_digest_download_streams_bundle(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
 ) -> None:

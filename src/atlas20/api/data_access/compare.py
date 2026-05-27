@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -42,23 +43,34 @@ MAX_EQUITY_POINTS = 180
 TOP_UNIVERSE_SIZE = 20
 
 
+class UnknownCompareIdError(ValueError):
+    pass
+
+
 def load_compare_from_reports(settings: Settings, ids: list[str], range_: str) -> dict[str, Any]:
     """Build ComparePayload from strategy summary, equity curves, and latest universe."""
     summary_df = _load_compare_summary(settings)
     equity_curves_df = _load_compare_equity(settings)
-    resolved_ids = _resolve_strategy_ids(ids, summary_df, equity_curves_df.columns)
+    resolved_ids, unknown_ids = _resolve_strategy_ids(ids, summary_df, equity_curves_df.columns)
+    if unknown_ids:
+        raise UnknownCompareIdError(f"unknown compare id(s): {', '.join(unknown_ids)}")
     if not resolved_ids:
         raise ValueError("No compare ids resolved")
 
     window = _filter_equity_range(equity_curves_df[resolved_ids].dropna(), range_, settings)
     sampled = _downsample(window, max_points=MAX_EQUITY_POINTS)
     normalized = _normalize(sampled, resolved_ids)
-    latest_universe = _load_latest_universe(settings)
+    weight_holdings = _load_strategy_holdings_from_weights(settings, resolved_ids)
+    if weight_holdings is None:
+        latest_universe = _load_latest_universe(settings)
+        overlap = _build_overlap(resolved_ids, latest_universe)
+    else:
+        overlap = _build_overlap_from_holdings(resolved_ids, weight_holdings)
 
     return {
         "equity": _build_equity_points(normalized, resolved_ids),
         "metrics": _build_metrics(summary_df, resolved_ids),
-        "overlap": _build_overlap(resolved_ids, latest_universe),
+        "overlap": overlap,
     }
 
 
@@ -85,12 +97,18 @@ def _load_compare_equity(settings: Settings) -> pd.DataFrame:
     return _load_date_indexed_csv(path)
 
 
-def _resolve_strategy_ids(ids: list[str], summary_df: pd.DataFrame, strategy_columns: pd.Index) -> list[str]:
+def _resolve_strategy_ids(
+    ids: list[str],
+    summary_df: pd.DataFrame,
+    strategy_columns: pd.Index,
+) -> tuple[list[str], list[str]]:
     columns = {str(column) for column in strategy_columns}
     alias_map = _build_alias_map(summary_df, columns)
 
     resolved: list[str] = []
     seen: set[str] = set()
+    unknown: list[str] = []
+    unknown_seen: set[str] = set()
     for run_id in ids:
         if run_id in columns:
             strategy = run_id
@@ -102,7 +120,10 @@ def _resolve_strategy_ids(ids: list[str], summary_df: pd.DataFrame, strategy_col
         if strategy and strategy not in seen:
             resolved.append(strategy)
             seen.add(strategy)
-    return resolved
+        elif strategy is None and run_id not in unknown_seen:
+            unknown.append(run_id)
+            unknown_seen.add(run_id)
+    return resolved, unknown
 
 
 def _build_alias_map(summary_df: pd.DataFrame, strategy_columns: set[str]) -> dict[str, str]:
@@ -238,6 +259,69 @@ def _load_latest_universe(settings: Settings) -> list[str]:
     if not symbols:
         raise ValueError("rebalance_universe.csv has no latest universe symbols")
     return symbols
+
+
+def _safe_weight_filename(strategy: str) -> str:
+    return strategy.replace("/", "_").replace("\\", "_")
+
+
+def _load_strategy_holdings_from_weights(settings: Settings, strategies: list[str]) -> dict[str, set[str]] | None:
+    weights_dir = _latest_report_dir(settings.report_root) / "weights"
+    if not weights_dir.is_dir():
+        return None
+
+    holdings: dict[str, set[str]] = {}
+    for strategy in strategies:
+        path = weights_dir / f"{_safe_weight_filename(strategy)}.csv"
+        if not path.exists():
+            return None
+        strategy_holdings = _holdings_from_weight_file(path)
+        if strategy_holdings is None:
+            return None
+        holdings[strategy] = strategy_holdings
+    return holdings
+
+
+def _holdings_from_weight_file(path: Path) -> set[str] | None:
+    frame = pd.read_csv(path)
+    if frame.empty or len(frame.columns) < 2:
+        return None
+    numeric = frame.drop(columns=[frame.columns[0]], errors="ignore").apply(pd.to_numeric, errors="coerce")
+    latest = numeric.dropna(how="all").tail(1)
+    if latest.empty:
+        return None
+    return {
+        str(column)
+        for column, value in latest.iloc[0].items()
+        if pd.notna(value) and _as_float(value) > 1e-8
+    }
+
+
+def _build_overlap_from_holdings(strategies: list[str], holdings: dict[str, set[str]]) -> dict[str, Any]:
+    matrix: list[list[float]] = []
+    for left in strategies:
+        row: list[float] = []
+        for right in strategies:
+            if left == right:
+                row.append(1.0)
+                continue
+            union = holdings[left] | holdings[right]
+            value = 0.0 if not union else len(holdings[left] & holdings[right]) / len(union)
+            row.append(round(_as_float(value), 4))
+        matrix.append(row)
+
+    shared_holdings = [
+        {"symbol": symbol, "count": count, "total": len(strategies)}
+        for symbol, count in sorted(
+            (
+                (symbol, sum(1 for strategy in strategies if symbol in holdings[strategy]))
+                for symbol in sorted(set().union(*(holdings[strategy] for strategy in strategies)))
+            ),
+            key=lambda item: (-item[1], item[0]),
+        )
+        if count > 0
+    ][:3]
+    return {"symbols": strategies, "matrix": matrix, "sharedHoldings": shared_holdings}
 
 
 def _build_overlap(strategies: list[str], latest_universe: list[str]) -> dict[str, Any]:
