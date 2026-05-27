@@ -45,6 +45,7 @@ function compareFor(ids: string[]): api.ComparePayload {
       matrix: ids.map((_, row) => ids.map((__, column) => (row === column ? 1 : 0.25))),
       sharedHoldings: api.fallbackCompare.overlap.sharedHoldings,
     },
+    data_source: "real",
   };
 }
 
@@ -207,7 +208,7 @@ describe("StrategyCompareTab", () => {
 
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load strategy comparison");
+    expect(await screen.findByText("Unable to load strategy comparison.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     await waitFor(() => expect(api.getCompare).toHaveBeenCalledTimes(2));

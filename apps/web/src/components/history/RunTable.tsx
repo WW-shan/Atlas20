@@ -24,14 +24,14 @@ function statusTone(status: RunStatusEnum): { tone: "muted" | "cyan" | "emerald"
   }
 }
 
-function formatPct(v: number | undefined, digits = 2): string {
-  if (v === undefined) return "—";
+function formatPct(v: number | null | undefined, digits = 2): string {
+  if (v == null) return "—";
   const sign = v > 0 ? "+" : "";
   return `${sign}${(v * 100).toFixed(digits)}%`;
 }
 
-function formatDuration(s: number | undefined): string {
-  if (s === undefined) return "—";
+function formatDuration(s: number | null | undefined): string {
+  if (s == null) return "—";
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   const sec = s % 60;
@@ -186,21 +186,21 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                   style={{
                     padding: "8px 12px",
                     textAlign: "right",
-                    color: r.return_pct === undefined ? "var(--muted)" : r.return_pct >= 0 ? "var(--emerald)" : "var(--rose)",
+                    color: r.return_pct == null ? "var(--muted)" : r.return_pct >= 0 ? "var(--emerald)" : "var(--rose)",
                     whiteSpace: "nowrap",
                   }}
                 >
                   {formatPct(r.return_pct)}
                 </td>
                 <td className="mono" style={{ padding: "8px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
-                  {r.sharpe !== undefined ? r.sharpe.toFixed(2) : "—"}
+                  {r.sharpe != null ? r.sharpe.toFixed(2) : "—"}
                 </td>
                 <td
                   className="mono"
                   style={{
                     padding: "8px 12px",
                     textAlign: "right",
-                    color: r.max_dd === undefined ? "var(--muted)" : "var(--rose)",
+                    color: r.max_dd == null ? "var(--muted)" : "var(--rose)",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -213,7 +213,7 @@ export function RunTable({ rows, selectedId, onSelect, onToggleFavorite, favorit
                   {r.spark && r.spark.length > 0 ? (
                     <SparklineChart
                       points={r.spark}
-                      tone={r.return_pct !== undefined && r.return_pct < 0 ? "rose" : "violet"}
+                      tone={r.return_pct != null && r.return_pct < 0 ? "rose" : "violet"}
                       width={80}
                       height={20}
                       ariaLabel={`Trend for ${r.run_id}`}

@@ -506,8 +506,8 @@
 
 ### T9 — OpenAPI snapshot（**新增 codex**）
 - [x] CI 跑 `fastapi.openapi()` 写到 `apps/web/src/lib/api-schema.json`
-- [ ] frontend `lib/api.ts` 类型与 schema 不一致时 CI fail
-- [ ] 可选：`openapi-typescript` 自动生成 TS client
+- [x] frontend `lib/api.ts` 类型与 schema 不一致时 CI fail
+- [x] 可选：`openapi-typescript` 自动生成 TS client
 
 ---
 
@@ -588,7 +588,7 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot 已补齐，公网生产暴露仍缺 frontend schema drift gate、全 API mypy strict。
+**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot、frontend schema drift gate 已补齐，公网生产暴露仍缺全 API mypy strict。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 

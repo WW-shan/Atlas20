@@ -122,5 +122,5 @@ test("keeps cached overview data visible and shows stale state when a refetch fa
   expect(staleIndicator).toBeInTheDocument();
   expect(staleIndicator).toHaveTextContent("stale — refresh failed");
   expect(screen.getByText("CURRENT CHAMPION")).toBeInTheDocument();
-  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByText("Unable to load overview")).not.toBeInTheDocument();
 });

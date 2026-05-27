@@ -441,6 +441,16 @@ class ReportEntry(ApiModel):
     report_type: Literal["weekly", "run", "compare", "universe"]
 
 
+class GeneratedReportFile(ApiModel):
+    id: str
+    run_id: str | None = None
+    kind: ReportFormat
+    path: str
+    sha256: str
+    size_bytes: int
+    generated_at: str
+
+
 class GenerateReportRequest(StrictApiModel):
     run_id: RunId | None = None
     type: Literal["weekly", "run", "compare", "universe"] = "run"
@@ -456,3 +466,10 @@ class GenerateReportRequest(StrictApiModel):
             data = dict(data)
             data["formats"] = [data["format"]]
         return data
+
+
+class GenerateReportResponse(ApiModel):
+    job_id: str
+    status: Literal["completed"]
+    files: list[GeneratedReportFile]
+    warnings: list[str]

@@ -851,6 +851,97 @@
         "title": "GenerateReportRequest",
         "type": "object"
       },
+      "GenerateReportResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedReportFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "completed",
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "files",
+          "warnings"
+        ],
+        "title": "GenerateReportResponse",
+        "type": "object"
+      },
+      "GeneratedReportFile": {
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "markdown",
+              "pdf",
+              "png",
+              "csv",
+              "bundle"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "sha256",
+          "size_bytes",
+          "generated_at"
+        ],
+        "title": "GeneratedReportFile",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2563,9 +2654,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Generate Report Api Reports Generate Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/GenerateReportResponse"
                 }
               }
             },

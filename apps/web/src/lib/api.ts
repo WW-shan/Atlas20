@@ -16,21 +16,21 @@ export type ChampionSummary = {
   display_name: string;
   window_start: string;
   window_end: string;
-  min_history_days?: number;
-  min_daily_dollar_volume?: number;
-  leader_pool?: string;
-  rebalance_frequency?: string;
-  regime_mode?: string;
-  risk_off_asset?: string;
-  initial_asset?: string;
-  btc_stop_lookback_days?: number;
-  btc_stop_confirm_days?: number;
-  weight_momentum_rank?: number;
-  weight_ret_21_rank?: number;
-  weight_ret_42_rank?: number;
-  weight_near_high_rank?: number;
+  min_history_days?: number | null;
+  min_daily_dollar_volume?: number | null;
+  leader_pool?: string | null;
+  rebalance_frequency?: string | null;
+  regime_mode?: string | null;
+  risk_off_asset?: string | null;
+  initial_asset?: string | null;
+  btc_stop_lookback_days?: number | null;
+  btc_stop_confirm_days?: number | null;
+  weight_momentum_rank?: number | null;
+  weight_ret_21_rank?: number | null;
+  weight_ret_42_rank?: number | null;
+  weight_near_high_rank?: number | null;
   multiple: number;
-  total_return?: number;
+  total_return?: number | null;
   cagr: number;
   sharpe: number;
   max_drawdown: number;
@@ -45,8 +45,8 @@ export type StrategySummary = {
   cagr: number;
   sharpe: number;
   max_drawdown: number;
-  annualized_turnover?: number;
-  monthly_win_rate?: number;
+  annualized_turnover?: number | null;
+  monthly_win_rate?: number | null;
 };
 
 export type SeriesPoint = {
@@ -58,7 +58,7 @@ export type SelectionHistoryRow = {
   rebalance_date: string;
   coin_id: string;
   coin_rank: number;
-  coin_score?: number;
+  coin_score?: number | null;
   coin_weight: number;
 };
 
@@ -85,7 +85,7 @@ export type OverviewPayload = {
   };
   hero_kpi: { ytdReturn: number; sharpe: number; maxDd: number; winRate: number };
   last_sync_seconds: number;
-  data_source?: "real" | "fallback";
+  data_source: "real" | "fallback";
 };
 
 // Pre-redesign RunStatus (kept for backward compat with runBacktest signature)
@@ -107,18 +107,18 @@ export type RunRow = {
   run_id: string;
   strategy: string;
   selected_strategy?: string | null;
-  strategy_family?: StrategyFamily;
+  strategy_family?: StrategyFamily | null;
   universe: string;
   window: { start: string; end: string };
   status: RunStatusEnum;
-  return_pct?: number;
-  sharpe?: number;
-  max_dd?: number;
-  duration_s?: number;
-  eta_s?: number;
-  spark?: number[];
+  return_pct?: number | null;
+  sharpe?: number | null;
+  max_dd?: number | null;
+  duration_s?: number | null;
+  eta_s?: number | null;
+  spark?: number[] | null;
   created_at: string;
-  favorited?: boolean;
+  favorited?: boolean | null;
 };
 
 export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "duration_s" | "eta_s" | "favorited"> & {
@@ -154,10 +154,10 @@ export type RunDetailPayload = RunRow & {
     calmar: number;
     win_rate: number;
   };
-  drawdown_series: RunDetailSeriesPoint[];
-  return_series: RunDetailSeriesPoint[];
-  turnover_rows: RunTurnoverRow[];
-  trade_rows: RunTradeRow[];
+  drawdown_series?: RunDetailSeriesPoint[];
+  return_series?: RunDetailSeriesPoint[];
+  turnover_rows?: RunTurnoverRow[];
+  trade_rows?: RunTradeRow[];
 };
 
 // ============================================================
@@ -174,7 +174,7 @@ export type BacktestConfig = {
 
 export type OptionsPayload = {
   presets: { slug: string; display_name: string }[];
-  strategies: { strategy: string; display_name: string }[];
+  strategies?: { strategy: string; display_name: string }[];
   universes: { topN: number; label: string }[];
   rebalances: { value: "Weekly" | "Biweekly" | "Monthly"; label: string }[];
   feeBpsRange: number[];
@@ -272,7 +272,7 @@ export type CompareSelectionItem = {
 };
 
 export type ComparePayload = {
-  strategies: { strategy: string; display_name: string }[];
+  strategies?: { strategy: string; display_name: string }[];
   equity: { ts: string; values: Record<string, number> }[];
   metrics: Record<CompareMetricKey, Record<string, number>>;
   overlap: {
@@ -280,7 +280,7 @@ export type ComparePayload = {
     matrix: number[][];
     sharedHoldings: { symbol: string; count: number; total: number }[];
   };
-  data_source?: "real" | "fallback";
+  data_source: "real" | "fallback";
 };
 
 // ============================================================
@@ -292,7 +292,7 @@ export type UniverseTimelinePayload = {
   segments: { token: string; start: string; end: string }[];
   rotations: { ts: string; label: string }[];
   range: { start: string; end: string };
-  data_source?: "real" | "fallback";
+  data_source: "real" | "fallback";
 };
 
 export type DataSourceStatus = "healthy" | "degraded" | "error";
@@ -345,7 +345,7 @@ export type ReportEntry = {
   subtitle: string;
   thumbnail: ReportThumbKind;
   status: ReportStatus;
-  highlight?: boolean;
+  highlight?: boolean | null;
   generated_at: string;
   size_bytes: number;
   report_type: "weekly" | "run" | "compare" | "universe";
@@ -359,10 +359,20 @@ export type GenerateReportRequest = {
   notes?: string | null;
 };
 
+export type GeneratedReportFile = {
+  id: string;
+  run_id?: string | null;
+  kind: ReportFormat;
+  path: string;
+  sha256: string;
+  size_bytes: number;
+  generated_at: string;
+};
+
 export type GenerateReportResponse = {
   job_id: string;
   status: "completed";
-  files: ReportEntry[];
+  files: GeneratedReportFile[];
   warnings: string[];
 };
 
@@ -463,6 +473,7 @@ export const fallbackOverview: OverviewPayload = {
   },
   hero_kpi: { ytdReturn: 12.4756, sharpe: 3.42, maxDd: -0.3204, winRate: 0.685 },
   last_sync_seconds: 18,
+  data_source: "fallback",
 };
 
 export const fallbackRunsQueue: RunRowSummary[] = [
@@ -540,6 +551,7 @@ export const fallbackCompare: ComparePayload = {
       { symbol: "SEI", count: 1, total: 3 },
     ],
   },
+  data_source: "fallback",
 };
 
 const universeTickers = [
@@ -562,6 +574,7 @@ export const fallbackUniverseTimeline: UniverseTimelinePayload = {
     { ts: "2026-04-22", label: "MAJOR ROTATION" },
   ],
   range: { start: "2025-12-01", end: "2026-05-18" },
+  data_source: "fallback",
 };
 
 export const fallbackDataSources: DataSource[] = [

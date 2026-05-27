@@ -138,6 +138,7 @@ describe("UniverseHealthTab", () => {
       segments: [],
       rotations: [],
       range: { start: "2026-01-01", end: "2026-01-02" },
+      data_source: "fallback",
     });
     vi.mocked(api.getDataSources).mockResolvedValue([]);
     vi.mocked(api.getDataAlerts).mockResolvedValue([]);

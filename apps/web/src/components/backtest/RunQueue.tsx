@@ -27,7 +27,7 @@ function statusToProgress(status: RunRowSummary["status"]): { fill: string; widt
   }
 }
 
-function fmtTime(s?: number): string {
+function fmtTime(s?: number | null): string {
   if (s == null) return "—";
   const m = Math.floor(s / 60);
   const sec = s % 60;

@@ -251,7 +251,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
                   <div>
                     <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>Sharpe</div>
                     <div className="mono" style={{ marginTop: 4, fontSize: 18, fontWeight: 700 }}>
-                      {row.sharpe !== undefined ? row.sharpe.toFixed(2) : "N/A"}
+                      {row.sharpe != null ? row.sharpe.toFixed(2) : "N/A"}
                     </div>
                   </div>
                   <div>
@@ -264,7 +264,7 @@ function RunGrid({ rows, selectedId, onSelect }: { rows: RunRow[]; selectedId?: 
                   {row.spark && row.spark.length > 0 ? (
                     <SparklineChart
                       points={row.spark}
-                      tone={row.return_pct !== undefined && row.return_pct < 0 ? "rose" : "violet"}
+                      tone={row.return_pct != null && row.return_pct < 0 ? "rose" : "violet"}
                       width={160}
                       height={28}
                       ariaLabel={`Trend for ${row.run_id}`}
