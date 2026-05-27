@@ -451,7 +451,7 @@
 
 ### D6 — CI（**扩展现有 `.github/workflows/ci.yml`**）
 - [x] 加 `ruff check`
-- [ ] 加 `mypy --strict src/atlas20/api/`（当前 CI 是 strict 试点：schemas/settings/_metrics）
+- [x] 加 `mypy --strict src/atlas20/api/`
 - [x] 加 `tsc --noEmit`
 - [x] 加 deploy job（tag 触发，当前为 deploy stub）
 
@@ -497,7 +497,7 @@
 - [ ] `locust` 或 `k6`：100 RPS, p95 < 200ms（mock data 时基线）
 
 ### T7 — Type strict
-- [ ] `mypy --strict src/atlas20/api/`（当前只覆盖 3 个 API 文件）
+- [x] `mypy --strict src/atlas20/api/`
 - [x] `tsc --strict --noEmit`
 
 ### T8 — Lint 严格
@@ -588,7 +588,7 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot、frontend schema drift gate 已补齐，公网生产暴露仍缺全 API mypy strict。
+**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot、frontend schema drift gate、全 API mypy strict 已补齐。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 

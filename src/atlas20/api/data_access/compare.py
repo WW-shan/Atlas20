@@ -110,6 +110,7 @@ def _resolve_strategy_ids(
     unknown: list[str] = []
     unknown_seen: set[str] = set()
     for run_id in ids:
+        strategy: str | None
         if run_id in columns:
             strategy = run_id
         elif run_id in ALIAS_IDS:

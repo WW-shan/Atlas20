@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import builtins
 from datetime import date, datetime, time, timezone
 from typing import Any
 
 import structlog
 from sqlalchemy import case, func, or_, text, update as sa_update
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlalchemy.sql.elements import ColumnElement
+from sqlmodel import Session, col, select
 
 from atlas20.api._metrics import TERMINAL_BACKTEST_STATUSES, record_backtest_terminal
 from atlas20.api._time import utc_now
@@ -62,7 +64,7 @@ class RunsRepo:
         date_cutoff: date | None = None,
         page: int = 1,
         page_size: int = 14,
-    ) -> tuple[list[Run], int]:
+    ) -> tuple[builtins.list[Run], int]:
         filters = self._filters(q=q, chips=chips, date_cutoff=date_cutoff)
         count_stmt = select(func.count()).select_from(Run)
         if filters:
@@ -73,11 +75,11 @@ class RunsRepo:
         stmt = (
             select(Run)
             .where(*filters)
-            .order_by(Run.created_at.desc(), Run.run_id.desc())
+            .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
             .offset((safe_page - 1) * safe_page_size)
             .limit(safe_page_size)
         )
-        return list(self._s.exec(stmt).all()), total
+        return builtins.list(self._s.exec(stmt).all()), total
 
     def get(self, run_id: str) -> Run | None:
         return self._s.exec(select(Run).where(Run.run_id == run_id)).first()
@@ -85,8 +87,8 @@ class RunsRepo:
     def find_latest_by_strategy_status(self, strategy: str, statuses: tuple[str, ...]) -> Run | None:
         stmt = (
             select(Run)
-            .where(Run.strategy == strategy, Run.status.in_(statuses))
-            .order_by(Run.created_at.desc(), Run.run_id.desc())
+            .where(Run.strategy == strategy, col(Run.status).in_(statuses))
+            .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
             .limit(1)
         )
         return self._s.exec(stmt).first()
@@ -95,7 +97,7 @@ class RunsRepo:
         stmt = select(Run).where(Run.status == "completed")
         if strategy:
             stmt = stmt.where(Run.strategy == strategy)
-        stmt = stmt.order_by(Run.created_at.desc(), Run.run_id.desc()).limit(1)
+        stmt = stmt.order_by(col(Run.created_at).desc(), col(Run.run_id).desc()).limit(1)
         return self._s.exec(stmt).first()
 
     def create(self, run: Run) -> Run:
@@ -133,7 +135,7 @@ class RunsRepo:
         if self._s.in_transaction():
             return
         if self._s.get_bind().dialect.name == "sqlite":
-            self._s.exec(text("BEGIN IMMEDIATE"))
+            self._s.execute(text("BEGIN IMMEDIATE"))
 
     def update(self, run_id: str, **fields: object) -> Run | None:
         run = self.get(run_id)
@@ -188,12 +190,12 @@ class RunsRepo:
                 cancel_error = f"cancelled during execution (would have been {status}: {error})"
             else:
                 cancel_error = f"cancelled during execution (would have been {status})"
-            fields["status"] = case((Run.requested_cancel.is_(True), "cancelled"), else_=status)
-            fields["error"] = case((Run.requested_cancel.is_(True), cancel_error), else_=error)
+            fields["status"] = case((col(Run.requested_cancel).is_(True), "cancelled"), else_=status)
+            fields["error"] = case((col(Run.requested_cancel).is_(True), cancel_error), else_=error)
 
         result = self._s.exec(
             sa_update(Run)
-            .where(Run.run_id == run_id)
+            .where(col(Run.run_id) == run_id)
             .values(**fields)
             .execution_options(synchronize_session=False)
         )
@@ -208,7 +210,7 @@ class RunsRepo:
     def request_cancel(self, run_id: str) -> Run | None:
         self._s.exec(
             sa_update(Run)
-            .where(Run.run_id == run_id, Run.status.in_(("queued", "running")))
+            .where(col(Run.run_id) == run_id, col(Run.status).in_(("queued", "running")))
             .values(requested_cancel=True)
             .execution_options(synchronize_session=False)
         )
@@ -226,20 +228,20 @@ class RunsRepo:
         self._s.refresh(run)
         return run
 
-    def list_queue(self) -> list[Run]:
+    def list_queue(self) -> builtins.list[Run]:
         stmt = (
             select(Run)
-            .where(Run.status.in_(("queued", "running")))
-            .order_by(Run.created_at.desc(), Run.run_id.desc())
+            .where(col(Run.status).in_(("queued", "running")))
+            .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
         )
-        return list(self._s.exec(stmt).all())
+        return builtins.list(self._s.exec(stmt).all())
 
     def next_btk_id(self) -> str:
         """Deprecated: only use for non-concurrent call paths."""
         return self._compute_next_btk_id()
 
     def _compute_next_btk_id(self) -> str:
-        ids = self._s.exec(select(Run.run_id).where(Run.run_id.like("btk_%"))).all()
+        ids = self._s.exec(select(Run.run_id).where(col(Run.run_id).like("btk_%"))).all()
         max_number = 0
         for run_id in ids:
             try:
@@ -252,30 +254,32 @@ class RunsRepo:
         self,
         *,
         q: str,
-        chips: tuple[str, ...] | list[str],
+        chips: tuple[str, ...] | builtins.list[str],
         date_cutoff: date | None,
-    ) -> list[object]:
-        filters: list[object] = []
+    ) -> builtins.list[ColumnElement[bool]]:
+        filters: builtins.list[ColumnElement[bool]] = []
         if q:
             pattern = f"%{q.lower()}%"
             filters.append(
                 or_(
-                    func.lower(Run.strategy).like(pattern),
-                    func.lower(Run.run_id).like(pattern),
-                    func.lower(Run.universe).like(pattern),
-                    func.lower(Run.strategy_family).like(pattern),
+                    func.lower(col(Run.strategy)).like(pattern),
+                    func.lower(col(Run.run_id)).like(pattern),
+                    func.lower(col(Run.universe)).like(pattern),
+                    func.lower(col(Run.strategy_family)).like(pattern),
                 )
             )
-        for chip in [item for item in chips if item]:
+        for chip in chips:
+            if not chip:
+                continue
             if chip == "favorited":
-                filters.append(Run.favorited.is_(True))
+                filters.append(col(Run.favorited).is_(True))
             elif chip in RUN_STATUS_CHIPS:
-                filters.append(Run.status == chip)
+                filters.append(col(Run.status) == chip)
             elif chip in RUN_FAMILY_CHIPS:
-                filters.append(Run.strategy_family == chip)
+                filters.append(col(Run.strategy_family) == chip)
             else:
-                filters.append(func.lower(Run.strategy).like(f"%{chip.lower()}%"))
+                filters.append(func.lower(col(Run.strategy)).like(f"%{chip.lower()}%"))
         if date_cutoff is not None:
             cutoff = datetime.combine(date_cutoff, time.min, tzinfo=timezone.utc)
-            filters.append(Run.created_at >= cutoff)
+            filters.append(col(Run.created_at) >= cutoff)
         return filters

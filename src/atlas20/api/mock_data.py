@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
 
-fallback_overview = {
+fallback_overview: dict[str, Any] = {
     "champion": {
         "strategy": "MOMENTUM_LEAD_TOP1_ALL_14D_STOP11_CONFIRM2_BTC_PARK",
         "display_name": "Momentum Lead Top1 All 14D Stop11 Confirm2 Btc Park",
@@ -132,7 +133,7 @@ fallback_overview = {
     "last_sync_seconds": 18,
 }
 
-fallback_runs_list = [
+fallback_runs_list: list[dict[str, Any]] = [
     {
         "run_id": "btk_0148",
         "strategy": "ATLAS Adaptive v3",
@@ -327,13 +328,13 @@ fallback_runs_list = [
     },
 ]
 
-fallback_run_detail = {
+fallback_run_detail: dict[str, Any] = {
     **fallback_runs_list[6],
     "equity_overlay": {"series": fallback_overview["equity_overlay"]["series"]},
     "kpi": {"cagr": 1.584, "sharpe": 3.42, "sortino": 5.18, "max_dd": -0.3204, "calmar": 4.95, "win_rate": 0.685},
 }
 
-fallback_compare = {
+fallback_compare: dict[str, Any] = {
     "equity": [
         {"ts": "Jan 2026", "values": {"atlas": 0, "momentum": 0, "meanrev": 0}},
         {"ts": "Feb 2026", "values": {"atlas": 180, "momentum": 110, "meanrev": 32}},
@@ -420,7 +421,7 @@ universe_tickers = [
     "SUI",
 ]
 
-fallback_universe_timeline = {
+fallback_universe_timeline: dict[str, Any] = {
     "tokens": universe_tickers,
     "segments": [
         {"token": "ADA", "start": "2025-10-31", "end": "2026-04-21"},
@@ -455,7 +456,7 @@ fallback_universe_timeline = {
     "range": {"start": "2025-10-31", "end": "2026-04-21"},
 }
 
-fallback_data_sources = [
+fallback_data_sources: list[dict[str, Any]] = [
     {"id": "coingecko", "name": "CoinGecko · Markets", "status": "healthy", "last_sync_seconds": 12},
     {"id": "cryptocompare", "name": "CryptoCompare · OHLCV", "status": "healthy", "last_sync_seconds": 18},
     {"id": "binance", "name": "Binance · Spot", "status": "healthy", "last_sync_seconds": 6},
@@ -467,7 +468,7 @@ fallback_data_sources = [
     {"id": "custom", "name": "Custom · CSV uploads", "status": "error", "last_sync_seconds": 8040},
 ]
 
-fallback_data_alerts = [
+fallback_data_alerts: list[dict[str, Any]] = [
     {
         "id": "a1",
         "severity": "rose",
@@ -524,7 +525,7 @@ fallback_data_alerts = [
     },
 ]
 
-fallback_featured_digest = {
+fallback_featured_digest: dict[str, Any] = {
     "id": "digest_w20_2026",
     "title": "Atlas20 — Week 20 / 2026",
     "subtitle": "ATLAS Adaptive v3 · YTD +1,247.56% · Top-20 universe · generated 2026-05-18 14:32 UTC",
@@ -533,7 +534,7 @@ fallback_featured_digest = {
     "generated_at": "2026-05-18T14:32:00Z",
 }
 
-fallback_reports = [
+fallback_reports: list[dict[str, Any]] = [
     {
         "id": "r1",
         "title": "Atlas20 — Week 19 / 2026",

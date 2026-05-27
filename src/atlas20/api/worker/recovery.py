@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import structlog
 from sqlalchemy import or_
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
@@ -25,7 +25,7 @@ def recover_stale_runs(session: Session, stale_after_seconds: int = 60) -> int:
     stale_runs = session.exec(
         select(Run).where(
             Run.status == "running",
-            or_(Run.heartbeat_at.is_(None), Run.heartbeat_at < cutoff),
+            or_(col(Run.heartbeat_at).is_(None), col(Run.heartbeat_at) < cutoff),
         )
     ).all()
     for run in stale_runs:

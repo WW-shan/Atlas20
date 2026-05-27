@@ -7,9 +7,9 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from types import SimpleNamespace
 import zipfile
 
+from atlas20.backtest.engine import BacktestResult
 from fastapi import HTTPException
 import matplotlib
 import pandas as pd
@@ -170,7 +170,22 @@ def generate_pdf(markdown_path: Path, output_path: Path) -> bool:
     return True
 
 
-def _equity_results(equity_path: Path) -> dict[str, object]:
+def _chart_result(name: str, equity_curve: pd.Series) -> BacktestResult:
+    empty_series = pd.Series(dtype=float)
+    return BacktestResult(
+        name=name,
+        daily_returns=empty_series,
+        equity_curve=equity_curve,
+        drawdown=empty_series,
+        weights=pd.DataFrame(),
+        turnover=empty_series,
+        holdings_count=empty_series,
+        sector_exposure=pd.DataFrame(),
+        rebalance_targets=pd.DataFrame(),
+    )
+
+
+def _equity_results(equity_path: Path) -> dict[str, BacktestResult]:
     df = pd.read_csv(equity_path)
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"])
@@ -184,7 +199,7 @@ def _equity_results(equity_path: Path) -> dict[str, object]:
     if numeric.empty:
         raise HTTPException(status_code=422, detail="equity_curve.csv has no numeric series")
     return {
-        str(column): SimpleNamespace(equity_curve=numeric[column].dropna())
+        str(column): _chart_result(str(column), numeric[column].dropna())
         for column in numeric.columns
         if not numeric[column].dropna().empty
     }

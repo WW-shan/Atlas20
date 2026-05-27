@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -15,7 +16,7 @@ from atlas20.api.settings import get_settings
 router = APIRouter(tags=["health"])
 
 
-def _is_report_root_writable(path) -> bool:
+def _is_report_root_writable(path: Path) -> bool:
     return os.access(path, os.W_OK)
 
 
@@ -29,7 +30,7 @@ def readyz(session: Session = Depends(get_session)) -> JSONResponse:
     checks: dict[str, str] = {}
     status_code = 200
     try:
-        session.exec(text("SELECT 1")).one()
+        session.execute(text("SELECT 1")).one()
         checks["db"] = "ok"
     except Exception:
         checks["db"] = "fail"

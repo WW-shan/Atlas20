@@ -6,7 +6,7 @@ import math
 import os
 from pathlib import Path
 import stat
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from pandas.errors import EmptyDataError, ParserError
@@ -101,7 +101,7 @@ def _load_date_indexed_csv(path: Path) -> pd.DataFrame:
 
 
 def _date_string(value: Any) -> str:
-    return pd.Timestamp(value).date().isoformat()
+    return cast(str, pd.Timestamp(value).date().isoformat())
 
 
 def _as_float(value: Any, column: str | None = None) -> float:

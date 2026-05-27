@@ -88,7 +88,7 @@ def _manifest_includes_path(run_dir: Path, artifact_path: Path) -> bool:
 def _validate_manifest_and_hash(path: Path, settings: Settings, *, run_id: str | None, expected_sha: str | None) -> None:
     run_dir = _run_dir_for_path(path, settings, run_id)
     manifest_path = (run_dir / "report_manifest.json") if run_dir is not None else None
-    if manifest_path is not None and manifest_path.exists():
+    if run_dir is not None and manifest_path is not None and manifest_path.exists():
         if not verify_manifest_artifact(run_dir, path):
             if expected_sha is not None and not _manifest_includes_path(run_dir, path):
                 if expected_sha == sha256_file(path):

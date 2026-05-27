@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 REDACTED = "***REDACTED***"
 SENSITIVE_KEYS = {"x-api-key", "authorization", "cookie", "secret_key", "secret", "api_key"}
@@ -27,8 +27,8 @@ def redact_value(value: Any) -> Any:
 
 
 def redact_sensitive(_logger: object, _name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    return redact_value(event_dict)
+    return cast(dict[str, Any], redact_value(event_dict))
 
 
 def scrub_sensitive_headers(event: dict[str, Any], _hint: dict[str, Any] | None = None) -> dict[str, Any]:
-    return redact_value(event)
+    return cast(dict[str, Any], redact_value(event))

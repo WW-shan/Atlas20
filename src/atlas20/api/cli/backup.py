@@ -16,9 +16,10 @@ from atlas20.api.settings import get_settings
 
 def _db_path_from_url(db_url: str) -> Path | None:
     url = make_url(db_url)
-    if url.get_backend_name() != "sqlite" or url.database in (None, "", ":memory:"):
+    database = url.database
+    if url.get_backend_name() != "sqlite" or database is None or database in ("", ":memory:"):
         return None
-    return Path(url.database).expanduser()
+    return Path(database).expanduser()
 
 
 def _purge_old(backup_root: Path, *, retention_days: int) -> int:

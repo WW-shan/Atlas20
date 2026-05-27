@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import threading
+from typing import Any
 
 from prometheus_client import start_http_server
 from sqlmodel import Session
@@ -46,7 +47,8 @@ def start_metrics_server(port: int) -> None:
                 from prometheus_client import CollectorRegistry, multiprocess
 
                 registry = CollectorRegistry()
-                multiprocess.MultiProcessCollector(registry)
+                multi_process_collector: Any = multiprocess.MultiProcessCollector
+                multi_process_collector(registry)
                 start_http_server(port, registry=registry)
             else:
                 start_http_server(port)
@@ -93,7 +95,7 @@ def session_scope(settings: Settings | None = None) -> Iterator[Session]:
 
 
 def setup_signal_handlers() -> None:
-    def request_shutdown(signum, frame):
+    def request_shutdown(signum: int, frame: object | None) -> None:
         del signum, frame
         _shutdown_requested.set()
 
@@ -101,7 +103,7 @@ def setup_signal_handlers() -> None:
     signal.signal(signal.SIGINT, request_shutdown)
 
 
-def _terminate_process(proc: subprocess.Popen, grace_seconds: float) -> None:
+def _terminate_process(proc: subprocess.Popen[bytes], grace_seconds: float) -> None:
     if proc.poll() is not None:
         return
     proc.terminate()
@@ -136,7 +138,7 @@ def _mark_failed(run_id: str, settings: Settings, error: str) -> None:
 
 def _heartbeat_loop(
     run_id: str,
-    proc: subprocess.Popen,
+    proc: subprocess.Popen[bytes],
     settings: Settings,
     stop_event: threading.Event,
     cancelled_event: threading.Event,
@@ -175,7 +177,7 @@ def _heartbeat_loop(
 
 def start_heartbeat_thread(
     run_id: str,
-    proc: subprocess.Popen,
+    proc: subprocess.Popen[bytes],
     settings: Settings,
     *,
     heartbeat_interval_seconds: float | None = None,
@@ -222,7 +224,7 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
             )
             return
 
-    proc = subprocess.Popen(
+    proc: subprocess.Popen[bytes] = subprocess.Popen(
         [sys.executable, "-m", "atlas20.api.worker.run_one", run_id],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -26,7 +26,7 @@ def _uppercase_level(_: logging.Logger, __: str, event_dict: dict[str, Any]) -> 
 
 def configure_logging(settings: Settings) -> None:
     level = getattr(logging, settings.log_level)
-    shared_processors: list[structlog.types.Processor] = [
+    shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,

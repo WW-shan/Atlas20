@@ -1,8 +1,12 @@
 """FastAPI application factory for the Atlas20 research console."""
 
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,14 +29,17 @@ from atlas20.api.routes.reports import router as reports_router
 from atlas20.api.routes.runs import router as runs_router
 from atlas20.api.routes.universe import router as universe_router
 from atlas20.api.scheduler import start_scheduler
-from atlas20.api.settings import get_settings
+from atlas20.api.settings import Settings, get_settings
 from atlas20.api.worker.main import session_scope
 from atlas20.api.worker.recovery import recover_stale_runs
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from alembic.config import Config
 
-def _alembic_config(settings):
+
+def _alembic_config(settings: Settings) -> Config:
     from alembic.config import Config
 
     cwd_config = Path("alembic.ini")
@@ -47,7 +54,7 @@ def _alembic_config(settings):
     return cfg
 
 
-def _init_sentry(settings) -> None:
+def _init_sentry(settings: Settings) -> None:
     if not settings.sentry_dsn:
         return
     import sentry_sdk
@@ -58,7 +65,7 @@ def _init_sentry(settings) -> None:
         environment=settings.env,
         traces_sample_rate=0.0,
         send_default_pii=False,
-        before_send=_scrub_sensitive_headers,
+        before_send=cast(Any, _scrub_sensitive_headers),
         integrations=[FastApiIntegration()],
     )
 
@@ -83,7 +90,7 @@ def _include_health_routes(app: FastAPI) -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from alembic import command
 
     settings = get_settings()
@@ -137,7 +144,7 @@ def create_app() -> FastAPI:
     )
     app.state.limiter = limiter
     reset_rate_limit_storage()
-    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, cast(Any, rate_limit_exceeded_handler))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

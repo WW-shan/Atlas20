@@ -30,6 +30,7 @@ from atlas20.api.schemas import (
     ComparePayload,
     DataAlert,
     DataSource,
+    DataSourceStatus,
     FeaturedDigest,
     OptionsPayload,
     OverviewPayload,
@@ -39,7 +40,7 @@ from atlas20.api.schemas import (
     RunRowSummary,
     UniverseTimelinePayload,
 )
-from atlas20.api.db.models import Run
+from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import IdempotencyRepo, KvRepo, ReportsRepo, RunsRepo
 from atlas20.api.services_download import resolve_download as _resolve_download
 from atlas20.api.settings import Settings, get_settings
@@ -1030,7 +1031,7 @@ def _data_source_status(source_id: str, name: str, path: Path, now_ts: float) ->
 
     age_seconds = max(0, int(now_ts - latest_mtime))
     if age_seconds < 3600:
-        status = "healthy"
+        status: DataSourceStatus = "healthy"
     elif age_seconds < 86400:
         status = "degraded"
     else:
@@ -1170,7 +1171,7 @@ def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[di
         return payload, True
 
 
-def _report_file_to_entry(row) -> ReportEntry:
+def _report_file_to_entry(row: ReportFile) -> ReportEntry:
     report_id = str(row.id or row.run_id or row.sha256[:12])
     title_id = row.run_id or report_id
     thumbnail_by_kind = {
@@ -1284,9 +1285,9 @@ def _sort_report_entries(rows: list[ReportEntry], sort: str) -> list[ReportEntry
 
 def list_reports(sort: str = "recent", session: Session | None = None) -> list[ReportEntry]:
     if session is not None:
-        rows = ReportsRepo(session).list(sort=sort)
-        if rows:
-            return [_report_file_to_entry(row) for row in rows]
+        report_rows = ReportsRepo(session).list(sort=sort)
+        if report_rows:
+            return [_report_file_to_entry(row) for row in report_rows]
 
     disk_rows = _discover_report_entries(get_settings().report_root)
     if disk_rows:
@@ -1304,5 +1305,5 @@ def list_reports(sort: str = "recent", session: Session | None = None) -> list[R
     return [ReportEntry.model_validate(row) for row in rows]
 
 
-def resolve_download(report_id: str, fmt: str | None, session: Session):
+def resolve_download(report_id: str, fmt: str | None, session: Session) -> tuple[Path, str, str]:
     return _resolve_download(report_id, fmt, session)

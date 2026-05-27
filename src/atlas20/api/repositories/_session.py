@@ -13,9 +13,10 @@ from atlas20.api.settings import Settings, get_settings
 
 def _ensure_sqlite_parent(db_url: str) -> None:
     url = make_url(db_url)
-    if url.get_backend_name() != "sqlite" or url.database in (None, "", ":memory:"):
+    database = url.database
+    if url.get_backend_name() != "sqlite" or database is None or database in ("", ":memory:"):
         return
-    Path(url.database).expanduser().parent.mkdir(parents=True, exist_ok=True)
+    Path(database).expanduser().parent.mkdir(parents=True, exist_ok=True)
 
 
 _ENGINES: dict[str, Engine] = {}

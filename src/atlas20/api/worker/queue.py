@@ -6,7 +6,7 @@ import os
 
 import structlog
 from sqlalchemy import text
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from atlas20.api._metrics import record_backtest_terminal
 from atlas20.api._time import utc_now
@@ -23,7 +23,7 @@ class WorkerQueue:
     def claim_one(self) -> Run | None:
         self._begin_immediate_for_sqlite()
         candidate = self._s.exec(
-            select(Run).where(Run.status == "queued").order_by(Run.created_at.asc()).limit(1)
+            select(Run).where(Run.status == "queued").order_by(col(Run.created_at).asc()).limit(1)
         ).first()
         if candidate is None:
             self._s.commit()
@@ -59,4 +59,4 @@ class WorkerQueue:
         if self._s.in_transaction():
             return
         if self._s.get_bind().dialect.name == "sqlite":
-            self._s.exec(text("BEGIN IMMEDIATE"))
+            self._s.execute(text("BEGIN IMMEDIATE"))

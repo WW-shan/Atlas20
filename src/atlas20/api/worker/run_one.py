@@ -37,7 +37,8 @@ def _cleanup_metrics_files() -> None:
     if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         from prometheus_client import multiprocess
 
-        multiprocess.mark_process_dead(os.getpid())
+        mark_process_dead: Any = multiprocess.mark_process_dead
+        mark_process_dead(os.getpid())
 
 
 atexit.register(_cleanup_metrics_files)

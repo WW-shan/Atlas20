@@ -5,27 +5,31 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.types import TypeDecorator
+from sqlalchemy.sql.type_api import TypeEngine
 from sqlmodel import Field, SQLModel
 
 from atlas20.api._time import utc_now
 
 
-class UtcDateTime(TypeDecorator):
+class UtcDateTime(TypeDecorator[datetime]):
     impl = DateTime
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[datetime]:
         return dialect.type_descriptor(DateTime(timezone=True))
 
-    def process_bind_param(self, value: datetime | None, dialect) -> datetime | None:
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        del dialect
         if value is None:
             return None
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc)
 
-    def process_result_value(self, value: datetime | None, dialect) -> datetime | None:
+    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        del dialect
         if value is None:
             return None
         if value.tzinfo is None:

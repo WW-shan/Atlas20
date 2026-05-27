@@ -22,10 +22,10 @@ def _wipe_multiproc_dir() -> None:
     os.environ.setdefault("PROMETHEUS_MULTIPROC_DIR", str(multiproc_dir))
 
 
-def spawn_workers(count: int | None = None) -> list[subprocess.Popen]:
+def spawn_workers(count: int | None = None) -> list[subprocess.Popen[bytes]]:
     worker_count = count if count is not None else int(os.environ.get("ATLAS20_WORKERS", "2"))
     _wipe_multiproc_dir()
-    processes: list[subprocess.Popen] = []
+    processes: list[subprocess.Popen[bytes]] = []
     for _ in range(worker_count):
         env = os.environ.copy()
         env["ATLAS20_WORKERS"] = "1"

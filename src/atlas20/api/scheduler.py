@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import timezone
 import logging
 import os
+from typing import Any
 
 from filelock import FileLock, Timeout
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import KvRepo
@@ -19,11 +20,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_DIGEST_FORMATS = {"markdown", "pdf", "png", "bundle"}
 
 
-def _attach_lock_release(scheduler, lock: FileLock):
+def _attach_lock_release(scheduler: Any, lock: FileLock) -> Any:
     original_shutdown = scheduler.shutdown
     released = False
 
-    def shutdown(*args, **kwargs):
+    def shutdown(*args: Any, **kwargs: Any) -> Any:
         nonlocal released
         try:
             return original_shutdown(*args, **kwargs)
@@ -42,7 +43,7 @@ def _pick_completed_run(session: Session, week: int) -> Run | None:
     stmt = (
         select(Run)
         .where(Run.status == "completed")
-        .order_by(Run.created_at.desc(), Run.run_id.desc())
+        .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
         .offset(offset)
         .limit(1)
     )
@@ -85,7 +86,7 @@ def generate_featured_digest(
         return _generate_featured_digest(scoped_session, settings, week=week, formats=formats)
 
 
-def start_scheduler(settings: Settings | None = None):
+def start_scheduler(settings: Settings | None = None) -> Any | None:
     if os.environ.get("ATLAS20_DISABLE_SCHEDULER") == "1":
         return None
     settings = settings or get_settings()
