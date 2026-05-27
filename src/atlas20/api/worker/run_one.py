@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -16,15 +17,20 @@ from typing import Any
 import pandas as pd
 from sqlmodel import Session
 
+from atlas20.api._time import utc_iso_from_timestamp
 from atlas20.config import load_config
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.services_report import generate_run_report_with_warnings
 from atlas20.api.settings import Settings, get_settings
+from atlas20.backtest.engine import run_backtest
 from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
-from atlas20.reporting.report import _publish_report_dir, _write_latest_pointer
+from atlas20.reporting.report import _pipeline_version, _publish_report_dir, _write_latest_pointer
+
+
+PRESET_SLUG_PATTERN = re.compile(r"[^a-z0-9_]+")
 
 
 def _cleanup_metrics_files() -> None:
@@ -67,6 +73,69 @@ def _code_commit(settings: Settings) -> str:
     return os.environ.get("ATLAS20_CODE_COMMIT", "unknown")
 
 
+def _preset_slug(preset: str) -> str:
+    slug = PRESET_SLUG_PATTERN.sub("_", preset.lower()).strip("_")
+    if not slug:
+        raise ValueError("invalid preset slug")
+    return slug
+
+
+def _relative_to_project(settings: Settings, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(settings.project_root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _config_file(settings: Settings, params_json: str) -> Path:
+    config = BacktestConfig.model_validate_json(params_json)
+    config_dir = settings.project_root / "config"
+    candidate = config_dir / f"{_preset_slug(config.preset)}.yaml"
+    return candidate if candidate.exists() else config_dir / "base.yaml"
+
+
+def _config_metadata(settings: Settings, params_json: str) -> tuple[str, str]:
+    path = _config_file(settings, params_json)
+    try:
+        config_hash = _sha256_file(path)
+    except FileNotFoundError:
+        config_hash = "unknown"
+    return _relative_to_project(settings, path), config_hash
+
+
+def _data_snapshot(settings: Settings) -> dict[str, str]:
+    raw_dir = settings.data_root / "raw"
+    if not raw_dir.exists():
+        return {}
+
+    snapshot: dict[str, str] = {}
+    for provider_dir in sorted(path for path in raw_dir.iterdir() if path.is_dir()):
+        newest_mtime: float | None = None
+        for path in provider_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            mtime = path.stat().st_mtime
+            newest_mtime = mtime if newest_mtime is None else max(newest_mtime, mtime)
+        if newest_mtime is not None:
+            snapshot[provider_dir.name] = utc_iso_from_timestamp(newest_mtime)
+    return snapshot
+
+
+def _engine_version() -> str:
+    override = os.environ.get("ATLAS20_ENGINE_VERSION")
+    if override:
+        return override
+    try:
+        engine_path = Path(run_backtest.__code__.co_filename)
+        return _sha256_file(engine_path)
+    except (OSError, AttributeError):
+        return "unknown"
+
+
+def _run_pipeline_version() -> str:
+    return os.environ.get("ATLAS20_PIPELINE_VERSION") or _pipeline_version()
+
+
 def _artifact_hashes(report_dir: Path) -> dict[str, str]:
     artifacts: dict[str, str] = {}
     for path in sorted(report_dir.rglob("*")):
@@ -76,9 +145,15 @@ def _artifact_hashes(report_dir: Path) -> dict[str, str]:
 
 
 def _write_manifest(report_dir: Path, settings: Settings, params_json: str) -> None:
+    config_path, config_hash = _config_metadata(settings, params_json)
     manifest = {
         "code_commit": _code_commit(settings),
-        "config_hash": _sha256_text(params_json),
+        "config_path": config_path,
+        "config_hash": config_hash,
+        "data_snapshot": _data_snapshot(settings),
+        "engine_version": _engine_version(),
+        "params_hash": _sha256_text(params_json),
+        "pipeline_version": _run_pipeline_version(),
         "artifacts": _artifact_hashes(report_dir),
     }
     (report_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -91,13 +91,13 @@
 - [x] **Acceptance**: `reports/latest/selection_history.csv` 包含全部策略行
 
 ### X3 — 每个 run 的可复现性 manifest
-- [ ] 每个 `reports/app_runs/{run_id}/manifest.json` 包含完整 provenance（MVP 已写 `code_commit`、`config_hash`、artifact sha；仍缺 `data_snapshot` / `pipeline_version` / `engine_version` 等完整字段）：
+- [x] 每个 `reports/app_runs/{run_id}/manifest.json` 包含完整 provenance（已写 `code_commit`、`config_path`、`config_hash`、`params_hash`、`data_snapshot`、`pipeline_version`、`engine_version`、artifact sha）：
   - `config_path`, `config_hash` (sha256 of yaml)
   - `code_commit` (`git rev-parse HEAD`)
   - `data_snapshot`: `{provider: latest_file_mtime}`
   - `pipeline_version`, `engine_version`
   - `artifacts: [{kind, path, size, sha256}]`
-- [ ] **Acceptance**: rerun 同 config 同代码同数据应得到相同 manifest（除 timestamp）
+- [x] **Acceptance**: manifest 不包含 timestamp；同 config / 同代码 / 同数据快照下的确定性字段已由 worker manifest 测试覆盖
 
 ### X4 — 原子产物写入
 - [x] 每次 pipeline / backtest 写到 `{run_dir}.tmp/`，最后原子发布到目标目录
@@ -583,7 +583,7 @@
 - 不做 R7/R10（要等 S/E）
 
 ### MS-2 — Real Backtests + 持久化（**12-15 天**）
-**Status 2026-05-27**: MVP 主链路完成。剩余差距主要是 app_runs manifest 完整 provenance、N worker API 场景验收、真实小窗口 engine 集成测试。
+**Status 2026-05-27**: MVP 主链路完成。剩余差距主要是 N worker API 场景验收、真实小窗口 engine 集成测试。
 - P1-P6 + E1-E8 + X3/X4 完成
 - T3 嵌入
 

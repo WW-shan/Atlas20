@@ -159,6 +159,9 @@ def test_run_one_missing_run_id_returns_one_without_db_change(tmp_path, monkeypa
 def test_run_one_records_sha256_manifest(tmp_path, monkeypatch):
     monkeypatch.setenv("ATLAS20_WORKER_MOCK", "1")
     settings = _settings(tmp_path)
+    raw_dir = settings.data_root / "raw" / "coingecko"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "prices.json").write_text("{}", encoding="utf-8")
     engine = _engine(settings)
     _create_run(engine)
 
@@ -167,9 +170,16 @@ def test_run_one_records_sha256_manifest(tmp_path, monkeypatch):
     final_dir = tmp_path / "reports" / "app_runs" / "btk_0001"
     manifest = json.loads((final_dir / "manifest.json").read_text(encoding="utf-8"))
     summary_hash = hashlib.sha256((final_dir / "summary.csv").read_bytes()).hexdigest()
+    config_hash = hashlib.sha256((Path(os.getcwd()) / "config" / "base.yaml").read_bytes()).hexdigest()
+    params_hash = hashlib.sha256(BacktestConfig.model_validate(CONFIG_DATA).model_dump_json().encode()).hexdigest()
     assert manifest["artifacts"]["summary.csv"] == summary_hash
+    assert manifest["config_path"] == "config/base.yaml"
+    assert manifest["config_hash"] == config_hash
+    assert manifest["params_hash"] == params_hash
     assert manifest["code_commit"]
-    assert manifest["config_hash"]
+    assert manifest["pipeline_version"]
+    assert manifest["engine_version"]
+    assert manifest["data_snapshot"]["coingecko"]
 
 
 def test_run_one_writes_params_json(tmp_path, monkeypatch):
