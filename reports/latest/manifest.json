@@ -1,0 +1,241 @@
+{
+  "config_path": "config/base.yaml",
+  "config_sha256": "903e7fcb87a4b75cacda51beaa208c3188e153591e99171324ccca07bdc17221",
+  "code_commit": "ab71b15cdf37b338c01cfbfbfabcdc2700613b0f",
+  "pipeline_version": "0.1.0",
+  "data_snapshot": {
+    "coingecko": "2026-05-25T13:06:18Z",
+    "cryptocompare": "2026-05-21T05:24:46Z"
+  },
+  "generated_at": "2026-05-27T05:12:27Z",
+  "artifacts": [
+    {
+      "kind": "daily_returns",
+      "path": "daily_returns.csv",
+      "size": 931228,
+      "sha256": "e227c0bf2aaf64c34e3cfb4da7ff9759195939f7c56cb44a4abc3278e7ac056f"
+    },
+    {
+      "kind": "drawdowns",
+      "path": "drawdowns.csv",
+      "size": 1167075,
+      "sha256": "6fd444c1381f1022ea1f89450f2552098c1fd42f48d39227529fcdfccc5fda65"
+    },
+    {
+      "kind": "equity_curves",
+      "path": "equity_curves.csv",
+      "size": 1086293,
+      "sha256": "baf477d744b1544e9b24e613ed10ca3ee2fcde0b995c19918414d63a5a4d079e"
+    },
+    {
+      "kind": "regime_performance",
+      "path": "regime_performance.csv",
+      "size": 6220,
+      "sha256": "4fced8d901dabb202c7e72e831b4b3c4b819b24ad40ede85d724e504d8ac7328"
+    },
+    {
+      "kind": "selection_history",
+      "path": "selection_history.csv",
+      "size": 680122,
+      "sha256": "57f4ebecbd9cc387d61848ac62ab2199cab7c4f7659aacc10707d1a6456ae375"
+    },
+    {
+      "kind": "summary",
+      "path": "strategy_summary.csv",
+      "size": 7157,
+      "sha256": "c620e7dccc4767392c7cf399e0d027c82eea1052e046c782f8a9fd46bbfcec70"
+    },
+    {
+      "kind": "turnover",
+      "path": "turnover_summary.csv",
+      "size": 2726,
+      "sha256": "f50d5dd1def94c5a66d54534e7c5a0405030ec12059bd715972b23508a7ce729"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/BTC_BH__always_on.csv",
+      "size": 501324,
+      "sha256": "52249284e24b4ca0d6ae29348f1b5dfa6dabaf408ef6abda8a2415912236bcdc"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/BTC_BH__bull_only.csv",
+      "size": 482143,
+      "sha256": "15efc1308bbbc2a91921675a2555c4bc4a7f73f4ea88da7d868ff37d102fbba5"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/ETH_BH__always_on.csv",
+      "size": 501338,
+      "sha256": "38d892d055b277e6ee5f895fc68f77612d44cea35798edb467f052d0e7c36b49"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/ETH_BH__bull_only.csv",
+      "size": 482146,
+      "sha256": "8dd427ae967eac150edd83b0958adbf79931e6bd6a59bb1496063ea4a61f6e1d"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_EQ__always_on.csv",
+      "size": 920729,
+      "sha256": "9394db40eb17a2fc344d531602ce48968c6159f85d3a00569acb4553f8c8f15c"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_EQ__bull_only.csv",
+      "size": 654843,
+      "sha256": "66d2a520f8bc474301524fbacef858a1c7a3f0b49b88068c30d2fa0969e17fda"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top4_biweekly__always_on.csv",
+      "size": 592635,
+      "sha256": "53f2c84348e2d1852af7a8a997e45227fa9d888df6e149c72384e44cdf558339"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top4_biweekly__bull_only.csv",
+      "size": 516766,
+      "sha256": "1ddc172c0c2db4a80d35b4a6278e74403d12c20ad5cd7ab76b610cb495969c25"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top4_monthly__always_on.csv",
+      "size": 591722,
+      "sha256": "89db9a704a4f0f2edcbe3ed528b04eb004c7e4a9c228b86ae0930f0d07521bb2"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top4_monthly__bull_only.csv",
+      "size": 516518,
+      "sha256": "4bd0e4319abcb7df655ab28644105caad34e511dd63b98b0a5ec4c44f61c9229"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top6_biweekly__always_on.csv",
+      "size": 651004,
+      "sha256": "b0eb561f58ff214d3b55a9d7d2992e1e853cd8e615c0fa5a81baa522be992e4d"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top6_biweekly__bull_only.csv",
+      "size": 538827,
+      "sha256": "7586595f8cd703a2c7bc638fd41caa2b270379f59b4a64c4319c82f573e51552"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top6_monthly__always_on.csv",
+      "size": 649777,
+      "sha256": "dd4f266cf75c1c9e98f1feb98d017585c57751ed0bdbcb0142761832b946cfc4"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top6_monthly__bull_only.csv",
+      "size": 538714,
+      "sha256": "19fae0dc5379a3c3dc937ff8a039b958134cf593eb0f7983c65732768f4a2ebc"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top8_biweekly__always_on.csv",
+      "size": 705527,
+      "sha256": "676c4cdb930216f0951f4743b5e29794d152acc503d64634361ca01c584650c0"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top8_biweekly__bull_only.csv",
+      "size": 560715,
+      "sha256": "9adc2f55ecfb6d7aa5624d6e1a5768241d2e23886fbbbd7aa40767e06cdbefb2"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top8_monthly__always_on.csv",
+      "size": 704922,
+      "sha256": "7d34979bd852db022cc38554701ec618ace5c5c464245f199b9f8c12d4054e8c"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_MOM_top8_monthly__bull_only.csv",
+      "size": 560610,
+      "sha256": "badbc2152d4f5c3e8455639a1068233c0510841ec1894c73e6cd72749dfb8758"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top2_biweekly__always_on.csv",
+      "size": 561408,
+      "sha256": "1e357aeabee3629fb2f448c55b41513b7c0caa90aef496df1a68482e3a7a17d8"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top2_biweekly__bull_only.csv",
+      "size": 506247,
+      "sha256": "3484c397f49650ca0c52b0247a9ee9d9539b2a99a75e27199649b3b8865f8b86"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top2_monthly__always_on.csv",
+      "size": 558871,
+      "sha256": "0574eb7a5558150909b3aad2db883a3d6d9009c61546009ad6f2e69dd75bc34e"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top2_monthly__bull_only.csv",
+      "size": 505475,
+      "sha256": "536c67408c081cea5bae90346c2ac6e135a590796713744e5cf65512b72fe37b"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top3_biweekly__always_on.csv",
+      "size": 606138,
+      "sha256": "ddfdc610d10bc3b9f4c75cb9bf93a62304e29a9049d61bf398a097f583e63745"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top3_biweekly__bull_only.csv",
+      "size": 522765,
+      "sha256": "f9f50d0b8c8caefd1f5f593c7f1d77e3067135854c916ac7c25a2cb05c75f7fb"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top3_monthly__always_on.csv",
+      "size": 605443,
+      "sha256": "92cb1f3bf9dd28c4737ec7d4fa48a4aaf027c10c35b2cf911cdfb61c34ffa460"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top3_monthly__bull_only.csv",
+      "size": 524272,
+      "sha256": "bb4c20369a2dda7c7aa71972fc6a886fe3f1314d0b119195b3309491f6fb0c72"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top4_biweekly__always_on.csv",
+      "size": 647708,
+      "sha256": "e95c93baf5f694830cae122536ff157fb893b142ee4651ab2674502a1f2cc62f"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top4_biweekly__bull_only.csv",
+      "size": 537976,
+      "sha256": "99156405e0c4796b0c59949d1f1fc1a210242f49919de6eae403ebe06fcaffe4"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top4_monthly__always_on.csv",
+      "size": 643028,
+      "sha256": "7a4d24d3469b92fd78eda285143b93bbc415c139040a7a918cd5a69471c36148"
+    },
+    {
+      "kind": "weights",
+      "path": "weights/TOP20_SECTOR_top4_monthly__bull_only.csv",
+      "size": 538263,
+      "sha256": "419e1158ab31f6a3a388fb0a005883e8eab3618e093572b448c8bdd7eff0eb3c"
+    },
+    {
+      "kind": "yearly_returns",
+      "path": "yearly_returns.csv",
+      "size": 4323,
+      "sha256": "bd1143be0af600ed7c38c9afe6fbbd4e702eb560124bf6012bf8f8b6f45a1d27"
+    }
+  ]
+}
