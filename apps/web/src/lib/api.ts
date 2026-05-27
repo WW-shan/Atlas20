@@ -6,6 +6,25 @@
 import type { ChartRange, RunStatusEnum, ReportSortKey } from "../components/ui/types";
 
 const API_KEY = (import.meta.env.VITE_ATLAS20_API_KEY as string | undefined)?.trim();
+const ENV_BEARER_TOKEN = normalizeBearerToken(import.meta.env.VITE_ATLAS20_BEARER_TOKEN as string | undefined);
+let runtimeBearerToken: string | undefined;
+
+function normalizeBearerToken(token: string | undefined): string | undefined {
+  const trimmed = token?.trim();
+  if (!trimmed) return undefined;
+  return /^Bearer\s+/i.test(trimmed) ? trimmed.replace(/^Bearer\s+/i, "Bearer ") : `Bearer ${trimmed}`;
+}
+
+export function setApiBearerToken(token: string | null | undefined): void {
+  runtimeBearerToken = normalizeBearerToken(token ?? undefined);
+}
+
+function withAuthHeaders(headers: Record<string, string>): Record<string, string> {
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const bearerToken = runtimeBearerToken ?? ENV_BEARER_TOKEN;
+  if (bearerToken) headers.Authorization = bearerToken;
+  return headers;
+}
 
 // ============================================================
 // §7.1 — Existing types (preserved & extended)
@@ -679,10 +698,9 @@ async function apiErrorFromResponse(response: Response, fallbackMessage: string)
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
+  const headers = withAuthHeaders({
     ...(init?.headers as Record<string, string> | undefined),
-  };
-  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  });
   const response = await fetch(buildApiUrl(path), { ...init, headers });
   if (!response.ok) {
     throw await apiErrorFromResponse(response, `Atlas20 API request failed: ${response.status}`);
@@ -696,8 +714,7 @@ export type ReportDownload = {
 };
 
 async function requestBlob(path: string, fallbackFilename: string): Promise<ReportDownload> {
-  const headers: Record<string, string> = {};
-  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const headers = withAuthHeaders({});
   const response = await fetch(buildApiUrl(path), { headers });
   if (!response.ok) {
     throw await apiErrorFromResponse(response, `Atlas20 API download failed: ${response.status}`);

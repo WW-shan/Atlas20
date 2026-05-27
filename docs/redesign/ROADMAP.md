@@ -6,7 +6,7 @@
 
 **2026-05-27 校准**: 代码已推进到「可用研究控制台 + 真实后端接入 + DB-backed 回测 worker + 多格式报告生成/下载」状态。本文件已按当前实现重新勾选；仍未勾选的项表示尚未达到本清单原定义的生产级验收，而不是 UI/MVP 不可用。
 
-**2026-05-27 执行校准**: 近期已补齐 reports/latest 当前产物、Compare 真 weights overlap、Reports archive 磁盘扫描、Featured Digest fallback、OpenAPI drift gate、全 `src/atlas20/api` mypy strict、Playwright 6 页真实浏览器 smoke。当时剩余可执行项收敛为 T6、Q3、A2、A4、A7；这些项已在 2026-05-28 批次完成，S5/JWT 继续按「生产 hook，公网部署前再做」处理。
+**2026-05-27 执行校准**: 近期已补齐 reports/latest 当前产物、Compare 真 weights overlap、Reports archive 磁盘扫描、Featured Digest fallback、OpenAPI drift gate、全 `src/atlas20/api` mypy strict、Playwright 6 页真实浏览器 smoke。当时剩余可执行项收敛为 T6、Q3、A2、A4、A7；这些项已在 2026-05-28 批次完成，S5/JWT 也已在后续批次补齐生产 hook。
 
 **2026-05-28 执行更新**: Q6 统一错误 envelope 已落地：FastAPI HTTP/validation/rate-limit/unhandled exception handler 输出 `{error: {code, message, details, request_id}}`，前端 API client 已解析该契约并保留 `code/details/request_id`。
 
@@ -17,6 +17,8 @@
 **2026-05-28 A2/A4 更新**: Playwright browser audit 已覆盖 skip link、tablist keyboard navigation、Dialog focus trap，以及 6 个控制台页面的 axe `color-contrast` 规则；修复 Run History active filter 控件对比度。
 
 **2026-05-28 Q3 更新**: `atlas20.api.services` 已迁移为服务包，新增 `ConsoleService` Protocol、`RealConsoleService`、`MockConsoleService`，主要路由通过 `Depends(get_console_service)` 消费服务接口，原 module-level service 函数保持兼容。
+
+**2026-05-28 S5 更新**: 受保护路由现在支持 `X-API-Key` 或 `Authorization: Bearer <jwt>`；JWT hook 覆盖 HS256 签名、`exp`、可选 issuer/audience 校验，前端 API client 提供 runtime bearer token 注入点。
 
 ---
 
@@ -393,7 +395,10 @@
 - [x] settings.api_keys 集合校验
 - [x] **Acceptance**: 无 header 401；download GET 也纳入 API-key 保护，其他 read-only GET 仍按 MVP 暴露
 
-### S5 — JWT/OAuth（**生产留 hook，先不做**）
+### S5 — JWT/OAuth
+- [x] `ATLAS20_JWT_AUTH_ENABLED` 生产 hook；受保护路由接受 `Authorization: Bearer <jwt>`
+- [x] HS256 签名、`exp`、可选 `issuer/audience` 校验；API key 兼容路径保留
+- [x] 前端 API client 提供 `setApiBearerToken()` runtime hook；本地/测试可用 `VITE_ATLAS20_BEARER_TOKEN`
 
 ### S6 — Rate limit
 - [x] `slowapi`
@@ -590,11 +595,11 @@
 ## 优先级与里程碑（**修订自 v1**）
 
 ### 当前剩余执行顺序（2026-05-28）
-- 当前 ROADMAP 中除生产公网部署前保留的 S5/JWT hook 外，已无未完成的可执行实现项。
+- 当前 ROADMAP 已无未完成的可执行实现项；若未来接入第三方 OAuth/OIDC provider，范围应按 JWKS/RS256 provider discovery 单独立项。
 
 ### 当前验证基线（2026-05-28）
-- Backend: `pytest -q` 423 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
-- Frontend: `npm --prefix apps/web test` 179 passed；`lint` clean；`typecheck` clean；`build` passed。
+- Backend: `pytest -q` 430 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
+- Frontend: `npm --prefix apps/web test` 181 passed；`lint` clean；`typecheck` clean；`build` passed。
 - Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 18 passed。
 - Load: `python scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200` passed；6000/6000 success；p95 6.54ms。
 
@@ -609,12 +614,12 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot、frontend schema drift gate、全 API mypy strict 已补齐。
+**Status 2026-05-28**: 基本完成。Settings/auth/rate-limit/observability/Docker/CI 基线、download GET 鉴权、JWT/OAuth hook、`reports/latest` alias、磁盘阈值告警、OpenAPI snapshot、frontend schema drift gate、全 API mypy strict 已补齐。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-28**: 基本完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope、T6 load baseline、A7 responsive smoke、A2/A4 browser audit、Q3 Service Protocol 抽象已落地；S5/JWT 继续按公网部署前 hook 处理。
+**Status 2026-05-28**: 基本完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope、T6 load baseline、A7 responsive smoke、A2/A4 browser audit、Q3 Service Protocol 抽象、S5 JWT/OAuth hook 已落地。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
@@ -641,7 +646,7 @@
 
 ---
 
-**Last updated**: 2026-05-28 (post-Q3 service protocol)
+**Last updated**: 2026-05-28 (post-S5 JWT hook)
 **Maintainer**: Atlas20 team  
 **v1**: `a43a304`  
 **v2**: post-codex roadmap, calibrated against current implementation

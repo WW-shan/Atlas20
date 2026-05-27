@@ -1,5 +1,6 @@
 """SlowAPI limiter shared by mutating routes."""
 
+import hashlib
 import inspect
 
 from fastapi import Request
@@ -15,8 +16,16 @@ from atlas20.api.settings import get_settings
 
 
 def _key_func(request: Request) -> str:
-    api_key = request.headers.get("X-API-Key") if get_settings().api_keys else None
-    return api_key or get_remote_address(request)
+    settings = get_settings()
+    api_key = request.headers.get("X-API-Key") if settings.api_keys else None
+    if api_key:
+        return api_key
+    authorization = request.headers.get("Authorization") if settings.jwt_auth_enabled else None
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token.strip():
+            return "bearer-" + hashlib.sha256(token.strip().encode()).hexdigest()[:16]
+    return get_remote_address(request)
 
 
 limiter = Limiter(key_func=_key_func, headers_enabled=True)

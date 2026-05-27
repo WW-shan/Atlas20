@@ -18,6 +18,11 @@ def test_settings_defaults(monkeypatch):
     assert settings.db_url == "sqlite:///./data/atlas20.sqlite"
     assert settings.secret_key == "dev-only-do-not-use-in-prod"
     assert settings.api_keys == set()
+    assert settings.jwt_auth_enabled is False
+    assert settings.jwt_secret_key is None
+    assert settings.jwt_issuer is None
+    assert settings.jwt_audience is None
+    assert settings.jwt_leeway_seconds == 30
     assert settings.cors_allow_credentials is True
     assert settings.enable_docs is True
     assert settings.report_root.name == "reports"
@@ -54,6 +59,11 @@ def test_settings_reads_env_overrides(monkeypatch):
     monkeypatch.setenv("ATLAS20_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("ATLAS20_WORKER_HEARTBEAT_INTERVAL_SECONDS", "0.1")
     monkeypatch.setenv("ATLAS20_WORKER_CANCEL_GRACE_SECONDS", "0.2")
+    monkeypatch.setenv("ATLAS20_JWT_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ATLAS20_JWT_SECRET_KEY", "jwt-secret")
+    monkeypatch.setenv("ATLAS20_JWT_ISSUER", "https://auth.example.com")
+    monkeypatch.setenv("ATLAS20_JWT_AUDIENCE", "atlas20-api")
+    monkeypatch.setenv("ATLAS20_JWT_LEEWAY_SECONDS", "45")
 
     settings = Settings()
 
@@ -64,6 +74,11 @@ def test_settings_reads_env_overrides(monkeypatch):
     assert settings.log_level == "DEBUG"
     assert settings.worker_heartbeat_interval_seconds == 0.1
     assert settings.worker_cancel_grace_seconds == 0.2
+    assert settings.jwt_auth_enabled is True
+    assert settings.jwt_secret_key == "jwt-secret"
+    assert settings.jwt_issuer == "https://auth.example.com"
+    assert settings.jwt_audience == "atlas20-api"
+    assert settings.jwt_leeway_seconds == 45
 
 
 def test_settings_accepts_anchor_date():
@@ -153,8 +168,8 @@ def test_prod_accepts_explicit_secret_key():
     assert settings.secret_key == "prod-secret"
 
 
-def test_prod_rejects_empty_api_keys():
-    with pytest.raises(ValidationError, match="ATLAS20_API_KEYS must be set to a non-empty list in prod"):
+def test_prod_requires_api_key_or_jwt_auth():
+    with pytest.raises(ValidationError, match="ATLAS20_API_KEYS or ATLAS20_JWT_AUTH_ENABLED must configure authentication in prod"):
         Settings(env="prod", cors_origins=["https://example.com"], secret_key="prod-secret")
 
 
@@ -167,6 +182,18 @@ def test_prod_accepts_non_empty_api_keys():
     )
 
     assert settings.api_keys == {"prod-key"}
+
+
+def test_prod_accepts_jwt_auth_without_api_keys():
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        secret_key="prod-secret",
+        jwt_auth_enabled=True,
+    )
+
+    assert settings.jwt_auth_enabled is True
+    assert settings.api_keys == set()
 
 
 def test_dev_accepts_empty_api_keys():

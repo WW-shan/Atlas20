@@ -1107,6 +1107,7 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1247,6 +1248,7 @@ export interface operations {
             };
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1298,6 +1300,7 @@ export interface operations {
             query?: never;
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1335,6 +1338,7 @@ export interface operations {
             };
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 report_id: string;
@@ -1454,6 +1458,7 @@ export interface operations {
             query?: never;
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 run_id: string;
@@ -1520,6 +1525,7 @@ export interface operations {
             query?: never;
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path: {
                 run_id: string;
@@ -1575,6 +1581,7 @@ export interface operations {
             query?: never;
             header?: {
                 "X-API-Key"?: string | null;
+                Authorization?: string | null;
             };
             path?: never;
             cookie?: never;

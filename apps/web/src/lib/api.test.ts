@@ -177,6 +177,36 @@ describe("requestJson API key header", () => {
     expect(init.headers).not.toHaveProperty("X-API-Key");
   });
 
+  it("injects Authorization bearer when VITE_ATLAS20_BEARER_TOKEN is set", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_ATLAS20_BEARER_TOKEN", "jwt-token");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(fallbackRunsQueue[0]))));
+    const api = await import("./api");
+
+    await api.runBacktest(api.defaultBacktestConfig);
+
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      Authorization: "Bearer jwt-token",
+    });
+  });
+
+  it("uses runtime bearer token set by OAuth integrations", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(fallbackRunsQueue[0]))));
+    const api = await import("./api");
+    api.setApiBearerToken("Bearer runtime-token");
+
+    await api.runBacktest(api.defaultBacktestConfig);
+
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      Authorization: "Bearer runtime-token",
+    });
+  });
+
   it("fetches report downloads with X-API-Key and parses attachment filename", async () => {
     vi.resetModules();
     vi.stubEnv("VITE_ATLAS20_API_KEY", "download-key");

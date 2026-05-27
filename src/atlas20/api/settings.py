@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     db_url: str = "sqlite:///./data/atlas20.sqlite"
     secret_key: str = "dev-only-do-not-use-in-prod"
     api_keys: Annotated[set[str], NoDecode] = Field(default_factory=set)
+    jwt_auth_enabled: bool = False
+    jwt_secret_key: str | None = None
+    jwt_issuer: str | None = None
+    jwt_audience: str | None = None
+    jwt_leeway_seconds: int = Field(default=30, ge=0, le=300)
     enable_docs: bool = True
     report_root: Path = Path("reports")
     report_storage_warn_bytes: int = Field(default=0, ge=0)
@@ -101,8 +106,8 @@ class Settings(BaseSettings):
                 raise ValueError("dev origins are not allowed in prod")
             if self.secret_key == "dev-only-do-not-use-in-prod":
                 raise ValueError("ATLAS20_SECRET_KEY must be set to a real secret in prod")
-            if not self.api_keys:
-                raise ValueError("ATLAS20_API_KEYS must be set to a non-empty list in prod")
+            if not self.api_keys and not self.jwt_auth_enabled:
+                raise ValueError("ATLAS20_API_KEYS or ATLAS20_JWT_AUTH_ENABLED must configure authentication in prod")
         return self
 
 
