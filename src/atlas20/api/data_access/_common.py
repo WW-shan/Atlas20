@@ -21,8 +21,8 @@ def _is_directory_link(path: Path) -> bool:
     if os.name != "nt":
         return False
     try:
-        attrs = path.lstat().st_file_attributes
-    except (AttributeError, OSError):
+        attrs = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
         return False
     reparse_point = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
     return bool(attrs & reparse_point) and path.is_dir()
