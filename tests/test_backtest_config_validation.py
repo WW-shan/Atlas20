@@ -53,6 +53,17 @@ def test_backtest_config_rejects_window_span_over_10_years():
     assert "window span" in str(exc.value)
 
 
+def test_backtest_config_rejects_start_after_end():
+    data = valid_config()
+    data["window"]["start"] = "2026-05-18"
+    data["window"]["end"] = "2026-04-01"
+
+    with pytest.raises(ValidationError) as exc:
+        BacktestConfig.model_validate(data)
+
+    assert "start must be on or before end" in str(exc.value)
+
+
 def test_backtest_config_rejects_future_end_date():
     data = valid_config()
     data["window"]["end"] = "2030-01-01"

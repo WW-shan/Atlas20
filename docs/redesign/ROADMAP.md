@@ -231,7 +231,7 @@
 ### E5 — 并发限流（**worker 池**）
 - [x] worker 进程数 N（env `ATLAS20_WORKERS=2`）
 - [x] N 个 worker 独立从 DB pull queued
-- [ ] **Acceptance**: POST 5 次，N=2 时两 running 三 queued（有 spawn/claim 并发测试，缺完整 API 场景验收）
+- [x] **Acceptance**: POST 5 次，N=2 时两 running 三 queued（API 注册 + worker claim + `/api/runs/queue` 场景测试覆盖）
 
 ### E6 — 取消（**子进程 SIGTERM**）
 - [x] POST `/api/runs/{id}/cancel`：DB 标记 `requested_cancel=True`
@@ -476,7 +476,7 @@
 ### T1 — Schema validation 测试（嵌入 E7/S7）
 - [x] POST extra field → 422
 - [x] POST bad date / invalid model values → 422
-- [ ] POST start > end → 422（窗口跨度/未来日期已测，start>end 需补明确用例）
+- [x] POST start > end → 422（schema 明确用例覆盖）
 - [x] GET unknown compare ids → 404
 - [x] POST 越界 topN/slots → 422
 

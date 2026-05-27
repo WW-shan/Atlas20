@@ -1,4 +1,6 @@
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from contextlib import contextmanager
 from datetime import date, timedelta
 import subprocess
@@ -12,10 +14,18 @@ from atlas20.api.app import create_app
 from atlas20.api._time import utc_now
 from atlas20.api.db.models import Run
 from atlas20.api.repositories import RunsRepo, get_session
-from atlas20.api.settings import Settings
+from atlas20.api.settings import Settings, get_settings
 from atlas20.api.worker.main import _execute_run, start_heartbeat_thread
 from atlas20.api.worker.queue import WorkerQueue
 from atlas20.api.worker.recovery import recover_stale_runs
+
+API_BACKTEST_CONFIG = {
+    "preset": "base",
+    "universe": {"topN": 5, "excludeStable": True, "excludeWrapped": True},
+    "window": {"start": "2026-04-01", "end": "2026-05-18", "rebalance": "Weekly"},
+    "allocation": {"positionPct": 20.0, "slots": 3},
+    "costs": {"feeBps": 10.0, "slippageBps": 5.0},
+}
 
 
 def _run(run_id: str, *, status: str = "queued", created_offset: int = 0, heartbeat_offset: int | None = None) -> Run:
@@ -132,6 +142,46 @@ def test_concurrent_claim_from_two_workers_returns_different_runs(tmp_path):
         run_ids = list(executor.map(lambda _: claim(), range(2)))
 
     assert sorted(run_ids) == ["btk_0001", "btk_0002"]
+
+
+def test_api_posted_runs_leave_three_queued_when_two_workers_claim(tmp_path, monkeypatch):
+    db_path = tmp_path / "api-worker.sqlite"
+    monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    engine = create_engine(f"sqlite:///{db_path.as_posix()}", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    app = create_app()
+
+    def override_get_session():
+        with Session(engine) as session:
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+
+    app.dependency_overrides[get_session] = override_get_session
+    client = TestClient(app)
+
+    created_ids: list[str] = []
+    for _ in range(5):
+        response = client.post("/api/backtests/run", json=deepcopy(API_BACKTEST_CONFIG))
+        assert response.status_code == 200
+        created_ids.append(str(response.json()["run_id"]))
+
+    for _ in range(2):
+        with Session(engine) as session:
+            claimed = WorkerQueue(session).claim_one()
+            assert claimed is not None
+
+    response = client.get("/api/runs/queue")
+    assert response.status_code == 200
+    posted_rows = [row for row in response.json() if row["run_id"] in created_ids]
+    assert len(posted_rows) == 5
+    assert Counter(row["status"] for row in posted_rows) == Counter({"running": 2, "queued": 3})
 
 
 class FakeProcess:
