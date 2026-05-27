@@ -8,6 +8,7 @@ __pycache__/
 !.env.example
 .superpowers/
 .playwright-mcp/
+output/playwright/
 
 # Node
 node_modules/

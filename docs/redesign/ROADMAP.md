@@ -487,8 +487,8 @@
 - [x] 用小窗口（30 天 Top-5）真跑一次 backtest，断言产物齐 + DB 行写
 
 ### T4 — Playwright e2e
-- [ ] `apps/web/e2e/` 6 page × 1 smoke
-- [ ] **嵌入 U phase**
+- [x] `apps/web/e2e/` 6 page × 1 smoke
+- [x] **嵌入 U phase**
 
 ### T5 — axe-core a11y
 - [x] vitest 集成；每 page 一个 a11y test
@@ -593,7 +593,7 @@
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-27**: 部分完成。U10/U11、axe、ErrorBoundary 已落地；Playwright e2e、load test、统一错误 envelope 仍未做。
+**Status 2026-05-27**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e 已落地；load test、统一错误 envelope 仍未做。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---

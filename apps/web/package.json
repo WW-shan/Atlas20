@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
+    "e2e": "playwright test",
     "typecheck": "tsc -b",
     "lint": "eslint src --max-warnings=0",
     "openapi": "openapi-typescript src/lib/api-schema.json -o src/lib/api.generated.ts",
@@ -21,6 +22,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.1.8",
