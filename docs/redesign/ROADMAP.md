@@ -10,6 +10,8 @@
 
 **2026-05-28 执行更新**: Q6 统一错误 envelope 已落地：FastAPI HTTP/validation/rate-limit/unhandled exception handler 输出 `{error: {code, message, details, request_id}}`，前端 API client 已解析该契约并保留 `code/details/request_id`。
 
+**2026-05-28 T6 更新**: API read-path load baseline 已落地：`scripts/load_test_api.py` 对真实 Uvicorn 服务按 100 RPS 打 60 秒，阈值为 p95 < 200ms、0 failed、实际 RPS >= 95；本地基线结果 6000/6000 成功，p95 6.54ms。
+
 ---
 
 ## 修订总览（vs v1）
@@ -498,7 +500,7 @@
 - [x] vitest 集成；每 page 一个 a11y test
 
 ### T6 — Load test
-- [ ] `locust` 或 `k6`：100 RPS, p95 < 200ms（mock data 时基线）
+- [x] `scripts/load_test_api.py`：100 RPS, p95 < 200ms（mock/seed data read-path 基线）
 
 ### T7 — Type strict
 - [x] `mypy --strict src/atlas20/api/`
@@ -582,15 +584,15 @@
 ## 优先级与里程碑（**修订自 v1**）
 
 ### 当前剩余执行顺序（2026-05-28）
-- **T6**: 补 load-test 基线（100 RPS / p95 < 200ms，mock/seed 数据模式），输出可复跑脚本和阈值说明。
 - **A7**: 用 Playwright viewport smoke 或人工记录覆盖 375/768/1024 布局风险。
 - **A2/A4**: 键盘导航与 WCAG AA 颜色对比仍需浏览器/设计 token 复核，属于人工 audit 收口。
-- **Q3**: Service Protocol 抽象是重构型质量项，放在 T6 后，避免在性能基线前扩大重构面。
+- **Q3**: Service Protocol 抽象是重构型质量项，放在 a11y/responsive audit 后，避免同时扩大验证面和重构面。
 
 ### 当前验证基线（2026-05-28）
-- Backend: `pytest -q` 418 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
+- Backend: `pytest -q` 421 passed / 2 skipped；`ruff check src tests scripts/load_test_api.py` clean；`mypy --strict src/atlas20/api` clean。
 - Frontend: `npm --prefix apps/web test` 179 passed；`lint` clean；`typecheck` clean；`build` passed。
 - Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 6 passed。
+- Load: `python scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200` passed；6000/6000 success；p95 6.54ms。
 
 ### MS-1 — Real Data Demo（**7-10 天**，原 1 周低估）
 **Status 2026-05-27**: 基本完成。剩余为个别生产验收用例收口。
@@ -608,7 +610,7 @@
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-28**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope 已落地；剩余为 load test、Service Protocol 重构和人工 a11y/responsive audit。
+**Status 2026-05-28**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope、T6 load baseline 已落地；剩余为 Service Protocol 重构和人工 a11y/responsive audit。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
@@ -635,7 +637,7 @@
 
 ---
 
-**Last updated**: 2026-05-28 (post-Q6 error envelope)
+**Last updated**: 2026-05-28 (post-T6 load baseline)
 **Maintainer**: Atlas20 team  
 **v1**: `a43a304`  
 **v2**: post-codex roadmap, calibrated against current implementation

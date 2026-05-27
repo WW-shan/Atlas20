@@ -48,6 +48,7 @@ data/raw/
 # Design / imagegen mockups; kept locally for reference, not in version
 # control (each ~1.5MB; 21 PNGs).
 output/imagegen/
+output/load/
 
 .ace-tool/
 
