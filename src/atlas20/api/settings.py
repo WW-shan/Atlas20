@@ -56,9 +56,11 @@ class Settings(BaseSettings):
     api_keys: Annotated[set[str], NoDecode] = Field(default_factory=set)
     enable_docs: bool = True
     report_root: Path = Path("reports")
+    report_storage_warn_bytes: int = Field(default=0, ge=0)
     backup_root: Path = Path("backups")
     backup_retention_days: int = 30
     data_root: Path = Path("data")
+    data_storage_warn_bytes: int = Field(default=0, ge=0)
     project_root: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[3])
     anchor_date: date | None = None
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

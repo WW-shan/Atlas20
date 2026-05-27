@@ -14,10 +14,14 @@ Backups include the SQLite database and `reports/app_runs/` when present.
 
 ## Disk probe
 
-Use a simple cron probe to watch growth over time:
+Use the built-in probe from cron or systemd timers:
 
 ```bash
-du -sh reports/ data/ | logger -t atlas20-disk
+ATLAS20_REPORT_STORAGE_WARN_BYTES=53687091200 \
+ATLAS20_DATA_STORAGE_WARN_BYTES=107374182400 \
+python -m atlas20.api.storage | logger -t atlas20-disk
 ```
 
-Pair the log line with your platform's retention rules so the storage trend stays visible without manual inspection.
+The probe emits one JSON line for `reports` and one for `data`. A threshold of `0` disables alerting for that directory. When any configured threshold is exceeded, the command exits with status `2`, so cron, systemd, or a wrapper script can page or notify on failure.
+
+`reports/latest` symlinks/Junctions are not followed during size calculation, so `reports/app_runs/` is counted once.

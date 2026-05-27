@@ -1,4 +1,4 @@
-.PHONY: dev test test-fast lint typecheck build docker-build backup clean
+.PHONY: dev test test-fast lint typecheck build docker-build backup storage clean
 
 dev:
 	PYTHONPATH=src uvicorn atlas20.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
@@ -29,6 +29,9 @@ docker-build:
 
 backup:
 	python -m atlas20.api.backup
+
+storage:
+	python -m atlas20.api.storage
 
 clean:
 	rm -rf .pytest_cache .mypy_cache apps/web/node_modules apps/web/dist

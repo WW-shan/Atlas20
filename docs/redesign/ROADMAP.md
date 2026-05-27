@@ -465,7 +465,7 @@
 - [x] Quickstart 30 分钟可跑
 
 ### D10 — 磁盘配额监控（**新增 codex P/D**）
-- [ ] cron: `reports/` + `data/` 用量；超阈值告警（已有 `docs/operations/storage.md` probe 文档，缺阈值告警实现）
+- [x] cron: `reports/` + `data/` 用量；超阈值告警（`python -m atlas20.api.storage` / `make storage`，超阈值 exit 2）
 
 ---
 
@@ -588,7 +588,7 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权和 `reports/latest` alias 已补齐，公网生产暴露仍缺 OpenAPI snapshot、全 API mypy strict、磁盘阈值告警。
+**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权、`reports/latest` alias、磁盘阈值告警已补齐，公网生产暴露仍缺 OpenAPI snapshot、全 API mypy strict。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 
