@@ -116,7 +116,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+    <div className="compare-tab">
       <DemoDataBanner visible={data?.data_source === "fallback"} />
       <Card ariaLabel="Strategy selection">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -219,7 +219,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
       </Card>
 
       {/* ===== Metrics + Overlap ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: selections.length > 3 ? "1fr" : "3fr 2fr", gap: 24 }}>
+      <div className={selections.length > 3 ? "compare-metrics-grid compare-metrics-grid--single" : "compare-metrics-grid"}>
         <Card ariaLabel="Metric comparison">
           <SectionHeader>METRIC COMPARISON</SectionHeader>
           <ComparisonTable selections={selections} metrics={data.metrics} />

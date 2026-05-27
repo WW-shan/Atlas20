@@ -100,7 +100,7 @@ export function ReportsExportsTab() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+    <div className="reports-tab">
       {reportToast && (
         <Toast>{reportToast}</Toast>
       )}
@@ -119,9 +119,9 @@ export function ReportsExportsTab() {
       <Card ariaLabel="Reports archive">
         <SectionHeader
           rightSlot={
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="reports-archive-actions">
               <span className="muted" style={{ fontSize: 11 }}>Sort:</span>
-              <div role="tablist" aria-label="Archive sort" style={{ display: "flex", gap: 2, border: "1px solid var(--border)", borderRadius: "var(--radius-input)", padding: 2 }}>
+              <div role="tablist" aria-label="Archive sort" className="reports-archive-sort">
                 {SORT_OPTIONS.map((opt) => {
                   const active = opt.key === sort;
                   return (
@@ -172,15 +172,7 @@ export function ReportsExportsTab() {
           <EmptyState title={typeFilter === "all" ? "No reports archived yet" : `No ${typeFilter} reports found`} />
         )}
         {!archive.isLoading && filtered.length > 0 && (
-          <div
-            role="list"
-            aria-label="Reports archive list"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: 16,
-            }}
-          >
+          <div role="list" aria-label="Reports archive list" className="reports-archive-grid">
             {filtered.map((entry) => (
               <div role="listitem" key={entry.id}>
                 <ReportCard

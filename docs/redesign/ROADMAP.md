@@ -12,6 +12,8 @@
 
 **2026-05-28 T6 更新**: API read-path load baseline 已落地：`scripts/load_test_api.py` 对真实 Uvicorn 服务按 100 RPS 打 60 秒，阈值为 p95 < 200ms、0 failed、实际 RPS >= 95；本地基线结果 6000/6000 成功，p95 6.54ms。
 
+**2026-05-28 A7 更新**: Playwright viewport smoke 已覆盖 375/768/1024 三档宽度，逐一打开 6 个控制台页面并断言无 document/body 横向溢出；同时修复 Overview/Compare/Reports 窄屏布局。
+
 ---
 
 ## 修订总览（vs v1）
@@ -560,7 +562,7 @@
 ### A2 — 键盘导航 audit + skip-to-content + focus trap — [ ] skip link / Dialog focus trap 已落地，仍需人工全量键盘 audit
 ### A3 — Screen reader live regions（Pill / Toast） — [x]
 ### A4 — 颜色对比度 WCAG AA — [ ] 需要浏览器/设计 token 人工复核
-### A7 — Mobile responsive audit at 375/768/1024 — [ ] 需要 Playwright viewport smoke 或人工布局复核
+### A7 — Mobile responsive audit at 375/768/1024 — [x] Playwright viewport smoke 覆盖 375/768/1024；修复窄屏横向溢出
 ### A8 — React `<ErrorBoundary>` 每 page 包 — [x]
 
 ### ~~A5 i18n~~ — 删除
@@ -584,14 +586,13 @@
 ## 优先级与里程碑（**修订自 v1**）
 
 ### 当前剩余执行顺序（2026-05-28）
-- **A7**: 用 Playwright viewport smoke 或人工记录覆盖 375/768/1024 布局风险。
 - **A2/A4**: 键盘导航与 WCAG AA 颜色对比仍需浏览器/设计 token 复核，属于人工 audit 收口。
 - **Q3**: Service Protocol 抽象是重构型质量项，放在 a11y/responsive audit 后，避免同时扩大验证面和重构面。
 
 ### 当前验证基线（2026-05-28）
 - Backend: `pytest -q` 421 passed / 2 skipped；`ruff check src tests scripts/load_test_api.py` clean；`mypy --strict src/atlas20/api` clean。
 - Frontend: `npm --prefix apps/web test` 179 passed；`lint` clean；`typecheck` clean；`build` passed。
-- Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 6 passed。
+- Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 9 passed。
 - Load: `python scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200` passed；6000/6000 success；p95 6.54ms。
 
 ### MS-1 — Real Data Demo（**7-10 天**，原 1 周低估）
@@ -610,7 +611,7 @@
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-28**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope、T6 load baseline 已落地；剩余为 Service Protocol 重构和人工 a11y/responsive audit。
+**Status 2026-05-28**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope、T6 load baseline、A7 responsive smoke 已落地；剩余为 Service Protocol 重构和人工 keyboard/contrast audit。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
@@ -637,7 +638,7 @@
 
 ---
 
-**Last updated**: 2026-05-28 (post-T6 load baseline)
+**Last updated**: 2026-05-28 (post-A7 responsive smoke)
 **Maintainer**: Atlas20 team  
 **v1**: `a43a304`  
 **v2**: post-codex roadmap, calibrated against current implementation

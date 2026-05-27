@@ -72,7 +72,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
   const maxBreakdown = Math.max(...strategies.breakdown.map((b) => b.count));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 24 }}>
+    <div className="overview-tab">
       <DemoDataBanner visible={overview.data_source === "fallback"} />
 
       {/* ===== Hero ===== */}
@@ -97,7 +97,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       </Card>
 
       {/* ===== KPI Triplet ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 32 }}>
+      <div className="overview-kpi-grid">
 
         {/* Tracked notional (research, not real AUM) */}
         <Card ariaLabel="Champion equity trend (research)">
@@ -132,7 +132,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
       </div>
 
       {/* ===== Equity Curve + Latest Rebalance ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24 }}>
+      <div className="overview-main-grid">
 
         {/* Equity Curve */}
         <Card ariaLabel={`Champion equity curve ${equity_overlay.range}`}>

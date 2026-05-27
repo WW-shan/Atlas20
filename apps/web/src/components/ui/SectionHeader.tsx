@@ -12,8 +12,10 @@ export function SectionHeader({ children, rightSlot }: SectionHeaderProps) {
       aria-level={3}
       style={{
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "space-between",
+        gap: 8,
         marginBottom: 12,
       }}
     >

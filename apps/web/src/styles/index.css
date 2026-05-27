@@ -303,6 +303,74 @@ button {
   border-color: var(--violet);
 }
 
+.overview-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.overview-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+}
+
+.overview-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.compare-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.compare-metrics-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 24px;
+}
+
+.compare-metrics-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.reports-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.reports-archive-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.reports-archive-sort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: 2px;
+}
+
+.reports-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
 /* ---------- Page Header (Phase 1) ---------- */
 
 .page-header {
@@ -370,7 +438,7 @@ select {
   background: #0f1419;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .app-shell {
     width: min(100% - 24px, 1500px);
     padding-top: 14px;
@@ -397,7 +465,8 @@ select {
   }
 
   .topnav-tabs {
-    width: max-content;
+    width: 100%;
+    max-width: 100%;
     min-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -425,5 +494,43 @@ select {
 
   .page-header-left {
     flex-wrap: wrap;
+  }
+
+  .overview-kpi-grid,
+  .overview-main-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .compare-tab {
+    gap: 16px;
+    padding: 16px 12px;
+  }
+
+  .compare-metrics-grid,
+  .compare-metrics-grid--single {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .reports-tab {
+    gap: 16px;
+    padding: 16px 12px;
+  }
+
+  .reports-archive-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .reports-archive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .overview-tab {
+    gap: 16px;
+    padding: 16px 12px;
   }
 }
