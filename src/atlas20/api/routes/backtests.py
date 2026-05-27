@@ -7,7 +7,7 @@ from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.dependencies.ratelimit import limiter
 from atlas20.api.repositories import IdempotencyRepo, get_session
 from atlas20.api.schemas import BacktestConfig, RunRowSummary
-from atlas20.api.services import register_new_backtest
+from atlas20.api.services import ConsoleService, get_console_service
 
 router = APIRouter(prefix="/api", tags=["backtests"])
 
@@ -24,6 +24,7 @@ def post_backtest(
     response: Response,
     config: BacktestConfig,
     session: Session = Depends(get_session),
+    service: ConsoleService = Depends(get_console_service),
     idempotency_key: str | None = Header(
         default=None,
         alias="Idempotency-Key",
@@ -38,7 +39,7 @@ def post_backtest(
             return RunRowSummary.model_validate_json(cached.response_json)
 
     try:
-        summary = register_new_backtest(session, config)
+        summary = service.register_new_backtest(session, config)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if idempotency_key:

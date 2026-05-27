@@ -43,6 +43,9 @@ from atlas20.api.schemas import (
 from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import IdempotencyRepo, KvRepo, ReportsRepo, RunsRepo
 from atlas20.api.services_download import resolve_download as _resolve_download
+from atlas20.api.services.mock_impl import MockConsoleService as MockConsoleService
+from atlas20.api.services.protocols import ConsoleService as ConsoleService
+from atlas20.api.services.real_impl import RealConsoleService as RealConsoleService
 from atlas20.api.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -718,6 +721,10 @@ def toggle_run_favorite(session: Session, run_id: str) -> dict[str, Any] | None:
     return {"run_id": run_id, "favorited": run.favorited}
 
 
+def request_run_cancel(session: Session, run_id: str) -> Run | None:
+    return RunsRepo(session).request_cancel(run_id)
+
+
 def _load_runs_from_disk(
     app_runs_root: Path,
     *,
@@ -1307,3 +1314,10 @@ def list_reports(sort: str = "recent", session: Session | None = None) -> list[R
 
 def resolve_download(report_id: str, fmt: str | None, session: Session) -> tuple[Path, str, str]:
     return _resolve_download(report_id, fmt, session)
+
+
+_CONSOLE_SERVICE: ConsoleService = RealConsoleService()
+
+
+def get_console_service() -> ConsoleService:
+    return _CONSOLE_SERVICE

@@ -23,7 +23,7 @@ from atlas20.api.schemas import (
     ReportFormat,
     ReportId,
 )
-from atlas20.api.services import get_featured_digest, list_reports, resolve_download
+from atlas20.api.services import ConsoleService, get_console_service
 from atlas20.api.services_report import generate_run_report_with_warnings
 
 logger = logging.getLogger(__name__)
@@ -31,16 +31,20 @@ router = APIRouter(prefix="/api", tags=["reports"])
 
 
 @router.get("/reports/digest/featured", response_model=FeaturedDigest)
-def get_digest_featured(session: Session = Depends(get_session)) -> FeaturedDigest:
-    return get_featured_digest(session)
+def get_digest_featured(
+    session: Session = Depends(get_session),
+    service: ConsoleService = Depends(get_console_service),
+) -> FeaturedDigest:
+    return service.get_featured_digest(session)
 
 
 @router.get("/reports/digest/download", dependencies=[Depends(verify_api_key)])
 def get_digest_download(
     format: ReportFormat = "markdown",
     session: Session = Depends(get_session),
+    service: ConsoleService = Depends(get_console_service),
 ) -> FileResponse:
-    path, content_type, filename = resolve_download("featured", format, session)
+    path, content_type, filename = service.resolve_download("featured", format, session)
     return FileResponse(path, media_type=content_type, filename=filename)
 
 
@@ -48,8 +52,9 @@ def get_digest_download(
 def get_reports(
     sort: Literal["recent", "oldest", "size", "type"] = Query(default="recent"),
     session: Session = Depends(get_session),
+    service: ConsoleService = Depends(get_console_service),
 ) -> list[ReportEntry]:
-    return list_reports(sort, session)
+    return service.list_reports(sort, session)
 
 
 @router.post(
@@ -104,8 +109,9 @@ def get_report_download(
     report_id: ReportId,
     format: ReportFormat | None = None,
     session: Session = Depends(get_session),
+    service: ConsoleService = Depends(get_console_service),
 ) -> FileResponse:
-    path, content_type, filename = resolve_download(report_id, format, session)
+    path, content_type, filename = service.resolve_download(report_id, format, session)
     # Infer content type from file extension when no format was specified
     if format is None:
         ext = Path(path).suffix.lower()

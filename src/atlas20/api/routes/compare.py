@@ -1,11 +1,11 @@
 """Strategy comparison API routes."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from atlas20.api.data_access.compare import UnknownCompareIdError
 from atlas20.api.data_access._common import _format_display_name
 from atlas20.api.schemas import ChartRange, ComparePayload
-from atlas20.api.services import get_compare as get_compare_payload
+from atlas20.api.services import ConsoleService, get_console_service
 
 router = APIRouter(prefix="/api", tags=["compare"])
 ALLOWED_COMPARE_QUERY = {"ids", "range"}
@@ -14,6 +14,7 @@ ALLOWED_COMPARE_QUERY = {"ids", "range"}
 @router.get("/compare", response_model=ComparePayload)
 def get_compare(
     request: Request,
+    service: ConsoleService = Depends(get_console_service),
     ids: str = "",
     range_: ChartRange = Query(default="YTD", alias="range"),
 ) -> ComparePayload:
@@ -21,7 +22,7 @@ def get_compare(
     if unknown:
         raise HTTPException(status_code=422, detail=f"unknown query parameter(s): {', '.join(unknown)}")
     try:
-        payload = get_compare_payload([item for item in ids.split(",") if item], range_)
+        payload = service.get_compare([item for item in ids.split(",") if item], range_)
     except UnknownCompareIdError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     raw = payload.model_dump(mode="json")
