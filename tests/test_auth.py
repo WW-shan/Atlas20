@@ -33,6 +33,10 @@ MUTATING_CASES = [
 ]
 
 
+def _error_message(response) -> str:
+    return response.json()["error"]["message"]
+
+
 def _client(tmp_path, monkeypatch, db_session: Session, *, api_keys: str | None = None) -> TestClient:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
@@ -92,7 +96,7 @@ def test_missing_api_key_rejects_each_mutating_route(
     response = client.post(path, json=payload) if payload is not None else client.post(path)
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "X-API-Key header required"
+    assert _error_message(response) == "X-API-Key header required"
 
 
 def test_api_key_required_for_mutating_routes_when_configured(tmp_path, monkeypatch, db_session: Session):
@@ -103,9 +107,9 @@ def test_api_key_required_for_mutating_routes_when_configured(tmp_path, monkeypa
     valid = client.post("/api/reports/generate", json=REPORT_REQUEST, headers={"X-API-Key": "valid-key"})
 
     assert missing.status_code == 401
-    assert missing.json()["detail"] == "X-API-Key header required"
+    assert _error_message(missing) == "X-API-Key header required"
     assert invalid.status_code == 401
-    assert invalid.json()["detail"] == "invalid API key"
+    assert _error_message(invalid) == "invalid API key"
     assert valid.status_code == 202
 
 

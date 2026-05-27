@@ -68,6 +68,15 @@ def _report_metric_value(body: str, format_name: str, status: str) -> float:
     return float(match.group("value")) if match is not None else 0.0
 
 
+def _rate_limit_metric_value(body: str, route: str) -> float:
+    pattern = re.compile(
+        rf'^atlas20_rate_limit_hits_total\{{route="{re.escape(route)}"\}} (?P<value>[0-9.]+)$',
+        re.MULTILINE,
+    )
+    match = pattern.search(body)
+    return float(match.group("value")) if match is not None else 0.0
+
+
 def test_metrics_endpoint_exposes_prometheus_text(tmp_path, monkeypatch) -> None:
     with TestClient(_app(tmp_path, monkeypatch)) as client:
         response = client.get("/metrics")
@@ -409,15 +418,18 @@ def test_rate_limit_handler_does_not_emit_raw_path_for_unmatched_route(monkeypat
 def test_rate_limit_metric_is_prewarmed_and_uses_templated_route(
     tmp_path, monkeypatch, db_session: Session
 ) -> None:
+    route_path = "/api/runs/{run_id}/cancel"
     with TestClient(_app_with_session(tmp_path, monkeypatch, db_session)) as client:
         initial_body = client.get("/metrics").text
+        before = _rate_limit_metric_value(initial_body, route_path)
         statuses = [client.post("/api/runs/btk_0148/cancel").status_code for _ in range(31)]
         body = client.get("/metrics").text
+        after = _rate_limit_metric_value(body, route_path)
 
     assert 'atlas20_rate_limit_hits_total{route="unmatched"} 0.0' in initial_body
     assert statuses[:30] == [202] * 30
     assert statuses[30] == 429
-    assert 'atlas20_rate_limit_hits_total{route="/api/runs/{run_id}/cancel"} 1.0' in body
+    assert after == before + 1
     assert 'route="/api/runs/btk_0148/cancel"' not in body
 
 

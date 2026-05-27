@@ -9,6 +9,10 @@ from atlas20.api.db.models import Run
 from atlas20.api.repositories import RunsRepo, get_session
 
 
+def _error_message(response) -> str:
+    return response.json()["error"]["message"]
+
+
 @pytest.fixture
 def client_session(tmp_path):
     engine = create_engine(f"sqlite:///{(tmp_path / 'cancel.sqlite').as_posix()}", connect_args={"check_same_thread": False})
@@ -57,21 +61,21 @@ def test_cancel_route_returns_409_for_completed_run(client: TestClient):
     response = client.post("/api/runs/btk_0003/cancel")
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "run already completed; cannot cancel"
+    assert _error_message(response) == "run already completed; cannot cancel"
 
 
 def test_cancel_route_returns_409_for_failed_run(client: TestClient):
     response = client.post("/api/runs/btk_0004/cancel")
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "run already failed; cannot cancel"
+    assert _error_message(response) == "run already failed; cannot cancel"
 
 
 def test_cancel_route_returns_409_for_cancelled_run(client: TestClient):
     response = client.post("/api/runs/btk_0005/cancel")
 
     assert response.status_code == 409
-    assert response.json()["detail"] == "run is already cancelled"
+    assert _error_message(response) == "run is already cancelled"
 
 
 def test_cancel_route_accepts_queued_run(client: TestClient):

@@ -6,7 +6,9 @@
 
 **2026-05-27 校准**: 代码已推进到「可用研究控制台 + 真实后端接入 + DB-backed 回测 worker + 多格式报告生成/下载」状态。本文件已按当前实现重新勾选；仍未勾选的项表示尚未达到本清单原定义的生产级验收，而不是 UI/MVP 不可用。
 
-**2026-05-27 执行校准**: 近期已补齐 reports/latest 当前产物、Compare 真 weights overlap、Reports archive 磁盘扫描、Featured Digest fallback、OpenAPI drift gate、全 `src/atlas20/api` mypy strict、Playwright 6 页真实浏览器 smoke。当前剩余可执行项收敛为 T6、Q3、Q6、A2、A4、A7；S5/JWT 继续按「生产 hook，公网部署前再做」处理。
+**2026-05-27 执行校准**: 近期已补齐 reports/latest 当前产物、Compare 真 weights overlap、Reports archive 磁盘扫描、Featured Digest fallback、OpenAPI drift gate、全 `src/atlas20/api` mypy strict、Playwright 6 页真实浏览器 smoke。当前剩余可执行项收敛为 T6、Q3、A2、A4、A7；S5/JWT 继续按「生产 hook，公网部署前再做」处理。
+
+**2026-05-28 执行更新**: Q6 统一错误 envelope 已落地：FastAPI HTTP/validation/rate-limit/unhandled exception handler 输出 `{error: {code, message, details, request_id}}`，前端 API client 已解析该契约并保留 `code/details/request_id`。
 
 ---
 
@@ -527,7 +529,7 @@
 - [x] `src/atlas20/api/_time.py:utc_now_iso()` / `today()` 替手撕字符串
 
 ### Q6 — 错误处理统一
-- [ ] FastAPI exception_handler 全局；统一 `{error: {code, message, details, request_id}}`
+- [x] FastAPI exception_handler 全局；统一 `{error: {code, message, details, request_id}}`
 
 ### ~~Q1 mock_data 拆 JSON~~ — 删除（DB seeding 后冗余）
 
@@ -579,16 +581,15 @@
 
 ## 优先级与里程碑（**修订自 v1**）
 
-### 当前剩余执行顺序（2026-05-27）
-- **Q6**: 统一 FastAPI error envelope（影响 API 契约与前端错误处理，优先于继续扩展测试）。
+### 当前剩余执行顺序（2026-05-28）
 - **T6**: 补 load-test 基线（100 RPS / p95 < 200ms，mock/seed 数据模式），输出可复跑脚本和阈值说明。
 - **A7**: 用 Playwright viewport smoke 或人工记录覆盖 375/768/1024 布局风险。
 - **A2/A4**: 键盘导航与 WCAG AA 颜色对比仍需浏览器/设计 token 复核，属于人工 audit 收口。
-- **Q3**: Service Protocol 抽象是重构型质量项，放在 Q6/T6 后，避免先重构再改错误契约。
+- **Q3**: Service Protocol 抽象是重构型质量项，放在 T6 后，避免在性能基线前扩大重构面。
 
-### 当前验证基线（2026-05-27）
-- Backend: `pytest -q` 414 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
-- Frontend: `npm --prefix apps/web test` 177 passed；`lint` clean；`typecheck` clean；`build` passed。
+### 当前验证基线（2026-05-28）
+- Backend: `pytest -q` 418 passed / 2 skipped；`ruff check src tests` clean；`mypy --strict src/atlas20/api` clean。
+- Frontend: `npm --prefix apps/web test` 179 passed；`lint` clean；`typecheck` clean；`build` passed。
 - Contract/e2e: `python -m atlas20.api.openapi --check` passed；`npm --prefix apps/web run openapi:check` passed；`npm --prefix apps/web run e2e` 6 passed。
 
 ### MS-1 — Real Data Demo（**7-10 天**，原 1 周低估）
@@ -607,7 +608,7 @@
 - T9 OpenAPI snapshot
 
 ### MS-4 — Polish（按需）
-**Status 2026-05-27**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角已落地；剩余为 load test、统一错误 envelope、Service Protocol 重构和人工 a11y/responsive audit。
+**Status 2026-05-28**: 部分完成。U10/U11、axe、ErrorBoundary、Playwright e2e、C1-C5 契约边角、Q6 统一错误 envelope 已落地；剩余为 load test、Service Protocol 重构和人工 a11y/responsive audit。
 - Q2-Q6, C1-C5, A1-A4/A7/A8, U10/U11, T4/T5/T6, F2-F5
 
 ---
@@ -634,7 +635,7 @@
 
 ---
 
-**Last updated**: 2026-05-27 (post-T4 roadmap calibration)
+**Last updated**: 2026-05-28 (post-Q6 error envelope)
 **Maintainer**: Atlas20 team  
 **v1**: `a43a304`  
 **v2**: post-codex roadmap, calibrated against current implementation

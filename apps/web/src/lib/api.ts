@@ -626,6 +626,58 @@ export function buildApiUrl(path: string, base = import.meta.env.VITE_ATLAS20_AP
   return `${cleanBase}/${cleanPath}`;
 }
 
+type ApiErrorPayload = {
+  error?: {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+    request_id?: unknown;
+  };
+};
+
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  details: unknown;
+  requestId?: string;
+
+  constructor(
+    message: string,
+    {
+      status,
+      code,
+      details,
+      requestId,
+    }: {
+      status: number;
+      code?: string;
+      details?: unknown;
+      requestId?: string;
+    },
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
+
+async function apiErrorFromResponse(response: Response, fallbackMessage: string): Promise<ApiError> {
+  const payload = await response.clone().json().catch(() => undefined) as ApiErrorPayload | undefined;
+  const error = payload?.error;
+  const message = typeof error?.message === "string" ? error.message : fallbackMessage;
+  const code = typeof error?.code === "string" ? error.code : undefined;
+  const requestId = typeof error?.request_id === "string" ? error.request_id : undefined;
+  return new ApiError(message, {
+    status: response.status,
+    code,
+    details: error?.details,
+    requestId,
+  });
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
@@ -633,7 +685,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (API_KEY) headers["X-API-Key"] = API_KEY;
   const response = await fetch(buildApiUrl(path), { ...init, headers });
   if (!response.ok) {
-    throw new Error(`Atlas20 API request failed: ${response.status}`);
+    throw await apiErrorFromResponse(response, `Atlas20 API request failed: ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -648,7 +700,7 @@ async function requestBlob(path: string, fallbackFilename: string): Promise<Repo
   if (API_KEY) headers["X-API-Key"] = API_KEY;
   const response = await fetch(buildApiUrl(path), { headers });
   if (!response.ok) {
-    throw new Error(`Atlas20 API download failed: ${response.status}`);
+    throw await apiErrorFromResponse(response, `Atlas20 API download failed: ${response.status}`);
   }
   const filename = parseAttachmentFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename;
   return { blob: await response.blob(), filename };

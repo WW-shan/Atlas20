@@ -9,13 +9,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from filelock import FileLock
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.engine import make_url
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from atlas20.api._log_redact import scrub_sensitive_headers as _scrub_sensitive_headers
 from atlas20.api.dependencies.ratelimit import limiter, rate_limit_exceeded_handler, reset_rate_limit_storage
+from atlas20.api.errors import http_exception_handler, unhandled_exception_handler, validation_exception_handler
 from atlas20.api.logging_config import configure_logging
 from atlas20.api.middleware.access_log import AccessLogMiddleware
 from atlas20.api.middleware.metrics import expose_metrics, instrument_metrics
@@ -144,7 +147,10 @@ def create_app() -> FastAPI:
     )
     app.state.limiter = limiter
     reset_rate_limit_storage()
+    app.add_exception_handler(StarletteHTTPException, cast(Any, http_exception_handler))
+    app.add_exception_handler(RequestValidationError, cast(Any, validation_exception_handler))
     app.add_exception_handler(RateLimitExceeded, cast(Any, rate_limit_exceeded_handler))
+    app.add_exception_handler(Exception, cast(Any, unhandled_exception_handler))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

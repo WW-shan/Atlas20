@@ -10,6 +10,7 @@ from starlette.responses import Response
 from typing import cast
 
 from atlas20.api._metrics import record_rate_limit_hit
+from atlas20.api.errors import build_error_response
 from atlas20.api.settings import get_settings
 
 
@@ -34,5 +35,16 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
         record_rate_limit_hit(route_path)
     response = _rate_limit_exceeded_handler(request, exc)
     if inspect.isawaitable(response):
-        return cast(Response, await response)
-    return response
+        response = cast(Response, await response)
+    headers = dict(response.headers)
+    headers.pop("content-length", None)
+    headers.pop("content-type", None)
+    detail = getattr(exc, "detail", None)
+    return build_error_response(
+        request,
+        status_code=429,
+        code="rate_limited",
+        message="Rate limit exceeded",
+        details={"limit": str(detail)} if detail is not None else None,
+        headers=headers,
+    )

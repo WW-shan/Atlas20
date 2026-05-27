@@ -31,6 +31,11 @@ DEFAULT_BACKTEST_CONFIG = {
     "costs": {"feeBps": 10, "slippageBps": 5},
 }
 
+
+def _error_message(response) -> str:
+    return response.json()["error"]["message"]
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch, db_session: Session) -> TestClient:
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
@@ -157,7 +162,7 @@ def test_backtests_run_endpoint_returns_422_when_base_yaml_missing(client: TestC
     response = client.post("/api/backtests/run", json=DEFAULT_BACKTEST_CONFIG)
 
     assert response.status_code == 422
-    detail = response.json()["detail"]
+    detail = _error_message(response)
     assert "config/base.yaml" in detail
     assert "not found" in detail
 
@@ -202,14 +207,14 @@ def test_compare_endpoint_returns_404_for_unknown_strategy_id(client: TestClient
     response = client.get("/api/compare?ids=UNKNOWN_STRATEGY&range=YTD")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "unknown compare id(s): UNKNOWN_STRATEGY"
+    assert _error_message(response) == "unknown compare id(s): UNKNOWN_STRATEGY"
 
 
 def test_compare_endpoint_rejects_unknown_query_params(client: TestClient):
     response = client.get("/api/compare?ids=atlas&ranges=YTD")
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "unknown query parameter(s): ranges"
+    assert _error_message(response) == "unknown query parameter(s): ranges"
 
 
 def test_universe_timeline_endpoint_returns_timeline(client: TestClient):

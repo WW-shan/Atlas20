@@ -204,4 +204,47 @@ describe("requestJson API key header", () => {
     expect(result.blob).toBeInstanceOf(Blob);
     expect(result.blob.size).toBe("# Digest\n".length);
   });
+
+  it("throws ApiError with backend envelope details for JSON requests", async () => {
+    vi.resetModules();
+    const details = [{ loc: ["body", "formats"], msg: "List should have at least 1 item" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "validation_error",
+              message: "formats must not be empty",
+              details,
+              request_id: "req-frontend-422",
+            },
+          }),
+          { status: 422, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const api = await import("./api");
+
+    await expect(api.generateReport({ type: "run", formats: [] })).rejects.toMatchObject({
+      name: "ApiError",
+      message: "formats must not be empty",
+      status: 422,
+      code: "validation_error",
+      details,
+      requestId: "req-frontend-422",
+    });
+  });
+
+  it("keeps status fallback messages for non-JSON download errors", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("missing", { status: 404 })));
+    const api = await import("./api");
+
+    await expect(api.fetchReportDownload("missing-run", "pdf")).rejects.toMatchObject({
+      name: "ApiError",
+      message: "Atlas20 API download failed: 404",
+      status: 404,
+    });
+  });
 });

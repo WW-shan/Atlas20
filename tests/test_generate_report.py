@@ -26,6 +26,10 @@ VALID_PARAMS = {
 }
 
 
+def _error_message(response) -> str:
+    return response.json()["error"]["message"]
+
+
 def _client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -142,7 +146,7 @@ def test_generate_report_returns_404_when_run_outputs_are_missing(
     response = client.post("/api/reports/generate", json={"run_id": "btk_0142", "formats": ["markdown"]})
 
     assert response.status_code == 404
-    assert "run output missing" in response.json()["detail"]
+    assert "run output missing" in _error_message(response)
 
 
 def test_generate_multiple_formats_writes_png_and_bundle(
