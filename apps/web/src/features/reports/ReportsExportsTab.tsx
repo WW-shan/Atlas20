@@ -15,7 +15,7 @@ import { ReportCard } from "../../components/reports/ReportCard";
 import { NewReportModal } from "./NewReportModal";
 
 import {
-  downloadReportUrl,
+  downloadReport,
   fallbackOptions,
   generateReport,
   getFeaturedDigest,
@@ -80,11 +80,11 @@ export function ReportsExportsTab() {
     return () => window.clearTimeout(timer);
   }, [reportToast]);
 
-  const handleDownloadOne = (id: string) => {
+  const handleDownloadOne = async (id: string) => {
     if (reportDownloadPendingId) return;
     setReportDownloadPendingId(id);
     try {
-      window.open(downloadReportUrl(id), "_blank", "noopener,noreferrer");
+      await downloadReport(id);
     } finally {
       setReportDownloadPendingId(undefined);
     }

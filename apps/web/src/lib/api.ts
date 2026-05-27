@@ -625,6 +625,47 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export type ReportDownload = {
+  blob: Blob;
+  filename: string;
+};
+
+async function requestBlob(path: string, fallbackFilename: string): Promise<ReportDownload> {
+  const headers: Record<string, string> = {};
+  if (API_KEY) headers["X-API-Key"] = API_KEY;
+  const response = await fetch(buildApiUrl(path), { headers });
+  if (!response.ok) {
+    throw new Error(`Atlas20 API download failed: ${response.status}`);
+  }
+  const filename = parseAttachmentFilename(response.headers.get("Content-Disposition")) ?? fallbackFilename;
+  return { blob: await response.blob(), filename };
+}
+
+function parseAttachmentFilename(header: string | null): string | undefined {
+  if (!header) return undefined;
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (encoded?.[1]) {
+    try {
+      return decodeURIComponent(encoded[1].replace(/^"|"$/g, ""));
+    } catch {
+      return encoded[1].replace(/^"|"$/g, "");
+    }
+  }
+  return /filename="?([^";]+)"?/i.exec(header)?.[1];
+}
+
+function triggerBrowserDownload({ blob, filename }: ReportDownload): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function getOverview() {
   return requestJson<OverviewPayload>("/overview");
 }
@@ -709,6 +750,29 @@ export function downloadDigestUrl(format: ReportFormat): string {
 export function downloadReportUrl(id: string, fmt?: ReportFormat): string {
   const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
   return buildApiUrl(`/reports/${encodeURIComponent(id)}/download${q}`);
+}
+
+export function fetchDigestDownload(format: ReportFormat): Promise<ReportDownload> {
+  return requestBlob(
+    `/reports/digest/download?format=${encodeURIComponent(format)}`,
+    `atlas20-digest.${format}`,
+  );
+}
+
+export function fetchReportDownload(id: string, fmt?: ReportFormat): Promise<ReportDownload> {
+  const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
+  return requestBlob(
+    `/reports/${encodeURIComponent(id)}/download${q}`,
+    `atlas20-${id}${fmt ? `.${fmt}` : ""}`,
+  );
+}
+
+export async function downloadDigest(format: ReportFormat): Promise<void> {
+  triggerBrowserDownload(await fetchDigestDownload(format));
+}
+
+export async function downloadReport(id: string, fmt?: ReportFormat): Promise<void> {
+  triggerBrowserDownload(await fetchReportDownload(id, fmt));
 }
 
 export function generateReport(payload: GenerateReportRequest) {

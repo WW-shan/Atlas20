@@ -77,6 +77,24 @@ def test_report_download_streams_markdown_with_attachment_headers(
     assert b"# Digest" in response.content
 
 
+def test_download_routes_require_api_key_when_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    monkeypatch.setenv("ATLAS20_API_KEYS", "download-secret")
+    client = _client(tmp_path, monkeypatch, db_session)
+
+    report_response = client.get("/api/reports/btk_0142/download?format=markdown")
+    digest_response = client.get("/api/reports/digest/download?format=markdown")
+    authed_response = client.get(
+        "/api/reports/btk_0142/download?format=markdown",
+        headers={"X-API-Key": "download-secret"},
+    )
+
+    assert report_response.status_code == 401
+    assert digest_response.status_code == 401
+    assert authed_response.status_code != 401
+
+
 def test_featured_digest_download_ignores_unrelated_disk_artifacts_without_db_row(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
 ) -> None:

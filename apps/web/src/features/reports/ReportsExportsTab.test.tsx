@@ -11,7 +11,7 @@ vi.mock("../../lib/api", async () => {
     ...actual,
     getFeaturedDigest: vi.fn(),
     listReports: vi.fn(),
-    downloadReportUrl: vi.fn(),
+    downloadReport: vi.fn(),
     getOptions: vi.fn(),
     generateReport: vi.fn(),
   };
@@ -27,10 +27,8 @@ beforeEach(() => {
   Object.defineProperty(window, "open", { writable: true, value: vi.fn() });
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
-  vi.mocked(api.downloadReportUrl).mockImplementation((id, fmt) => {
-    const q = fmt ? `?format=${encodeURIComponent(fmt)}` : "";
-    return `https://atlas.test/reports/${encodeURIComponent(id)}/download${q}`;
-  });
+  vi.mocked((api as unknown as { downloadReport: (id: string, fmt?: api.ReportFormat) => Promise<void> }).downloadReport)
+    .mockResolvedValue(undefined);
   vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
   vi.mocked(api.generateReport).mockResolvedValue({
     job_id: "stub-job-001",
@@ -97,27 +95,26 @@ describe("ReportsExportsTab", () => {
     renderWithQuery(<ReportsExportsTab />);
     const firstCardDownload = await screen.findByRole("button", { name: /Download Atlas20/ });
     fireEvent.click(firstCardDownload);
-    expect(api.downloadReportUrl).toHaveBeenCalledWith(expect.any(String));
-    expect(window.open).toHaveBeenCalledWith(
-      expect.not.stringContaining("?format="),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    await waitFor(() => {
+      expect((api as unknown as { downloadReport: ReturnType<typeof vi.fn> }).downloadReport).toHaveBeenCalledWith(
+        expect.any(String),
+      );
+    });
+    expect((api as unknown as { downloadReport: ReturnType<typeof vi.fn> }).downloadReport.mock.calls[0][1]).toBeUndefined();
   });
 
-  it("opens per-card report downloads in a new tab", async () => {
+  it("downloads per-card reports through the API helper", async () => {
     renderWithQuery(<ReportsExportsTab />);
     await screen.findByRole("list", { name: "Reports archive list" });
 
     const firstDownload = screen.getByRole("button", { name: /Download Atlas20/ });
     fireEvent.click(firstDownload);
 
-    expect(api.downloadReportUrl).toHaveBeenCalledTimes(1);
-    expect(window.open).toHaveBeenCalledWith(
-      expect.stringContaining("/reports/r1/download"),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    await waitFor(() => {
+      expect((api as unknown as { downloadReport: ReturnType<typeof vi.fn> }).downloadReport).toHaveBeenCalledTimes(1);
+    });
+    expect((api as unknown as { downloadReport: ReturnType<typeof vi.fn> }).downloadReport).toHaveBeenCalledWith("r1");
+    expect(window.open).not.toHaveBeenCalled();
   });
 
   it("renders 6 archive cards (5 ready + 1 generating)", async () => {

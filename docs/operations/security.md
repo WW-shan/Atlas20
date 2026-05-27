@@ -10,7 +10,7 @@ Track a future migration to Redis-backed SlowAPI storage via `storage_uri` when 
 
 ## MVP GET Route Exposure
 
-GET routes are not auth-protected in the MVP API. In production, bind the API to localhost only, or put it behind an authenticated reverse proxy such as nginx with basic auth before exposing it outside the host.
+Most GET routes remain unauthenticated in the MVP API. Report download routes are protected with `X-API-Key` when API keys are configured. In production, bind the API to localhost only, or put it behind an authenticated reverse proxy such as nginx with basic auth before exposing it outside the host.
 
 ## MVP Unauthenticated Endpoints
 

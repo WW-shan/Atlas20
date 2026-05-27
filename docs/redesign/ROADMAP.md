@@ -32,7 +32,7 @@
 - Pipeline 增加 `weights.csv` / `selection_history.csv` 标准导出
 - DB 与产物的备份/恢复/保留策略
 - Backtest 资源校验（max window, topN/slots 上限, 未来日期策略, idempotency key）
-- 鉴权 download 路径
+- 鉴权 download 路径（已覆盖；其他公网 GET 仍需边界保护）
 - 日志保留/轮转/密钥脱敏
 - OpenAPI snapshot 测试 / TS client 自动生成防契约漂移
 - `/api/options` 必须暴露真实 strategy id 列表（compare modal 用）
@@ -295,7 +295,7 @@
 - [x] services 层做：(a) report_id 正则校验；(b) DB 查 `report_files` / manifest / sha256 确认 ownership；(c) 路径 resolve 在白名单根目录内
 - [x] 同样替换 `/api/reports/digest/download` 直接返回 `FileResponse`，不返回 URL
 - [x] **Acceptance**: 路径穿越 attempt 403；正常下载流式 200
-- [ ] GET download 路由鉴权：当前按 MVP 文档仍未鉴权，公网暴露需反代/内网保护
+- [x] GET download 路由鉴权：`X-API-Key` 配置后保护 report/digest download；前端 blob 下载会带 header
 
 ### F2 — Markdown 生成
 - [x] 复用 `atlas20.reporting.report.build_markdown_report`
@@ -379,7 +379,7 @@
 ### S4 — API Key 认证（MVP）
 - [x] mutating routes 用 `Depends(verify_api_key)` 检 `X-API-Key`
 - [x] settings.api_keys 集合校验
-- [x] **Acceptance**: 无 header 401（GET 路由仍按 MVP 暴露）
+- [x] **Acceptance**: 无 header 401；download GET 也纳入 API-key 保护，其他 read-only GET 仍按 MVP 暴露
 
 ### S5 — JWT/OAuth（**生产留 hook，先不做**）
 
@@ -399,7 +399,7 @@
 - [x] grep 全仓无硬编码 secret
 
 ### S9 — Authorized static delivery（**新增 codex**）
-- [ ] 见 F1；不用 mount 已完成，download GET 鉴权仍是生产缺口
+- [x] 见 F1；不用 mount 已完成，download GET 鉴权已接入 `verify_api_key`
 
 ---
 
@@ -588,7 +588,7 @@
 - T3 嵌入
 
 ### MS-3 — Production-ready（**8-12 天**）
-**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；公网生产暴露仍缺 GET/download 鉴权策略、OpenAPI snapshot、全 API mypy strict、磁盘阈值告警。
+**Status 2026-05-27**: 部分完成。Settings/auth/rate-limit/observability/Docker/CI 基线已落地；download GET 鉴权已补齐，公网生产暴露仍缺 OpenAPI snapshot、全 API mypy strict、磁盘阈值告警。
 - S1-S9 + O1-O6 + F1-F7 + D1-D10
 - T9 OpenAPI snapshot
 

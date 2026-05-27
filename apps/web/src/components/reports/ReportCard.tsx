@@ -70,7 +70,7 @@ export function ReportCard({ entry, onDownload, downloadBusy, downloadsDisabled 
             aria-label={`Download ${entry.title}`}
             aria-busy={downloadBusy ? "true" : undefined}
             onClick={() => {
-              if (!downloadDisabled) onDownload(entry.id);
+              if (!downloadDisabled) void onDownload(entry.id);
             }}
             disabled={downloadDisabled}
             style={{

@@ -176,4 +176,32 @@ describe("requestJson API key header", () => {
     expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
     expect(init.headers).not.toHaveProperty("X-API-Key");
   });
+
+  it("fetches report downloads with X-API-Key and parses attachment filename", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_ATLAS20_API_KEY", "download-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("# Digest\n", {
+          headers: { "Content-Disposition": 'attachment; filename="digest.md"' },
+        }),
+      ),
+    );
+    const api = await import("./api");
+    const fetchReportDownload = (
+      api as unknown as {
+        fetchReportDownload: (id: string, fmt?: string) => Promise<{ blob: Blob; filename: string }>;
+      }
+    ).fetchReportDownload;
+
+    const result = await fetchReportDownload("btk_0142", "markdown");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/reports/btk_0142/download?format=markdown");
+    expect(init.headers).toMatchObject({ "X-API-Key": "download-key" });
+    expect(result.filename).toBe("digest.md");
+    expect(result.blob).toBeInstanceOf(Blob);
+    expect(result.blob.size).toBe("# Digest\n".length);
+  });
 });
