@@ -1,51 +1,62 @@
+name: atlas20
+
+x-atlas20-env: &atlas20-env
+  ATLAS20_ENV: dev
+  ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
+  ATLAS20_REPORT_ROOT: /app/reports
+  ATLAS20_DATA_ROOT: /app/data
+  ATLAS20_PROJECT_ROOT: /app
+  ATLAS20_DISABLE_SCHEDULER: "0"
+
 services:
   backend:
-    # After first `docker compose up -d`, seed fixture data with:
-    # docker compose exec backend python -m atlas20.api.seed
-    build: .
+    image: ghcr.io/ww-shan/atlas20-backend:${ATLAS20_IMAGE_TAG:-latest}
+    restart: unless-stopped
     environment:
-      ATLAS20_ENV: dev
-      ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
-      ATLAS20_REPORT_ROOT: /app/reports
-      ATLAS20_DATA_ROOT: /app/data
-      ATLAS20_PROJECT_ROOT: /app
-      ATLAS20_DISABLE_SCHEDULER: "0"
+      <<: *atlas20-env
     volumes:
-      - ./data:/app/data
-      - ./reports:/app/reports
+      - atlas20_data:/app/data
+      - atlas20_reports:/app/reports
     ports:
-      - "8000:8000"
+      - "${ATLAS20_BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/readyz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   worker:
-    build: .
+    image: ghcr.io/ww-shan/atlas20-backend:${ATLAS20_IMAGE_TAG:-latest}
+    restart: unless-stopped
     command: ["python", "-m", "atlas20.api.worker"]
     environment:
-      ATLAS20_ENV: dev
-      ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
-      ATLAS20_REPORT_ROOT: /app/reports
-      ATLAS20_DATA_ROOT: /app/data
-      ATLAS20_PROJECT_ROOT: /app
+      <<: *atlas20-env
       ATLAS20_DISABLE_SCHEDULER: "1"
     volumes:
-      - ./data:/app/data
-      - ./reports:/app/reports
+      - atlas20_data:/app/data
+      - atlas20_reports:/app/reports
     ports:
-      - "8001:8001"
+      - "${ATLAS20_WORKER_METRICS_PORT:-8001}:8001"
     healthcheck:
-      # Probes BOTH the HTTP listener (port 8001) and the queue loop liveness
-      # via the atlas20_worker_last_poll_timestamp_seconds gauge. A frozen
-      # queue loop with a healthy listener thread would otherwise look healthy
-      # to a bare `curl /metrics` check. The regex accepts scientific notation
-      # because prometheus_client renders gauges that way.
       test: ["CMD-SHELL", "python -c \"import re,time,urllib.request as u; m=re.search(r'^atlas20_worker_last_poll_timestamp_seconds\\s+(\\S+)', u.urlopen('http://127.0.0.1:8001/metrics',timeout=2).read().decode(), re.M); v=float(m.group(1)) if m else 0; exit(0 if v and time.time()-v < 30 else 1)\""]
       interval: 30s
       timeout: 5s
       start_period: 30s
       retries: 3
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
   web:
-    build: ./apps/web
+    image: ghcr.io/ww-shan/atlas20-web:${ATLAS20_IMAGE_TAG:-latest}
+    restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "5173:80"
+      - "${ATLAS20_WEB_PORT:-5173}:80"
+
+volumes:
+  atlas20_data:
+  atlas20_reports:

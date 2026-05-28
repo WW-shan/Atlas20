@@ -89,9 +89,9 @@ npm --prefix apps/web install
 3. Start the frontend with `npm --prefix apps/web run dev`.
 4. In another terminal, start the worker with
    `PYTHONPATH=src python -m atlas20.api.worker`.
-5. For Docker, launch the API, worker, and web containers with
-   `docker compose up -d --build`,
-   then seed the mounted data volume with
+5. For Docker, launch the API, worker, and web containers from GHCR with
+   `docker compose up -d`,
+   then seed the data volume with
    `docker compose exec backend python -m atlas20.api.seed`.
 6. Check the API probe at `http://127.0.0.1:8000/healthz`.
 7. Open the web console and confirm the seeded runs and reports are visible.
