@@ -1,4 +1,4 @@
-"""Services for the Atlas20 R3 mock-backed API."""
+"""Console service functions for the Atlas20 Research Console API."""
 
 from __future__ import annotations
 

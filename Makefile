@@ -14,11 +14,9 @@ lint:
 	ruff check src tests
 	npm --prefix apps/web run lint
 
-# typecheck mirrors CI's mypy strict-pilot scope (schemas, settings, _metrics).
-# Expand the file list here AND in .github/workflows/ci.yml when the strict
-# pilot grows.
+# typecheck mirrors CI's strict API mypy scope.
 typecheck:
-	mypy --strict src/atlas20/api/schemas.py src/atlas20/api/settings.py src/atlas20/api/_metrics.py
+	mypy --strict src/atlas20/api
 	npm --prefix apps/web run typecheck
 
 build:
