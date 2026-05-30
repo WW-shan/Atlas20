@@ -3,26 +3,184 @@
 [![CI](https://github.com/WW-shan/Atlas20/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WW-shan/Atlas20/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/WW-shan/Atlas20?sort=semver)](https://github.com/WW-shan/Atlas20/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](pyproject.toml)
+[![Node](https://img.shields.io/badge/node-22%2B-5fa04e)](apps/web/package.json)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)](src/atlas20/api/app.py)
+[![React](https://img.shields.io/badge/web-React%2FVite-61dafb)](apps/web)
+[![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ed)](docker-compose.yml)
 
-Atlas20 Rotation is a reproducible crypto research framework for testing
-whether rotation inside a top-20 non-stablecoin universe can outperform simple
-benchmarks such as BTC buy-and-hold and top-20 equal weight.
+Atlas20 Rotation is a production-minded crypto research console for testing
+whether point-in-time top-20 non-stablecoin rotation can outperform BTC
+buy-and-hold and top-20 equal weight benchmarks.
 
-The repository now includes both the Python research engine and a desktop-first
-Atlas20 Research Console built with FastAPI and React/Vite.
+It is built like an operational research system, not a notebook dump: public
+data ingestion, reproducible backtests, FastAPI services, a queued worker,
+Prometheus metrics, OpenAPI contracts, Docker Compose deployment, GHCR images,
+and a React/Vite console for reviewing results.
 
-> Research only. This project is not financial advice and does not execute
+> Research only. Atlas20 does not provide financial advice and does not execute
 > trades.
+
+## Why It Stands Out
+
+- **Point-in-time universe construction**: top-20 candidates are rebuilt at each
+  rebalance date with explicit stablecoin, wrapped asset, liquidity, and data
+  quality filters.
+- **Reproducible research pipeline**: raw public data, processed datasets,
+  strategy summaries, charts, manifests, and markdown/PDF/bundle reports are
+  generated from versioned YAML configs.
+- **Console-grade backend**: FastAPI routes, SQLModel repositories, Alembic
+  migrations, idempotent run submission, request IDs, rate limits, auth hooks,
+  structured logs, and Sentry-safe redaction.
+- **Real worker lifecycle**: backtests are queued, claimed, heartbeated,
+  cancelled, recovered after stale ownership, and monitored through Prometheus.
+- **Contract-aware frontend**: React/Vite, TanStack Query, generated OpenAPI
+  types, Vitest, axe accessibility tests, and Playwright smoke coverage.
+- **Ship-ready operations**: Docker Compose stack, GHCR images, backup/storage
+  CLIs, health probes, load testing script, and release verification command.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    CG[CoinGecko<br/>candidate universe + metadata]
+    CC[CryptoCompare<br/>daily prices + volume]
+    CFG[YAML configs<br/>windows, filters, strategy grid]
+    PIPE[Research pipeline<br/>universe, regime, backtests]
+    DB[(SQLite / SQLModel<br/>runs, reports, settings)]
+    API[FastAPI<br/>OpenAPI, auth, rate limits]
+    WORKER[Worker process<br/>queue, heartbeat, recovery]
+    WEB[React/Vite console<br/>overview, studio, compare, reports]
+    REPORTS[Report artifacts<br/>CSV, PNG, Markdown, PDF, bundle]
+    METRICS[Prometheus metrics<br/>API + worker scrape targets]
+
+    CG --> PIPE
+    CC --> PIPE
+    CFG --> PIPE
+    PIPE --> REPORTS
+    PIPE --> DB
+    API <--> DB
+    API --> WEB
+    API --> METRICS
+    WORKER <--> DB
+    WORKER --> PIPE
+    WORKER --> REPORTS
+    WORKER --> METRICS
+```
 
 ## What Is Included
 
-- Point-in-time top-20 universe construction from public cached data.
 - Momentum, sector, and benchmark strategy backtests.
 - Bull-regime and BTC trailing-stop risk overlays.
-- Report generation with CSV and PNG artifacts.
-- FastAPI read/write API for the research console.
-- React/Vite web console for champion review and constrained reruns.
-- Python, API, and frontend tests plus GitHub Actions CI.
+- Point-in-time top-20 universe construction from cached public data.
+- FastAPI read/write API for the Atlas20 Research Console.
+- Background worker for queued backtests and report generation.
+- React/Vite web console for champion review, constrained reruns, compare,
+  history, universe health, and reports.
+- Prometheus metrics, structured logging, security gates, backup/storage
+  commands, and Docker deployment files.
+- Python, API, frontend, accessibility, OpenAPI, mypy, Ruff, and build checks.
+
+## Quickstart
+
+### Docker Compose
+
+Use this when you want the full API, worker, and web stack with the same shape
+as the published GHCR images.
+
+```bash
+docker compose up -d
+docker compose exec backend python -m atlas20.api.seed
+```
+
+Then open:
+
+- API health: `http://127.0.0.1:8000/healthz`
+- API readiness: `http://127.0.0.1:8000/readyz`
+- Worker metrics: `http://127.0.0.1:8001/metrics`
+- Web console: `http://127.0.0.1:5173`
+
+### Local Development
+
+Python:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m atlas20.api.seed
+make dev
+```
+
+> Editable install (`-e`) is required for local development. A non-editable
+> install can shadow the repo `src/` tree from `site-packages`.
+
+Frontend:
+
+```bash
+npm --prefix apps/web ci
+npm --prefix apps/web run dev
+```
+
+Worker:
+
+```bash
+PYTHONPATH=src python -m atlas20.api.worker
+```
+
+In development, Vite proxies `/api` to `http://127.0.0.1:8000`.
+
+### Research Pipeline
+
+```bash
+python scripts/download_data.py --config config/base.yaml
+python scripts/build_datasets.py --config config/base.yaml
+python scripts/run_research.py --config config/base.yaml
+```
+
+Pass `--refresh-raw` to intentionally refresh public API data:
+
+```bash
+python scripts/run_research.py --config config/base.yaml --refresh-raw
+```
+
+## Quality Gates
+
+Run the release verification command before publishing:
+
+```bash
+python scripts/verify_release.py
+```
+
+The CI matrix also runs these checks independently:
+
+```bash
+pytest -q
+ruff check src tests
+mypy --strict src/atlas20/api
+python -m atlas20.api.openapi --check
+npm --prefix apps/web test
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run build
+npm --prefix apps/web run openapi:check
+```
+
+Current local verification for this release line covers 437 Python tests plus
+181 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
+Ruff.
+
+## Operations Surface
+
+| Area | Implementation |
+| --- | --- |
+| API | FastAPI app factory, OpenAPI snapshot, request IDs, access logs, rate limits |
+| Persistence | SQLModel tables, Alembic migrations, repository layer |
+| Worker | Queue claim, heartbeat, cancellation, stale-run recovery, subprocess isolation |
+| Metrics | Prometheus counters, histograms, worker liveness gauge, `/metrics` scrape targets |
+| Reports | Markdown, CSV, PNG, PDF fallback, zip bundle, manifest verification |
+| Deployment | Dockerfile, `apps/web/Dockerfile`, Docker Compose, GHCR image references |
+| Security | API key/JWT hooks, prod settings gates, report path validation, log redaction |
+
+See `docs/operations/` for backup, storage, logging, worker, security, and load
+testing notes.
 
 ## Repository Layout
 
@@ -30,12 +188,12 @@ Atlas20 Research Console built with FastAPI and React/Vite.
 .
 |-- apps/web/                 # React/Vite research console
 |-- config/                   # Research windows and sector mappings
-|-- data/                     # Cached raw and processed public data
-|-- docs/                     # Design docs and implementation plans
+|-- data/                     # Local cached raw/processed public data
+|-- docs/                     # Design and operations documentation
 |-- reports/                  # Included research output snapshots
-|-- scripts/                  # Data, research, API, and verification commands
-|-- src/atlas20/              # Python package
-|-- tests/                    # Python tests
+|-- scripts/                  # Research, API, verification, and load-test commands
+|-- src/atlas20/              # Python package: pipeline, API, worker, backtests
+|-- tests/                    # Python test suite
 |-- pyproject.toml
 `-- README.md
 ```
@@ -58,102 +216,6 @@ Atlas20 Research Console built with FastAPI and React/Vite.
 This keeps the project public-data friendly and reproducible. The trade-off is
 that long-history market-cap ranks are approximations, not perfect historical
 constituent data.
-
-## Install
-
-Python:
-
-```bash
-python -m pip install -e ".[dev]"
-```
-
-> **Editable (`-e`) is required for local development.** A non-editable
-> `pip install .` copies the package into `site-packages`, and on the
-> default Python `sys.path` that copy will shadow the repo's `src/` tree —
-> edits to `src/atlas20/**.py` then have no runtime effect even though
-> `pytest` still passes (pytest is configured with `pythonpath=["src"]`).
-> If you previously ran `pip install .` without `-e`, remove the stale
-> copy with `python -m pip uninstall -y atlas20-rotation` before
-> reinstalling.
-
-Frontend:
-
-```bash
-npm --prefix apps/web install
-```
-
-## 30-Minute Quickstart
-
-1. Seed the local database once with `python -m atlas20.api.seed`.
-2. Start the API with `make dev`.
-3. Start the frontend with `npm --prefix apps/web run dev`.
-4. In another terminal, start the worker with
-   `PYTHONPATH=src python -m atlas20.api.worker`.
-5. For Docker, launch the API, worker, and web containers from GHCR with
-   `docker compose up -d`,
-   then seed the data volume with
-   `docker compose exec backend python -m atlas20.api.seed`.
-6. Check the API probe at `http://127.0.0.1:8000/healthz`.
-7. Open the web console and confirm the seeded runs and reports are visible.
-
-## Research Commands
-
-Download and cache raw data:
-
-```bash
-python scripts/download_data.py --config config/base.yaml
-```
-
-Build processed datasets:
-
-```bash
-python scripts/build_datasets.py --config config/base.yaml
-```
-
-Run the full research pipeline:
-
-```bash
-python scripts/run_research.py --config config/base.yaml
-```
-
-Use `--refresh-raw` when you intentionally want to refresh public API data:
-
-```bash
-python scripts/run_research.py --config config/base.yaml --refresh-raw
-```
-
-## Web Console
-
-Start the API:
-
-```bash
-python scripts/run_api.py
-```
-
-Start the frontend:
-
-```bash
-npm --prefix apps/web run dev
-```
-
-Open the Vite URL printed by the dev server. In development, `/api` is proxied
-to `http://127.0.0.1:8000`.
-
-## Verification
-
-Run everything required before publishing:
-
-```bash
-python scripts/verify_release.py
-```
-
-Individual checks:
-
-```bash
-pytest -q
-npm --prefix apps/web test
-npm --prefix apps/web run build
-```
 
 ## Main Output Files
 

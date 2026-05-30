@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-30
+
+### Added
+
+- Repository presentation refresh for GitHub visitors: stronger README opening,
+  engineering badges, an operations-focused architecture diagram, quality-gate
+  summary, Docker/GHCR quickstart, and a clearer operations surface.
+- Presentation regression tests that keep the README and release notes from
+  losing the key engineering signals introduced in this release.
+
+### Changed
+
+- Project version metadata updated to `0.2.1` for the Python package and web
+  package before tagging the release.
+- The release verification workflow now has clearer prerequisite handling from the
+  previous commit, so missing local dependencies produce actionable setup
+  instructions instead of a raw traceback.
+
 ### B24 — Centralized display names + fallback data indicator (2026-05-25)
 
 Two systemic bugs from live browser audit: raw strategy slugs leaking into every dropdown/pill/table header, and no visual indicator distinguishing real research data from hardcoded mock fallbacks.
