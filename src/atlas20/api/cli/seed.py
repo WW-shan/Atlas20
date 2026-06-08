@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from datetime import date, datetime
 
-from sqlmodel import SQLModel, Session
+from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api.db.models import Run
+from atlas20.api.db.migrate import upgrade_to_head
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.settings import get_settings
 
@@ -43,8 +44,8 @@ def run_from_seed_row(row: dict[str, object]) -> Run:
 
 def main() -> None:
     settings = get_settings()
+    upgrade_to_head(settings)
     engine = get_engine(settings)
-    SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         runs_repo = RunsRepo(session)
         if runs_repo.list(page_size=1)[1] > 0:
