@@ -5,6 +5,7 @@ import { axe } from "vitest-axe";
 
 import { OverviewTab } from "../features/overview/OverviewTab";
 import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
+import { StrategyLabTab } from "../features/strategy-lab/StrategyLabTab";
 import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
@@ -23,6 +24,8 @@ vi.mock("../lib/api", async () => {
     toggleFavorite: vi.fn(),
     getCompare: vi.fn(),
     getOptions: vi.fn(),
+    submitStrategyLabBatch: vi.fn(),
+    getStrategyLabBatch: vi.fn(),
     getFeaturedDigest: vi.fn(),
     listReports: vi.fn(),
     generateReport: vi.fn(),
@@ -58,6 +61,13 @@ beforeEach(() => {
   vi.mocked(api.toggleFavorite).mockResolvedValue({ run_id: "btk_0142", favorited: false });
   vi.mocked(api.getCompare).mockResolvedValue(api.fallbackCompare);
   vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
+  vi.mocked(api.submitStrategyLabBatch).mockResolvedValue({ batch_id: "lab_test", runs: [], total: 1 });
+  vi.mocked(api.getStrategyLabBatch).mockResolvedValue({
+    batch_id: "lab_test",
+    status_counts: { queued: 0, running: 0, completed: 1, failed: 0, cancelled: 0 },
+    runs: [],
+    results: [],
+  });
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
   vi.mocked(api.generateReport).mockResolvedValue({
@@ -92,6 +102,12 @@ describe("axe accessibility", () => {
       expect(screen.getByRole("region", { name: "Strategy selection" })).toHaveTextContent("3 selected");
     });
     await waitForLoadingToSettle(container);
+    expect(await axe(container, axeOptions)).toHaveNoViolations();
+  });
+
+  it("StrategyLabTab has no axe violations", async () => {
+    const { container } = renderWithQuery(<StrategyLabTab onNavigate={() => {}} />);
+    await screen.findByRole("heading", { name: "Experiment matrix" });
     expect(await axe(container, axeOptions)).toHaveNoViolations();
   });
 

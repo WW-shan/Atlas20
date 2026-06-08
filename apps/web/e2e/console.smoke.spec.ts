@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import type {
+  BacktestConfig,
   DataAlert,
   DataSource,
   FeaturedDigest,
@@ -18,10 +19,35 @@ type RunsResponse = {
   pageSize: number;
 };
 
+const defaultBacktestConfig: BacktestConfig = {
+  preset: "base",
+  universe: { topN: 20, excludeStable: true, excludeWrapped: true },
+  window: { start: "2024-01-01", end: "2026-05-18", rebalance: "Weekly" },
+  allocation: { positionPct: 5.0, slots: 10 },
+  costs: { feeBps: 10, slippageBps: 5 },
+};
+
 async function apiJson<T>(page: Page, path: string): Promise<T> {
   const response = await page.request.get(path);
   expect(response.ok(), `${path} returned ${response.status()}`).toBeTruthy();
   return response.json() as Promise<T>;
+}
+
+async function apiPostJson<T>(page: Page, path: string, payload: unknown): Promise<T> {
+  const response = await page.request.post(path, { data: payload });
+  expect(response.ok(), `${path} returned ${response.status()}`).toBeTruthy();
+  return response.json() as Promise<T>;
+}
+
+async function ensureRunRow(page: Page): Promise<RunRow> {
+  const path = "/api/runs?q=&chips=&dateRange=30d&page=1&pageSize=14";
+  let runs = await apiJson<RunsResponse>(page, path);
+  if (runs.items.length === 0) {
+    await apiPostJson(page, "/api/backtests/run", defaultBacktestConfig);
+    runs = await apiJson<RunsResponse>(page, path);
+  }
+  expect(runs.items.length, "expected at least one run row").toBeGreaterThan(0);
+  return runs.items.find((run) => run.status === "completed" && run.return_pct != null) ?? runs.items[0];
 }
 
 async function openConsoleTab(page: Page, name: string): Promise<void> {
@@ -43,12 +69,7 @@ test.describe("research console smoke", () => {
   });
 
   test("history can re-open a real run in backtest studio", async ({ page }) => {
-    const runs = await apiJson<RunsResponse>(
-      page,
-      "/api/runs?q=&chips=&dateRange=30d&page=1&pageSize=14",
-    );
-    const selectedRun = runs.items.find((run) => run.status === "completed" && run.return_pct != null) ?? runs.items[0];
-    expect(selectedRun, "expected at least one run").toBeTruthy();
+    const selectedRun = await ensureRunRow(page);
 
     await page.goto("/");
     await openConsoleTab(page, "History");
@@ -79,13 +100,20 @@ test.describe("research console smoke", () => {
     await expect(dialog.getByRole("option", { name: strategyLabel })).toBeVisible();
   });
 
+  test("strategy lab queues a small experiment batch", async ({ page }) => {
+    await page.goto("/");
+    await openConsoleTab(page, "Strategy Lab");
+    await expect(page.getByRole("heading", { name: "Strategy Lab" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Experiment matrix" })).toBeVisible();
+
+    await page.getByRole("button", { name: /Queue experiment/i }).click();
+
+    await expect(page.getByText(/runs queued/i)).toBeVisible();
+    await expect(page.getByText(/lab_/)).toBeVisible();
+  });
+
   test("run history shows a real run row", async ({ page }) => {
-    const runs = await apiJson<RunsResponse>(
-      page,
-      "/api/runs?q=&chips=&dateRange=30d&page=1&pageSize=14",
-    );
-    expect(runs.items.length, "expected at least one run row").toBeGreaterThan(0);
-    const firstRun = runs.items[0];
+    const firstRun = await ensureRunRow(page);
 
     await page.goto("/");
     await openConsoleTab(page, "History");

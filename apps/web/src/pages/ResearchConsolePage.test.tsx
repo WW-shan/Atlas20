@@ -16,7 +16,7 @@ vi.mock("../lib/api", async () => {
   };
 });
 
-const tabNames = ["Overview", "Backtest", "Compare", "History", "Universe", "Reports"];
+const tabNames = ["Overview", "Backtest", "Strategy Lab", "Compare", "History", "Universe", "Reports"];
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
 });
 
-test("renders Atlas20 Research Console with 6 tabs", async () => {
+test("renders Atlas20 Research Console with 7 tabs", async () => {
   renderWithQuery(<ResearchConsolePage />);
 
   expect(screen.getByText("ATLAS20")).toBeInTheDocument();

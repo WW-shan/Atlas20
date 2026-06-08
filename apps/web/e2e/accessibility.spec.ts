@@ -8,6 +8,7 @@ const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 const consoleTabs = [
   { tab: "Overview", heading: "Overview" },
   { tab: "Backtest", heading: "Backtest Studio" },
+  { tab: "Strategy Lab", heading: "Strategy Lab" },
   { tab: "Compare", heading: "Strategy Compare" },
   { tab: "History", heading: "Run History" },
   { tab: "Universe", heading: "Universe & Data Health" },

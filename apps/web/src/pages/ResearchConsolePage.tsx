@@ -5,6 +5,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { TabSwitcher, type ConsoleTab } from "../components/navigation/TabSwitcher";
 import { OverviewTab } from "../features/overview/OverviewTab";
 import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
+import { StrategyLabTab } from "../features/strategy-lab/StrategyLabTab";
 import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
 import { RunHistoryTab } from "../features/history/RunHistoryTab";
 import { UniverseHealthTab } from "../features/universe/UniverseHealthTab";
@@ -33,6 +34,7 @@ function navReducer(state: NavState, action: NavAction): NavState {
 const tabLabels: Record<ConsoleTab, string> = {
   overview: "Overview",
   backtest: "Backtest Studio",
+  strategyLab: "Strategy Lab",
   compare: "Strategy Compare",
   history: "Run History",
   universe: "Universe & Data Health",
@@ -106,6 +108,11 @@ export function ResearchConsolePage() {
           <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
         </ErrorBoundary>
       )}
+      {nav.tab === "strategyLab" && (
+        <ErrorBoundary>
+          <StrategyLabTab onNavigate={navigate} />
+        </ErrorBoundary>
+      )}
       {nav.tab === "compare" && (
         <ErrorBoundary>
           <StrategyCompareTab />
@@ -153,6 +160,7 @@ function getSubtitle(tab: ConsoleTab): string {
   const subs: Record<ConsoleTab, string> = {
     overview: "Champion summary, equity curve, and market regime",
     backtest: "Configure, run, and inspect strategy backtests",
+    strategyLab: "Parameter matrix and ranked experiment results",
     compare: "Side-by-side performance, risk, and holdings overlap",
     history: "Browse, filter, and re-run past backtests",
     universe: "Top-20 token composition over time + data source status",

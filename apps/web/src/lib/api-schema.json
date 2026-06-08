@@ -2076,6 +2076,203 @@
         "title": "StrategyBreakdownItem",
         "type": "object"
       },
+      "StrategyLabBatchPayload": {
+        "properties": {
+          "batch_id": {
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyLabResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunRow"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "status_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Status Counts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "batch_id",
+          "status_counts",
+          "runs",
+          "results"
+        ],
+        "title": "StrategyLabBatchPayload",
+        "type": "object"
+      },
+      "StrategyLabBatchResponse": {
+        "properties": {
+          "batch_id": {
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunRowSummary"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_id",
+          "runs",
+          "total"
+        ],
+        "title": "StrategyLabBatchResponse",
+        "type": "object"
+      },
+      "StrategyLabMatrixRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "baseConfig": {
+            "$ref": "#/components/schemas/BacktestConfig"
+          },
+          "presets": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Presets",
+            "type": "array"
+          },
+          "rebalances": {
+            "items": {
+              "enum": [
+                "Weekly",
+                "Biweekly",
+                "Monthly"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Rebalances",
+            "type": "array"
+          },
+          "topNs": {
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Topns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "presets",
+          "topNs",
+          "rebalances",
+          "baseConfig"
+        ],
+        "title": "StrategyLabMatrixRequest",
+        "type": "object"
+      },
+      "StrategyLabResult": {
+        "properties": {
+          "calmar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calmar"
+          },
+          "max_dd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Dd"
+          },
+          "preset": {
+            "title": "Preset",
+            "type": "string"
+          },
+          "rebalance": {
+            "enum": [
+              "Weekly",
+              "Biweekly",
+              "Monthly"
+            ],
+            "title": "Rebalance",
+            "type": "string"
+          },
+          "return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Pct"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "topN": {
+            "title": "Topn",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "preset",
+          "topN",
+          "rebalance",
+          "status"
+        ],
+        "title": "StrategyLabResult",
+        "type": "object"
+      },
       "StrategyOption": {
         "properties": {
           "display_name": {
@@ -3175,6 +3372,123 @@
         "summary": "Post Run Favorite",
         "tags": [
           "runs"
+        ]
+      }
+    },
+    "/api/strategy-lab/batches": {
+      "post": {
+        "operationId": "post_strategy_lab_batch_api_strategy_lab_batches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StrategyLabMatrixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyLabBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Strategy Lab Batch",
+        "tags": [
+          "strategy-lab"
+        ]
+      }
+    },
+    "/api/strategy-lab/batches/{batch_id}": {
+      "get": {
+        "operationId": "get_strategy_lab_batch_api_strategy_lab_batches__batch_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyLabBatchPayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Strategy Lab Batch",
+        "tags": [
+          "strategy-lab"
         ]
       }
     },

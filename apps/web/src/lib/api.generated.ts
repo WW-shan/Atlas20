@@ -259,6 +259,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/strategy-lab/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Strategy Lab Batch */
+        post: operations["post_strategy_lab_batch_api_strategy_lab_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/strategy-lab/batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Strategy Lab Batch */
+        get: operations["get_strategy_lab_batch_api_strategy_lab_batches__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/universe/alerts": {
         parameters: {
             query?: never;
@@ -1016,6 +1050,65 @@ export interface components {
             /** Family */
             family: string;
         };
+        /** StrategyLabBatchPayload */
+        StrategyLabBatchPayload: {
+            /** Batch Id */
+            batch_id: string;
+            /** Results */
+            results: components["schemas"]["StrategyLabResult"][];
+            /** Runs */
+            runs: components["schemas"]["RunRow"][];
+            /** Status Counts */
+            status_counts: {
+                [key: string]: number;
+            };
+        };
+        /** StrategyLabBatchResponse */
+        StrategyLabBatchResponse: {
+            /** Batch Id */
+            batch_id: string;
+            /** Runs */
+            runs: components["schemas"]["RunRowSummary"][];
+            /** Total */
+            total: number;
+        };
+        /** StrategyLabMatrixRequest */
+        StrategyLabMatrixRequest: {
+            baseConfig: components["schemas"]["BacktestConfig"];
+            /** Presets */
+            presets: string[];
+            /** Rebalances */
+            rebalances: ("Weekly" | "Biweekly" | "Monthly")[];
+            /** Topns */
+            topNs: number[];
+        };
+        /** StrategyLabResult */
+        StrategyLabResult: {
+            /** Calmar */
+            calmar?: number | null;
+            /** Max Dd */
+            max_dd?: number | null;
+            /** Preset */
+            preset: string;
+            /**
+             * Rebalance
+             * @enum {string}
+             */
+            rebalance: "Weekly" | "Biweekly" | "Monthly";
+            /** Return Pct */
+            return_pct?: number | null;
+            /** Run Id */
+            run_id: string;
+            /** Sharpe */
+            sharpe?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "completed" | "failed" | "cancelled";
+            /** Topn */
+            topN: number;
+        };
         /** StrategyOption */
         StrategyOption: {
             /** Display Name */
@@ -1543,6 +1636,73 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_strategy_lab_batch_api_strategy_lab_batches_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+                Authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StrategyLabMatrixRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategyLabBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_strategy_lab_batch_api_strategy_lab_batches__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategyLabBatchPayload"];
                 };
             };
             /** @description Validation Error */
