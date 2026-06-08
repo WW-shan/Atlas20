@@ -61,6 +61,7 @@ class Run(SQLModel, table=True):
     heartbeat_at: datetime | None = Field(default=None, sa_column=Column(UtcDateTime(), nullable=True))
     requested_cancel: bool = False
     favorited: bool = False
+    strategy_lab_batch_id: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(UtcDateTime(), nullable=False, index=True))
 
 

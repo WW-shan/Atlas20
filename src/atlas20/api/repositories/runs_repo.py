@@ -236,6 +236,14 @@ class RunsRepo:
         )
         return builtins.list(self._s.exec(stmt).all())
 
+    def list_by_strategy_lab_batch(self, batch_id: str) -> builtins.list[Run]:
+        stmt = (
+            select(Run)
+            .where(Run.strategy_lab_batch_id == batch_id)
+            .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
+        )
+        return builtins.list(self._s.exec(stmt).all())
+
     def next_btk_id(self) -> str:
         """Deprecated: only use for non-concurrent call paths."""
         return self._compute_next_btk_id()

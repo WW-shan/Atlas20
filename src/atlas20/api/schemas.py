@@ -311,6 +311,38 @@ class OptionsPayload(ApiModel):
     sectors: list[str]
 
 
+class StrategyLabMatrixRequest(StrictApiModel):
+    presets: list[str] = Field(min_length=1)
+    top_ns: list[int] = Field(alias="topNs", min_length=1)
+    rebalances: list[Literal["Weekly", "Biweekly", "Monthly"]] = Field(min_length=1)
+    base_config: BacktestConfig = Field(alias="baseConfig")
+
+
+class StrategyLabResult(ApiModel):
+    run_id: str
+    preset: str
+    topN: int
+    rebalance: Literal["Weekly", "Biweekly", "Monthly"]
+    status: RunStatusEnum
+    return_pct: float | None = None
+    sharpe: float | None = None
+    max_dd: float | None = None
+    calmar: float | None = None
+
+
+class StrategyLabBatchResponse(ApiModel):
+    batch_id: str
+    runs: list[RunRowSummary]
+    total: int
+
+
+class StrategyLabBatchPayload(ApiModel):
+    batch_id: str
+    status_counts: dict[str, int]
+    runs: list[RunRow]
+    results: list[StrategyLabResult]
+
+
 class HistoryFilter(StrictApiModel):
     q: str = ""
     chips: list[str] = Field(default_factory=list)
