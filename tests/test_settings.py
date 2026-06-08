@@ -42,7 +42,8 @@ def test_settings_project_root_defaults_to_repo_root(tmp_path, monkeypatch):
     settings = Settings()
 
     assert settings.project_root == Path(__file__).resolve().parents[1]
-    assert settings.project_root.name == "Atlas20"
+    assert (settings.project_root / "pyproject.toml").is_file()
+    assert (settings.project_root / "src" / "atlas20").is_dir()
 
 
 def test_settings_accepts_custom_cors_origins():

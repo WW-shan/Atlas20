@@ -118,3 +118,4 @@ def test_get_strategy_lab_batch_returns_counts_and_results(db_session: Session) 
     assert payload.status_counts["completed"] == 1
     assert payload.results[0].run_id == run_id
     assert payload.results[0].topN == 20
+    assert payload.results[0].calmar == 2.0

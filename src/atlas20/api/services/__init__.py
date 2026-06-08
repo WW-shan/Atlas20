@@ -1029,8 +1029,9 @@ def _strategy_lab_result_from_run(run: Run, row: RunRow) -> StrategyLabResult | 
     if config is None:
         return None
     calmar = None
-    if row.return_pct is not None and row.max_dd not in (None, 0):
-        calmar = row.return_pct / abs(row.max_dd)
+    max_dd = row.max_dd
+    if row.return_pct is not None and max_dd is not None and max_dd != 0:
+        calmar = row.return_pct / abs(max_dd)
     return StrategyLabResult(
         run_id=row.run_id,
         preset=config.preset,
