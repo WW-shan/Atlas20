@@ -29,6 +29,7 @@ from atlas20.api.routes.options import router as options_router
 from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.reports import router as reports_router
 from atlas20.api.routes.runs import router as runs_router
+from atlas20.api.routes.strategy_lab import router as strategy_lab_router
 from atlas20.api.routes.universe import router as universe_router
 from atlas20.api.scheduler import start_scheduler
 from atlas20.api.settings import Settings, get_settings
@@ -133,6 +134,7 @@ def create_app() -> FastAPI:
     app.include_router(options_router)
     app.include_router(runs_router)
     app.include_router(backtests_router)
+    app.include_router(strategy_lab_router)
     app.include_router(compare_router)
     app.include_router(universe_router)
     app.include_router(reports_router)

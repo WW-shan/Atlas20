@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import logging
 import math
@@ -38,6 +39,10 @@ from atlas20.api.schemas import (
     RunDetailPayload,
     RunRow,
     RunRowSummary,
+    StrategyLabBatchPayload,
+    StrategyLabBatchResponse,
+    StrategyLabMatrixRequest,
+    StrategyLabResult,
     UniverseTimelinePayload,
 )
 from atlas20.api.db.models import ReportFile, Run
@@ -54,6 +59,7 @@ RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
 DATA_SOURCE_CACHE_TTL_SECONDS = 300
 DATA_SOURCE_STALE_SECONDS = 999999
+STRATEGY_LAB_MAX_RUNS = 24
 _DATA_SOURCES_CACHE: tuple[Path, float, list[DataSource]] | None = None
 
 
@@ -935,7 +941,12 @@ def _strategy_family(strategy: str) -> str:
 
 
 
-def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSummary:
+def register_new_backtest(
+    session: Session,
+    config: BacktestConfig,
+    *,
+    strategy_lab_batch_id: str | None = None,
+) -> RunRowSummary:
     settings = get_settings()
     # Validate adapter inputs before persisting; the worker rebuilds this config when executing.
     to_research_config(config, config.preset, settings)
@@ -950,11 +961,96 @@ def register_new_backtest(session: Session, config: BacktestConfig) -> RunRowSum
             "status": "queued",
             "spark": json.dumps([]),
             "params": config.model_dump_json(),
+            "strategy_lab_batch_id": strategy_lab_batch_id,
             "created_at": utc_now(),
         }
     )
     IdempotencyRepo(session).purge_expired()
     return _run_to_summary(run)
+
+
+def _strategy_lab_batch_id(request: StrategyLabMatrixRequest) -> str:
+    payload = request.model_dump_json(by_alias=True)
+    digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:8]
+    return f"lab_{utc_now().strftime('%Y%m%d%H%M%S')}_{digest}"
+
+
+def _strategy_lab_configs(request: StrategyLabMatrixRequest) -> list[BacktestConfig]:
+    matrix_size = len(request.presets) * len(request.top_ns) * len(request.rebalances)
+    if matrix_size == 0:
+        raise ValueError("strategy lab matrix must include at least one run")
+    if matrix_size > STRATEGY_LAB_MAX_RUNS:
+        raise ValueError(f"strategy lab matrix can queue at most {STRATEGY_LAB_MAX_RUNS} runs")
+
+    configs: list[BacktestConfig] = []
+    for preset in request.presets:
+        for top_n in request.top_ns:
+            for rebalance in request.rebalances:
+                data = request.base_config.model_dump(mode="json")
+                data["preset"] = preset
+                data["universe"]["topN"] = top_n
+                data["window"]["rebalance"] = rebalance
+                configs.append(BacktestConfig.model_validate(data))
+    return configs
+
+
+def submit_strategy_lab_batch(session: Session, request: StrategyLabMatrixRequest) -> StrategyLabBatchResponse:
+    batch_id = _strategy_lab_batch_id(request)
+    summaries = [
+        register_new_backtest(session, config, strategy_lab_batch_id=batch_id)
+        for config in _strategy_lab_configs(request)
+    ]
+    return StrategyLabBatchResponse(batch_id=batch_id, runs=summaries, total=len(summaries))
+
+
+def get_strategy_lab_batch(session: Session, batch_id: str) -> StrategyLabBatchPayload:
+    rows = RunsRepo(session).list_by_strategy_lab_batch(batch_id)
+    status_counts = {status: 0 for status in RUN_STATUS_CHIPS}
+    for row in rows:
+        if row.status in status_counts:
+            status_counts[row.status] += 1
+    settings = get_settings()
+    run_rows = [_run_to_row_with_artifacts(settings, row) for row in rows]
+    results = [_strategy_lab_result_from_run(row, run_row) for row, run_row in zip(rows, run_rows, strict=True)]
+    return StrategyLabBatchPayload(
+        batch_id=batch_id,
+        status_counts=status_counts,
+        runs=run_rows,
+        results=[result for result in results if result is not None],
+    )
+
+
+def _strategy_lab_result_from_run(run: Run, row: RunRow) -> StrategyLabResult | None:
+    if row.status != "completed":
+        return None
+    if row.return_pct is None and row.sharpe is None and row.max_dd is None:
+        return None
+    config = _backtest_config_from_run(run)
+    if config is None:
+        return None
+    calmar = None
+    if row.return_pct is not None and row.max_dd not in (None, 0):
+        calmar = row.return_pct / abs(row.max_dd)
+    return StrategyLabResult(
+        run_id=row.run_id,
+        preset=config.preset,
+        topN=config.universe.topN,
+        rebalance=config.window.rebalance,
+        status=row.status,
+        return_pct=row.return_pct,
+        sharpe=row.sharpe,
+        max_dd=row.max_dd,
+        calmar=calmar,
+    )
+
+
+def _backtest_config_from_run(run: Run) -> BacktestConfig | None:
+    if not run.params:
+        return None
+    try:
+        return BacktestConfig.model_validate_json(run.params)
+    except ValueError:
+        return None
 
 
 def get_compare(ids: list[str], range_: str) -> ComparePayload:

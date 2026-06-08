@@ -155,6 +155,27 @@ def test_backtests_run_endpoint_registers_queued_run(client: TestClient):
     assert payload.params_summary == "N=20 · Weekly · 2024→2026"
 
 
+def test_strategy_lab_batch_route_queues_runs(client: TestClient):
+    response = client.post(
+        "/api/strategy-lab/batches",
+        json={
+            "presets": ["base"],
+            "topNs": [20],
+            "rebalances": ["Monthly"],
+            "baseConfig": {
+                **DEFAULT_BACKTEST_CONFIG,
+                "preset": "base",
+                "window": {**DEFAULT_BACKTEST_CONFIG["window"], "rebalance": "Monthly"},
+            },
+        },
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["batch_id"].startswith("lab_")
+
+
 def test_backtests_run_endpoint_returns_422_when_base_yaml_missing(client: TestClient, tmp_path, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "project_root", tmp_path)
