@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atlas20-rotation"
-version = "0.2.1"
+version = "0.2.2"
 description = "Atlas20 Rotation research framework for crypto momentum and sector rotation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,7 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "httpx>=0.28",
+  "pip-audit>=2.7",
   "ruff>=0.6",
   "mypy>=1.11",
 ]

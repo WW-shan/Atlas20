@@ -29,19 +29,26 @@ def test_readme_presents_atlas20_as_engineered_research_console():
     assert "## Quickstart" in readme
 
 
-def test_changelog_has_v021_repository_polish_entry():
+def test_changelog_has_v022_release_prep_entry():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
-    assert "## [0.2.1] - 2026-05-30" in changelog
-    assert "Repository presentation" in changelog
-    assert "release verification" in changelog
+    assert "## [0.2.2] - 2026-06-08" in changelog
+    assert "Seed CLI now records Alembic migration state" in changelog
+    assert "Release verification now mirrors CI" in changelog
 
 
-def test_release_metadata_matches_v021_tag():
+def test_readme_quality_gate_counts_match_current_suite():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "448 Python tests plus" in readme
+    assert "181 Vitest tests" in readme
+
+
+def test_release_metadata_matches_v022_tag():
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     web_package = (ROOT / "apps" / "web" / "package.json").read_text(encoding="utf-8")
     web_lock = (ROOT / "apps" / "web" / "package-lock.json").read_text(encoding="utf-8")
 
-    assert 'version = "0.2.1"' in pyproject
-    assert '"version": "0.2.1"' in web_package
-    assert web_lock.count('"version": "0.2.1"') >= 2
+    assert 'version = "0.2.2"' in pyproject
+    assert '"version": "0.2.2"' in web_package
+    assert web_lock.count('"version": "0.2.2"') >= 2

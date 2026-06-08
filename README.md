@@ -161,11 +161,13 @@ npm --prefix apps/web test
 npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 npm --prefix apps/web run openapi:check
+pip-audit --strict .
+npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.npmjs.org
 ```
 
-Current local verification for this release line covers 437 Python tests plus
+Current local verification for this release line covers 448 Python tests plus
 181 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
-Ruff.
+Ruff, plus Python and frontend dependency audits.
 
 ## Operations Surface
 

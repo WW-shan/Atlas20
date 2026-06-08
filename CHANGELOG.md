@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-08
+
+### Fixed
+
+- Seed CLI now records Alembic migration state before inserting fallback run
+  fixtures, so a freshly seeded SQLite database can pass FastAPI lifespan
+  startup without an unversioned-schema failure.
+- API and OpenAPI version metadata now resolve from the installed package
+  version instead of a hardcoded application value.
+- Research pipeline runs without sector strategies now skip sector-exposure
+  report artifacts instead of crashing while selecting the best sector variant.
+- Web dependency audit is clean after upgrading Vitest to the patched 4.x
+  release line.
+
+### Changed
+
+- Release verification now mirrors CI by running repository health, pytest,
+  Ruff, strict API mypy, OpenAPI drift checks, Vitest, frontend typecheck,
+  production build, generated OpenAPI type drift checks, and Python/frontend
+  dependency audits.
+- Project version metadata updated to `0.2.2` for the Python package and web
+  package before tagging the release.
+
 ## [0.2.1] - 2026-05-30
 
 ### Added
