@@ -26,6 +26,10 @@ export const qk = {
   compare: (ids: string[], range: ChartRange) =>
     ["compare", [...ids].sort(), range] as const,
 
+  strategyLab: {
+    batch: (batchId: string) => ["strategy-lab", "batch", batchId] as const,
+  },
+
   universe: {
     all:      () => ["universe"] as const,
     timeline: () => ["universe", "timeline"] as const,

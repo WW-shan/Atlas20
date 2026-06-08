@@ -273,6 +273,42 @@ describe("requestJson API key header", () => {
     });
   });
 
+  it("submitStrategyLabBatch posts the matrix payload", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      batch_id: "lab_test",
+      runs: [],
+      total: 0,
+    }))));
+    const api = await import("./api");
+
+    await api.submitStrategyLabBatch({
+      presets: ["base"],
+      topNs: [20],
+      rebalances: ["Monthly"],
+      baseConfig: api.defaultBacktestConfig,
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/strategy-lab/batches");
+    expect(JSON.parse(String(init.body))).toMatchObject({ topNs: [20], rebalances: ["Monthly"] });
+  });
+
+  it("getStrategyLabBatch fetches a batch by id", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      batch_id: "lab_test",
+      status_counts: { queued: 1, running: 0, completed: 0, failed: 0, cancelled: 0 },
+      runs: [],
+      results: [],
+    }))));
+    const api = await import("./api");
+
+    await api.getStrategyLabBatch("lab_test");
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/strategy-lab/batches/lab_test");
+  });
+
   it("keeps status fallback messages for non-JSON download errors", async () => {
     vi.resetModules();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("missing", { status: 404 })));

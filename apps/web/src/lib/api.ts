@@ -245,6 +245,38 @@ export const defaultBacktestConfig: BacktestConfig = {
   costs: { feeBps: 10, slippageBps: 5 },
 };
 
+export type StrategyLabMatrixRequest = {
+  presets: string[];
+  topNs: number[];
+  rebalances: BacktestConfig["window"]["rebalance"][];
+  baseConfig: BacktestConfig;
+};
+
+export type StrategyLabResult = {
+  run_id: string;
+  preset: string;
+  topN: number;
+  rebalance: BacktestConfig["window"]["rebalance"];
+  status: RunStatusEnum;
+  return_pct?: number | null;
+  sharpe?: number | null;
+  max_dd?: number | null;
+  calmar?: number | null;
+};
+
+export type StrategyLabBatchResponse = {
+  batch_id: string;
+  runs: RunRowSummary[];
+  total: number;
+};
+
+export type StrategyLabBatchPayload = {
+  batch_id: string;
+  status_counts: Record<RunStatusEnum, number>;
+  runs: RunRow[];
+  results: StrategyLabResult[];
+};
+
 // ============================================================
 // §7.2 — History filter (page4)
 // ============================================================
@@ -773,6 +805,18 @@ export function runBacktest(payload: BacktestConfig) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function submitStrategyLabBatch(payload: StrategyLabMatrixRequest) {
+  return requestJson<StrategyLabBatchResponse>("/strategy-lab/batches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getStrategyLabBatch(batchId: string) {
+  return requestJson<StrategyLabBatchPayload>(`/strategy-lab/batches/${encodeURIComponent(batchId)}`);
 }
 
 export function listRunsQueue() {
