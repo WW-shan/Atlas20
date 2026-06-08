@@ -9,6 +9,7 @@ import {
   fallbackRunsList,
   fallbackRunDetail,
   fallbackCompare,
+  fallbackOptions,
   fallbackUniverseTimeline,
   fallbackDataSources,
   fallbackDataAlerts,
@@ -74,6 +75,12 @@ describe("Fallback data shapes", () => {
     expect(Object.keys(fallbackCompare.metrics)).toHaveLength(8);
     expect(fallbackCompare.overlap.symbols).toHaveLength(3);
     expect(fallbackCompare.overlap.matrix).toHaveLength(3);
+  });
+
+  it("fallbackOptions exposes addable compare strategies", () => {
+    expect(fallbackOptions.strategies?.length).toBeGreaterThan(0);
+    expect(fallbackOptions.strategies?.map((option) => option.strategy)).toContain("BTC_BH__always_on");
+    expect(fallbackOptions.strategies?.every((option) => option.display_name.length > 0)).toBe(true);
   });
 
   it("fallbackUniverseTimeline has 32 tokens", () => {

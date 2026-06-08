@@ -201,6 +201,15 @@ export type OptionsPayload = {
   sectors: string[];
 };
 
+const fallbackStrategies = [
+  { strategy: "BTC_BH__always_on", display_name: "BTC Benchmark · Always On" },
+  { strategy: "TOP20_EQ__always_on", display_name: "Equal Weight · Always On" },
+  { strategy: "TOP20_MOM_top6_monthly__always_on", display_name: "Momentum Rotation · Top6 Monthly · Always On" },
+  { strategy: "TOP20_MOM_top6_monthly__bull_only", display_name: "Momentum Rotation · Top6 Monthly · Bull Only" },
+  { strategy: "TOP20_SECTOR_top3_monthly__always_on", display_name: "Sector Rotation · Top3 Monthly · Always On" },
+  { strategy: "TOP20_SECTOR_top3_monthly__bull_only", display_name: "Sector Rotation · Top3 Monthly · Bull Only" },
+];
+
 export const fallbackOptions: OptionsPayload = {
   presets: [
     { slug: "base", display_name: "Base Config" },
@@ -208,7 +217,7 @@ export const fallbackOptions: OptionsPayload = {
     { slug: "five_year_exact_2021_04_22_2026_04_22", display_name: "Five Year Exact 2021 04 22 2026 04 22" },
     { slug: "bear_bottom_to_current_2022_11_21_2026_04_22", display_name: "Bear Bottom To Current 2022 11 21 2026 04 22" },
   ],
-  strategies: [],
+  strategies: fallbackStrategies,
   universes: [
     { topN: 5, label: "Top 5" },
     { topN: 10, label: "Top 10" },

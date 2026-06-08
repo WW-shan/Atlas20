@@ -1252,7 +1252,9 @@ def _discover_report_entries(report_root: Path) -> list[ReportEntry]:
     root = Path(report_root)
     if not root.exists():
         return []
-    entries: list[ReportEntry] = []
+
+    discovered: list[tuple[Path, Path, int]] = []
+    filename_counts: dict[str, int] = {}
     for path in sorted(root.rglob("*")):
         if not path.is_file():
             continue
@@ -1260,11 +1262,17 @@ def _discover_report_entries(report_root: Path) -> list[ReportEntry]:
         if _should_skip_report_path(relative):
             continue
         size_bytes = path.stat().st_size
+        discovered.append((path, relative, size_bytes))
+        filename_counts[path.name] = filename_counts.get(path.name, 0) + 1
+
+    entries: list[ReportEntry] = []
+    for path, relative, size_bytes in discovered:
+        title = relative.as_posix() if filename_counts[path.name] > 1 else path.name
         entries.append(
             ReportEntry.model_validate(
                 {
                     "id": _disk_report_id(root, path),
-                    "title": path.name,
+                    "title": title,
                     "subtitle": f"{relative.as_posix()} - {size_bytes} bytes",
                     "thumbnail": _disk_report_thumbnail(path),
                     "status": "ready",

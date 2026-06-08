@@ -363,6 +363,29 @@ def test_list_reports_sorts_discovered_report_files_by_size(
     assert reports[0].title == "large.csv"
 
 
+def test_list_reports_disambiguates_duplicate_disk_file_titles(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+):
+    report_root = tmp_path / "reports"
+    latest = report_root / "latest"
+    archive = report_root / "archive" / "run_001"
+    latest.mkdir(parents=True)
+    archive.mkdir(parents=True)
+    (latest / "yearly_returns.csv").write_text("year,return\n2026,0.12\n", encoding="utf-8")
+    (archive / "yearly_returns.csv").write_text("year,return\n2025,0.08\n", encoding="utf-8")
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    reports = list_reports("recent", db_session)
+
+    titles = {report.title for report in reports}
+    assert "latest/yearly_returns.csv" in titles
+    assert "archive/run_001/yearly_returns.csv" in titles
+    assert "yearly_returns.csv" not in titles
+
+
 def test_overview_data_source_real(tmp_path, monkeypatch):
     write_alpha_btc_report_csvs(tmp_path / "reports")
     monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
@@ -430,6 +453,21 @@ def test_load_options_falls_back_on_missing_data(tmp_path, monkeypatch, caplog):
     payload = get_options_payload()
 
     assert payload.model_dump() == mock_data.fallback_options
+    assert "Falling back to mock options" in caplog.text
+
+
+def test_load_options_fallback_exposes_strategy_choices(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
+    monkeypatch.setenv("ATLAS20_PROJECT_ROOT", str(tmp_path))
+    get_settings.cache_clear()
+    caplog.set_level("WARNING", logger="atlas20.api.services")
+
+    payload = get_options_payload()
+
+    assert payload.strategies
+    assert all(option.strategy and option.display_name for option in payload.strategies)
+    assert "BTC_BH__always_on" in {option.strategy for option in payload.strategies}
     assert "Falling back to mock options" in caplog.text
 
 

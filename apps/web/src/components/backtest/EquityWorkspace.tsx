@@ -231,7 +231,6 @@ export function EquityWorkspace({ detail }: Props) {
                   color: active ? "var(--text)" : "var(--muted)",
                   borderBottom: active ? "2px solid var(--violet)" : "2px solid transparent",
                   marginBottom: -1,
-                  opacity: active ? 1 : 0.75,
                   background: "transparent",
                   cursor: active ? "default" : "pointer",
                 }}

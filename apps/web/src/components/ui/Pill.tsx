@@ -11,7 +11,7 @@ export type PillProps = {
 const toneStyles: Record<PillTone, { color: string; bg: string; border: string }> = {
   emerald:       { color: "var(--emerald)", bg: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.30)" },
   cyan:          { color: "var(--cyan)",    bg: "rgba(6,182,212,0.10)",  border: "rgba(6,182,212,0.30)" },
-  rose:          { color: "var(--rose)",    bg: "rgba(244,63,94,0.10)",  border: "rgba(244,63,94,0.30)" },
+  rose:          { color: "#FB7185",        bg: "rgba(244,63,94,0.08)",  border: "rgba(244,63,94,0.30)" },
   violet:        { color: "var(--violet)",  bg: "rgba(139,92,246,0.10)", border: "rgba(139,92,246,0.30)" },
   muted:         { color: "var(--muted)",   bg: "rgba(148,163,184,0.06)",border: "rgba(148,163,184,0.20)" },
   gold:          { color: "var(--gold)",    bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.35)" },
