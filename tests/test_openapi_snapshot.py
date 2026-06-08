@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from importlib.metadata import version
+
 from atlas20.api.cli.openapi import default_schema_path, generate_schema, render_schema
 from atlas20.api.settings import get_settings
 
@@ -9,3 +11,7 @@ def test_openapi_snapshot_matches_generated_schema() -> None:
     snapshot_path = default_schema_path()
 
     assert snapshot_path.read_text(encoding="utf-8") == render_schema(generate_schema())
+
+
+def test_openapi_version_matches_distribution_version() -> None:
+    assert generate_schema()["info"]["version"] == version("atlas20-rotation")

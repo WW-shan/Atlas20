@@ -124,9 +124,9 @@ def _pipeline_version() -> str:
     try:
         import atlas20
 
-        return str(getattr(atlas20, "__version__", "0.1.0"))
+        return str(getattr(atlas20, "__version__", "unknown"))
     except ImportError:
-        return "0.1.0"
+        return "unknown"
 
 
 def _config_metadata() -> tuple[str, str]:

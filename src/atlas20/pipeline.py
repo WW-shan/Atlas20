@@ -92,14 +92,18 @@ def run_research_pipeline(config: ResearchConfig, refresh_raw: bool = False) -> 
     plot_drawdowns(results, reports_dir / "drawdowns.png", selected=selected)
     plot_rolling_returns(results, reports_dir / "rolling_12m_returns.png", config.reporting.rolling_window_days, selected=selected)
 
-    best_sector_name = summary[summary.index.to_series().str.startswith("TOP20_SECTOR_")].index[0]
-    best_sector_exposure = results[best_sector_name].sector_exposure
-    best_sector_exposure.to_csv(reports_dir / f"sector_exposure_{best_sector_name}.csv")
-    plot_sector_exposure(
-        best_sector_exposure,
-        reports_dir / f"sector_exposure_{best_sector_name}.png",
-        title=f"Sector Exposure - {best_sector_name}",
-    )
+    sector_names = summary[summary.index.to_series().str.startswith("TOP20_SECTOR_")].index
+    if len(sector_names) > 0:
+        best_sector_name = sector_names[0]
+        best_sector_exposure = results[best_sector_name].sector_exposure
+        best_sector_exposure.to_csv(reports_dir / f"sector_exposure_{best_sector_name}.csv")
+        plot_sector_exposure(
+            best_sector_exposure,
+            reports_dir / f"sector_exposure_{best_sector_name}.png",
+            title=f"Sector Exposure - {best_sector_name}",
+        )
+    else:
+        LOGGER.info("No sector strategy results found; skipping sector exposure artifact")
 
     build_markdown_report(config, summary, yearly, regime_perf, reports_dir / "atlas20_report.md")
     LOGGER.info("Pipeline complete. Report directory: %s", reports_dir)

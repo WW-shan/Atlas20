@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from atlas20.api import app as app_module
+from atlas20.api.db import migrate as migrate_module
 from atlas20.api.settings import get_settings
 
 
@@ -17,7 +18,7 @@ def test_lifespan_skips_file_lock_for_non_sqlite(monkeypatch):
     def forbidden_file_lock(*args, **kwargs):
         raise AssertionError("non-sqlite db_url must not use FileLock")
 
-    monkeypatch.setattr(app_module, "FileLock", forbidden_file_lock)
+    monkeypatch.setattr(migrate_module, "FileLock", forbidden_file_lock)
     monkeypatch.setattr("alembic.config.Config", DummyConfig)
     monkeypatch.setattr("alembic.command.upgrade", lambda cfg, revision: upgrades.append((cfg.path, revision)))
 
