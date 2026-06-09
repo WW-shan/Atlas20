@@ -600,11 +600,30 @@ def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
         min_days_after_start=30,
     )
 
+    expected_summary_columns = {
+        "candidate_id",
+        "start_count",
+        "median_rolling_start_multiple",
+        "min_rolling_start_multiple",
+        "max_rolling_start_multiple",
+        "max_rolling_start_drawdown",
+        "median_rolling_start_drawdown",
+    }
+    expected_detail_columns = {
+        "candidate_id",
+        "start_date",
+        "multiple",
+        "cagr",
+        "sharpe",
+        "max_drawdown",
+        "annualized_turnover",
+    }
+
     assert summary.loc[0, "candidate_id"] == "ctrend_lite_test"
-    assert summary.loc[0, "start_count"] >= 1
-    assert {"candidate_id", "start_date", "multiple", "max_drawdown"}.issubset(
-        by_candidate.columns
-    )
+    assert summary.loc[0, "start_count"] >= 2
+    assert by_candidate["start_date"].nunique() >= 2
+    assert expected_summary_columns.issubset(summary.columns)
+    assert expected_detail_columns.issubset(by_candidate.columns)
 
 
 def test_compute_contribution_summary_records_top_dependency() -> None:
