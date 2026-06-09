@@ -99,14 +99,6 @@ def _rank_high(series: pd.Series) -> pd.Series:
     return clean.rank(pct=True)
 
 
-def _rank_low(series: pd.Series) -> pd.Series:
-    """Percentile rank where smaller values are better."""
-    clean = _clean_numeric(series)
-    if clean.dropna().empty:
-        return pd.Series(np.nan, index=series.index, dtype=float)
-    return clean.rank(pct=True, ascending=False)
-
-
 def _trailing_return(
     price: pd.DataFrame,
     rebalance_date: pd.Timestamp,
@@ -157,26 +149,15 @@ def _volatility_14(
     return price_history.pct_change(fill_method=None).tail(14).std()
 
 
-def _reference_return_28(market: MarketDataBundle, rebalance_date: pd.Timestamp) -> float | None:
+def _reference_returns_28(market: MarketDataBundle, rebalance_date: pd.Timestamp) -> pd.Series:
     if any(asset not in market.price.columns for asset in REFERENCE_ASSETS):
-        return None
-    reference_returns = _trailing_return(
+        return pd.Series(np.nan, index=REFERENCE_ASSETS, dtype=float)
+    return _trailing_return(
         market.price,
         rebalance_date,
         list(REFERENCE_ASSETS),
         28,
-    ).dropna()
-    if reference_returns.empty:
-        return None
-    return float(reference_returns.mean())
-
-
-def _regime_allows(date: pd.Timestamp, regime_frame: pd.DataFrame, regime_mode: str) -> bool:
-    if regime_mode == "always_on":
-        return True
-    if date not in regime_frame.index:
-        return False
-    return bool(regime_frame.loc[date, "bull"])
+    ).reindex(list(REFERENCE_ASSETS))
 
 
 def _universe_lookup(universe: pd.DataFrame) -> dict[pd.Timestamp, pd.DataFrame]:
@@ -209,12 +190,18 @@ def compute_ctrend_lite_scores(
 ) -> pd.Series:
     """Compute CTREND-lite scores for a point-in-time candidate list."""
     candidate_ids = _dedupe(coin_ids)
-    if require_reference_assets and not set(REFERENCE_ASSETS).issubset(candidate_ids):
-        raise ValueError("CTREND-lite relative strength requires bitcoin and ethereum in coin_ids")
+    rebalance_date = pd.Timestamp(rebalance_date)
+    reference_returns = _reference_returns_28(market, rebalance_date)
+    if require_reference_assets and (
+        not set(REFERENCE_ASSETS).issubset(candidate_ids) or reference_returns.isna().any()
+    ):
+        raise ValueError(
+            "CTREND-lite relative strength requires bitcoin and ethereum in coin_ids "
+            "with usable 28d market price history"
+        )
     if not candidate_ids:
         return pd.Series(dtype=float)
 
-    rebalance_date = pd.Timestamp(rebalance_date)
     frame = pd.DataFrame(index=candidate_ids)
     for window in RETURN_WINDOWS:
         frame[f"ret_{window}"] = _trailing_return(market.price, rebalance_date, candidate_ids, window)
@@ -235,9 +222,8 @@ def compute_ctrend_lite_scores(
     frame["volatility_14"] = _volatility_14(market.price, rebalance_date, frame.index.tolist())
     frame["overheat_7"] = frame["ret_7"].abs()
 
-    reference_return = _reference_return_28(market, rebalance_date)
-    if reference_return is not None:
-        frame["relative_strength_28"] = frame["ret_28"] - reference_return
+    if reference_returns.notna().all():
+        frame["relative_strength_28"] = frame["ret_28"] - float(reference_returns.mean())
     else:
         frame["relative_strength_28"] = np.nan
 
@@ -284,16 +270,12 @@ def compute_ctrend_lite_scores(
 def build_ctrend_lite_targets(
     market: MarketDataBundle,
     universe: pd.DataFrame,
-    regime_frame: pd.DataFrame,
     config: ResearchConfig,
     *,
     top_n: int = 2,
     frequency: str = "biweekly",
-    regime_mode: str = "bull_only",
-    weighted: bool = True,
     score_family: str = "ctrend_lite_balanced",
-    score_weights: CTrendLiteScoreWeights | None = None,
-    require_reference_assets: bool = False,
+    include_btc: bool = True,
 ) -> MomentumLeadBuildResult:
     """Build concentrated CTREND-lite leader targets."""
     frequency_value = config.rebalancing.frequencies.get(frequency, frequency)
@@ -304,34 +286,33 @@ def build_ctrend_lite_targets(
         frequency_value,
     )
     universe_by_date = _universe_lookup(universe)
-    weights = score_weights or CTREND_LITE_SCORE_FAMILIES[score_family]
+    weights = CTREND_LITE_SCORE_FAMILIES[score_family]
 
     targets: dict[pd.Timestamp, pd.Series] = {}
     selection_rows: list[dict] = []
 
     for date in rebalance_dates:
-        if regime_mode == "bull_only" and not _regime_allows(date, regime_frame, regime_mode):
-            targets[date] = pd.Series(dtype=float)
-            continue
-
         snapshot = universe_by_date.get(date)
         if snapshot is None or snapshot.empty:
             targets[date] = pd.Series(dtype=float)
             continue
 
+        coin_ids = snapshot["coin_id"].tolist()
+        if not include_btc:
+            coin_ids = [coin_id for coin_id in coin_ids if coin_id != "bitcoin"]
+
         scores = compute_ctrend_lite_scores(
             market,
             date,
-            snapshot["coin_id"].tolist(),
+            coin_ids,
             weights,
-            require_reference_assets=require_reference_assets,
         )
         selected = scores.head(top_n)
         if selected.empty:
             targets[date] = pd.Series(dtype=float)
             continue
 
-        allocation_weights = _weight_scheme(len(selected), weighted)
+        allocation_weights = _weight_scheme(len(selected), weighted=True)
         target = pd.Series(
             {coin_id: weight for (coin_id, _), weight in zip(selected.items(), allocation_weights)}
         )

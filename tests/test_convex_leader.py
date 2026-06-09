@@ -5,8 +5,10 @@ import pytest
 
 from atlas20.strategies.convex_leader import (
     CTREND_LITE_SCORE_FAMILIES,
+    build_ctrend_lite_targets,
     compute_ctrend_lite_scores,
 )
+from atlas20.config import load_config
 from atlas20.universe.builder import MarketDataBundle
 
 
@@ -129,3 +131,47 @@ def test_ctrend_lite_scores_require_btc_and_eth_for_relative_strength() -> None:
             CTREND_LITE_SCORE_FAMILIES["ctrend_lite_balanced"],
             require_reference_assets=True,
         )
+
+
+def test_ctrend_lite_scores_require_usable_reference_asset_history() -> None:
+    market = _toy_market()
+    market.price.loc[market.price.index[-29]:, "ethereum"] = pd.NA
+    date = market.price.index[-1]
+
+    with pytest.raises(ValueError, match="bitcoin and ethereum"):
+        compute_ctrend_lite_scores(
+            market,
+            date,
+            ["bitcoin", "ethereum", "solana"],
+            CTREND_LITE_SCORE_FAMILIES["ctrend_lite_balanced"],
+            require_reference_assets=True,
+        )
+
+
+def test_build_ctrend_lite_targets_uses_planned_interface_and_can_exclude_btc() -> None:
+    market = _toy_market()
+    date = market.price.index[-1]
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [date, date, date],
+            "coin_id": ["bitcoin", "solana", "chainlink"],
+            "sector": ["Store of Value", "Smart Contract Platform / L1", "Infrastructure"],
+        }
+    )
+    config = load_config("config/base.yaml")
+    config.start_date = str(date.date())
+    config.rebalancing.frequencies["daily"] = "1D"
+
+    result = build_ctrend_lite_targets(
+        market,
+        universe,
+        config,
+        top_n=2,
+        frequency="daily",
+        score_family="ctrend_lite_balanced",
+        include_btc=False,
+    )
+
+    assert date in result.targets
+    assert "bitcoin" not in result.targets[date].index
+    assert not result.targets[date].empty
