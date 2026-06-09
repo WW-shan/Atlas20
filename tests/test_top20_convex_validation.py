@@ -8,6 +8,8 @@ from atlas20.universe.builder import MarketDataBundle
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
     _add_candidate_ids,
+    _all_rebalance_dates,
+    build_validated_candidate_summary,
     build_candidate_definitions,
     compute_contribution_summary,
     compute_cost_sensitivity,
@@ -19,6 +21,7 @@ from scripts.run_top20_convex_validation import (
     run_full_window_screen,
     run_one_candidate,
     select_validation_candidates,
+    write_validation_outputs,
 )
 
 
@@ -797,3 +800,252 @@ def test_compute_contribution_summary_records_top_dependency() -> None:
     assert summary.loc[0, "candidate_id"] == "candidate"
     assert summary.loc[0, "top_coin_id"] == "solana"
     assert summary.loc[0, "top1_contribution_share"] == pytest.approx(1.0)
+
+
+def test_write_validation_outputs_creates_required_files(tmp_path) -> None:
+    candidate_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "family_id": "ctrend_lite",
+                "strategy_kind": "ctrend_lite",
+                "top_n": 1,
+                "frequency": "14D",
+                "score_family": "ctrend_lite_balanced",
+                "liquidity_label": "loose",
+                "multiple": 120.0,
+                "cagr": 1.2,
+                "sharpe": 2.0,
+                "max_drawdown": -0.50,
+                "annualized_turnover": 12.0,
+                "best_rolling_5y_multiple": 110.0,
+                "hundred_x_hit_rate_5y": 0.20,
+                "median_rolling_start_multiple": 95.0,
+                "cost_survival_100bps": 0.80,
+                "stability_score": 0.70,
+                "raw_convexity_score": 3.0,
+                "robust_convexity_score": 2.0,
+                "screening_robust_convexity_score": 1.5,
+                "validation_diagnostics_available": True,
+            }
+        ]
+    )
+    champion_ablation = candidate_summary[["candidate_id", "family_id", "multiple"]].copy()
+    rolling_start_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "start_count": 3,
+                "median_rolling_start_multiple": 95.0,
+                "min_rolling_start_multiple": 60.0,
+                "max_rolling_start_multiple": 130.0,
+                "max_rolling_start_drawdown": -0.55,
+                "median_rolling_start_drawdown": -0.40,
+            }
+        ]
+    )
+    rolling_start_by_candidate = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "start_date": "2024-01-01",
+                "multiple": 95.0,
+                "cagr": 1.0,
+                "sharpe": 1.8,
+                "max_drawdown": -0.40,
+                "annualized_turnover": 12.0,
+            }
+        ]
+    )
+    rolling_window_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "best_rolling_5y_multiple": 110.0,
+                "median_rolling_5y_multiple": 90.0,
+                "hundred_x_hit_rate_5y": 0.20,
+            }
+        ]
+    )
+    hundred_x_windows = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "window_label": "5y",
+                "window_end": "2026-01-01",
+                "multiple": 110.0,
+            }
+        ]
+    )
+    stability_surface = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "neighbor_count": 2,
+                "median_neighbor_multiple": 100.0,
+                "stability_score": 0.70,
+            }
+        ]
+    )
+    cost_sensitivity = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "total_cost_bps": 100.0,
+                "base_multiple": 120.0,
+                "stressed_multiple": 96.0,
+                "survival_ratio": 0.80,
+            }
+        ]
+    )
+    liquidity_sensitivity = candidate_summary[
+        ["candidate_id", "family_id", "liquidity_label", "multiple"]
+    ].copy()
+    contribution_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate_a",
+                "top_coin_id": "solana",
+                "top1_contribution_share": 0.50,
+                "top3_contribution_share": 0.80,
+                "top5_contribution_share": 0.95,
+            }
+        ]
+    )
+    trial_log = candidate_summary[["candidate_id", "family_id", "strategy_kind"]].copy()
+
+    write_validation_outputs(
+        tmp_path,
+        candidate_summary=candidate_summary,
+        champion_ablation=champion_ablation,
+        rolling_start_summary=rolling_start_summary,
+        rolling_start_by_candidate=rolling_start_by_candidate,
+        rolling_window_summary=rolling_window_summary,
+        hundred_x_windows=hundred_x_windows,
+        stability_surface=stability_surface,
+        cost_sensitivity=cost_sensitivity,
+        liquidity_sensitivity=liquidity_sensitivity,
+        contribution_summary=contribution_summary,
+        trial_log=trial_log,
+    )
+
+    expected_files = {
+        "candidate_summary.csv",
+        "candidate_top50_raw.csv",
+        "candidate_top50_robust.csv",
+        "champion_ablation.csv",
+        "rolling_start_summary.csv",
+        "rolling_start_by_candidate.csv",
+        "rolling_window_summary.csv",
+        "hundred_x_windows.csv",
+        "stability_surface.csv",
+        "cost_sensitivity.csv",
+        "liquidity_sensitivity.csv",
+        "contribution_summary.csv",
+        "trial_log.csv",
+        "top20_convex_validation_report.md",
+    }
+    assert expected_files == {path.name for path in tmp_path.iterdir()}
+    report = (tmp_path / "top20_convex_validation_report.md").read_text(encoding="utf-8")
+    assert "Top20 Convex Leader Validation" in report
+    assert "Best Raw Convexity Candidate" in report
+    assert "Best Screening Robust Candidate" in report
+    assert "100x Rolling Windows" in report
+    assert "full-screen rankings" in report
+    assert "candidate_a" in report
+
+
+def test_build_validated_candidate_summary_merges_diagnostics_and_recomputes_score() -> None:
+    candidate_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "validated",
+                "multiple": 120.0,
+                "best_rolling_5y_multiple": 100.0,
+                "hundred_x_hit_rate_5y": 0.30,
+                "median_rolling_start_multiple": 120.0,
+                "max_drawdown": -0.50,
+                "annualized_turnover": 20.0,
+                "cost_survival_100bps": 0.0,
+                "stability_score": 0.0,
+                "raw_convexity_score": 3.0,
+                "robust_convexity_score": 0.1,
+            },
+            {
+                "candidate_id": "screen_only",
+                "multiple": 80.0,
+                "best_rolling_5y_multiple": 75.0,
+                "hundred_x_hit_rate_5y": 0.10,
+                "median_rolling_start_multiple": 80.0,
+                "max_drawdown": -0.40,
+                "annualized_turnover": 10.0,
+                "cost_survival_100bps": 0.0,
+                "stability_score": 0.0,
+                "raw_convexity_score": 2.0,
+                "robust_convexity_score": 0.2,
+            },
+        ]
+    )
+    rolling_start_summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "validated",
+                "start_count": 4,
+                "median_rolling_start_multiple": 50.0,
+                "min_rolling_start_multiple": 20.0,
+                "max_rolling_start_multiple": 130.0,
+                "max_rolling_start_drawdown": -0.65,
+                "median_rolling_start_drawdown": -0.45,
+            }
+        ]
+    )
+    cost_sensitivity = pd.DataFrame(
+        [
+            {
+                "candidate_id": "validated",
+                "total_cost_bps": 100.0,
+                "base_multiple": 120.0,
+                "stressed_multiple": 72.0,
+                "survival_ratio": 0.60,
+            }
+        ]
+    )
+    stability_surface = pd.DataFrame(
+        [
+            {
+                "candidate_id": "validated",
+                "neighbor_count": 3,
+                "median_neighbor_multiple": 90.0,
+                "stability_score": 0.75,
+            }
+        ]
+    )
+
+    validated_summary = build_validated_candidate_summary(
+        candidate_summary,
+        rolling_start_summary=rolling_start_summary,
+        cost_sensitivity=cost_sensitivity,
+        stability_surface=stability_surface,
+    )
+
+    row = validated_summary.set_index("candidate_id").loc["validated"]
+    expected_score = compute_robust_convexity_score(row)
+    assert row["screening_robust_convexity_score"] == pytest.approx(0.1)
+    assert row["median_rolling_start_multiple"] == pytest.approx(50.0)
+    assert row["cost_survival_100bps"] == pytest.approx(0.60)
+    assert row["stability_score"] == pytest.approx(0.75)
+    assert row["validation_diagnostics_available"]
+    assert row["robust_convexity_score"] == pytest.approx(expected_score)
+
+    screen_only = validated_summary.set_index("candidate_id").loc["screen_only"]
+    assert not screen_only["validation_diagnostics_available"]
+    assert screen_only["robust_convexity_score"] == pytest.approx(0.2)
+
+
+def test_all_rebalance_dates_includes_literal_weekly_without_mutating_config() -> None:
+    config = _script_config()
+    original_frequencies = dict(config.rebalancing.frequencies)
+    dates = _all_rebalance_dates(pd.date_range("2024-03-01", periods=30, freq="D"), config)
+
+    assert pd.Timestamp("2024-03-08") in dates
+    assert config.rebalancing.frequencies == original_frequencies

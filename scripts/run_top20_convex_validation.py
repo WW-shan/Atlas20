@@ -14,8 +14,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from atlas20.analytics.metrics import compute_summary_metrics  # noqa: E402
+from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 from atlas20.backtest.engine import BacktestResult, run_backtest  # noqa: E402
-from atlas20.config import FrictionConfig, ResearchConfig  # noqa: E402
+from atlas20.config import FrictionConfig, ResearchConfig, load_config, load_sector_config  # noqa: E402
+from atlas20.data.processor import build_processed_datasets  # noqa: E402
+from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
+from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 from atlas20.signals.risk import btc_above_moving_average, btc_above_trailing_price  # noqa: E402
 from atlas20.strategies.convex_leader import (  # noqa: E402
     CTREND_LITE_SCORE_FAMILIES,
@@ -23,7 +27,11 @@ from atlas20.strategies.convex_leader import (  # noqa: E402
 )
 from atlas20.strategies.momentum_lead import build_momentum_lead_targets  # noqa: E402
 from atlas20.strategies.overlays import apply_daily_risk_overlay  # noqa: E402
-from atlas20.universe.builder import MarketDataBundle  # noqa: E402
+from atlas20.universe.builder import (  # noqa: E402
+    MarketDataBundle,
+    build_rebalance_universe,
+    prepare_market_data,
+)
 
 
 @dataclass(frozen=True)
@@ -139,6 +147,11 @@ PARKING_TARGETS: dict[str, pd.Series | None] = {
     "btc": pd.Series({"bitcoin": 1.0}),
     "eth": pd.Series({"ethereum": 1.0}),
 }
+
+CHAMPION_CANDIDATE_ID = (
+    "champion_ablation__leader_momentum__top1__14d__base__loose__with_btc__"
+    "champion_ablation_stop11"
+)
 
 
 FULL_WINDOW_SCREEN_COLUMNS: tuple[str, ...] = (
@@ -1176,11 +1189,696 @@ def candidate_records(candidates: list[CandidateDefinition]) -> pd.DataFrame:
     return pd.DataFrame([asdict(candidate) for candidate in candidates])
 
 
+def _candidate_ids_from_frame(frame: pd.DataFrame) -> set[str]:
+    if frame.empty or "candidate_id" not in frame.columns:
+        return set()
+    return set(frame["candidate_id"].dropna().astype(str))
+
+
+def _assign_diagnostic_columns(
+    summary: pd.DataFrame,
+    diagnostics: pd.DataFrame,
+    columns: list[str],
+) -> None:
+    if diagnostics.empty or "candidate_id" not in diagnostics.columns:
+        return
+
+    indexed = diagnostics.drop_duplicates("candidate_id").copy()
+    indexed["candidate_id"] = indexed["candidate_id"].astype(str)
+    indexed = indexed.set_index("candidate_id")
+    candidate_ids = summary["candidate_id"].astype(str)
+    for column in columns:
+        if column not in indexed.columns:
+            continue
+        if column not in summary.columns:
+            summary[column] = math.nan
+        mapped = candidate_ids.map(indexed[column])
+        present = mapped.notna()
+        summary.loc[present, column] = mapped[present]
+
+
+def _cost_survival_at_100bps(cost_sensitivity: pd.DataFrame) -> pd.DataFrame:
+    if cost_sensitivity.empty or "candidate_id" not in cost_sensitivity.columns:
+        return pd.DataFrame(columns=["candidate_id", "cost_survival_100bps"])
+    required_columns = {"total_cost_bps", "survival_ratio"}
+    if not required_columns.issubset(cost_sensitivity.columns):
+        return pd.DataFrame(columns=["candidate_id", "cost_survival_100bps"])
+
+    frame = cost_sensitivity.copy()
+    frame["_total_cost_bps"] = pd.to_numeric(frame["total_cost_bps"], errors="coerce")
+    frame = frame[(frame["_total_cost_bps"] - 100.0).abs() <= 1e-9]
+    if frame.empty:
+        return pd.DataFrame(columns=["candidate_id", "cost_survival_100bps"])
+    frame = frame.drop_duplicates("candidate_id", keep="last")
+    return frame[["candidate_id", "survival_ratio"]].rename(
+        columns={"survival_ratio": "cost_survival_100bps"}
+    )
+
+
+def build_validated_candidate_summary(
+    candidate_summary: pd.DataFrame,
+    *,
+    rolling_start_summary: pd.DataFrame,
+    cost_sensitivity: pd.DataFrame,
+    stability_surface: pd.DataFrame,
+) -> pd.DataFrame:
+    summary = candidate_summary.copy()
+    if summary.empty:
+        return summary
+    if "candidate_id" not in summary.columns:
+        raise ValueError("candidate_summary is missing required column: candidate_id")
+
+    if "raw_convexity_score" in summary.columns and "screening_raw_convexity_score" not in summary:
+        summary["screening_raw_convexity_score"] = summary["raw_convexity_score"]
+    if (
+        "robust_convexity_score" in summary.columns
+        and "screening_robust_convexity_score" not in summary
+    ):
+        summary["screening_robust_convexity_score"] = summary["robust_convexity_score"]
+
+    validation_ids = (
+        _candidate_ids_from_frame(rolling_start_summary)
+        | _candidate_ids_from_frame(cost_sensitivity)
+        | _candidate_ids_from_frame(stability_surface)
+    )
+
+    _assign_diagnostic_columns(
+        summary,
+        rolling_start_summary,
+        [
+            "start_count",
+            "median_rolling_start_multiple",
+            "min_rolling_start_multiple",
+            "max_rolling_start_multiple",
+            "max_rolling_start_drawdown",
+            "median_rolling_start_drawdown",
+        ],
+    )
+    _assign_diagnostic_columns(
+        summary,
+        _cost_survival_at_100bps(cost_sensitivity),
+        ["cost_survival_100bps"],
+    )
+    _assign_diagnostic_columns(
+        summary,
+        stability_surface,
+        ["neighbor_count", "median_neighbor_multiple", "stability_score"],
+    )
+
+    candidate_ids = summary["candidate_id"].astype(str)
+    if "validation_diagnostics_available" not in summary.columns:
+        summary["validation_diagnostics_available"] = False
+    summary["validation_diagnostics_available"] = (
+        summary["validation_diagnostics_available"].fillna(False).astype(bool)
+        | candidate_ids.isin(validation_ids)
+    )
+
+    if "robust_convexity_score" not in summary.columns:
+        summary["robust_convexity_score"] = summary.apply(
+            compute_robust_convexity_score,
+            axis=1,
+        )
+
+    validation_mask = candidate_ids.isin(validation_ids)
+    if validation_mask.any():
+        summary.loc[validation_mask, "robust_convexity_score"] = summary.loc[
+            validation_mask
+        ].apply(compute_robust_convexity_score, axis=1)
+    summary["validated_robust_convexity_score"] = math.nan
+    summary.loc[
+        validation_mask,
+        "validated_robust_convexity_score",
+    ] = summary.loc[validation_mask, "robust_convexity_score"]
+    return summary
+
+
+def _sort_candidates(
+    frame: pd.DataFrame,
+    score_column: str,
+    *,
+    limit: int | None = None,
+) -> pd.DataFrame:
+    if frame.empty:
+        return frame.copy()
+    if score_column not in frame.columns:
+        return frame.head(limit).copy() if limit is not None else frame.copy()
+
+    sortable = frame.copy()
+    sortable["_sort_score"] = pd.to_numeric(sortable[score_column], errors="coerce").fillna(
+        -math.inf
+    )
+    if "multiple" in sortable.columns:
+        sortable["_sort_multiple"] = pd.to_numeric(
+            sortable["multiple"],
+            errors="coerce",
+        ).fillna(-math.inf)
+        sort_columns = ["_sort_score", "_sort_multiple"]
+    else:
+        sort_columns = ["_sort_score"]
+    sorted_frame = sortable.sort_values(
+        sort_columns,
+        ascending=[False] * len(sort_columns),
+        kind="mergesort",
+    ).drop(columns=[column for column in ("_sort_score", "_sort_multiple") if column in sortable])
+    return sorted_frame.head(limit).copy() if limit is not None else sorted_frame.copy()
+
+
+def _screening_raw_score_column(frame: pd.DataFrame) -> str:
+    if "screening_raw_convexity_score" in frame.columns:
+        return "screening_raw_convexity_score"
+    return "raw_convexity_score"
+
+
+def _screening_robust_score_column(frame: pd.DataFrame) -> str:
+    if "screening_robust_convexity_score" in frame.columns:
+        return "screening_robust_convexity_score"
+    return "robust_convexity_score"
+
+
+def _write_csv(path: Path, frame: pd.DataFrame) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(path, index=False)
+
+
+def _markdown_table(
+    frame: pd.DataFrame,
+    columns: list[str],
+    *,
+    max_rows: int = 10,
+) -> str:
+    if frame.empty:
+        return "No rows."
+    available_columns = [column for column in dict.fromkeys(columns) if column in frame.columns]
+    if not available_columns:
+        return "No matching columns."
+    return dataframe_to_markdown(
+        frame.head(max_rows)[available_columns].reset_index(drop=True),
+        percent_columns={
+            "cagr",
+            "max_drawdown",
+            "monthly_win_rate",
+            "hundred_x_hit_rate_3y",
+            "hundred_x_hit_rate_5y",
+            "cost_survival_100bps",
+            "stability_score",
+            "survival_ratio",
+            "top1_contribution_share",
+            "top3_contribution_share",
+            "top5_contribution_share",
+        },
+        number_columns={
+            "multiple",
+            "best_rolling_3y_multiple",
+            "best_rolling_5y_multiple",
+            "median_rolling_3y_multiple",
+            "median_rolling_5y_multiple",
+            "median_rolling_start_multiple",
+            "min_rolling_start_multiple",
+            "max_rolling_start_multiple",
+            "base_multiple",
+            "stressed_multiple",
+            "median_neighbor_multiple",
+            "annualized_turnover",
+            "avg_turnover_per_rebalance",
+            "average_holdings",
+            "sharpe",
+            "sortino",
+            "calmar",
+            "raw_convexity_score",
+            "robust_convexity_score",
+            "screening_raw_convexity_score",
+            "screening_robust_convexity_score",
+            "validated_robust_convexity_score",
+            "start_count",
+            "neighbor_count",
+            "total_cost_bps",
+        },
+    )
+
+
+def _append_markdown_section(
+    lines: list[str],
+    title: str,
+    frame: pd.DataFrame,
+    columns: list[str],
+    *,
+    max_rows: int = 10,
+) -> None:
+    lines.extend(
+        [
+            f"## {title}",
+            "",
+            _markdown_table(frame, columns, max_rows=max_rows),
+            "",
+        ]
+    )
+
+
+def _validated_rows(candidate_summary: pd.DataFrame) -> pd.DataFrame:
+    if candidate_summary.empty or "validation_diagnostics_available" not in candidate_summary:
+        return pd.DataFrame(columns=candidate_summary.columns)
+    return candidate_summary[candidate_summary["validation_diagnostics_available"].fillna(False)].copy()
+
+
+def write_validation_outputs(
+    report_dir: Path,
+    *,
+    candidate_summary: pd.DataFrame,
+    champion_ablation: pd.DataFrame,
+    rolling_start_summary: pd.DataFrame,
+    rolling_start_by_candidate: pd.DataFrame,
+    rolling_window_summary: pd.DataFrame,
+    hundred_x_windows: pd.DataFrame,
+    stability_surface: pd.DataFrame,
+    cost_sensitivity: pd.DataFrame,
+    liquidity_sensitivity: pd.DataFrame,
+    contribution_summary: pd.DataFrame,
+    trial_log: pd.DataFrame,
+) -> None:
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_top50 = _sort_candidates(
+        candidate_summary,
+        _screening_raw_score_column(candidate_summary),
+        limit=50,
+    )
+    robust_top50 = _sort_candidates(
+        candidate_summary,
+        _screening_robust_score_column(candidate_summary),
+        limit=50,
+    )
+
+    outputs = {
+        "candidate_summary.csv": candidate_summary,
+        "candidate_top50_raw.csv": raw_top50,
+        "candidate_top50_robust.csv": robust_top50,
+        "champion_ablation.csv": champion_ablation,
+        "rolling_start_summary.csv": rolling_start_summary,
+        "rolling_start_by_candidate.csv": rolling_start_by_candidate,
+        "rolling_window_summary.csv": rolling_window_summary,
+        "hundred_x_windows.csv": hundred_x_windows,
+        "stability_surface.csv": stability_surface,
+        "cost_sensitivity.csv": cost_sensitivity,
+        "liquidity_sensitivity.csv": liquidity_sensitivity,
+        "contribution_summary.csv": contribution_summary,
+        "trial_log.csv": trial_log,
+    }
+    for filename, frame in outputs.items():
+        _write_csv(report_dir / filename, frame)
+
+    validated_summary = _sort_candidates(
+        _validated_rows(candidate_summary),
+        "robust_convexity_score",
+    )
+    markdown_lines: list[str] = [
+        "# Top20 Convex Leader Validation",
+        "",
+        "## Notes",
+        "",
+        "- Raw and robust screening rankings are full-screen rankings from the full-window screen.",
+        "- Full-window screening scores are separate from validated subset diagnostics.",
+        "- Validated robustness is only shown after merging rolling-start, 100 bps cost, "
+        "and stability diagnostics for selected validation candidates.",
+        "- This report is research output only and does not execute trades.",
+        "",
+    ]
+    _append_markdown_section(
+        markdown_lines,
+        "Best Raw Convexity Candidate",
+        raw_top50.head(1),
+        [
+            "candidate_id",
+            "family_id",
+            "strategy_kind",
+            "top_n",
+            "frequency",
+            "liquidity_label",
+            "multiple",
+            "cagr",
+            "sharpe",
+            "max_drawdown",
+            "screening_raw_convexity_score",
+            "raw_convexity_score",
+        ],
+        max_rows=1,
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Best Screening Robust Candidate",
+        robust_top50.head(1),
+        [
+            "candidate_id",
+            "family_id",
+            "strategy_kind",
+            "top_n",
+            "frequency",
+            "liquidity_label",
+            "multiple",
+            "cagr",
+            "sharpe",
+            "max_drawdown",
+            "screening_robust_convexity_score",
+            "robust_convexity_score",
+        ],
+        max_rows=1,
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Validated Candidate Diagnostics",
+        validated_summary,
+        [
+            "candidate_id",
+            "family_id",
+            "multiple",
+            "screening_robust_convexity_score",
+            "validated_robust_convexity_score",
+            "median_rolling_start_multiple",
+            "cost_survival_100bps",
+            "stability_score",
+            "start_count",
+            "neighbor_count",
+        ],
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "100x Rolling Windows",
+        hundred_x_windows,
+        ["candidate_id", "window_label", "window_end", "multiple"],
+        max_rows=25,
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Rolling-Start Diagnostics",
+        rolling_start_summary,
+        [
+            "candidate_id",
+            "start_count",
+            "median_rolling_start_multiple",
+            "min_rolling_start_multiple",
+            "max_rolling_start_multiple",
+            "max_rolling_start_drawdown",
+            "median_rolling_start_drawdown",
+        ],
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Cost Sensitivity",
+        cost_sensitivity,
+        [
+            "candidate_id",
+            "total_cost_bps",
+            "base_multiple",
+            "stressed_multiple",
+            "survival_ratio",
+        ],
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Stability Surface",
+        stability_surface,
+        [
+            "candidate_id",
+            "neighbor_count",
+            "median_neighbor_multiple",
+            "stability_score",
+        ],
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Contribution Concentration",
+        contribution_summary,
+        [
+            "candidate_id",
+            "top_coin_id",
+            "top1_contribution_share",
+            "top3_contribution_share",
+            "top5_contribution_share",
+        ],
+    )
+    _append_markdown_section(
+        markdown_lines,
+        "Champion Ablation",
+        champion_ablation,
+        [
+            "candidate_id",
+            "overlay_set",
+            "stop_lookback",
+            "multiple",
+            "cagr",
+            "sharpe",
+            "max_drawdown",
+            "raw_convexity_score",
+            "robust_convexity_score",
+        ],
+    )
+    (report_dir / "top20_convex_validation_report.md").write_text(
+        "\n".join(markdown_lines),
+        encoding="utf-8",
+    )
+
+
+def _all_rebalance_dates(
+    index: pd.DatetimeIndex,
+    config: ResearchConfig,
+) -> list[pd.Timestamp]:
+    dates: set[pd.Timestamp] = set()
+    for frequency_name, frequency_value in config.rebalancing.frequencies.items():
+        dates.update(
+            get_rebalance_dates(
+                index,
+                config.start_timestamp,
+                frequency_name,
+                frequency_value,
+            )
+        )
+    for frequency in ("7D", "14D", "21D", "28D"):
+        dates.update(
+            get_rebalance_dates(
+                index,
+                config.start_timestamp,
+                frequency,
+                frequency,
+            )
+        )
+    return sorted(dates)
+
+
+def _build_universe_variants(
+    market: MarketDataBundle,
+    config: ResearchConfig,
+) -> dict[str, pd.DataFrame]:
+    rebalance_dates = _all_rebalance_dates(market.price.index, config)
+    universe_by_liquidity: dict[str, pd.DataFrame] = {}
+    for liquidity_label, (
+        min_history_days,
+        min_daily_dollar_volume,
+    ) in LIQUIDITY_SETS.items():
+        local_config = config.model_copy(deep=True)
+        local_config.universe.min_history_days = min_history_days
+        local_config.universe.min_daily_dollar_volume = min_daily_dollar_volume
+        universe_by_liquidity[liquidity_label] = build_rebalance_universe(
+            market,
+            rebalance_dates,
+            local_config,
+        )
+    return universe_by_liquidity
+
+
+def _matching_liquidity_rows(
+    summary: pd.DataFrame,
+    candidate: pd.Series,
+) -> pd.DataFrame:
+    match_columns = [
+        "family_id",
+        "strategy_kind",
+        "score_family",
+        "include_btc",
+        "top_n",
+        "frequency",
+        "overlay_set",
+        "stop_kind",
+        "stop_lookback",
+        "stop_confirm_days",
+        "ma_window",
+        "risk_off_asset",
+        "initial_asset",
+    ]
+    mask = pd.Series(True, index=summary.index)
+    for column in match_columns:
+        if column not in summary.columns or column not in candidate.index:
+            continue
+        value = candidate[column]
+        if pd.isna(value):
+            mask &= summary[column].isna()
+        else:
+            mask &= summary[column] == value
+    return summary.loc[mask].copy()
+
+
+def _build_liquidity_sensitivity(
+    candidate_summary: pd.DataFrame,
+    validation_ids: list[str],
+) -> pd.DataFrame:
+    columns = [
+        "validation_candidate_id",
+        "candidate_id",
+        "family_id",
+        "strategy_kind",
+        "score_family",
+        "liquidity_label",
+        "top_n",
+        "frequency",
+        "multiple",
+        "max_drawdown",
+        "annualized_turnover",
+        "screening_raw_convexity_score",
+        "screening_robust_convexity_score",
+        "robust_convexity_score",
+    ]
+    if candidate_summary.empty or not validation_ids or "candidate_id" not in candidate_summary:
+        return pd.DataFrame(columns=columns)
+
+    indexed = candidate_summary.drop_duplicates("candidate_id").copy()
+    indexed["candidate_id"] = indexed["candidate_id"].astype(str)
+    indexed = indexed.set_index("candidate_id")
+    rows: list[pd.DataFrame] = []
+    for validation_id in validation_ids:
+        if validation_id not in indexed.index:
+            continue
+        matches = _matching_liquidity_rows(candidate_summary, indexed.loc[validation_id])
+        if matches.empty:
+            continue
+        matches.insert(0, "validation_candidate_id", validation_id)
+        rows.append(matches)
+    if not rows:
+        return pd.DataFrame(columns=columns)
+
+    result = pd.concat(rows, ignore_index=True)
+    available_columns = [column for column in columns if column in result.columns]
+    return (
+        result[available_columns]
+        .drop_duplicates(["validation_candidate_id", "candidate_id"])
+        .sort_values(["validation_candidate_id", "liquidity_label"], kind="mergesort")
+        .reset_index(drop=True)
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Top20 convex leader validation.")
-    parser.add_argument("--config", default="config/bear_bottom_to_current_2022_11_21_2026_04_22.yaml")
-    parser.parse_args()
-    print("Task 6 adds full CLI execution.")
+    parser.add_argument(
+        "--config",
+        default="config/bear_bottom_to_current_2022_11_21_2026_04_22.yaml",
+    )
+    parser.add_argument("--max-validation-candidates", type=int, default=60)
+    parser.add_argument("--min-multiple-for-validation", type=float, default=25.0)
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    configure_logging(config.logging.level)
+    sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
+    panel, metadata = build_processed_datasets(config, sector_config)
+    market = prepare_market_data(panel, metadata, config)
+    universe_by_liquidity = _build_universe_variants(market, config)
+    candidates = build_candidate_definitions()
+
+    candidate_summary, results = run_full_window_screen(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+    )
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    validation_ids = select_validation_candidates(
+        candidate_summary,
+        champion_candidate_id=CHAMPION_CANDIDATE_ID,
+        max_validation_candidates=args.max_validation_candidates,
+        min_multiple_for_validation=args.min_multiple_for_validation,
+    )
+
+    daily_returns_by_candidate = {
+        candidate_id: results[candidate_id].daily_returns
+        for candidate_id in validation_ids
+        if candidate_id in results
+    }
+    rolling_window_summary, hundred_x_windows = compute_rolling_window_summary(
+        daily_returns_by_candidate
+    )
+    rolling_start_summary, rolling_start_by_candidate = compute_rolling_start_validation(
+        market,
+        universe_by_liquidity,
+        config,
+        candidate_by_id,
+        validation_ids,
+    )
+    stability_surface = compute_stability_surface(
+        candidate_summary,
+        candidate_ids=validation_ids,
+        multiple_floor=args.min_multiple_for_validation,
+    )
+
+    stressed_multiples: dict[float, dict[str, float]] = {}
+    for total_cost_bps in (20.0, 50.0, 100.0, 150.0):
+        stressed_multiples[total_cost_bps] = {}
+        for candidate_id in validation_ids:
+            if candidate_id not in candidate_by_id:
+                continue
+            stressed_result = run_one_candidate(
+                market,
+                universe_by_liquidity,
+                config,
+                candidate_by_id[candidate_id],
+                total_cost_bps=total_cost_bps,
+            )
+            stressed_metrics = compute_summary_metrics(
+                stressed_result,
+                config.annualization_days,
+            )
+            stressed_multiples[total_cost_bps][candidate_id] = (
+                float(stressed_metrics["total_return"]) + 1.0
+            )
+    cost_sensitivity = compute_cost_sensitivity(candidate_summary, stressed_multiples)
+
+    validation_results = {
+        candidate_id: results[candidate_id]
+        for candidate_id in validation_ids
+        if candidate_id in results
+    }
+    contribution_summary = compute_contribution_summary(validation_results, market)
+    validated_candidate_summary = build_validated_candidate_summary(
+        candidate_summary,
+        rolling_start_summary=rolling_start_summary,
+        cost_sensitivity=cost_sensitivity,
+        stability_surface=stability_surface,
+    )
+    champion_ablation = validated_candidate_summary[
+        validated_candidate_summary["family_id"] == "champion_ablation"
+    ].copy()
+    liquidity_sensitivity = _build_liquidity_sensitivity(
+        validated_candidate_summary,
+        validation_ids,
+    )
+    trial_log = candidate_records(candidates)
+    if not trial_log.empty:
+        trial_log["selected_for_validation"] = trial_log["candidate_id"].isin(validation_ids)
+
+    report_dir = ensure_dir(
+        config.resolve_path(config.paths.reports_dir) / "top20_convex_validation"
+    )
+    write_validation_outputs(
+        report_dir,
+        candidate_summary=validated_candidate_summary,
+        champion_ablation=champion_ablation,
+        rolling_start_summary=rolling_start_summary,
+        rolling_start_by_candidate=rolling_start_by_candidate,
+        rolling_window_summary=rolling_window_summary,
+        hundred_x_windows=hundred_x_windows,
+        stability_surface=stability_surface,
+        cost_sensitivity=cost_sensitivity,
+        liquidity_sensitivity=liquidity_sensitivity,
+        contribution_summary=contribution_summary,
+        trial_log=trial_log,
+    )
+    print(f"Wrote Top20 convex validation outputs to {report_dir}")
 
 
 if __name__ == "__main__":
