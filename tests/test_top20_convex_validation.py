@@ -199,3 +199,55 @@ def test_select_validation_candidates_dedupes_threshold_overlap() -> None:
     )
 
     assert selected == ["raw_best", "threshold_best"]
+
+
+def test_select_validation_candidates_reserves_threshold_lane() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "candidate_id": "raw_1",
+                "raw_convexity_score": 100.0,
+                "robust_convexity_score": 5.0,
+                "multiple": 1.0,
+            },
+            {
+                "candidate_id": "raw_2",
+                "raw_convexity_score": 90.0,
+                "robust_convexity_score": 4.0,
+                "multiple": 1.0,
+            },
+            {
+                "candidate_id": "robust_1",
+                "raw_convexity_score": 3.0,
+                "robust_convexity_score": 100.0,
+                "multiple": 1.0,
+            },
+            {
+                "candidate_id": "robust_2",
+                "raw_convexity_score": 2.0,
+                "robust_convexity_score": 90.0,
+                "multiple": 1.0,
+            },
+            {
+                "candidate_id": "robust_3",
+                "raw_convexity_score": 1.0,
+                "robust_convexity_score": 80.0,
+                "multiple": 1.0,
+            },
+            {
+                "candidate_id": "high_multiple",
+                "raw_convexity_score": 0.0,
+                "robust_convexity_score": 0.0,
+                "multiple": 1_000.0,
+            },
+        ]
+    )
+
+    selected = select_validation_candidates(
+        frame,
+        champion_candidate_id="missing_champion",
+        max_validation_candidates=5,
+        min_multiple_for_validation=100.0,
+    )
+
+    assert "high_multiple" in selected

@@ -279,19 +279,60 @@ def _add_candidate(selected: list[str], candidate_id: str, max_candidates: int) 
         selected.append(candidate_id)
 
 
-def _add_ranked_candidates(
-    selected: list[str],
+def _ordered_unique_ids(candidate_ids: pd.Series) -> list[str]:
+    return list(dict.fromkeys(candidate_ids.astype(str)))
+
+
+def _ranked_candidate_ids(summary: pd.DataFrame, score_column: str) -> list[str]:
+    if score_column not in summary.columns:
+        return []
+    sorted_summary = summary.sort_values(score_column, ascending=False, kind="mergesort")
+    return _ordered_unique_ids(sorted_summary["candidate_id"])
+
+
+def _threshold_candidate_ids(
     summary: pd.DataFrame,
-    score_column: str,
+    min_multiple_for_validation: float,
+) -> list[str]:
+    threshold_summary = summary[summary["multiple"] >= min_multiple_for_validation].sort_values(
+        "multiple",
+        ascending=False,
+        kind="mergesort",
+    )
+    return _ordered_unique_ids(threshold_summary["candidate_id"])
+
+
+def _has_unselected(candidate_ids: list[str], selected: list[str]) -> bool:
+    return any(candidate_id not in selected for candidate_id in candidate_ids)
+
+
+def _lane_quotas(capacity: int, active_lanes: list[str]) -> dict[str, int]:
+    quotas = {lane: 0 for lane in active_lanes}
+    if capacity <= 0 or not active_lanes:
+        return quotas
+
+    guaranteed_lanes = active_lanes[:capacity]
+    for lane in guaranteed_lanes:
+        quotas[lane] = 1
+
+    remaining = capacity - len(guaranteed_lanes)
+    lane_index = 0
+    while remaining > 0:
+        quotas[active_lanes[lane_index % len(active_lanes)]] += 1
+        remaining -= 1
+        lane_index += 1
+    return quotas
+
+
+def _add_candidate_ids(
+    selected: list[str],
+    candidate_ids: list[str],
     max_candidates: int,
     *,
     limit: int | None = None,
 ) -> None:
-    if score_column not in summary.columns:
-        return
-    sorted_summary = summary.sort_values(score_column, ascending=False, kind="mergesort")
     added = 0
-    for candidate_id in sorted_summary["candidate_id"].astype(str):
+    for candidate_id in candidate_ids:
         before_count = len(selected)
         _add_candidate(selected, candidate_id, max_candidates)
         if len(selected) > before_count:
@@ -326,23 +367,25 @@ def select_validation_candidates(
     if champion_candidate_id in candidate_ids:
         _add_candidate(selected, champion_candidate_id, max_validation_candidates)
 
-    raw_limit = max(1, (max_validation_candidates - len(selected)) // 2)
-    _add_ranked_candidates(
-        selected,
-        summary,
-        "raw_convexity_score",
-        max_validation_candidates,
-        limit=raw_limit,
-    )
-    _add_ranked_candidates(selected, summary, "robust_convexity_score", max_validation_candidates)
+    lanes = {
+        "raw": _ranked_candidate_ids(summary, "raw_convexity_score"),
+        "robust": _ranked_candidate_ids(summary, "robust_convexity_score"),
+        "threshold": _threshold_candidate_ids(summary, min_multiple_for_validation),
+    }
+    lane_order = ["raw", "robust", "threshold"]
+    active_lanes = [lane for lane in lane_order if _has_unselected(lanes[lane], selected)]
+    quotas = _lane_quotas(max_validation_candidates - len(selected), active_lanes)
 
-    threshold_summary = summary[summary["multiple"] >= min_multiple_for_validation].sort_values(
-        "multiple",
-        ascending=False,
-        kind="mergesort",
-    )
-    for candidate_id in threshold_summary["candidate_id"].astype(str):
-        _add_candidate(selected, candidate_id, max_validation_candidates)
+    for lane in lane_order:
+        _add_candidate_ids(
+            selected,
+            lanes[lane],
+            max_validation_candidates,
+            limit=quotas.get(lane, 0),
+        )
+
+    for lane in lane_order:
+        _add_candidate_ids(selected, lanes[lane], max_validation_candidates)
 
     return selected
 
