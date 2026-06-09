@@ -5,6 +5,7 @@ import pytest
 
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
+    _add_candidate_ids,
     build_candidate_definitions,
     compute_raw_convexity_score,
     compute_robust_convexity_score,
@@ -251,3 +252,11 @@ def test_select_validation_candidates_reserves_threshold_lane() -> None:
     )
 
     assert "high_multiple" in selected
+
+
+def test_add_candidate_ids_respects_zero_limit() -> None:
+    selected: list[str] = []
+
+    _add_candidate_ids(selected, ["candidate"], max_candidates=5, limit=0)
+
+    assert selected == []

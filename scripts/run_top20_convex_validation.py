@@ -331,6 +331,8 @@ def _add_candidate_ids(
     *,
     limit: int | None = None,
 ) -> None:
+    if limit is not None and limit <= 0:
+        return
     added = 0
     for candidate_id in candidate_ids:
         before_count = len(selected)
