@@ -165,6 +165,56 @@ FULL_WINDOW_SCREEN_COLUMNS: tuple[str, ...] = (
     "robust_convexity_score",
 )
 
+ROLLING_START_DETAIL_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "start_date",
+    "multiple",
+    "cagr",
+    "sharpe",
+    "max_drawdown",
+    "annualized_turnover",
+)
+
+ROLLING_START_SUMMARY_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "start_count",
+    "median_rolling_start_multiple",
+    "min_rolling_start_multiple",
+    "max_rolling_start_multiple",
+    "max_rolling_start_drawdown",
+    "median_rolling_start_drawdown",
+)
+
+HUNDRED_X_WINDOWS_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "window_label",
+    "window_end",
+    "multiple",
+)
+
+COST_SENSITIVITY_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "total_cost_bps",
+    "base_multiple",
+    "stressed_multiple",
+    "survival_ratio",
+)
+
+STABILITY_SURFACE_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "neighbor_count",
+    "median_neighbor_multiple",
+    "stability_score",
+)
+
+CONTRIBUTION_SUMMARY_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "top_coin_id",
+    "top1_contribution_share",
+    "top3_contribution_share",
+    "top5_contribution_share",
+)
+
 
 def _candidate_id(parts: list[object]) -> str:
     return "__".join(str(part).replace(" ", "_").lower() for part in parts)
@@ -593,18 +643,418 @@ def run_one_candidate(
     candidate: CandidateDefinition,
     *,
     total_cost_bps: float | None = None,
+    start_date: pd.Timestamp | None = None,
 ) -> BacktestResult:
-    targets = _candidate_targets(market, universe_by_liquidity, config, candidate)
-    asset_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
+    local_config = config
+    if start_date is not None:
+        local_config = config.model_copy(deep=True)
+        local_config.start_date = pd.Timestamp(start_date).strftime("%Y-%m-%d")
+
+    targets = _candidate_targets(market, universe_by_liquidity, local_config, candidate)
+    asset_returns = market.returns.loc[
+        local_config.start_timestamp : local_config.end_timestamp
+    ]
     return run_backtest(
         name=candidate.candidate_id,
         asset_returns=asset_returns,
         rebalance_targets=targets,
         sector_by_coin=_sector_by_coin(market),
-        friction=_friction_with_total_cost(config.frictions, total_cost_bps),
-        initial_capital=config.initial_capital,
+        friction=_friction_with_total_cost(local_config.frictions, total_cost_bps),
+        initial_capital=local_config.initial_capital,
         gross_target_exposure=1.0,
     )
+
+
+def _monthly_start_dates(start: pd.Timestamp, end: pd.Timestamp) -> list[pd.Timestamp]:
+    start_timestamp = pd.Timestamp(start).normalize()
+    end_timestamp = pd.Timestamp(end).normalize()
+    if start_timestamp > end_timestamp:
+        return []
+
+    dates = [start_timestamp]
+    dates.extend(
+        pd.Timestamp(date).normalize()
+        for date in pd.date_range(start_timestamp, end_timestamp, freq="MS")
+        if pd.Timestamp(date).normalize() != start_timestamp
+    )
+    return list(dict.fromkeys(sorted(dates)))
+
+
+def compute_rolling_start_validation(
+    market: MarketDataBundle,
+    universe_by_liquidity: dict[str, pd.DataFrame],
+    config: ResearchConfig,
+    candidate_by_id: dict[str, CandidateDefinition],
+    candidate_ids: list[str],
+    *,
+    min_days_after_start: int = 365,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    empty_summary = pd.DataFrame(columns=ROLLING_START_SUMMARY_COLUMNS)
+    empty_detail = pd.DataFrame(columns=ROLLING_START_DETAIL_COLUMNS)
+    if market.price.empty or not candidate_ids:
+        return empty_summary, empty_detail
+
+    max_market_date = pd.Timestamp(market.price.index.max())
+    max_start = max_market_date - pd.Timedelta(days=min_days_after_start)
+    start_dates = [
+        start_date
+        for start_date in _monthly_start_dates(config.start_timestamp, max_market_date)
+        if start_date <= max_start
+    ]
+    if not start_dates:
+        return empty_summary, empty_detail
+
+    rows: list[dict[str, object]] = []
+    for candidate_id in candidate_ids:
+        candidate = candidate_by_id[candidate_id]
+        for start_date in start_dates:
+            result = run_one_candidate(
+                market,
+                universe_by_liquidity,
+                config,
+                candidate,
+                start_date=start_date,
+            )
+            metrics = compute_summary_metrics(result, config.annualization_days)
+            rows.append(
+                {
+                    "candidate_id": candidate_id,
+                    "start_date": start_date.date().isoformat(),
+                    "multiple": float(metrics["total_return"]) + 1.0,
+                    "cagr": metrics["cagr"],
+                    "sharpe": metrics["sharpe"],
+                    "max_drawdown": metrics["max_drawdown"],
+                    "annualized_turnover": metrics["annualized_turnover"],
+                }
+            )
+
+    by_candidate = pd.DataFrame(rows, columns=ROLLING_START_DETAIL_COLUMNS)
+    if by_candidate.empty:
+        return empty_summary, by_candidate
+
+    summary = (
+        by_candidate.groupby("candidate_id")
+        .agg(
+            start_count=("start_date", "count"),
+            median_rolling_start_multiple=("multiple", "median"),
+            min_rolling_start_multiple=("multiple", "min"),
+            max_rolling_start_multiple=("multiple", "max"),
+            max_rolling_start_drawdown=("max_drawdown", "min"),
+            median_rolling_start_drawdown=("max_drawdown", "median"),
+        )
+        .reset_index()
+    )
+    candidate_order = {candidate_id: index for index, candidate_id in enumerate(candidate_ids)}
+    summary["_candidate_order"] = summary["candidate_id"].map(candidate_order)
+    summary = summary.sort_values("_candidate_order", kind="mergesort").drop(
+        columns="_candidate_order"
+    )
+    return summary.reset_index(drop=True), by_candidate
+
+
+def _rolling_window_label(window_days: int) -> str:
+    if window_days % 365 == 0:
+        return f"{window_days // 365}y"
+    return f"{window_days}d"
+
+
+def _rolling_window_summary_columns(windows_days: tuple[int, ...]) -> list[str]:
+    columns = ["candidate_id"]
+    for window_days in windows_days:
+        label = _rolling_window_label(window_days)
+        columns.extend(
+            [
+                f"best_rolling_{label}_multiple",
+                f"median_rolling_{label}_multiple",
+                f"hundred_x_hit_rate_{label}",
+            ]
+        )
+    return columns
+
+
+def _rolling_compounded_multiples(returns: pd.Series, window_days: int) -> pd.Series:
+    if window_days <= 0 or returns.empty or len(returns) < window_days:
+        return pd.Series(dtype=float)
+
+    gross_returns = 1.0 + returns
+    calendar_slack_days = max(window_days // 365, 0)
+    max_periods = min(len(gross_returns), window_days + calendar_slack_days)
+    rolling_candidates = [
+        gross_returns.rolling(periods).apply(
+            lambda values: float(values.prod()),
+            raw=True,
+        )
+        for periods in range(window_days, max_periods + 1)
+    ]
+    return pd.concat(rolling_candidates, axis=1).max(axis=1).dropna()
+
+
+def _hundred_x_mask(multiples: pd.Series) -> pd.Series:
+    return multiples >= 100.0 - 1e-9
+
+
+def _stable_multiple(value: object) -> float:
+    multiple = _safe_float(value)
+    if math.isclose(multiple, 100.0, rel_tol=0.0, abs_tol=1e-9):
+        return 100.0
+    return multiple
+
+
+def compute_rolling_window_summary(
+    daily_returns_by_candidate: dict[str, pd.Series],
+    *,
+    windows_days: tuple[int, ...] = (365 * 3, 365 * 5),
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    summary_columns = _rolling_window_summary_columns(windows_days)
+    if not daily_returns_by_candidate:
+        return (
+            pd.DataFrame(columns=summary_columns),
+            pd.DataFrame(columns=HUNDRED_X_WINDOWS_COLUMNS),
+        )
+
+    summary_rows: list[dict[str, object]] = []
+    window_rows: list[dict[str, object]] = []
+    for candidate_id, returns in daily_returns_by_candidate.items():
+        clean_returns = (
+            pd.to_numeric(returns, errors="coerce")
+            .replace([math.inf, -math.inf], 0.0)
+            .fillna(0.0)
+            .sort_index()
+        )
+        row: dict[str, object] = {"candidate_id": candidate_id}
+        for window_days in windows_days:
+            label = _rolling_window_label(window_days)
+            rolling_multiple = _rolling_compounded_multiples(clean_returns, window_days)
+            if rolling_multiple.empty:
+                row[f"best_rolling_{label}_multiple"] = 0.0
+                row[f"median_rolling_{label}_multiple"] = 0.0
+                row[f"hundred_x_hit_rate_{label}"] = 0.0
+                continue
+
+            hit_mask = _hundred_x_mask(rolling_multiple)
+            row[f"best_rolling_{label}_multiple"] = _stable_multiple(
+                rolling_multiple.max()
+            )
+            row[f"median_rolling_{label}_multiple"] = float(rolling_multiple.median())
+            row[f"hundred_x_hit_rate_{label}"] = float(hit_mask.mean())
+            for window_end, multiple in rolling_multiple[hit_mask].items():
+                window_rows.append(
+                    {
+                        "candidate_id": candidate_id,
+                        "window_label": label,
+                        "window_end": window_end,
+                        "multiple": _stable_multiple(multiple),
+                    }
+                )
+        summary_rows.append(row)
+
+    return (
+        pd.DataFrame(summary_rows, columns=summary_columns),
+        pd.DataFrame(window_rows, columns=HUNDRED_X_WINDOWS_COLUMNS),
+    )
+
+
+def compute_cost_sensitivity(
+    base_summary: pd.DataFrame,
+    stressed_multiples: dict[float, dict[str, float]],
+) -> pd.DataFrame:
+    if base_summary.empty or not stressed_multiples:
+        return pd.DataFrame(columns=COST_SENSITIVITY_COLUMNS)
+
+    required_columns = {"candidate_id", "multiple"}
+    missing_columns = sorted(required_columns.difference(base_summary.columns))
+    if missing_columns:
+        missing = ", ".join(missing_columns)
+        raise ValueError(f"base_summary is missing required column(s): {missing}")
+
+    base_by_id = base_summary.drop_duplicates("candidate_id").set_index("candidate_id")
+    rows: list[dict[str, object]] = []
+    for total_cost_bps in sorted(stressed_multiples):
+        for candidate_id in sorted(stressed_multiples[total_cost_bps]):
+            if candidate_id not in base_by_id.index:
+                continue
+            base_multiple = _safe_float(base_by_id.loc[candidate_id, "multiple"])
+            stressed_multiple = _safe_float(stressed_multiples[total_cost_bps][candidate_id])
+            rows.append(
+                {
+                    "candidate_id": candidate_id,
+                    "total_cost_bps": float(total_cost_bps),
+                    "base_multiple": base_multiple,
+                    "stressed_multiple": stressed_multiple,
+                    "survival_ratio": (
+                        stressed_multiple / base_multiple if base_multiple > 0.0 else 0.0
+                    ),
+                }
+            )
+    return pd.DataFrame(rows, columns=COST_SENSITIVITY_COLUMNS)
+
+
+def _duration_days(value: object) -> int | None:
+    if pd.isna(value):
+        return None
+    try:
+        return int(pd.Timedelta(str(value)).days)
+    except ValueError:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+
+def _near_frequency(left: object, right: object) -> bool:
+    if str(left) == str(right):
+        return True
+    left_days = _duration_days(left)
+    right_days = _duration_days(right)
+    return left_days is not None and right_days is not None and abs(left_days - right_days) <= 7
+
+
+def _optional_float(value: object) -> float | None:
+    if pd.isna(value):
+        return None
+    numeric = _safe_float(value, default=math.nan)
+    if math.isnan(numeric):
+        return None
+    return numeric
+
+
+def _near_optional_number(left: object, right: object, *, tolerance: float) -> bool:
+    left_number = _optional_float(left)
+    right_number = _optional_float(right)
+    if left_number is None or right_number is None:
+        return left_number is None and right_number is None
+    return abs(left_number - right_number) <= tolerance
+
+
+def compute_stability_surface(
+    summary: pd.DataFrame,
+    *,
+    candidate_ids: list[str],
+    multiple_floor: float,
+) -> pd.DataFrame:
+    if summary.empty or not candidate_ids:
+        return pd.DataFrame(columns=STABILITY_SURFACE_COLUMNS)
+
+    required_columns = {"candidate_id", "family_id", "top_n", "frequency", "multiple"}
+    missing_columns = sorted(required_columns.difference(summary.columns))
+    if missing_columns:
+        missing = ", ".join(missing_columns)
+        raise ValueError(f"summary is missing required column(s): {missing}")
+
+    indexed = summary.drop_duplicates("candidate_id").set_index("candidate_id")
+    rows: list[dict[str, object]] = []
+    for candidate_id in candidate_ids:
+        if candidate_id not in indexed.index:
+            continue
+
+        candidate = indexed.loc[candidate_id]
+        neighbors: list[pd.Series] = []
+        same_family = summary[summary["family_id"] == candidate["family_id"]]
+        for _, neighbor in same_family.iterrows():
+            if neighbor["candidate_id"] == candidate_id:
+                continue
+            if _safe_float(neighbor["multiple"]) < multiple_floor:
+                continue
+            if abs(_safe_float(neighbor["top_n"]) - _safe_float(candidate["top_n"])) > 1:
+                continue
+            if not _near_frequency(neighbor["frequency"], candidate["frequency"]):
+                continue
+            if not _near_optional_number(
+                neighbor.get("stop_lookback"),
+                candidate.get("stop_lookback"),
+                tolerance=1.0,
+            ):
+                continue
+            neighbors.append(neighbor)
+
+        neighbor_count = len(neighbors)
+        if neighbor_count:
+            neighbor_multiples = pd.Series(
+                [_safe_float(neighbor["multiple"]) for neighbor in neighbors]
+            )
+            median_neighbor_multiple = float(neighbor_multiples.median())
+        else:
+            median_neighbor_multiple = 0.0
+
+        base_multiple = _safe_float(candidate["multiple"])
+        stability_score = (
+            min(median_neighbor_multiple / base_multiple, 1.0)
+            if neighbor_count and base_multiple > 0.0
+            else 0.0
+        )
+        rows.append(
+            {
+                "candidate_id": candidate_id,
+                "neighbor_count": neighbor_count,
+                "median_neighbor_multiple": median_neighbor_multiple,
+                "stability_score": stability_score,
+            }
+        )
+    return pd.DataFrame(rows, columns=STABILITY_SURFACE_COLUMNS)
+
+
+def compute_contribution_summary(
+    results: dict[str, BacktestResult],
+    market: MarketDataBundle,
+) -> pd.DataFrame:
+    if not results:
+        return pd.DataFrame(columns=CONTRIBUTION_SUMMARY_COLUMNS)
+
+    rows: list[dict[str, object]] = []
+    for candidate_id, result in results.items():
+        weights = result.weights.reindex(columns=market.returns.columns).fillna(0.0)
+        if weights.empty:
+            rows.append(
+                {
+                    "candidate_id": candidate_id,
+                    "top_coin_id": "",
+                    "top1_contribution_share": 0.0,
+                    "top3_contribution_share": 0.0,
+                    "top5_contribution_share": 0.0,
+                }
+            )
+            continue
+
+        asset_returns = market.returns.reindex(
+            index=weights.index,
+            columns=weights.columns,
+        ).fillna(0.0)
+        contribution = (
+            weights.shift(1).fillna(0.0).mul(asset_returns).sum(axis=0).sort_values(
+                ascending=False,
+                kind="mergesort",
+            )
+        )
+        positive_contribution = contribution[contribution > 0.0]
+        total_positive = float(positive_contribution.sum())
+        if total_positive <= 0.0:
+            rows.append(
+                {
+                    "candidate_id": candidate_id,
+                    "top_coin_id": "",
+                    "top1_contribution_share": 0.0,
+                    "top3_contribution_share": 0.0,
+                    "top5_contribution_share": 0.0,
+                }
+            )
+            continue
+
+        rows.append(
+            {
+                "candidate_id": candidate_id,
+                "top_coin_id": str(positive_contribution.index[0]),
+                "top1_contribution_share": float(
+                    positive_contribution.head(1).sum() / total_positive
+                ),
+                "top3_contribution_share": float(
+                    positive_contribution.head(3).sum() / total_positive
+                ),
+                "top5_contribution_share": float(
+                    positive_contribution.head(5).sum() / total_positive
+                ),
+            }
+        )
+    return pd.DataFrame(rows, columns=CONTRIBUTION_SUMMARY_COLUMNS)
 
 
 def run_full_window_screen(

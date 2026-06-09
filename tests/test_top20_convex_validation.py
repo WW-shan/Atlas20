@@ -9,8 +9,13 @@ from scripts.run_top20_convex_validation import (
     CandidateDefinition,
     _add_candidate_ids,
     build_candidate_definitions,
+    compute_contribution_summary,
+    compute_cost_sensitivity,
     compute_raw_convexity_score,
     compute_robust_convexity_score,
+    compute_rolling_start_validation,
+    compute_rolling_window_summary,
+    compute_stability_surface,
     run_full_window_screen,
     run_one_candidate,
     select_validation_candidates,
@@ -487,3 +492,149 @@ def test_add_candidate_ids_respects_zero_limit() -> None:
     _add_candidate_ids(selected, ["candidate"], max_candidates=5, limit=0)
 
     assert selected == []
+
+
+def test_compute_rolling_window_summary_detects_hundred_x_window() -> None:
+    dates = pd.date_range("2020-01-01", periods=365 * 5 + 5, freq="D")
+    daily_returns = pd.Series(100.0 ** (1.0 / len(dates)) - 1.0, index=dates, name="candidate")
+
+    summary, windows = compute_rolling_window_summary(
+        {"candidate": daily_returns},
+        windows_days=(365 * 5,),
+    )
+
+    assert summary.loc[0, "candidate_id"] == "candidate"
+    assert summary.loc[0, "best_rolling_5y_multiple"] >= 99.0
+    assert summary.loc[0, "hundred_x_hit_rate_5y"] > 0
+    assert not windows.empty
+
+
+def test_compute_cost_sensitivity_reports_survival_ratio() -> None:
+    base_summary = pd.DataFrame(
+        [{"candidate_id": "candidate", "multiple": 10.0, "max_drawdown": -0.4}]
+    )
+    stressed = {
+        20.0: {"candidate": 9.0},
+        100.0: {"candidate": 6.0},
+    }
+
+    result = compute_cost_sensitivity(base_summary, stressed)
+
+    assert set(result["total_cost_bps"]) == {20.0, 100.0}
+    assert result[result["total_cost_bps"] == 100.0].iloc[0][
+        "survival_ratio"
+    ] == pytest.approx(0.6)
+
+
+def test_compute_stability_surface_marks_neighbor_region() -> None:
+    summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "a",
+                "family_id": "ctrend_lite",
+                "top_n": 1,
+                "frequency": "14D",
+                "stop_lookback": 11,
+                "multiple": 50.0,
+            },
+            {
+                "candidate_id": "b",
+                "family_id": "ctrend_lite",
+                "top_n": 2,
+                "frequency": "14D",
+                "stop_lookback": 11,
+                "multiple": 40.0,
+            },
+            {
+                "candidate_id": "c",
+                "family_id": "ctrend_lite",
+                "top_n": 1,
+                "frequency": "21D",
+                "stop_lookback": 12,
+                "multiple": 35.0,
+            },
+        ]
+    )
+
+    result = compute_stability_surface(summary, candidate_ids=["a"], multiple_floor=25.0)
+
+    assert result.loc[0, "candidate_id"] == "a"
+    assert result.loc[0, "neighbor_count"] == 2
+    assert result.loc[0, "stability_score"] > 0
+
+
+def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
+    market = _script_toy_market()
+    config = load_config("config/base.yaml")
+    config.start_date = "2024-02-01"
+    config.rebalancing.frequencies["14D"] = "14D"
+    universe_by_liquidity = {
+        "loose": _script_toy_universe(pd.date_range("2024-02-01", periods=5, freq="14D"))
+    }
+    candidate = CandidateDefinition(
+        candidate_id="ctrend_lite_test",
+        family_id="ctrend_lite",
+        strategy_kind="ctrend_lite",
+        top_n=1,
+        frequency="14D",
+        score_family="ctrend_lite_balanced",
+        liquidity_label="loose",
+        min_history_days=30,
+        min_daily_dollar_volume=1_000_000.0,
+        include_btc=True,
+        overlay_set="no_stop_control",
+        risk_off_asset="cash",
+        initial_asset="cash",
+        stop_kind="none",
+        stop_lookback=None,
+        stop_confirm_days=1,
+        ma_window=None,
+    )
+
+    summary, by_candidate = compute_rolling_start_validation(
+        market,
+        universe_by_liquidity,
+        config,
+        {candidate.candidate_id: candidate},
+        [candidate.candidate_id],
+        min_days_after_start=30,
+    )
+
+    assert summary.loc[0, "candidate_id"] == "ctrend_lite_test"
+    assert summary.loc[0, "start_count"] >= 1
+    assert {"candidate_id", "start_date", "multiple", "max_drawdown"}.issubset(
+        by_candidate.columns
+    )
+
+
+def test_compute_contribution_summary_records_top_dependency() -> None:
+    market = _script_toy_market()
+    dates = market.price.index[:4]
+    weights = pd.DataFrame(
+        {
+            "bitcoin": [0.0, 0.0, 0.0, 0.0],
+            "ethereum": [0.0, 0.0, 0.0, 0.0],
+            "solana": [1.0, 1.0, 1.0, 1.0],
+            "chainlink": [0.0, 0.0, 0.0, 0.0],
+        },
+        index=dates,
+    )
+    from atlas20.backtest.engine import BacktestResult
+
+    result = BacktestResult(
+        name="candidate",
+        daily_returns=pd.Series([0.0, 0.1, 0.1, 0.1], index=dates),
+        equity_curve=pd.Series([1.0, 1.1, 1.21, 1.331], index=dates),
+        drawdown=pd.Series([0.0, 0.0, 0.0, 0.0], index=dates),
+        weights=weights,
+        turnover=pd.Series([0.0, 1.0, 0.0, 0.0], index=dates),
+        holdings_count=pd.Series([1.0, 1.0, 1.0, 1.0], index=dates),
+        sector_exposure=pd.DataFrame(index=dates),
+        rebalance_targets=weights,
+    )
+
+    summary = compute_contribution_summary({"candidate": result}, market)
+
+    assert summary.loc[0, "candidate_id"] == "candidate"
+    assert summary.loc[0, "top_coin_id"] == "solana"
+    assert summary.loc[0, "top1_contribution_share"] == pytest.approx(1.0)
