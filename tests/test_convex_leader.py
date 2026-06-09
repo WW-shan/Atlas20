@@ -246,6 +246,25 @@ def test_build_ctrend_lite_targets_can_exclude_btc_from_leader_pool() -> None:
     assert all("bitcoin" not in target.index for target in result.targets.values())
 
 
+def test_build_ctrend_lite_targets_allows_literal_frequency_without_config_entry() -> None:
+    market = _toy_market()
+    config = load_config("config/base.yaml")
+    config.start_date = "2024-03-01"
+    dates = pd.date_range("2024-03-01", periods=5, freq="7D")
+    universe = _toy_universe(dates)
+
+    result = build_ctrend_lite_targets(
+        market,
+        universe,
+        config,
+        top_n=2,
+        frequency="7D",
+        score_family="ctrend_lite_balanced",
+    )
+
+    assert any(not target.empty for target in result.targets.values())
+
+
 def test_build_ctrend_lite_targets_uses_equal_weights_for_more_than_three_leaders() -> None:
     market = _toy_market()
     config = load_config("config/base.yaml")
