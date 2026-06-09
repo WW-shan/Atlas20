@@ -279,19 +279,33 @@ def _add_candidate(selected: list[str], candidate_id: str, max_candidates: int) 
         selected.append(candidate_id)
 
 
-def _add_best_unselected(
+def _add_ranked_candidates(
     selected: list[str],
     summary: pd.DataFrame,
     score_column: str,
     max_candidates: int,
+    *,
+    limit: int | None = None,
 ) -> None:
     if score_column not in summary.columns:
         return
     sorted_summary = summary.sort_values(score_column, ascending=False, kind="mergesort")
+    added = 0
     for candidate_id in sorted_summary["candidate_id"].astype(str):
-        if candidate_id not in selected:
-            _add_candidate(selected, candidate_id, max_candidates)
+        before_count = len(selected)
+        _add_candidate(selected, candidate_id, max_candidates)
+        if len(selected) > before_count:
+            added += 1
+        if len(selected) >= max_candidates or (limit is not None and added >= limit):
             return
+
+
+def _validate_selection_summary(summary: pd.DataFrame) -> None:
+    required_columns = {"candidate_id", "multiple"}
+    missing_columns = sorted(required_columns.difference(summary.columns))
+    if missing_columns:
+        missing = ", ".join(missing_columns)
+        raise ValueError(f"summary is missing required column(s): {missing}")
 
 
 def select_validation_candidates(
@@ -302,15 +316,25 @@ def select_validation_candidates(
     min_multiple_for_validation: float,
 ) -> list[str]:
     selected: list[str] = []
-    if summary.empty or max_validation_candidates <= 0:
+    if max_validation_candidates <= 0:
+        return selected
+    _validate_selection_summary(summary)
+    if summary.empty:
         return selected
 
     candidate_ids = set(summary["candidate_id"].astype(str))
     if champion_candidate_id in candidate_ids:
         _add_candidate(selected, champion_candidate_id, max_validation_candidates)
 
-    _add_best_unselected(selected, summary, "raw_convexity_score", max_validation_candidates)
-    _add_best_unselected(selected, summary, "robust_convexity_score", max_validation_candidates)
+    raw_limit = max(1, (max_validation_candidates - len(selected)) // 2)
+    _add_ranked_candidates(
+        selected,
+        summary,
+        "raw_convexity_score",
+        max_validation_candidates,
+        limit=raw_limit,
+    )
+    _add_ranked_candidates(selected, summary, "robust_convexity_score", max_validation_candidates)
 
     threshold_summary = summary[summary["multiple"] >= min_multiple_for_validation].sort_values(
         "multiple",

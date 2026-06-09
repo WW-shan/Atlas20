@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
@@ -107,3 +108,94 @@ def test_select_validation_candidates_keeps_champion_and_deduplicates() -> None:
     )
 
     assert selected == ["champion", "raw_best", "robust_best"]
+
+
+def test_select_validation_candidates_adds_ranked_candidates_until_cap() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "candidate_id": f"raw_{rank}",
+                "raw_convexity_score": float(rank),
+                "robust_convexity_score": 0.0,
+                "multiple": 1.0,
+            }
+            for rank in range(1, 7)
+        ]
+    )
+
+    selected = select_validation_candidates(
+        frame,
+        champion_candidate_id="missing_champion",
+        max_validation_candidates=5,
+        min_multiple_for_validation=25.0,
+    )
+
+    assert selected[:2] == ["raw_6", "raw_5"]
+    assert len(selected) == 5
+    assert len(set(selected)) == len(selected)
+
+
+def test_select_validation_candidates_returns_empty_for_nonpositive_cap() -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "candidate_id": "candidate",
+                "raw_convexity_score": 1.0,
+                "robust_convexity_score": 1.0,
+                "multiple": 100.0,
+            }
+        ]
+    )
+
+    assert (
+        select_validation_candidates(
+            frame,
+            champion_candidate_id="candidate",
+            max_validation_candidates=0,
+            min_multiple_for_validation=25.0,
+        )
+        == []
+    )
+
+
+def test_select_validation_candidates_validates_candidate_id_column() -> None:
+    frame = pd.DataFrame([{"multiple": 100.0}])
+
+    with pytest.raises(ValueError, match="candidate_id"):
+        select_validation_candidates(
+            frame,
+            champion_candidate_id="candidate",
+            max_validation_candidates=5,
+            min_multiple_for_validation=25.0,
+        )
+
+
+def test_select_validation_candidates_validates_multiple_column() -> None:
+    frame = pd.DataFrame([{"candidate_id": "candidate"}])
+
+    with pytest.raises(ValueError, match="multiple"):
+        select_validation_candidates(
+            frame,
+            champion_candidate_id="candidate",
+            max_validation_candidates=5,
+            min_multiple_for_validation=25.0,
+        )
+
+
+def test_select_validation_candidates_dedupes_threshold_overlap() -> None:
+    frame = pd.DataFrame(
+        [
+            {"candidate_id": "raw_best", "raw_convexity_score": 5.0, "multiple": 30.0},
+            {"candidate_id": "threshold_best", "raw_convexity_score": 1.0, "multiple": 50.0},
+            {"candidate_id": "raw_best", "raw_convexity_score": 0.5, "multiple": 40.0},
+        ]
+    )
+
+    selected = select_validation_candidates(
+        frame,
+        champion_candidate_id="missing_champion",
+        max_validation_candidates=5,
+        min_multiple_for_validation=25.0,
+    )
+
+    assert selected == ["raw_best", "threshold_best"]
