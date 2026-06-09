@@ -122,7 +122,10 @@ def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
 
 def test_run_one_candidate_slices_returns_to_config_window() -> None:
     market = _script_toy_market()
+    market.price.loc[pd.Timestamp("2024-01-02"), "bitcoin"] = 10_000.0
+    market.returns = market.price.pct_change().fillna(0.0)
     config = _script_config()
+    config.end_date = "2024-03-15"
     candidate = _script_candidate(
         candidate_id="window_slice_test",
         risk_off_asset="btc",
@@ -132,7 +135,8 @@ def test_run_one_candidate_slices_returns_to_config_window() -> None:
     result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
 
     assert not result.daily_returns.empty
-    assert result.daily_returns.index.min() >= config.start_timestamp
+    assert result.daily_returns.index.min() == config.start_timestamp
+    assert result.daily_returns.index.max() == config.end_timestamp
 
 
 def test_run_one_candidate_total_cost_does_not_mutate_config_friction() -> None:
@@ -189,6 +193,27 @@ def test_run_full_window_screen_can_exclude_btc_for_ctrend_lite() -> None:
     assert (targets["bitcoin"] <= 0.0).all()
 
 
+def test_run_one_candidate_parks_in_eth_when_trailing_stop_turns_off() -> None:
+    market = _script_toy_market()
+    market.price.loc[pd.Timestamp("2024-02-27") : pd.Timestamp("2024-02-29"), "bitcoin"] = 200.0
+    market.price.loc[pd.Timestamp("2024-03-01") : pd.Timestamp("2024-03-08"), "bitcoin"] = 50.0
+    market.returns = market.price.pct_change().fillna(0.0)
+    config = _script_config()
+    candidate = _script_candidate(
+        candidate_id="eth_parking_stop_test",
+        stop_kind="trailing",
+        stop_lookback=3,
+        risk_off_asset="eth",
+        initial_asset="cash",
+    )
+
+    result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
+
+    targets = result.rebalance_targets
+    assert not targets.empty
+    assert (targets["ethereum"] > 0.0).any()
+
+
 def test_run_full_window_screen_handles_leader_momentum_candidate() -> None:
     market = _script_toy_market()
     config = _script_config()
@@ -210,6 +235,9 @@ def test_run_full_window_screen_handles_leader_momentum_candidate() -> None:
 
     assert summary.loc[0, "candidate_id"] == candidate_id
     assert candidate_id in results
+    targets = results[candidate_id].rebalance_targets
+    assert not targets.empty
+    assert (targets.sum(axis=1) > 0.0).any()
 
 
 def test_candidate_definitions_are_bounded_and_include_discovery_lane() -> None:
