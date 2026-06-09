@@ -495,7 +495,7 @@ def test_add_candidate_ids_respects_zero_limit() -> None:
 
 
 def test_compute_rolling_window_summary_detects_hundred_x_window() -> None:
-    dates = pd.date_range("2020-01-01", periods=365 * 5 + 5, freq="D")
+    dates = pd.date_range("2020-01-01", periods=365 * 5, freq="D")
     daily_returns = pd.Series(100.0 ** (1.0 / len(dates)) - 1.0, index=dates, name="candidate")
 
     summary, windows = compute_rolling_window_summary(
@@ -507,6 +507,20 @@ def test_compute_rolling_window_summary_detects_hundred_x_window() -> None:
     assert summary.loc[0, "best_rolling_5y_multiple"] >= 99.0
     assert summary.loc[0, "hundred_x_hit_rate_5y"] > 0
     assert not windows.empty
+
+
+def test_compute_rolling_window_summary_uses_exact_window_length() -> None:
+    dates = pd.date_range("2020-01-01", periods=365 * 5 + 5, freq="D")
+    daily_returns = pd.Series(100.0 ** (1.0 / len(dates)) - 1.0, index=dates, name="candidate")
+
+    summary, windows = compute_rolling_window_summary(
+        {"candidate": daily_returns},
+        windows_days=(365 * 5,),
+    )
+
+    assert summary.loc[0, "best_rolling_5y_multiple"] < 100.0
+    assert summary.loc[0, "hundred_x_hit_rate_5y"] == 0.0
+    assert windows.empty
 
 
 def test_compute_cost_sensitivity_reports_survival_ratio() -> None:
@@ -561,6 +575,78 @@ def test_compute_stability_surface_marks_neighbor_region() -> None:
     assert result.loc[0, "candidate_id"] == "a"
     assert result.loc[0, "neighbor_count"] == 2
     assert result.loc[0, "stability_score"] > 0
+
+
+def test_compute_stability_surface_excludes_different_overlay_neighbors() -> None:
+    summary = pd.DataFrame(
+        [
+            {
+                "candidate_id": "a",
+                "family_id": "ctrend_lite",
+                "strategy_kind": "ctrend_lite",
+                "score_family": "ctrend_lite_balanced",
+                "top_n": 1,
+                "frequency": "14D",
+                "stop_kind": "trailing",
+                "stop_lookback": 11,
+                "stop_confirm_days": 2,
+                "ma_window": None,
+                "risk_off_asset": "btc",
+                "initial_asset": "btc",
+                "multiple": 50.0,
+            },
+            {
+                "candidate_id": "valid_neighbor",
+                "family_id": "ctrend_lite",
+                "strategy_kind": "ctrend_lite",
+                "score_family": "ctrend_lite_balanced",
+                "top_n": 2,
+                "frequency": "14D",
+                "stop_kind": "trailing",
+                "stop_lookback": 12,
+                "stop_confirm_days": 2,
+                "ma_window": None,
+                "risk_off_asset": "btc",
+                "initial_asset": "btc",
+                "multiple": 40.0,
+            },
+            {
+                "candidate_id": "different_parking",
+                "family_id": "ctrend_lite",
+                "strategy_kind": "ctrend_lite",
+                "score_family": "ctrend_lite_balanced",
+                "top_n": 1,
+                "frequency": "14D",
+                "stop_kind": "trailing",
+                "stop_lookback": 11,
+                "stop_confirm_days": 2,
+                "ma_window": None,
+                "risk_off_asset": "cash",
+                "initial_asset": "btc",
+                "multiple": 45.0,
+            },
+            {
+                "candidate_id": "different_stop",
+                "family_id": "ctrend_lite",
+                "strategy_kind": "ctrend_lite",
+                "score_family": "ctrend_lite_balanced",
+                "top_n": 1,
+                "frequency": "14D",
+                "stop_kind": "ma",
+                "stop_lookback": 11,
+                "stop_confirm_days": 2,
+                "ma_window": 100,
+                "risk_off_asset": "btc",
+                "initial_asset": "btc",
+                "multiple": 44.0,
+            },
+        ]
+    )
+
+    result = compute_stability_surface(summary, candidate_ids=["a"], multiple_floor=25.0)
+
+    assert result.loc[0, "neighbor_count"] == 1
+    assert result.loc[0, "median_neighbor_multiple"] == pytest.approx(40.0)
 
 
 def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
@@ -624,6 +710,43 @@ def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
     assert by_candidate["start_date"].nunique() >= 2
     assert expected_summary_columns.issubset(summary.columns)
     assert expected_detail_columns.issubset(by_candidate.columns)
+
+
+def test_compute_rolling_start_validation_respects_config_end_date() -> None:
+    market = _script_toy_market()
+    config = load_config("config/base.yaml")
+    config.start_date = "2024-02-01"
+    config.end_date = "2024-03-15"
+    config.rebalancing.frequencies["14D"] = "14D"
+    universe_by_liquidity = {
+        "loose": _script_toy_universe(pd.date_range("2024-02-01", periods=5, freq="14D"))
+    }
+    candidate = _script_candidate()
+
+    _, by_candidate = compute_rolling_start_validation(
+        market,
+        universe_by_liquidity,
+        config,
+        {candidate.candidate_id: candidate},
+        [candidate.candidate_id],
+        min_days_after_start=0,
+    )
+
+    start_dates = pd.to_datetime(by_candidate["start_date"])
+    assert not start_dates.empty
+    assert (start_dates <= config.end_timestamp).all()
+
+
+def test_compute_rolling_start_validation_rejects_unknown_candidate_id() -> None:
+    with pytest.raises(ValueError, match="missing"):
+        compute_rolling_start_validation(
+            _script_toy_market(),
+            _script_universe_by_liquidity(),
+            _script_config(),
+            {},
+            ["missing"],
+            min_days_after_start=30,
+        )
 
 
 def test_compute_contribution_summary_records_top_dependency() -> None:

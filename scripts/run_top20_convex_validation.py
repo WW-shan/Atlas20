@@ -691,14 +691,25 @@ def compute_rolling_start_validation(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     empty_summary = pd.DataFrame(columns=ROLLING_START_SUMMARY_COLUMNS)
     empty_detail = pd.DataFrame(columns=ROLLING_START_DETAIL_COLUMNS)
-    if market.price.empty or not candidate_ids:
+    if not candidate_ids:
+        return empty_summary, empty_detail
+
+    missing_candidate_ids = [
+        candidate_id for candidate_id in candidate_ids if candidate_id not in candidate_by_id
+    ]
+    if missing_candidate_ids:
+        missing = ", ".join(missing_candidate_ids)
+        raise ValueError(f"candidate_by_id is missing candidate id(s): {missing}")
+
+    if market.price.empty:
         return empty_summary, empty_detail
 
     max_market_date = pd.Timestamp(market.price.index.max())
-    max_start = max_market_date - pd.Timedelta(days=min_days_after_start)
+    max_validation_date = min(max_market_date, config.end_timestamp)
+    max_start = max_validation_date - pd.Timedelta(days=min_days_after_start)
     start_dates = [
         start_date
-        for start_date in _monthly_start_dates(config.start_timestamp, max_market_date)
+        for start_date in _monthly_start_dates(config.start_timestamp, max_validation_date)
         if start_date <= max_start
     ]
     if not start_dates:
@@ -777,16 +788,10 @@ def _rolling_compounded_multiples(returns: pd.Series, window_days: int) -> pd.Se
         return pd.Series(dtype=float)
 
     gross_returns = 1.0 + returns
-    calendar_slack_days = max(window_days // 365, 0)
-    max_periods = min(len(gross_returns), window_days + calendar_slack_days)
-    rolling_candidates = [
-        gross_returns.rolling(periods).apply(
-            lambda values: float(values.prod()),
-            raw=True,
-        )
-        for periods in range(window_days, max_periods + 1)
-    ]
-    return pd.concat(rolling_candidates, axis=1).max(axis=1).dropna()
+    return gross_returns.rolling(window_days).apply(
+        lambda values: float(values.prod()),
+        raw=True,
+    ).dropna()
 
 
 def _hundred_x_mask(multiples: pd.Series) -> pd.Series:
@@ -926,6 +931,39 @@ def _near_optional_number(left: object, right: object, *, tolerance: float) -> b
     return abs(left_number - right_number) <= tolerance
 
 
+def _matches_when_present(left: pd.Series, right: pd.Series, column: str) -> bool:
+    if column not in left.index or column not in right.index:
+        return True
+    left_value = left.get(column)
+    right_value = right.get(column)
+    if pd.isna(left_value) or pd.isna(right_value):
+        return pd.isna(left_value) and pd.isna(right_value)
+    return left_value == right_value
+
+
+def _candidate_surface_matches(candidate: pd.Series, neighbor: pd.Series) -> bool:
+    exact_columns = (
+        "strategy_kind",
+        "score_family",
+        "stop_kind",
+        "risk_off_asset",
+        "initial_asset",
+        "stop_confirm_days",
+    )
+    if any(
+        not _matches_when_present(neighbor, candidate, column) for column in exact_columns
+    ):
+        return False
+
+    if "ma_window" in candidate.index and "ma_window" in neighbor.index:
+        return _near_optional_number(
+            neighbor.get("ma_window"),
+            candidate.get("ma_window"),
+            tolerance=1.0,
+        )
+    return True
+
+
 def compute_stability_surface(
     summary: pd.DataFrame,
     *,
@@ -952,6 +990,8 @@ def compute_stability_surface(
         same_family = summary[summary["family_id"] == candidate["family_id"]]
         for _, neighbor in same_family.iterrows():
             if neighbor["candidate_id"] == candidate_id:
+                continue
+            if not _candidate_surface_matches(candidate, neighbor):
                 continue
             if _safe_float(neighbor["multiple"]) < multiple_floor:
                 continue
