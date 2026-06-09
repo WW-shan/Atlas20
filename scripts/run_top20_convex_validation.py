@@ -141,6 +141,31 @@ PARKING_TARGETS: dict[str, pd.Series | None] = {
 }
 
 
+FULL_WINDOW_SCREEN_COLUMNS: tuple[str, ...] = (
+    *CandidateDefinition.__dataclass_fields__,
+    "total_return",
+    "cagr",
+    "annualized_volatility",
+    "sharpe",
+    "sortino",
+    "max_drawdown",
+    "calmar",
+    "monthly_win_rate",
+    "annualized_turnover",
+    "avg_turnover_per_rebalance",
+    "average_holdings",
+    "multiple",
+    "best_rolling_5y_multiple",
+    "hundred_x_hit_rate_5y",
+    "median_rolling_start_multiple",
+    "cost_survival_100bps",
+    "stability_score",
+    "trial_count_estimate",
+    "raw_convexity_score",
+    "robust_convexity_score",
+)
+
+
 def _candidate_id(parts: list[object]) -> str:
     return "__".join(str(part).replace(" ", "_").lower() for part in parts)
 
@@ -570,9 +595,10 @@ def run_one_candidate(
     total_cost_bps: float | None = None,
 ) -> BacktestResult:
     targets = _candidate_targets(market, universe_by_liquidity, config, candidate)
+    asset_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
     return run_backtest(
         name=candidate.candidate_id,
-        asset_returns=market.returns,
+        asset_returns=asset_returns,
         rebalance_targets=targets,
         sector_by_coin=_sector_by_coin(market),
         friction=_friction_with_total_cost(config.frictions, total_cost_bps),
@@ -609,7 +635,7 @@ def run_full_window_screen(
         rows.append(row)
 
     if not rows:
-        return pd.DataFrame(), results
+        return pd.DataFrame(columns=FULL_WINDOW_SCREEN_COLUMNS), results
 
     summary = pd.DataFrame(rows)
     summary["raw_convexity_score"] = summary.apply(compute_raw_convexity_score, axis=1)

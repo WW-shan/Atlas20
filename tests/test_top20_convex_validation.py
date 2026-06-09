@@ -12,6 +12,7 @@ from scripts.run_top20_convex_validation import (
     compute_raw_convexity_score,
     compute_robust_convexity_score,
     run_full_window_screen,
+    run_one_candidate,
     select_validation_candidates,
 )
 
@@ -69,35 +70,46 @@ def _script_toy_universe(dates: pd.DatetimeIndex) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
-    market = _script_toy_market()
+def _script_config():
     config = load_config("config/base.yaml")
     config.start_date = "2024-03-01"
     config.rebalancing.frequencies["14D"] = "14D"
-    universe_by_liquidity = {
-        "loose": _script_toy_universe(pd.date_range("2024-03-01", periods=4, freq="14D"))
+    return config
+
+
+def _script_universe_by_liquidity() -> dict[str, pd.DataFrame]:
+    return {"loose": _script_toy_universe(pd.date_range("2024-03-01", periods=4, freq="14D"))}
+
+
+def _script_candidate(**overrides: object) -> CandidateDefinition:
+    fields: dict[str, object] = {
+        "candidate_id": "ctrend_lite_test",
+        "family_id": "ctrend_lite",
+        "strategy_kind": "ctrend_lite",
+        "top_n": 1,
+        "frequency": "14D",
+        "score_family": "ctrend_lite_balanced",
+        "liquidity_label": "loose",
+        "min_history_days": 30,
+        "min_daily_dollar_volume": 1_000_000.0,
+        "include_btc": True,
+        "overlay_set": "no_stop_control",
+        "risk_off_asset": "cash",
+        "initial_asset": "cash",
+        "stop_kind": "none",
+        "stop_lookback": None,
+        "stop_confirm_days": 1,
+        "ma_window": None,
     }
-    candidates = [
-        CandidateDefinition(
-            candidate_id="ctrend_lite_test",
-            family_id="ctrend_lite",
-            strategy_kind="ctrend_lite",
-            top_n=1,
-            frequency="14D",
-            score_family="ctrend_lite_balanced",
-            liquidity_label="loose",
-            min_history_days=30,
-            min_daily_dollar_volume=1_000_000.0,
-            include_btc=True,
-            overlay_set="no_stop_control",
-            risk_off_asset="cash",
-            initial_asset="cash",
-            stop_kind="none",
-            stop_lookback=None,
-            stop_confirm_days=1,
-            ma_window=None,
-        )
-    ]
+    fields.update(overrides)
+    return CandidateDefinition(**fields)
+
+
+def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    candidates = [_script_candidate()]
 
     summary, results = run_full_window_screen(market, universe_by_liquidity, config, candidates)
 
@@ -106,6 +118,98 @@ def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
     assert "raw_convexity_score" in summary.columns
     assert "robust_convexity_score" in summary.columns
     assert "ctrend_lite_test" in results
+
+
+def test_run_one_candidate_slices_returns_to_config_window() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    candidate = _script_candidate(
+        candidate_id="window_slice_test",
+        risk_off_asset="btc",
+        initial_asset="btc",
+    )
+
+    result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
+
+    assert not result.daily_returns.empty
+    assert result.daily_returns.index.min() >= config.start_timestamp
+
+
+def test_run_one_candidate_total_cost_does_not_mutate_config_friction() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    original_fee_bps = config.frictions.fee_bps
+    original_slippage_bps = config.frictions.slippage_bps
+
+    run_one_candidate(
+        market,
+        _script_universe_by_liquidity(),
+        config,
+        _script_candidate(candidate_id="cost_copy_test"),
+        total_cost_bps=100.0,
+    )
+
+    assert config.frictions.fee_bps == original_fee_bps
+    assert config.frictions.slippage_bps == original_slippage_bps
+
+
+def test_run_full_window_screen_empty_candidates_has_schema() -> None:
+    summary, results = run_full_window_screen(
+        _script_toy_market(),
+        _script_universe_by_liquidity(),
+        _script_config(),
+        [],
+    )
+
+    assert summary.empty
+    assert {
+        "candidate_id",
+        "multiple",
+        "raw_convexity_score",
+        "robust_convexity_score",
+        "trial_count_estimate",
+    }.issubset(summary.columns)
+    assert results == {}
+
+
+def test_run_full_window_screen_can_exclude_btc_for_ctrend_lite() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    candidate_id = "ctrend_lite_ex_btc"
+
+    _, results = run_full_window_screen(
+        market,
+        _script_universe_by_liquidity(),
+        config,
+        [_script_candidate(candidate_id=candidate_id, include_btc=False)],
+    )
+
+    targets = results[candidate_id].rebalance_targets
+    assert not targets.empty
+    assert (targets["bitcoin"] <= 0.0).all()
+
+
+def test_run_full_window_screen_handles_leader_momentum_candidate() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    candidate_id = "leader_momentum_test"
+
+    summary, results = run_full_window_screen(
+        market,
+        _script_universe_by_liquidity(),
+        config,
+        [
+            _script_candidate(
+                candidate_id=candidate_id,
+                family_id="leader_momentum",
+                strategy_kind="leader_momentum",
+                score_family="base",
+            )
+        ],
+    )
+
+    assert summary.loc[0, "candidate_id"] == candidate_id
+    assert candidate_id in results
 
 
 def test_candidate_definitions_are_bounded_and_include_discovery_lane() -> None:
