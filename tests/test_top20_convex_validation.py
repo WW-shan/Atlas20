@@ -3,14 +3,109 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from atlas20.config import load_config
+from atlas20.universe.builder import MarketDataBundle
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
     _add_candidate_ids,
     build_candidate_definitions,
     compute_raw_convexity_score,
     compute_robust_convexity_score,
+    run_full_window_screen,
     select_validation_candidates,
 )
+
+
+def _script_toy_market() -> MarketDataBundle:
+    dates = pd.date_range("2024-01-01", periods=100, freq="D")
+    price = pd.DataFrame(
+        {
+            "bitcoin": [100 + i * 0.4 for i in range(100)],
+            "ethereum": [80 + i * 0.2 for i in range(100)],
+            "solana": [10 + i * 1.2 for i in range(100)],
+            "chainlink": [20 + i * 0.15 for i in range(100)],
+        },
+        index=dates,
+    )
+    metadata = pd.DataFrame(
+        {
+            "sector": {
+                "bitcoin": "Store of Value",
+                "ethereum": "Smart Contract Platform / L1",
+                "solana": "Smart Contract Platform / L1",
+                "chainlink": "Infrastructure",
+            }
+        }
+    )
+    return MarketDataBundle(
+        raw_price=price,
+        price=price,
+        returns=price.pct_change().fillna(0.0),
+        market_cap=price * 1_000_000,
+        volume=pd.DataFrame(1_000_000.0, index=dates, columns=price.columns),
+        history_count=price.notna().cumsum(),
+        metadata=metadata,
+    )
+
+
+def _script_toy_universe(dates: pd.DatetimeIndex) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for date in dates:
+        for rank, coin_id in enumerate(["bitcoin", "ethereum", "solana", "chainlink"], start=1):
+            rows.append(
+                {
+                    "rebalance_date": date,
+                    "coin_id": coin_id,
+                    "universe_rank": rank,
+                    "price": 1.0,
+                    "market_cap": 10_000_000 / rank,
+                    "volume_usd": 1_000_000,
+                    "history_days": 100,
+                    "symbol": coin_id.upper(),
+                    "name": coin_id,
+                    "sector": "Layer1",
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
+    market = _script_toy_market()
+    config = load_config("config/base.yaml")
+    config.start_date = "2024-03-01"
+    config.rebalancing.frequencies["14D"] = "14D"
+    universe_by_liquidity = {
+        "loose": _script_toy_universe(pd.date_range("2024-03-01", periods=4, freq="14D"))
+    }
+    candidates = [
+        CandidateDefinition(
+            candidate_id="ctrend_lite_test",
+            family_id="ctrend_lite",
+            strategy_kind="ctrend_lite",
+            top_n=1,
+            frequency="14D",
+            score_family="ctrend_lite_balanced",
+            liquidity_label="loose",
+            min_history_days=30,
+            min_daily_dollar_volume=1_000_000.0,
+            include_btc=True,
+            overlay_set="no_stop_control",
+            risk_off_asset="cash",
+            initial_asset="cash",
+            stop_kind="none",
+            stop_lookback=None,
+            stop_confirm_days=1,
+            ma_window=None,
+        )
+    ]
+
+    summary, results = run_full_window_screen(market, universe_by_liquidity, config, candidates)
+
+    assert summary.loc[0, "candidate_id"] == "ctrend_lite_test"
+    assert summary.loc[0, "multiple"] > 0
+    assert "raw_convexity_score" in summary.columns
+    assert "robust_convexity_score" in summary.columns
+    assert "ctrend_lite_test" in results
 
 
 def test_candidate_definitions_are_bounded_and_include_discovery_lane() -> None:

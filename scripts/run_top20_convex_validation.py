@@ -13,7 +13,17 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from atlas20.strategies.convex_leader import CTREND_LITE_SCORE_FAMILIES  # noqa: E402
+from atlas20.analytics.metrics import compute_summary_metrics  # noqa: E402
+from atlas20.backtest.engine import BacktestResult, run_backtest  # noqa: E402
+from atlas20.config import FrictionConfig, ResearchConfig  # noqa: E402
+from atlas20.signals.risk import btc_above_moving_average, btc_above_trailing_price  # noqa: E402
+from atlas20.strategies.convex_leader import (  # noqa: E402
+    CTREND_LITE_SCORE_FAMILIES,
+    build_ctrend_lite_targets,
+)
+from atlas20.strategies.momentum_lead import build_momentum_lead_targets  # noqa: E402
+from atlas20.strategies.overlays import apply_daily_risk_overlay  # noqa: E402
+from atlas20.universe.builder import MarketDataBundle  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,41 @@ LEADER_MOMENTUM_SCORE_FAMILIES: tuple[str, ...] = (
     "breakout",
     "balanced",
 )
+
+
+LEADER_MOMENTUM_WEIGHTS: dict[str, dict[str, float]] = {
+    "base": {
+        "momentum_rank": 0.45,
+        "ret_21_rank": 0.25,
+        "ret_42_rank": 0.20,
+        "near_high_rank": 0.10,
+    },
+    "short_accel": {
+        "momentum_rank": 0.35,
+        "ret_21_rank": 0.35,
+        "ret_42_rank": 0.15,
+        "near_high_rank": 0.15,
+    },
+    "breakout": {
+        "momentum_rank": 0.30,
+        "ret_21_rank": 0.20,
+        "ret_42_rank": 0.15,
+        "near_high_rank": 0.35,
+    },
+    "balanced": {
+        "momentum_rank": 0.40,
+        "ret_21_rank": 0.20,
+        "ret_42_rank": 0.20,
+        "near_high_rank": 0.20,
+    },
+}
+
+
+PARKING_TARGETS: dict[str, pd.Series | None] = {
+    "cash": None,
+    "btc": pd.Series({"bitcoin": 1.0}),
+    "eth": pd.Series({"ethereum": 1.0}),
+}
 
 
 def _candidate_id(parts: list[object]) -> str:
@@ -390,6 +435,193 @@ def select_validation_candidates(
         _add_candidate_ids(selected, lanes[lane], max_validation_candidates)
 
     return selected
+
+
+def _risk_on_series(market: MarketDataBundle, candidate: CandidateDefinition) -> pd.Series:
+    if candidate.stop_kind == "none":
+        return pd.Series(True, index=market.price.index, name="no_stop")
+
+    if candidate.stop_kind == "trailing":
+        if candidate.stop_lookback is None:
+            raise ValueError(f"{candidate.candidate_id} trailing stop requires stop_lookback")
+        return btc_above_trailing_price(
+            market.price,
+            lookback_days=candidate.stop_lookback,
+            confirm_days=candidate.stop_confirm_days,
+        )
+
+    if candidate.stop_kind == "ma":
+        if candidate.ma_window is None:
+            raise ValueError(f"{candidate.candidate_id} MA stop requires ma_window")
+        return btc_above_moving_average(
+            market.price,
+            ma_window=candidate.ma_window,
+            confirm_days=candidate.stop_confirm_days,
+        )
+
+    raise ValueError(f"Unknown stop_kind for {candidate.candidate_id}: {candidate.stop_kind}")
+
+
+def _build_base_targets(
+    market: MarketDataBundle,
+    universe: pd.DataFrame,
+    config: ResearchConfig,
+    candidate: CandidateDefinition,
+) -> dict[pd.Timestamp, pd.Series]:
+    if candidate.strategy_kind == "ctrend_lite":
+        return build_ctrend_lite_targets(
+            market,
+            universe,
+            config,
+            top_n=candidate.top_n,
+            frequency=candidate.frequency,
+            score_family=candidate.score_family,
+            include_btc=candidate.include_btc,
+        ).targets
+
+    if candidate.strategy_kind == "leader_momentum":
+        try:
+            score_weights = LEADER_MOMENTUM_WEIGHTS[candidate.score_family]
+        except KeyError as exc:
+            known_families = ", ".join(sorted(LEADER_MOMENTUM_WEIGHTS))
+            raise ValueError(
+                f"Unknown leader momentum score_family {candidate.score_family!r}; "
+                f"expected one of: {known_families}"
+            ) from exc
+
+        regime_frame = pd.DataFrame({"bull": True}, index=market.price.index)
+        return build_momentum_lead_targets(
+            market,
+            universe,
+            regime_frame,
+            config,
+            top_n=candidate.top_n,
+            frequency=candidate.frequency,
+            regime_mode="always_on",
+            weighted=candidate.top_n > 1,
+            score_weights=score_weights,
+        ).targets
+
+    raise ValueError(
+        f"Unknown strategy_kind for {candidate.candidate_id}: {candidate.strategy_kind}"
+    )
+
+
+def _parking_target(candidate: CandidateDefinition, asset: str, field_name: str) -> pd.Series | None:
+    try:
+        return PARKING_TARGETS[asset]
+    except KeyError as exc:
+        known_assets = ", ".join(sorted(PARKING_TARGETS))
+        raise ValueError(
+            f"Unknown {field_name} for {candidate.candidate_id}: {asset!r}; "
+            f"expected one of: {known_assets}"
+        ) from exc
+
+
+def _candidate_targets(
+    market: MarketDataBundle,
+    universe_by_liquidity: dict[str, pd.DataFrame],
+    config: ResearchConfig,
+    candidate: CandidateDefinition,
+) -> dict[pd.Timestamp, pd.Series]:
+    try:
+        universe = universe_by_liquidity[candidate.liquidity_label]
+    except KeyError as exc:
+        available = ", ".join(sorted(universe_by_liquidity)) or "<none>"
+        raise ValueError(
+            f"No universe found for liquidity_label {candidate.liquidity_label!r}; "
+            f"available labels: {available}"
+        ) from exc
+
+    base_targets = _build_base_targets(market, universe, config, candidate)
+    risk_on = _risk_on_series(market, candidate)
+    return apply_daily_risk_overlay(
+        base_targets,
+        risk_on,
+        risk_off_target=_parking_target(candidate, candidate.risk_off_asset, "risk_off_asset"),
+        initial_target=_parking_target(candidate, candidate.initial_asset, "initial_asset"),
+    )
+
+
+def _friction_with_total_cost(
+    base: FrictionConfig,
+    total_cost_bps: float | None = None,
+) -> FrictionConfig:
+    friction = base.model_copy(deep=True)
+    if total_cost_bps is not None:
+        half_cost = float(total_cost_bps) / 2.0
+        friction.fee_bps = half_cost
+        friction.slippage_bps = half_cost
+    return friction
+
+
+def _sector_by_coin(market: MarketDataBundle) -> pd.Series:
+    if "sector" not in market.metadata.columns:
+        raise ValueError("market metadata is missing required 'sector' column")
+    return market.metadata["sector"]
+
+
+def run_one_candidate(
+    market: MarketDataBundle,
+    universe_by_liquidity: dict[str, pd.DataFrame],
+    config: ResearchConfig,
+    candidate: CandidateDefinition,
+    *,
+    total_cost_bps: float | None = None,
+) -> BacktestResult:
+    targets = _candidate_targets(market, universe_by_liquidity, config, candidate)
+    return run_backtest(
+        name=candidate.candidate_id,
+        asset_returns=market.returns,
+        rebalance_targets=targets,
+        sector_by_coin=_sector_by_coin(market),
+        friction=_friction_with_total_cost(config.frictions, total_cost_bps),
+        initial_capital=config.initial_capital,
+        gross_target_exposure=1.0,
+    )
+
+
+def run_full_window_screen(
+    market: MarketDataBundle,
+    universe_by_liquidity: dict[str, pd.DataFrame],
+    config: ResearchConfig,
+    candidates: list[CandidateDefinition],
+) -> tuple[pd.DataFrame, dict[str, BacktestResult]]:
+    rows: list[dict[str, object]] = []
+    results: dict[str, BacktestResult] = {}
+
+    for candidate in candidates:
+        result = run_one_candidate(market, universe_by_liquidity, config, candidate)
+        results[candidate.candidate_id] = result
+
+        metrics = compute_summary_metrics(result, config.annualization_days)
+        row: dict[str, object] = asdict(candidate)
+        row.update(metrics)
+
+        multiple = float(metrics["total_return"]) + 1.0
+        row["multiple"] = multiple
+        row["best_rolling_5y_multiple"] = multiple
+        row["hundred_x_hit_rate_5y"] = 1.0 if multiple >= 100.0 else 0.0
+        row["median_rolling_start_multiple"] = multiple
+        row["cost_survival_100bps"] = 0.0
+        row["stability_score"] = 0.0
+        row["trial_count_estimate"] = len(candidates)
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame(), results
+
+    summary = pd.DataFrame(rows)
+    summary["raw_convexity_score"] = summary.apply(compute_raw_convexity_score, axis=1)
+    summary["robust_convexity_score"] = summary.apply(
+        compute_robust_convexity_score,
+        axis=1,
+    )
+    return summary.sort_values(
+        ["raw_convexity_score", "multiple"],
+        ascending=[False, False],
+        kind="mergesort",
+    ).reset_index(drop=True), results
 
 
 def candidate_records(candidates: list[CandidateDefinition]) -> pd.DataFrame:
