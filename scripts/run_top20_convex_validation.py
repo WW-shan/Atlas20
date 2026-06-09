@@ -252,7 +252,7 @@ def _candidate_id(parts: list[object]) -> str:
 
 
 def _champion_ablation_overlays() -> dict[str, dict[str, object]]:
-    return {
+    overlays: dict[str, dict[str, object]] = {
         f"champion_ablation_stop{stop_lookback}": {
             "stop_kind": "trailing",
             "stop_lookback": stop_lookback,
@@ -263,6 +263,40 @@ def _champion_ablation_overlays() -> dict[str, dict[str, object]]:
         }
         for stop_lookback in (10, 11, 12, 13, 14, 15)
     }
+    for confirm_days in (1, 3):
+        overlays[f"champion_ablation_confirm{confirm_days}"] = {
+            "stop_kind": "trailing",
+            "stop_lookback": 11,
+            "stop_confirm_days": confirm_days,
+            "ma_window": None,
+            "risk_off_asset": "btc",
+            "initial_asset": "btc",
+        }
+    overlays["champion_ablation_no_stop"] = {
+        "stop_kind": "none",
+        "stop_lookback": None,
+        "stop_confirm_days": 1,
+        "ma_window": None,
+        "risk_off_asset": "btc",
+        "initial_asset": "btc",
+    }
+    overlays["champion_ablation_cash_parking"] = {
+        "stop_kind": "trailing",
+        "stop_lookback": 11,
+        "stop_confirm_days": 2,
+        "ma_window": None,
+        "risk_off_asset": "cash",
+        "initial_asset": "cash",
+    }
+    overlays["champion_ablation_eth_parking"] = {
+        "stop_kind": "trailing",
+        "stop_lookback": 11,
+        "stop_confirm_days": 2,
+        "ma_window": None,
+        "risk_off_asset": "eth",
+        "initial_asset": "eth",
+    }
+    return overlays
 
 
 def _candidate_from_parts(
@@ -365,20 +399,42 @@ def build_candidate_definitions() -> list[CandidateDefinition]:
                             )
 
     champion_overlays = _champion_ablation_overlays()
-    for overlay_set in champion_overlays:
+
+    def add_champion_ablation(**overrides: object) -> None:
+        params: dict[str, object] = {
+            "top_n": 1,
+            "frequency": "14D",
+            "score_family": "base",
+            "liquidity_label": "loose",
+            "include_btc": True,
+            "overlay_set": "champion_ablation_stop11",
+        }
+        params.update(overrides)
         candidates.append(
             _candidate_from_parts(
                 family_id="champion_ablation",
                 strategy_kind="leader_momentum",
-                top_n=1,
-                frequency="14D",
-                score_family="base",
-                liquidity_label="loose",
-                include_btc=True,
-                overlay_set=overlay_set,
+                top_n=int(params["top_n"]),
+                frequency=str(params["frequency"]),
+                score_family=str(params["score_family"]),
+                liquidity_label=str(params["liquidity_label"]),
+                include_btc=bool(params["include_btc"]),
+                overlay_set=str(params["overlay_set"]),
                 overlay_sets=champion_overlays,
             )
         )
+
+    for overlay_set in champion_overlays:
+        add_champion_ablation(overlay_set=overlay_set)
+    for top_n in (2, 3):
+        add_champion_ablation(top_n=top_n)
+    for frequency in ("7D", "21D", "28D"):
+        add_champion_ablation(frequency=frequency)
+    for liquidity_label in ("medium", "strict"):
+        add_champion_ablation(liquidity_label=liquidity_label)
+    add_champion_ablation(include_btc=False)
+    for score_family in ("short_accel", "breakout", "balanced"):
+        add_champion_ablation(score_family=score_family)
 
     unique: dict[str, CandidateDefinition] = {}
     for candidate in candidates:
@@ -596,9 +652,12 @@ def _build_base_targets(
             ) from exc
 
         regime_frame = pd.DataFrame({"bull": True}, index=market.price.index)
+        leader_universe = universe
+        if not candidate.include_btc and "coin_id" in leader_universe.columns:
+            leader_universe = leader_universe[leader_universe["coin_id"] != "bitcoin"].copy()
         return build_momentum_lead_targets(
             market,
-            universe,
+            leader_universe,
             regime_frame,
             config,
             top_n=candidate.top_n,
@@ -972,19 +1031,46 @@ def _matches_when_present(left: pd.Series, right: pd.Series, column: str) -> boo
     return left_value == right_value
 
 
+def _score_family_neighbors(candidate: pd.Series, neighbor: pd.Series) -> bool:
+    if "score_family" not in candidate.index or "score_family" not in neighbor.index:
+        return True
+    candidate_score_family = candidate.get("score_family")
+    neighbor_score_family = neighbor.get("score_family")
+    if pd.isna(candidate_score_family) or pd.isna(neighbor_score_family):
+        return pd.isna(candidate_score_family) and pd.isna(neighbor_score_family)
+    if candidate_score_family == neighbor_score_family:
+        return True
+
+    strategy_kind = str(candidate.get("strategy_kind"))
+    score_neighborhoods = {
+        "leader_momentum": set(LEADER_MOMENTUM_SCORE_FAMILIES),
+        "ctrend_lite": set(CTREND_LITE_SCORE_FAMILIES),
+    }
+    neighborhood = score_neighborhoods.get(strategy_kind, set())
+    return str(candidate_score_family) in neighborhood and str(neighbor_score_family) in neighborhood
+
+
 def _candidate_surface_matches(candidate: pd.Series, neighbor: pd.Series) -> bool:
     exact_columns = (
         "strategy_kind",
-        "score_family",
         "include_btc",
         "liquidity_label",
         "stop_kind",
         "risk_off_asset",
         "initial_asset",
-        "stop_confirm_days",
     )
     if any(
         not _matches_when_present(neighbor, candidate, column) for column in exact_columns
+    ):
+        return False
+
+    if not _score_family_neighbors(candidate, neighbor):
+        return False
+
+    if not _near_optional_number(
+        neighbor.get("stop_confirm_days"),
+        candidate.get("stop_confirm_days"),
+        tolerance=1.0,
     ):
         return False
 

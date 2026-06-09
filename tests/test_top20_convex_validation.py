@@ -7,6 +7,7 @@ from atlas20.config import load_config
 from atlas20.universe.builder import MarketDataBundle
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
+    CHAMPION_CANDIDATE_ID,
     _add_candidate_ids,
     _all_rebalance_dates,
     _build_universe_variants,
@@ -226,6 +227,35 @@ def test_run_full_window_screen_can_exclude_btc_for_ctrend_lite() -> None:
     assert (targets["bitcoin"] <= 0.0).all()
 
 
+def test_run_full_window_screen_can_exclude_btc_for_leader_momentum() -> None:
+    market = _script_toy_market()
+    market.price["bitcoin"] = [10.0 * (1.08**index) for index in range(len(market.price))]
+    for coin_id in ("ethereum", "solana", "chainlink"):
+        market.price[coin_id] = [100.0 + index * 0.01 for index in range(len(market.price))]
+    market.returns = market.price.pct_change().fillna(0.0)
+    config = _script_config()
+    candidate_id = "leader_momentum_ex_btc"
+
+    _, results = run_full_window_screen(
+        market,
+        _script_universe_by_liquidity(),
+        config,
+        [
+            _script_candidate(
+                candidate_id=candidate_id,
+                family_id="leader_momentum",
+                strategy_kind="leader_momentum",
+                score_family="base",
+                include_btc=False,
+            )
+        ],
+    )
+
+    targets = results[candidate_id].rebalance_targets
+    assert not targets.empty
+    assert (targets["bitcoin"] <= 0.0).all()
+
+
 def test_run_one_candidate_parks_in_eth_when_trailing_stop_turns_off() -> None:
     market = _script_toy_market()
     market.price.loc[pd.Timestamp("2024-02-27") : pd.Timestamp("2024-02-29"), "bitcoin"] = 200.0
@@ -283,6 +313,31 @@ def test_candidate_definitions_are_bounded_and_include_discovery_lane() -> None:
     assert "champion_ablation" in family_ids
     assert len(candidates) < 2_500
     assert len({candidate.candidate_id for candidate in candidates}) == len(candidates)
+
+
+def test_champion_ablation_definitions_cover_required_axes() -> None:
+    candidates = build_candidate_definitions()
+    champion_rows = pd.DataFrame(
+        [
+            candidate.__dict__
+            for candidate in candidates
+            if candidate.family_id == "champion_ablation"
+        ]
+    )
+
+    assert CHAMPION_CANDIDATE_ID in set(champion_rows["candidate_id"])
+    assert {1, 2, 3}.issubset(set(champion_rows["top_n"]))
+    assert {"7D", "14D", "21D", "28D"}.issubset(set(champion_rows["frequency"]))
+    assert {"loose", "medium", "strict"}.issubset(set(champion_rows["liquidity_label"]))
+    assert {True, False}.issubset(set(champion_rows["include_btc"]))
+    assert {"btc", "cash", "eth"}.issubset(set(champion_rows["risk_off_asset"]))
+    assert {"btc", "cash", "eth"}.issubset(set(champion_rows["initial_asset"]))
+    assert {"none", "trailing"}.issubset(set(champion_rows["stop_kind"]))
+    assert {10, 11, 12, 13, 14, 15}.issubset(
+        set(champion_rows["stop_lookback"].dropna().astype(int))
+    )
+    assert {1, 2, 3}.issubset(set(champion_rows["stop_confirm_days"]))
+    assert len(champion_rows) < 80
 
 
 def test_raw_convexity_score_prefers_higher_multiple_with_drawdown_penalty() -> None:
@@ -653,6 +708,34 @@ def test_compute_stability_surface_excludes_different_universe_neighbors() -> No
 
     assert result.loc[0, "neighbor_count"] == 1
     assert result.loc[0, "median_neighbor_multiple"] == pytest.approx(40.0)
+
+
+def test_compute_stability_surface_counts_score_and_confirm_neighbors() -> None:
+    summary = pd.DataFrame(
+        [
+            _stability_summary_row(candidate_id="a"),
+            _stability_summary_row(
+                candidate_id="score_neighbor",
+                score_family="ctrend_lite_breakout",
+                multiple=40.0,
+            ),
+            _stability_summary_row(
+                candidate_id="confirm_neighbor",
+                stop_confirm_days=1,
+                multiple=30.0,
+            ),
+            _stability_summary_row(
+                candidate_id="far_confirm",
+                stop_confirm_days=4,
+                multiple=90.0,
+            ),
+        ]
+    )
+
+    result = compute_stability_surface(summary, candidate_ids=["a"], multiple_floor=25.0)
+
+    assert result.loc[0, "neighbor_count"] == 2
+    assert result.loc[0, "median_neighbor_multiple"] == pytest.approx(35.0)
 
 
 def test_compute_stability_surface_requires_structural_columns() -> None:
