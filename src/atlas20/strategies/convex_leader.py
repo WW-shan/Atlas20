@@ -228,6 +228,10 @@ def compute_ctrend_lite_scores(
 
     frame["near_high"] = _near_high(market.price, rebalance_date, frame.index.tolist())
     frame["volume_expansion"] = _volume_expansion(market.volume, rebalance_date, frame.index.tolist())
+    frame = frame.loc[frame["volume_expansion"].notna()].copy()
+    if frame.empty:
+        return pd.Series(dtype=float)
+
     frame["volatility_14"] = _volatility_14(market.price, rebalance_date, frame.index.tolist())
     frame["overheat_7"] = frame["ret_7"].abs()
 

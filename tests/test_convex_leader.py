@@ -101,6 +101,22 @@ def test_ctrend_lite_scores_drop_assets_with_no_usable_data() -> None:
     assert list(scores.index) == ["solana"]
 
 
+def test_ctrend_lite_scores_drop_assets_with_no_usable_volume_data() -> None:
+    market = _toy_market()
+    market.price["drycoin"] = market.price["chainlink"] * 1.5
+    market.volume["drycoin"] = pd.NA
+    date = market.price.index[-1]
+
+    scores = compute_ctrend_lite_scores(
+        market,
+        date,
+        ["solana", "drycoin"],
+        CTREND_LITE_SCORE_FAMILIES["ctrend_lite_balanced"],
+    )
+
+    assert list(scores.index) == ["solana"]
+
+
 def test_ctrend_lite_scores_require_btc_and_eth_for_relative_strength() -> None:
     market = _toy_market()
     date = market.price.index[-1]
