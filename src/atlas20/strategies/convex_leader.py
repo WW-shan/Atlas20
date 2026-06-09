@@ -175,10 +175,7 @@ def _weight_scheme(top_n: int, weighted: bool) -> list[float]:
         return [0.6, 0.4]
     if top_n == 3:
         return [0.5, 0.3, 0.2]
-    base = [0.4, 0.25, 0.2, 0.15]
-    values = base[:top_n]
-    total = sum(values)
-    return [value / total for value in values]
+    return [1.0 / top_n] * top_n
 
 
 def compute_ctrend_lite_scores(
@@ -286,7 +283,13 @@ def build_ctrend_lite_targets(
         frequency_value,
     )
     universe_by_date = _universe_lookup(universe)
-    weights = CTREND_LITE_SCORE_FAMILIES[score_family]
+    try:
+        weights = CTREND_LITE_SCORE_FAMILIES[score_family]
+    except KeyError as exc:
+        known_families = ", ".join(sorted(CTREND_LITE_SCORE_FAMILIES))
+        raise ValueError(
+            f"Unknown CTREND-lite score_family {score_family!r}; expected one of: {known_families}"
+        ) from exc
 
     targets: dict[pd.Timestamp, pd.Series] = {}
     selection_rows: list[dict] = []
