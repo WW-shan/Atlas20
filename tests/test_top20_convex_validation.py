@@ -9,6 +9,7 @@ from scripts.run_top20_convex_validation import (
     CandidateDefinition,
     _add_candidate_ids,
     _all_rebalance_dates,
+    _build_universe_variants,
     build_validated_candidate_summary,
     build_candidate_definitions,
     compute_contribution_summary,
@@ -1049,3 +1050,46 @@ def test_all_rebalance_dates_includes_literal_weekly_without_mutating_config() -
 
     assert pd.Timestamp("2024-03-08") in dates
     assert config.rebalancing.frequencies == original_frequencies
+
+
+def test_build_universe_variants_includes_shifted_rolling_start_rebalance_dates() -> None:
+    dates = pd.date_range("2023-09-01", "2025-04-30", freq="D")
+    coin_ids = ["bitcoin", "ethereum", "solana", "chainlink"]
+    price = pd.DataFrame(
+        {
+            coin_id: [100.0 + index + offset for index in range(len(dates))]
+            for offset, coin_id in enumerate(coin_ids)
+        },
+        index=dates,
+    )
+    metadata = pd.DataFrame(
+        {
+            "symbol": {coin_id: coin_id.upper() for coin_id in coin_ids},
+            "name": {coin_id: coin_id for coin_id in coin_ids},
+            "sector": {coin_id: "Layer1" for coin_id in coin_ids},
+        }
+    )
+    market = MarketDataBundle(
+        raw_price=price,
+        price=price,
+        returns=price.pct_change().fillna(0.0),
+        market_cap=price * 100_000_000,
+        volume=pd.DataFrame(100_000_000.0, index=dates, columns=coin_ids),
+        history_count=price.notna().cumsum(),
+        metadata=metadata,
+    )
+    config = load_config("config/base.yaml")
+    config.start_date = "2024-02-01"
+    config.end_date = "2025-04-30"
+    config.rebalancing.frequencies = {"14D": "14D"}
+
+    universe_by_liquidity = _build_universe_variants(market, config)
+
+    loose_dates = set(pd.to_datetime(universe_by_liquidity["loose"]["rebalance_date"]))
+    expected_shifted_dates = {
+        pd.Timestamp("2024-03-01"),
+        pd.Timestamp("2024-03-15"),
+        pd.Timestamp("2024-03-29"),
+        pd.Timestamp("2024-04-12"),
+    }
+    assert expected_shifted_dates.issubset(loose_dates)

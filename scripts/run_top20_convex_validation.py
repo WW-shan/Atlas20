@@ -1640,34 +1640,73 @@ def write_validation_outputs(
 def _all_rebalance_dates(
     index: pd.DatetimeIndex,
     config: ResearchConfig,
+    *,
+    start_anchors: list[pd.Timestamp] | None = None,
 ) -> list[pd.Timestamp]:
     dates: set[pd.Timestamp] = set()
-    for frequency_name, frequency_value in config.rebalancing.frequencies.items():
-        dates.update(
-            get_rebalance_dates(
-                index,
-                config.start_timestamp,
-                frequency_name,
-                frequency_value,
+    anchors = (
+        [config.start_timestamp]
+        if start_anchors is None
+        else list(dict.fromkeys(pd.Timestamp(anchor).normalize() for anchor in start_anchors))
+    )
+    for start_anchor in anchors:
+        for frequency_name, frequency_value in config.rebalancing.frequencies.items():
+            dates.update(
+                get_rebalance_dates(
+                    index,
+                    start_anchor,
+                    frequency_name,
+                    frequency_value,
+                )
             )
-        )
-    for frequency in ("7D", "14D", "21D", "28D"):
-        dates.update(
-            get_rebalance_dates(
-                index,
-                config.start_timestamp,
-                frequency,
-                frequency,
+        for frequency in ("7D", "14D", "21D", "28D"):
+            dates.update(
+                get_rebalance_dates(
+                    index,
+                    start_anchor,
+                    frequency,
+                    frequency,
+                )
             )
-        )
     return sorted(dates)
+
+
+def _rolling_start_schedule_anchors(
+    market: MarketDataBundle,
+    config: ResearchConfig,
+    *,
+    min_days_after_start: int = 365,
+) -> list[pd.Timestamp]:
+    anchors = [config.start_timestamp]
+    if market.price.empty:
+        return anchors
+
+    max_market_date = pd.Timestamp(market.price.index.max())
+    max_validation_date = min(max_market_date, config.end_timestamp)
+    max_start = max_validation_date - pd.Timedelta(days=min_days_after_start)
+    anchors.extend(
+        start_date
+        for start_date in _monthly_start_dates(config.start_timestamp, max_validation_date)
+        if start_date <= max_start
+    )
+    return list(dict.fromkeys(pd.Timestamp(anchor).normalize() for anchor in anchors))
 
 
 def _build_universe_variants(
     market: MarketDataBundle,
     config: ResearchConfig,
 ) -> dict[str, pd.DataFrame]:
-    rebalance_dates = _all_rebalance_dates(market.price.index, config)
+    if market.price.empty:
+        rebalance_index = market.price.index
+    else:
+        max_market_date = pd.Timestamp(market.price.index.max())
+        max_validation_date = min(max_market_date, config.end_timestamp)
+        rebalance_index = market.price.index[market.price.index <= max_validation_date]
+    rebalance_dates = _all_rebalance_dates(
+        rebalance_index,
+        config,
+        start_anchors=_rolling_start_schedule_anchors(market, config),
+    )
     universe_by_liquidity: dict[str, pd.DataFrame] = {}
     for liquidity_label, (
         min_history_days,
