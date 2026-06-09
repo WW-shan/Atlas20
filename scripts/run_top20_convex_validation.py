@@ -207,6 +207,24 @@ STABILITY_SURFACE_COLUMNS: tuple[str, ...] = (
     "stability_score",
 )
 
+STABILITY_REQUIRED_COLUMNS: tuple[str, ...] = (
+    "candidate_id",
+    "family_id",
+    "strategy_kind",
+    "score_family",
+    "include_btc",
+    "liquidity_label",
+    "top_n",
+    "frequency",
+    "stop_kind",
+    "stop_lookback",
+    "stop_confirm_days",
+    "ma_window",
+    "risk_off_asset",
+    "initial_asset",
+    "multiple",
+)
+
 CONTRIBUTION_SUMMARY_COLUMNS: tuple[str, ...] = (
     "candidate_id",
     "top_coin_id",
@@ -945,6 +963,8 @@ def _candidate_surface_matches(candidate: pd.Series, neighbor: pd.Series) -> boo
     exact_columns = (
         "strategy_kind",
         "score_family",
+        "include_btc",
+        "liquidity_label",
         "stop_kind",
         "risk_off_asset",
         "initial_asset",
@@ -973,8 +993,7 @@ def compute_stability_surface(
     if summary.empty or not candidate_ids:
         return pd.DataFrame(columns=STABILITY_SURFACE_COLUMNS)
 
-    required_columns = {"candidate_id", "family_id", "top_n", "frequency", "multiple"}
-    missing_columns = sorted(required_columns.difference(summary.columns))
+    missing_columns = sorted(set(STABILITY_REQUIRED_COLUMNS).difference(summary.columns))
     if missing_columns:
         missing = ", ".join(missing_columns)
         raise ValueError(f"summary is missing required column(s): {missing}")
@@ -1116,8 +1135,6 @@ def run_full_window_screen(
 
         multiple = float(metrics["total_return"]) + 1.0
         row["multiple"] = multiple
-        row["best_rolling_5y_multiple"] = multiple
-        row["hundred_x_hit_rate_5y"] = 1.0 if multiple >= 100.0 else 0.0
         row["median_rolling_start_multiple"] = multiple
         row["cost_survival_100bps"] = 0.0
         row["stability_score"] = 0.0
@@ -1128,6 +1145,21 @@ def run_full_window_screen(
         return pd.DataFrame(columns=FULL_WINDOW_SCREEN_COLUMNS), results
 
     summary = pd.DataFrame(rows)
+    rolling_summary, _ = compute_rolling_window_summary(
+        {
+            candidate_id: result.daily_returns
+            for candidate_id, result in results.items()
+        }
+    )
+    if not rolling_summary.empty:
+        summary = summary.merge(rolling_summary, on="candidate_id", how="left")
+    for column in _rolling_window_summary_columns((365 * 3, 365 * 5)):
+        if column == "candidate_id":
+            continue
+        if column not in summary.columns:
+            summary[column] = 0.0
+        summary[column] = pd.to_numeric(summary[column], errors="coerce").fillna(0.0)
+
     summary["raw_convexity_score"] = summary.apply(compute_raw_convexity_score, axis=1)
     summary["robust_convexity_score"] = summary.apply(
         compute_robust_convexity_score,

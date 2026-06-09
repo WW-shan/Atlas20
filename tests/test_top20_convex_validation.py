@@ -110,6 +110,28 @@ def _script_candidate(**overrides: object) -> CandidateDefinition:
     return CandidateDefinition(**fields)
 
 
+def _stability_summary_row(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "candidate_id": "a",
+        "family_id": "ctrend_lite",
+        "strategy_kind": "ctrend_lite",
+        "score_family": "ctrend_lite_balanced",
+        "include_btc": True,
+        "liquidity_label": "loose",
+        "top_n": 1,
+        "frequency": "14D",
+        "stop_kind": "trailing",
+        "stop_lookback": 11,
+        "stop_confirm_days": 2,
+        "ma_window": None,
+        "risk_off_asset": "btc",
+        "initial_asset": "btc",
+        "multiple": 50.0,
+    }
+    row.update(overrides)
+    return row
+
+
 def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
     market = _script_toy_market()
     config = _script_config()
@@ -119,7 +141,9 @@ def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
     summary, results = run_full_window_screen(market, universe_by_liquidity, config, candidates)
 
     assert summary.loc[0, "candidate_id"] == "ctrend_lite_test"
-    assert summary.loc[0, "multiple"] > 0
+    assert summary.loc[0, "multiple"] > 1
+    assert summary.loc[0, "best_rolling_5y_multiple"] == 0.0
+    assert summary.loc[0, "hundred_x_hit_rate_5y"] == 0.0
     assert "raw_convexity_score" in summary.columns
     assert "robust_convexity_score" in summary.columns
     assert "ctrend_lite_test" in results
@@ -543,30 +567,21 @@ def test_compute_cost_sensitivity_reports_survival_ratio() -> None:
 def test_compute_stability_surface_marks_neighbor_region() -> None:
     summary = pd.DataFrame(
         [
-            {
-                "candidate_id": "a",
-                "family_id": "ctrend_lite",
-                "top_n": 1,
-                "frequency": "14D",
-                "stop_lookback": 11,
-                "multiple": 50.0,
-            },
-            {
-                "candidate_id": "b",
-                "family_id": "ctrend_lite",
-                "top_n": 2,
-                "frequency": "14D",
-                "stop_lookback": 11,
-                "multiple": 40.0,
-            },
-            {
-                "candidate_id": "c",
-                "family_id": "ctrend_lite",
-                "top_n": 1,
-                "frequency": "21D",
-                "stop_lookback": 12,
-                "multiple": 35.0,
-            },
+            _stability_summary_row(candidate_id="a", top_n=1, frequency="14D", stop_lookback=11),
+            _stability_summary_row(
+                candidate_id="b",
+                top_n=2,
+                frequency="14D",
+                stop_lookback=11,
+                multiple=40.0,
+            ),
+            _stability_summary_row(
+                candidate_id="c",
+                top_n=1,
+                frequency="21D",
+                stop_lookback=12,
+                multiple=35.0,
+            ),
         ]
     )
 
@@ -580,66 +595,24 @@ def test_compute_stability_surface_marks_neighbor_region() -> None:
 def test_compute_stability_surface_excludes_different_overlay_neighbors() -> None:
     summary = pd.DataFrame(
         [
-            {
-                "candidate_id": "a",
-                "family_id": "ctrend_lite",
-                "strategy_kind": "ctrend_lite",
-                "score_family": "ctrend_lite_balanced",
-                "top_n": 1,
-                "frequency": "14D",
-                "stop_kind": "trailing",
-                "stop_lookback": 11,
-                "stop_confirm_days": 2,
-                "ma_window": None,
-                "risk_off_asset": "btc",
-                "initial_asset": "btc",
-                "multiple": 50.0,
-            },
-            {
-                "candidate_id": "valid_neighbor",
-                "family_id": "ctrend_lite",
-                "strategy_kind": "ctrend_lite",
-                "score_family": "ctrend_lite_balanced",
-                "top_n": 2,
-                "frequency": "14D",
-                "stop_kind": "trailing",
-                "stop_lookback": 12,
-                "stop_confirm_days": 2,
-                "ma_window": None,
-                "risk_off_asset": "btc",
-                "initial_asset": "btc",
-                "multiple": 40.0,
-            },
-            {
-                "candidate_id": "different_parking",
-                "family_id": "ctrend_lite",
-                "strategy_kind": "ctrend_lite",
-                "score_family": "ctrend_lite_balanced",
-                "top_n": 1,
-                "frequency": "14D",
-                "stop_kind": "trailing",
-                "stop_lookback": 11,
-                "stop_confirm_days": 2,
-                "ma_window": None,
-                "risk_off_asset": "cash",
-                "initial_asset": "btc",
-                "multiple": 45.0,
-            },
-            {
-                "candidate_id": "different_stop",
-                "family_id": "ctrend_lite",
-                "strategy_kind": "ctrend_lite",
-                "score_family": "ctrend_lite_balanced",
-                "top_n": 1,
-                "frequency": "14D",
-                "stop_kind": "ma",
-                "stop_lookback": 11,
-                "stop_confirm_days": 2,
-                "ma_window": 100,
-                "risk_off_asset": "btc",
-                "initial_asset": "btc",
-                "multiple": 44.0,
-            },
+            _stability_summary_row(candidate_id="a"),
+            _stability_summary_row(
+                candidate_id="valid_neighbor",
+                top_n=2,
+                stop_lookback=12,
+                multiple=40.0,
+            ),
+            _stability_summary_row(
+                candidate_id="different_parking",
+                risk_off_asset="cash",
+                multiple=45.0,
+            ),
+            _stability_summary_row(
+                candidate_id="different_stop",
+                stop_kind="ma",
+                ma_window=100,
+                multiple=44.0,
+            ),
         ]
     )
 
@@ -647,6 +620,50 @@ def test_compute_stability_surface_excludes_different_overlay_neighbors() -> Non
 
     assert result.loc[0, "neighbor_count"] == 1
     assert result.loc[0, "median_neighbor_multiple"] == pytest.approx(40.0)
+
+
+def test_compute_stability_surface_excludes_different_universe_neighbors() -> None:
+    summary = pd.DataFrame(
+        [
+            _stability_summary_row(candidate_id="a"),
+            _stability_summary_row(
+                candidate_id="valid_neighbor",
+                top_n=2,
+                stop_lookback=12,
+                multiple=40.0,
+            ),
+            _stability_summary_row(
+                candidate_id="different_include_btc",
+                include_btc=False,
+                multiple=45.0,
+            ),
+            _stability_summary_row(
+                candidate_id="different_liquidity",
+                liquidity_label="strict",
+                multiple=44.0,
+            ),
+        ]
+    )
+
+    result = compute_stability_surface(summary, candidate_ids=["a"], multiple_floor=25.0)
+
+    assert result.loc[0, "neighbor_count"] == 1
+    assert result.loc[0, "median_neighbor_multiple"] == pytest.approx(40.0)
+
+
+def test_compute_stability_surface_requires_structural_columns() -> None:
+    summary = pd.DataFrame([_stability_summary_row(candidate_id="a")]).drop(
+        columns=["include_btc", "risk_off_asset"]
+    )
+
+    with pytest.raises(ValueError, match="include_btc"):
+        compute_stability_surface(summary, candidate_ids=["a"], multiple_floor=25.0)
+    with pytest.raises(ValueError, match="risk_off_asset"):
+        compute_stability_surface(
+            summary.assign(include_btc=True),
+            candidate_ids=["a"],
+            multiple_floor=25.0,
+        )
 
 
 def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
