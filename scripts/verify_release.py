@@ -43,10 +43,10 @@ def check_prerequisites() -> list[str]:
     missing: list[str] = []
     web_node_modules = PROJECT_ROOT / "apps" / "web" / "node_modules"
     if importlib.util.find_spec("pytest") is None:
-        missing.append('Missing Python test dependency: pytest. Run `python -m pip install -e ".[dev]"`.')
+        missing.append("Missing Python test dependency: pytest. Run `make setup`.")
     for executable in ("ruff", "mypy", "pip-audit"):
         if resolve_executable(executable) is None:
-            missing.append(f'Missing executable: {executable}. Run `python -m pip install -e ".[dev]"`.')
+            missing.append(f"Missing executable: {executable}. Run `make setup`.")
     if resolve_executable("npm") is None:
         missing.append("Missing executable: npm. Install Node.js/npm, then run `npm --prefix apps/web ci`.")
     elif not web_node_modules.is_dir():
