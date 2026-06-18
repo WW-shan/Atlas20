@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PYTHON_SETUP_HINT = "Run `make setup`, then rerun with `.venv/bin/python scripts/verify_release.py`."
 
 
 def resolve_executable(name: str) -> str | None:
@@ -43,10 +44,10 @@ def check_prerequisites() -> list[str]:
     missing: list[str] = []
     web_node_modules = PROJECT_ROOT / "apps" / "web" / "node_modules"
     if importlib.util.find_spec("pytest") is None:
-        missing.append("Missing Python test dependency: pytest. Run `make setup`.")
+        missing.append(f"Missing Python test dependency: pytest. {PYTHON_SETUP_HINT}")
     for executable in ("ruff", "mypy", "pip-audit"):
         if resolve_executable(executable) is None:
-            missing.append(f"Missing executable: {executable}. Run `make setup`.")
+            missing.append(f"Missing executable: {executable}. {PYTHON_SETUP_HINT}")
     if resolve_executable("npm") is None:
         missing.append("Missing executable: npm. Install Node.js/npm, then run `npm --prefix apps/web ci`.")
     elif not web_node_modules.is_dir():

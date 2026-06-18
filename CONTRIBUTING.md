@@ -7,7 +7,7 @@ avoid hidden data dependencies, and keep strategy assumptions explicit.
 
 ```bash
 make setup
-npm --prefix apps/web install
+npm --prefix apps/web ci
 ```
 
 `make setup` creates `.venv` and installs Python development dependencies

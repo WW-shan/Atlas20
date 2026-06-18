@@ -58,7 +58,7 @@ def test_check_prerequisites_reports_missing_pytest(monkeypatch, tmp_path):
     monkeypatch.setattr(module.importlib.util, "find_spec", lambda name: None if name == "pytest" else object())
 
     assert module.check_prerequisites() == [
-        "Missing Python test dependency: pytest. Run `make setup`.",
+        "Missing Python test dependency: pytest. Run `make setup`, then rerun with `.venv/bin/python scripts/verify_release.py`.",
     ]
 
 
@@ -84,7 +84,7 @@ def test_check_prerequisites_reports_missing_pip_audit(monkeypatch, tmp_path):
     monkeypatch.setattr(module.importlib.util, "find_spec", lambda name: object())
 
     assert module.check_prerequisites() == [
-        "Missing executable: pip-audit. Run `make setup`.",
+        "Missing executable: pip-audit. Run `make setup`, then rerun with `.venv/bin/python scripts/verify_release.py`.",
     ]
 
 

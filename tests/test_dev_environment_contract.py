@@ -38,6 +38,8 @@ def test_python_development_uses_project_virtual_environment() -> None:
     assert "python -m pip install -e \".[dev]\"" not in contributing
     assert "make setup" in readme
     assert "make setup" in contributing
+    assert "npm --prefix apps/web ci" in contributing
+    assert "npm --prefix apps/web install" not in contributing
     assert ".venv/bin/python -m atlas20.api.seed" in readme
-    assert 'Run `make setup`.' in verify_release
+    assert 'Run `make setup`, then rerun with `.venv/bin/python scripts/verify_release.py`.' in verify_release
     assert 'python -m pip install -e ".[dev]"' not in verify_release
