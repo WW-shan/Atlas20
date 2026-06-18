@@ -1,22 +1,37 @@
-.PHONY: dev test test-fast lint typecheck build docker-build backup storage openapi load-test clean
+VENV ?= .venv
+PYTHON := $(VENV)/bin/python
+PIP := $(PYTHON) -m pip
+VENV_STAMP := $(VENV)/.installed
 
-dev:
-	PYTHONPATH=src uvicorn atlas20.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test clean
 
-test:
-	python -m pytest tests/ -q
+$(PYTHON):
+	python -m venv $(VENV)
+
+$(VENV_STAMP): pyproject.toml $(PYTHON)
+	$(PYTHON) -m pip install --upgrade pip
+	$(PIP) install -e ".[dev]"
+	touch $(VENV_STAMP)
+
+setup: $(VENV_STAMP)
+
+dev: $(VENV_STAMP)
+	PYTHONPATH=src $(PYTHON) -m uvicorn atlas20.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+
+test: $(VENV_STAMP)
+	$(PYTHON) -m pytest tests/ -q
 	npm --prefix apps/web test -- --run
 
-test-fast:
-	python -m pytest tests/ -x -q --ff
+test-fast: $(VENV_STAMP)
+	$(PYTHON) -m pytest tests/ -x -q --ff
 
-lint:
-	ruff check src tests
+lint: $(VENV_STAMP)
+	$(PYTHON) -m ruff check src tests
 	npm --prefix apps/web run lint
 
 # typecheck mirrors CI's strict API mypy scope.
-typecheck:
-	mypy --strict src/atlas20/api
+typecheck: $(VENV_STAMP)
+	$(PYTHON) -m mypy --strict src/atlas20/api
 	npm --prefix apps/web run typecheck
 
 build:
@@ -25,17 +40,17 @@ build:
 docker-build:
 	docker compose build
 
-backup:
-	python -m atlas20.api.backup
+backup: $(VENV_STAMP)
+	$(PYTHON) -m atlas20.api.backup
 
-storage:
-	python -m atlas20.api.storage
+storage: $(VENV_STAMP)
+	$(PYTHON) -m atlas20.api.storage
 
-openapi:
-	python -m atlas20.api.openapi
+openapi: $(VENV_STAMP)
+	$(PYTHON) -m atlas20.api.openapi
 
-load-test:
-	python scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200
+load-test: $(VENV_STAMP)
+	$(PYTHON) scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200
 
 clean:
 	rm -rf .pytest_cache .mypy_cache apps/web/node_modules apps/web/dist

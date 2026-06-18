@@ -6,22 +6,26 @@ avoid hidden data dependencies, and keep strategy assumptions explicit.
 ## Local Setup
 
 ```bash
-python -m pip install -e ".[dev]"
+make setup
 npm --prefix apps/web install
 ```
+
+`make setup` creates `.venv` and installs Python development dependencies
+there. Do not install Atlas20 development dependencies into the system Python
+interpreter.
 
 ## Verification
 
 Run the release verification script before opening a pull request:
 
 ```bash
-python scripts/verify_release.py
+.venv/bin/python scripts/verify_release.py
 ```
 
 At minimum, changes should pass:
 
 ```bash
-pytest -q
+make test
 npm --prefix apps/web test
 npm --prefix apps/web run build
 ```

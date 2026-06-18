@@ -105,13 +105,14 @@ Then open:
 Python:
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m atlas20.api.seed
+make setup
+.venv/bin/python -m atlas20.api.seed
 make dev
 ```
 
-> Editable install (`-e`) is required for local development. A non-editable
-> install can shadow the repo `src/` tree from `site-packages`.
+`make setup` creates `.venv` and installs the package in editable mode with
+development dependencies. Keep Python dependencies inside `.venv`; do not
+install Atlas20 development dependencies into the system interpreter.
 
 Frontend:
 
@@ -123,7 +124,7 @@ npm --prefix apps/web run dev
 Worker:
 
 ```bash
-PYTHONPATH=src python -m atlas20.api.worker
+PYTHONPATH=src .venv/bin/python -m atlas20.api.worker
 ```
 
 In development, Vite proxies `/api` to `http://127.0.0.1:8000`.
@@ -131,15 +132,15 @@ In development, Vite proxies `/api` to `http://127.0.0.1:8000`.
 ### Research Pipeline
 
 ```bash
-python scripts/download_data.py --config config/base.yaml
-python scripts/build_datasets.py --config config/base.yaml
-python scripts/run_research.py --config config/base.yaml
+.venv/bin/python scripts/download_data.py --config config/base.yaml
+.venv/bin/python scripts/build_datasets.py --config config/base.yaml
+.venv/bin/python scripts/run_research.py --config config/base.yaml
 ```
 
 Pass `--refresh-raw` to intentionally refresh public API data:
 
 ```bash
-python scripts/run_research.py --config config/base.yaml --refresh-raw
+.venv/bin/python scripts/run_research.py --config config/base.yaml --refresh-raw
 ```
 
 ## Quality Gates
@@ -147,26 +148,29 @@ python scripts/run_research.py --config config/base.yaml --refresh-raw
 Run the release verification command before publishing:
 
 ```bash
-python scripts/verify_release.py
+.venv/bin/python scripts/verify_release.py
 ```
 
 The CI matrix also runs these checks independently:
 
 ```bash
-pytest -q
-ruff check src tests
-mypy --strict src/atlas20/api
-python -m atlas20.api.openapi --check
+make test
+make lint
+make typecheck
+.venv/bin/python -m atlas20.api.openapi --check
 npm --prefix apps/web test
 npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 npm --prefix apps/web run openapi:check
-pip-audit --strict .
+.venv/bin/python -m pip_audit --strict .
 npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.npmjs.org
 ```
 
-Current local verification for this release line covers 448 Python tests plus
-181 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
+`make test` runs the Python suite through pytest inside `.venv`; `make lint`
+and `make typecheck` run Ruff and mypy through the same virtual environment.
+
+Current local verification for this release line covers 505 Python tests plus
+188 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
 ## Operations Surface
