@@ -164,3 +164,67 @@ def test_download_refreshes_current_source_even_when_legacy_cache_is_readable(tm
     processor.download_and_cache_raw_data(config)
 
     assert calls == [("BTC", True)], "current source must be force-refreshed every download"
+
+
+def test_processed_dataset_includes_assets_without_legacy_cache(tmp_path, monkeypatch):
+    """Assets listed after the CryptoCompare shutdown have no legacy file."""
+    from atlas20.data import validation
+
+    config = load_config("config/base.yaml")
+    config.project_root = tmp_path
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidate(raw_dir, "newcoin", "NEW")
+    # Binance.US history only; no cryptocompare/histoday/NEW.json exists.
+    klines = raw_dir / "binanceus" / "klines" / "NEW.json"
+    klines.parent.mkdir(parents=True, exist_ok=True)
+    klines.write_text(
+        json.dumps(
+            [
+                [int(pd.Timestamp(d).timestamp() * 1000), "0", "0", "0", str(p), "0", 0, "1000", 0, "0", "0", "0"]
+                for d, p in [
+                    ("2025-01-01", 10.0),
+                    ("2025-01-02", 11.0),
+                    ("2025-01-03", 12.0),
+                ]
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class _StubSector:
+        def resolve_coin_sector(self, *_args, **_kwargs):
+            return "Other"
+
+    monkeypatch.setattr(processor, "resolve_sector_map", lambda *_a, **_k: _StubSector())
+    monkeypatch.setattr(
+        validation,
+        "validate_and_blend_history",
+        lambda **kwargs: validation.ValidationResult(
+            passed=True,
+            summary={
+                "coin_id": kwargs["coin_id"],
+                "symbol": kwargs["symbol"],
+                "name": kwargs["name"],
+                "validation_passed": True,
+                "validation_reason": "ok",
+                "latest_price_gap": float("nan"),
+                "median_price_gap": float("nan"),
+                "direct_market_cap_days": 0,
+                "direct_price_days": 0,
+                "history_days": 3,
+                "overlap_days": 0,
+                "latest_overlap_date": pd.NaT,
+                "price_correlation": float("nan"),
+                "market_cap_anchor": 1_000_000.0,
+                "market_cap_anchor_price": 10.0,
+            },
+            blended_history=kwargs["cc_history"].rename(
+                columns={"cc_price": "price", "cc_volume_usd": "volume_usd"}
+            ).assign(market_cap=100_000.0),
+        ),
+    )
+
+    panel, metadata = processor.build_processed_datasets(config, object())
+
+    assert "newcoin" in set(panel["coin_id"])
+    assert "newcoin" in set(metadata.index)

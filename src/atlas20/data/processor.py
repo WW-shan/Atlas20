@@ -137,6 +137,9 @@ def load_candidate_assets(config: ResearchConfig) -> pd.DataFrame:
 
 def _legacy_history_frame(history: pd.DataFrame) -> pd.DataFrame:
     """Normalize a raw CryptoCompare histoday frame into date/close/volume."""
+    empty = pd.DataFrame(columns=["date", "close", "volume_usd"])
+    if history is None or history.empty or "time" not in history.columns:
+        return empty
     frame = pd.DataFrame(
         {
             "date": pd.to_datetime(history["time"], unit="s").dt.normalize(),
@@ -190,7 +193,8 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         history_path = raw_dir / "cryptocompare" / "histoday" / f"{symbol}.json"
         metadata_path = raw_dir / "coingecko" / "coin_metadata" / f"{coin_id}.json"
         market_chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.coingecko_recent_days}d.json"
-        if not history_path.exists():
+        binanceus_path = raw_dir / "binanceus" / "klines" / f"{symbol}.json"
+        if not history_path.exists() and not binanceus_path.exists():
             LOGGER.warning("Missing cache for %s (%s); skipping from processed dataset", coin_id, symbol)
             continue
 
@@ -199,16 +203,22 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             LOGGER.info("Skipping %s (%s) during processing because metadata marks it ineligible", coin_id, symbol)
             continue
 
-        history_payload = json.loads(history_path.read_text(encoding="utf-8"))
-        history = pd.DataFrame(history_payload["Data"]["Data"])
-        if history.empty:
-            continue
+        # Assets listed after the CryptoCompare shutdown have no legacy
+        # cache at all; Binance.US is then the only price source.
+        if history_path.exists():
+            history_payload = json.loads(history_path.read_text(encoding="utf-8"))
+            history = pd.DataFrame(history_payload["Data"]["Data"])
+        else:
+            history = pd.DataFrame()
 
         # The CryptoCompare free tier shut down in mid-2026, so the legacy
         # cache stops at its last successful pull. Continue the series from
         # Binance.US and keep both sources aligned over their overlap window.
         legacy_frame = _legacy_history_frame(history)
         new_frame = _load_binanceus_history(raw_dir, symbol)
+        if legacy_frame.empty and (new_frame is None or new_frame.empty):
+            LOGGER.warning("No usable history for %s (%s); skipping", coin_id, symbol)
+            continue
         if new_frame is not None and not new_frame.empty:
             spliced = splice_histories(legacy_frame, new_frame)
             # Price is spliced, but volume must stay on the legacy (aggregate
