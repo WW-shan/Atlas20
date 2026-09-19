@@ -67,14 +67,19 @@ def download_and_cache_raw_data(config: ResearchConfig, force: bool = False) -> 
         except Exception as exc:  # noqa: BLE001
             details = f"cryptocompare_history: {exc}"
             LOGGER.warning("CryptoCompare unavailable for %s (%s): %s", coin_id, symbol, exc)
-            try:
-                fallback = binance_us.fetch_daily_history(symbol, force=force)
-            except Exception as fallback_exc:  # noqa: BLE001
-                details = f"{details} | binanceus_history: {fallback_exc}"
-                LOGGER.warning("Binance.US fallback failed for %s (%s): %s", coin_id, symbol, fallback_exc)
-                fallback = None
-            if fallback is not None and not fallback.empty:
-                history_ok = True
+
+        # Always refresh the current-source cache. A stale-but-readable
+        # CryptoCompare cache would otherwise short-circuit this and the
+        # series would never advance past its last successful pull.
+        try:
+            current = binance_us.fetch_daily_history(symbol, force=True)
+        except Exception as fallback_exc:  # noqa: BLE001
+            details = f"{details} | binanceus_history: {fallback_exc}".lstrip(" |")
+            LOGGER.warning("Binance.US unavailable for %s (%s): %s", coin_id, symbol, fallback_exc)
+            current = None
+        if current is not None and not current.empty:
+            history_ok = True
+            if "cryptocompare_history" in details:
                 details = f"{details} | used_binanceus_fallback"
 
         if not history_ok:

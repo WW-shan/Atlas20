@@ -95,3 +95,72 @@ def test_download_falls_back_to_binanceus_when_cryptocompare_fails(tmp_path, mon
     result = processor.download_and_cache_raw_data(config)
 
     assert len(result) == 1, "asset must be retained via the fallback source"
+
+
+def test_download_refreshes_current_source_even_when_legacy_cache_is_readable(tmp_path, monkeypatch):
+    """A readable legacy cache must not stop the current source from refreshing."""
+    config = load_config("config/base.yaml")
+    config.project_root = tmp_path
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidate(raw_dir, "bitcoin", "BTC")
+
+    class _WorkingCC:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def fetch_daily_history(self, symbol, force=False):
+            return pd.DataFrame(
+                {"time": [1_700_000_000], "close": [100.0], "volumeto": [1000.0]}
+            )
+
+    class _StubCG:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def fetch_top_markets(self, per_page, force=False):
+            return pd.DataFrame()
+
+        def fetch_markets_by_ids(self, coin_ids, force=False):
+            return pd.DataFrame(
+                [
+                    {
+                        "id": "bitcoin",
+                        "symbol": "btc",
+                        "name": "Bitcoin",
+                        "market_cap": 1_000_000.0,
+                        "market_cap_rank": 1,
+                        "current_price": 100.0,
+                        "total_volume": 10_000.0,
+                    }
+                ]
+            )
+
+        def fetch_coin_metadata(self, coin_id, force=False):
+            return {}
+
+        def fetch_daily_market_chart(self, coin_id, days, force=False):
+            return pd.DataFrame()
+
+    calls: list[tuple[str, bool]] = []
+
+    class _TrackingBinance:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def fetch_daily_history(self, symbol, force=False):
+            calls.append((symbol, force))
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2024-01-01"]),
+                    "close": [100.0],
+                    "volume_usd": [1.0],
+                }
+            )
+
+    monkeypatch.setattr(processor, "CryptoCompareClient", _WorkingCC)
+    monkeypatch.setattr(processor, "CoinGeckoClient", _StubCG)
+    monkeypatch.setattr(processor, "BinanceUSClient", _TrackingBinance)
+
+    processor.download_and_cache_raw_data(config)
+
+    assert calls == [("BTC", True)], "current source must be force-refreshed every download"
