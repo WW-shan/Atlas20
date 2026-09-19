@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     worker_heartbeat_interval_seconds: float = 2.0
     worker_cancel_grace_seconds: float = 3.0
     worker_metrics_port: int = 8001
+    daily_refresh_enabled: bool = False
+    daily_refresh_hour_utc: int = Field(default=2, ge=0, le=23)
+    daily_refresh_minute_utc: int = Field(default=0, ge=0, le=59)
 
     model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
 

@@ -185,9 +185,11 @@ def test_run_one_real_small_window_writes_artifacts_and_db_rows(tmp_path, monkey
     assert expected_artifacts.issubset(
         {path.relative_to(final_dir).as_posix() for path in final_dir.rglob("*") if path.is_file()}
     )
-    latest_path = settings.report_root / "latest"
-    assert latest_path.exists()
-    assert latest_path.resolve() == final_dir.resolve()
+    # Publication records the run in latest.txt rather than replacing the
+    # checked-in reports/latest snapshot with a symlink.
+    pointer = settings.report_root / "latest.txt"
+    assert pointer.exists()
+    assert pointer.read_text(encoding="utf-8").strip() == final_dir.relative_to(settings.report_root).as_posix()
     summary = pd.read_csv(final_dir / "summary.csv")
     assert {"BTC_BH__always_on", "TOP20_EQ__always_on", "TOP20_MOM_top2_weekly__always_on"}.issubset(
         set(summary["strategy"])

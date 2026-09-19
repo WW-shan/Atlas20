@@ -176,14 +176,39 @@ def _ytd_returns_window(daily_returns_col: pd.Series, anchor_date: date) -> pd.S
     return series[(series.index >= start) & (series.index <= end)]
 
 
+def _month_end_observations(series: pd.Series, *, how: str) -> pd.Series:
+    """Aggregate to month end, labelling each period with its last real date.
+
+    ``resample("ME")`` labels a partial final period with the calendar month
+    end (e.g. 2026-09-30) even when the newest observation is 2026-09-19.
+    Showing that label as a data date overstates how current the data is, so
+    each period is labelled with the last timestamp actually present.
+    """
+    numeric = _numeric_series(series, series.name or "value")
+    if how == "last":
+        aggregated = numeric.resample("ME").last()
+    else:
+        aggregated = (1.0 + numeric).resample("ME").prod() - 1.0
+    aggregated = aggregated.dropna()
+    if aggregated.empty:
+        return aggregated
+
+    labels: dict[pd.Timestamp, pd.Timestamp] = {}
+    for period, group in numeric.dropna().groupby(numeric.dropna().index.to_period("M")):
+        if not group.empty:
+            labels[period.to_timestamp("M")] = group.index[-1]
+    renamed = aggregated.rename(index=lambda idx: labels.get(idx, idx))
+    return renamed
+
+
 def _build_equity_curve(equity_curves_col: pd.Series) -> list[dict[str, Any]]:
-    monthly = _numeric_series(equity_curves_col, equity_curves_col.name or "equity").resample("ME").last().dropna()
+    monthly = _month_end_observations(equity_curves_col, how="last")
     return [{"date": _date_string(index), "value": _as_float(value)} for index, value in monthly.tail(6).items()]
 
 
 def _build_daily_returns(daily_returns_col: pd.Series) -> list[dict[str, Any]]:
-    monthly = (1.0 + _numeric_series(daily_returns_col, daily_returns_col.name or "returns")).resample("ME").prod() - 1.0
-    return [{"date": _date_string(index), "value": _as_float(value)} for index, value in monthly.dropna().tail(6).items()]
+    monthly = _month_end_observations(daily_returns_col, how="compound")
+    return [{"date": _date_string(index), "value": _as_float(value)} for index, value in monthly.tail(6).items()]
 
 
 def _build_equity_overlay(equity_curves_df: pd.DataFrame, champion_col: str, anchor_date: date) -> dict[str, Any]:

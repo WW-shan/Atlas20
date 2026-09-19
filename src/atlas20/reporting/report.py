@@ -389,24 +389,22 @@ def _create_directory_link(link_path: Path, target_path: Path) -> None:
 
 
 def _write_latest_link(report_dir: Path) -> None:
-    report_root = _report_root(report_dir)
-    latest_path = report_root / "latest"
-    try:
-        if latest_path.resolve() == report_dir.resolve():
-            return
-    except OSError:
-        pass
+    """Point readers at ``report_dir`` without destroying the snapshot.
 
-    tmp_link_path = _tmp_name(latest_path)
-    _remove_path(tmp_link_path)
-    try:
-        _create_directory_link(tmp_link_path, report_dir.resolve())
-        if latest_path.exists() or latest_path.is_symlink() or _is_windows_junction(latest_path):
-            _remove_path(latest_path)
-        tmp_link_path.replace(latest_path)
-    except Exception:
-        _remove_path(tmp_link_path)
-        raise
+    ``reports/latest`` is a checked-in snapshot directory, so it must never be
+    replaced by a symlink/junction: doing so makes every tracked snapshot file
+    appear deleted in git. Publication is recorded in ``latest.txt`` instead,
+    which ``_latest_report_dir`` consults first.
+    """
+    report_root = _report_root(report_dir)
+    _write_latest_pointer(report_dir)
+
+    # Leave an already-published directory alone. It is either the checked-in
+    # snapshot or a previously materialised copy; latest.txt carries the
+    # authoritative pointer either way.
+    latest_path = report_root / "latest"
+    if latest_path.exists() or latest_path.is_symlink() or _is_windows_junction(latest_path):
+        return
 
 
 def export_result_tables(

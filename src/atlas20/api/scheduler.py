@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timezone
+import json
 import logging
 import os
 from typing import Any
@@ -12,6 +13,7 @@ from sqlmodel import Session, col, select
 
 from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import KvRepo
+from atlas20.api._time import utc_now
 from atlas20.api.settings import Settings, get_settings
 from atlas20.api.services_report import generate_run_report_with_warnings
 from atlas20.api.worker.main import session_scope
@@ -86,16 +88,8 @@ def generate_featured_digest(
         return _generate_featured_digest(scoped_session, settings, week=week, formats=formats)
 
 
-def start_scheduler(settings: Settings | None = None) -> Any | None:
-    if os.environ.get("ATLAS20_DISABLE_SCHEDULER") == "1":
-        return None
-    settings = settings or get_settings()
-    try:
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    except ImportError as exc:
-        logger.warning("APScheduler unavailable; weekly featured digest scheduler disabled: %s", exc)
-        return None
-
+def _acquire_scheduler_lock(settings: Settings) -> FileLock | None:
+    """Take the single-process scheduler lock, or None if another holds it."""
     settings.data_root.mkdir(parents=True, exist_ok=True)
     lock = FileLock(str(settings.data_root / ".scheduler.lock"), timeout=0)
     try:
@@ -103,8 +97,68 @@ def start_scheduler(settings: Settings | None = None) -> Any | None:
     except Timeout:
         logger.info("scheduler lock held by another worker; skipping")
         return None
+    return lock
 
-    scheduler = AsyncIOScheduler(timezone=timezone.utc)
+
+def _queue_universe_refresh(session: Session, settings: Settings) -> str:
+    """Queue a data refresh unless one is already pending."""
+    del settings
+    existing = session.exec(
+        select(Run).where(
+            Run.strategy == "universe_refresh",
+            col(Run.status).in_(("queued", "running")),
+        )
+    ).first()
+    if existing is not None:
+        logger.info("Skipping daily refresh; run %s is already %s", existing.run_id, existing.status)
+        return existing.run_id
+
+    from atlas20.api.repositories import RunsRepo
+
+    repo = RunsRepo(session)
+    run = repo.create_with_unique_id(
+        {
+            "strategy": "universe_refresh",
+            "universe": "Top-20",
+            "window_start": utc_now().date(),
+            "window_end": utc_now().date(),
+            "status": "queued",
+            "params": json.dumps({"kind": "universe_refresh"}),
+        }
+    )
+    logger.info("Queued daily universe refresh as %s", run.run_id)
+    return run.run_id
+
+
+def run_daily_refresh(settings: Settings | None = None) -> str:
+    """Queue a daily data refresh so new listings enter the universe."""
+    settings = settings or get_settings()
+    with session_scope(settings) as session:
+        return _queue_universe_refresh(session, settings)
+
+
+def _build_scheduler() -> Any | None:
+    """Construct the APScheduler instance, or None when unavailable."""
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    except ImportError as exc:
+        logger.warning("APScheduler unavailable; scheduled jobs disabled: %s", exc)
+        return None
+    return AsyncIOScheduler(timezone=timezone.utc)
+
+
+def start_scheduler(settings: Settings | None = None, scheduler_factory: Any | None = None) -> Any | None:
+    if os.environ.get("ATLAS20_DISABLE_SCHEDULER") == "1":
+        return None
+    settings = settings or get_settings()
+
+    scheduler = (scheduler_factory or _build_scheduler)()
+    if scheduler is None:
+        return None
+
+    lock = _acquire_scheduler_lock(settings)
+    if lock is None:
+        return None
     try:
         scheduler.add_job(
             generate_featured_digest,
@@ -115,6 +169,15 @@ def start_scheduler(settings: Settings | None = None) -> Any | None:
             id="weekly_featured_digest",
             replace_existing=True,
         )
+        if settings.daily_refresh_enabled:
+            scheduler.add_job(
+                run_daily_refresh,
+                "cron",
+                hour=settings.daily_refresh_hour_utc,
+                minute=settings.daily_refresh_minute_utc,
+                id="daily_universe_refresh",
+                replace_existing=True,
+            )
         scheduler.start()
     except Exception:
         lock.release()
