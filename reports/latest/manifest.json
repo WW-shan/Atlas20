@@ -1,14 +1,14 @@
 {
   "config_path": "config/base.yaml",
-  "config_sha256": "323032e245f826f6ce80bb2cff33ff2bdf646cfd465ee6d99e9cb1792654c527",
-  "code_commit": "6cb438ee121abf5fee560105cf2cef678f51d832",
+  "config_sha256": "fd7688ea1be1e90a802015c89531222b298ac0d0c14c0efc912202630719cecf",
+  "code_commit": "7c57015dca6ec174569fe06cfbabbe952988bef5",
   "pipeline_version": "0.2.2",
   "data_snapshot": {
-    "binanceus": "2026-09-19T18:44:19Z",
-    "coingecko": "2026-09-19T19:01:36Z",
+    "binanceus": "2026-09-19T19:07:15Z",
+    "coingecko": "2026-09-19T19:07:15Z",
     "cryptocompare": "2026-04-22T09:31:50Z"
   },
-  "generated_at": "2026-09-19T19:02:31Z",
+  "generated_at": "2026-09-19T19:08:00Z",
   "artifacts": [
     {
       "kind": "daily_returns",
