@@ -12,25 +12,25 @@
 
 - Best momentum variant: **TOP20_MOM_top8_biweekly__bull_only**
 - Best sector variant: **TOP20_SECTOR_top4_biweekly__bull_only**
-- BTC benchmark CAGR: **16.84%**
-- Equal-weight benchmark CAGR: **6.84%**
+- BTC benchmark CAGR: **17.01%**
+- Equal-weight benchmark CAGR: **10.73%**
 
 ## Answers to the required questions
 
 1. **Does top-20 momentum rotation outperform BTC buy-and-hold?**
    - Verdict: **Yes** on CAGR.
-   - Best momentum CAGR / Sharpe: **20.31% / 0.62**
-   - BTC CAGR / Sharpe: **16.84% / 0.56**
+   - Best momentum CAGR / Sharpe: **25.79% / 0.70**
+   - BTC CAGR / Sharpe: **17.01% / 0.56**
 
 2. **Does sector rotation outperform simple top-20 equal weight?**
    - Verdict: **Yes** on Sharpe.
-   - Best sector CAGR / Sharpe: **18.13% / 0.58**
-   - Equal-weight CAGR / Sharpe: **6.84% / 0.48**
+   - Best sector CAGR / Sharpe: **20.93% / 0.63**
+   - Equal-weight CAGR / Sharpe: **10.73% / 0.52**
 
 3. **Does the bull-market filter improve risk-adjusted returns?**
    - Verdict: **Yes** on average Sharpe across tested variants.
    - Average bull-only Sharpe: **0.51**
-   - Average always-on Sharpe: **0.43**
+   - Average always-on Sharpe: **0.51**
 
 4. **Is the extra complexity of sector rotation justified?**
    - Verdict: **Yes**
@@ -46,45 +46,45 @@
 
 | strategy | cagr | annualized_volatility | sharpe | sortino | max_drawdown | calmar | annualized_turnover | average_holdings |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ETH_BH__bull_only | 34.56% | 48.17% | 0.86 | 1.39 | -50.96% | 0.68 | 3.02 | 0.36 |
-| TOP20_EQ__bull_only | 20.52% | 50.19% | 0.63 | 0.93 | -63.57% | 0.32 | 4.56 | 5.82 |
-| TOP20_MOM_top8_biweekly__bull_only | 20.31% | 52.86% | 0.62 | 0.94 | -67.41% | 0.30 | 9.40 | 2.86 |
-| TOP20_MOM_top8_biweekly__always_on | 17.45% | 81.13% | 0.61 | 1.00 | -89.92% | 0.19 | 19.87 | 7.61 |
-| TOP20_SECTOR_top4_biweekly__bull_only | 18.13% | 52.22% | 0.58 | 0.90 | -66.40% | 0.27 | 10.34 | 2.13 |
-| TOP20_MOM_top4_monthly__bull_only | 17.73% | 56.03% | 0.57 | 0.91 | -68.27% | 0.26 | 6.33 | 1.44 |
-| BTC_BH__always_on | 16.84% | 57.17% | 0.56 | 0.94 | -76.74% | 0.22 | 0.19 | 0.98 |
-| TOP20_MOM_top6_biweekly__bull_only | 15.84% | 54.02% | 0.55 | 0.84 | -67.75% | 0.23 | 9.34 | 2.16 |
-| ETH_BH__always_on | 11.16% | 76.38% | 0.52 | 0.88 | -79.38% | 0.14 | 0.19 | 0.98 |
-| TOP20_MOM_top6_biweekly__always_on | 8.06% | 82.94% | 0.51 | 0.84 | -91.73% | 0.09 | 21.43 | 5.85 |
-| TOP20_SECTOR_top4_biweekly__always_on | 9.04% | 79.19% | 0.51 | 0.85 | -91.21% | 0.10 | 23.70 | 5.75 |
-| BTC_BH__bull_only | 12.29% | 34.65% | 0.51 | 0.80 | -57.40% | 0.21 | 3.02 | 0.36 |
+| ETH_BH__bull_only | 28.47% | 47.28% | 0.77 | 1.24 | -51.03% | 0.56 | 3.32 | 0.36 |
+| TOP20_MOM_top8_biweekly__bull_only | 25.79% | 52.94% | 0.70 | 1.07 | -67.41% | 0.38 | 9.86 | 2.87 |
+| TOP20_MOM_top8_biweekly__always_on | 26.58% | 79.62% | 0.70 | 1.15 | -88.28% | 0.30 | 20.04 | 7.59 |
+| TOP20_SECTOR_top4_biweekly__bull_only | 20.93% | 51.44% | 0.63 | 0.97 | -66.40% | 0.32 | 11.01 | 2.16 |
+| TOP20_SECTOR_top3_biweekly__bull_only | 19.76% | 54.33% | 0.60 | 0.96 | -71.54% | 0.28 | 12.09 | 1.67 |
+| TOP20_MOM_top6_biweekly__bull_only | 18.27% | 54.22% | 0.59 | 0.90 | -67.67% | 0.27 | 9.88 | 2.17 |
+| TOP20_MOM_top6_biweekly__always_on | 14.20% | 81.46% | 0.57 | 0.95 | -90.04% | 0.16 | 21.35 | 5.82 |
+| TOP20_MOM_top4_monthly__always_on | 13.57% | 81.56% | 0.57 | 0.96 | -88.79% | 0.15 | 13.85 | 3.94 |
+| TOP20_SECTOR_top2_biweekly__bull_only | 17.06% | 56.75% | 0.56 | 0.90 | -70.62% | 0.24 | 13.01 | 1.13 |
+| BTC_BH__always_on | 17.01% | 55.96% | 0.56 | 0.94 | -76.74% | 0.22 | 0.17 | 0.99 |
+| TOP20_EQ__bull_only | 15.82% | 49.46% | 0.55 | 0.82 | -62.52% | 0.25 | 4.95 | 5.59 |
+| TOP20_MOM_top4_biweekly__bull_only | 15.49% | 58.31% | 0.54 | 0.84 | -72.54% | 0.21 | 11.04 | 1.45 |
 
 ## Recent yearly return table
 
 | year | BTC_BH__always_on | ETH_BH__always_on | TOP20_EQ__always_on | TOP20_MOM_top4_monthly__always_on | TOP20_MOM_top4_biweekly__always_on | TOP20_MOM_top6_monthly__always_on | TOP20_MOM_top6_biweekly__always_on | TOP20_MOM_top8_monthly__always_on | TOP20_MOM_top8_biweekly__always_on | TOP20_SECTOR_top2_monthly__always_on | TOP20_SECTOR_top2_biweekly__always_on | TOP20_SECTOR_top3_monthly__always_on | TOP20_SECTOR_top3_biweekly__always_on | TOP20_SECTOR_top4_monthly__always_on | TOP20_SECTOR_top4_biweekly__always_on | BTC_BH__bull_only | ETH_BH__bull_only | TOP20_EQ__bull_only | TOP20_MOM_top4_monthly__bull_only | TOP20_MOM_top4_biweekly__bull_only | TOP20_MOM_top6_monthly__bull_only | TOP20_MOM_top6_biweekly__bull_only | TOP20_MOM_top8_monthly__bull_only | TOP20_MOM_top8_biweekly__bull_only | TOP20_SECTOR_top2_monthly__bull_only | TOP20_SECTOR_top2_biweekly__bull_only | TOP20_SECTOR_top3_monthly__bull_only | TOP20_SECTOR_top3_biweekly__bull_only | TOP20_SECTOR_top4_monthly__bull_only | TOP20_SECTOR_top4_biweekly__bull_only |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2022 | -64.31% | -67.54% | -76.70% | -84.31% | -90.96% | -79.81% | -87.17% | -80.47% | -84.04% | -84.57% | -88.86% | -84.16% | -87.88% | -74.64% | -84.19% | -17.66% | -17.31% | -30.49% | -33.63% | -40.77% | -30.06% | -33.17% | -30.10% | -32.40% | -47.64% | -37.21% | -38.28% | -28.26% | -35.57% | -30.36% |
-| 2023 | 156.39% | 91.12% | 203.41% | 141.92% | 119.76% | 189.54% | 146.78% | 191.65% | 132.68% | 140.10% | 30.95% | 143.43% | 62.63% | 151.25% | 85.73% | 24.53% | 28.39% | 65.66% | 72.84% | 258.41% | 59.70% | 208.24% | 66.42% | 183.42% | 46.26% | 164.77% | 54.65% | 148.52% | 42.93% | 137.42% |
-| 2024 | 121.08% | 46.07% | 113.41% | 135.58% | 107.98% | 70.68% | 100.24% | 120.46% | 172.78% | -5.83% | 66.30% | 136.21% | 139.39% | 97.79% | 126.67% | 96.55% | 98.63% | 88.10% | 85.65% | 49.01% | 62.05% | 60.56% | 96.04% | 117.75% | 21.67% | 41.49% | 88.27% | 108.33% | 67.87% | 96.74% |
-| 2025 | -5.33% | -10.85% | -35.36% | -15.84% | -27.89% | -18.87% | -26.75% | -24.12% | -18.04% | -13.43% | -27.59% | -18.37% | -36.44% | -26.64% | -37.42% | -11.48% | 3.84% | -26.75% | -17.82% | -35.48% | -29.80% | -36.81% | -26.17% | -33.13% | -31.45% | -46.49% | -24.18% | -45.04% | -29.84% | -41.60% |
-| 2026 | -14.33% | -22.35% | -19.17% | -23.29% | -27.90% | -20.21% | -21.19% | -18.63% | -26.45% | -32.44% | -32.23% | -33.18% | -29.75% | -31.32% | -26.87% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% | 0.00% |
+| 2022 | -64.31% | -67.54% | -75.79% | -81.56% | -90.39% | -78.32% | -86.58% | -79.82% | -83.45% | -85.23% | -88.85% | -83.58% | -88.77% | -74.00% | -84.74% | -17.66% | -17.31% | -30.49% | -33.63% | -39.10% | -30.06% | -33.01% | -30.10% | -32.39% | -47.64% | -37.21% | -38.28% | -34.00% | -35.57% | -30.36% |
+| 2023 | 156.39% | 91.12% | 231.52% | 221.38% | 161.56% | 230.31% | 166.30% | 229.46% | 150.12% | 189.02% | 71.82% | 169.86% | 80.56% | 174.24% | 101.79% | 24.53% | 28.39% | 65.66% | 72.84% | 258.41% | 59.70% | 208.24% | 66.42% | 183.42% | 46.26% | 164.77% | 54.65% | 148.52% | 42.93% | 137.42% |
+| 2024 | 121.08% | 46.07% | 111.07% | 124.92% | 103.70% | 57.62% | 93.49% | 108.75% | 162.48% | -12.12% | 57.71% | 128.57% | 123.48% | 101.21% | 135.87% | 96.55% | 98.63% | 86.00% | 77.08% | 43.09% | 49.64% | 53.58% | 85.54% | 108.59% | 13.45% | 26.52% | 82.18% | 95.77% | 70.58% | 99.35% |
+| 2025 | -5.39% | -10.91% | -41.97% | -41.66% | -27.42% | -32.74% | -28.70% | -31.99% | -27.44% | -27.02% | -15.42% | -25.78% | -34.80% | -23.09% | -37.09% | -12.31% | 4.10% | -31.45% | -36.38% | -25.76% | -34.78% | -30.99% | -30.02% | -30.73% | -33.21% | -26.48% | -27.57% | -40.09% | -24.12% | -36.20% |
+| 2026 | -7.80% | -10.97% | -2.13% | 56.97% | -0.01% | 36.26% | -0.02% | 22.91% | 12.45% | -12.45% | -19.64% | -0.12% | -3.79% | 5.13% | -8.33% | -15.05% | -13.47% | -6.80% | 28.16% | 14.28% | 15.74% | 13.27% | 10.14% | 23.36% | 25.09% | 16.66% | 12.48% | 12.20% | 11.04% | 6.54% |
 
 ## Performance by regime snapshot
 
 | strategy | bull | non_bull |
 | --- | --- | --- |
-| BTC_BH__always_on | 362.88% | -49.75% |
-| BTC_BH__bull_only | 134.76% | -28.54% |
-| ETH_BH__always_on | 616.21% | -64.51% |
-| ETH_BH__bull_only | 291.91% | -30.11% |
-| TOP20_EQ__always_on | 565.06% | -65.16% |
-| TOP20_EQ__bull_only | 254.09% | -37.74% |
-| TOP20_MOM_top4_biweekly__always_on | 555.44% | -71.14% |
-| TOP20_MOM_top4_biweekly__bull_only | 142.94% | -35.31% |
-| TOP20_MOM_top4_monthly__always_on | 480.96% | -65.50% |
-| TOP20_MOM_top4_monthly__bull_only | 229.56% | -37.35% |
-| TOP20_MOM_top6_biweekly__always_on | 609.66% | -65.90% |
-| TOP20_MOM_top6_biweekly__bull_only | 177.66% | -32.20% |
+| BTC_BH__always_on | 371.79% | -50.61% |
+| BTC_BH__bull_only | 126.35% | -31.62% |
+| ETH_BH__always_on | 600.33% | -63.46% |
+| ETH_BH__bull_only | 270.47% | -33.28% |
+| TOP20_EQ__always_on | 565.36% | -63.48% |
+| TOP20_EQ__bull_only | 236.74% | -40.15% |
+| TOP20_MOM_top4_biweekly__always_on | 611.15% | -67.80% |
+| TOP20_MOM_top4_biweekly__bull_only | 216.77% | -38.13% |
+| TOP20_MOM_top4_monthly__always_on | 491.37% | -59.07% |
+| TOP20_MOM_top4_monthly__bull_only | 206.72% | -39.32% |
+| TOP20_MOM_top6_biweekly__always_on | 613.77% | -63.24% |
+| TOP20_MOM_top6_biweekly__bull_only | 222.42% | -36.40% |
 
 ## Interpretation notes
 

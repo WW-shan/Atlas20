@@ -250,10 +250,10 @@ Using the cached public-data run included in this workspace:
 
 - Best momentum variant: `TOP20_MOM_top8_biweekly__bull_only`
 - Best sector variant: `TOP20_SECTOR_top4_biweekly__bull_only`
-- BTC buy-and-hold CAGR: about 16.8%
-- Top-20 equal-weight CAGR: about 6.8%
-- Best momentum CAGR: about 20.3%
-- Best sector CAGR: about 18.1%
+- BTC buy-and-hold CAGR: about 17.0%
+- Top-20 equal-weight CAGR: about 10.7%
+- Best momentum CAGR: about 25.8%
+- Best sector CAGR: about 20.9%
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
