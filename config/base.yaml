@@ -159,6 +159,11 @@ providers:
     base_url: https://min-api.cryptocompare.com/data/v2
     timeout_seconds: 30
     quote_currency: USD
+  binance_us:
+    base_url: https://api.binance.us
+    timeout_seconds: 30
+    quote_currencies: [USDT, USD]
+    page_limit: 1000
 
 reporting:
   rolling_window_days: 365

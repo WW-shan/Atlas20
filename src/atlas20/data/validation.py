@@ -24,10 +24,28 @@ EMPTY_CG_HISTORY = pd.DataFrame(columns=["date", "cg_price", "cg_market_cap", "c
 
 
 def prepare_cryptocompare_history(frame: pd.DataFrame) -> pd.DataFrame:
-    """Normalize a CryptoCompare histoday frame."""
+    """Normalize a CryptoCompare histoday frame.
+
+    Accepts both the raw provider payload (``time``/``close``/``volumeto``) and
+    an already-normalized frame produced by splicing a legacy cache with a
+    newer source (``date``/``close``/``volume_usd``).
+    """
     history = frame.copy()
-    history["date"] = pd.to_datetime(history["time"], unit="s").dt.normalize()
-    history = history.rename(columns={"close": "cc_price", "volumeto": "cc_volume_usd"})
+    if "date" in history.columns:
+        history["date"] = pd.to_datetime(history["date"]).dt.normalize()
+    elif "time" in history.columns:
+        history["date"] = pd.to_datetime(history["time"], unit="s").dt.normalize()
+    else:
+        raise KeyError("history frame must contain either 'date' or 'time'")
+
+    if "volumeto" in history.columns:
+        history["cc_volume_usd"] = history["volumeto"]
+    elif "volume_usd" in history.columns:
+        history["cc_volume_usd"] = history["volume_usd"]
+    else:
+        history["cc_volume_usd"] = np.nan
+
+    history["cc_price"] = history["close"]
     return history[["date", "cc_price", "cc_volume_usd"]].sort_values("date").reset_index(drop=True)
 
 

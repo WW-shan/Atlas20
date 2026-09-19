@@ -10,7 +10,9 @@ import pandas as pd
 from atlas20.config import ResearchConfig, SectorConfig
 from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata_is_excluded
 from atlas20.data.coingecko import CoinGeckoClient
+from atlas20.data.binanceus import BinanceUSClient
 from atlas20.data.cryptocompare import CryptoCompareClient
+from atlas20.data.splice import splice_histories
 from atlas20.data.validation import EMPTY_CG_HISTORY, validate_and_blend_history
 from atlas20.logging_utils import ensure_dir, get_logger
 from atlas20.sectors.mapping import resolve_sector_map
@@ -32,6 +34,7 @@ def download_and_cache_raw_data(config: ResearchConfig, force: bool = False) -> 
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
     coingecko = CoinGeckoClient(config.providers.coingecko, raw_dir)
     cryptocompare = CryptoCompareClient(config.providers.cryptocompare, raw_dir)
+    binance_us = BinanceUSClient(config.providers.binance_us, raw_dir)
 
     LOGGER.info("Fetching current top-%s candidate assets from CoinGecko", config.universe.current_top_n_candidates)
     current_top = coingecko.fetch_top_markets(config.universe.current_top_n_candidates, force=force).to_dict(orient="records")
@@ -57,13 +60,27 @@ def download_and_cache_raw_data(config: ResearchConfig, force: bool = False) -> 
 
         LOGGER.info("Screening asset %s/%s: %s (%s)", index, total_candidates, coin_id, symbol)
 
+        history_ok = False
         try:
             cryptocompare.fetch_daily_history(symbol, force=force)
+            history_ok = True
         except Exception as exc:  # noqa: BLE001
-            status = "excluded"
             details = f"cryptocompare_history: {exc}"
+            LOGGER.warning("CryptoCompare unavailable for %s (%s): %s", coin_id, symbol, exc)
+            try:
+                fallback = binance_us.fetch_daily_history(symbol, force=force)
+            except Exception as fallback_exc:  # noqa: BLE001
+                details = f"{details} | binanceus_history: {fallback_exc}"
+                LOGGER.warning("Binance.US fallback failed for %s (%s): %s", coin_id, symbol, fallback_exc)
+                fallback = None
+            if fallback is not None and not fallback.empty:
+                history_ok = True
+                details = f"{details} | used_binanceus_fallback"
+
+        if not history_ok:
+            status = "excluded"
             screening_rows.append({"coin_id": coin_id, "symbol": symbol, "name": name, "status": status, "details": details})
-            LOGGER.warning("Skipping %s (%s): %s", coin_id, symbol, exc)
+            LOGGER.warning("Skipping %s (%s): %s", coin_id, symbol, details)
             continue
 
         try:
@@ -113,6 +130,41 @@ def load_candidate_assets(config: ResearchConfig) -> pd.DataFrame:
 
 
 
+def _legacy_history_frame(history: pd.DataFrame) -> pd.DataFrame:
+    """Normalize a raw CryptoCompare histoday frame into date/close/volume."""
+    frame = pd.DataFrame(
+        {
+            "date": pd.to_datetime(history["time"], unit="s").dt.normalize(),
+            "close": pd.to_numeric(history["close"], errors="coerce"),
+            "volume_usd": pd.to_numeric(history.get("volumeto"), errors="coerce"),
+        }
+    )
+    frame = frame[frame["close"] > 0]
+    return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+
+
+def _load_binanceus_history(raw_dir: Path, symbol: str) -> pd.DataFrame | None:
+    """Load a cached Binance.US kline frame if one exists."""
+    path = raw_dir / "binanceus" / "klines" / f"{symbol.upper()}.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not payload:
+        return None
+    frame = pd.DataFrame(
+        {
+            "date": pd.to_datetime([int(row[0]) for row in payload], unit="ms").normalize(),
+            "close": [float(row[4]) for row in payload],
+            "volume_usd": [float(row[7]) for row in payload],
+        }
+    )
+    frame = frame[frame["close"] > 0]
+    return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+
+
 def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Create the processed long panel and metadata tables from cached raw files."""
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
@@ -144,6 +196,31 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
 
         history_payload = json.loads(history_path.read_text(encoding="utf-8"))
         history = pd.DataFrame(history_payload["Data"]["Data"])
+        if history.empty:
+            continue
+
+        # The CryptoCompare free tier shut down in mid-2026, so the legacy
+        # cache stops at its last successful pull. Continue the series from
+        # Binance.US and keep both sources aligned over their overlap window.
+        legacy_frame = _legacy_history_frame(history)
+        new_frame = _load_binanceus_history(raw_dir, symbol)
+        if new_frame is not None and not new_frame.empty:
+            spliced = splice_histories(legacy_frame, new_frame)
+            # Price is spliced, but volume must stay on the legacy (aggregate
+            # market) scale. Binance.US reports a single low-liquidity venue,
+            # so its quote volume is orders of magnitude below the aggregate
+            # figure the liquidity filter expects. Dates beyond the legacy
+            # cache fall back to CoinGecko's aggregate volume downstream.
+            legacy_volume = legacy_frame.set_index("date")["volume_usd"]
+            history = pd.DataFrame(
+                {
+                    "date": spliced.frame["date"],
+                    "close": spliced.frame["price"],
+                }
+            )
+            history["volumeto"] = history["date"].map(legacy_volume)
+        else:
+            history = legacy_frame.rename(columns={"volume_usd": "volumeto"})
         if history.empty:
             continue
 

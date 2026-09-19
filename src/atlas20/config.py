@@ -100,9 +100,17 @@ class CryptoCompareConfig(BaseModel):
     quote_currency: str = "USD"
 
 
+class BinanceUSConfig(BaseModel):
+    base_url: str = "https://api.binance.us"
+    timeout_seconds: int = 30
+    quote_currencies: list[str] = Field(default_factory=lambda: ["USDT", "USD"])
+    page_limit: int = 1000
+
+
 class ProvidersConfig(BaseModel):
     coingecko: CoinGeckoConfig
     cryptocompare: CryptoCompareConfig
+    binance_us: BinanceUSConfig = Field(default_factory=BinanceUSConfig)
 
 
 class ReportingConfig(BaseModel):
