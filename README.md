@@ -43,8 +43,10 @@ and a React/Vite console for reviewing results.
 
 ```mermaid
 flowchart LR
-    CG[CoinGecko<br/>candidate catalog + metadata]
+    CG[CoinGecko<br/>candidate catalog + metadata + second check]
     CMC[CoinMarketCap<br/>price, volume, market cap]
+    GATE[Gate.io<br/>exchange-venue check]
+    CP[CoinPaprika<br/>fallback third source]
     CFG[YAML configs<br/>windows, filters, strategy grid]
     PIPE[Research pipeline<br/>universe, regime, backtests]
     DB[(SQLite / SQLModel<br/>runs, reports, settings)]
@@ -56,6 +58,8 @@ flowchart LR
 
     CG --> PIPE
     CMC --> PIPE
+    GATE -. when CMC and CoinGecko disagree .-> PIPE
+    CP -. only when Gate.io does not list the asset .-> PIPE
     CFG --> PIPE
     PIPE --> REPORTS
     PIPE --> DB
@@ -217,9 +221,17 @@ testing notes.
 - CoinMarketCap: the **only** historical provider. Every daily price, dollar
   volume, market cap and circulating supply in the panel comes from one
   snapshot.
-- CoinGecko: candidate catalog (current top-N plus a legacy watchlist) and coin
-  metadata used for the exclusion rules and sector mapping. It no longer
-  supplies prices.
+- CoinGecko: candidate catalog (current top-N plus a legacy watchlist), coin
+  metadata, and a recent daily-price check against CMC. It never supplies
+  panel prices.
+- Gate.io: preferred exchange-venue adjudication. It is called only when the
+  CoinGecko check disagrees with CMC, and it never rewrites a panel value. It
+  has a generous public candle API and covers 93 of the 97 current candidates,
+  including the delisted CEL and HT pairs.
+- CoinPaprika: fallback third source for the four candidates Gate.io does not
+  list. Its free historical endpoint covers the trailing 365 days, which
+  matches the configured cross-check window; it is not on the normal
+  disputed-asset path.
 
 Universe ranks are built from the provider's own historical market cap, so
 "was this coin top-20 on that date?" is answered with real supply data. There
@@ -293,19 +305,30 @@ Two biases had to be removed before any of these numbers meant anything:
    a corrupted block there is invisible from the inside - every Huobi Token row
    during a 34-day bad block still satisfied
    `market_cap == price * circulating_supply`. Recent history is therefore
-   checked against CoinGecko before an asset may enter the panel. That check
-   caught Celsius being quoted ~1,000x too high (CMC ~$19-44 vs CoinGecko
-   ~$0.004-0.07) and Huobi Token's block; both are now refused automatically.
-   "Disagrees" and "could not be checked" are separate states: a proven
+   checked against CoinGecko before an asset may enter the panel. When the two
+   providers disagree, Gate.io supplies an exchange-venue vote; CoinPaprika is
+   only a fallback for assets Gate.io does not list. The third source must pass
+   the same full test, not merely have a similar median, before it can override
+   the second source.
+
+   The Celsius case is now confirmed: CMC quotes ~$19-44 while CoinGecko and
+   Gate.io both quote ~$0.004-0.07, so CMC is the isolated outlier and CEL is
+   refused. Huobi Token is also refused: CMC's recent series has a 31% median
+   gap and a 3.4x latest gap versus CoinGecko, and Gate.io agrees with
+   CoinGecko at a 2.0% median gap. Binance's public data mirror was tested but
+   does not list either HTUSDT or CELUSDT, so it cannot cover these two cases.
+   This is why the pipeline does not accept a median-only third-source
+   confirmation.
+   "Disagrees" and "could not be checked" remain separate states: a proven
    disagreement blocks the asset, while a missing second source is recorded as
    unverified so a CoinGecko outage degrades the run instead of emptying it
    (`data_quality.require_cross_check` upgrades that to a hard refusal).
 
 `scripts/audit_data_chain.py` re-checks the whole chain - provider cache
-integrity, panel sanity, price-level corruption, second-source agreement, feed
-continuity, point-in-time ranking and execution freshness - and prints
-PASS/WARN/FAIL. Current state: 23 PASS, 3 WARN, 0 FAIL. Run it before trusting
-any backtest.
+integrity, panel sanity, price-level corruption, second- and third-source
+agreement, feed continuity, point-in-time ranking and execution freshness - and
+prints PASS/WARN/FAIL. Current state: 30 PASS, 3 WARN, 0 FAIL. Run it before
+trusting any backtest.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.

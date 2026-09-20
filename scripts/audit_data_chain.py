@@ -72,6 +72,52 @@ def main() -> int:
         f"{len(windows)} coins with cached history",
     )
 
+    gate_cache_dir = raw_dir / "gateio" / "candles"
+    gate_files = sorted(gate_cache_dir.glob("*.json")) if gate_cache_dir.exists() else []
+    gate_corrupt: list[str] = []
+    gate_empty: list[str] = []
+    for path in gate_files:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            gate_corrupt.append(path.name)
+            continue
+        if not payload or not isinstance(payload, list):
+            gate_empty.append(path.name)
+    check(
+        "gateio cache: every file parses",
+        not gate_corrupt,
+        f"{len(gate_files)} files, corrupt={gate_corrupt[:5]}",
+    )
+    check(
+        "gateio cache: no empty payloads",
+        not gate_empty,
+        f"empty={gate_empty[:5]}",
+    )
+
+    pap_cache_dir = raw_dir / "coinpaprika" / "history"
+    pap_files = sorted(pap_cache_dir.glob("*.json")) if pap_cache_dir.exists() else []
+    pap_corrupt: list[str] = []
+    pap_empty: list[str] = []
+    for path in pap_files:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pap_corrupt.append(path.name)
+            continue
+        if not payload or not isinstance(payload, list):
+            pap_empty.append(path.name)
+    check(
+        "coinpaprika cache: every file parses",
+        not pap_corrupt,
+        f"{len(pap_files)} files, corrupt={pap_corrupt[:5]}",
+    )
+    check(
+        "coinpaprika cache: no empty payloads",
+        not pap_empty,
+        f"empty={pap_empty[:5]}",
+    )
+
     # ---------------------------------------------------------------- panel
     panel, metadata = build_processed_datasets(config, load_sector_config(config.resolve_path("config/sectors.yaml")))
     panel = panel.sort_values(["coin_id", "date"])
@@ -164,27 +210,57 @@ def main() -> int:
         admitted = quality[quality["included_in_panel"].fillna(False)]
         rejected = quality[~quality["included_in_panel"].fillna(False)]
         still_disagreeing = admitted[~admitted["crosscheck_passed"].fillna(False)]
-        missing = admitted[
-            admitted["crosscheck_reason"].astype(str).str.contains("no_overlap|insufficient_overlap")
-        ]
+        verified = admitted["crosscheck_verified"].fillna(False) if "crosscheck_verified" in admitted else pd.Series(True, index=admitted.index)
+        missing = admitted[~verified.astype(bool)]
         check(
-            "cross-check: every admitted asset agrees with a second provider",
+            "cross-check: every admitted asset agrees with an independent provider",
             still_disagreeing.empty,
             f"{len(admitted)} admitted, all verified; "
             f"still disagreeing={still_disagreeing['symbol'].tolist()[:5]}",
         )
         check(
-            "cross-check: second source available for every admitted asset",
+            "cross-check: independent source available for every admitted asset",
             missing.empty,
-            f"assets without a usable second source={missing['symbol'].tolist()[:5]}",
+            f"assets without a usable independent source={missing['symbol'].tolist()[:5]}",
             warn=not missing.empty,
         )
-        worst = float(admitted["crosscheck_median_gap"].max()) if not admitted.empty else float("nan")
-        check(
-            "cross-check: provider noise stays small",
-            worst <= config.data_quality.cross_check_max_median_gap,
-            f"worst median gap among admitted assets={worst:.4%}",
+        effective_column = (
+            "crosscheck_effective_median_gap"
+            if "crosscheck_effective_median_gap" in admitted.columns
+            else "crosscheck_median_gap"
         )
+        worst = float(admitted[effective_column].max()) if not admitted.empty else float("nan")
+        check(
+            "cross-check: effective provider noise stays small",
+            worst <= config.data_quality.cross_check_max_median_gap,
+            f"worst effective median gap among admitted assets={worst:.4%}",
+        )
+        if "crosscheck_third_source_checked" in quality.columns:
+            third_checked = quality[quality["crosscheck_third_source_checked"].fillna(False).astype(bool)]
+            confirmed = third_checked[
+                third_checked["crosscheck_confirmed_by"].fillna("").isin(["gateio", "coinpaprika"])
+            ]
+            source_known = third_checked["crosscheck_third_source"].fillna("").ne("") if "crosscheck_third_source" in third_checked else pd.Series(False, index=third_checked.index)
+            check(
+                "cross-check: third-source adjudications are explicit",
+                bool(confirmed["crosscheck_third_source_checked"].all()) if not confirmed.empty else True,
+                "third-source checks="
+                f"{len(third_checked)}, CMC confirmed by Gate.io/CoinPaprika={len(confirmed)}",
+            )
+            check(
+                "cross-check: every third-source check names its provider",
+                bool(source_known.all()) if not third_checked.empty else True,
+                f"unnamed third-source checks={int((~source_known).sum())}",
+            )
+            usable = third_checked[
+                pd.to_numeric(third_checked.get("crosscheck_third_source_overlap_days"), errors="coerce")
+                >= config.data_quality.cross_check_min_overlap_days
+            ]
+            check(
+                "cross-check: disputed assets have a usable third-source window",
+                len(usable) == len(third_checked),
+                f"usable third-source windows={len(usable)}/{len(third_checked)}",
+            )
         if not rejected.empty:
             blocked = rejected[
                 rejected["crosscheck_passed"].fillna(False) == False  # noqa: E712
@@ -192,9 +268,9 @@ def main() -> int:
             check(
                 "cross-check: rejected assets are reported, not silent",
                 True,
-                "blocked by the second-source check: "
+                "blocked by the independent-source check: "
                 + ", ".join(
-                    f"{row.symbol} ({row.crosscheck_reason}: {row.crosscheck_median_gap:.1%})"
+                    f"{row.symbol} ({row.crosscheck_reason}: {1.0 + row.crosscheck_median_gap:.1f}x)"
                     for row in blocked.itertuples()
                 ),
             )
@@ -282,11 +358,13 @@ def main() -> int:
         "coverage: recent prints are independently verified",
         False,
         "the level-corruption test alone needs ~60 days of *future* prices, so it "
-        "cannot see a block that is still in progress. The second-source check "
-        "covers that gap for the trailing cross_check_recent_days (365) - the one "
-        "remaining blind spot is a price both providers are simultaneously wrong "
-        "about. Verify a suspicious recent print against a third venue (an "
-        "exchange ticker) before sizing a live position on it.",
+        "cannot see a block that is still in progress. CoinGecko covers the "
+        "trailing cross_check_recent_days (365); when it disagrees, Gate.io "
+        "supplies an exchange-venue vote, with CoinPaprika as a fallback for "
+        "unlisted assets. The remaining blind spot is a print that CMC and the "
+        "confirming provider are simultaneously wrong about. Verify a "
+        "suspicious recent print against an exchange ticker before sizing a live "
+        "position on it.",
         warn=True,
     )
     check(

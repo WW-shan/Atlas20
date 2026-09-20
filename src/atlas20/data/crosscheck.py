@@ -7,9 +7,12 @@ consistent (``market_cap == price x supply``). A per-row integrity check cannot
 see that; an independent provider can.
 
 This module compares CMC's recent daily closes against CoinGecko's recent daily
-market chart. It only ever *validates* - the panel's prices stay 100% CMC - so a
-disagreement never silently rewrites history, it just blocks the asset (or
-raises an alert) until a human looks.
+market chart.  When those two disagree, an exchange-venue or fallback provider
+can supply a third vote.  The third provider must pass the same full test as
+the second one; a similar median alone is not enough to override a
+disagreement.  It only ever
+*validates* - the panel's prices stay 100% CMC - so a disagreement never
+silently rewrites history, it just blocks the asset until a human looks.
 """
 
 from __future__ import annotations
@@ -56,7 +59,13 @@ def _daily_closes(frame: pd.DataFrame, price_column: str) -> pd.Series:
     if frame is None or frame.empty or price_column not in frame.columns:
         return pd.Series(dtype=float)
     prepared = frame[["date", price_column]].copy()
-    prepared["date"] = pd.to_datetime(prepared["date"]).dt.normalize()
+    # Providers mix timezone-aware UTC timestamps with naive dates.  Normalize
+    # both to naive UTC dates before merging or pandas refuses to align them.
+    prepared["date"] = (
+        pd.to_datetime(prepared["date"], errors="coerce", utc=True)
+        .dt.tz_convert(None)
+        .dt.normalize()
+    )
     prepared[price_column] = pd.to_numeric(prepared[price_column], errors="coerce")
     prepared = prepared.dropna()
     prepared = prepared[prepared[price_column] > 0]
@@ -111,3 +120,203 @@ def compare_daily_prices(
     if worst_gap > CATASTROPHIC_GAP:
         return verdict(False, "catastrophic_print")
     return verdict(True, "ok")
+
+
+@dataclass
+class CrossCheckDecision:
+    """Final three-provider decision for one primary series.
+
+    ``secondary`` is always the CMC-vs-CoinGecko comparison.  When CoinGecko
+    disagrees, ``tertiary`` records the CMC-vs-third-source comparison and
+    ``secondary_vs_tertiary`` records whether the two independent providers
+    agree with each other.  ``confirmed_by`` names the provider that passed
+    the full check against CMC.
+    """
+
+    passed: bool
+    reason: str
+    secondary: CrossCheckResult
+    tertiary: CrossCheckResult | None = None
+    secondary_vs_tertiary: CrossCheckResult | None = None
+    tertiary_checked: bool = False
+    confirmed_by: str | None = None
+
+    @property
+    def overlap_days(self) -> int:
+        return self.secondary.overlap_days
+
+    @property
+    def median_gap(self) -> float:
+        return self.secondary.median_gap
+
+    @property
+    def latest_gap(self) -> float:
+        return self.secondary.latest_gap
+
+    @property
+    def latest_overlap_date(self) -> pd.Timestamp | None:
+        return self.secondary.latest_overlap_date
+
+    @property
+    def disagreeing_share(self) -> float:
+        return self.secondary.disagreeing_share
+
+    @property
+    def worst_gap(self) -> float:
+        return self.secondary.worst_gap
+
+    @property
+    def effective_median_gap(self) -> float:
+        """Median gap of the provider pair that actually supported CMC."""
+        if self.confirmed_by is not None and self.tertiary is not None:
+            return self.tertiary.median_gap
+        return self.secondary.median_gap
+
+
+def _has_overlap(result: CrossCheckResult, min_overlap_days: int) -> bool:
+    return result.overlap_days >= min_overlap_days
+
+
+def adjudicate_daily_prices(
+    primary: pd.DataFrame,
+    secondary: pd.DataFrame,
+    tertiary: pd.DataFrame | None = None,
+    *,
+    primary_column: str = "price",
+    secondary_column: str = "cg_price",
+    tertiary_column: str = "pap_price",
+    tertiary_source: str = "coinpaprika",
+    min_overlap_days: int = MIN_OVERLAP_DAYS,
+    max_median_gap: float = MEDIAN_GAP_TOLERANCE,
+    max_latest_gap: float = LATEST_GAP_TOLERANCE,
+) -> CrossCheckDecision:
+    """Decide whether the primary provider is corroborated.
+
+    The normal path is intentionally unchanged: if CMC and CoinGecko agree,
+    the asset passes without touching a third provider.  Only a CMC-vs-
+    CoinGecko disagreement invokes the majority vote.  A median-level
+    agreement is used for the vote because low-liquidity assets can have noisy
+    single-day provider snapshots; a consensus between the two independent
+    providers on the latest print is still treated as decisive.
+    """
+    secondary_result = compare_daily_prices(
+        primary,
+        secondary,
+        primary_column=primary_column,
+        secondary_column=secondary_column,
+        min_overlap_days=min_overlap_days,
+        max_median_gap=max_median_gap,
+        max_latest_gap=max_latest_gap,
+    )
+    if secondary_result.passed:
+        return CrossCheckDecision(True, secondary_result.reason, secondary_result)
+
+    secondary_unverified = secondary_result.reason in {"no_overlap", "insufficient_overlap"}
+    if tertiary is None or tertiary.empty:
+        return CrossCheckDecision(
+            False,
+            "unverified" if secondary_unverified else "secondary_disagreement_unresolved",
+            secondary_result,
+        )
+
+    tertiary_result = compare_daily_prices(
+        primary,
+        tertiary,
+        primary_column=primary_column,
+        secondary_column=tertiary_column,
+        min_overlap_days=min_overlap_days,
+        max_median_gap=max_median_gap,
+        max_latest_gap=max_latest_gap,
+    )
+    if tertiary_result.reason in {"no_overlap", "insufficient_overlap"}:
+        return CrossCheckDecision(
+            False,
+            "unverified" if secondary_unverified else "third_source_insufficient_overlap",
+            secondary_result,
+            tertiary_result,
+            tertiary_checked=True,
+        )
+
+    if secondary_unverified:
+        if tertiary_result.passed:
+            return CrossCheckDecision(
+                True,
+                "third_source_only",
+                secondary_result,
+                tertiary_result,
+                tertiary_checked=True,
+                confirmed_by=tertiary_source,
+            )
+        return CrossCheckDecision(
+            False,
+            "unverified",
+            secondary_result,
+            tertiary_result,
+            tertiary_checked=True,
+        )
+
+    secondary_vs_tertiary = compare_daily_prices(
+        secondary,
+        tertiary,
+        primary_column=secondary_column,
+        secondary_column=tertiary_column,
+        min_overlap_days=min_overlap_days,
+        max_median_gap=max_median_gap,
+        max_latest_gap=max_latest_gap,
+    )
+    secondaries_have_overlap = _has_overlap(secondary_vs_tertiary, min_overlap_days)
+    secondaries_agree_latest = secondaries_have_overlap and secondary_vs_tertiary.latest_gap <= max_latest_gap
+    secondaries_agree_median = secondaries_have_overlap and secondary_vs_tertiary.median_gap <= max_median_gap
+
+    # If both independent providers agree with each other but not with CMC,
+    # CMC is the isolated outlier.  This is the Celsius failure mode.
+    if (
+        secondaries_agree_latest
+        and secondary_result.latest_gap > max_latest_gap
+        and tertiary_result.latest_gap > max_latest_gap
+    ):
+        return CrossCheckDecision(
+            False,
+            "cmc_isolated",
+            secondary_result,
+            tertiary_result,
+            secondary_vs_tertiary,
+            tertiary_checked=True,
+        )
+    if (
+        secondaries_agree_median
+        and secondary_result.median_gap > max_median_gap
+        and tertiary_result.median_gap > max_median_gap
+    ):
+        return CrossCheckDecision(
+            False,
+            "cmc_isolated",
+            secondary_result,
+            tertiary_result,
+            secondary_vs_tertiary,
+            tertiary_checked=True,
+        )
+
+    # A median-only agreement is not enough to overrule a full disagreement:
+    # Huobi Token is the motivating example.  CMC's median can line up with a
+    # noisy provider while its latest/sustained prints remain wrong.  Require
+    # the third provider to pass the same complete test as the second one.
+    if tertiary_result.passed:
+        return CrossCheckDecision(
+            True,
+            "third_source_confirms_cmc",
+            secondary_result,
+            tertiary_result,
+            secondary_vs_tertiary,
+            tertiary_checked=True,
+            confirmed_by=tertiary_source,
+        )
+
+    return CrossCheckDecision(
+        False,
+        "two_providers_disagree",
+        secondary_result,
+        tertiary_result,
+        secondary_vs_tertiary,
+        tertiary_checked=True,
+    )

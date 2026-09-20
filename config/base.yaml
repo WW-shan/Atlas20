@@ -225,6 +225,26 @@ providers:
     convert_id: '2781'
     page_size: 400
     request_interval_seconds: 1.0
+  # Gate.io is the preferred exchange-venue check when CoinGecko disagrees
+  # with CMC.  Its public candles have no CoinPaprika-style 60/hour limit and
+  # still cover delisted assets such as HT and CEL.
+  gateio:
+    base_url: https://api.gateio.ws/api/v4
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff_seconds: 1.0
+    rate_limit_seconds: 0.05
+    quote_currency: USDT
+    pair_aliases: {}
+  # CoinPaprika is a fallback for assets Gate.io does not list.  Its free
+  # historical endpoint is limited to the trailing 365 days.
+  coinpaprika:
+    base_url: https://api.coinpaprika.com/v1
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff_seconds: 2.0
+    rate_limit_seconds: 0.25
+    id_aliases: {}
 
 reporting:
   rolling_window_days: 365
@@ -245,14 +265,14 @@ data_quality:
   min_market_cap_days: 60
   require_metadata: false
   # Recent CMC prints are verified against CoinGecko before an asset is
-  # allowed into the panel. CMC is the only price source, so a bad block there
-  # would otherwise be invisible (its rows still satisfy
-  # market_cap == price * circulating_supply).
+  # allowed into the panel; a disagreement triggers a third-provider check.
+  # CMC is the only price source, so a bad block there would otherwise be
+  # invisible (its rows still satisfy market_cap == price * supply).
   cross_check_recent_days: 365
   cross_check_min_overlap_days: 30
   cross_check_max_median_gap: 0.10
   cross_check_max_latest_gap: 0.35
   exclude_on_cross_check_failure: true
-  # Refuse assets whose second source is missing entirely. Off by default so a
-  # CoinGecko outage degrades to "unverified" instead of an empty pipeline.
+  # Refuse assets whose independent source is missing entirely. Off by default
+  # so a provider outage degrades to "unverified" instead of an empty pipeline.
   require_cross_check: false

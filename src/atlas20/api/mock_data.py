@@ -457,13 +457,14 @@ fallback_universe_timeline: dict[str, Any] = {
     "range": {"start": "2025-10-31", "end": "2026-04-21"},
 }
 
-# The research chain runs on exactly two providers: CoinGecko supplies the
-# candidate catalog and coin metadata, CoinMarketCap supplies every historical
-# price, volume and market cap. Retired price feeds were removed from the
-# pipeline, so they are no longer reported here.
+# The research chain has one primary history provider (CoinMarketCap), one
+# second check (CoinGecko), one preferred exchange venue (Gate.io) and one
+# fallback third provider (CoinPaprika).
 fallback_data_sources: list[dict[str, Any]] = [
-    {"id": "coingecko", "name": "CoinGecko · Catalog", "status": "healthy", "last_sync_seconds": 12},
+    {"id": "coingecko", "name": "CoinGecko · Catalog + Second Check", "status": "healthy", "last_sync_seconds": 12},
     {"id": "coinmarketcap", "name": "CoinMarketCap · Price & Market Cap", "status": "healthy", "last_sync_seconds": 18},
+    {"id": "gateio", "name": "Gate.io · Exchange Venue Check", "status": "healthy", "last_sync_seconds": 22},
+    {"id": "coinpaprika", "name": "CoinPaprika · Fallback Validation", "status": "healthy", "last_sync_seconds": 25},
 ]
 
 fallback_data_alerts: list[dict[str, Any]] = [

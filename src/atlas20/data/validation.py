@@ -1,10 +1,10 @@
-"""Data sufficiency checks for the CoinMarketCap-only data chain.
+"""Data sufficiency checks for the CoinMarketCap primary data chain.
 
 Every price, volume and market-cap value in the processed panel comes from a
-single provider snapshot. That removes the cross-source reconciliation this
-module used to perform (CryptoCompare vs CoinGecko price gaps), and with it the
-synthetic market-cap fallback: an asset that has no real supply history is
-simply not rankable, rather than being given a price-scaled guess.
+single CMC snapshot.  Independent providers are used only to validate recent
+prints, not to splice or rewrite panel values.  There is no synthetic
+market-cap fallback: an asset that has no real supply history is simply not
+rankable.
 """
 
 from __future__ import annotations
@@ -81,8 +81,8 @@ def summarize_market_history(
         "latest_overlap_date": latest_market_cap_date,
         "validation_passed": passed,
         "validation_reason": reason,
-        # Retained for the data-quality alert contract in the API. There is no
-        # second price series to compare against any more.
+        # Retained for the data-quality alert contract in the API.  The
+        # cross-check module fills the independent-source fields separately.
         "latest_price_gap": np.nan,
         "median_price_gap": np.nan,
         "price_correlation": np.nan,

@@ -22,8 +22,8 @@ def _write_candidates(raw_dir: Path, *assets: dict) -> None:
     path.write_text(json.dumps(list(assets)), encoding="utf-8")
 
 
-def _candidate(coin_id: str, symbol: str, cmc_id: int) -> dict:
-    return {
+def _candidate(coin_id: str, symbol: str, cmc_id: int, coinpaprika_id: str | None = None) -> dict:
+    asset = {
         "id": coin_id,
         "symbol": symbol,
         "name": coin_id.title(),
@@ -33,6 +33,9 @@ def _candidate(coin_id: str, symbol: str, cmc_id: int) -> dict:
         "total_volume": 10_000.0,
         "cmc_id": cmc_id,
     }
+    if coinpaprika_id is not None:
+        asset["coinpaprika_id"] = coinpaprika_id
+    return asset
 
 
 def _write_cmc(
@@ -284,6 +287,58 @@ def test_genuine_launch_rally_is_not_flagged(tmp_path):
     assert panel["price"].iloc[0] == 1.87e-10
 
 
+
+
+def _write_paprika(
+    raw_dir: Path,
+    coinpaprika_id: str,
+    days: list[str],
+    *,
+    price: float = 250.0,
+    price_by_day: dict[str, float] | None = None,
+) -> None:
+    directory = raw_dir / "coinpaprika" / "history"
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = [
+        {
+            "timestamp": f"{day}T00:00:00Z",
+            "price": (price_by_day or {}).get(day, price),
+            "volume_24h": 9_000_000.0,
+            "market_cap": 5_000_000.0,
+        }
+        for day in days
+    ]
+    (directory / f"{coinpaprika_id}_2024-01-01_2024-01-03.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+
+
+def _write_gateio(
+    raw_dir: Path,
+    symbol: str,
+    days: list[str],
+    *,
+    price: float = 250.0,
+    price_by_day: dict[str, float] | None = None,
+) -> None:
+    directory = raw_dir / "gateio" / "candles"
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = [
+        [
+            int(pd.Timestamp(day).timestamp()),
+            9_000_000.0,
+            (price_by_day or {}).get(day, price),
+            (price_by_day or {}).get(day, price),
+            (price_by_day or {}).get(day, price),
+            (price_by_day or {}).get(day, price),
+            20_000.0,
+            "true",
+        ]
+        for day in days
+    ]
+    (directory / f"{symbol.upper()}_USDT_400.json").write_text(json.dumps(payload), encoding="utf-8")
+
 def _write_chart(raw_dir: Path, coin_id: str, days: list[str], scale: float = 1.0, days_arg: int = 365) -> None:
     """Write a CoinGecko validation chart at ``scale`` x the CMC price."""
     path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{days_arg}d.json"
@@ -362,3 +417,128 @@ def test_agreeing_second_source_admits_the_asset(tmp_path):
     assert len(panel) == 3
     quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
     assert bool(quality.loc["bitcoin", "crosscheck_passed"]) is True
+
+
+def test_third_source_can_confirm_cmc_when_second_source_is_outlier(tmp_path):
+    """CoinGecko disagrees by 1000x, but CoinPaprika fully agrees with CMC.
+    The third provider breaks the tie in CMC's favour."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(
+        raw_dir,
+        _candidate("bitcoin", "BTC", 1),
+        _candidate("celsius-degree-token", "CEL", 4, "cel-celsius"),
+    )
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_cmc(raw_dir, 4, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+    _write_chart(raw_dir, "celsius-degree-token", days, scale=0.001)
+    _write_paprika(raw_dir, "cel-celsius", days)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert set(panel["coin_id"]) == {"bitcoin", "celsius-degree-token"}
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    row = quality.loc["celsius-degree-token"]
+    assert bool(row["crosscheck_passed"]) is True
+    assert row["crosscheck_reason"] == "third_source_confirms_cmc"
+    assert row["crosscheck_confirmed_by"] == "coinpaprika"
+
+
+def test_two_providers_agree_against_cmc_and_block_it(tmp_path):
+    """CEL-like case where both independent providers agree with each other
+    and CMC is the isolated 1000x outlier."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(
+        raw_dir,
+        _candidate("bitcoin", "BTC", 1),
+        _candidate("celsius-degree-token", "CEL", 4, "cel-celsius"),
+    )
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_cmc(raw_dir, 4, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+    _write_chart(raw_dir, "celsius-degree-token", days, scale=0.001)
+    _write_paprika(raw_dir, "cel-celsius", days, price=0.25)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert set(panel["coin_id"]) == {"bitcoin"}
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    row = quality.loc["celsius-degree-token"]
+    assert bool(row["crosscheck_passed"]) is False
+    assert row["crosscheck_reason"] == "cmc_isolated"
+    assert bool(row["included_in_panel"]) is False
+
+
+def test_huobi_like_third_source_disagreement_keeps_asset_blocked(tmp_path):
+    """A similar median is not enough: the third provider's latest print must
+    also pass the full test before it can overrule the second provider."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(
+        raw_dir,
+        _candidate("bitcoin", "BTC", 1),
+        _candidate("huobi-token", "HT", 3, "ht-huobi-token"),
+    )
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_cmc(raw_dir, 3, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+    _write_chart(raw_dir, "huobi-token", days, scale=1.3)
+    _write_paprika(
+        raw_dir,
+        "ht-huobi-token",
+        days,
+        price_by_day={days[-1]: 25.0},
+    )
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert "huobi-token" not in set(panel["coin_id"])
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert quality.loc["huobi-token", "crosscheck_reason"] == "two_providers_disagree"
+    assert bool(quality.loc["huobi-token", "included_in_panel"]) is False
+
+
+def test_gateio_confirms_cmc_and_admits_asset(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    candidate = _candidate("bitcoin", "BTC", 1)
+    candidate["gateio_pair"] = "BTC_USDT"
+    _write_candidates(raw_dir, candidate)
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=0.001)
+    _write_gateio(raw_dir, "BTC", days)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert "bitcoin" in set(panel["coin_id"])
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert quality.loc["bitcoin", "crosscheck_reason"] == "third_source_confirms_cmc"
+    assert quality.loc["bitcoin", "crosscheck_third_source"] == "gateio"
+    assert quality.loc["bitcoin", "crosscheck_confirmed_by"] == "gateio"
+
+
+def test_gateio_latest_disagreement_keeps_huobi_like_asset_blocked(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    candidate = _candidate("huobi-token", "HT", 3)
+    candidate["gateio_pair"] = "HT_USDT"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1), candidate)
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_cmc(raw_dir, 3, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+    _write_chart(raw_dir, "huobi-token", days, scale=1.3)
+    _write_gateio(raw_dir, "HT", days, price_by_day={days[-1]: 25.0})
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert "huobi-token" not in set(panel["coin_id"])
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert quality.loc["huobi-token", "crosscheck_reason"] == "two_providers_disagree"
+    assert bool(quality.loc["huobi-token", "included_in_panel"]) is False

@@ -31,6 +31,14 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
     raw_root = tmp_path / "raw"
     _write_raw_file(raw_root / "coingecko" / "snapshots" / "markets.json", fixed_now - timedelta(seconds=30))
     _write_raw_file(raw_root / "coinmarketcap" / "history" / "1_0_0.json", fixed_now - timedelta(hours=2))
+    _write_raw_file(
+        raw_root / "gateio" / "candles" / "CEL_USDT_400.json",
+        fixed_now - timedelta(minutes=2),
+    )
+    _write_raw_file(
+        raw_root / "coinpaprika" / "history" / "cel-celsius_2025-09-21_2026-09-20.json",
+        fixed_now - timedelta(minutes=1),
+    )
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(services, "utc_now", lambda: fixed_now)
     get_settings.cache_clear()
@@ -41,7 +49,9 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
     assert sources["coingecko"].status == "healthy"
     assert sources["coingecko"].last_sync_seconds == 30
     assert sources["coinmarketcap"].status == "degraded"
-    assert set(sources) == {"coingecko", "coinmarketcap"}
+    assert sources["gateio"].status == "healthy"
+    assert sources["coinpaprika"].status == "healthy"
+    assert set(sources) == {"coingecko", "coinmarketcap", "gateio", "coinpaprika"}
 
 
 def test_get_data_sources_uses_five_minute_cache(tmp_path, monkeypatch):

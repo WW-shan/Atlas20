@@ -113,11 +113,43 @@ class CoinMarketCapConfig(BaseModel):
     tail_refresh_days: int = 5
 
 
+class GateIOConfig(BaseModel):
+    """Exchange-venue validation used as the preferred third source."""
+
+    base_url: str = "https://api.gateio.ws/api/v4"
+    timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    rate_limit_seconds: float = 0.05
+    quote_currency: str = "USDT"
+    # Manual escape hatch for symbols whose Gate.io pair differs from
+    # ``<SYMBOL>_<quote_currency>``.
+    pair_aliases: dict[str, str] = Field(default_factory=dict)
+
+
+class CoinPaprikaConfig(BaseModel):
+    """Third-provider validation used only when the second source disagrees."""
+
+    base_url: str = "https://api.coinpaprika.com/v1"
+    timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_backoff_seconds: float = 2.0
+    # CoinPaprika's free historical endpoint is soft-limited to 60 requests
+    # per hour. Gate.io is the preferred venue source; this client is only a
+    # fallback for assets Gate.io does not list.
+    rate_limit_seconds: float = 0.25
+    # Manual escape hatch for ambiguous/rebranded tickers, keyed by either
+    # CoinGecko id or uppercase symbol.
+    id_aliases: dict[str, str] = Field(default_factory=dict)
+
+
 class ProvidersConfig(BaseModel):
-    """Only two providers remain: CoinGecko for the catalog, CMC for history."""
+    """Catalog + primary history + exchange-venue adjudication."""
 
     coingecko: CoinGeckoConfig
     coinmarketcap: CoinMarketCapConfig = Field(default_factory=CoinMarketCapConfig)
+    gateio: GateIOConfig = Field(default_factory=GateIOConfig)
+    coinpaprika: CoinPaprikaConfig = Field(default_factory=CoinPaprikaConfig)
 
 
 class ReportingConfig(BaseModel):
@@ -131,17 +163,19 @@ class DataQualityConfig(BaseModel):
     min_price_days: int = 60
     min_market_cap_days: int = 60
     require_metadata: bool = False
-    # Independent verification of recent CoinMarketCap prints against
-    # CoinGecko. CMC is a single point of failure: it served Huobi Token at
-    # 1/250000th of its real price for 34 days while staying internally
-    # consistent. Nothing but a second provider catches that.
+    # Independent verification of recent CoinMarketCap prints. CoinGecko is
+    # the second source; Gate.io, then CoinPaprika as a fallback, is consulted
+    # only when the first check disagrees. CMC is a single point of failure:
+    # it served Huobi Token at 1/250000th of its real price for 34 days while
+    # staying internally consistent. No single second provider is assumed to
+    # be correct.
     cross_check_recent_days: int = 365
     cross_check_min_overlap_days: int = 30
     cross_check_max_median_gap: float = 0.10
     cross_check_max_latest_gap: float = 0.35
     exclude_on_cross_check_failure: bool = True
-    # An asset whose second source is unavailable is "unverified", not
-    # "disagreeing". Default: admit it (a CoinGecko outage must not halt the
+    # An asset whose independent source is unavailable is "unverified", not
+    # "disagreeing". Default: admit it (a provider outage must not halt the
     # whole pipeline) but record it, so the audit can surface it. Set this to
     # true to refuse anything you could not independently confirm.
     require_cross_check: bool = False

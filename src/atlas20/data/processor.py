@@ -6,6 +6,9 @@ Data chain (single source of truth):
   coin metadata used for the exclusion rules and sector mapping.
 * CoinMarketCap - daily price, dollar volume, market cap and circulating
   supply for every asset in the panel.
+* Gate.io - exchange-venue adjudication when CoinGecko disagrees with CMC.
+* CoinPaprika - fallback adjudication only when Gate.io does not list the
+  asset.  Neither third source ever rewrites a panel value.
 
 CoinMarketCap is the only historical provider. Because price, volume and
 market cap come from one snapshot, the price/market-cap ratio is internally
@@ -25,7 +28,9 @@ from atlas20.config import ResearchConfig, SectorConfig
 from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata_is_excluded
 from atlas20.data.coingecko import CoinGeckoClient
 from atlas20.data.coinmarketcap import CoinMarketCapClient
-from atlas20.data.crosscheck import compare_daily_prices
+from atlas20.data.coinpaprika import CoinPaprikaClient
+from atlas20.data.crosscheck import adjudicate_daily_prices, compare_daily_prices
+from atlas20.data.gateio import GateIOClient
 from atlas20.data.validation import summarize_market_history
 from atlas20.logging_utils import ensure_dir, get_logger
 from atlas20.sectors.mapping import resolve_sector_map
@@ -67,6 +72,8 @@ def download_and_cache_raw_data(
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
     coingecko = CoinGeckoClient(config.providers.coingecko, raw_dir)
     cmc = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
+    gateio = GateIOClient(config.providers.gateio, raw_dir)
+    coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     LOGGER.info("Fetching current top-%s candidate assets from CoinGecko", config.universe.current_top_n_candidates)
     current_top = coingecko.fetch_top_markets(
@@ -80,6 +87,13 @@ def download_and_cache_raw_data(
     id_map = cmc.fetch_id_map(force=force or refresh_catalog)
     # Curated aliases win: they cover tickers CMC no longer lists.
     id_map = {**id_map, **{k.upper(): int(v) for k, v in config.universe.cmc_symbol_aliases.items()}}
+
+    # Refresh CoinPaprika's catalog at most once per run, and only if a
+    # disputed asset actually needs it.  Resolving each disagreement against a
+    # stale list would miss a new coin; refreshing eagerly would waste a 7.5 MB
+    # request on every normal run.
+    coinpaprika_catalog_ready: bool | None = None
+
     start, end = _history_window(config)
 
     valid_assets: list[dict] = []
@@ -139,16 +153,81 @@ def download_and_cache_raw_data(
         # Recent CoinGecko history is used only to verify CMC's recent prints.
         # Without it a corrupted CMC block would be undetectable, because its
         # rows still satisfy market_cap == price * circulating_supply.
+        chart = pd.DataFrame()
         try:
-            coingecko.fetch_daily_market_chart(
+            chart = coingecko.fetch_daily_market_chart(
                 coin_id, config.data_quality.cross_check_recent_days, force=force
             )
         except Exception as exc:  # noqa: BLE001
             details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
             LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
 
+        # Only disputed assets pay the cost of a third-provider request.  The
+        # free CoinPaprika historical endpoint has a 60-requests/hour soft
+        # limit, so this keeps a normal refresh to one catalog request plus a
+        # handful of adjudications instead of 90+ history calls.
+        secondary = compare_daily_prices(
+            history.rename(columns={"close": "price"}),
+            chart,
+            min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+            max_median_gap=config.data_quality.cross_check_max_median_gap,
+            max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+        )
+        enriched_asset = {**asset, "cmc_id": int(cmc_id)}
+        secondary_disputed = not secondary.passed and secondary.reason not in {
+            "no_overlap",
+            "insufficient_overlap",
+        }
+        if secondary_disputed:
+            gate_frame = pd.DataFrame()
+            try:
+                gate_frame = gateio.fetch_daily_candles(symbol, force=force)
+            except Exception as exc:  # noqa: BLE001
+                details = f"{details} | gateio_history_missing: {exc}".lstrip(" |")
+                LOGGER.warning("Gate.io history unavailable for %s (%s): %s", coin_id, symbol, exc)
+            if not gate_frame.empty:
+                enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
+            elif coinpaprika_catalog_ready is not False:
+                # Gate.io does not list every asset (for example XMR, KCS,
+                # EOS and MKR).  Fall back to CoinPaprika only for those
+                # gaps, which keeps its 60/hour free limit out of the normal
+                # disputed-asset path.
+                if coinpaprika_catalog_ready is None:
+                    try:
+                        coinpaprika.fetch_coins(force=force or refresh_catalog)
+                        coinpaprika_catalog_ready = True
+                    except Exception as exc:  # noqa: BLE001
+                        coinpaprika_catalog_ready = False
+                        LOGGER.warning("CoinPaprika catalog unavailable: %s", exc)
+                try:
+                    pap_id = coinpaprika.resolve_coin_id(
+                        coin_id=coin_id,
+                        symbol=symbol,
+                        name=name,
+                        market_cap_rank=asset.get("market_cap_rank"),
+                        force=False,
+                        bypass_id_map=True,
+                    )
+                    if pap_id:
+                        enriched_asset["coinpaprika_id"] = pap_id
+                        cross_start = max(
+                            end.normalize() - pd.Timedelta(days=max(config.data_quality.cross_check_recent_days - 1, 0)),
+                            start.normalize(),
+                        )
+                        coinpaprika.fetch_daily_history(
+                            pap_id,
+                            start=cross_start.date(),
+                            end=end.date(),
+                            force=force,
+                        )
+                    else:
+                        details = f"{details} | coinpaprika_id_missing".lstrip(" |")
+                except Exception as exc:  # noqa: BLE001
+                    details = f"{details} | coinpaprika_history_missing: {exc}".lstrip(" |")
+                    LOGGER.warning("Third-provider history unavailable for %s (%s): %s", coin_id, symbol, exc)
+
         screening_rows.append({"coin_id": coin_id, "symbol": symbol, "name": name, "status": status, "details": details})
-        valid_assets.append({**asset, "cmc_id": int(cmc_id)})
+        valid_assets.append(enriched_asset)
 
     candidate_path = _candidate_assets_path(config)
     candidate_path.parent.mkdir(parents=True, exist_ok=True)
@@ -299,6 +378,8 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
     panel_frames: list[pd.DataFrame] = []
     quality_rows: list[dict] = []
     sector_map = resolve_sector_map(config, sector_config)
+    gateio = GateIOClient(config.providers.gateio, raw_dir)
+    coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     for _, asset in candidates.iterrows():
         coin_id = str(asset["id"])
@@ -329,9 +410,35 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         )
 
         chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
-        cross = compare_daily_prices(
+        chart = _load_coingecko_chart(chart_path)
+        secondary = compare_daily_prices(
             validation.history,
-            _load_coingecko_chart(chart_path),
+            chart,
+            min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+            max_median_gap=config.data_quality.cross_check_max_median_gap,
+            max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+        )
+        tertiary = pd.DataFrame()
+        tertiary_column = "pap_price"
+        tertiary_source = ""
+        gateio_pair = asset.get("gateio_pair")
+        pap_id = asset.get("coinpaprika_id")
+        if not secondary.passed and gateio_pair is not None and not pd.isna(gateio_pair):
+            gate_frame = gateio.load_daily_candles(symbol)
+            if not gate_frame.empty:
+                tertiary = gate_frame
+                tertiary_column = "gate_price"
+                tertiary_source = "gateio"
+        if not secondary.passed and tertiary.empty and pap_id is not None and not pd.isna(pap_id):
+            tertiary = coinpaprika.load_daily_history(str(pap_id))
+            if not tertiary.empty:
+                tertiary_source = "coinpaprika"
+        cross = adjudicate_daily_prices(
+            validation.history,
+            chart,
+            tertiary,
+            tertiary_column=tertiary_column,
+            tertiary_source=tertiary_source,
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
@@ -339,13 +446,15 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         # "Disagrees" and "could not be checked" are different states. A proven
         # disagreement blocks the asset; a missing second source is recorded
         # and only blocks when the operator demands verification.
-        unverified = cross.reason in {"no_overlap", "insufficient_overlap"}
+        unverified = cross.reason == "unverified"
         blocked_by_cross_check = not cross.passed and (
             (not unverified) or config.data_quality.require_cross_check
         )
         admitted = validation.passed and not (
             config.data_quality.exclude_on_cross_check_failure and blocked_by_cross_check
         )
+        tertiary_result = cross.tertiary
+        secondary_tertiary_result = cross.secondary_vs_tertiary
         quality_rows.append(
             validation.summary
             | {
@@ -353,21 +462,56 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
                 "crosscheck_passed": cross.passed,
                 "crosscheck_verified": not unverified,
                 "crosscheck_reason": cross.reason,
+                "crosscheck_confirmed_by": cross.confirmed_by or "",
                 "crosscheck_overlap_days": cross.overlap_days,
                 "crosscheck_median_gap": cross.median_gap,
                 "crosscheck_latest_gap": cross.latest_gap,
+                "crosscheck_effective_median_gap": cross.effective_median_gap,
+                "crosscheck_third_source": tertiary_source,
+                "crosscheck_third_source_checked": cross.tertiary_checked,
+                "crosscheck_third_source_passed": (
+                    tertiary_result.passed if tertiary_result is not None else pd.NA
+                ),
+                "crosscheck_third_source_reason": (
+                    tertiary_result.reason if tertiary_result is not None else ""
+                ),
+                "crosscheck_third_source_overlap_days": (
+                    tertiary_result.overlap_days if tertiary_result is not None else pd.NA
+                ),
+                "crosscheck_third_source_median_gap": (
+                    tertiary_result.median_gap if tertiary_result is not None else pd.NA
+                ),
+                "crosscheck_third_source_latest_gap": (
+                    tertiary_result.latest_gap if tertiary_result is not None else pd.NA
+                ),
+                "crosscheck_secondary_tertiary_median_gap": (
+                    secondary_tertiary_result.median_gap if secondary_tertiary_result is not None else pd.NA
+                ),
+                "crosscheck_secondary_tertiary_latest_gap": (
+                    secondary_tertiary_result.latest_gap if secondary_tertiary_result is not None else pd.NA
+                ),
                 "included_in_panel": bool(admitted),
             }
         )
+        if cross.passed and cross.confirmed_by:
+            LOGGER.warning(
+                "Admitted %s (%s) with %s confirming CMC; CoinGecko median gap %.2f%%",
+                coin_id,
+                symbol,
+                cross.confirmed_by,
+                (cross.median_gap or 0.0) * 100,
+            )
         if not admitted:
             if validation.passed and blocked_by_cross_check:
+                median_ratio = 1.0 + cross.median_gap if pd.notna(cross.median_gap) else float("nan")
+                latest_ratio = 1.0 + cross.latest_gap if pd.notna(cross.latest_gap) else float("nan")
                 LOGGER.warning(
-                    "Excluding %s (%s): independent source disagrees (%s, median gap %.2f%%, latest gap %.2f%%)",
+                    "Excluding %s (%s): independent source disagrees (%s, median %.2fx, latest %.2fx)",
                     coin_id,
                     symbol,
                     cross.reason,
-                    (cross.median_gap or 0.0) * 100,
-                    (cross.latest_gap or 0.0) * 100,
+                    median_ratio,
+                    latest_ratio,
                 )
             else:
                 LOGGER.warning(
