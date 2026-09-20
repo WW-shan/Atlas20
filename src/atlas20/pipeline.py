@@ -71,12 +71,20 @@ def run_research_pipeline(config: ResearchConfig, refresh_raw: bool = False) -> 
 
     for strategy in strategy_definitions:
         targets, _ = build_rebalance_targets(strategy, market, universe, regime_frame, config)
+        # A buy-and-hold benchmark is a single full position in the reference
+        # asset by definition, so the portfolio's per-coin diversification cap
+        # must not apply to it - otherwise "BTC buy & hold" silently becomes
+        # "35% BTC and 65% cash" and every strategy is flattered against it.
+        friction = config.frictions
+        if getattr(strategy, "family", None) == "benchmark":
+            friction = config.frictions.model_copy(deep=True)
+            friction.max_weight_per_coin = 1.0
         result = run_backtest(
             name=strategy.name,
             asset_returns=backtest_returns,
             rebalance_targets=targets,
             sector_by_coin=sector_by_coin,
-            friction=config.frictions,
+            friction=friction,
             initial_capital=config.initial_capital,
         )
         results[strategy.name] = result

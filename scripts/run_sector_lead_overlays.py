@@ -27,7 +27,7 @@ if str(SRC_DIR) not in sys.path:
 from atlas20.analytics.metrics import compute_summary_metrics  # noqa: E402
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 from atlas20.backtest.engine import run_backtest  # noqa: E402
-from atlas20.config import load_config, load_sector_config  # noqa: E402
+from atlas20.config import FrictionConfig, load_config, load_sector_config  # noqa: E402
 from atlas20.data.processor import build_processed_datasets  # noqa: E402
 from atlas20.logging_utils import configure_logging  # noqa: E402
 from atlas20.signals.regime import build_regime_frame  # noqa: E402
@@ -107,6 +107,20 @@ def _leverage_for_targets(
     return out
 
 
+def _friction_for_lane(config, max_weight_per_coin: float) -> FrictionConfig:
+    """Friction config for the concentrated lane.
+
+    ``max_weight_per_coin`` is a diversification limit: when it binds, the
+    engine trims the pick and parks the residual in cash. That is the right
+    default for a 20-name book, but this lane is *deliberately* concentrated -
+    the whole thesis is one high-beta leader - so it defaults to an uncapped
+    1.0 and must ask for a cap explicitly if it ever wants one.
+    """
+    friction = config.frictions.model_copy(deep=True)
+    friction.max_weight_per_coin = float(max_weight_per_coin)
+    return friction
+
+
 def _run(
     name: str,
     market: MarketDataBundle,
@@ -114,13 +128,14 @@ def _run(
     config,
     *,
     leverage_by_date: dict[pd.Timestamp, float] | None = None,
+    max_weight_per_coin: float = 1.0,
 ):
     return run_backtest(
         name=name,
         asset_returns=market.returns.loc[config.start_timestamp : config.end_timestamp],
         rebalance_targets=targets,
         sector_by_coin=_sector_by_coin(market),
-        friction=config.frictions,
+        friction=_friction_for_lane(config, max_weight_per_coin),
         initial_capital=config.initial_capital,
         gross_target_exposure=1.0,
         leverage_by_date=leverage_by_date,
@@ -146,6 +161,12 @@ def main() -> None:
     parser.add_argument("--risk-off", default="cash", choices=["cash", "btc"])
     parser.add_argument("--stop-lookback", type=int, default=30)
     parser.add_argument("--stop-vol-multiple", type=float, default=2.0)
+    parser.add_argument(
+        "--max-weight-per-coin",
+        type=float,
+        default=1.0,
+        help="Per-coin cap for this concentrated lane; 1.0 means a single pick may be a full position.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -202,7 +223,14 @@ def main() -> None:
 
     rows = []
     for name, (targets, lev) in variants.items():
-        result = _run(name, market, targets, config, leverage_by_date=lev)
+        result = _run(
+            name,
+            market,
+            targets,
+            config,
+            leverage_by_date=lev,
+            max_weight_per_coin=args.max_weight_per_coin,
+        )
         metrics = compute_summary_metrics(result, config.annualization_days)
         rows.append(
             {

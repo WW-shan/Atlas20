@@ -26,29 +26,46 @@ class BacktestResult:
 
 
 def cap_and_normalize(weights: pd.Series, max_weight: float) -> pd.Series:
-    """Apply a simple iterative per-asset cap while keeping weights summing to one."""
+    """Apply a per-asset weight cap, holding any residual in cash.
+
+    Weights are first normalized to sum to one. Any asset above ``max_weight``
+    is then trimmed back to the cap and the freed weight is redistributed to
+    the assets still below the cap, in proportion to their existing weight.
+    This repeats until no asset is over the cap. When *every* remaining asset
+    is already at the cap there is nowhere left to redistribute to, so the
+    residual stays in cash: the returned weights never exceed ``max_weight``
+    and never sum to more than one.
+
+    A previous implementation overwrote the under-cap weights with the freed
+    weight instead of adding to them and then renormalized, which silently
+    defeated the cap entirely (``[0.5, 0.3, 0.2]`` came back as
+    ``[0.7, 0.18, 0.12]``). The cap is a real constraint, so a deliberately
+    concentrated book must raise ``max_weight_per_coin`` rather than rely on
+    the cap being ignored.
+    """
     weights = weights.fillna(0.0).clip(lower=0.0)
     if weights.sum() <= 0:
         return weights * 0.0
     weights = weights / weights.sum()
 
-    if max_weight >= 1.0:
+    if max_weight >= 1.0 or max_weight <= 0.0:
         return weights
 
-    for _ in range(10):
-        over = weights > max_weight
+    remaining = weights.copy()
+    for _ in range(len(remaining) + 1):
+        over = remaining > max_weight + 1e-15
         if not over.any():
             break
-        capped = weights.where(~over, max_weight)
-        deficit = 1.0 - capped.sum()
-        under = ~over & (weights > 0)
-        if deficit <= 0 or not under.any():
-            weights = capped / capped.sum()
+        freed = float((remaining[over] - max_weight).sum())
+        remaining[over] = max_weight
+        under = remaining < max_weight - 1e-15
+        if not under.any() or freed <= 0.0:
             break
-        redistributed = capped.copy()
-        redistributed.loc[under] = capped.loc[under] / capped.loc[under].sum() * deficit
-        weights = redistributed
-    return weights / weights.sum() if weights.sum() > 0 else weights
+        base = float(remaining[under].sum())
+        if base <= 0.0:
+            break
+        remaining[under] = remaining[under] + remaining[under] / base * freed
+    return remaining
 
 
 

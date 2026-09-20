@@ -71,3 +71,63 @@ def test_run_research_pipeline_skips_sector_exposure_when_no_sector_strategy(tmp
 
     assert set(results) == {"TOP20_MOM_alpha"}
     assert sector_plot_calls == []
+
+
+def test_benchmark_runs_uncapped_while_strategies_keep_the_cap(tmp_path, monkeypatch):
+    """A buy-and-hold benchmark must be a full position in the reference asset.
+
+    The per-coin diversification cap used to be silently ignored by a broken
+    cap function. Now that it is enforced, running BTC_BH through it would
+    quietly turn "buy & hold BTC" into "35% BTC, 65% cash" and flatter every
+    strategy measured against it.
+    """
+    config = load_config("config/base.yaml")
+    config.project_root = tmp_path
+    index = pd.date_range("2026-01-01", periods=3, freq="D")
+    market = SimpleNamespace(
+        price=pd.DataFrame({"bitcoin": [100.0, 101.0, 102.0]}, index=index),
+        market_cap=pd.DataFrame({"bitcoin": [1_000.0, 1_010.0, 1_020.0]}, index=index),
+        returns=pd.DataFrame({"bitcoin": [0.0, 0.01, 0.01]}, index=index),
+    )
+    metadata = {"sector": pd.Series({"bitcoin": "Store of Value"})}
+    summary = pd.DataFrame(
+        {"cagr": [0.1], "sharpe": [1.0], "max_drawdown": [-0.1]},
+        index=pd.Index(["BTC_BH__always_on"], name="strategy"),
+    )
+    captured: dict[str, float] = {}
+
+    def fake_run_backtest(name, **kwargs):
+        captured[name] = kwargs["friction"].max_weight_per_coin
+        return _result(name, index)
+
+    monkeypatch.setattr(pipeline, "configure_logging", lambda level: None)
+    monkeypatch.setattr(pipeline, "load_sector_config", lambda path: object())
+    monkeypatch.setattr(pipeline, "download_and_cache_raw_data", lambda config: None)
+    monkeypatch.setattr(pipeline, "build_processed_datasets", lambda config, sector_config: (object(), metadata))
+    monkeypatch.setattr(pipeline, "prepare_market_data", lambda panel, metadata, config: market)
+    monkeypatch.setattr(pipeline, "_all_rebalance_dates", lambda market_index, config: list(index))
+    monkeypatch.setattr(pipeline, "build_rebalance_universe", lambda *args, **kwargs: object())
+    monkeypatch.setattr(pipeline, "build_regime_frame", lambda price, market_cap, config: pd.DataFrame(index=index))
+    monkeypatch.setattr(
+        pipeline,
+        "build_strategy_definitions",
+        lambda config: [
+            SimpleNamespace(name="BTC_BH__always_on", family="benchmark"),
+            SimpleNamespace(name="TOP20_MOM_top6_monthly__always_on", family="momentum"),
+        ],
+    )
+    monkeypatch.setattr(pipeline, "build_rebalance_targets", lambda strategy, market, universe, regime, config: ({}, None))
+    monkeypatch.setattr(pipeline, "run_backtest", fake_run_backtest)
+    monkeypatch.setattr(pipeline, "summarize_backtests", lambda results, annualization_days: summary)
+    monkeypatch.setattr(pipeline, "yearly_return_table", lambda results: pd.DataFrame())
+    monkeypatch.setattr(pipeline, "performance_by_regime", lambda results, regime, annualization_days: pd.DataFrame())
+    monkeypatch.setattr(pipeline, "export_result_tables", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "plot_equity_curves", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "plot_drawdowns", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "plot_rolling_returns", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "build_markdown_report", lambda *args, **kwargs: None)
+
+    pipeline.run_research_pipeline(config)
+
+    assert captured["BTC_BH__always_on"] == 1.0
+    assert captured["TOP20_MOM_top6_monthly__always_on"] == config.frictions.max_weight_per_coin

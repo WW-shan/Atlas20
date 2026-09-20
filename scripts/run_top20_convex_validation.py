@@ -775,12 +775,19 @@ def _candidate_targets(
 def _friction_with_total_cost(
     base: FrictionConfig,
     total_cost_bps: float | None = None,
+    max_weight_per_coin: float = 1.0,
 ) -> FrictionConfig:
     friction = base.model_copy(deep=True)
     if total_cost_bps is not None:
         half_cost = float(total_cost_bps) / 2.0
         friction.fee_bps = half_cost
         friction.slippage_bps = half_cost
+    # This scan only ever builds deliberately concentrated books (one leader,
+    # or a 0.6/0.4, 0.5/0.3/0.2 leader ladder). The diversified per-coin cap in
+    # the base config would trim those picks and park the residual in cash,
+    # which is the opposite of the convexity this lane is searching for, so the
+    # cap defaults to uncapped and must be requested explicitly.
+    friction.max_weight_per_coin = float(max_weight_per_coin)
     return friction
 
 

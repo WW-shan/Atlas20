@@ -11,6 +11,9 @@ def test_run_backtest_applies_rebalance_one_day_later_and_records_turnover() -> 
     config = load_config("config/base.yaml")
     config.frictions.fee_bps = 0.0
     config.frictions.slippage_bps = 0.0
+    # This test is about the T+1 mechanics, not the diversification cap, so a
+    # single pick is allowed to be a full position.
+    config.frictions.max_weight_per_coin = 1.0
     dates = pd.date_range("2024-01-01", periods=4, freq="D")
     returns = pd.DataFrame({"bitcoin": [0.0, 0.10, 0.0, 0.0], "ethereum": [0.0, 0.0, 0.0, 0.0]}, index=dates)
     targets = {dates[0]: pd.Series({"bitcoin": 1.0})}
@@ -50,3 +53,38 @@ def test_weights_stay_fully_invested_after_paying_trading_costs() -> None:
     capital = 100.0 * (1.0 - 1.0 * 0.002) * 1.10
     capital = capital * (1.0 - 2.0 * 0.002) * 1.05
     assert result.equity_curve.iloc[-1] == pytest.approx(capital, rel=1e-12)
+
+
+def test_per_coin_cap_is_enforced_and_never_raises_the_largest_weight() -> None:
+    """Regression: the cap used to be silently defeated.
+
+    The old redistribution overwrote the under-cap weights with the freed
+    weight (instead of adding to them) and then renormalized, so a capped
+    weight could come back *larger* than it went in.
+    """
+    from atlas20.backtest.engine import cap_and_normalize
+
+    # A single pick cannot be capped without going to cash: 35% invested.
+    single = cap_and_normalize(pd.Series({"a": 1.0}), 0.35)
+    assert single["a"] == pytest.approx(0.35)
+    assert single.sum() == pytest.approx(0.35)
+
+    # Two assets that are both over the cap leave the residual in cash.
+    pair = cap_and_normalize(pd.Series({"a": 0.6, "b": 0.4}), 0.35)
+    assert pair.max() == pytest.approx(0.35)
+    assert pair.sum() == pytest.approx(0.70)
+
+    # Mixed book: cap the offender, redistribute to the rest, stay invested.
+    mixed = cap_and_normalize(pd.Series({"a": 0.5, "b": 0.3, "c": 0.2}), 0.35)
+    assert mixed.max() <= 0.35 + 1e-12
+    assert mixed.sum() == pytest.approx(1.0)
+    assert mixed["a"] == pytest.approx(0.35)
+
+    # Nothing over the cap is left untouched.
+    even = cap_and_normalize(pd.Series({"a": 0.25, "b": 0.25, "c": 0.25, "d": 0.25}), 0.35)
+    assert even.tolist() == pytest.approx([0.25, 0.25, 0.25, 0.25])
+
+    # The largest weight must never grow past the cap.
+    skewed = cap_and_normalize(pd.Series({"a": 0.7, "b": 0.2, "c": 0.1}), 0.5)
+    assert skewed.max() <= 0.5 + 1e-12
+    assert skewed.sum() == pytest.approx(1.0)
