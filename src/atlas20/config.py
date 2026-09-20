@@ -32,6 +32,16 @@ class UniverseConfig(BaseModel):
     min_history_days: int = 90
     min_daily_dollar_volume: float = 25_000_000
     min_price: float = 1e-6
+    # Liquidity gate. An asset must either turn over at least this fraction of
+    # its market cap per day, or trade at least ``min_turnover_volume_usd`` in
+    # absolute terms. Market-cap ranks alone can be gamed by an asset whose
+    # supply count is huge but whose real float is thin: Rain (RAIN) ranked
+    # ~15th on a $9.7B market cap while trading only ~$30M/day (0.3-0.9%
+    # turnover). Turnover alone would also drop Binance Coin, which genuinely
+    # runs below 1% turnover but trades billions per day, so the absolute
+    # floor is the escape hatch for real mega-caps. Set to 0 to disable.
+    min_turnover_ratio: float = 0.0
+    min_turnover_volume_usd: float = 0.0
     exclude_wrapped_assets: bool = True
     stablecoin_ids: list[str] = Field(default_factory=list)
     excluded_ids: list[str] = Field(default_factory=list)

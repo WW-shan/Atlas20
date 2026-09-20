@@ -103,6 +103,12 @@ universe:
   min_history_days: 90
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
+  # Liquidity gate: keep an asset only if it turns over >= 1% of its market cap
+  # per day, or trades >= $200M/day in absolute terms. This removes
+  # high-supply/low-float names such as Rain (RAIN) while retaining real
+  # mega-caps like Binance Coin that legitimately run a low turnover ratio.
+  min_turnover_ratio: 0.01
+  min_turnover_volume_usd: 200000000
   exclude_wrapped_assets: true
   stablecoin_ids:
     - tether

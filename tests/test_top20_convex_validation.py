@@ -84,6 +84,12 @@ def _script_config():
     config = load_config("config/base.yaml")
     config.start_date = "2024-03-01"
     config.rebalancing.frequencies["14D"] = "14D"
+    # The scan now runs every candidate through the real bull/bear regime
+    # filter. The synthetic bundle only spans 100 days, so shorten the regime
+    # windows (default 120d) or every date would be classified as a bear day
+    # purely because the moving average has not warmed up yet.
+    config.regime.btc_ma_window = 30
+    config.regime.tracked_total_mcap_ma_window = 30
     return config
 
 
@@ -1165,6 +1171,9 @@ def test_build_universe_variants_includes_shifted_rolling_start_rebalance_dates(
     config.start_date = "2024-02-01"
     config.end_date = "2025-04-30"
     config.rebalancing.frequencies = {"14D": "14D"}
+    # This test is about rebalance-date alignment, not liquidity; the synthetic
+    # bundle is not liquidity-realistic, so switch the turnover gate off.
+    config.universe.min_turnover_ratio = 0.0
 
     universe_by_liquidity = _build_universe_variants(market, config)
 

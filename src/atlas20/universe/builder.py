@@ -98,6 +98,19 @@ def build_rebalance_universe(
             LOGGER.warning("No eligible assets on rebalance date %s", rebalance_date.date())
             continue
 
+        # Liquidity gate: an inflated-supply / thin-float asset can rank highly
+        # on market cap while being untradeable in size. Require either a
+        # meaningful turnover ratio or a large absolute dollar volume.
+        if config.universe.min_turnover_ratio > 0:
+            turnover = snapshot["volume_usd"] / snapshot["market_cap"]
+            liquid = (turnover >= config.universe.min_turnover_ratio) | (
+                snapshot["volume_usd"] >= config.universe.min_turnover_volume_usd
+            )
+            snapshot = snapshot[liquid].copy()
+            if snapshot.empty:
+                LOGGER.warning("No liquid assets on rebalance date %s", rebalance_date.date())
+                continue
+
         snapshot = snapshot.sort_values("market_cap", ascending=False).head(config.universe.universe_size).copy()
         snapshot["rebalance_date"] = rebalance_date
         snapshot["universe_rank"] = range(1, len(snapshot) + 1)
