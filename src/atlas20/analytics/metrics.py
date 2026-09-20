@@ -21,7 +21,11 @@ def compute_summary_metrics(result: BacktestResult, annualization_days: int = 36
     returns = _safe_series(result.daily_returns)
     equity = result.equity_curve.astype(float)
     total_return = equity.iloc[-1] / equity.iloc[0] - 1.0 if len(equity) > 1 and equity.iloc[0] != 0 else 0.0
-    periods = max(len(returns), 1)
+    # The equity curve has one point per day, so the investment spans len - 1
+    # days: day 0 closes at the starting capital because the first target only
+    # takes effect on day 1. Annualizing over len days understated CAGR, badly
+    # so for short windows (1.35pp on a 100-day run).
+    periods = max(len(returns) - 1, 1)
     cagr = (1.0 + returns).prod() ** (annualization_days / periods) - 1.0
     vol = returns.std(ddof=0) * sqrt(annualization_days)
     downside_std = returns.where(returns < 0, 0.0).std(ddof=0) * sqrt(annualization_days)

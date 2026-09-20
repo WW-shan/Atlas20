@@ -127,8 +127,14 @@ def run_backtest(
         equity.loc[date] = portfolio_value
 
         post_return_gross = current_weights * (1.0 + day_ret)
-        equity_multiplier = 1.0 + total_day_return
-        current_weights = post_return_gross / equity_multiplier if equity_multiplier > 0 else current_weights * 0.0
+        # Weights are holdings divided by *capital*. Trading costs shrink the
+        # capital base but do not shrink the mark-to-market value of what is
+        # held, so the drift denominator has to be the gross return. Dividing
+        # by the net return instead divided by (1 - cost) as well, leaving the
+        # book implicitly levered by 1/(1-cost) after every rebalance; that
+        # compounded into an overstated return.
+        gross_multiplier = 1.0 + gross_asset_return
+        current_weights = post_return_gross / gross_multiplier if gross_multiplier > 0 else current_weights * 0.0
         weights_history.loc[date] = current_weights
         holdings.loc[date] = float((current_weights > 1e-8).sum())
         previous_date = date
