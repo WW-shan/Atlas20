@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from atlas20.api.data_access.universe import (
@@ -132,3 +134,50 @@ def test_load_data_alerts_caps_at_12(tmp_path):
 
     assert len(alerts) == 12
     assert [alert["id"] for alert in alerts] == [f"dq_t{index:02d}" for index in range(12)]
+
+
+def test_load_data_alerts_reports_verified_crosscheck_failures(tmp_path):
+    _write_alert_csv(
+        tmp_path,
+        [
+            "HT,True,ok,2025-03-13,,,,False,False,True,cmc_isolated,0.312655260058732,gateio,False",
+            "CEL,True,ok,2026-09-19,,,,False,False,True,cmc_isolated,1085.4089402193931,gateio,False",
+            "BTC,True,ok,2026-09-19,,,,True,True,True,third_source_confirms_cmc,,gateio,True",
+        ],
+    )
+
+    alerts = load_data_alerts_from_processed(Settings(data_root=tmp_path))
+
+    assert [alert["id"] for alert in alerts] == ["dq_cel", "dq_ht"]
+    assert all(alert["source"] == "real" for alert in alerts)
+    assert all(alert["severity"] == "rose" for alert in alerts)
+    assert alerts[0]["title"] == "CEL · CMC isolated — review required"
+    assert alerts[1]["title"] == "HT · CMC isolated — review required"
+    assert "median gap 108540.89%" in alerts[0]["meta"]
+    assert "median gap 31.27%" in alerts[1]["meta"]
+    assert "independent source: Gate.io" in alerts[1]["meta"]
+    assert "panel included: no" in alerts[1]["meta"]
+
+
+def test_load_data_alerts_ignores_empty_legacy_fields_for_passed_crosscheck(tmp_path):
+    _write_alert_csv(
+        tmp_path,
+        ["BTC,True,ok,2026-09-19,,,,True,True,True,third_source_confirms_cmc,,gateio,True"],
+    )
+
+    assert load_data_alerts_from_processed(Settings(data_root=tmp_path)) == []
+
+
+def _write_alert_csv(data_root: Path, rows: list[str]) -> None:
+    processed = data_root / "processed"
+    processed.mkdir(parents=True, exist_ok=True)
+    header = (
+        "symbol,validation_passed,validation_reason,latest_overlap_date,latest_price_gap,"
+        "median_price_gap,price_correlation,included_in_panel,crosscheck_passed,"
+        "crosscheck_verified,crosscheck_reason,crosscheck_median_gap,"
+        "crosscheck_third_source,crosscheck_third_source_passed"
+    )
+    (processed / "data_quality.csv").write_text(
+        "\n".join([header, *rows]) + "\n",
+        encoding="utf-8",
+    )

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from atlas20.api.data_access._common import _as_float, _as_text, _date_string, _read_processed_csv
+from atlas20.api.data_access._common import _as_text, _date_string, _read_processed_csv
 from atlas20.api.settings import Settings
 
 
@@ -26,6 +27,17 @@ UNIVERSE_TOKEN_LIMIT = 20
 ROTATION_LIMIT = 6
 ALERT_LIMIT = 12
 SEVERITY_RANK = {"rose": 0, "cyan": 1, "emerald": 2}
+SOURCE_LABELS = {
+    "coinmarketcap": "CoinMarketCap",
+    "coingecko": "CoinGecko",
+    "gateio": "Gate.io",
+    "coinpaprika": "CoinPaprika",
+}
+CROSSCHECK_REASON_LABELS = {
+    "cmc_isolated": "CMC isolated",
+    "two_providers_disagree": "providers disagree",
+    "unverified": "cross-check unverified",
+}
 
 
 def load_universe_timeline_from_processed(settings: Settings) -> dict[str, Any]:
@@ -173,8 +185,12 @@ def _alert_from_quality_row(
             "source": "real",
         }
 
-    price_correlation = _as_float(row["price_correlation"], "price_correlation")
-    if price_correlation < 0.98:
+    crosscheck_alert = _crosscheck_alert(row, symbol, meta, latest_overlap_date)
+    if crosscheck_alert is not None:
+        return crosscheck_alert
+
+    price_correlation = _optional_finite_float(row.get("price_correlation"), "price_correlation")
+    if price_correlation is not None and price_correlation < 0.98:
         return {
             "id": f"dq_{symbol.lower()}",
             "severity": "cyan",
@@ -185,8 +201,8 @@ def _alert_from_quality_row(
             "source": "real",
         }
 
-    latest_price_gap = _as_float(row["latest_price_gap"], "latest_price_gap")
-    if latest_price_gap > 0.005:
+    latest_price_gap = _optional_finite_float(row.get("latest_price_gap"), "latest_price_gap")
+    if latest_price_gap is not None and latest_price_gap > 0.005:
         return {
             "id": f"dq_{symbol.lower()}",
             "severity": "cyan",
@@ -198,6 +214,64 @@ def _alert_from_quality_row(
         }
 
     return None
+
+
+def _crosscheck_alert(
+    row: pd.Series,
+    symbol: str,
+    meta: str,
+    latest_overlap_date: str,
+) -> dict[str, str] | None:
+    crosscheck_passed = _optional_bool(row.get("crosscheck_passed"), "crosscheck_passed")
+    if crosscheck_passed is not False:
+        return None
+
+    reason = _as_text_or_default(row.get("crosscheck_reason"), default="cross-check failed")
+    verified = _optional_bool(row.get("crosscheck_verified"), "crosscheck_verified")
+    unverified = verified is False or reason == "unverified"
+    title = CROSSCHECK_REASON_LABELS.get(reason, reason.replace("_", " "))
+    if unverified:
+        title = "cross-check unverified"
+
+    meta_parts = [meta]
+    median_gap = _optional_finite_float(row.get("crosscheck_median_gap"), "crosscheck_median_gap")
+    if median_gap is not None:
+        meta_parts.append(f"median gap {median_gap:.2%}")
+    third_source = _as_text_or_default(row.get("crosscheck_third_source"), default="")
+    if third_source:
+        meta_parts.append(f"independent source: {_source_label(third_source)}")
+
+    return {
+        "id": f"dq_{symbol.lower()}",
+        "severity": "cyan" if unverified else "rose",
+        "title": f"{symbol} · {title} — review required",
+        "meta": " · ".join(meta_parts),
+        "ts": f"{latest_overlap_date}T00:00:00Z",
+        "icon": "info" if unverified else "alert-triangle",
+        "source": "real",
+    }
+
+
+def _optional_finite_float(value: Any, column: str) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid numeric value in {column}: {value!r}") from exc
+    if not math.isfinite(result):
+        raise ValueError(f"Non-finite numeric value in {column}: {value!r}")
+    return result
+
+
+def _optional_bool(value: Any, column: str) -> bool | None:
+    if value is None or pd.isna(value):
+        return None
+    return _as_bool(value, column)
+
+
+def _source_label(value: str) -> str:
+    return SOURCE_LABELS.get(value.lower(), value)
 
 
 def _as_symbol(value: Any, column: str) -> str:
