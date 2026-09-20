@@ -39,7 +39,7 @@
   - 第 1 行：source 名 + `<Pill>` `HEALTHY` emerald / `DEGRADED` cyan / `ERROR` rose；
   - 第 2 行：mono `Last sync: 12s ago` / `14m ago` / `2h 14m ago`；
   - ERROR 左侧 3px rose 竖条；DEGRADED 左侧 3px cyan 竖条；HEALTHY 无竖条。
-- 9 个名字按截图：CoinGecko · Markets / CryptoCompare · OHLCV / Binance · Spot / Coinbase · Spot / Kraken · Spot / DefiLlama · TVL / Glassnode · On-chain / Messari · Metrics / Custom · CSV uploads。
+- 2 个真实数据源：CoinGecko · Catalog（候选池 + 元数据）/ CoinMarketCap · Price & Market Cap（全部历史价格、成交量、市值）。旧的价格源已从管线移除，不再展示。
 - 状态分布：6 HEALTHY / 2 DEGRADED / 1 ERROR。
 
 ## 5. 右卡 — Data Quality Alerts（50%）

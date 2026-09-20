@@ -253,8 +253,7 @@ def test_universe_sources_endpoint_returns_data_sources(client: TestClient):
 
     assert response.status_code == 200
     payload = [DataSource.model_validate(row) for row in response.json()]
-    assert len(payload) == 9
-    assert payload[-1].status == "error"
+    assert [source.id for source in payload] == ["coingecko", "coinmarketcap"]
 
 
 def test_universe_alerts_endpoint_returns_alerts(client: TestClient):

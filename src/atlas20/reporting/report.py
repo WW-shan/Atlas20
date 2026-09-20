@@ -563,10 +563,10 @@ def build_markdown_report(
    - Interpretation: sector rotation is only justified if it improves Sharpe meaningfully without materially worsening implementation risk.
 
 5. **What are the main practical risks and data limitations?**
-   - Historical market-cap rankings use direct CoinGecko daily market caps for the recent window and a price-scaled proxy anchor before that because free long-history point-in-time market-cap series are limited.
+   - Historical market-cap rankings use CoinMarketCap's own daily market cap and circulating supply. There is no synthetic fallback: an asset without real supply data is not rankable, so it never appears in the universe on invented numbers.
    - Sector labels come from a current metadata snapshot plus manual overrides, so they are not perfectly point-in-time.
    - Candidate coverage is reduced-survivorship rather than perfect-survivorship-free; the project uses current large caps plus a curated legacy list.
-   - CryptoCompare symbol-level history can still be imperfect for rebrands, ticker collisions, or synthetic duplicates, although the pipeline now validates 365-day overlap against CoinGecko and exports `data/processed/data_quality.csv`.
+   - CoinMarketCap symbol/ID resolution is not infallible for rebrands or ticker reuse. `data/processed/data_quality.csv` records per-asset coverage, and the panel drops any row that predates the asset's first real market-cap observation.
 
 ## Strategy comparison table
 

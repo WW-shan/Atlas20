@@ -382,15 +382,6 @@ fallback_strategy_options = [
 fallback_options = {
     "presets": [
         {"slug": "base", "display_name": "Base Config"},
-        {"slug": "five_year_2020_2024", "display_name": "Five Year 2020 2024"},
-        {
-            "slug": "five_year_exact_2021_04_22_2026_04_22",
-            "display_name": "Five Year Exact 2021 04 22 2026 04 22",
-        },
-        {
-            "slug": "bear_bottom_to_current_2022_11_21_2026_04_22",
-            "display_name": "Bear Bottom To Current 2022 11 21 2026 04 22",
-        },
     ],
     "strategies": fallback_strategy_options,
     "universes": [
@@ -466,16 +457,13 @@ fallback_universe_timeline: dict[str, Any] = {
     "range": {"start": "2025-10-31", "end": "2026-04-21"},
 }
 
+# The research chain runs on exactly two providers: CoinGecko supplies the
+# candidate catalog and coin metadata, CoinMarketCap supplies every historical
+# price, volume and market cap. Retired price feeds were removed from the
+# pipeline, so they are no longer reported here.
 fallback_data_sources: list[dict[str, Any]] = [
-    {"id": "coingecko", "name": "CoinGecko · Markets", "status": "healthy", "last_sync_seconds": 12},
-    {"id": "cryptocompare", "name": "CryptoCompare · OHLCV", "status": "healthy", "last_sync_seconds": 18},
-    {"id": "binance", "name": "Binance · Spot", "status": "healthy", "last_sync_seconds": 6},
-    {"id": "coinbase", "name": "Coinbase · Spot", "status": "degraded", "last_sync_seconds": 840},
-    {"id": "kraken", "name": "Kraken · Spot", "status": "healthy", "last_sync_seconds": 14},
-    {"id": "defillama", "name": "DefiLlama · TVL", "status": "healthy", "last_sync_seconds": 120},
-    {"id": "glassnode", "name": "Glassnode · On-chain", "status": "degraded", "last_sync_seconds": 1800},
-    {"id": "messari", "name": "Messari · Metrics", "status": "healthy", "last_sync_seconds": 240},
-    {"id": "custom", "name": "Custom · CSV uploads", "status": "error", "last_sync_seconds": 8040},
+    {"id": "coingecko", "name": "CoinGecko · Catalog", "status": "healthy", "last_sync_seconds": 12},
+    {"id": "coinmarketcap", "name": "CoinMarketCap · Price & Market Cap", "status": "healthy", "last_sync_seconds": 18},
 ]
 
 fallback_data_alerts: list[dict[str, Any]] = [

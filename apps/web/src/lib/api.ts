@@ -638,15 +638,8 @@ export const fallbackUniverseTimeline: UniverseTimelinePayload = {
 };
 
 export const fallbackDataSources: DataSource[] = [
-  { id: "coingecko",     name: "CoinGecko · Markets",   status: "healthy",  last_sync_seconds: 12 },
-  { id: "cryptocompare", name: "CryptoCompare · OHLCV", status: "healthy",  last_sync_seconds: 18 },
-  { id: "binance",       name: "Binance · Spot",        status: "healthy",  last_sync_seconds: 6 },
-  { id: "coinbase",      name: "Coinbase · Spot",       status: "degraded", last_sync_seconds: 840 },
-  { id: "kraken",        name: "Kraken · Spot",         status: "healthy",  last_sync_seconds: 14 },
-  { id: "defillama",     name: "DefiLlama · TVL",       status: "healthy",  last_sync_seconds: 120 },
-  { id: "glassnode",     name: "Glassnode · On-chain",  status: "degraded", last_sync_seconds: 1800 },
-  { id: "messari",       name: "Messari · Metrics",     status: "healthy",  last_sync_seconds: 240 },
-  { id: "custom",        name: "Custom · CSV uploads",  status: "error",    last_sync_seconds: 8040 },
+  { id: "coingecko",     name: "CoinGecko · Catalog",                  status: "healthy", last_sync_seconds: 12 },
+  { id: "coinmarketcap", name: "CoinMarketCap · Price & Market Cap",   status: "healthy", last_sync_seconds: 18 },
 ];
 
 export const fallbackDataAlerts: DataAlert[] = [

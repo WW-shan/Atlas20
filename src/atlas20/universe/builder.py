@@ -82,7 +82,13 @@ def build_rebalance_universe(
         snapshot = snapshot.reset_index()
         snapshot = snapshot[
             snapshot["price"].notna()
+            & (snapshot["price"] > 0)
+            # A zero or negative market cap means the provider has no supply
+            # data for that asset (CMC returns marketCap: 0 for e.g. WhiteBIT).
+            # Treating it as valid would let the asset rank inside the Top-N
+            # and displace a genuine constituent.
             & snapshot["market_cap"].notna()
+            & (snapshot["market_cap"] > 0)
             & (snapshot["price"] >= config.universe.min_price)
             & (snapshot["volume_usd"] >= config.universe.min_daily_dollar_volume)
             & (snapshot["history_days"] >= config.universe.min_history_days)

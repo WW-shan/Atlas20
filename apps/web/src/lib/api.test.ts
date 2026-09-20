@@ -88,15 +88,9 @@ describe("Fallback data shapes", () => {
     expect(fallbackUniverseTimeline.rotations.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("fallbackDataSources has 9 sources with 6/2/1 status distribution", () => {
-    expect(fallbackDataSources.length).toBe(9);
-    const counts = fallbackDataSources.reduce((acc, s) => {
-      acc[s.status] = (acc[s.status] ?? 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    expect(counts.healthy).toBe(6);
-    expect(counts.degraded).toBe(2);
-    expect(counts.error).toBe(1);
+  it("fallbackDataSources lists only the two live research providers", () => {
+    expect(fallbackDataSources.map((s) => s.id).sort()).toEqual(["coingecko", "coinmarketcap"]);
+    expect(new Set(fallbackDataSources.map((s) => s.status))).toEqual(new Set(["healthy"]));
   });
 
   it("fallbackDataAlerts has 6 alerts with 3/2/1 severity (rose/cyan/emerald)", () => {

@@ -1892,7 +1892,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run Top20 convex leader validation.")
     parser.add_argument(
         "--config",
-        default="config/bear_bottom_to_current_2022_11_21_2026_04_22.yaml",
+        default="config/base.yaml",
     )
     parser.add_argument("--max-validation-candidates", type=int, default=60)
     parser.add_argument("--min-multiple-for-validation", type=float, default=25.0)

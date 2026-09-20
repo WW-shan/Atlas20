@@ -30,8 +30,7 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
     fixed_now = datetime(2026, 5, 20, 12, 0, tzinfo=timezone.utc)
     raw_root = tmp_path / "raw"
     _write_raw_file(raw_root / "coingecko" / "snapshots" / "markets.json", fixed_now - timedelta(seconds=30))
-    _write_raw_file(raw_root / "cryptocompare" / "histoday" / "BTC.json", fixed_now - timedelta(hours=2))
-    _write_raw_file(raw_root / "binance" / "ticks.json", fixed_now - timedelta(days=2))
+    _write_raw_file(raw_root / "coinmarketcap" / "history" / "1_0_0.json", fixed_now - timedelta(hours=2))
     monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(services, "utc_now", lambda: fixed_now)
     get_settings.cache_clear()
@@ -41,9 +40,8 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
 
     assert sources["coingecko"].status == "healthy"
     assert sources["coingecko"].last_sync_seconds == 30
-    assert sources["cryptocompare"].status == "degraded"
-    assert sources["binance"].status == "error"
-    assert sources["coinbase"].last_sync_seconds == 999999
+    assert sources["coinmarketcap"].status == "degraded"
+    assert set(sources) == {"coingecko", "coinmarketcap"}
 
 
 def test_get_data_sources_uses_five_minute_cache(tmp_path, monkeypatch):

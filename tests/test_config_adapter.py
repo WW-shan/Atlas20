@@ -76,10 +76,31 @@ def test_config_adapter_raises_when_base_yaml_missing(tmp_path: Path):
         to_research_config(api_config, api_config.preset, settings(tmp_path))
 
 
-def test_to_research_config_loads_slugged_preset_file():
-    api_config = valid_config(preset="Five Year 2020 2024")
+def test_to_research_config_loads_slugged_preset_file(tmp_path: Path):
+    """A preset slug resolves to its own YAML when that file exists."""
+    import shutil
 
-    config = to_research_config(api_config, api_config.preset, settings())
+    project_root = tmp_path / "project"
+    (project_root / "config").mkdir(parents=True)
+    shutil.copy("config/base.yaml", project_root / "config" / "base.yaml")
+    shutil.copy("config/base.yaml", project_root / "config" / "five_year_2020_2024.yaml")
+    preset = project_root / "config" / "five_year_2020_2024.yaml"
+    preset.write_text(
+        preset.read_text(encoding="utf-8").replace(
+            "project_name: Atlas20 Rotation",
+            "project_name: Atlas20 Rotation - Five Year Window (2020-2024)",
+            1,
+        )
+        .replace(
+            "processed_dir: data/processed",
+            "processed_dir: data/processed/five_year_2020_2024",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    api_config = valid_config(preset="Five Year 2020 2024")
+    config = to_research_config(api_config, api_config.preset, settings(project_root))
 
     assert config.project_name == "Atlas20 Rotation - Five Year Window (2020-2024)"
     assert config.paths.processed_dir == "data/processed/five_year_2020_2024"

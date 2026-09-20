@@ -30,6 +30,9 @@ reports/app_runs/*
 !reports/app_runs/.gitkeep
 reports/latest.txt
 
+# Bulky regenerable scan output; the summary/stability/yearly CSVs are kept
+reports/bull_offense_scan/bull_offense_equity_curves.csv
+
 # Runtime artifacts under data/
 data/atlas20.sqlite
 data/atlas20.sqlite-journal
@@ -43,8 +46,9 @@ data/.prom-multiproc-api/
 # but ~47MB of CSV is too heavy for git.
 data/processed/
 
-# Raw provider snapshots (cryptocompare histoday + coingecko); deterministic
-# given API + time, but ~45MB total. Re-fetch via download_and_cache_raw_data.
+# Raw provider snapshots (coinmarketcap history + coingecko catalog/metadata);
+# deterministic given API + time, but ~47MB total. Re-fetch via
+# download_and_cache_raw_data.
 data/raw/
 
 # Design / imagegen mockups; kept locally for reference, not in version

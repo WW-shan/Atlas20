@@ -26,7 +26,6 @@ class UniverseConfig(BaseModel):
     min_history_days: int = 90
     min_daily_dollar_volume: float = 25_000_000
     min_price: float = 1e-6
-    use_proxy_market_caps: bool = True
     exclude_wrapped_assets: bool = True
     stablecoin_ids: list[str] = Field(default_factory=list)
     excluded_ids: list[str] = Field(default_factory=list)
@@ -94,23 +93,22 @@ class CoinGeckoConfig(BaseModel):
     retry_backoff_seconds: float = 2.0
 
 
-class CryptoCompareConfig(BaseModel):
-    base_url: str = "https://min-api.cryptocompare.com/data/v2"
+class CoinMarketCapConfig(BaseModel):
+    base_url: str = "https://api.coinmarketcap.com/data-api/v3.1"
+    # Full history window pulled once per refresh. It deliberately starts well
+    # before the backtest window so universe-eligibility lookback is covered.
+    history_start: str = "2020-01-01"
     timeout_seconds: int = 30
-    quote_currency: str = "USD"
-
-
-class BinanceUSConfig(BaseModel):
-    base_url: str = "https://api.binance.us"
-    timeout_seconds: int = 30
-    quote_currencies: list[str] = Field(default_factory=lambda: ["USDT", "USD"])
-    page_limit: int = 1000
+    convert_id: str = "2781"  # USD
+    page_size: int = 400
+    request_interval_seconds: float = 1.0
 
 
 class ProvidersConfig(BaseModel):
+    """Only two providers remain: CoinGecko for the catalog, CMC for history."""
+
     coingecko: CoinGeckoConfig
-    cryptocompare: CryptoCompareConfig
-    binance_us: BinanceUSConfig = Field(default_factory=BinanceUSConfig)
+    coinmarketcap: CoinMarketCapConfig = Field(default_factory=CoinMarketCapConfig)
 
 
 class ReportingConfig(BaseModel):
@@ -119,13 +117,10 @@ class ReportingConfig(BaseModel):
 
 
 class DataQualityConfig(BaseModel):
-    use_coingecko_recent_history: bool = True
-    coingecko_recent_days: int = 365
-    min_overlap_days: int = 60
-    max_latest_price_gap: float = 0.35
-    max_median_overlap_gap: float = 0.20
-    exclude_on_validation_failure: bool = True
-    min_direct_market_cap_days: int = 60
+    """How much real provider history an asset must have to enter the panel."""
+
+    min_price_days: int = 60
+    min_market_cap_days: int = 60
     require_metadata: bool = False
 
 

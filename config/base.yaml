@@ -41,7 +41,6 @@ universe:
   min_history_days: 90
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
-  use_proxy_market_caps: true
   exclude_wrapped_assets: true
   stablecoin_ids:
     - tether
@@ -150,20 +149,20 @@ strategies:
   include_small_cap_comparison: false
 
 providers:
+  # CoinGecko supplies the candidate catalog and coin metadata only.
   coingecko:
     base_url: https://api.coingecko.com/api/v3
     rate_limit_seconds: 1.25
     timeout_seconds: 30
     vs_currency: usd
-  cryptocompare:
-    base_url: https://min-api.cryptocompare.com/data/v2
+  # CoinMarketCap supplies every historical price, volume and market cap.
+  coinmarketcap:
+    base_url: https://api.coinmarketcap.com/data-api/v3.1
+    history_start: '2020-01-01'
     timeout_seconds: 30
-    quote_currency: USD
-  binance_us:
-    base_url: https://api.binance.us
-    timeout_seconds: 30
-    quote_currencies: [USDT, USD]
-    page_limit: 1000
+    convert_id: '2781'
+    page_size: 400
+    request_interval_seconds: 1.0
 
 reporting:
   rolling_window_days: 365
@@ -177,11 +176,9 @@ reporting:
     - TOP20_SECTOR_top3_monthly__bull_only
 
 data_quality:
-  use_coingecko_recent_history: true
-  coingecko_recent_days: 365
-  min_overlap_days: 60
-  max_latest_price_gap: 0.35
-  max_median_overlap_gap: 0.20
-  exclude_on_validation_failure: true
-  min_direct_market_cap_days: 60
+  # An asset must carry this much real provider history before it can be
+  # ranked. There is no synthetic market-cap fallback: no supply data means
+  # the asset simply is not tradable in this universe.
+  min_price_days: 60
+  min_market_cap_days: 60
   require_metadata: false

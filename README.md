@@ -43,8 +43,8 @@ and a React/Vite console for reviewing results.
 
 ```mermaid
 flowchart LR
-    CG[CoinGecko<br/>candidate universe + metadata]
-    CC[CryptoCompare<br/>daily prices + volume]
+    CG[CoinGecko<br/>candidate catalog + metadata]
+    CMC[CoinMarketCap<br/>price, volume, market cap]
     CFG[YAML configs<br/>windows, filters, strategy grid]
     PIPE[Research pipeline<br/>universe, regime, backtests]
     DB[(SQLite / SQLModel<br/>runs, reports, settings)]
@@ -55,7 +55,7 @@ flowchart LR
     METRICS[Prometheus metrics<br/>API + worker scrape targets]
 
     CG --> PIPE
-    CC --> PIPE
+    CMC --> PIPE
     CFG --> PIPE
     PIPE --> REPORTS
     PIPE --> DB
@@ -169,7 +169,7 @@ npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.n
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 505 Python tests plus
+Current local verification for this release line covers 547 Python tests plus
 188 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
@@ -214,14 +214,20 @@ testing notes.
 
 ## Data Stack
 
-- CoinGecko: candidate universe snapshots, market cap snapshot, metadata.
-- CryptoCompare: long daily price and dollar-volume history.
-- Historical market-cap proxy:
-  `current_market_cap * historical_price / latest_historical_price`.
+- CoinMarketCap: the **only** historical provider. Every daily price, dollar
+  volume, market cap and circulating supply in the panel comes from one
+  snapshot.
+- CoinGecko: candidate catalog (current top-N plus a legacy watchlist) and coin
+  metadata used for the exclusion rules and sector mapping. It no longer
+  supplies prices.
 
-This keeps the project public-data friendly and reproducible. The trade-off is
-that long-history market-cap ranks are approximations, not perfect historical
-constituent data.
+Universe ranks are built from the provider's own historical market cap, so
+"was this coin top-20 on that date?" is answered with real supply data. There
+is no synthetic fallback: with one provider the price/market-cap ratio is
+always internally consistent, and an asset whose provider carries no supply
+data is simply not rankable until its history begins. In the current snapshot
+WhiteBIT Coin is excluded for exactly that reason instead of being ranked on a
+guessed market cap.
 
 ## Main Output Files
 
@@ -248,20 +254,54 @@ Git except for the directory placeholder.
 
 Using the cached public-data run included in this workspace:
 
-- Best momentum variant: `TOP20_MOM_top8_biweekly__bull_only`
-- Best sector variant: `TOP20_SECTOR_top4_biweekly__bull_only`
-- BTC buy-and-hold CAGR: about 17.0%
-- Top-20 equal-weight CAGR: about 10.7%
-- Best momentum CAGR: about 25.8%
-- Best sector CAGR: about 20.9%
+- Best momentum variant: `TOP20_MOM_top6_monthly__bull_only`
+- Best sector variant: `TOP20_SECTOR_top3_monthly__bull_only`
+- BTC buy-and-hold CAGR: about 19.4%
+- Top-20 equal-weight CAGR: about 11.3%
+- Best momentum CAGR: about 26.4%
+- Best sector CAGR: about 26.0%
+
+The BTC benchmark is anchored on the first day of the backtest window, so the
+comparison is against a real buy-and-hold, not a benchmark that sat in cash
+until the first month-end.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
 
+### Bull-offense research line
+
+`scripts/run_bull_offense_scan.py` explores the concentrated, trend-filtered
+family that actually answers the "beat BTC buy-and-hold" question, and writes
+to `reports/bull_offense_scan/` (deliberately *outside* `reports/latest`, which
+the pipeline replaces atomically on every run).
+
+Latest run over the same window:
+
+- 114 of 144 parameter combinations beat BTC buy-and-hold.
+- The grid median is 17.0x total return (CAGR ~65.7%) versus BTC's 2.76x.
+- The median maximum drawdown is -88%, and the best cells exceed -93%.
+
+The headline numbers are real but not a forecast, and the yearly breakdown in
+`bull_offense_yearly_returns.csv` is the honest way to read them:
+
+| Year | Best cell | BTC |
+| --- | --- | --- |
+| 2021 | +43,095% | +57% |
+| 2022 | -74% | -65% |
+| 2023 | +268% | +155% |
+| 2024 | +165% | +112% |
+| 2025 | -50% | -7% |
+| 2026 YTD | -20% | -9% |
+
+One year (2021, the DOGE/SHIB melt-up) dominates the compounded result, and the
+strategy loses to BTC in bear years. Treat it as a high-variance, high-drawdown
+satellite, not as a replacement for the benchmark.
+
 ## Key Limitations
 
-1. Long-history market caps are proxied because free public APIs do not reliably
-   expose complete point-in-time daily market-cap history.
+1. Historical market caps come from CoinMarketCap. Assets that provider does
+   not expose, or exposes without supply data, are excluded from the universe
+   rather than estimated, so the earliest ranks are slightly less complete.
 2. Candidate coverage reduces survivorship bias but is not perfectly
    survivorship-free.
 3. Sector labels use human-editable mappings and manual overrides.

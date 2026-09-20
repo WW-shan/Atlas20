@@ -71,8 +71,15 @@ def run_backtest(
     friction: FrictionConfig,
     initial_capital: float,
     gross_target_exposure: float = 1.0,
+    leverage_by_date: dict[pd.Timestamp, float] | None = None,
+    max_gross_exposure: float | None = None,
 ) -> BacktestResult:
-    """Run a long-only backtest with rebalances effective one day after signal generation."""
+    """Run a long-only backtest with rebalances effective one day after signal generation.
+
+    ``leverage_by_date`` optionally overrides ``gross_target_exposure`` per
+    rebalance date so a strategy can amplify confirmed uptrends and return to
+    1x (or flat) elsewhere. Values are clamped to ``max_gross_exposure``.
+    """
     returns = asset_returns.copy().sort_index()
     columns = returns.columns
     current_weights = pd.Series(0.0, index=columns)
@@ -94,7 +101,13 @@ def run_backtest(
 
         if previous_date is not None and previous_date in rebalance_targets:
             pending_target = rebalance_targets[previous_date].reindex(columns).fillna(0.0)
-            pending_target = cap_and_normalize(pending_target, friction.max_weight_per_coin) * gross_target_exposure
+            exposure = gross_target_exposure
+            if leverage_by_date is not None and previous_date in leverage_by_date:
+                exposure = float(leverage_by_date[previous_date])
+            if max_gross_exposure is not None:
+                exposure = min(exposure, float(max_gross_exposure))
+            exposure = max(exposure, 0.0)
+            pending_target = cap_and_normalize(pending_target, friction.max_weight_per_coin) * exposure
             target_rows.append(pending_target.rename(previous_date).to_frame().T)
 
         cost_return = 0.0

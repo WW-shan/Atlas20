@@ -48,18 +48,19 @@ describe("UniverseHealthTab", () => {
     expect(button).toHaveAttribute("aria-busy", "true");
   });
 
-  it("renders 9 data source tiles", () => {
+  it("renders one tile per live research provider", () => {
     renderWithQuery(<UniverseHealthTab />);
     const list = screen.getByRole("list", { name: "Data sources" });
     const items = list.querySelectorAll("[role='listitem']");
-    expect(items.length).toBe(9);
+    expect(items.length).toBe(api.fallbackDataSources.length);
+    expect(items.length).toBe(2);
   });
 
-  it("renders status mix 6 healthy / 2 degraded / 1 error", () => {
+  it("reports both research providers as healthy", () => {
     renderWithQuery(<UniverseHealthTab />);
-    expect(document.querySelectorAll('[data-status="healthy"]').length).toBe(6);
-    expect(document.querySelectorAll('[data-status="degraded"]').length).toBe(2);
-    expect(document.querySelectorAll('[data-status="error"]').length).toBe(1);
+    expect(document.querySelectorAll('[data-status="healthy"]').length).toBe(2);
+    expect(document.querySelectorAll('[data-status="degraded"]').length).toBe(0);
+    expect(document.querySelectorAll('[data-status="error"]').length).toBe(0);
   });
 
   it("renders 6 data alerts with 3 rose / 2 cyan / 1 emerald distribution", () => {
@@ -99,7 +100,7 @@ describe("UniverseHealthTab", () => {
 
     await waitFor(() => expect(api.refreshUniverse).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(button).not.toBeDisabled());
-    expect(screen.getByRole("list", { name: "Data sources" }).querySelectorAll("[role='listitem']")).toHaveLength(9);
+    expect(screen.getByRole("list", { name: "Data sources" }).querySelectorAll("[role='listitem']")).toHaveLength(2);
   });
 
   it("renders tab-level skeletons while universe queries are loading", () => {

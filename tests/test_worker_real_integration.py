@@ -59,9 +59,8 @@ def _write_small_project_config(project_root: Path) -> None:
         "TOP20_MOM_top2_weekly__always_on",
         "TOP20_SECTOR_top1_weekly__always_on",
     ]
-    raw["data_quality"]["coingecko_recent_days"] = 120
-    raw["data_quality"]["min_overlap_days"] = 5
-    raw["data_quality"]["min_direct_market_cap_days"] = 5
+    raw["data_quality"]["min_price_days"] = 5
+    raw["data_quality"]["min_market_cap_days"] = 5
     (config_dir / "base.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
     sectors = {
         "default_sector": "Other",
@@ -73,10 +72,9 @@ def _write_small_project_config(project_root: Path) -> None:
 def _write_small_raw_cache(project_root: Path) -> None:
     raw_dir = project_root / "data" / "raw"
     cg_dir = raw_dir / "coingecko"
-    cc_dir = raw_dir / "cryptocompare" / "histoday"
+    cmc_dir = raw_dir / "coinmarketcap" / "history"
     (cg_dir / "coin_metadata").mkdir(parents=True, exist_ok=True)
-    (cg_dir / "market_chart").mkdir(parents=True, exist_ok=True)
-    cc_dir.mkdir(parents=True, exist_ok=True)
+    cmc_dir.mkdir(parents=True, exist_ok=True)
     dates = pd.date_range("2026-02-01", "2026-05-18", freq="D")
 
     candidates: list[dict[str, object]] = []
@@ -91,33 +89,31 @@ def _write_small_raw_cache(project_root: Path) -> None:
                 "total_volume": 10_000_000.0,
                 "market_cap_rank": rank,
                 "circulating_supply": market_cap / base_price,
+                "cmc_id": asset_index,
             }
         )
-        cc_rows: list[dict[str, float | int]] = []
-        prices: list[list[float | int]] = []
-        market_caps: list[list[float | int]] = []
-        volumes: list[list[float | int]] = []
+        cmc_rows: list[dict[str, object]] = []
         for day, ts in enumerate(dates):
             price = base_price * (1.0 + 0.002 * day + 0.0002 * asset_index * day)
             cap = market_cap * (price / base_price)
             volume = 5_000_000.0 + asset_index * 100_000.0
-            seconds = int(ts.value // 1_000_000_000)
-            millis = int(ts.value // 1_000_000)
-            cc_rows.append({"time": seconds, "close": price, "volumeto": volume})
-            prices.append([millis, price])
-            market_caps.append([millis, cap])
-            volumes.append([millis, volume])
+            cmc_rows.append(
+                {
+                    "timeOpen": f"{ts.date().isoformat()}T00:00:00.000Z",
+                    "quote": {
+                        "close": price,
+                        "volume": volume,
+                        "marketCap": cap,
+                        "circulatingSupply": cap / price,
+                    },
+                }
+            )
 
-        (cc_dir / f"{symbol}.json").write_text(
-            json.dumps({"Response": "Success", "Data": {"Data": cc_rows}}),
-            encoding="utf-8",
-        )
+        start = int(dates[0].timestamp())
+        end = int(dates[-1].timestamp())
+        (cmc_dir / f"{asset_index}_{start}_{end}.json").write_text(json.dumps(cmc_rows), encoding="utf-8")
         (cg_dir / "coin_metadata" / f"{coin_id}.json").write_text(
             json.dumps({"id": coin_id, "symbol": symbol.lower(), "name": name, "categories": [sector]}),
-            encoding="utf-8",
-        )
-        (cg_dir / "market_chart" / f"{coin_id}_120d.json").write_text(
-            json.dumps({"prices": prices, "market_caps": market_caps, "total_volumes": volumes}),
             encoding="utf-8",
         )
 

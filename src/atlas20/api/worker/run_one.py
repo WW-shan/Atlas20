@@ -275,11 +275,11 @@ def _execute_pipeline(params_json: str, settings: Settings, tmp_dir: Path) -> No
 def _execute_universe_refresh(settings: Settings) -> None:
     if os.environ.get("ATLAS20_WORKER_MOCK") == "1":
         coingecko_dir = settings.data_root / "raw" / "coingecko"
-        cryptocompare_dir = settings.data_root / "raw" / "cryptocompare" / "histoday"
+        cmc_dir = settings.data_root / "raw" / "coinmarketcap" / "history"
         coingecko_dir.mkdir(parents=True, exist_ok=True)
-        cryptocompare_dir.mkdir(parents=True, exist_ok=True)
+        cmc_dir.mkdir(parents=True, exist_ok=True)
         (coingecko_dir / "universe_refresh_mock.json").write_text('{"status": "ok"}\n', encoding="utf-8")
-        (cryptocompare_dir / "BTC.json").write_text('{"Response": "Success", "Data": {"Data": []}}\n', encoding="utf-8")
+        (cmc_dir / "1_0_0.json").write_text("[]\n", encoding="utf-8")
         return
 
     config = load_config(settings.project_root / "config" / "base.yaml")

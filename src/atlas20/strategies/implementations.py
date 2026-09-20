@@ -78,6 +78,28 @@ def _universe_lookup(universe: pd.DataFrame) -> dict[pd.Timestamp, pd.DataFrame]
 
 
 
+def _anchor_benchmark_dates(
+    rebalance_dates: list[pd.Timestamp],
+    market: MarketDataBundle,
+    config: ResearchConfig,
+) -> list[pd.Timestamp]:
+    """Prepend the first in-window day so a benchmark is never stuck in cash.
+
+    ``get_rebalance_dates`` only returns scheduled dates: for a monthly
+    benchmark the first one is the first month-end, which leaves the start of
+    the window uninvested. A buy-and-hold yardstick that skips the first weeks
+    understates the market and flatters every strategy measured against it.
+    """
+    index = market.price.index
+    in_window = index[index >= config.start_timestamp]
+    if in_window.empty:
+        return rebalance_dates
+    first_day = pd.Timestamp(in_window[0])
+    if rebalance_dates and pd.Timestamp(rebalance_dates[0]) <= first_day:
+        return rebalance_dates
+    return [first_day, *rebalance_dates]
+
+
 def _equal_weight_series(coin_ids: list[str]) -> pd.Series:
     if not coin_ids:
         return pd.Series(dtype=float)
@@ -144,6 +166,7 @@ def build_rebalance_targets(
 
     if strategy.family == "benchmark":
         coin_id = strategy.params["coin_id"]
+        rebalance_dates = _anchor_benchmark_dates(rebalance_dates, market, config)
         for date in rebalance_dates[:1] if strategy.regime_mode == "always_on" else rebalance_dates:
             if _regime_allows(date, regime_frame, strategy.regime_mode):
                 targets[date] = pd.Series({coin_id: 1.0})

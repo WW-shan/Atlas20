@@ -1,8 +1,8 @@
 """Daily data refresh scheduling.
 
-The pipeline can now extend history past the CryptoCompare shutdown, but
-nothing triggers a refresh on a schedule. Operators should be able to enable
-a daily job that queues a universe refresh without hand-editing cron.
+Raw provider caches go stale on their own, but nothing triggers a refresh on a
+schedule. Operators should be able to enable a daily job that queues a universe
+refresh without hand-editing cron.
 """
 
 from __future__ import annotations
