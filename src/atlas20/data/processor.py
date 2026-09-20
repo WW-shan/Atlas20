@@ -2,13 +2,16 @@
 
 Data chain (single source of truth):
 
-* CoinGecko - candidate universe (current top-N plus a legacy watchlist) and
-  coin metadata used for the exclusion rules and sector mapping.
+* CoinGecko - candidate universe (current top-N plus a legacy watchlist),
+  coin metadata, and the fallback second-source price check for assets Gate.io
+  does not list.
 * CoinMarketCap - daily price, dollar volume, market cap and circulating
   supply for every asset in the panel.
-* Gate.io - exchange-venue adjudication when CoinGecko disagrees with CMC.
-* CoinPaprika - fallback adjudication only when Gate.io does not list the
-  asset.  Neither third source ever rewrites a panel value.
+* Gate.io - preferred independent exchange-venue price check for every listed
+  asset.
+* CoinPaprika - fallback adjudication when neither the second source nor
+  CoinGecko can provide the tie-break vote. No validator ever rewrites a panel
+  value.
 
 CoinMarketCap is the only historical provider. Because price, volume and
 market cap come from one snapshot, the price/market-cap ratio is internally
@@ -150,48 +153,65 @@ def download_and_cache_raw_data(
             LOGGER.warning("Skipping %s (%s): CoinMarketCap returned no usable history", coin_id, symbol)
             continue
 
-        # Recent CoinGecko history is used only to verify CMC's recent prints.
-        # Without it a corrupted CMC block would be undetectable, because its
-        # rows still satisfy market_cap == price * circulating_supply.
-        chart = pd.DataFrame()
-        try:
-            chart = coingecko.fetch_daily_market_chart(
-                coin_id, config.data_quality.cross_check_recent_days, force=force
-            )
-        except Exception as exc:  # noqa: BLE001
-            details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
-            LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
+        enriched_asset = {**asset, "cmc_id": int(cmc_id)}
 
-        # Only disputed assets pay the cost of a third-provider request.  The
-        # free CoinPaprika historical endpoint has a 60-requests/hour soft
-        # limit, so this keeps a normal refresh to one catalog request plus a
-        # handful of adjudications instead of 90+ history calls.
-        secondary = compare_daily_prices(
+        # Gate.io is the preferred second source.  Unlike CoinGecko's free
+        # public API, its daily candles have a generous request budget and
+        # cover delisted assets, so a full 100-asset refresh does not stall on
+        # 429s.  CoinGecko remains the second source only for Gate-unlisted
+        # assets.
+        secondary = pd.DataFrame()
+        secondary_column = "cg_price"
+        secondary_source = "coingecko"
+        gate_frame = pd.DataFrame()
+        try:
+            gate_frame = gateio.fetch_daily_candles(symbol, force=force)
+        except Exception as exc:  # noqa: BLE001
+            details = f"{details} | gateio_history_missing: {exc}".lstrip(" |")
+            LOGGER.warning("Gate.io history unavailable for %s (%s): %s", coin_id, symbol, exc)
+
+        if not gate_frame.empty:
+            enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
+            secondary = gate_frame
+            secondary_column = "gate_price"
+            secondary_source = "gateio"
+        else:
+            try:
+                secondary = coingecko.fetch_daily_market_chart(
+                    coin_id, config.data_quality.cross_check_recent_days, force=force
+                )
+            except Exception as exc:  # noqa: BLE001
+                details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
+                LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
+
+        secondary_result = compare_daily_prices(
             history.rename(columns={"close": "price"}),
-            chart,
+            secondary,
+            secondary_column=secondary_column,
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
         )
-        enriched_asset = {**asset, "cmc_id": int(cmc_id)}
-        secondary_disputed = not secondary.passed and secondary.reason not in {
-            "no_overlap",
-            "insufficient_overlap",
-        }
-        if secondary_disputed:
-            gate_frame = pd.DataFrame()
-            try:
-                gate_frame = gateio.fetch_daily_candles(symbol, force=force)
-            except Exception as exc:  # noqa: BLE001
-                details = f"{details} | gateio_history_missing: {exc}".lstrip(" |")
-                LOGGER.warning("Gate.io history unavailable for %s (%s): %s", coin_id, symbol, exc)
-            if not gate_frame.empty:
-                enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
-            elif coinpaprika_catalog_ready is not False:
-                # Gate.io does not list every asset (for example XMR, KCS,
-                # EOS and MKR).  Fall back to CoinPaprika only for those
-                # gaps, which keeps its 60/hour free limit out of the normal
-                # disputed-asset path.
+
+        if not secondary_result.passed:
+            coingecko_chart_ready = secondary_source == "coingecko" and not secondary.empty
+            if secondary_source == "gateio":
+                # A Gate disagreement is rare.  Fetch CoinGecko only for that
+                # adjudication, which keeps the normal refresh well below its
+                # free-tier request ceiling.
+                try:
+                    coingecko.fetch_daily_market_chart(
+                        coin_id, config.data_quality.cross_check_recent_days, force=force
+                    )
+                    coingecko_chart_ready = True
+                except Exception as exc:  # noqa: BLE001
+                    details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
+                    LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
+
+            # CoinPaprika is the fallback when CoinGecko cannot provide the
+            # tie-break vote.  It is never called for assets that already
+            # passed their second-source comparison.
+            if not coingecko_chart_ready and coinpaprika_catalog_ready is not False:
                 if coinpaprika_catalog_ready is None:
                     try:
                         coinpaprika.fetch_coins(force=force or refresh_catalog)
@@ -411,9 +431,21 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
 
         chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
         chart = _load_coingecko_chart(chart_path)
-        secondary = compare_daily_prices(
+        gateio_pair = asset.get("gateio_pair")
+        gate_frame = pd.DataFrame()
+        if gateio_pair is not None and not pd.isna(gateio_pair):
+            gate_frame = gateio.load_daily_candles(symbol)
+
+        # Gate.io is the preferred second source because its public candles do
+        # not carry CoinGecko's low per-IP request ceiling.  CoinGecko remains
+        # the second source for assets Gate.io does not list.
+        secondary_source = "gateio" if not gate_frame.empty else "coingecko"
+        secondary_frame = gate_frame if not gate_frame.empty else chart
+        secondary_column = "gate_price" if secondary_source == "gateio" else "cg_price"
+        secondary_result = compare_daily_prices(
             validation.history,
-            chart,
+            secondary_frame,
+            secondary_column=secondary_column,
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
@@ -421,22 +453,22 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         tertiary = pd.DataFrame()
         tertiary_column = "pap_price"
         tertiary_source = ""
-        gateio_pair = asset.get("gateio_pair")
         pap_id = asset.get("coinpaprika_id")
-        if not secondary.passed and gateio_pair is not None and not pd.isna(gateio_pair):
-            gate_frame = gateio.load_daily_candles(symbol)
-            if not gate_frame.empty:
-                tertiary = gate_frame
-                tertiary_column = "gate_price"
-                tertiary_source = "gateio"
-        if not secondary.passed and tertiary.empty and pap_id is not None and not pd.isna(pap_id):
-            tertiary = coinpaprika.load_daily_history(str(pap_id))
-            if not tertiary.empty:
-                tertiary_source = "coinpaprika"
+        if not secondary_result.passed:
+            if secondary_source == "gateio" and not chart.empty:
+                tertiary = chart
+                tertiary_column = "cg_price"
+                tertiary_source = "coingecko"
+            if tertiary.empty and pap_id is not None and not pd.isna(pap_id):
+                tertiary = coinpaprika.load_daily_history(str(pap_id))
+                if not tertiary.empty:
+                    tertiary_column = "pap_price"
+                    tertiary_source = "coinpaprika"
         cross = adjudicate_daily_prices(
             validation.history,
-            chart,
+            secondary_frame,
             tertiary,
+            secondary_column=secondary_column,
             tertiary_column=tertiary_column,
             tertiary_source=tertiary_source,
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
@@ -455,6 +487,7 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         )
         tertiary_result = cross.tertiary
         secondary_tertiary_result = cross.secondary_vs_tertiary
+        confirmed_by = cross.confirmed_by or (secondary_source if secondary_result.passed else "")
         quality_rows.append(
             validation.summary
             | {
@@ -462,7 +495,7 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
                 "crosscheck_passed": cross.passed,
                 "crosscheck_verified": not unverified,
                 "crosscheck_reason": cross.reason,
-                "crosscheck_confirmed_by": cross.confirmed_by or "",
+                "crosscheck_confirmed_by": confirmed_by,
                 "crosscheck_overlap_days": cross.overlap_days,
                 "crosscheck_median_gap": cross.median_gap,
                 "crosscheck_latest_gap": cross.latest_gap,

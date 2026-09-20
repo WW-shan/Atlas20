@@ -6,11 +6,13 @@ consecutive days in early 2025, and every one of those rows was internally
 consistent (``market_cap == price x supply``). A per-row integrity check cannot
 see that; an independent provider can.
 
-This module compares CMC's recent daily closes against CoinGecko's recent daily
-market chart.  When those two disagree, an exchange-venue or fallback provider
-can supply a third vote.  The third provider must pass the same full test as
-the second one; a similar median alone is not enough to override a
-disagreement.  It only ever
+This module compares CMC's recent daily closes against an independent provider.
+Gate.io is the preferred second source because its public candles have a much
+larger request budget than CoinGecko's free API; CoinGecko remains the second
+source for assets Gate.io does not list.  When the primary and secondary
+providers disagree, another independent provider can supply a third vote.  The
+third provider must pass the same full test as the second one; a similar median
+alone is not enough to override a disagreement.  It only ever
 *validates* - the panel's prices stay 100% CMC - so a disagreement never
 silently rewrites history, it just blocks the asset until a human looks.
 """
@@ -192,9 +194,9 @@ def adjudicate_daily_prices(
 ) -> CrossCheckDecision:
     """Decide whether the primary provider is corroborated.
 
-    The normal path is intentionally unchanged: if CMC and CoinGecko agree,
-    the asset passes without touching a third provider.  Only a CMC-vs-
-    CoinGecko disagreement invokes the majority vote.  A median-level
+    The normal path is provider-agnostic: if CMC and the selected secondary
+    source agree, the asset passes without touching a third provider.  Only a
+    primary-vs-secondary disagreement invokes the majority vote.  A median-level
     agreement is used for the vote because low-liquidity assets can have noisy
     single-day provider snapshots; a consensus between the two independent
     providers on the latest print is still treated as decisive.

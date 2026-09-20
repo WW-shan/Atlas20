@@ -114,7 +114,7 @@ class CoinMarketCapConfig(BaseModel):
 
 
 class GateIOConfig(BaseModel):
-    """Exchange-venue validation used as the preferred third source."""
+    """Exchange-venue validation used as the preferred second source."""
 
     base_url: str = "https://api.gateio.ws/api/v4"
     timeout_seconds: int = 30
@@ -135,8 +135,8 @@ class CoinPaprikaConfig(BaseModel):
     max_retries: int = 3
     retry_backoff_seconds: float = 2.0
     # CoinPaprika's free historical endpoint is soft-limited to 60 requests
-    # per hour. Gate.io is the preferred venue source; this client is only a
-    # fallback for assets Gate.io does not list.
+    # per hour. It is only used when neither the second source nor CoinGecko
+    # can provide the tie-break vote.
     rate_limit_seconds: float = 0.25
     # Manual escape hatch for ambiguous/rebranded tickers, keyed by either
     # CoinGecko id or uppercase symbol.
@@ -163,12 +163,12 @@ class DataQualityConfig(BaseModel):
     min_price_days: int = 60
     min_market_cap_days: int = 60
     require_metadata: bool = False
-    # Independent verification of recent CoinMarketCap prints. CoinGecko is
-    # the second source; Gate.io, then CoinPaprika as a fallback, is consulted
-    # only when the first check disagrees. CMC is a single point of failure:
-    # it served Huobi Token at 1/250000th of its real price for 34 days while
-    # staying internally consistent. No single second provider is assumed to
-    # be correct.
+    # Independent verification of recent CoinMarketCap prints. Gate.io is the
+    # preferred second source; CoinGecko is used for assets Gate.io does not
+    # list. A disagreement triggers CoinGecko or CoinPaprika as the tie-break
+    # vote. CMC is a single point of failure: it served Huobi Token at
+    # 1/250000th of its real price for 34 days while staying internally
+    # consistent. No single second provider is assumed to be correct.
     cross_check_recent_days: int = 365
     cross_check_min_overlap_days: int = 30
     cross_check_max_median_gap: float = 0.10

@@ -43,9 +43,9 @@ and a React/Vite console for reviewing results.
 
 ```mermaid
 flowchart LR
-    CG[CoinGecko<br/>candidate catalog + metadata + second check]
+    CG[CoinGecko<br/>candidate catalog + metadata + fallback check]
     CMC[CoinMarketCap<br/>price, volume, market cap]
-    GATE[Gate.io<br/>exchange-venue check]
+    GATE[Gate.io<br/>primary independent check]
     CP[CoinPaprika<br/>fallback third source]
     CFG[YAML configs<br/>windows, filters, strategy grid]
     PIPE[Research pipeline<br/>universe, regime, backtests]
@@ -58,8 +58,8 @@ flowchart LR
 
     CG --> PIPE
     CMC --> PIPE
-    GATE -. when CMC and CoinGecko disagree .-> PIPE
-    CP -. only when Gate.io does not list the asset .-> PIPE
+    GATE -. primary independent check .-> PIPE
+    CP -. final tie-break fallback .-> PIPE
     CFG --> PIPE
     PIPE --> REPORTS
     PIPE --> DB
@@ -222,16 +222,15 @@ testing notes.
   volume, market cap and circulating supply in the panel comes from one
   snapshot.
 - CoinGecko: candidate catalog (current top-N plus a legacy watchlist), coin
-  metadata, and a recent daily-price check against CMC. It never supplies
-  panel prices.
-- Gate.io: preferred exchange-venue adjudication. It is called only when the
-  CoinGecko check disagrees with CMC, and it never rewrites a panel value. It
-  has a generous public candle API and covers 93 of the 97 current candidates,
-  including the delisted CEL and HT pairs.
-- CoinPaprika: fallback third source for the four candidates Gate.io does not
-  list. Its free historical endpoint covers the trailing 365 days, which
-  matches the configured cross-check window; it is not on the normal
-  disputed-asset path.
+  metadata, and the fallback second-source check for assets Gate.io does not
+  list. It never supplies panel prices.
+- Gate.io: preferred second source for every listed asset. It has a generous
+  public candle API, covers the delisted CEL and HT pairs, and never rewrites a
+  panel value. A full refresh therefore does not depend on CoinGecko's small
+  free-tier request budget.
+- CoinPaprika: fallback third source when Gate.io or CoinGecko cannot provide
+  the adjudicating vote. Its free historical endpoint covers the trailing 365
+  days, which matches the configured cross-check window.
 
 Universe ranks are built from the provider's own historical market cap, so
 "was this coin top-20 on that date?" is answered with real supply data. There
@@ -305,11 +304,11 @@ Two biases had to be removed before any of these numbers meant anything:
    a corrupted block there is invisible from the inside - every Huobi Token row
    during a 34-day bad block still satisfied
    `market_cap == price * circulating_supply`. Recent history is therefore
-   checked against CoinGecko before an asset may enter the panel. When the two
-   providers disagree, Gate.io supplies an exchange-venue vote; CoinPaprika is
-   only a fallback for assets Gate.io does not list. The third source must pass
-   the same full test, not merely have a similar median, before it can override
-   the second source.
+   checked against Gate.io before an asset may enter the panel. CoinGecko
+   remains the second source for assets Gate.io does not list. When the primary
+   and second sources disagree, another independent provider supplies the
+   adjudicating vote. The third source must pass the same full test, not merely
+   have a similar median, before it can override the second source.
 
    The Celsius case is now confirmed: CMC quotes ~$19-44 while CoinGecko and
    Gate.io both quote ~$0.004-0.07, so CMC is the isolated outlier and CEL is

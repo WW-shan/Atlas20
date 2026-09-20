@@ -518,9 +518,54 @@ def test_gateio_confirms_cmc_and_admits_asset(tmp_path):
 
     assert "bitcoin" in set(panel["coin_id"])
     quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
-    assert quality.loc["bitcoin", "crosscheck_reason"] == "third_source_confirms_cmc"
-    assert quality.loc["bitcoin", "crosscheck_third_source"] == "gateio"
+    assert quality.loc["bitcoin", "crosscheck_reason"] == "ok"
+    assert pd.isna(quality.loc["bitcoin", "crosscheck_third_source"])
     assert quality.loc["bitcoin", "crosscheck_confirmed_by"] == "gateio"
+
+
+def test_gateio_is_primary_crosscheck_source_when_it_agrees(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    candidate = _candidate("bitcoin", "BTC", 1)
+    candidate["gateio_pair"] = "BTC_USDT"
+    _write_candidates(raw_dir, candidate)
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_gateio(raw_dir, "BTC", days)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert "bitcoin" in set(panel["coin_id"])
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    row = quality.loc["bitcoin"]
+    assert bool(row["crosscheck_passed"]) is True
+    assert row["crosscheck_reason"] == "ok"
+    assert row["crosscheck_confirmed_by"] == "gateio"
+    assert bool(row["crosscheck_third_source_checked"]) is False
+
+
+def test_gateio_disagreement_uses_coinpaprika_as_tertiary_vote(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    candidate = _candidate("celsius-degree-token", "CEL", 4, "cel-celsius")
+    candidate["gateio_pair"] = "CEL_USDT"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1), candidate)
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_gateio(raw_dir, "BTC", days)
+    _write_cmc(raw_dir, 4, days)
+    _write_gateio(raw_dir, "CEL", days, price=0.25)
+    _write_paprika(raw_dir, "cel-celsius", days, price=0.25)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert set(panel["coin_id"]) == {"bitcoin"}
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    row = quality.loc["celsius-degree-token"]
+    assert bool(row["crosscheck_passed"]) is False
+    assert row["crosscheck_reason"] == "cmc_isolated"
+    assert row["crosscheck_third_source"] == "coinpaprika"
+    assert bool(row["included_in_panel"]) is False
 
 
 def test_gateio_latest_disagreement_keeps_huobi_like_asset_blocked(tmp_path):
@@ -542,3 +587,89 @@ def test_gateio_latest_disagreement_keeps_huobi_like_asset_blocked(tmp_path):
     quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
     assert quality.loc["huobi-token", "crosscheck_reason"] == "two_providers_disagree"
     assert bool(quality.loc["huobi-token", "included_in_panel"]) is False
+
+
+def test_download_prefers_gateio_and_avoids_coingecko_chart_when_listed(tmp_path, monkeypatch):
+    config = _config(tmp_path)
+    calls = {"gate": 0, "chart": 0}
+
+    class _FakeCoinGecko:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def fetch_top_markets(self, per_page, force=False):
+            return pd.DataFrame(
+                [
+                    {
+                        "id": "bitcoin",
+                        "symbol": "btc",
+                        "name": "Bitcoin",
+                        "market_cap": 1_000_000.0,
+                        "market_cap_rank": 1,
+                        "current_price": 250.0,
+                        "total_volume": 9_000_000.0,
+                    }
+                ]
+            )
+
+        def fetch_markets_by_ids(self, coin_ids, force=False):
+            return pd.DataFrame()
+
+        def fetch_coin_metadata(self, coin_id, force=False):
+            return {}
+
+        def fetch_daily_market_chart(self, coin_id, days, force=False):
+            calls["chart"] += 1
+            raise AssertionError("CoinGecko chart must not be requested when Gate.io lists the asset")
+
+    class _FakeCMC:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def fetch_id_map(self, *, force=False, max_pages=6):
+            return {"BTC": 1}
+
+        def ensure_history(self, coin_id, *, start, end, force=False):
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(_days()),
+                    "close": [250.0] * 3,
+                    "volume_usd": [9_000_000.0] * 3,
+                    "market_cap": [5_000_000.0] * 3,
+                    "circulating_supply": [20_000.0] * 3,
+                }
+            )
+
+    class _FakeGateIO:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def fetch_daily_candles(self, symbol, force=False):
+            calls["gate"] += 1
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(_days()),
+                    "gate_price": [250.0] * 3,
+                    "gate_volume_usd": [9_000_000.0] * 3,
+                }
+            )
+
+        def resolve_pair(self, symbol):
+            return f"{symbol.upper()}_USDT"
+
+    class _FakeCoinPaprika:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+    monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
+    monkeypatch.setattr(processor, "GateIOClient", _FakeGateIO)
+    monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
+
+    processor.download_and_cache_raw_data(config)
+
+    assert calls == {"gate": 1, "chart": 0}
+    candidates = json.loads(
+        (tmp_path / "data" / "raw" / "coingecko" / "candidate_assets.json").read_text(encoding="utf-8")
+    )
+    assert candidates[0]["gateio_pair"] == "BTC_USDT"

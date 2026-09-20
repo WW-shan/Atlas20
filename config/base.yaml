@@ -211,7 +211,8 @@ strategies:
   include_small_cap_comparison: false
 
 providers:
-  # CoinGecko supplies the candidate catalog and coin metadata only.
+  # CoinGecko supplies the candidate catalog, coin metadata, and the fallback
+  # second-source price check for assets Gate.io does not list.
   coingecko:
     base_url: https://api.coingecko.com/api/v3
     rate_limit_seconds: 1.25
@@ -225,9 +226,9 @@ providers:
     convert_id: '2781'
     page_size: 400
     request_interval_seconds: 1.0
-  # Gate.io is the preferred exchange-venue check when CoinGecko disagrees
-  # with CMC.  Its public candles have no CoinPaprika-style 60/hour limit and
-  # still cover delisted assets such as HT and CEL.
+  # Gate.io is the preferred independent exchange-venue check for every listed
+  # asset. Its public candles have no CoinGecko/CoinPaprika-style 60/hour
+  # limit and still cover delisted assets such as HT and CEL.
   gateio:
     base_url: https://api.gateio.ws/api/v4
     timeout_seconds: 30
@@ -236,8 +237,9 @@ providers:
     rate_limit_seconds: 0.05
     quote_currency: USDT
     pair_aliases: {}
-  # CoinPaprika is a fallback for assets Gate.io does not list.  Its free
-  # historical endpoint is limited to the trailing 365 days.
+  # CoinPaprika is the final fallback when neither the second source nor
+  # CoinGecko can provide the tie-break vote. Its free historical endpoint is
+  # limited to the trailing 365 days.
   coinpaprika:
     base_url: https://api.coinpaprika.com/v1
     timeout_seconds: 30
@@ -264,10 +266,10 @@ data_quality:
   min_price_days: 60
   min_market_cap_days: 60
   require_metadata: false
-  # Recent CMC prints are verified against CoinGecko before an asset is
-  # allowed into the panel; a disagreement triggers a third-provider check.
-  # CMC is the only price source, so a bad block there would otherwise be
-  # invisible (its rows still satisfy market_cap == price * supply).
+  # Recent CMC prints are verified against Gate.io (or CoinGecko for unlisted
+  # assets) before an asset is allowed into the panel; a disagreement triggers
+  # an independent tie-break check. CMC is the only price source, so a bad
+  # block there would otherwise be invisible.
   cross_check_recent_days: 365
   cross_check_min_overlap_days: 30
   cross_check_max_median_gap: 0.10

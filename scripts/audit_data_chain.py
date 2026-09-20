@@ -160,6 +160,8 @@ def main() -> int:
     # Marvecap must equal price x supply (provider rounding tolerance).
     worst_supply_gap = 0.0
     checked_supply = 0
+    supply_gap_rows = 0
+    worst_supply_label = ""
     for path in cache_files:
         payload = json.loads(path.read_text(encoding="utf-8"))
         for row in payload:
@@ -168,11 +170,18 @@ def main() -> int:
             if not close or not cap or not supply:
                 continue
             checked_supply += 1
-            worst_supply_gap = max(worst_supply_gap, abs(cap - close * supply) / cap)
+            gap = abs(cap - close * supply) / cap
+            if gap > 0.01:
+                supply_gap_rows += 1
+            if gap > worst_supply_gap:
+                worst_supply_gap = gap
+                worst_supply_label = f"{path.stem.split('_', 1)[0]}@{str(row.get('timeOpen', ''))[:10]}"
     check(
         "provider: market_cap == price * supply",
-        worst_supply_gap <= 0.30,
-        f"worst relative gap={worst_supply_gap:.4%} over {checked_supply} rows (provider rounding)",
+        worst_supply_gap <= 0.01,
+        f"rows >1%={supply_gap_rows}/{checked_supply}, worst={worst_supply_gap:.4%} "
+        f"({worst_supply_label or 'none'}); rankings use CMC's reported market cap directly",
+        warn=worst_supply_gap > 0.01,
     )
 
     # Bad prints: single-day reversions and month-long level corruption.
@@ -238,14 +247,14 @@ def main() -> int:
         if "crosscheck_third_source_checked" in quality.columns:
             third_checked = quality[quality["crosscheck_third_source_checked"].fillna(False).astype(bool)]
             confirmed = third_checked[
-                third_checked["crosscheck_confirmed_by"].fillna("").isin(["gateio", "coinpaprika"])
+                third_checked["crosscheck_confirmed_by"].fillna("").isin(["gateio", "coingecko", "coinpaprika"])
             ]
             source_known = third_checked["crosscheck_third_source"].fillna("").ne("") if "crosscheck_third_source" in third_checked else pd.Series(False, index=third_checked.index)
             check(
                 "cross-check: third-source adjudications are explicit",
                 bool(confirmed["crosscheck_third_source_checked"].all()) if not confirmed.empty else True,
                 "third-source checks="
-                f"{len(third_checked)}, CMC confirmed by Gate.io/CoinPaprika={len(confirmed)}",
+                f"{len(third_checked)}, CMC confirmed by third source={len(confirmed)}",
             )
             check(
                 "cross-check: every third-source check names its provider",
@@ -358,11 +367,11 @@ def main() -> int:
         "coverage: recent prints are independently verified",
         False,
         "the level-corruption test alone needs ~60 days of *future* prices, so it "
-        "cannot see a block that is still in progress. CoinGecko covers the "
-        "trailing cross_check_recent_days (365); when it disagrees, Gate.io "
-        "supplies an exchange-venue vote, with CoinPaprika as a fallback for "
-        "unlisted assets. The remaining blind spot is a print that CMC and the "
-        "confirming provider are simultaneously wrong about. Verify a "
+        "cannot see a block that is still in progress. Gate.io covers the "
+        "trailing cross_check_recent_days (365) for listed assets; CoinGecko "
+        "covers Gate-unlisted assets, and CoinPaprika remains the final "
+        "tie-break fallback. The remaining blind spot is a print that CMC and "
+        "the confirming provider are simultaneously wrong about. Verify a "
         "suspicious recent print against an exchange ticker before sizing a live "
         "position on it.",
         warn=True,

@@ -461,9 +461,9 @@ fallback_universe_timeline: dict[str, Any] = {
 # second check (CoinGecko), one preferred exchange venue (Gate.io) and one
 # fallback third provider (CoinPaprika).
 fallback_data_sources: list[dict[str, Any]] = [
-    {"id": "coingecko", "name": "CoinGecko · Catalog + Second Check", "status": "healthy", "last_sync_seconds": 12},
+    {"id": "coingecko", "name": "CoinGecko · Catalog + Fallback Check", "status": "healthy", "last_sync_seconds": 12},
     {"id": "coinmarketcap", "name": "CoinMarketCap · Price & Market Cap", "status": "healthy", "last_sync_seconds": 18},
-    {"id": "gateio", "name": "Gate.io · Exchange Venue Check", "status": "healthy", "last_sync_seconds": 22},
+    {"id": "gateio", "name": "Gate.io · Primary Independent Check", "status": "healthy", "last_sync_seconds": 22},
     {"id": "coinpaprika", "name": "CoinPaprika · Fallback Validation", "status": "healthy", "last_sync_seconds": 25},
 ]
 

@@ -1,10 +1,10 @@
 """Gate.io exchange-candle client used for independent price validation.
 
-Gate.io is the preferred third source because it is an exchange venue, has a
+Gate.io is the preferred second source because it is an exchange venue, has a
 generous public API budget, and still serves historical daily candles for
 delisted assets such as Celsius (CEL) and Huobi Token (HT).  The panel remains
-100% CoinMarketCap; this client only supplies a vote when CoinGecko disagrees
-with the primary provider.
+100% CoinMarketCap; this client only supplies an independent vote and never
+rewrites a panel value.
 """
 
 from __future__ import annotations
