@@ -244,3 +244,15 @@ data_quality:
   min_price_days: 60
   min_market_cap_days: 60
   require_metadata: false
+  # Recent CMC prints are verified against CoinGecko before an asset is
+  # allowed into the panel. CMC is the only price source, so a bad block there
+  # would otherwise be invisible (its rows still satisfy
+  # market_cap == price * circulating_supply).
+  cross_check_recent_days: 365
+  cross_check_min_overlap_days: 30
+  cross_check_max_median_gap: 0.10
+  cross_check_max_latest_gap: 0.35
+  exclude_on_cross_check_failure: true
+  # Refuse assets whose second source is missing entirely. Off by default so a
+  # CoinGecko outage degrades to "unverified" instead of an empty pipeline.
+  require_cross_check: false

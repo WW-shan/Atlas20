@@ -131,6 +131,20 @@ class DataQualityConfig(BaseModel):
     min_price_days: int = 60
     min_market_cap_days: int = 60
     require_metadata: bool = False
+    # Independent verification of recent CoinMarketCap prints against
+    # CoinGecko. CMC is a single point of failure: it served Huobi Token at
+    # 1/250000th of its real price for 34 days while staying internally
+    # consistent. Nothing but a second provider catches that.
+    cross_check_recent_days: int = 365
+    cross_check_min_overlap_days: int = 30
+    cross_check_max_median_gap: float = 0.10
+    cross_check_max_latest_gap: float = 0.35
+    exclude_on_cross_check_failure: bool = True
+    # An asset whose second source is unavailable is "unverified", not
+    # "disagreeing". Default: admit it (a CoinGecko outage must not halt the
+    # whole pipeline) but record it, so the audit can surface it. Set this to
+    # true to refuse anything you could not independently confirm.
+    require_cross_check: bool = False
 
 
 class ResearchConfig(BaseModel):

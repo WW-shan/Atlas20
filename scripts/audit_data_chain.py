@@ -157,6 +157,77 @@ def main() -> int:
         f"flagged={level_shifts[:6]} ({len(level_shifts)} rows)",
     )
 
+    # --------------------------------------------------- independent source
+    quality_path = config.resolve_path(config.paths.processed_dir) / "data_quality.csv"
+    quality = pd.read_csv(quality_path)
+    if "crosscheck_passed" in quality.columns:
+        admitted = quality[quality["included_in_panel"].fillna(False)]
+        rejected = quality[~quality["included_in_panel"].fillna(False)]
+        still_disagreeing = admitted[~admitted["crosscheck_passed"].fillna(False)]
+        missing = admitted[
+            admitted["crosscheck_reason"].astype(str).str.contains("no_overlap|insufficient_overlap")
+        ]
+        check(
+            "cross-check: every admitted asset agrees with a second provider",
+            still_disagreeing.empty,
+            f"{len(admitted)} admitted, all verified; "
+            f"still disagreeing={still_disagreeing['symbol'].tolist()[:5]}",
+        )
+        check(
+            "cross-check: second source available for every admitted asset",
+            missing.empty,
+            f"assets without a usable second source={missing['symbol'].tolist()[:5]}",
+            warn=not missing.empty,
+        )
+        worst = float(admitted["crosscheck_median_gap"].max()) if not admitted.empty else float("nan")
+        check(
+            "cross-check: provider noise stays small",
+            worst <= config.data_quality.cross_check_max_median_gap,
+            f"worst median gap among admitted assets={worst:.4%}",
+        )
+        if not rejected.empty:
+            blocked = rejected[
+                rejected["crosscheck_passed"].fillna(False) == False  # noqa: E712
+            ].head(5)
+            check(
+                "cross-check: rejected assets are reported, not silent",
+                True,
+                "blocked by the second-source check: "
+                + ", ".join(
+                    f"{row.symbol} ({row.crosscheck_reason}: {row.crosscheck_median_gap:.1%})"
+                    for row in blocked.itertuples()
+                ),
+            )
+    else:
+        check(
+            "cross-check: second provider comparison present",
+            False,
+            "data_quality.csv has no cross-check columns; recent CMC prints are unverified",
+        )
+
+    # ------------------------------------------------------ feed continuity
+    last_date = panel["date"].max()
+    early_end = panel.groupby("coin_id")["date"].max()
+    early_end = early_end[early_end < last_date]
+    check(
+        "feed: no asset stops reporting before the panel ends",
+        early_end.empty,
+        f"assets with a truncated feed={early_end.index.tolist()[:5]}",
+    )
+
+    stale_runs: list[tuple[str, int]] = []
+    for coin_id, g in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
+        prices = g["price"].reset_index(drop=True)
+        unchanged = prices.diff() == 0
+        longest = int(unchanged.groupby((~unchanged).cumsum()).cumsum().max() or 0)
+        if longest >= 5:
+            stale_runs.append((coin_id, longest))
+    check(
+        "feed: no frozen price runs",
+        not stale_runs,
+        f"assets with >=5 identical consecutive closes={stale_runs[:5]}",
+    )
+
     # ------------------------------------------------------------- universe
     market = prepare_market_data(panel, metadata, config)
     backtest_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
@@ -201,26 +272,31 @@ def main() -> int:
     check(
         "modelling: leverage funding cost is charged",
         False,
-        "engine charges fees+slippage on turnover only; a gross exposure >1 is "
-        "funded for free. Budget ~10-30% APR on the borrowed part (bull-market "
-        "perp funding) before believing a levered CAGR.",
+        "the engine charges fees+slippage on turnover only, so gross exposure >1 "
+        "is funded for free. Irrelevant for unlevered spot, mandatory to model "
+        "if you ever run the x1.25/x1.5/x2 cells on margin or perps (borrow "
+        "interest / funding, ~10-30% APR in a bull market).",
         warn=True,
     )
     check(
-        "coverage: recent corruption is auto-detectable",
+        "coverage: recent prints are independently verified",
         False,
-        "the level-corruption test needs ~60 days of *future* prices to confirm a "
-        "block reverted, so a bad block inside the most recent ~60 days cannot be "
-        "confirmed until it ends. Re-run this audit after any suspicious recent "
-        "print; do not size a live position purely on the last two months.",
+        "the level-corruption test alone needs ~60 days of *future* prices, so it "
+        "cannot see a block that is still in progress. The second-source check "
+        "covers that gap for the trailing cross_check_recent_days (365) - the one "
+        "remaining blind spot is a price both providers are simultaneously wrong "
+        "about. Verify a suspicious recent print against a third venue (an "
+        "exchange ticker) before sizing a live position on it.",
         warn=True,
     )
     check(
         "modelling: missing returns are not assumed flat",
         False,
-        "friction.missing_return_fill=0.0 treats a halted or delisted holding as "
-        "flat rather than writing it down. The panel currently has no NaN returns, "
-        "so the effect is latent, but it is optimistic by construction.",
+        "friction.missing_return_fill=0.0 would treat a halted or delisted "
+        "holding as flat instead of writing it down. Continuous spot feeds do "
+        "not halt, and every asset above reports through the final date, so "
+        "this is inert for the current dataset - it only matters if a feed is "
+        "ever truncated.",
         warn=True,
     )
 

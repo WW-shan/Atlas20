@@ -169,7 +169,7 @@ npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.n
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 557 Python tests plus
+Current local verification for this release line covers 568 Python tests plus
 188 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
@@ -289,10 +289,23 @@ Two biases had to be removed before any of these numbers meant anything:
    where they belong: LUNC's last Top-20 appearance is 2022-05-06, days before
    the collapse; FTT's is 2022-11-04, days before FTX failed.
 
+3. **Unverified provider prints.** CoinMarketCap is the only price source, so
+   a corrupted block there is invisible from the inside - every Huobi Token row
+   during a 34-day bad block still satisfied
+   `market_cap == price * circulating_supply`. Recent history is therefore
+   checked against CoinGecko before an asset may enter the panel. That check
+   caught Celsius being quoted ~1,000x too high (CMC ~$19-44 vs CoinGecko
+   ~$0.004-0.07) and Huobi Token's block; both are now refused automatically.
+   "Disagrees" and "could not be checked" are separate states: a proven
+   disagreement blocks the asset, while a missing second source is recorded as
+   unverified so a CoinGecko outage degrades the run instead of emptying it
+   (`data_quality.require_cross_check` upgrades that to a hard refusal).
+
 `scripts/audit_data_chain.py` re-checks the whole chain - provider cache
-integrity, panel sanity, price-level corruption, point-in-time ranking and
-execution freshness - and prints PASS/WARN/FAIL. Run it before trusting any
-backtest.
+integrity, panel sanity, price-level corruption, second-source agreement, feed
+continuity, point-in-time ranking and execution freshness - and prints
+PASS/WARN/FAIL. Current state: 23 PASS, 3 WARN, 0 FAIL. Run it before trusting
+any backtest.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
@@ -324,9 +337,25 @@ breakdown in `bull_offense_yearly_returns.csv` is the honest way to read them:
 | 2025 | -40% | -7% |
 | 2026 YTD | -43% | -9% |
 
+**Unlevered spot is the version that matters.** Restricting the grid to the
+`x1` cells - gross exposure never above 1, so no margin, no borrow, no funding
+cost to model - **34 of 36 variants beat BTC**:
+
+| | total | CAGR | Sharpe | max drawdown |
+| --- | --- | --- | --- | --- |
+| `BO_h3_lb21_ma50_x1` | 201x | 152.9% | 1.43 | -78.4% |
+| `BO_h3_lb21_ma100_x1` | 146x | 139.3% | 1.38 | **-68.5%** |
+| `BO_h2_lb30_ma100_x1` | 97x | 122.9% | 1.37 | **-61.1%** |
+| grid median (x1 only) | 21.8x | - | - | -73.8% |
+| BTC buy-and-hold | 2.76x | 19.4% | 0.60 | -76.7% |
+
+The unlevered median drawdown is *smaller* than BTC's, and the best cells are
+materially smaller, so this is not simply "more risk, more return". Note the
+Sharpe column: the trend exit is doing the work, not the leverage.
+
 One year (2021, the DOGE/SHIB melt-up) still dominates the compounded result,
 and the strategy loses to BTC in the last two years. Treat it as a
-high-variance, high-drawdown satellite, not as a replacement for the benchmark.
+high-variance satellite rather than a replacement for the benchmark.
 
 ## Key Limitations
 

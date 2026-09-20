@@ -40,7 +40,7 @@ def test_changelog_has_v022_release_prep_entry():
 def test_readme_quality_gate_counts_match_current_suite():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "557 Python tests plus" in readme
+    assert "568 Python tests plus" in readme
     assert "188 Vitest tests" in readme
 
 

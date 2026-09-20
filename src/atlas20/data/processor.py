@@ -25,6 +25,7 @@ from atlas20.config import ResearchConfig, SectorConfig
 from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata_is_excluded
 from atlas20.data.coingecko import CoinGeckoClient
 from atlas20.data.coinmarketcap import CoinMarketCapClient
+from atlas20.data.crosscheck import compare_daily_prices
 from atlas20.data.validation import summarize_market_history
 from atlas20.logging_utils import ensure_dir, get_logger
 from atlas20.sectors.mapping import resolve_sector_map
@@ -134,6 +135,17 @@ def download_and_cache_raw_data(
             )
             LOGGER.warning("Skipping %s (%s): CoinMarketCap returned no usable history", coin_id, symbol)
             continue
+
+        # Recent CoinGecko history is used only to verify CMC's recent prints.
+        # Without it a corrupted CMC block would be undetectable, because its
+        # rows still satisfy market_cap == price * circulating_supply.
+        try:
+            coingecko.fetch_daily_market_chart(
+                coin_id, config.data_quality.cross_check_recent_days, force=force
+            )
+        except Exception as exc:  # noqa: BLE001
+            details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
+            LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
 
         screening_rows.append({"coin_id": coin_id, "symbol": symbol, "name": name, "status": status, "details": details})
         valid_assets.append({**asset, "cmc_id": int(cmc_id)})
@@ -256,6 +268,25 @@ def _drop_level_corruption(frame: pd.DataFrame, factor: float = 20.0) -> pd.Data
     return ordered.loc[~corrupted.fillna(False)].reset_index(drop=True)
 
 
+def _load_coingecko_chart(path: Path) -> pd.DataFrame:
+    """Normalize a cached CoinGecko market chart into a daily close series."""
+    if not path.exists():
+        return pd.DataFrame(columns=["date", "cg_price"])
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return pd.DataFrame(columns=["date", "cg_price"])
+    prices = payload.get("prices") or []
+    if not prices:
+        return pd.DataFrame(columns=["date", "cg_price"])
+    return pd.DataFrame(
+        {
+            "date": [pd.Timestamp(row[0], unit="ms").normalize() for row in prices],
+            "cg_price": [row[1] for row in prices],
+        }
+    )
+
+
 def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Create the processed long panel and metadata tables from cached raw files."""
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
@@ -296,20 +327,55 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             history=history,
             quality_config=config.data_quality,
         )
+
+        chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
+        cross = compare_daily_prices(
+            validation.history,
+            _load_coingecko_chart(chart_path),
+            min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+            max_median_gap=config.data_quality.cross_check_max_median_gap,
+            max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+        )
+        # "Disagrees" and "could not be checked" are different states. A proven
+        # disagreement blocks the asset; a missing second source is recorded
+        # and only blocks when the operator demands verification.
+        unverified = cross.reason in {"no_overlap", "insufficient_overlap"}
+        blocked_by_cross_check = not cross.passed and (
+            (not unverified) or config.data_quality.require_cross_check
+        )
+        admitted = validation.passed and not (
+            config.data_quality.exclude_on_cross_check_failure and blocked_by_cross_check
+        )
         quality_rows.append(
             validation.summary
             | {
                 "metadata_available": bool(metadata_payload),
-                "included_in_panel": bool(validation.passed),
+                "crosscheck_passed": cross.passed,
+                "crosscheck_verified": not unverified,
+                "crosscheck_reason": cross.reason,
+                "crosscheck_overlap_days": cross.overlap_days,
+                "crosscheck_median_gap": cross.median_gap,
+                "crosscheck_latest_gap": cross.latest_gap,
+                "included_in_panel": bool(admitted),
             }
         )
-        if not validation.passed:
-            LOGGER.warning(
-                "Excluding %s (%s) from the panel: %s",
-                coin_id,
-                symbol,
-                validation.summary["validation_reason"],
-            )
+        if not admitted:
+            if validation.passed and blocked_by_cross_check:
+                LOGGER.warning(
+                    "Excluding %s (%s): independent source disagrees (%s, median gap %.2f%%, latest gap %.2f%%)",
+                    coin_id,
+                    symbol,
+                    cross.reason,
+                    (cross.median_gap or 0.0) * 100,
+                    (cross.latest_gap or 0.0) * 100,
+                )
+            else:
+                LOGGER.warning(
+                    "Excluding %s (%s) from the panel: %s",
+                    coin_id,
+                    symbol,
+                    validation.summary["validation_reason"],
+                )
             continue
 
         framed = validation.history.copy()

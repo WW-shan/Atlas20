@@ -70,6 +70,8 @@ def _config(tmp_path: Path, start: str = "2024-01-01", end: str = "2024-01-10"):
     config.end_date = end
     config.data_quality.min_price_days = 2
     config.data_quality.min_market_cap_days = 2
+    # The fixtures only span a few days; the production floor is 30.
+    config.data_quality.cross_check_min_overlap_days = 2
     return config
 
 
@@ -280,3 +282,83 @@ def test_genuine_launch_rally_is_not_flagged(tmp_path):
 
     assert len(panel) == len(days)
     assert panel["price"].iloc[0] == 1.87e-10
+
+
+def _write_chart(raw_dir: Path, coin_id: str, days: list[str], scale: float = 1.0, days_arg: int = 365) -> None:
+    """Write a CoinGecko validation chart at ``scale`` x the CMC price."""
+    path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{days_arg}d.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "prices": [
+            [int(pd.Timestamp(d).timestamp() * 1000), 250.0 * scale] for d in days
+        ]
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_second_source_disagreement_blocks_the_asset(tmp_path):
+    """A proven disagreement with an independent provider is fatal."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(
+        raw_dir,
+        _candidate("bitcoin", "BTC", 1),
+        _candidate("celsius-degree-token", "CEL", 4),
+    )
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_cmc(raw_dir, 4, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+    _write_chart(raw_dir, "celsius-degree-token", days, scale=0.001)  # 1000x apart
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert set(panel["coin_id"]) == {"bitcoin"}, "the 1000x disagreement must be refused"
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert bool(quality.loc["celsius-degree-token", "crosscheck_passed"]) is False
+    assert bool(quality.loc["celsius-degree-token", "included_in_panel"]) is False
+
+
+def test_missing_second_source_is_unverified_not_rejected(tmp_path):
+    """A CoinGecko outage must degrade to 'unverified', not an empty pipeline."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    _write_cmc(raw_dir, 1, _days())
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert len(panel) == 3
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert len(quality) == 1
+    assert bool(quality.loc["bitcoin", "included_in_panel"]) is True
+
+
+def test_require_cross_check_refuses_unverified_assets(tmp_path):
+    config = _config(tmp_path)
+    config.data_quality.require_cross_check = True
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    _write_cmc(raw_dir, 1, _days())
+
+    try:
+        processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("require_cross_check must refuse an unverified asset")
+
+
+def test_agreeing_second_source_admits_the_asset(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert len(panel) == 3
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert bool(quality.loc["bitcoin", "crosscheck_passed"]) is True
