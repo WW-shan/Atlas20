@@ -23,12 +23,14 @@ from atlas20.config import FrictionConfig, ResearchConfig, load_config, load_sec
 from atlas20.data.processor import build_processed_datasets  # noqa: E402
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
+from atlas20.signals.regime import build_regime_frame  # noqa: E402
 from atlas20.signals.risk import btc_above_moving_average, btc_above_trailing_price  # noqa: E402
 from atlas20.strategies.convex_leader import (  # noqa: E402
     CTREND_LITE_SCORE_FAMILIES,
     build_ctrend_lite_targets,
 )
 from atlas20.strategies.momentum_lead import build_momentum_lead_targets  # noqa: E402
+from atlas20.strategies.sector_lead_v3 import build_sector_lead_v3_targets  # noqa: E402
 from atlas20.strategies.overlays import apply_daily_risk_overlay  # noqa: E402
 from atlas20.universe.builder import (  # noqa: E402
     MarketDataBundle,
@@ -401,6 +403,35 @@ def build_candidate_definitions() -> list[CandidateDefinition]:
                                 )
                             )
 
+    # Sector-leader rotation: rank the point-in-time Top-20 sectors, take the
+    # top_k sectors, then hold that sector's single strongest coin. top_k=1 is
+    # the "one coin, sector rotation" configuration the desk actually wants to
+    # trade; top_k=2/3 exist so the stability surface can check whether a
+    # single-sector result is a lone peak or part of a stable plateau.
+    for liquidity_label in LIQUIDITY_SETS:
+        for top_k in (1, 2, 3):
+            for frequency in ("7D", "14D", "21D", "28D"):
+                for overlay_set in (
+                    "champion_like",
+                    "btc_fast_stop",
+                    "btc_medium_stop",
+                    "btc_ma_defensive",
+                    "no_stop_control",
+                ):
+                    candidates.append(
+                        _candidate_from_parts(
+                            family_id="sector_lead",
+                            strategy_kind="sector_lead",
+                            top_n=top_k,
+                            frequency=frequency,
+                            score_family="v3",
+                            liquidity_label=liquidity_label,
+                            include_btc=True,
+                            overlay_set=overlay_set,
+                            overlay_sets=OVERLAY_SETS,
+                        )
+                    )
+
     champion_overlays = _champion_ablation_overlays()
 
     def add_champion_ablation(**overrides: object) -> None:
@@ -627,12 +658,43 @@ def _risk_on_series(market: MarketDataBundle, candidate: CandidateDefinition) ->
     raise ValueError(f"Unknown stop_kind for {candidate.candidate_id}: {candidate.stop_kind}")
 
 
+_REGIME_FRAME_CACHE: dict[int, pd.DataFrame] = {}
+
+
+def _regime_frame(market: MarketDataBundle, config: ResearchConfig) -> pd.DataFrame:
+    """The real bull/bear regime, built once per market bundle.
+
+    Every candidate in this scan runs under the same regime filter. The desk
+    only trades bull markets, so the scan must search inside that regime rather
+    than over a synthetic always-on tape; otherwise the "best" candidate is
+    simply the one that survived the 2022 bear, and the stop overlay has to
+    carry timing that the regime filter already does better and for free.
+    """
+    key = id(market)
+    cached = _REGIME_FRAME_CACHE.get(key)
+    if cached is None:
+        cached = build_regime_frame(market.price, market.market_cap, config)
+        _REGIME_FRAME_CACHE[key] = cached
+    return cached
+
+
 def _build_base_targets(
     market: MarketDataBundle,
     universe: pd.DataFrame,
     config: ResearchConfig,
     candidate: CandidateDefinition,
 ) -> dict[pd.Timestamp, pd.Series]:
+    if candidate.strategy_kind == "sector_lead":
+        return build_sector_lead_v3_targets(
+            market,
+            universe,
+            _regime_frame(market, config),
+            config,
+            top_k=candidate.top_n,
+            frequency=candidate.frequency,
+            regime_mode="bull_only",
+        ).targets
+
     if candidate.strategy_kind == "ctrend_lite":
         return build_ctrend_lite_targets(
             market,
@@ -654,18 +716,17 @@ def _build_base_targets(
                 f"expected one of: {known_families}"
             ) from exc
 
-        regime_frame = pd.DataFrame({"bull": True}, index=market.price.index)
         leader_universe = universe
         if not candidate.include_btc and "coin_id" in leader_universe.columns:
             leader_universe = leader_universe[leader_universe["coin_id"] != "bitcoin"].copy()
         return build_momentum_lead_targets(
             market,
             leader_universe,
-            regime_frame,
+            _regime_frame(market, config),
             config,
             top_n=candidate.top_n,
             frequency=candidate.frequency,
-            regime_mode="always_on",
+            regime_mode="bull_only",
             weighted=candidate.top_n > 1,
             score_weights=score_weights,
         ).targets

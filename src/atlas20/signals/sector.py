@@ -37,6 +37,7 @@ def compute_sector_metrics(
     """Build richer sector metrics from point-in-time universe members."""
     groups = universe_snapshot.groupby('sector')['coin_id'].apply(list)
     btc_ret_60 = trailing_return(market.price[['bitcoin']], rebalance_date, 60).iloc[0]
+    ret21_all = trailing_return(market.price, rebalance_date, 21)
     ret30_all = trailing_return(market.price, rebalance_date, 30)
     ret60_all = trailing_return(market.price, rebalance_date, 60)
     ret90_all = trailing_return(market.price, rebalance_date, 90)
@@ -46,6 +47,7 @@ def compute_sector_metrics(
     rows: list[dict] = []
     for sector, coin_ids in groups.items():
         momentum_scores = compute_momentum_scores(market.price, rebalance_date, coin_ids, momentum_weights).dropna()
+        sector_ret_21 = ret21_all.reindex(coin_ids).dropna()
         sector_ret_30 = ret30_all.reindex(coin_ids).dropna()
         sector_ret_60 = ret60_all.reindex(coin_ids).dropna()
         sector_ret_90 = ret90_all.reindex(coin_ids).dropna()
@@ -62,6 +64,7 @@ def compute_sector_metrics(
         rows.append(
             {
                 'sector': sector,
+                'sector_ret_21': float(sector_ret_21.mean()) if not sector_ret_21.empty else 0.0,
                 'sector_ret_30': float(sector_ret_30.mean()) if not sector_ret_30.empty else 0.0,
                 'sector_ret_60': float(sector_ret_60.mean()) if not sector_ret_60.empty else 0.0,
                 'sector_ret_90': float(sector_ret_90.mean()) if not sector_ret_90.empty else 0.0,
