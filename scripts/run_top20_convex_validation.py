@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict, dataclass
+import logging
 import math
 from pathlib import Path
 import sys
 
 import pandas as pd
+
+LOGGER = logging.getLogger("atlas20.scripts.convex_validation")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -1224,9 +1227,17 @@ def run_full_window_screen(
     rows: list[dict[str, object]] = []
     results: dict[str, BacktestResult] = {}
 
-    for candidate in candidates:
+    total = len(candidates)
+    for index, candidate in enumerate(candidates, start=1):
         result = run_one_candidate(market, universe_by_liquidity, config, candidate)
         results[candidate.candidate_id] = result
+        if index % 100 == 0 or index == total:
+            LOGGER.info(
+                "Full-window screen progress: %d/%d candidates evaluated (latest=%s)",
+                index,
+                total,
+                candidate.candidate_id,
+            )
 
         metrics = compute_summary_metrics(result, config.annualization_days)
         row: dict[str, object] = asdict(candidate)
