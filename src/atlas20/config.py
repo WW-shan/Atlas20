@@ -23,6 +23,12 @@ class UniverseConfig(BaseModel):
     universe_size: int = 20
     current_top_n_candidates: int = 60
     legacy_candidate_ids: list[str] = Field(default_factory=list)
+    # CMC drops a symbol from its listing when a coin rebrands or migrates,
+    # but keeps serving the history under the same numeric id. Without these
+    # aliases the retired ticker resolves to "no id" and the asset silently
+    # disappears from the candidate pool - survivorship bias again, just via
+    # the id map instead of the ranking.
+    cmc_symbol_aliases: dict[str, int] = Field(default_factory=dict)
     min_history_days: int = 90
     min_daily_dollar_volume: float = 25_000_000
     min_price: float = 1e-6
@@ -102,6 +108,9 @@ class CoinMarketCapConfig(BaseModel):
     convert_id: str = "2781"  # USD
     page_size: int = 400
     request_interval_seconds: float = 1.0
+    # How many trailing days to re-pull when the cache is merely stale. Keeps
+    # a daily refresh to one request per coin instead of a full re-download.
+    tail_refresh_days: int = 5
 
 
 class ProvidersConfig(BaseModel):

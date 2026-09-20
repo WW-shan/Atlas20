@@ -50,20 +50,35 @@ def _history_window(config: ResearchConfig) -> tuple[pd.Timestamp, pd.Timestamp]
     return start, config.end_timestamp
 
 
-def download_and_cache_raw_data(config: ResearchConfig, force: bool = False) -> pd.DataFrame:
-    """Fetch the candidate catalog, metadata, and CMC histories into the cache."""
+def download_and_cache_raw_data(
+    config: ResearchConfig,
+    force: bool = False,
+    refresh_catalog: bool = True,
+) -> pd.DataFrame:
+    """Fetch the candidate catalog, metadata, and CMC histories into the cache.
+
+    ``refresh_catalog`` re-reads the current Top-N listing and the CMC id map so
+    a coin that just entered the top ranks is discovered on this run. It costs
+    two requests. ``force`` additionally re-downloads every coin's full price
+    history; without it, an already-covered coin triggers no request at all and
+    a merely stale one pulls only its tail.
+    """
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
     coingecko = CoinGeckoClient(config.providers.coingecko, raw_dir)
     cmc = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
 
     LOGGER.info("Fetching current top-%s candidate assets from CoinGecko", config.universe.current_top_n_candidates)
-    current_top = coingecko.fetch_top_markets(config.universe.current_top_n_candidates, force=force).to_dict(orient="records")
+    current_top = coingecko.fetch_top_markets(
+        config.universe.current_top_n_candidates, force=force or refresh_catalog
+    ).to_dict(orient="records")
     legacy = coingecko.fetch_markets_by_ids(config.universe.legacy_candidate_ids, force=force).to_dict(orient="records")
     candidates = deduplicate_assets([*current_top, *legacy])
     filtered_candidates = [asset for asset in candidates if not asset_is_excluded(asset, config.universe)]
 
     LOGGER.info("Fetching CoinMarketCap symbol->id map")
-    id_map = cmc.fetch_id_map(force=force)
+    id_map = cmc.fetch_id_map(force=force or refresh_catalog)
+    # Curated aliases win: they cover tickers CMC no longer lists.
+    id_map = {**id_map, **{k.upper(): int(v) for k, v in config.universe.cmc_symbol_aliases.items()}}
     start, end = _history_window(config)
 
     valid_assets: list[dict] = []
@@ -105,7 +120,7 @@ def download_and_cache_raw_data(config: ResearchConfig, force: bool = False) -> 
             continue
 
         try:
-            history = cmc.fetch_history(cmc_id, start=start.date(), end=end.date(), force=force)
+            history = cmc.ensure_history(cmc_id, start=start.date(), end=end.date(), force=force)
         except Exception as exc:  # noqa: BLE001
             screening_rows.append(
                 {"coin_id": coin_id, "symbol": symbol, "name": name, "status": "excluded", "details": f"coinmarketcap_history: {exc}"}
@@ -189,7 +204,56 @@ def _load_cmc_history(raw_dir: Path, cmc_id: int) -> pd.DataFrame | None:
     merged["volume_usd"] = pd.to_numeric(merged["volume_usd"], errors="coerce")
     merged = merged.dropna(subset=["price"])
     merged = merged[merged["price"] > 0]
-    return merged.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+    merged = merged.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+
+    # A coin cannot hold a Top-N rank before the provider reports a circulating
+    # supply, so any earlier price row is uninvestable - and it is exactly
+    # where CMC's data is least reliable. TAO's first print is $0.126 against a
+    # $79.79 next-week median (a 696x artificial jump) and SHIB's first print
+    # is 4x its neighbours; both sit before any supply exists. Keeping those
+    # rows would let a broken placeholder feed the momentum score the moment
+    # the coin becomes rankable.
+    first_supply = merged.loc[merged["market_cap"].notna(), "date"].min()
+    if pd.notna(first_supply):
+        merged = merged[merged["date"] >= first_supply]
+
+    merged = _drop_level_corruption(merged)
+    return merged.reset_index(drop=True)
+
+
+def _drop_level_corruption(frame: pd.DataFrame, factor: float = 20.0) -> pd.DataFrame:
+    """Remove blocks where the provider reports a wildly wrong price level.
+
+    Huobi Token is the motivating case: CMC served ~$0.000002 instead of ~$0.5
+    for 34 consecutive days in early 2025, then returned to the correct level.
+    Every one of those rows is internally consistent (``market_cap == price x
+    supply``), so a per-row integrity check cannot see it - only the level
+    shift against the surrounding weeks gives it away.
+
+    The test is deliberately narrow so that genuine moves survive:
+
+    * The reference is the median of an *outer* ring (31-60 days before and
+      after). A ring this far out is not contaminated by a month-long bad
+      block, which an adjacent window would be.
+    * Both rings must agree with each other. A trending market has a much
+      lower past level than future level, so it can never be flagged - that is
+      what keeps a real launch rally (PEPE's first week, a 100x run) intact.
+    * Only a row that is far from *both* rings, which by construction agree,
+      can be a reversion artefact.
+    """
+    if frame.empty:
+        return frame
+    ordered = frame.sort_values("date").reset_index(drop=True)
+    price = ordered["price"].astype(float)
+
+    before = price.shift(31).rolling(30, min_periods=15).median()
+    after = price.shift(-61).rolling(30, min_periods=15).median()
+    rings_agree = (before / after).between(1.0 / 3.0, 3.0)
+    baseline = (before * after) ** 0.5
+    ratio = price / baseline
+
+    corrupted = rings_agree & ((ratio > factor) | (ratio < 1.0 / factor))
+    return ordered.loc[~corrupted.fillna(False)].reset_index(drop=True)
 
 
 def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig) -> tuple[pd.DataFrame, pd.DataFrame]:

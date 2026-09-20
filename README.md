@@ -169,7 +169,7 @@ npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.n
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 547 Python tests plus
+Current local verification for this release line covers 557 Python tests plus
 188 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
@@ -254,16 +254,45 @@ Git except for the directory placeholder.
 
 Using the cached public-data run included in this workspace:
 
-- Best momentum variant: `TOP20_MOM_top6_monthly__bull_only`
-- Best sector variant: `TOP20_SECTOR_top3_monthly__bull_only`
+- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on`
+- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only`
 - BTC buy-and-hold CAGR: about 19.4%
-- Top-20 equal-weight CAGR: about 11.3%
-- Best momentum CAGR: about 26.4%
-- Best sector CAGR: about 26.0%
+- Top-20 equal-weight CAGR: about 10.2%
+- Best momentum CAGR: about 21.6%
+- Best sector CAGR: about 14.8%
+
+Read those honestly: the best rotation variant only edges past BTC buy-and-hold,
+and it does so with a worse Sharpe and an -87% drawdown. Once the universe is
+corrected for survivorship (see below), **the rotation family has no real edge
+over simply holding BTC.** The one strategy line that does beat BTC decisively
+is the concentrated bull-offense family.
 
 The BTC benchmark is anchored on the first day of the backtest window, so the
 comparison is against a real buy-and-hold, not a benchmark that sat in cash
 until the first month-end.
+
+### Universe integrity
+
+Two biases had to be removed before any of these numbers meant anything:
+
+1. **Synthetic market caps.** The pipeline used to build a market cap from
+   `price * latest_market_cap / latest_price` whenever the provider had no
+   supply data. That ignores supply changes, so a coin could look like it grew
+   through a bear market and take a Top-20 slot it never held. The fallback is
+   gone; assets without real supply data are not rankable.
+2. **Survivorship.** The candidate pool used to be "today's top-60", so every
+   coin that was Top-20 in the past and has since collapsed was absent from the
+   backtest - catastrophic for a momentum strategy, because the hottest coins
+   are exactly the ones that blow up. Terra (LUNC) alone held 34 Top-20 slots
+   and FTX (FTT) held 30. `universe.legacy_candidate_ids` now carries a
+   historical watchlist, and the point-in-time ranking places those coins back
+   where they belong: LUNC's last Top-20 appearance is 2022-05-06, days before
+   the collapse; FTT's is 2022-11-04, days before FTX failed.
+
+`scripts/audit_data_chain.py` re-checks the whole chain - provider cache
+integrity, panel sanity, price-level corruption, point-in-time ranking and
+execution freshness - and prints PASS/WARN/FAIL. Run it before trusting any
+backtest.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
@@ -277,25 +306,27 @@ the pipeline replaces atomically on every run).
 
 Latest run over the same window:
 
-- 114 of 144 parameter combinations beat BTC buy-and-hold.
-- The grid median is 17.0x total return (CAGR ~65.7%) versus BTC's 2.76x.
-- The median maximum drawdown is -88%, and the best cells exceed -93%.
+- 122 of 144 parameter combinations beat BTC buy-and-hold.
+- The grid median is 18.4x total return (CAGR ~67.9%) versus BTC's 2.76x.
+- The median maximum drawdown is -87%; the best cells exceed -91%.
 
-The headline numbers are real but not a forecast, and the yearly breakdown in
-`bull_offense_yearly_returns.csv` is the honest way to read them:
+The headline numbers survive the survivorship correction - the family's BTC
+trend exit simply steps aside before the collapses (it was flat through both
+the Terra and FTX failures). They are still not a forecast, and the yearly
+breakdown in `bull_offense_yearly_returns.csv` is the honest way to read them:
 
 | Year | Best cell | BTC |
 | --- | --- | --- |
-| 2021 | +43,095% | +57% |
-| 2022 | -74% | -65% |
-| 2023 | +268% | +155% |
-| 2024 | +165% | +112% |
-| 2025 | -50% | -7% |
-| 2026 YTD | -20% | -9% |
+| 2021 | +8,560% | +57% |
+| 2022 | -11% | -65% |
+| 2023 | +305% | +155% |
+| 2024 | +305% | +112% |
+| 2025 | -40% | -7% |
+| 2026 YTD | -43% | -9% |
 
-One year (2021, the DOGE/SHIB melt-up) dominates the compounded result, and the
-strategy loses to BTC in bear years. Treat it as a high-variance, high-drawdown
-satellite, not as a replacement for the benchmark.
+One year (2021, the DOGE/SHIB melt-up) still dominates the compounded result,
+and the strategy loses to BTC in the last two years. Treat it as a
+high-variance, high-drawdown satellite, not as a replacement for the benchmark.
 
 ## Key Limitations
 

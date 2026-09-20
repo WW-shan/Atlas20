@@ -60,19 +60,44 @@ class CoinMarketCapClient:
     def _id_map_path(self) -> Path:
         return self.raw_dir / "id_map.json"
 
+    @staticmethod
+    def _merge_id_map(cached: dict[str, int], discovered: dict[str, int]) -> dict[str, int]:
+        """Additive merge: a symbol is never dropped by a refresh.
+
+        Only new symbols are added, so a coin that has since rebranded keeps
+        the id it was first mapped to.
+        """
+        merged = dict(cached)
+        for symbol, coin_id in discovered.items():
+            merged.setdefault(symbol, coin_id)
+        return merged
+
     def fetch_id_map(self, *, force: bool = False, max_pages: int = 6) -> dict[str, int]:
         """Return a SYMBOL -> CMC id mapping.
 
         The listing endpoint is paginated; symbols already seen are kept so a
         later page never overwrites an earlier (higher market cap) match.
+
+        A refresh is *additive*: it merges into the existing map instead of
+        replacing it. Coins rebrand and fall off the listing - EOS became
+        Vaulta, MKR became SKY, FTM became Sonic - and a replacing refresh
+        would silently drop their ids, making every retired-but-still-tradable
+        asset disappear from the candidate pool. That is precisely the
+        survivorship bias this cache exists to avoid.
         """
         path = self._id_map_path()
-        if path.exists() and not force:
-            cached = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(cached, dict) and cached:
-                return {str(k): int(v) for k, v in cached.items()}
+        cached: dict[str, int] = {}
+        if path.exists():
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(payload, dict):
+                    cached = {str(k): int(v) for k, v in payload.items()}
+            except (json.JSONDecodeError, OSError, TypeError, ValueError):
+                cached = {}
+        if cached and not force:
+            return cached
 
-        mapping: dict[str, int] = {}
+        mapping: dict[str, int] = dict(cached)
         for page in range(max_pages):
             start = 1 + page * 200
             response = self.session.get(
@@ -157,6 +182,106 @@ class CoinMarketCapClient:
             # progress.
             time.sleep(self.config.request_interval_seconds)
         return rows
+
+    def _cached_windows(self, coin_id: int) -> list[tuple[int, int]]:
+        """Return the (start, end) epoch pairs this coin was already asked for.
+
+        Read from the cache filenames rather than the payload so coverage can
+        be assessed without parsing every file.
+        """
+        directory = self.raw_dir / "history"
+        if not directory.exists():
+            return []
+        windows: list[tuple[int, int]] = []
+        for path in directory.glob(f"{coin_id}_*.json"):
+            parts = path.stem.split("_")
+            if len(parts) != 3:
+                continue
+            try:
+                windows.append((int(parts[1]), int(parts[2])))
+            except ValueError:
+                continue
+        return windows
+
+    def _merged_cache(self, coin_id: int) -> pd.DataFrame:
+        """Every cached window for this coin, merged and normalized."""
+        directory = self.raw_dir / "history"
+        if not directory.exists():
+            return _empty()
+        frames: list[pd.DataFrame] = []
+        for path in sorted(directory.glob(f"{coin_id}_*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                continue
+            if not payload:
+                continue
+            records = []
+            for row in payload:
+                quote = row.get("quote") or {}
+                opened = row.get("timeOpen")
+                if not opened:
+                    continue
+                records.append(
+                    {
+                        "date": pd.Timestamp(opened).normalize(),
+                        "close": quote.get("close"),
+                        "volume_usd": quote.get("volume"),
+                        "market_cap": quote.get("marketCap"),
+                        "circulating_supply": quote.get("circulatingSupply"),
+                    }
+                )
+            if records:
+                frames.append(pd.DataFrame(records))
+        if not frames:
+            return _empty()
+
+        frame = pd.concat(frames, ignore_index=True)[COLUMNS]
+        frame = frame.dropna(subset=["close", "market_cap"])
+        frame = frame[frame["close"] > 0]
+        frame["date"] = pd.to_datetime(frame["date"])
+        return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+
+    def ensure_history(
+        self,
+        coin_id: int,
+        *,
+        start: str | date | datetime,
+        end: str | date | datetime,
+        force: bool = False,
+    ) -> pd.DataFrame:
+        """Guarantee the cache covers ``[start, end]`` for ``coin_id``.
+
+        A coin that newly enters the Top-N must be fully backfilled on the same
+        run - it cannot be scored on partial history. An already-onboarded coin
+        must not be re-downloaded in full every day, so a fresh cache triggers
+        no request at all and a stale one triggers only a short tail pull.
+        """
+        start_ts = _to_epoch(start)
+        end_ts = _to_epoch(end)
+        windows = self._cached_windows(coin_id)
+
+        if force or not windows:
+            self.fetch_history(coin_id, start=start, end=end, force=False)
+            return self._merged_cache(coin_id)
+
+        requested_full_window = any(window_start <= start_ts for window_start, _ in windows)
+        latest_end = max(window_end for _, window_end in windows)
+
+        if not requested_full_window:
+            # Never backfilled to the required depth (a new entrant).
+            self.fetch_history(coin_id, start=start, end=end, force=False)
+        elif latest_end < end_ts:
+            # Only the tail is missing; pull a short window instead of
+            # re-downloading the coin's whole history.
+            tail_start = max(
+                pd.Timestamp(end_ts, unit="s").normalize() - pd.Timedelta(days=self.config.tail_refresh_days),
+                pd.Timestamp(start_ts, unit="s").normalize(),
+            )
+            self.fetch_history(coin_id, start=tail_start.date(), end=end, force=False)
+
+        return self._merged_cache(coin_id)
+
 
     def fetch_history(
         self,

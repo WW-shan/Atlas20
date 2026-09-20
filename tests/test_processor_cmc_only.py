@@ -63,11 +63,11 @@ def _write_cmc(
     (directory / f"{cmc_id}_{start}_{end}.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _config(tmp_path: Path):
+def _config(tmp_path: Path, start: str = "2024-01-01", end: str = "2024-01-10"):
     config = load_config("config/base.yaml")
     config.project_root = tmp_path
-    config.start_date = "2024-01-01"
-    config.end_date = "2024-01-10"
+    config.start_date = start
+    config.end_date = end
     config.data_quality.min_price_days = 2
     config.data_quality.min_market_cap_days = 2
     return config
@@ -171,3 +171,112 @@ def test_data_quality_keeps_the_api_contract_columns(tmp_path):
     assert required <= set(quality.columns)
     assert quality.loc[0, "symbol"] == "BTC"
     assert bool(quality.loc[0, "included_in_panel"]) is True
+
+
+def _write_cmc_presupply(
+    raw_dir: Path,
+    cmc_id: int,
+    days: list[str],
+    *,
+    price_by_day: dict[str, float],
+    supply_from: str,
+) -> None:
+    """Write a CMC history whose early rows carry no circulating supply."""
+    directory = raw_dir / "coinmarketcap" / "history"
+    directory.mkdir(parents=True, exist_ok=True)
+    start = int(pd.Timestamp(days[0]).timestamp())
+    end = int(pd.Timestamp(days[-1]).timestamp())
+    payload = []
+    for d in days:
+        has_supply = d >= supply_from
+        payload.append(
+            {
+                "timeOpen": f"{d}T00:00:00.000Z",
+                "quote": {
+                    "close": price_by_day[d],
+                    "volume": 9_000_000.0,
+                    # CMC reports 0 (not null) when it has no supply data.
+                    "marketCap": 5_000_000.0 if has_supply else 0.0,
+                    "circulatingSupply": 20_000.0 if has_supply else 0.0,
+                },
+            }
+        )
+    (directory / f"{cmc_id}_{start}_{end}.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_rows_before_first_circulating_supply_are_dropped(tmp_path):
+    """A coin cannot be ranked before its supply exists, so its price rows from
+    that period are uninvestable - and it is exactly where CMC's data is worst.
+
+    TAO is the motivating case: its first print is $0.126 against a $79.79
+    next-week median, a 696x artificial jump. SHIB's first print is 4x its
+    neighbours. Both sit before the provider reports any supply.
+    """
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("tao", "TAO", 7))
+    days = ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"]
+    prices = {"2024-01-01": 0.126, "2024-01-02": 79.0, "2024-01-03": 80.0, "2024-01-04": 81.0}
+    _write_cmc_presupply(raw_dir, 7, days, price_by_day=prices, supply_from="2024-01-03")
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert list(panel["date"].dt.strftime("%Y-%m-%d")) == ["2024-01-03", "2024-01-04"]
+    assert panel["price"].min() == 80.0, "the broken placeholder print must be gone"
+
+
+def test_launch_rally_is_kept_when_supply_exists_from_day_one(tmp_path):
+    """A low first price is not automatically an error: PEPE really did start
+    around 1.87e-10 and rally ~375x in five days."""
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("pepe", "PEPE", 9))
+    days = ["2024-01-01", "2024-01-02", "2024-01-03"]
+    prices = {"2024-01-01": 1.87e-10, "2024-01-02": 7.0e-08, "2024-01-03": 2.0e-07}
+    _write_cmc(raw_dir, 9, days)
+    # rewrite with an explicit launch price curve
+    _write_cmc_presupply(raw_dir, 9, days, price_by_day=prices, supply_from="2024-01-01")
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert len(panel) == 3
+    assert panel["price"].iloc[0] == 1.87e-10
+
+
+def test_price_level_corruption_block_is_dropped(tmp_path):
+    """Huobi Token was served at ~$0.000002 instead of ~$0.5 for 34 straight
+    days in early 2025, then snapped back. Each row is internally consistent
+    (market_cap == price x supply), so only the level shift reveals it."""
+    days = pd.date_range("2024-06-01", periods=200, freq="D")
+    config = _config(tmp_path, start="2024-06-01", end=days[-1].strftime("%Y-%m-%d"))
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("huobi-token", "HT", 3))
+    prices = {d.strftime("%Y-%m-%d"): 0.5 for d in days}
+    for d in days[100:130]:
+        prices[d.strftime("%Y-%m-%d")] = 0.000002
+    _write_cmc_presupply(
+        raw_dir, 3, [d.strftime("%Y-%m-%d") for d in days], price_by_day=prices, supply_from="2024-06-01"
+    )
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert (panel["price"] >= 0.1).all(), "the corrupted block must be gone"
+    assert len(panel) < len(days), "corrupted rows are dropped, not repaired"
+
+
+def test_genuine_launch_rally_is_not_flagged(tmp_path):
+    """A coin with no prior history cannot be judged against a surrounding
+    level, so an explosive first week must survive."""
+    days = pd.date_range("2023-04-14", periods=40, freq="D")
+    config = _config(tmp_path, start="2023-04-14", end=days[-1].strftime("%Y-%m-%d"))
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("pepe", "PEPE", 5))
+    prices = {d.strftime("%Y-%m-%d"): 1.87e-10 * (1.35 ** i) for i, d in enumerate(days)}
+    _write_cmc_presupply(
+        raw_dir, 5, [d.strftime("%Y-%m-%d") for d in days], price_by_day=prices, supply_from="2023-04-14"
+    )
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert len(panel) == len(days)
+    assert panel["price"].iloc[0] == 1.87e-10

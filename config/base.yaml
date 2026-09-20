@@ -15,6 +15,18 @@ logging:
 universe:
   universe_size: 20
   current_top_n_candidates: 60
+  # Historical watchlist.
+  #
+  # The candidate pool cannot be "today's top-N" only: a coin that was top-20
+  # in 2021 and has since collapsed would never be in the pool, so the backtest
+  # would never have had to hold it. That is the worst possible survivorship
+  # bias for a momentum strategy, because the hottest coins are exactly the
+  # ones that blow up. Terra (LUNC/UST), FTX (FTT) and Celsius all ranked
+  # inside the Top-20 at some point and are long gone from today's leaders.
+  #
+  # Anything listed here is onboarded with its full real history on the next
+  # refresh; it only ever enters the universe if it actually clears the
+  # point-in-time market-cap rank.
   legacy_candidate_ids:
     - eos
     - monero
@@ -38,6 +50,56 @@ universe:
     - optimism
     - immutable-x
     - injective-protocol
+    # Retired large caps: still fetchable, no longer in the current top-N.
+    - cosmos
+    - ethereum-classic
+    - matic-network
+    - polygon-ecosystem-token
+    - kaspa
+    - kucoin-shares
+    - pancakeswap-token
+    - jupiter-exchange-solana
+    - aptos
+    - curve-dao-token
+    - celestia
+    - lido-dao
+    - sei-network
+    - terra-luna
+    - terra-luna-2
+    - ftx-token
+    - celsius-degree-token
+    - ethereum-name-service
+    - compound-governance-token
+    - thorchain
+    - chiliz
+    - 1inch
+    - apecoin
+    - havven
+    - basic-attention-token
+    - the-sandbox
+    - elrond-erd-2
+    - dydx-chain
+    - gala
+    - helium
+    - yearn-finance
+    - zilliqa
+    - sushi
+    - enjincoin
+    - flow
+    - osmosis
+    - waves
+    - stepn
+    - huobi-token
+    - bitcoin-sv
+  # Tickers CMC no longer lists but still serves history for. Verified by
+  # fetching each id directly; MATIC has no CMC history left at all (the
+  # post-migration token is POL), so the Polygon MATIC era cannot be restored
+  # from this provider.
+  cmc_symbol_aliases:
+    EOS: 1765
+    MKR: 1518
+    HT: 2502
+    CEL: 5692
   min_history_days: 90
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
