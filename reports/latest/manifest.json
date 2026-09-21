@@ -1,15 +1,15 @@
 {
   "config_path": "config/base.yaml",
-  "config_sha256": "8c0b3a43c6eaa8cbc9bf3494ae5254449042832e434ca1e170fad78b340ff59c",
-  "code_commit": "18dc02b01cb6bf890cd4cfc3fc0191ad7f0ff6d0",
+  "config_sha256": "0f04ef49bf936743627d8834f9e40990c2f1ab16b89379108aa8bd4d05745203",
+  "code_commit": "a02dfe148190074b97acbbc97a48d69c8be9c314",
   "pipeline_version": "0.2.2",
   "data_snapshot": {
-    "coingecko": "2026-09-21T02:13:57Z",
+    "coingecko": "2026-09-21T03:04:52Z",
     "coinmarketcap": "2026-09-20T16:26:20Z",
     "coinpaprika": "2026-09-20T16:03:22Z",
     "gateio": "2026-09-20T16:26:22Z"
   },
-  "generated_at": "2026-09-21T02:20:42Z",
+  "generated_at": "2026-09-21T03:06:28Z",
   "artifacts": [
     {
       "kind": "daily_returns",
