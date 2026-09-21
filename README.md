@@ -266,17 +266,19 @@ Git except for the directory placeholder.
 Using the cached public-data run included in this workspace:
 
 - Best momentum variant: `TOP20_MOM_top6_biweekly__always_on`
-- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only`
+- Best sector variant: `TOP20_SECTOR_top3_monthly__bull_only`
 - BTC buy-and-hold CAGR: about 19.4%
-- Top-20 equal-weight CAGR: about 10.2%
-- Best momentum CAGR: about 21.6%
-- Best sector CAGR: about 14.8%
+- Top-20 equal-weight CAGR: about 8.8%
+- Best momentum CAGR: about 19.0%
+- Best sector CAGR: about 15.8%
 
-Read those honestly: the best rotation variant only edges past BTC buy-and-hold,
-and it does so with a worse Sharpe and an -87% drawdown. Once the universe is
-corrected for survivorship (see below), **the rotation family has no real edge
-over simply holding BTC.** The one strategy line that does beat BTC decisively
-is the concentrated bull-offense family.
+Read those honestly: the best rotation variant does not even match BTC
+buy-and-hold, and it gets there with a worse drawdown (-87% for momentum,
+-82% for the sector book, versus -77% for BTC). With the universe rebuilt from
+real point-in-time CoinMarketCap market caps, **the diversified rotation
+family has no edge over simply holding BTC.** The strategy lines that do beat
+BTC decisively are the concentrated ones: the single-leader sector rotation
+and the concentrated bull-offense family.
 
 The BTC benchmark is anchored on the first day of the backtest window, so the
 comparison is against a real buy-and-hold, not a benchmark that sat in cash
