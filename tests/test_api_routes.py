@@ -257,6 +257,7 @@ def test_universe_sources_endpoint_returns_data_sources(client: TestClient):
         "coingecko",
         "coinmarketcap",
         "gateio",
+        "binance",
         "coinpaprika",
     ]
 

@@ -1162,7 +1162,13 @@ def get_data_alerts() -> list[DataAlert]:
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Falling back to mock data alerts: %s", exc)
         rows = deepcopy(mock_data.fallback_data_alerts)
-    return [DataAlert.model_validate(row) for row in rows]
+    alerts = [DataAlert.model_validate(row) for row in rows]
+    from atlas20.api.data_freshness import freshness_alert
+
+    freshness = freshness_alert(settings)
+    if freshness is not None:
+        alerts.insert(0, DataAlert.model_validate(freshness))
+    return alerts
 
 
 def refresh_universe(session: Session) -> dict[str, str]:

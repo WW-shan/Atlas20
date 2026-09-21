@@ -31,6 +31,7 @@ SOURCE_LABELS = {
     "coinmarketcap": "CoinMarketCap",
     "coingecko": "CoinGecko",
     "gateio": "Gate.io",
+    "binance": "Binance",
     "coinpaprika": "CoinPaprika",
 }
 CROSSCHECK_REASON_LABELS = {

@@ -20,14 +20,26 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from atlas20.backtest.engine import run_backtest
-from atlas20.config import load_config, load_sector_config
-from atlas20.data.processor import build_processed_datasets
-from atlas20.logging_utils import configure_logging, ensure_dir
-from atlas20.reporting.report import dataframe_to_markdown
-from atlas20.strategies.bull_offense import build_bull_offense_targets
-from atlas20.universe.builder import build_rebalance_universe, prepare_market_data
-from atlas20.backtest.calendar import get_rebalance_dates
+from atlas20.backtest.engine import run_backtest  # noqa: E402
+from atlas20.config import load_config, load_sector_config  # noqa: E402
+from atlas20.data.processor import build_processed_datasets  # noqa: E402
+from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
+from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
+from atlas20.strategies.bull_offense import build_bull_offense_targets  # noqa: E402
+from atlas20.universe.builder import build_rebalance_universe, prepare_market_data  # noqa: E402
+from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
+
+
+def _uncapped_friction(config):
+    """Return frictions suitable for a deliberately concentrated research lane.
+
+    The base config's 35% per-coin cap is a diversification guard for the
+    Top-20 book. Applying it here silently turns a one-name strategy into a
+    35%-invested portfolio and flatters the BTC benchmark with 65% idle cash.
+    """
+    friction = config.frictions.model_copy(deep=True)
+    friction.max_weight_per_coin = 1.0
+    return friction
 
 
 def _profile(name: str, returns: pd.Series, weights: pd.DataFrame, capital: float) -> dict:
@@ -90,9 +102,15 @@ def main() -> None:
     curves = {}
     diagnostics = {}
 
-    bh = run_backtest("BTC_BUY_HOLD", backtest_returns,
-                      {backtest_returns.index[0]: pd.Series({"bitcoin": 1.0})},
-                      sector_by_coin, config.frictions, config.initial_capital)
+    research_friction = _uncapped_friction(config)
+    bh = run_backtest(
+        "BTC_BUY_HOLD",
+        backtest_returns,
+        {backtest_returns.index[0]: pd.Series({"bitcoin": 1.0})},
+        sector_by_coin,
+        research_friction,
+        config.initial_capital,
+    )
     rows.append(_profile("BTC_BUY_HOLD", bh.daily_returns, bh.weights, config.initial_capital))
     curves["BTC_BUY_HOLD"] = bh.equity_curve
 
@@ -117,7 +135,7 @@ def main() -> None:
             continue
         res = run_backtest(
             name, backtest_returns, built.targets, sector_by_coin,
-            config.frictions, config.initial_capital,
+            research_friction, config.initial_capital,
             leverage_by_date=built.leverage_by_date,
             max_gross_exposure=lev,
         )
@@ -177,7 +195,28 @@ def main() -> None:
     )
     stability.to_csv(out / "bull_offense_stability.csv", index=False)
 
-    winners = summary[summary["beats_btc"]].head(20)
+    # Leverage is a separate robustness dimension. Report each bucket rather
+    # than letting a few x2 cells dominate the headline: x2 returns are only
+    # meaningful after borrow/funding costs, which this scan intentionally
+    # does not model yet.
+    candidates_with_leverage = candidates.copy()
+    candidates_with_leverage["leverage"] = (
+        candidates_with_leverage.index.to_series().str.rsplit("_", n=1).str[-1].str[1:].astype(float)
+    )
+    leverage_summary = (
+        candidates_with_leverage.groupby("leverage", sort=True)
+        .agg(
+            combinations=("total_return", "size"),
+            beating_btc=("beats_btc", "sum"),
+            median_total_return=("total_return", "median"),
+            median_cagr=("cagr", "median"),
+            median_maxdd=("maxdd", "median"),
+            best_total_return=("total_return", "max"),
+        )
+        .reset_index()
+    )
+    leverage_summary.to_csv(out / "bull_offense_leverage_summary.csv", index=False)
+
     report = [
         "# Bull Offense Scan",
         "",
@@ -201,6 +240,19 @@ def main() -> None:
         "",
         dataframe_to_markdown(stability),
         "",
+        "## Leverage robustness",
+        "",
+        dataframe_to_markdown(leverage_summary),
+        "",
+        "## Top 10 unlevered (x1) by total return",
+        "",
+        dataframe_to_markdown(
+            candidates_with_leverage[candidates_with_leverage["leverage"] == 1.0]
+            .sort_values("total_return", ascending=False)
+            .head(10)
+            .reset_index()
+        ),
+        "",
         "## Top 20 by total return",
         "",
         dataframe_to_markdown(summary.head(20).reset_index()),
@@ -215,9 +267,9 @@ def main() -> None:
     (out / "bull_offense_report.md").write_text("\n".join(report), encoding="utf-8")
 
     cols = ["total_return", "cagr", "sharpe", "maxdd", "calmar", "avg_gross", "exposure"]
-    print(f"\n=== BTC benchmark ===")
+    print("\n=== BTC benchmark ===")
     print(summary.loc[["BTC_BUY_HOLD"], cols].to_string())
-    print(f"\n=== Top 15 by TOTAL RETURN ===")
+    print("\n=== Top 15 by TOTAL RETURN ===")
     print(summary.head(15)[cols + ["beats_btc"]].to_string())
     print(f"\nBeating BTC: {int(summary['beats_btc'].sum())} / {len(summary)-1}")
     print(f"Report: {out}")

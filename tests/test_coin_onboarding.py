@@ -17,12 +17,27 @@ from atlas20.config import CoinMarketCapConfig, load_config
 from atlas20.data.coinmarketcap import CoinMarketCapClient
 
 
-def _write_window(raw_dir: Path, cmc_id: int, start: str, end: str, days: int = 400) -> Path:
+def _write_window(
+    raw_dir: Path,
+    cmc_id: int,
+    start: str,
+    end: str,
+    days: int = 400,
+    data_end: str | None = None,
+) -> Path:
+    """Write a cached window.
+
+    ``end`` is what the filename records (the *requested* end); ``data_end``
+    is the last date actually present in the payload. The two differ when a
+    run fires before the provider has published the newest close.
+    """
     directory = raw_dir / "coinmarketcap" / "history"
     directory.mkdir(parents=True, exist_ok=True)
     start_ts = int(pd.Timestamp(start).timestamp())
     end_ts = int(pd.Timestamp(end).timestamp())
-    dates = pd.date_range(end, periods=days, freq="D")
+    # A window payload runs *up to* its last available day, not forward
+    # from it; a forward range would silently place rows in the future.
+    dates = pd.date_range(end=pd.Timestamp(data_end or end), periods=days, freq="D")
     payload = [
         {
             "timeOpen": f"{d.date().isoformat()}T00:00:00.000Z",
@@ -72,6 +87,33 @@ def test_stale_cache_pulls_only_the_tail(tmp_path, monkeypatch):
     assert captured["start"] > pd.Timestamp("2026-09-01"), "only the tail should be re-pulled"
     assert captured["start"] <= pd.Timestamp("2026-09-20")
     assert captured["end"] == pd.Timestamp("2026-09-20")
+
+
+def test_window_marker_ahead_of_payload_is_re_pulled(tmp_path, monkeypatch):
+    """A window filename records the *requested* end (today's midnight), but a
+    run that fires before the provider publishes the newest close stores data
+    only through the previous day. Coverage has to be judged on the payload,
+    not the filename, or the cache silently freezes one day behind and every
+    coin but the newly-onboarded ones goes stale."""
+    raw_dir = tmp_path / "raw"
+    _write_window(raw_dir, 1, "2020-01-01", "2026-09-21", data_end="2026-09-19")
+    client = _client(raw_dir)
+    captured: dict[str, object] = {}
+
+    def _fake_fetch(coin_id, *, start, end, force=False):
+        captured["start"] = pd.Timestamp(start)
+        captured["end"] = pd.Timestamp(end)
+        captured["force"] = force
+        return pd.DataFrame()
+
+    monkeypatch.setattr(client, "fetch_history", _fake_fetch)
+
+    client.ensure_history(1, start="2020-01-01", end="2026-09-21")
+
+    assert captured, "a payload lagging the last completed day must be re-pulled"
+    assert captured["force"] is True, "the same-named tail window must be re-fetched, not read"
+    assert captured["end"] == pd.Timestamp("2026-09-21")
+    assert captured["start"] > pd.Timestamp("2026-09-01"), "only the tail should be re-pulled"
 
 
 def test_new_entrant_is_backfilled_to_the_full_requested_depth(tmp_path, monkeypatch):
@@ -150,6 +192,80 @@ def test_catalog_refresh_is_on_by_default(monkeypatch, tmp_path):
 
     assert calls["top_force"] is True, "top-N listing must be re-read on every refresh"
     assert calls["idmap_force"] is True, "the CMC id map must be re-read too"
+
+
+def test_onboarded_candidates_never_leave_the_pool(monkeypatch, tmp_path):
+    """A coin that slips out of CoinGecko's current listing must stay a
+    candidate.
+
+    The pool is otherwise rebuilt from the live listing on every refresh, so a
+    coin that was inside the Top-20 while it was hot and has since fallen down
+    the listing would leave the panel and take its historical rows with it.
+    Because the panel is rebuilt from scratch each run, that retroactively
+    rewrites the universe the backtest ran on.
+    """
+    from atlas20.data import processor
+
+    config = load_config("config/base.yaml")
+    config.project_root = tmp_path
+    raw = tmp_path / "data" / "raw"
+    (raw / "coingecko").mkdir(parents=True)
+    (raw / "coingecko" / "candidate_assets.json").write_text(
+        json.dumps([{"id": "retired-coin", "symbol": "OLD", "name": "Retired Coin", "cmc_id": 111}]),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def _capture(assets):
+        captured["ids"] = [str(a["id"]) for a in assets]
+        return []  # stop before screening so no provider fakes are needed
+
+    class _FakeCoinGecko:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def fetch_top_markets(self, per_page, force=False):
+            return pd.DataFrame([{"id": "fresh-coin", "symbol": "NEW", "name": "Fresh Coin"}])
+
+        def fetch_markets_by_ids(self, ids, force=False):
+            return pd.DataFrame()
+
+    class _FakeCMC:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def fetch_id_map(self, *, force=False, max_pages=6):
+            return {}
+
+    monkeypatch.setattr(processor, "deduplicate_assets", _capture)
+    monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
+
+    processor.download_and_cache_raw_data(config)
+
+    assert "retired-coin" in captured["ids"], "an onboarded coin must not be dropped from the pool"
+    assert "fresh-coin" in captured["ids"]
+
+
+def test_onboarded_candidates_are_recovered_from_metadata(tmp_path):
+    """The metadata cache outlives a candidate list that was already
+    overwritten, so a coin whose history we paid for is still recoverable."""
+    from atlas20.data import processor
+
+    config = load_config("config/base.yaml")
+    config.project_root = tmp_path
+    metadata_dir = tmp_path / "data" / "raw" / "coingecko" / "coin_metadata"
+    metadata_dir.mkdir(parents=True)
+    (metadata_dir / "retired-coin.json").write_text(
+        json.dumps({"id": "retired-coin", "symbol": "old", "name": "Retired Coin", "market_cap_rank": 31}),
+        encoding="utf-8",
+    )
+    (metadata_dir / "broken.json").write_text("{not json", encoding="utf-8")
+
+    onboarded = processor._load_onboarded_candidates(config)
+
+    assert [row["id"] for row in onboarded] == ["retired-coin"]
 
 
 def test_id_map_refresh_is_additive(tmp_path, monkeypatch):

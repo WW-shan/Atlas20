@@ -90,10 +90,14 @@ def test_per_coin_cap_is_enforced_and_never_raises_the_largest_weight() -> None:
     assert skewed.sum() == pytest.approx(1.0)
 
 
-def test_missing_return_for_a_held_asset_fails_closed() -> None:
-    """A halted/delisted holding must never be silently marked flat."""
+def test_interior_missing_return_for_a_held_asset_fails_closed() -> None:
+    """A provider hole in the middle of a live series must never be marked flat.
+
+    The asset prints again on the last day, so this is a gap in the feed, not a
+    delisting: the engine has no defensible price for it and refuses to guess.
+    """
     dates = pd.date_range("2024-01-01", periods=3, freq="D")
-    returns = pd.DataFrame({"a": [0.0, float("nan"), float("nan")]}, index=dates)
+    returns = pd.DataFrame({"a": [0.0, float("nan"), 0.05]}, index=dates)
     targets = {dates[0]: pd.Series({"a": 1.0})}
     friction = FrictionConfig(fee_bps=0.0, slippage_bps=0.0, max_weight_per_coin=1.0)
 
@@ -103,7 +107,7 @@ def test_missing_return_for_a_held_asset_fails_closed() -> None:
 
 def test_missing_return_fill_requires_an_explicit_policy() -> None:
     dates = pd.date_range("2024-01-01", periods=3, freq="D")
-    returns = pd.DataFrame({"a": [0.0, float("nan"), float("nan")]}, index=dates)
+    returns = pd.DataFrame({"a": [0.0, float("nan"), 0.05]}, index=dates)
     targets = {dates[0]: pd.Series({"a": 1.0})}
     friction = FrictionConfig(
         fee_bps=0.0,
@@ -117,3 +121,31 @@ def test_missing_return_fill_requires_an_explicit_policy() -> None:
 
     assert result.daily_returns.loc[dates[1]] == pytest.approx(-1.0)
     assert result.equity_curve.loc[dates[1]] == pytest.approx(0.0)
+
+
+def test_ended_feed_is_liquidated_at_its_last_price() -> None:
+    """A delisted holding is sold, not carried at a price nobody quotes.
+
+    MATIC's feed stops on 2025-03-24 when the token migrates to POL. A strategy
+    holding it that day can still sell at the last print, so the position is
+    marked there, the exit cost is charged, and the proceeds sit in cash
+    instead of aborting the run or being marked flat forever.
+    """
+    dates = pd.date_range("2024-01-01", periods=4, freq="D")
+    returns = pd.DataFrame({"a": [0.0, 0.10, float("nan"), float("nan")]}, index=dates)
+    targets = {dates[0]: pd.Series({"a": 1.0})}
+    friction = FrictionConfig(fee_bps=10.0, slippage_bps=10.0, max_weight_per_coin=1.0)
+
+    result = run_backtest("t", returns, targets, pd.Series({"a": "x"}), friction, 100.0)
+
+    # Day 1: the entry is executed at the day-0 signal, so +10% net of the
+    # 20bps entry cost.
+    assert result.daily_returns.loc[dates[1]] == pytest.approx((1 - 0.002) * 1.10 - 1)
+    # Day 2: the feed has ended, so the position is sold at the last close.
+    # The only cost is the exit (2 * 10bps on a full position).
+    assert result.daily_returns.loc[dates[2]] == pytest.approx(-0.002)
+    # Day 3: in cash.
+    assert result.daily_returns.loc[dates[3]] == pytest.approx(0.0)
+    assert result.weights.loc[dates[2], "a"] == pytest.approx(0.0)
+    assert result.turnover.loc[dates[2]] == pytest.approx(1.0)
+    assert result.holdings_count.loc[dates[3]] == 0

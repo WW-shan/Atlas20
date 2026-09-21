@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlmodel import Session
 
+from atlas20.api.data_freshness import evaluate_data_freshness
 from atlas20.api.repositories import get_session
 from atlas20.api.settings import get_settings
 
@@ -41,6 +42,13 @@ def readyz(session: Session = Depends(get_session)) -> JSONResponse:
         checks["reports"] = "ok"
     else:
         checks["reports"] = "fail"
+        status_code = 503
+
+    freshness = evaluate_data_freshness(settings)
+    checks["data"] = freshness["status"]
+    if freshness["status"] in {"stale", "missing", "failed", "stalled"} or (
+        settings.env == "prod" and freshness["status"] == "disabled"
+    ):
         status_code = 503
 
     status = "ready" if status_code == 200 else "not_ready"

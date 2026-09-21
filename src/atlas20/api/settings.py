@@ -80,6 +80,27 @@ class Settings(BaseSettings):
     daily_refresh_enabled: bool = False
     daily_refresh_hour_utc: int = Field(default=2, ge=0, le=23)
     daily_refresh_minute_utc: int = Field(default=0, ge=0, le=59)
+    # Grace period after the scheduled refresh time before the API reports
+    # "missing". Two hours covers normal provider lag and worker queue time.
+    daily_refresh_grace_minutes: int = Field(default=120, ge=0, le=1440)
+    # Hours after the scheduled refresh at which a second, conditional attempt
+    # fires. CMC publishes day D's close after 00:00 UTC on D+1 and is
+    # sometimes still writing it when the first job runs; without a same-day
+    # retry that miss costs a full day of stale ranks.
+    daily_refresh_catchup_offset_hours: int = Field(default=4, ge=1, le=23)
+    # The primary provider's latest completed date may lag today by this many
+    # days before it is considered stale.
+    # The primary feed should always carry yesterday. A lag of one day is
+    # the normal state (today is still in progress); a lag of two means the
+    # ranks being traded are a day old, which is exactly the failure this
+    # whole check exists to catch.
+    data_freshness_max_primary_lag_days: int = Field(default=1, ge=0, le=14)
+    # Consecutive UTC calendar days with the same primary date before the feed
+    # is considered stalled. Same-day catch-up retries do not double-count.
+    data_freshness_max_no_advance_days: int = Field(default=2, ge=1, le=14)
+    # CMC publishes rows asset-by-asset. A date only counts as the primary
+    # feed's latest date once this fraction of cached assets covers it.
+    data_freshness_min_primary_coverage: float = Field(default=0.9, ge=0.5, le=1.0)
 
     model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
 

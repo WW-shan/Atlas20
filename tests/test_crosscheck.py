@@ -193,3 +193,44 @@ def test_current_secondary_marks_the_latest_primary_print_covered() -> None:
     assert result.passed
     assert result.latest_primary_covered is True
     assert result.latest_staleness_days == 0
+
+
+def test_ended_primary_verifies_on_overlap_when_the_venue_stops_first() -> None:
+    """A delisted series has no current print to protect.
+
+    MATIC's provider feed stops on 2025-03-24 and Binance stops quoting it on
+    2024-09-10, so the venue can never reach the primary's last print. The
+    overlap is still evidence about the price level - it is what catches a
+    Huobi-Token-style error - so an ended series is verified there, and the
+    caller records the days that rest on the primary provider alone.
+    """
+    primary = _frame(120, 100.0, "price")
+    venue = _frame(60, 100.5, "cg_price")
+
+    strict = compare_daily_prices(primary, venue)
+    relaxed = compare_daily_prices(primary, venue, require_latest_coverage=False)
+
+    assert not strict.passed and strict.reason == "secondary_stale"
+    assert relaxed.passed
+    assert relaxed.overlap_days == 60
+
+
+def test_ended_primary_still_rejects_a_level_error() -> None:
+    """Relaxing freshness must not relax the actual price comparison."""
+    primary = _frame(120, 100.0, "price")
+    venue = _frame(60, 2.5, "cg_price")
+
+    result = compare_daily_prices(primary, venue, require_latest_coverage=False)
+
+    assert not result.passed
+    assert result.reason in {"median_price_gap", "catastrophic_print"}
+
+
+def test_ended_primary_still_needs_a_real_overlap() -> None:
+    primary = _frame(120, 100.0, "price")
+    venue = _frame(5, 100.0, "cg_price")
+
+    result = compare_daily_prices(primary, venue, require_latest_coverage=False)
+
+    assert not result.passed
+    assert result.reason == "insufficient_overlap"

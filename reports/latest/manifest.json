@@ -1,243 +1,244 @@
 {
   "config_path": "config/base.yaml",
-  "config_sha256": "0f04ef49bf936743627d8834f9e40990c2f1ab16b89379108aa8bd4d05745203",
-  "code_commit": "a02dfe148190074b97acbbc97a48d69c8be9c314",
+  "config_sha256": "c4e0dc9729412388b480ba01892a58fc49854b14cc8cd5d24c6d4008a8dfc2fc",
+  "code_commit": "45c19afed3b1cada90c1fa6a4813abc3572b93f2",
   "pipeline_version": "0.2.2",
   "data_snapshot": {
-    "coingecko": "2026-09-21T03:04:52Z",
-    "coinmarketcap": "2026-09-20T16:26:20Z",
-    "coinpaprika": "2026-09-20T16:03:22Z",
-    "gateio": "2026-09-20T16:26:22Z"
+    "binance": "2026-09-21T19:19:56Z",
+    "coingecko": "2026-09-21T20:17:40Z",
+    "coinmarketcap": "2026-09-21T20:14:47Z",
+    "coinpaprika": "2026-09-21T20:14:22Z",
+    "gateio": "2026-09-21T19:12:39Z"
   },
-  "generated_at": "2026-09-21T03:06:28Z",
+  "generated_at": "2026-09-21T20:18:39Z",
   "artifacts": [
     {
       "kind": "daily_returns",
       "path": "daily_returns.csv",
-      "size": 1074459,
-      "sha256": "f20d2719d950ce22d61ba0c69ee3c7b43ed63675f7d51f8835d5ffbc06596033"
+      "size": 1075080,
+      "sha256": "0ea61230044b166c28c9d4c06bb4e4499d26d855fc89ed2bceaf24ef76eea5fe"
     },
     {
       "kind": "drawdowns",
       "path": "drawdowns.csv",
-      "size": 1255046,
-      "sha256": "475198995ce997e7448f505102e7385ce8d29a1f523887a8d9dbd2691d106478"
+      "size": 1258272,
+      "sha256": "7774e41a3c00e99c1f9c13577381859de109f11280b923d82b6ac1b2a8ff6d80"
     },
     {
       "kind": "equity_curves",
       "path": "equity_curves.csv",
-      "size": 1173229,
-      "sha256": "31529d3032054280a0f6d7578ddc27073a76784c1c19e30dba383d468770aca4"
+      "size": 1173780,
+      "sha256": "5a698a2c4f6b9178f85115d11d5c860de889ec2b3870d4c1eb6f96d7cda6c9bf"
     },
     {
       "kind": "regime_performance",
       "path": "regime_performance.csv",
-      "size": 6189,
-      "sha256": "e1c22f2d699f149d8b4b39cc1895ee7d164dc3a06dadd60a31e2a59d756b2fc0"
+      "size": 6183,
+      "sha256": "ce215a52cf2d791ad584813fb92197f4a889fca309f9f2faf6aec6597ef517cd"
     },
     {
       "kind": "selection_history",
       "path": "selection_history.csv",
-      "size": 842377,
-      "sha256": "348c63ae9fec45248e7fe3ef8ba634f95a6274cbb847e6a64a5b25edf25ddd04"
+      "size": 840789,
+      "sha256": "947b16c5354742c861fcd04ff0ff8a55d27b821fc17fbf035033248f26c3563f"
     },
     {
       "kind": "summary",
       "path": "strategy_summary.csv",
-      "size": 7431,
-      "sha256": "b3672fdcbbb87d65880d101217db0b62b2725de53f1662aa5848bdce55aff717"
+      "size": 7403,
+      "sha256": "2ea3e80b317151e3172eaeba4b78d0788f4238c7a4e45a82355f0c9bb97db828"
     },
     {
       "kind": "turnover",
       "path": "turnover_summary.csv",
-      "size": 2670,
-      "sha256": "92f18f7500570eec84bafac1ba0a17ed495214ac049b1d5eb5e7b3a03a445775"
+      "size": 2673,
+      "sha256": "0a7dbb6cef94931a4aa54852d7d603b6e3d8b72227fcfe5e9ac1d6434577634d"
     },
     {
       "kind": "weights",
       "path": "weights/BTC_BH__always_on.csv",
-      "size": 825751,
-      "sha256": "36d33b0b86e3abdc1ef098d8d25a4fa61729257f32cd218c48d0ebda02d4898d"
+      "size": 867984,
+      "sha256": "482c599687d7eea9c51e5664eeae35916bec7bc51197ac11fbda2f9a2ed744a2"
     },
     {
       "kind": "weights",
       "path": "weights/BTC_BH__bull_only.csv",
-      "size": 825751,
-      "sha256": "a8b61eb964f329d2691cef06f624418a2c7e0148805675af4c1ea0e4acdf5c1f"
+      "size": 867984,
+      "sha256": "ae66b8a78a925fde10a713f1b39a8abd2602025ccf7bdc020d46ba1f531c86b6"
     },
     {
       "kind": "weights",
       "path": "weights/ETH_BH__always_on.csv",
-      "size": 825751,
-      "sha256": "441271a0e3edc45dd15c014c391d04b1d489b68d37763548159abf9bf18c318c"
+      "size": 867984,
+      "sha256": "6d25e875773738c69dae8461e32966c53c5998fc6959999fde6abbbf909e25ae"
     },
     {
       "kind": "weights",
       "path": "weights/ETH_BH__bull_only.csv",
-      "size": 825751,
-      "sha256": "49c56a847da4b345a0fa3fc2c526f0219041e58dadfb226f38bd596be602aac5"
+      "size": 867984,
+      "sha256": "de70ccfe4c52b50bda4a67a1bc9fab0d1ad9aa450e37fca9dbb6bc77159afc6a"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_EQ__always_on.csv",
-      "size": 1492950,
-      "sha256": "33f544478bea49a41d3c2316d07b7d68a40c8987393de4adbc21bbe8f3426e86"
+      "size": 1535312,
+      "sha256": "bcc53cedcd0f0975d14809c139b9c992a22c0276f57b4d018a8e2f8e1304bf6d"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_EQ__bull_only.csv",
-      "size": 1156193,
-      "sha256": "58488c2054fd482d79529bc0eb036b6b09c19942e6ea6db6dc34a0d6233a6d1f"
+      "size": 1198675,
+      "sha256": "1d57efd7fb3f63a89f0606264120bde70803c9027793ba312e0eaa990bc46601"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top4_biweekly__always_on.csv",
-      "size": 955668,
-      "sha256": "8517de4041b78edf201d264e210ee9d3db5a9dd7ab17d9d131f15fe35005eff7"
+      "size": 997971,
+      "sha256": "b7f00beb6085dad0c1c9257a7b7bf6e315f4534ef021890ac4fad8cfa7dfaccf"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top4_biweekly__bull_only.csv",
-      "size": 890348,
-      "sha256": "da323e81da3e4e5a1f28dc9a6cac1609d216430b92e1dc850ffbfa905a5c4724"
+      "size": 932621,
+      "sha256": "327e1b3acfdeab0b01ac8a5ba8c7a2e72468a5cd7b60c7bd63cd631df0a0fe47"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top4_monthly__always_on.csv",
-      "size": 953847,
-      "sha256": "b39917869ddb86490f6053255000d05cfc73c598408593170989c0867bdf33ab"
+      "size": 996096,
+      "sha256": "ee0af097666c3ea010ef104a882bbab01a44716020f0568b99fbcc0314a0d1cb"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top4_monthly__bull_only.csv",
-      "size": 889228,
-      "sha256": "fb4c2ebfed21586c7f3994013c764286baf1cde2b26794c4b37bb8e609c0b6bf"
+      "size": 931495,
+      "sha256": "e3f4ff48cda15a354612a48209f9858e824ba3753ebd820cce1db16353127ecb"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top6_biweekly__always_on.csv",
-      "size": 1022283,
-      "sha256": "8b827f4f802d27740bf736d37a4315dba072f6823e79805baf9db2a02d97024c"
+      "size": 1064636,
+      "sha256": "08002b64d72684cf1cf87dec46683e0a7e0e77efffd6765cc107ee62aff97f29"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top6_biweekly__bull_only.csv",
-      "size": 923386,
-      "sha256": "44ec2686dea91d09b0d8ee8fa81e67c272584406ad1189b80406990d018bd9fa"
+      "size": 965702,
+      "sha256": "2b6458501bf65d537f02ce92e1048fdb4f94e49b7f9ac254720a6f6307943cfe"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top6_monthly__always_on.csv",
-      "size": 1019449,
-      "sha256": "b98a6263f211fb8eba2c6e8a51ae07ec19547c4c086a723f1520b1cb74df84c8"
+      "size": 1061677,
+      "sha256": "db4e540d82525f3d271a3a3a0e8ed8890ed62df9d7d3df0ccd19adc255498e14"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top6_monthly__bull_only.csv",
-      "size": 921694,
-      "sha256": "be870b644b557054f02774f451d021aa7217a99f8c21612fdf3ce376cf969840"
+      "size": 963973,
+      "sha256": "3b4c581296100d45d6573db801600400c5cf0a3d2ace8dc78a6ea074ed4eb644"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top8_biweekly__always_on.csv",
-      "size": 1089275,
-      "sha256": "5e84aafe3369d620ba6a2f95e0d6d94734bc678ffd0aa13e3a711d60c7f56c2c"
+      "size": 1131659,
+      "sha256": "d86c6340f5cb7f73194ec146c95a8e251412cd504e2d27954d5bcdc0812d6c8c"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top8_biweekly__bull_only.csv",
-      "size": 956693,
-      "sha256": "d675b36903fb773d39191059c3ee9fba61b2a1afce0a60aa2084fd07e9c03ae7"
+      "size": 999061,
+      "sha256": "32238e7e27e3df03c7ce14431b498b901197e58668a3a4d547f90db5987fcb70"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top8_monthly__always_on.csv",
-      "size": 1085444,
-      "sha256": "099d33c73a199b9bb067e1aa0bd45ac70d570589c7c4db3505d8b40ea5f652ec"
+      "size": 1127824,
+      "sha256": "612ee67d332bfd595953892b8eeacb370f98dba0d399fea0f4365d2d9ed4caee"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_MOM_top8_monthly__bull_only.csv",
-      "size": 954418,
-      "sha256": "c5aaca7d7d882bb04e090cf64438351114451f78ccf818eabd30a9e9aa6f2ed7"
+      "size": 996782,
+      "sha256": "89d412f955a2bb965304f06bf90f399c886be3c5471bb247e796e57f5aca7b69"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top2_biweekly__always_on.csv",
-      "size": 927454,
-      "sha256": "9c0abf27c05730e699cda03afc1e1c23366578c420c7f1aca86a43d4344a4b5e"
+      "size": 970575,
+      "sha256": "4c1c9e5eb7a181c74b722f713e76d05886603b4ee63c650648fd062fc6e6e6db"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top2_biweekly__bull_only.csv",
-      "size": 878166,
-      "sha256": "4572e1265b77f9287ab53256f538152c2fa2d7a3b08233bb10d625a9d2f2c7eb"
+      "size": 920662,
+      "sha256": "cb7150c04b7f3e4e122ee5ab1632fbd3ef676d88ba661236ad9654d7768a9e58"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top2_monthly__always_on.csv",
-      "size": 927210,
-      "sha256": "f59782fb3f9869e6c61980e43d6829fe4ac7063472b74fea4486b81b7f4fa481"
+      "size": 971344,
+      "sha256": "6d3c5a4d43595b6cfbb306c32bbe4e998f08d46ed57ecb37d496ee6569f7223b"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top2_monthly__bull_only.csv",
-      "size": 875766,
-      "sha256": "6f676eccc0cb6516525ef66289abcdf7ed5be8c9feea6ff7e751066835803089"
+      "size": 919523,
+      "sha256": "e20b9db59ffe1beb818e2cf03ee03b3b615c2eacef9c086ef22126f7a20853de"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top3_biweekly__always_on.csv",
-      "size": 977627,
-      "sha256": "646027d832dd123ce25ef0e5ab0a34c66de9f9499bc3c4115e14901f2b0a5b58"
+      "size": 1020112,
+      "sha256": "90b3b76cfd81396e7561d6a55c44c19fe3924de9c13063d32e1ed27723459848"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top3_biweekly__bull_only.csv",
-      "size": 902036,
-      "sha256": "34c344c3bfd4b3f1213f4d6de00a2bd65fefa3afc9aac03d3d8649f5592bafda"
+      "size": 943669,
+      "sha256": "148498910b1f4bdbf9e0785ea070a7e7c7f55e110513115bda8f10436ab88ffa"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top3_monthly__always_on.csv",
-      "size": 977515,
-      "sha256": "a61b9284037963d1ff86ae5b445925ebe34f66df4052250a15ee84d57364f08f"
+      "size": 1019696,
+      "sha256": "b0d9c30b792e316c42ab0be41c0960116ca5c961626eb21a30a6ef929a261c40"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top3_monthly__bull_only.csv",
-      "size": 900276,
-      "sha256": "b259c651391baabf03e52803d7b9782ee8d58acefef98f5d079e10a597cd3e5e"
+      "size": 942474,
+      "sha256": "82e1f3c17d2832f746afa831c03672d2dedd42d29304905967832824276eb24a"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top4_biweekly__always_on.csv",
-      "size": 1032935,
-      "sha256": "e931244d0626ce6672e9588956335eef41051bd380d6e1806b9a538ff9ca953b"
+      "size": 1074330,
+      "sha256": "0ddd468367caaf4b35f0bbb4aa56f3c316de2bacf101bd9e7f051dd10d2b429f"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top4_biweekly__bull_only.csv",
-      "size": 930238,
-      "sha256": "211d5ca28180216a575b31c6d09da46d04229960e2dd03b62150b878eb41c2aa"
+      "size": 971382,
+      "sha256": "71a34ab6fe40aacdb37019bd9d380fa54f29ed10497cc445fd8c97a4612c0429"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top4_monthly__always_on.csv",
-      "size": 1029508,
-      "sha256": "3eae7cacca2b4c37864c23cf21302b6f135b3e47cb17baaef38d7fd078ab4dca"
+      "size": 1072695,
+      "sha256": "76bd191a9234042d96a6cacd301e86d6d7ae93c9d4554544e20a59bbe97a08de"
     },
     {
       "kind": "weights",
       "path": "weights/TOP20_SECTOR_top4_monthly__bull_only.csv",
-      "size": 925812,
-      "sha256": "ac4489eedc9f391f210285c6d813909a6a79f2ada41873ca4c79a3dfd7179327"
+      "size": 968039,
+      "sha256": "26e3db4fcd5c35e181f67ff6e62eb11bbd6ea81115cfeda9bb07296c74008830"
     },
     {
       "kind": "yearly_returns",
       "path": "yearly_returns.csv",
-      "size": 4576,
-      "sha256": "c78ac60869402bc13938389098910e214e75f0d09048139b970d3eebd208284a"
+      "size": 4579,
+      "sha256": "90a0360d41289822ff730fe86cb525f815d71fedbad4720e27f1c17322d0191d"
     }
   ]
 }

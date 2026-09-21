@@ -91,15 +91,35 @@ universe:
     - stepn
     - huobi-token
     - bitcoin-sv
-  # Tickers CMC no longer lists but still serves history for. Verified by
-  # fetching each id directly; MATIC has no CMC history left at all (the
-  # post-migration token is POL), so the Polygon MATIC era cannot be restored
-  # from this provider.
+  # Tickers CMC no longer lists in its symbol->id map but still serves history
+  # for, keyed by the ticker CoinGecko reports. Without an entry here the
+  # candidate is dropped as "no CoinMarketCap id" and its point-in-time Top-20
+  # slots are silently handed to the next-ranked coin.
+  #
+  # MATIC is the one that mattered: it ranked inside the real Top-20 on 123 of
+  # the strategy's 215 rebalance dates (best rank 6) and was missing from the
+  # panel until 2026-09-22. CMC does still serve the series (2,158 rows to
+  # 2025-03-24, when the token migrated to POL) - an earlier check concluded
+  # otherwise because the client gave up on the first empty page (see
+  # `_EMPTY_PAGE_REWIND_SECONDS`). Fantom is deliberately absent: it never
+  # ranked better than 21st on a rebalance date, so it displaced nobody.
   cmc_symbol_aliases:
     EOS: 1765
     MKR: 1518
     HT: 2502
     CEL: 5692
+    MATIC: 3890
+    FTM: 3513
+  # Historical watchlist coins the panel provably cannot carry, with the reason
+  # and the cost. Anything in `legacy_candidate_ids` that is neither onboarded
+  # nor listed here fails the data-chain audit, so a name cannot silently
+  # disappear from the point-in-time Top-20 the way MATIC did.
+  legacy_unavailable:
+    bitcoin-sv: >-
+      CoinGecko deleted the coin, and the panel is keyed on its CoinGecko id, so
+      there is no candidate row to onboard. It held a real Top-20 slot on 7 of
+      the strategy's 215 rebalance dates (all in 2021-2022); on those dates the
+      next-ranked coin is promoted in its place.
   min_history_days: 90
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
@@ -247,6 +267,28 @@ providers:
     rate_limit_seconds: 0.05
     quote_currency: USDT
     pair_aliases: {}
+  # A second exchange venue. Gate.io alone cannot corroborate itself: when CMC
+  # disagrees with it there is no way to tell which side is wrong. Binance's
+  # api.binance.com answers 451 from this host and api.binance.us is a far
+  # thinner market (51 of its 73 panel pairs traded under $10k/day), so the
+  # venue is reached through Binance's official public data mirror
+  # data-api.binance.vision - same book, no key, no geo-block. It carries no
+  # history for delisted names (HT, CEL answer "Invalid symbol"), so it
+  # supplements Gate.io rather than replacing it. Like every other validator it
+  # only votes; CMC still owns panel values.
+  binance:
+    base_url: https://data-api.binance.vision/api/v3
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff_seconds: 1.0
+    rate_limit_seconds: 0.1
+    quote_currency: USDT
+    history_days: 400
+    # Thin days are dropped rather than counted: a $2/day "close" is a stale
+    # print, and counting it would block a healthy asset as a false
+    # disagreement with CMC.
+    min_daily_dollar_volume: 100000.0
+    pair_aliases: {}
   # CoinPaprika is the final fallback when neither the second source nor
   # CoinGecko can provide the tie-break vote. Its free historical endpoint is
   # limited to the trailing 365 days.
@@ -275,6 +317,11 @@ data_quality:
   # the asset simply is not tradable in this universe.
   min_price_days: 60
   min_market_cap_days: 60
+  # Do not append a new UTC date to the panel until at least this fraction of
+  # admitted assets has a CMC row for that date. CMC updates assets
+  # asynchronously, and a one-asset partial date creates terminal NaN returns
+  # for every other holding.
+  min_daily_coverage: 0.9
   require_metadata: false
   # Recent CMC prints are verified against Gate.io (or CoinGecko for unlisted
   # assets) before an asset is allowed into the panel; a disagreement triggers

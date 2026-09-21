@@ -6,7 +6,9 @@ from sqlmodel import Session
 from atlas20.api.dependencies.auth import verify_api_key
 from atlas20.api.dependencies.ratelimit import limiter
 from atlas20.api.repositories import get_session
-from atlas20.api.schemas import DataAlert, DataSource, UniverseTimelinePayload
+from atlas20.api.data_freshness import evaluate_data_freshness
+from atlas20.api.schemas import DataAlert, DataFreshness, DataSource, UniverseTimelinePayload
+from atlas20.api.settings import get_settings
 from atlas20.api.services import ConsoleService, get_console_service
 
 router = APIRouter(prefix="/api", tags=["universe"])
@@ -25,6 +27,11 @@ def get_sources(service: ConsoleService = Depends(get_console_service)) -> list[
 @router.get("/universe/alerts", response_model=list[DataAlert])
 def get_alerts(service: ConsoleService = Depends(get_console_service)) -> list[DataAlert]:
     return service.get_data_alerts()
+
+
+@router.get("/data/freshness", response_model=DataFreshness)
+def get_data_freshness() -> DataFreshness:
+    return DataFreshness.model_validate(evaluate_data_freshness(get_settings()))
 
 
 @router.post("/universe/refresh", status_code=202, dependencies=[Depends(verify_api_key)])

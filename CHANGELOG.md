@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Recovered Polygon's MATIC era, the largest survivorship hole found so
+  far.** CoinMarketCap returns an empty page when the requested window ends
+  more than one page (400 days) after a coin's last print, and the client read
+  that as "this coin has no history". Any delisted or migrated ticker therefore
+  vanished from the candidate pool without a warning. MATIC ranked inside the
+  real Top-20 on 123 of the strategy's 215 rebalance dates (best rank 6) and
+  was absent from the panel entirely. The client now rewinds the end cursor and
+  retries (`_EMPTY_PAGE_REWIND_SECONDS`), MATIC and FTM are mapped through
+  `universe.cmc_symbol_aliases`, and the audit fails if any watchlist coin is
+  neither onboarded nor explicitly recorded in `universe.legacy_unavailable`.
+  Restoring the series moves the best momentum variant from +176% to +344%
+  total return on an otherwise identical run.
+- **Venue windows follow the asset, not the calendar.** Gate.io and Binance
+  were always asked for the trailing 400 days from today, so a pair the venue
+  delisted months ago returned nothing and the asset was refused as
+  unverified. The window is now anchored to the asset's own series (its whole
+  length when the feed has ended), and the cross-check verifies the overlap
+  instead of demanding coverage of a print that will never arrive, recording
+  the days that rest on CoinMarketCap alone.
+- **A delisted holding is liquidated, not carried flat and not fatal.** The
+  engine used to abort the whole run when a held asset's provider feed ended.
+  It now marks the position at the last observed close, charges the exit cost
+  and moves the proceeds to cash, while an interior provider gap still fails
+  closed.
+- Audit: stale empty CoinMarketCap backfill windows are detected, empty tail
+  windows are distinguished from empty backfills, interior provider gaps are
+  named, ended feeds are listed with their unverifiable tails, and the
+  survivorship check no longer compares the panel only against coins that had
+  already been fetched.
+- Binance venue moved from the thin `api.binance.us` book (51 of 73 panel pairs
+  under $10k/day, ENJ at $116/day) to Binance's official public data mirror
+  `data-api.binance.vision`, with a $100k/day liquidity floor on the days it
+  is allowed to certify.
+- A transient CoinMarketCap tail failure no longer deletes an already
+  backfilled asset from `candidate_assets.json`. The refresh now reuses the
+  complete on-disk history and records a warning, instead of recreating a
+  survivorship hole (the live IMX failure that triggered this fix).
+- Daily-refresh stall detection now counts distinct UTC calendar days rather
+  than refresh attempts, so the same-day catch-up retry cannot turn a healthy
+  feed into a false `stalled` readiness failure.
+- Bull-offense research now removes the diversified 35% per-coin cap from its
+  deliberately concentrated books and from the BTC yardstick. The previous
+  run silently compared strategies against 35% BTC / 65% cash and understated
+  the actual concentration. After the correction, 128/144 cells beat BTC and
+  35/36 unlevered x1 cells beat BTC; x2 results remain explicitly unfunded and
+  non-investable until borrow/funding costs are modelled.
+
+### Changed
+
+- `reports/latest/` regenerated from the corrected universe; the README
+  snapshot section and its regression test follow the new numbers.
+- Docker Compose enables the daily refresh by default; standalone runs can
+  still opt in with `ATLAS20_DAILY_REFRESH_ENABLED=true`.
+
 ## [0.2.2] - 2026-06-08
 
 ### Fixed

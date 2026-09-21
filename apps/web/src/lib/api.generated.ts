@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data/freshness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Data Freshness */
+        get: operations["get_data_freshness_api_data_freshness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/options": {
         parameters: {
             query?: never;
@@ -593,6 +610,36 @@ export interface components {
             title: string;
             /** Ts */
             ts: string;
+        };
+        /** DataFreshness */
+        DataFreshness: {
+            /** Checked At */
+            checked_at: string;
+            /** Deadline */
+            deadline: string;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Last Success Date */
+            last_success_date?: string | null;
+            /** Latest Independent Date */
+            latest_independent_date?: string | null;
+            /** Latest Primary Date */
+            latest_primary_date?: string | null;
+            /** No Advance Days */
+            no_advance_days: number;
+            /** Reason */
+            reason: string;
+            /** Scheduled For */
+            scheduled_for: string;
+            /** Source Dates */
+            source_dates: {
+                [key: string]: string | null;
+            };
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "pending" | "running" | "stale" | "missing" | "failed" | "stalled" | "disabled";
         };
         /** DataSource */
         DataSource: {
@@ -1259,6 +1306,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_data_freshness_api_data_freshness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataFreshness"];
                 };
             };
         };

@@ -5,6 +5,7 @@ from __future__ import annotations
 import atexit
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -20,6 +21,7 @@ from sqlmodel import Session
 from atlas20.api._time import utc_iso_from_timestamp
 from atlas20.config import load_config
 from atlas20.api.config_adapter import to_research_config
+from atlas20.api.data_freshness import write_refresh_state
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.services_report import generate_run_report_with_warnings
@@ -31,6 +33,7 @@ from atlas20.reporting.report import _pipeline_version, _publish_report_dir, _wr
 
 
 PRESET_SLUG_PATTERN = re.compile(r"[^a-z0-9_]+")
+logger = logging.getLogger(__name__)
 
 
 def _cleanup_metrics_files() -> None:
@@ -317,7 +320,9 @@ def run(run_id: str, settings: Settings | None = None) -> int:
 
     try:
         if strategy == "universe_refresh":
+            write_refresh_state(settings, run_id=run_id, status="running")
             _execute_universe_refresh(settings)
+            write_refresh_state(settings, run_id=run_id, status="completed")
             duration_s = max(0, int(time.monotonic() - started))
             with Session(engine) as session:
                 RunsRepo(session).update_metrics_from_completion(
@@ -364,6 +369,11 @@ def run(run_id: str, settings: Settings | None = None) -> int:
             print(f"report generation failed for {run_id}: {exc}", file=sys.stderr)
         return 0
     except Exception as exc:
+        if strategy == "universe_refresh":
+            try:
+                write_refresh_state(settings, run_id=run_id, status="failed", error=str(exc)[:1000])
+            except Exception:
+                logger.exception("Failed to persist universe refresh failure state")
         with Session(engine) as session:
             RunsRepo(session).update_metrics_from_completion(
                 run_id,

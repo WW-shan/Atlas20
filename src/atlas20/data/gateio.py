@@ -34,10 +34,20 @@ class GateIOClient:
         self.logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
 
-    def _cache_path(self, pair: str, limit: int) -> Path:
+    def _cache_path(
+        self,
+        pair: str,
+        limit: int,
+        *,
+        start: pd.Timestamp | None = None,
+        end: pd.Timestamp | None = None,
+    ) -> Path:
         directory = self.raw_dir / "candles"
         directory.mkdir(parents=True, exist_ok=True)
-        return directory / f"{pair}_{limit}.json"
+        if start is None and end is None:
+            return directory / f"{pair}_{limit}.json"
+        window = f"{pd.Timestamp(start).date().isoformat()}_{pd.Timestamp(end).date().isoformat()}"
+        return directory / f"{pair}_{limit}_{window}.json"
 
     def resolve_pair(self, symbol: str) -> str:
         """Return the configured Gate.io pair for a CoinGecko ticker."""
@@ -123,14 +133,27 @@ class GateIOClient:
         symbol: str,
         *,
         limit: int = 400,
+        start: pd.Timestamp | None = None,
+        end: pd.Timestamp | None = None,
         force: bool = False,
     ) -> pd.DataFrame:
-        """Fetch the most recent daily candles for ``<SYMBOL>_USDT``."""
+        """Fetch daily candles for ``<SYMBOL>_USDT``.
+
+        Without a window this returns the most recent ``limit`` candles, which
+        is what a live asset needs. An asset whose feed has ended needs the
+        window that covers *its* series instead: the trailing-400-days window
+        holds nothing for a pair the venue delisted months ago.
+        """
         pair = self.resolve_pair(symbol)
+        params: dict[str, Any] = {"currency_pair": pair, "interval": "1d", "limit": limit}
+        if start is not None:
+            params["from"] = int(pd.Timestamp(start).timestamp())
+        if end is not None:
+            params["to"] = int(pd.Timestamp(end).timestamp())
         payload = self._request_json(
             "spot/candlesticks",
-            {"currency_pair": pair, "interval": "1d", "limit": limit},
-            self._cache_path(pair, limit),
+            params,
+            self._cache_path(pair, limit, start=start, end=end),
             force=force,
         )
         return self._frame_from_payload(payload)

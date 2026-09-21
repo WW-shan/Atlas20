@@ -36,6 +36,10 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
         fixed_now - timedelta(minutes=2),
     )
     _write_raw_file(
+        raw_root / "binance" / "candles" / "BTCUSDT_2025-08-17_2026-09-20.json",
+        fixed_now - timedelta(minutes=3),
+    )
+    _write_raw_file(
         raw_root / "coinpaprika" / "history" / "cel-celsius_2025-09-21_2026-09-20.json",
         fixed_now - timedelta(minutes=1),
     )
@@ -50,8 +54,10 @@ def test_get_data_sources_reads_raw_provider_mtimes(tmp_path, monkeypatch):
     assert sources["coingecko"].last_sync_seconds == 30
     assert sources["coinmarketcap"].status == "degraded"
     assert sources["gateio"].status == "healthy"
+    assert sources["binance"].status == "healthy"
+    assert sources["binance"].last_sync_seconds == 180
     assert sources["coinpaprika"].status == "healthy"
-    assert set(sources) == {"coingecko", "coinmarketcap", "gateio", "coinpaprika"}
+    assert set(sources) == {"coingecko", "coinmarketcap", "gateio", "binance", "coinpaprika"}
 
 
 def test_get_data_sources_uses_five_minute_cache(tmp_path, monkeypatch):

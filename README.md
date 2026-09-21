@@ -46,6 +46,7 @@ flowchart LR
     CG[CoinGecko<br/>candidate catalog + metadata + fallback check]
     CMC[CoinMarketCap<br/>price, volume, market cap]
     GATE[Gate.io<br/>primary independent check]
+    BIN[Binance<br/>second independent venue]
     CP[CoinPaprika<br/>fallback third source]
     CFG[YAML configs<br/>windows, filters, strategy grid]
     PIPE[Research pipeline<br/>universe, regime, backtests]
@@ -59,6 +60,7 @@ flowchart LR
     CG --> PIPE
     CMC --> PIPE
     GATE -. primary independent check .-> PIPE
+    BIN -. second venue vote .-> PIPE
     CP -. final tie-break fallback .-> PIPE
     CFG --> PIPE
     PIPE --> REPORTS
@@ -185,6 +187,7 @@ Ruff, plus Python and frontend dependency audits.
 | Persistence | SQLModel tables, Alembic migrations, repository layer |
 | Worker | Queue claim, heartbeat, cancellation, stale-run recovery, subprocess isolation |
 | Metrics | Prometheus counters, histograms, worker liveness gauge, `/metrics` scrape targets |
+| Data freshness | Daily refresh heartbeat, `/api/data/freshness`, `/readyz` degradation, structured watchdog logs |
 | Reports | Markdown, CSV, PNG, PDF fallback, zip bundle, manifest verification |
 | Deployment | Dockerfile, `apps/web/Dockerfile`, Docker Compose, GHCR image references |
 | Security | API key/JWT hooks, prod settings gates, report path validation, log redaction |
@@ -228,9 +231,40 @@ testing notes.
   public candle API, covers the delisted CEL and HT pairs, and never rewrites a
   panel value. A full refresh therefore does not depend on CoinGecko's small
   free-tier request budget.
+- Binance: second exchange venue, reached through its official public data
+  mirror `data-api.binance.vision`. `api.binance.com` answers HTTP 451 from
+  this host, and `api.binance.us` is a different, much thinner book - 51 of the
+  73 panel pairs it quoted traded under $10k/day and 27 under $1k, so its
+  "close" was often a stale print (it reported ENJ 14% away from CMC purely
+  from illiquidity). The mirror is the same venue and the same order book with
+  no key and no geo-block: 79 of 101 panel pairs, every one of them above
+  $100k/day. Days below `providers.binance.min_daily_dollar_volume` are dropped
+  rather than counted, so a thin day reads as "this venue cannot certify
+  today" instead of as a disagreement with CMC. Like every other validator it
+  only votes; CMC still owns every panel value.
 - CoinPaprika: fallback third source when Gate.io or CoinGecko cannot provide
   the adjudicating vote. Its free historical endpoint covers the trailing 365
   days, which matches the configured cross-check window.
+
+The Docker Compose deployment enables `ATLAS20_DAILY_REFRESH_ENABLED` by
+default; a standalone API run can set it explicitly. The scheduler queues one
+refresh at the configured UTC time and writes an atomic heartbeat to
+`data/data_freshness.json`. The heartbeat records the latest date from CMC and
+each independent source, whether the refresh completed, and whether the
+primary date advanced. `GET /api/data/freshness` exposes that state; `/readyz`
+returns 503 for `stale`, `missing`, `failed`, or `stalled`. A watchdog logs the
+same state every 30 minutes with the `data_freshness` structured field, so
+stopped or non-advancing feeds are visible in API logs even before the next
+backtest.
+
+CMC finalises day D's close somewhere after 00:00 UTC on D+1 and is sometimes
+still publishing when the job fires, so a second conditional attempt runs
+`ATLAS20_DAILY_REFRESH_CATCHUP_OFFSET_HOURS` later (default 4). It queues a
+refresh only while the last completed day is still missing, so a normal day
+costs nothing and a late publication is picked up within hours instead of the
+next morning. The readiness gate treats a panel that is a full day old as
+`stale`: yesterday's close is the baseline, so `MAX_PRIMARY_LAG_DAYS=1` allows
+exactly that and nothing worse.
 
 Universe ranks are built from the provider's own historical market cap, so
 "was this coin top-20 on that date?" is answered with real supply data. There
@@ -265,20 +299,28 @@ Git except for the directory placeholder.
 
 Using the cached public-data run included in this workspace:
 
-- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on`
-- Best sector variant: `TOP20_SECTOR_top3_monthly__bull_only`
-- BTC buy-and-hold CAGR: about 19.4%
-- Top-20 equal-weight CAGR: about 8.8%
-- Best momentum CAGR: about 19.0%
-- Best sector CAGR: about 15.8%
+- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on` - +344% total,
+  CAGR about 29.8%, Sharpe 0.73, max drawdown -82%
+- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only` - CAGR about 15.4%
+- BTC buy-and-hold CAGR: about 19.4% (+176% total)
+- Top-20 equal-weight CAGR: about 10.1%
+- Best sector CAGR: about 15.4%
 
-Read those honestly: the best rotation variant does not even match BTC
-buy-and-hold, and it gets there with a worse drawdown (-87% for momentum,
--82% for the sector book, versus -77% for BTC). With the universe rebuilt from
-real point-in-time CoinMarketCap market caps, **the diversified rotation
-family has no edge over simply holding BTC.** The strategy lines that do beat
-BTC decisively are the concentrated ones: the single-leader sector rotation
-and the concentrated bull-offense family.
+Read those honestly. The momentum book does beat BTC buy-and-hold on return
+and Sharpe, but it pays for it with a deeper drawdown (-82% versus -77%) and it
+only wins because the 2021 leg is enormous; it loses to BTC in 2024-2026. The
+concentrated bull-offense family below is what produces the large multiples.
+
+**These numbers moved on 2026-09-22, and the move is a data correction, not a
+strategy change.** Polygon's MATIC ranked inside the real Top-20 on 123 of the
+215 rebalance dates (best rank 6) and was missing from the panel entirely: the
+CoinMarketCap client read an empty page as "this coin has no history" for any
+series that had already ended, so a coin that migrated tickers silently
+disappeared. Restoring it took the best momentum variant from +176% to +344%
+(an A/B run of the same engine, same window, same frictions, differing only in
+whether the recovered series is present). Every number in this section is
+generated from `reports/latest/` by the pipeline and pinned by
+`tests/test_checked_in_report_snapshot.py`.
 
 The BTC benchmark is anchored on the first day of the backtest window, so the
 comparison is against a real buy-and-hold, not a benchmark that sat in cash
@@ -302,6 +344,19 @@ Two biases had to be removed before any of these numbers meant anything:
    where they belong: LUNC's last Top-20 appearance is 2022-05-06, days before
    the collapse; FTT's is 2022-11-04, days before FTX failed.
 
+   The watchlist alone was not enough. A coin whose ticker left
+   CoinMarketCap's symbol map (a rebrand or a token migration) resolved to "no
+   provider id" and dropped out of the pool, and the audit could not see it
+   because it only compared against coins that had already been fetched. Two
+   guards close that hole: `universe.cmc_symbol_aliases` maps the retired
+   tickers that still have history (EOS, MKR, HT, CEL, MATIC, FTM), and the
+   audit now fails if any watchlist coin is neither onboarded nor explicitly
+   recorded in `universe.legacy_unavailable` with a reason. MATIC was recovered
+   this way; Fantom was checked and never ranked better than 21st on a
+   rebalance date, so it displaced nobody; Bitcoin SV is recorded as
+   un-onboardable (CoinGecko deleted it, and the panel is keyed on its id) and
+   costs 7 rebalance dates.
+
 3. **Unverified provider prints.** CoinMarketCap is the only price source, so
    a corrupted block there is invisible from the inside - every Huobi Token row
    during a 34-day bad block still satisfied
@@ -318,17 +373,27 @@ Two biases had to be removed before any of these numbers meant anything:
    refused by default (`data_quality.require_cross_check: true`); the audit
    records the latest primary/secondary dates and the staleness gap.
 
+   A series that has **ended** is the one exception, because there is no
+   current print to protect: a delisted or migrated asset is verified over the
+   overlap its venue still has, and the audit prints how many trailing days
+   rest on CoinMarketCap alone. Venue requests follow the asset's own window
+   rather than "the last 400 days from today", which is what lets a pair the
+   venue stopped quoting months ago be checked at all.
+
    The Celsius case is now confirmed: CMC quotes ~$19-44 while CoinGecko and
    Gate.io both quote ~$0.004-0.07, so CMC is the isolated outlier and CEL is
-   refused. Huobi Token is also refused: CMC's recent series has a 31% median
-   gap and a 3.4x latest gap versus CoinGecko, and Gate.io agrees with
-   CoinGecko at a 2.0% median gap. Binance's public data mirror was tested but
-   does not list either HTUSDT or CELUSDT, so it cannot cover these two cases.
-   This is why the pipeline does not accept a median-only third-source
-   confirmation. "Disagrees" and "could not be checked" remain separate
-   states: a proven disagreement blocks the asset, while a missing second
-   source is recorded as unverified; with the new default it is refused rather
-   than silently admitted.
+   refused. Huobi Token is also refused: CMC's recent series sits 23.6% away
+   (median) and 3.1x away (latest) from Gate.io, while CoinGecko independently
+   agrees with Gate.io to within 0.003% on the latest print - the two venues
+   are not related to each other, so CMC is the outlier. Binance does not list
+   either HTUSDT or CELUSDT, so those two cases still resolve through
+   CoinGecko, which is exactly why the pipeline does not accept a median-only
+   third-source confirmation.
+
+   "Disagrees" and "could not be checked" remain separate states: a proven
+   disagreement blocks the asset, while a missing second source is recorded as
+   unverified; with the new default it is refused rather than silently
+   admitted.
 
 4. **Missing returns are not silently flat.** Interior provider gaps are
    carried at the last observed price, and the first print after the gap applies
@@ -341,11 +406,28 @@ Two biases had to be removed before any of these numbers meant anything:
 `scripts/audit_data_chain.py` re-checks the whole chain - provider cache
 integrity, panel sanity, price-level corruption, latest-date independent-source
 coverage, terminal missing-return handling, feed continuity, point-in-time
-ranking and execution freshness - and prints PASS/WARN/FAIL. Current state:
-35 PASS, 2 WARN, 0 FAIL. The remaining warnings are the uncharged funding cost
-on leveraged exposure and 36 CMC rows where reported market cap differs from
-`price * supply` by more than 1% (rankings still use CMC's reported market cap
-directly). Run it before trusting any backtest.
+ranking, real point-in-time Top-N membership and execution freshness - and
+prints PASS/WARN/FAIL. Current state: 43 PASS, 6 WARN, 0 FAIL. The warnings are
+
+* 37 CMC rows where reported market cap differs from `price * supply` by more
+  than 1% (rankings still use CMC's reported market cap directly);
+* the uncharged funding cost on leveraged exposure;
+* the point-in-time Top-N members the panel cannot carry, measured on the
+  strategy's real rebalance dates rather than on calendar days: USTC is missing
+  on 15 of them (excluded as a stablecoin by name) and BSV on 7 (delisted from
+  CoinGecko, which the panel is keyed on), so the next-ranked coin is promoted
+  in their place;
+* two ended feeds, MATIC (to 2025-03-24) and FTM (to 2025-01-13). Their series
+  stop because the tokens migrated; the engine liquidates a holding at the last
+  print instead of carrying it flat, and the audit records how many trailing
+  days rest on CoinMarketCap alone (MATIC 195 days, FTM 0). Both are verified
+  against Binance over their own length - 1,953 overlapping days for MATIC and
+  2,006 for FTM - because a delisted series has no current print for a venue to
+  confirm;
+* three short interior provider gaps (LINK 1 day, CRV 4 days, KCS 1 day, all
+  around 2022-07-31), which the panel carries at the last observed price.
+
+Run it before trusting any backtest.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
@@ -359,43 +441,50 @@ the pipeline replaces atomically on every run).
 
 Latest run over the same window:
 
-- 122 of 144 parameter combinations beat BTC buy-and-hold.
-- The grid median is 18.4x total return (CAGR ~67.9%) versus BTC's 2.76x.
-- The median maximum drawdown is -87%; the best cells exceed -91%.
+- 128 of 144 parameter combinations beat BTC buy-and-hold.
+- The grid median is 31.2x total return (CAGR ~83.5%) versus BTC's 2.76x.
+- The median maximum drawdown is -82.3%; the worst cell loses -97.5% and the
+  least-bad drawdown is -53.7%.
 
 The headline numbers survive the survivorship correction - the family's BTC
 trend exit simply steps aside before the collapses (it was flat through both
 the Terra and FTX failures). They are still not a forecast, and the yearly
 breakdown in `bull_offense_yearly_returns.csv` is the honest way to read them:
 
-| Year | Best cell | BTC |
+| Year | Best total-return cell (`x2`) | BTC |
 | --- | --- | --- |
-| 2021 | +8,560% | +57% |
-| 2022 | -11% | -65% |
-| 2023 | +305% | +155% |
-| 2024 | +305% | +112% |
-| 2025 | -40% | -7% |
-| 2026 YTD | -43% | -9% |
+| 2021 | +31,396% | +57% |
+| 2022 | -36% | -65% |
+| 2023 | +546% | +154% |
+| 2024 | +78% | +112% |
+| 2025 | -50% | -7% |
+| 2026 YTD | -4% | -9% |
 
 **Unlevered spot is the version that matters.** Restricting the grid to the
 `x1` cells - gross exposure never above 1, so no margin, no borrow, no funding
-cost to model - **34 of 36 variants beat BTC**:
+cost to model - **35 of 36 variants beat BTC**:
 
 | | total | CAGR | Sharpe | max drawdown |
 | --- | --- | --- | --- | --- |
-| `BO_h3_lb21_ma50_x1` | 201x | 152.9% | 1.43 | -78.4% |
-| `BO_h3_lb21_ma100_x1` | 146x | 139.3% | 1.38 | **-68.5%** |
-| `BO_h2_lb30_ma100_x1` | 97x | 122.9% | 1.37 | **-61.1%** |
-| grid median (x1 only) | 21.8x | - | - | -73.8% |
+| `BO_h1_lb21_ma50_x1` | 213x | 155.3% | 1.34 | -71.9% |
+| `BO_h3_lb21_ma50_x1` | 172x | 146.1% | **1.51** | -67.1% |
+| `BO_h2_lb30_ma50_x1` | 117x | 130.1% | 1.37 | **-55.7%** |
+| grid median (x1 only) | 30.1x | 82.3% | 1.11 | -69.6% |
 | BTC buy-and-hold | 2.76x | 19.4% | 0.60 | -76.7% |
 
 The unlevered median drawdown is *smaller* than BTC's, and the best cells are
 materially smaller, so this is not simply "more risk, more return". Note the
 Sharpe column: the trend exit is doing the work, not the leverage.
 
+Leverage is not monotonic in this grid. At x1.25 and x1.5, 34/36 and 32/36
+variants still beat BTC, but the median drawdown deepens to -79.1% and -86.0%.
+At x2 only 27/36 beat BTC and the median drawdown is -94.3%. Those x2 numbers
+also omit borrow/funding costs, so they are research probes rather than an
+investable result. The x1 table above is the honest deployment candidate.
+
 One year (2021, the DOGE/SHIB melt-up) still dominates the compounded result,
-and the strategy loses to BTC in the last two years. Treat it as a
-high-variance satellite rather than a replacement for the benchmark.
+and the leveraged headline cell loses to BTC in both 2024 and 2025. Treat it
+as a high-variance satellite rather than a replacement for the benchmark.
 
 ## Key Limitations
 

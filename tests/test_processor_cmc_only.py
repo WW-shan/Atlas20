@@ -182,6 +182,19 @@ def test_data_quality_keeps_the_api_contract_columns(tmp_path):
     assert bool(quality.loc[0, "included_in_panel"]) is True
 
 
+def test_partial_provider_tail_is_not_added_to_panel(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1), _candidate("ethereum", "ETH", 2))
+    _write_cmc(raw_dir, 1, _days())
+    _write_cmc(raw_dir, 2, [*_days(), "2024-01-04"])
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert panel["date"].max() == pd.Timestamp("2024-01-03")
+    assert set(panel[panel["date"] == panel["date"].max()]["coin_id"]) == {"bitcoin", "ethereum"}
+
+
 def _write_cmc_presupply(
     raw_dir: Path,
     cmc_id: int,
@@ -648,7 +661,10 @@ def test_download_prefers_gateio_and_avoids_coingecko_chart_when_listed(tmp_path
         def __init__(self, *_args, **_kwargs):
             pass
 
-        def fetch_daily_candles(self, symbol, force=False):
+        def fetch_daily_candles(self, symbol, force=False, start=None, end=None):
+            # The venue window is anchored to the asset's own last print, so
+            # the client is always asked for an explicit window.
+            assert start is not None and end is not None
             calls["gate"] += 1
             return pd.DataFrame(
                 {
@@ -666,6 +682,7 @@ def test_download_prefers_gateio_and_avoids_coingecko_chart_when_listed(tmp_path
             pass
 
     monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
     monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
     monkeypatch.setattr(processor, "GateIOClient", _FakeGateIO)
     monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
@@ -694,6 +711,78 @@ def test_stale_second_source_blocks_asset_when_crosscheck_is_required(tmp_path):
         processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
 
 
+def test_transient_cmc_tail_error_keeps_backfilled_candidate(tmp_path, monkeypatch):
+    """A provider 500 on a tail refresh must not delete a usable history.
+
+    This is the IMX failure mode: CMC had a complete cached series, the tail
+    request failed once, and the old code rewrote candidate_assets.json without
+    IMX. The next panel then silently lost a real point-in-time Top-20 member.
+    """
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    days = _days()
+    _write_candidates(raw_dir, _candidate("immutable-x", "IMX", 10603))
+    _write_cmc(raw_dir, 10603, days)
+
+    class _FakeCoinGecko:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_top_markets(self, per_page, force=False): return pd.DataFrame()
+        def fetch_markets_by_ids(self, coin_ids, force=False): return pd.DataFrame()
+        def fetch_coin_metadata(self, coin_id, force=False): return {}
+        def fetch_daily_market_chart(self, coin_id, days, force=False):
+            return pd.DataFrame(columns=["date", "cg_price"])
+
+    class _FakeCMC:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_id_map(self, *, force=False, max_pages=6): return {"IMX": 10603}
+        def ensure_history(self, coin_id, *, start, end, force=False):
+            raise RuntimeError("temporary 500")
+        def cached_history(self, coin_id):
+            return pd.DataFrame({
+                "date": pd.to_datetime(days),
+                "close": [250.0] * 3,
+                "volume_usd": [9_000_000.0] * 3,
+                "market_cap": [5_000_000.0] * 3,
+                "circulating_supply": [20_000.0] * 3,
+            })
+        def has_backfill(self, coin_id, *, start): return True
+
+    class _FakeGate:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}_USDT"
+        def fetch_daily_candles(self, symbol, *, start=None, end=None, force=False):
+            return pd.DataFrame({
+                "date": pd.to_datetime(days),
+                "gate_price": [250.0] * 3,
+                "gate_volume_usd": [9_000_000.0] * 3,
+            })
+
+    class _FakeBinance:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}USDT"
+        def fetch_daily_candles(self, symbol, *, start=None, end=None, force=False):
+            return pd.DataFrame(columns=["date", "binance_price", "binance_volume_usd"])
+
+    class _FakeCoinPaprika:
+        def __init__(self, *_args, **_kwargs): pass
+
+    monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
+    monkeypatch.setattr(processor, "GateIOClient", _FakeGate)
+    monkeypatch.setattr(processor, "BinanceClient", _FakeBinance)
+    monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
+
+    assets = processor.download_and_cache_raw_data(config)
+
+    assert len(assets) == 1
+    assert assets.iloc[0]["id"] == "immutable-x"
+    assert "history_fetch_warning" in assets.columns
+    candidates = json.loads(
+        (raw_dir / "coingecko" / "candidate_assets.json").read_text(encoding="utf-8")
+    )
+    assert [row["id"] for row in candidates] == ["immutable-x"]
+
+
 def test_quality_records_latest_primary_verification(tmp_path):
     config = _config(tmp_path)
     raw_dir = tmp_path / "data" / "raw"
@@ -708,3 +797,77 @@ def test_quality_records_latest_primary_verification(tmp_path):
     row = quality.loc["bitcoin"]
     assert bool(row["crosscheck_latest_primary_covered"]) is True
     assert str(row["crosscheck_primary_latest_date"])[:10] == days[-1]
+
+
+def test_ended_feed_anchors_the_venue_window_to_its_own_series(tmp_path, monkeypatch):
+    """A delisted pair has no candles in the trailing 400 days.
+
+    MATIC's provider series stops on 2025-03-24, when the token migrated to
+    POL. Asking a venue for "the last 400 days from today" returns nothing, so
+    the asset would be refused as unverified - the venue window has to follow
+    the asset's own series instead, and the cross-check has to verify the
+    overlap rather than a print that will never arrive.
+    """
+    config = _config(tmp_path, start="2024-01-01", end="2026-09-21")
+    config.data_quality.require_cross_check = True
+    config.universe.min_history_days = 2
+    raw_dir = tmp_path / "data" / "raw"
+    days = pd.date_range("2024-01-01", "2025-03-24", freq="D")
+    _write_cmc(raw_dir, 3890, [d.strftime("%Y-%m-%d") for d in days])
+    _write_candidates(raw_dir, _candidate("matic-network", "MATIC", 3890))
+
+    seen: dict[str, object] = {}
+
+    class _FakeCoinGecko:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_top_markets(self, per_page, force=False): return pd.DataFrame()
+        def fetch_markets_by_ids(self, coin_ids, force=False): return pd.DataFrame()
+        def fetch_coin_metadata(self, coin_id, force=False): return {}
+
+    class _FakeCoinPaprika:
+        def __init__(self, *_args, **_kwargs): pass
+
+    class _FakeCMC:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_id_map(self, *, force=False, max_pages=6): return {}
+        def ensure_history(self, coin_id, *, start, end, force=False):
+            return pd.DataFrame({
+                "date": days,
+                "close": [0.5] * len(days),
+                "volume_usd": [9_000_000.0] * len(days),
+                "market_cap": [5_000_000_000.0] * len(days),
+                "circulating_supply": [1e10] * len(days),
+            })
+
+    class _FakeGate:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}_USDT"
+        def fetch_daily_candles(self, symbol, *, limit=400, start=None, end=None, force=False):
+            seen["gate_window"] = (start, end)
+            return pd.DataFrame(columns=["date", "gate_price", "gate_volume_usd"])
+
+    class _FakeBinance:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}USDT"
+        def fetch_daily_candles(self, symbol, *, start=None, end=None, force=False):
+            seen["binance_window"] = (start, end)
+            # The venue delisted the pair before the provider stopped printing.
+            venue_days = pd.date_range(start, min(pd.Timestamp(end), pd.Timestamp("2024-09-10")), freq="D")
+            return pd.DataFrame({
+                "date": venue_days,
+                "binance_price": [0.5] * len(venue_days),
+                "binance_volume_usd": [5_000_000.0] * len(venue_days),
+            })
+
+    monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
+    monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
+    monkeypatch.setattr(processor, "GateIOClient", _FakeGate)
+    monkeypatch.setattr(processor, "BinanceClient", _FakeBinance)
+
+    assets = processor.download_and_cache_raw_data(config)
+
+    assert len(assets) == 1, "an ended feed must not be dropped for lack of a venue window"
+    start, end = seen["binance_window"]
+    assert pd.Timestamp(end) == pd.Timestamp("2025-03-24"), "the venue window must end at the last print"
+    assert pd.Timestamp(start) == days[0], "an ended series is verified over its whole length"

@@ -7,6 +7,7 @@ x-atlas20-env: &atlas20-env
   ATLAS20_DATA_ROOT: /app/data
   ATLAS20_PROJECT_ROOT: /app
   ATLAS20_DISABLE_SCHEDULER: "0"
+  ATLAS20_DAILY_REFRESH_ENABLED: "${ATLAS20_DAILY_REFRESH_ENABLED:-true}"
 
 services:
   backend:

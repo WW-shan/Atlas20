@@ -41,6 +41,7 @@ data/atlas20.sqlite-shm
 data/.scheduler.lock
 data/.prom-multiproc-worker/
 data/.prom-multiproc-api/
+data/data_freshness.json
 
 # Pipeline outputs (regeneratable from data/raw + config); used to be tracked
 # but ~47MB of CSV is too heavy for git.

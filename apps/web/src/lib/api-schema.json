@@ -617,6 +617,113 @@
         "title": "DataAlert",
         "type": "object"
       },
+      "DataFreshness": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "deadline": {
+            "title": "Deadline",
+            "type": "string"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_success_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success Date"
+          },
+          "latest_independent_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Independent Date"
+          },
+          "latest_primary_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Primary Date"
+          },
+          "no_advance_days": {
+            "title": "No Advance Days",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "scheduled_for": {
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "source_dates": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Source Dates",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "pending",
+              "running",
+              "stale",
+              "missing",
+              "failed",
+              "stalled",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "checked_at",
+          "scheduled_for",
+          "deadline",
+          "no_advance_days",
+          "source_dates"
+        ],
+        "title": "DataFreshness",
+        "type": "object"
+      },
       "DataSource": {
         "properties": {
           "id": {
@@ -2648,6 +2755,27 @@
         "summary": "Get Compare",
         "tags": [
           "compare"
+        ]
+      }
+    },
+    "/api/data/freshness": {
+      "get": {
+        "operationId": "get_data_freshness_api_data_freshness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataFreshness"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Data Freshness",
+        "tags": [
+          "universe"
         ]
       }
     },

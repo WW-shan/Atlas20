@@ -93,6 +93,36 @@ If your monitoring requires every worker's HTTP endpoint to actually receive scr
 
 **Counters may slightly over-count on rollback.** Backtest terminal counters and report-generation counters are incremented before the surrounding DB transaction commits. A commit failure leaves Prometheus over-reporting by 1. We accept this as Prometheus counters are monotonic and commit failures are rare in this codebase. Track via the existing 5xx alert if the divergence ever becomes visible.
 
+## Data freshness logs
+
+The daily universe refresh writes `{ATLAS20_DATA_ROOT}/data_freshness.json` when
+it starts, completes, or fails. The file is the API's cheap health-check input:
+`/readyz` and `GET /api/data/freshness` read it instead of rescanning the raw
+cache on every request.
+
+The scheduler runs `log_data_freshness` every 30 minutes. Healthy states log at
+INFO as `data freshness: <status>`; `stale`, `missing`, `failed`, and `stalled`
+states log at ERROR as `data freshness alert: <status>`. In JSON mode both
+records include a `data_freshness` object with the reason, primary and
+independent latest dates, refresh deadline, and no-advance calendar-day count. The
+`source_dates` map carries one entry per feed that is actually read -
+`coinmarketcap` (primary), both exchange venues `gateio` and `binance`,
+`coingecko`, and `coinpaprika` - so a venue that stops updating is visible
+before it silently drops out of the cross-check.
+
+Alert when `/readyz` returns 503 with `checks.data` in
+`stale|missing|failed|stalled`, or when the API log message starts with
+`data freshness alert:`.
+
+`ATLAS20_DAILY_REFRESH_CATCHUP_OFFSET_HOURS` (default 4) schedules a second,
+conditional refresh after the main one. It runs `primary_lags_last_completed_day`
+first and logs `Skipping refresh catch-up; the primary feed already covers the
+last completed day` at INFO when there is nothing to do, or `Primary feed still
+lacks the last completed day; queueing a catch-up refresh` at WARNING when the
+provider published late. The second line is worth watching: it means the
+scheduled run fired before CMC had written the close, and the panel was one day
+behind until the retry landed.
+
 ## Scheduler Lock
 
 The weekly digest scheduler uses `{ATLAS20_DATA_ROOT}/.scheduler.lock` for single-node multi-worker leader election. This prevents duplicate scheduled jobs across multiple uvicorn or gunicorn workers on one host. Multi-node deployments need a Redis or database-backed leader election mechanism before enabling the scheduler on more than one host.

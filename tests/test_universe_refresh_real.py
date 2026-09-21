@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from types import SimpleNamespace
 
@@ -69,10 +70,53 @@ def test_run_one_mock_processes_universe_refresh_job(tmp_path, monkeypatch):
     with Session(engine) as session:
         row = RunsRepo(session).get("btk_9001")
         assert exit_code == 0
-        assert row is not None
-        assert row.status == "completed"
-        assert row.duration_s is not None
+    assert row is not None
+    assert row.status == "completed"
+    assert row.duration_s is not None
     assert (settings.data_root / "raw" / "coingecko" / "universe_refresh_mock.json").exists()
+    heartbeat = json.loads((settings.data_root / "data_freshness.json").read_text(encoding="utf-8"))
+    assert heartbeat["status"] == "completed"
+    assert heartbeat["run_id"] == "btk_9001"
+    assert "coinmarketcap" in heartbeat["source_dates"]
+
+
+def test_run_one_records_universe_refresh_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("ATLAS20_WORKER_MOCK", "1")
+    settings = Settings(
+        db_url=f"sqlite:///{(tmp_path / 'refresh-failure.sqlite').as_posix()}",
+        report_root=tmp_path / "reports",
+        data_root=tmp_path / "data",
+        project_root=tmp_path,
+    )
+    engine = create_engine(settings.db_url, connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(
+            Run(
+                run_id="btk_9002",
+                strategy="universe_refresh",
+                strategy_family="Other",
+                universe="Data Sources",
+                window_start=date(2026, 5, 19),
+                window_end=date(2026, 5, 19),
+                status="running",
+                params="{}",
+            )
+        )
+        session.commit()
+
+    def fail_refresh(_: Settings) -> None:
+        raise RuntimeError("provider timeout")
+
+    monkeypatch.setattr(run_one, "_execute_universe_refresh", fail_refresh)
+
+    exit_code = run_one.run("btk_9002", settings)
+
+    heartbeat = json.loads((settings.data_root / "data_freshness.json").read_text(encoding="utf-8"))
+    assert exit_code == 1
+    assert heartbeat["status"] == "failed"
+    assert heartbeat["run_id"] == "btk_9002"
+    assert heartbeat["error"] == "provider timeout"
 
 
 def test_universe_refresh_worker_non_mock_wires_download_to_settings_data_root(tmp_path, monkeypatch):

@@ -102,6 +102,14 @@ def run_backtest(
     current_weights = pd.Series(0.0, index=columns)
     fee_rate = (friction.fee_bps + friction.slippage_bps) / 10_000.0
 
+    # The last day each asset actually printed. A feed that ends mid-window is
+    # a delisting or a token migration (MATIC stops on 2025-03-24, EOS and MKR
+    # migrate to Vaulta and SKY), not a gap the provider will fill later: the
+    # position has to be sold rather than carried at a price nobody quotes.
+    last_print: dict[object, pd.Timestamp | None] = {
+        column: returns[column].last_valid_index() for column in columns
+    }
+
     daily_returns = pd.Series(0.0, index=returns.index, name=name)
     equity = pd.Series(index=returns.index, dtype=float, name=name)
     turnover = pd.Series(0.0, index=returns.index, name=name)
@@ -137,6 +145,26 @@ def run_backtest(
         missing = raw_day_ret.isna()
         if missing.any():
             held_missing = missing & (current_weights.abs() > 1e-12)
+            # A holding whose feed has ended can never print again. Mark it at
+            # its last observed close (return 0 for the day it is sold), pay
+            # the exit cost and move the proceeds to cash - the alternative,
+            # aborting the whole run, makes any strategy that ever held a
+            # delisted name unrunnable.
+            ended = pd.Series(
+                [last_print[column] is not None and date > last_print[column] for column in columns],
+                index=columns,
+            )
+            forced_exit = held_missing & ended
+            if forced_exit.any():
+                exit_turnover = float(current_weights[forced_exit].abs().sum())
+                turnover.loc[date] = float(turnover.loc[date]) + exit_turnover
+                cost_return += exit_turnover * fee_rate
+                current_weights = current_weights.copy()
+                current_weights[forced_exit] = 0.0
+                raw_day_ret = raw_day_ret.copy()
+                raw_day_ret[forced_exit] = 0.0
+                missing = raw_day_ret.isna()
+                held_missing = missing & (current_weights.abs() > 1e-12)
             if friction.missing_return_policy == "error" and held_missing.any():
                 assets = ", ".join(str(asset) for asset in held_missing.index[held_missing])
                 raise ValueError(

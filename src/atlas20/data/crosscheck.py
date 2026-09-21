@@ -102,6 +102,7 @@ def compare_daily_prices(
     max_median_gap: float = MEDIAN_GAP_TOLERANCE,
     max_latest_gap: float = LATEST_GAP_TOLERANCE,
     max_latest_staleness_days: int = MAX_LATEST_STALENESS_DAYS,
+    require_latest_coverage: bool = True,
 ) -> CrossCheckResult:
     """Compare two daily close series and require current primary coverage.
 
@@ -109,6 +110,14 @@ def compare_daily_prices(
     series reaches the primary provider's latest date.  A stale secondary
     series is useful for historical context but cannot validate today's print,
     so it fails with ``secondary_stale`` instead of passing on an old overlap.
+
+    ``require_latest_coverage=False`` is for a primary series that has *ended*
+    (a delisting or a token migration): there is no current print to protect,
+    and every venue stops quoting such an asset at some point, so the check
+    falls back to the overlap itself - the median, sustained, latest-overlap
+    and catastrophic-print tests all still run, which is what catches a
+    Huobi-Token-style level error. The uncovered tail is recorded by the caller
+    rather than silently accepted.
     """
     left = _daily_closes(primary, primary_column)
     right = _daily_closes(secondary, secondary_column)
@@ -166,13 +175,13 @@ def compare_daily_prices(
             latest_primary_covered,
         )
 
-    if (
+    if require_latest_coverage and (
         secondary_latest is None
         or latest_staleness_days is None
         or latest_staleness_days > max_latest_staleness_days
     ):
         return verdict(False, "secondary_stale")
-    if not latest_primary_covered:
+    if require_latest_coverage and not latest_primary_covered:
         return verdict(False, "latest_primary_unverified")
     if days < min_overlap_days:
         return verdict(False, "insufficient_overlap")
@@ -281,6 +290,7 @@ def adjudicate_daily_prices(
     max_median_gap: float = MEDIAN_GAP_TOLERANCE,
     max_latest_gap: float = LATEST_GAP_TOLERANCE,
     max_latest_staleness_days: int = MAX_LATEST_STALENESS_DAYS,
+    require_latest_coverage: bool = True,
 ) -> CrossCheckDecision:
     """Decide whether the primary provider is corroborated.
 
@@ -300,6 +310,7 @@ def adjudicate_daily_prices(
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
         max_latest_staleness_days=max_latest_staleness_days,
+        require_latest_coverage=require_latest_coverage,
     )
     if secondary_result.passed:
         return CrossCheckDecision(True, secondary_result.reason, secondary_result)
@@ -321,6 +332,7 @@ def adjudicate_daily_prices(
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
         max_latest_staleness_days=max_latest_staleness_days,
+        require_latest_coverage=require_latest_coverage,
     )
     if tertiary_result.reason in UNVERIFIED_REASONS:
         return CrossCheckDecision(
@@ -358,6 +370,7 @@ def adjudicate_daily_prices(
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
         max_latest_staleness_days=max_latest_staleness_days,
+        require_latest_coverage=require_latest_coverage,
     )
     secondaries_have_overlap = _has_overlap(secondary_vs_tertiary, min_overlap_days)
     secondaries_agree_latest = (

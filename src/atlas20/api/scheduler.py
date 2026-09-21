@@ -11,6 +11,7 @@ from typing import Any
 from filelock import FileLock, Timeout
 from sqlmodel import Session, col, select
 
+from atlas20.api.data_freshness import log_data_freshness, primary_lags_last_completed_day
 from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import KvRepo
 from atlas20.api._time import utc_now
@@ -137,6 +138,21 @@ def run_daily_refresh(settings: Settings | None = None) -> str:
         return _queue_universe_refresh(session, settings)
 
 
+def run_daily_refresh_catchup(settings: Settings | None = None) -> str | None:
+    """Retry the daily refresh, but only while the feed is genuinely behind.
+
+    The refresh is queued only when the last completed day is still missing, so
+    a normal day pays nothing for the retry and a provider that published late
+    is picked up within hours instead of the next morning.
+    """
+    settings = settings or get_settings()
+    if not primary_lags_last_completed_day(settings):
+        logger.info("Skipping refresh catch-up; the primary feed already covers the last completed day")
+        return None
+    logger.warning("Primary feed still lacks the last completed day; queueing a catch-up refresh")
+    return run_daily_refresh(settings)
+
+
 def _build_scheduler() -> Any | None:
     """Construct the APScheduler instance, or None when unavailable."""
     try:
@@ -178,6 +194,23 @@ def start_scheduler(settings: Settings | None = None, scheduler_factory: Any | N
                 id="daily_universe_refresh",
                 replace_existing=True,
             )
+            catchup_hour = settings.daily_refresh_hour_utc + settings.daily_refresh_catchup_offset_hours
+            if catchup_hour <= 23:
+                scheduler.add_job(
+                    run_daily_refresh_catchup,
+                    "cron",
+                    hour=catchup_hour,
+                    minute=settings.daily_refresh_minute_utc,
+                    id="daily_universe_refresh_catchup",
+                    replace_existing=True,
+                )
+        scheduler.add_job(
+            log_data_freshness,
+            "interval",
+            minutes=30,
+            id="data_freshness_watchdog",
+            replace_existing=True,
+        )
         scheduler.start()
     except Exception:
         lock.release()

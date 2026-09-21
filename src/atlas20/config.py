@@ -29,6 +29,12 @@ class UniverseConfig(BaseModel):
     # disappears from the candidate pool - survivorship bias again, just via
     # the id map instead of the ranking.
     cmc_symbol_aliases: dict[str, int] = Field(default_factory=dict)
+    # Legacy watchlist coins the panel provably cannot carry, keyed by
+    # CoinGecko id with the reason and the measured cost. The audit fails any
+    # other legacy coin that is missing from the pool, so a name cannot slip
+    # out of the point-in-time Top-20 unnoticed (MATIC held a real Top-20 slot
+    # on 123 of 215 rebalance dates and was absent until 2026-09-22).
+    legacy_unavailable: dict[str, str] = Field(default_factory=dict)
     min_history_days: int = 90
     min_daily_dollar_volume: float = 25_000_000
     min_price: float = 1e-6
@@ -142,6 +148,40 @@ class GateIOConfig(BaseModel):
     pair_aliases: dict[str, str] = Field(default_factory=dict)
 
 
+class BinanceConfig(BaseModel):
+    """Second exchange venue, used to break venue-vs-venue ties.
+
+    ``api.binance.com`` answers 451 from this host and ``api.binance.us`` is a
+    different, far thinner market, so the venue is reached through Binance's
+    official public data mirror ``data-api.binance.vision`` (the same book,
+    no key, no geo-block). It is an exchange venue like Gate.io rather than an
+    aggregator, which matters: when CMC disagrees with two independent order
+    books that agree with each other, CMC is the outlier and the venue prints
+    are the evidence. It carries no history of delisted names (HT and CEL
+    answer "Invalid symbol"), so it supplements Gate.io rather than replacing
+    it.
+    """
+
+    base_url: str = "https://data-api.binance.vision/api/v3"
+    timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    # Klines are weight-limited rather than count-limited (~6000/min), so a
+    # short pause is enough to stay well clear of the ceiling.
+    rate_limit_seconds: float = 0.1
+    quote_currency: str = "USDT"
+    # Trailing window kept cached, matching the Gate.io candle window so both
+    # venues cover the same days.
+    history_days: int = 400
+    # A day below this dollar volume is not a market print.  The retired
+    # Binance.US feed showed why the floor matters: its thin pairs (ENS at
+    # $1.74/day) disagreed with CMC by double digits purely from illiquidity,
+    # which reads as a data error and blocks a healthy asset.
+    min_daily_dollar_volume: float = 100_000.0
+    # Manual escape hatch for symbols whose pair differs from <SYMBOL><quote>.
+    pair_aliases: dict[str, str] = Field(default_factory=dict)
+
+
 class CoinPaprikaConfig(BaseModel):
     """Third-provider validation used only when the second source disagrees."""
 
@@ -164,6 +204,7 @@ class ProvidersConfig(BaseModel):
     coingecko: CoinGeckoConfig
     coinmarketcap: CoinMarketCapConfig = Field(default_factory=CoinMarketCapConfig)
     gateio: GateIOConfig = Field(default_factory=GateIOConfig)
+    binance: BinanceConfig = Field(default_factory=BinanceConfig)
     coinpaprika: CoinPaprikaConfig = Field(default_factory=CoinPaprikaConfig)
 
 
@@ -177,6 +218,10 @@ class DataQualityConfig(BaseModel):
 
     min_price_days: int = 60
     min_market_cap_days: int = 60
+    # CMC publishes daily rows asset-by-asset, so the newest UTC date can exist
+    # for only a handful of assets for several hours. Never extend the panel to
+    # a partial date unless at least this fraction of admitted assets has data.
+    min_daily_coverage: float = Field(default=0.9, ge=0.5, le=1.0)
     require_metadata: bool = False
     # Independent verification of recent CoinMarketCap prints. Gate.io is the
     # preferred second source; CoinGecko is used for assets Gate.io does not

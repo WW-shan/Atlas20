@@ -447,6 +447,32 @@ class DataAlert(ApiModel):
     source: str
 
 
+DataFreshnessStatus = Literal[
+    "ok",
+    "pending",
+    "running",
+    "stale",
+    "missing",
+    "failed",
+    "stalled",
+    "disabled",
+]
+
+
+class DataFreshness(ApiModel):
+    status: DataFreshnessStatus
+    reason: str
+    checked_at: str
+    last_success_at: str | None = None
+    last_success_date: str | None = None
+    latest_primary_date: str | None = None
+    latest_independent_date: str | None = None
+    scheduled_for: str
+    deadline: str
+    no_advance_days: int
+    source_dates: dict[str, str | None]
+
+
 ReportFormat = Literal["markdown", "pdf", "png", "csv", "bundle"]
 ReportStatus = Literal["ready", "generating"]
 ReportThumbKind = Literal["equity", "lines", "heatmap", "bars", "horizontal-bars", "sparkbar"]

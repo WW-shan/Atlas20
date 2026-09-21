@@ -39,6 +39,13 @@ def _to_epoch(value: str | date | datetime) -> int:
     return int(dt.timestamp())
 
 
+# CMC bills the trailing days after a coin's last print against the page, so a
+# window that ends more than ``page_size`` days late comes back empty even
+# though the series exists. Rewinding by one page per attempt finds the real
+# end of a delisted series (MATIC, 2025-03-24) in a single extra request.
+_EMPTY_PAGE_REWIND_SECONDS = 400 * 86_400
+
+
 class CoinMarketCapClient:
     """Cache-aware client for daily historical market-cap data."""
 
@@ -156,6 +163,15 @@ class CoinMarketCapClient:
         The endpoint returns the most recent ``page_size`` rows ending at
         ``timeEnd`` regardless of ``timeStart``, so paging must move the end
         cursor backwards rather than the start cursor forwards.
+
+        An empty page is *not* proof that the coin has no history. The provider
+        charges the trailing empty days against the page: a coin whose last
+        print is 2025-03-24 returns nothing for a window ending today (547 days
+        later, more than one page), but 253 rows for a window ending 400 days
+        earlier. Reading that first empty page as "no data" is what erased
+        MATIC - a Top-20 member on 123 of the strategy's rebalance dates - from
+        the panel, so an empty page rewinds the cursor and retries before the
+        coin is written off.
         """
         rows: list[dict] = []
         cursor_end = end
@@ -165,7 +181,18 @@ class CoinMarketCapClient:
             guard += 1
             page = self._fetch_page(coin_id, start, cursor_end)
             if not page:
-                break
+                rewind = cursor_end - _EMPTY_PAGE_REWIND_SECONDS
+                if rewind <= start:
+                    break
+                self.logger.info(
+                    "CoinMarketCap id=%s: no rows ending %s, rewinding to %s",
+                    coin_id,
+                    pd.Timestamp(cursor_end, unit="s").date(),
+                    pd.Timestamp(rewind, unit="s").date(),
+                )
+                cursor_end = rewind
+                time.sleep(self.config.request_interval_seconds)
+                continue
             rows.extend(page)
             earliest = page[0].get("timeOpen")
             if not earliest:
@@ -242,6 +269,15 @@ class CoinMarketCapClient:
         frame["date"] = pd.to_datetime(frame["date"])
         return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
 
+    def cached_history(self, coin_id: int) -> pd.DataFrame:
+        """Return the merged on-disk history without making a network request."""
+        return self._merged_cache(coin_id)
+
+    def has_backfill(self, coin_id: int, *, start: str | date | datetime) -> bool:
+        """True when a cached window reaches back to the required start."""
+        start_ts = _to_epoch(start)
+        return any(window_start <= start_ts for window_start, _ in self._cached_windows(coin_id))
+
     def ensure_history(
         self,
         coin_id: int,
@@ -262,25 +298,50 @@ class CoinMarketCapClient:
         windows = self._cached_windows(coin_id)
 
         if force or not windows:
+            self.fetch_history(coin_id, start=start, end=end, force=force)
+            return self._merged_cache(coin_id)
+
+        if not any(window_start <= start_ts for window_start, _ in windows):
+            # Never backfilled to the required depth (a new entrant).
             self.fetch_history(coin_id, start=start, end=end, force=False)
             return self._merged_cache(coin_id)
 
-        requested_full_window = any(window_start <= start_ts for window_start, _ in windows)
-        latest_end = max(window_end for _, window_end in windows)
-
-        if not requested_full_window:
-            # Never backfilled to the required depth (a new entrant).
-            self.fetch_history(coin_id, start=start, end=end, force=False)
-        elif latest_end < end_ts:
+        merged = self._merged_cache(coin_id)
+        if self._lags_last_completed_day(merged, end_ts):
             # Only the tail is missing; pull a short window instead of
-            # re-downloading the coin's whole history.
+            # re-downloading the coin's whole history. ``force`` is required:
+            # an earlier run today already wrote a window with this exact name
+            # *before* the provider published the newest close, so an ordinary
+            # cache read would hand back that stale payload and the cache would
+            # never advance past it.
             tail_start = max(
                 pd.Timestamp(end_ts, unit="s").normalize() - pd.Timedelta(days=self.config.tail_refresh_days),
                 pd.Timestamp(start_ts, unit="s").normalize(),
             )
-            self.fetch_history(coin_id, start=tail_start.date(), end=end, force=False)
+            self.fetch_history(coin_id, start=tail_start.date(), end=end, force=True)
+            merged = self._merged_cache(coin_id)
 
-        return self._merged_cache(coin_id)
+        return merged
+
+    @staticmethod
+    def _lags_last_completed_day(merged: pd.DataFrame, end_ts: int) -> bool:
+        """True when the cached payload stops before the last completed day.
+
+        Window *filenames* record the requested end (today's midnight), not the
+        last row actually stored. A run that executes before the provider has
+        published day D's close writes a window named for today but holding
+        data only through D-1; comparing filenames then reports a false
+        "already covered" and the cache freezes a day behind. The real last row
+        date is what has to be checked, and the newest completed day is
+        ``end - 1`` (the current UTC day is still in progress).
+        """
+        if merged.empty:
+            return True
+        last_completed_day = (pd.Timestamp(end_ts, unit="s") - pd.Timedelta(days=1)).normalize()
+        last_data_date = pd.Timestamp(merged["date"].max())
+        if last_data_date.tzinfo is not None:
+            last_data_date = last_data_date.tz_convert("UTC").tz_localize(None)
+        return bool(last_data_date.normalize() < last_completed_day)
 
 
     def fetch_history(

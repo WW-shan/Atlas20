@@ -134,6 +134,23 @@ def test_fetch_history_caches_to_disk(tmp_path: Path) -> None:
     assert len(session.calls) == calls, "second call must be served from cache"
 
 
+def test_cached_history_and_backfill_do_not_require_network(tmp_path: Path) -> None:
+    page = [_quote("2024-01-01", 100.0, 1000.0), _quote("2024-01-02", 110.0, 1000.0)]
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = _FakeSession([page])  # type: ignore[assignment]
+    client.fetch_history(1, start="2024-01-01", end="2024-01-05")
+
+    class _FailingSession:
+        def get(self, *args, **kwargs):
+            raise AssertionError("cached_history and has_backfill must not call the network")
+
+    client.session = _FailingSession()  # type: ignore[assignment]
+
+    assert len(client.cached_history(1)) == 2
+    assert client.has_backfill(1, start="2024-01-01") is True
+    assert client.has_backfill(1, start="2023-12-31") is False
+
+
 def test_fetch_history_force_bypasses_cache(tmp_path: Path) -> None:
     page = [_quote("2024-01-01", 100.0, 1000.0)]
     session = _FakeSession([page])
@@ -154,6 +171,39 @@ def test_fetch_history_empty_returns_empty_frame(tmp_path: Path) -> None:
 
     assert frame.empty
     assert list(frame.columns) == ["date", "close", "volume_usd", "market_cap", "circulating_supply"]
+
+
+def test_fetch_history_rewinds_past_a_delisted_series(tmp_path: Path) -> None:
+    """A window ending long after a coin's last print comes back empty.
+
+    The provider charges trailing empty days against the page, so a delisted
+    coin (MATIC ends 2025-03-24) answers nothing for a window ending today even
+    though 2,153 rows exist. Reading that as "no history" is what silently
+    dropped MATIC - a Top-20 member on 123 rebalance dates - from the panel.
+    """
+
+    class _DelistedSession(_FakeSession):
+        def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+            del url, timeout
+            self.calls.append(dict(params))
+            end = int(params["timeEnd"])
+            last_print = int(pd.Timestamp("2025-03-24", tz="UTC").timestamp())
+            if end - last_print > 400 * 86_400:
+                return _FakeResponse({"data": {"quotes": []}})
+            rows = self.page_for(int(params["timeStart"]), min(end, last_print))
+            return _FakeResponse({"data": {"quotes": rows}})
+
+    rows = [_quote(f"2025-03-{d:02d}", 0.2 + d / 100, 5_000_000_000.0) for d in range(20, 25)]
+    session = _DelistedSession([rows])
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_history(3890, start="2020-01-01", end="2026-09-22")
+
+    assert not frame.empty, "a delisted series must not read as empty"
+    assert pd.Timestamp(frame["date"].max()).date().isoformat() == "2025-03-24"
+    assert len(session.calls) >= 2, "the empty page must trigger a rewind"
+    assert session.calls[1]["timeEnd"] < session.calls[0]["timeEnd"]
 
 
 def test_fetch_history_persists_rows_in_ascending_order(tmp_path: Path) -> None:

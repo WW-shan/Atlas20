@@ -9,6 +9,10 @@ Data chain (single source of truth):
   supply for every asset in the panel.
 * Gate.io - preferred independent exchange-venue price check for every listed
   asset.
+* Binance - second exchange venue (reached through its official public data
+  mirror, because api.binance.com is geo-blocked here and api.binance.us is a
+  far thinner book), used when the preferred venue disagrees or cannot certify
+  the latest print.
 * CoinPaprika - fallback adjudication when neither the second source nor
   CoinGecko can provide the tie-break vote. No validator ever rewrites a panel
   value.
@@ -22,12 +26,14 @@ instead of a price-scaled proxy.
 from __future__ import annotations
 
 import json
+from math import ceil
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from atlas20.config import ResearchConfig, SectorConfig
+from atlas20.data.binance import BinanceClient
 from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata_is_excluded
 from atlas20.data.coingecko import CoinGeckoClient
 from atlas20.data.coinmarketcap import CoinMarketCapClient
@@ -43,9 +49,98 @@ LOGGER = get_logger(__name__)
 
 CANDIDATE_ASSETS_FILE = "candidate_assets.json"
 
+# Venue stamps from providers that have been retired.  A cached candidate row
+# is the only place an old stamp can hide, because every fresh screen re-writes
+# the keys for the sources that are still read; without this, a coin that left
+# the current listing would keep advertising a venue whose data is gone.
+# Binance.US was replaced by Binance's public data mirror (`binance_pair`).
+LEGACY_CANDIDATE_KEYS = ("binanceus_pair", "cryptocompare_pair")
+
+# A feed that has not printed for this many days is over, not late: the asset
+# was delisted or migrated (MATIC stops on 2025-03-24 when the token becomes
+# POL). Venue windows are anchored to its last print and the cross-check
+# verifies the overlap rather than demanding coverage of a print that will
+# never arrive.
+ENDED_FEED_GRACE_DAYS = 7
+
+
+def _last_print_date(history: pd.DataFrame) -> pd.Timestamp | None:
+    """Last day an asset's provider series prints, as a naive UTC date.
+
+    Provider caches mix tz-aware and naive timestamps, and the research window
+    is naive, so every comparison normalizes first.
+    """
+    if history is None or history.empty:
+        return None
+    last = pd.Timestamp(history["date"].max())
+    if last.tzinfo is not None:
+        last = last.tz_convert("UTC").tz_localize(None)
+    return last.normalize()
+
+
+def _feed_ended(history: pd.DataFrame, end: pd.Timestamp) -> bool:
+    """True when an asset's provider series has stopped for good."""
+    last = _last_print_date(history)
+    if last is None:
+        return False
+    return bool(last < pd.Timestamp(end).normalize() - pd.Timedelta(days=ENDED_FEED_GRACE_DAYS))
+
 
 def _candidate_assets_path(config: ResearchConfig) -> Path:
     return config.resolve_path(config.paths.raw_dir) / "coingecko" / CANDIDATE_ASSETS_FILE
+
+
+def _load_onboarded_candidates(config: ResearchConfig) -> list[dict]:
+    """Every coin that has already been onboarded, keyed by CoinGecko id.
+
+    The pool is otherwise whatever CoinGecko's *current* listing returns, so a
+    coin that slips down that listing - or off it entirely - would silently
+    leave the pool.  Because the panel is rebuilt from the pool on every run,
+    that retroactively rewrites the point-in-time universe the backtest ran
+    on: a coin that sat in the Top-20 while it was hot would simply never have
+    been held.  For a momentum strategy that is the worst possible bias,
+    since the hottest names are exactly the ones that blow up and slide.
+
+    Two on-disk records are consulted because neither is complete alone:
+
+    * ``coin_metadata/`` - one CoinGecko document per coin ever screened.  It
+      outlives a candidate that was accepted and only later dropped from the
+      listing, which is how an already-paid-for history is recovered.
+    * ``candidate_assets.json`` - last run's accepted candidates, carrying the
+      CMC id and Gate.io pair that were resolved for them.
+    """
+    onboarded: dict[str, dict] = {}
+
+    metadata_dir = _candidate_assets_path(config).parent / "coin_metadata"
+    if metadata_dir.exists():
+        for path in sorted(metadata_dir.glob("*.json")):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError, ValueError):
+                continue
+            if not isinstance(payload, dict) or not payload.get("id"):
+                continue
+            onboarded[str(payload["id"]).lower()] = {
+                "id": payload["id"],
+                "symbol": payload.get("symbol"),
+                "name": payload.get("name"),
+                "market_cap_rank": payload.get("market_cap_rank"),
+            }
+
+    path = _candidate_assets_path(config)
+    if path.exists():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, ValueError):
+            payload = None
+        if isinstance(payload, list):
+            for row in payload:
+                if isinstance(row, dict) and row.get("id"):
+                    onboarded[str(row["id"]).lower()] = {
+                        key: value for key, value in row.items() if key not in LEGACY_CANDIDATE_KEYS
+                    }
+
+    return list(onboarded.values())
 
 
 def _history_window(config: ResearchConfig) -> tuple[pd.Timestamp, pd.Timestamp]:
@@ -76,6 +171,7 @@ def download_and_cache_raw_data(
     coingecko = CoinGeckoClient(config.providers.coingecko, raw_dir)
     cmc = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
     gateio = GateIOClient(config.providers.gateio, raw_dir)
+    binance = BinanceClient(config.providers.binance, raw_dir)
     coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     LOGGER.info("Fetching current top-%s candidate assets from CoinGecko", config.universe.current_top_n_candidates)
@@ -83,7 +179,9 @@ def download_and_cache_raw_data(
         config.universe.current_top_n_candidates, force=force or refresh_catalog
     ).to_dict(orient="records")
     legacy = coingecko.fetch_markets_by_ids(config.universe.legacy_candidate_ids, force=force).to_dict(orient="records")
-    candidates = deduplicate_assets([*current_top, *legacy])
+    # Onboarded coins come first so a freshly fetched row for the same coin
+    # still wins deduplication against its persisted copy.
+    candidates = deduplicate_assets([*_load_onboarded_candidates(config), *current_top, *legacy])
     filtered_candidates = [asset for asset in candidates if not asset_is_excluded(asset, config.universe)]
 
     LOGGER.info("Fetching CoinMarketCap symbol->id map")
@@ -140,11 +238,24 @@ def download_and_cache_raw_data(
         try:
             history = cmc.ensure_history(cmc_id, start=start.date(), end=end.date(), force=force)
         except Exception as exc:  # noqa: BLE001
-            screening_rows.append(
-                {"coin_id": coin_id, "symbol": symbol, "name": name, "status": "excluded", "details": f"coinmarketcap_history: {exc}"}
+            cached_history = cmc.cached_history(int(cmc_id))
+            if cached_history.empty or not cmc.has_backfill(int(cmc_id), start=start.date()):
+                screening_rows.append(
+                    {"coin_id": coin_id, "symbol": symbol, "name": name, "status": "excluded", "details": f"coinmarketcap_history: {exc}"}
+                )
+                LOGGER.warning("CoinMarketCap unavailable for %s (%s): %s", coin_id, symbol, exc)
+                continue
+            # A transient provider failure must not delete an already
+            # backfilled asset from the candidate cache. That would recreate
+            # the exact survivorship hole this watchlist exists to prevent.
+            history = cached_history
+            details = f"coinmarketcap_history_cached_after_error: {exc}"
+            LOGGER.warning(
+                "Using cached CoinMarketCap history for %s (%s) after refresh failure: %s",
+                coin_id,
+                symbol,
+                exc,
             )
-            LOGGER.warning("CoinMarketCap unavailable for %s (%s): %s", coin_id, symbol, exc)
-            continue
 
         if history.empty:
             screening_rows.append(
@@ -154,6 +265,28 @@ def download_and_cache_raw_data(
             continue
 
         enriched_asset = {**asset, "cmc_id": int(cmc_id)}
+        if details:
+            enriched_asset["history_fetch_warning"] = details
+
+        # Anchor both venue windows to the asset's own last print, not to today.
+        # A delisted pair has no candles in the trailing 400 days, so a
+        # today-anchored window reads as "no independent source" and the asset
+        # is refused - which is how the missing MATIC would have been blocked
+        # even after its history was recovered.
+        history_latest = _last_print_date(history)
+        feed_ended = _feed_ended(history, end)
+        venue_end = min(end.normalize(), history_latest or end.normalize())
+        if feed_ended:
+            # An ended series has no current print to protect, and the part
+            # that matters is the whole thing: the strategy could have held it
+            # at any point. Verify the entire series against the venue instead
+            # of only its last year.
+            history_first = pd.Timestamp(history["date"].min())
+            if history_first.tzinfo is not None:
+                history_first = history_first.tz_convert("UTC").tz_localize(None)
+            venue_start = min(venue_end, history_first.normalize())
+        else:
+            venue_start = venue_end - pd.Timedelta(days=config.providers.binance.history_days)
 
         # Gate.io is the preferred second source.  Unlike CoinGecko's free
         # public API, its daily candles have a generous request budget and
@@ -165,10 +298,32 @@ def download_and_cache_raw_data(
         secondary_source = "coingecko"
         gate_frame = pd.DataFrame()
         try:
-            gate_frame = gateio.fetch_daily_candles(symbol, force=force)
+            gate_frame = gateio.fetch_daily_candles(
+                symbol, start=venue_start, end=venue_end, force=force
+            )
         except Exception as exc:  # noqa: BLE001
             details = f"{details} | gateio_history_missing: {exc}".lstrip(" |")
             LOGGER.warning("Gate.io history unavailable for %s (%s): %s", coin_id, symbol, exc)
+
+        # A second exchange venue, reached through Binance's official public
+        # data mirror (api.binance.com answers 451 from this host and
+        # api.binance.us is a much thinner book). It carries no history for
+        # delisted names (HT and CEL answer "Invalid symbol"), in which case
+        # the frame is simply empty and the adjudicator falls through as
+        # before; days below its dollar-volume floor are dropped for the same
+        # reason.
+        try:
+            binance_frame = binance.fetch_daily_candles(
+                symbol,
+                start=venue_start.date(),
+                end=venue_end.date(),
+                force=force,
+            )
+        except Exception as exc:  # noqa: BLE001
+            binance_frame = pd.DataFrame()
+            LOGGER.warning("Binance history unavailable for %s (%s): %s", coin_id, symbol, exc)
+        if not binance_frame.empty:
+            enriched_asset["binance_pair"] = binance.resolve_pair(symbol)
 
         if not gate_frame.empty:
             enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
@@ -192,6 +347,7 @@ def download_and_cache_raw_data(
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
             max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+            require_latest_coverage=not feed_ended,
         )
 
         if not secondary_result.passed:
@@ -214,6 +370,7 @@ def download_and_cache_raw_data(
                         max_median_gap=config.data_quality.cross_check_max_median_gap,
                         max_latest_gap=config.data_quality.cross_check_max_latest_gap,
                         max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+                        require_latest_coverage=not feed_ended,
                     )
                     coingecko_chart_ready = bool(
                         chart_result.latest_primary_covered
@@ -414,6 +571,7 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
     quality_rows: list[dict] = []
     sector_map = resolve_sector_map(config, sector_config)
     gateio = GateIOClient(config.providers.gateio, raw_dir)
+    binance = BinanceClient(config.providers.binance, raw_dir)
     coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     for _, asset in candidates.iterrows():
@@ -444,50 +602,79 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             quality_config=config.data_quality,
         )
 
+        feed_ended = _feed_ended(history, config.end_timestamp)
         chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
         chart = _load_coingecko_chart(chart_path)
         gateio_pair = asset.get("gateio_pair")
         gate_frame = pd.DataFrame()
         if gateio_pair is not None and not pd.isna(gateio_pair):
             gate_frame = gateio.load_daily_candles(symbol)
+        binance_frame = binance.load_daily_candles(symbol)
 
-        # Gate.io is the preferred second source because its public candles do
-        # not carry CoinGecko's low per-IP request ceiling.  CoinGecko remains
-        # the second source for assets Gate.io does not list.
-        secondary_source = "gateio" if not gate_frame.empty else "coingecko"
-        secondary_frame = gate_frame if not gate_frame.empty else chart
-        secondary_column = "gate_price" if secondary_source == "gateio" else "cg_price"
-        secondary_result = compare_daily_prices(
-            validation.history,
-            secondary_frame,
-            secondary_column=secondary_column,
-            min_overlap_days=config.data_quality.cross_check_min_overlap_days,
-            max_median_gap=config.data_quality.cross_check_max_median_gap,
-            max_latest_gap=config.data_quality.cross_check_max_latest_gap,
-            max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
-        )
+        # Independent sources.  Gate.io and Binance are exchange venues;
+        # CoinGecko is an aggregator and carries the weakest evidence, but it
+        # still counts as an independent vote when no order book covers a name.
+        # CMC owns every value in the panel either way - these only decide
+        # whether to trust it.
+        venue_frames = [
+            ("gateio", gate_frame, "gate_price"),
+            ("binance", binance_frame, "binance_price"),
+            ("coingecko", chart, "cg_price"),
+        ]
+
+        def _evaluate(name: str, frame: pd.DataFrame, column: str) -> tuple[str, pd.DataFrame, str, object]:
+            return (
+                name,
+                frame,
+                column,
+                compare_daily_prices(
+                    validation.history,
+                    frame,
+                    secondary_column=column,
+                    min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+                    max_median_gap=config.data_quality.cross_check_max_median_gap,
+                    max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+                    max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+                    require_latest_coverage=not feed_ended,
+                ),
+            )
+
+        evaluations = [_evaluate(name, frame, column) for name, frame, column in venue_frames if not frame.empty]
+        # Rank by evidence, not by provider type: a venue whose data stops
+        # months ago cannot certify the current print, and putting it first
+        # would only force a pointless extra hop. Prefer a source that actually
+        # passes; fall back to the venue order when none does so the reader can
+        # still see the strongest available disagreement.
+        passing = [item for item in evaluations if item[3].passed]
+        ordered = passing + [item for item in evaluations if not item[3].passed]
+        if ordered:
+            secondary_source, secondary_frame, secondary_column, secondary_result = ordered[0]
+        else:
+            secondary_source, secondary_frame, secondary_column = "coingecko", chart, "cg_price"
+            secondary_result = compare_daily_prices(
+                validation.history,
+                secondary_frame,
+                secondary_column=secondary_column,
+                min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+                max_median_gap=config.data_quality.cross_check_max_median_gap,
+                max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+                max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+                require_latest_coverage=not feed_ended,
+            )
         tertiary = pd.DataFrame()
         tertiary_column = "pap_price"
         tertiary_source = ""
         pap_id = asset.get("coinpaprika_id")
         if not secondary_result.passed:
-            if secondary_source == "gateio" and not chart.empty:
-                chart_result = compare_daily_prices(
-                    validation.history,
-                    chart,
-                    secondary_column="cg_price",
-                    min_overlap_days=config.data_quality.cross_check_min_overlap_days,
-                    max_median_gap=config.data_quality.cross_check_max_median_gap,
-                    max_latest_gap=config.data_quality.cross_check_max_latest_gap,
-                    max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
-                )
-                if (
-                    chart_result.latest_primary_covered
-                    and chart_result.overlap_days >= config.data_quality.cross_check_min_overlap_days
-                ):
-                    tertiary = chart
-                    tertiary_column = "cg_price"
-                    tertiary_source = "coingecko"
+            # Any independent source other than the one already disagreeing can
+            # carry the tie-break vote.
+            for name, frame, column, _result in ordered[1:]:
+                if frame.empty:
+                    continue
+                tertiary = frame
+                tertiary_column = column
+                tertiary_source = name
+                break
             if tertiary.empty and pap_id is not None and not pd.isna(pap_id):
                 tertiary = coinpaprika.load_daily_history(str(pap_id))
                 if not tertiary.empty:
@@ -504,6 +691,7 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
             max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+            require_latest_coverage=not feed_ended,
         )
         # "Disagrees" and "could not be checked" are different states. A proven
         # disagreement blocks the asset; a missing second source is recorded
@@ -556,6 +744,25 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
                 ),
                 "crosscheck_secondary_tertiary_latest_gap": (
                     secondary_tertiary_result.latest_gap if secondary_tertiary_result is not None else pd.NA
+                ),
+                # An ended feed cannot be corroborated to its final print: no
+                # venue still quotes a delisted pair. Record how many trailing
+                # days of the primary series rest on CMC alone so the audit can
+                # price that in instead of hiding it.
+                "crosscheck_primary_ended": bool(feed_ended),
+                "crosscheck_unverified_tail_days": (
+                    max(
+                        int(
+                            (
+                                pd.Timestamp(cross.latest_primary_date) - pd.Timestamp(cross.latest_secondary_date)
+                            ).days
+                        ),
+                        0,
+                    )
+                    if feed_ended
+                    and cross.latest_primary_date is not None
+                    and cross.latest_secondary_date is not None
+                    else 0
                 ),
                 "included_in_panel": bool(admitted),
             }
@@ -658,6 +865,23 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         raise ValueError("No processed panel rows could be built")
 
     panel = pd.concat(panel_frames, ignore_index=True)
+    total_assets = panel["coin_id"].nunique()
+    required_coverage = max(1, ceil(total_assets * config.data_quality.min_daily_coverage))
+    coverage = panel.groupby("date")["coin_id"].nunique()
+    covered_dates = coverage[coverage >= required_coverage]
+    if covered_dates.empty:
+        raise ValueError("No panel date has sufficient provider coverage")
+    panel_end = covered_dates.index.max()
+    dropped = panel[panel["date"] > panel_end]
+    if not dropped.empty:
+        dropped_dates = sorted(str(value.date()) for value in dropped["date"].unique())
+        LOGGER.warning(
+            "Dropping partial provider dates %s: coverage below %s/%s assets",
+            dropped_dates,
+            required_coverage,
+            total_assets,
+        )
+    panel = panel[panel["date"] <= panel_end].copy()
     panel = panel.sort_values(["date", "market_cap"], ascending=[True, False]).reset_index(drop=True)
     metadata = pd.DataFrame(metadata_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
     quality = pd.DataFrame(quality_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
