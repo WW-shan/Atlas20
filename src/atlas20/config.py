@@ -69,7 +69,12 @@ class FrictionConfig(BaseModel):
     slippage_bps: float = 10.0
     max_weight_per_coin: float = 0.35
     max_weight_per_sector: float = 0.50
-    missing_return_fill: float = 0.0
+    # A missing return is not evidence that a held asset was flat.  The safe
+    # default is to abort the backtest and force a data repair.  ``fill`` is an
+    # explicit opt-in for sensitivity work; ``missing_return_fill`` is then
+    # applied, with a conservative -100% default rather than the old silent 0%.
+    missing_return_policy: Literal["error", "fill"] = "error"
+    missing_return_fill: float = -1.0
 
 
 class SignalsConfig(BaseModel):
@@ -183,12 +188,15 @@ class DataQualityConfig(BaseModel):
     cross_check_min_overlap_days: int = 30
     cross_check_max_median_gap: float = 0.10
     cross_check_max_latest_gap: float = 0.35
+    # The independent series must contain the primary provider's latest date.
+    # A provider that stopped a week ago is not evidence about today's print;
+    # this prevents a stale overlap from silently certifying a fresh bad block.
+    cross_check_max_latest_staleness_days: int = 0
     exclude_on_cross_check_failure: bool = True
     # An asset whose independent source is unavailable is "unverified", not
-    # "disagreeing". Default: admit it (a provider outage must not halt the
-    # whole pipeline) but record it, so the audit can surface it. Set this to
-    # true to refuse anything you could not independently confirm.
-    require_cross_check: bool = False
+    # "disagreeing". The safe default is to refuse it: a live universe should
+    # never trade a print that no independent source can currently confirm.
+    require_cross_check: bool = True
 
 
 class ResearchConfig(BaseModel):

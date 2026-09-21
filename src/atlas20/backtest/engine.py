@@ -114,8 +114,6 @@ def run_backtest(
     previous_date: pd.Timestamp | None = None
 
     for date in returns.index:
-        day_ret = returns.loc[date].reindex(columns).fillna(friction.missing_return_fill)
-
         if previous_date is not None and previous_date in rebalance_targets:
             pending_target = rebalance_targets[previous_date].reindex(columns).fillna(0.0)
             exposure = gross_target_exposure
@@ -134,6 +132,22 @@ def run_backtest(
             cost_return = trade_turnover * fee_rate
             current_weights = pending_target.copy()
             pending_target = None
+
+        raw_day_ret = returns.loc[date].reindex(columns)
+        missing = raw_day_ret.isna()
+        if missing.any():
+            held_missing = missing & (current_weights.abs() > 1e-12)
+            if friction.missing_return_policy == "error" and held_missing.any():
+                assets = ", ".join(str(asset) for asset in held_missing.index[held_missing])
+                raise ValueError(
+                    f"Missing returns for held assets on {pd.Timestamp(date).date()}: {assets}. "
+                    "Repair the provider history or explicitly set "
+                    "frictions.missing_return_policy=fill with a conservative "
+                    "frictions.missing_return_fill."
+                )
+            day_ret = raw_day_ret.fillna(friction.missing_return_fill)
+        else:
+            day_ret = raw_day_ret
 
         gross_asset_return = float((current_weights * day_ret).sum())
         total_day_return = (1.0 - cost_return) * (1.0 + gross_asset_return) - 1.0

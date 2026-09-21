@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from atlas20.config import load_config, load_sector_config
 from atlas20.data import processor
@@ -75,6 +76,9 @@ def _config(tmp_path: Path, start: str = "2024-01-01", end: str = "2024-01-10"):
     config.data_quality.min_market_cap_days = 2
     # The fixtures only span a few days; the production floor is 30.
     config.data_quality.cross_check_min_overlap_days = 2
+    # Most fixtures predate the independent-source cache. Keep them focused on
+    # the behavior they exercise; tests for mandatory verification opt in.
+    config.data_quality.require_cross_check = False
     return config
 
 
@@ -673,3 +677,34 @@ def test_download_prefers_gateio_and_avoids_coingecko_chart_when_listed(tmp_path
         (tmp_path / "data" / "raw" / "coingecko" / "candidate_assets.json").read_text(encoding="utf-8")
     )
     assert candidates[0]["gateio_pair"] == "BTC_USDT"
+
+
+def test_stale_second_source_blocks_asset_when_crosscheck_is_required(tmp_path):
+    config = _config(tmp_path)
+    config.data_quality.require_cross_check = True
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    # Two days overlap and agree, but the independent source stops before the
+    # latest primary print. That is an unverified current price, not a pass.
+    _write_chart(raw_dir, "bitcoin", days[:-1], scale=1.0)
+
+    with pytest.raises(ValueError, match="No processed panel rows"):
+        processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+
+def test_quality_records_latest_primary_verification(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    days = _days()
+    _write_cmc(raw_dir, 1, days)
+    _write_chart(raw_dir, "bitcoin", days, scale=1.0)
+
+    processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    row = quality.loc["bitcoin"]
+    assert bool(row["crosscheck_latest_primary_covered"]) is True
+    assert str(row["crosscheck_primary_latest_date"])[:10] == days[-1]

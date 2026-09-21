@@ -6,7 +6,7 @@ Run this before trusting a backtest or wiring the pipeline to real money:
 
 Every check prints PASS/FAIL with the evidence behind it. A FAIL is a data or
 mechanics defect; a WARN is a known modelling gap that must be priced in
-manually (funding cost, missing-return fill).
+manually (currently the uncharged funding cost on leveraged exposure).
 """
 
 from __future__ import annotations
@@ -225,14 +225,34 @@ def main() -> int:
         check(
             "cross-check: every admitted asset agrees with an independent provider",
             still_disagreeing.empty,
-            f"{len(admitted)} admitted, all verified; "
+            f"{len(admitted)} admitted, verified={len(admitted) - len(missing)}; "
             f"still disagreeing={still_disagreeing['symbol'].tolist()[:5]}",
         )
         check(
             "cross-check: independent source available for every admitted asset",
             missing.empty,
             f"assets without a usable independent source={missing['symbol'].tolist()[:5]}",
-            warn=not missing.empty,
+        )
+        if "crosscheck_latest_primary_covered" in admitted.columns:
+            uncovered = admitted[
+                ~admitted["crosscheck_latest_primary_covered"].fillna(False).astype(bool)
+            ]
+            check(
+                "cross-check: independent source covers the latest primary print",
+                uncovered.empty,
+                f"latest-date-uncovered admitted assets={uncovered['symbol'].tolist()[:5]}",
+            )
+        else:
+            check(
+                "cross-check: independent source covers the latest primary print",
+                False,
+                "data_quality.csv lacks crosscheck_latest_primary_covered; "
+                "a stale overlap could certify a current bad print",
+            )
+        check(
+            "cross-check: unverified assets are refused",
+            bool(config.data_quality.require_cross_check),
+            f"require_cross_check={config.data_quality.require_cross_check}",
         )
         effective_column = (
             "crosscheck_effective_median_gap"
@@ -369,8 +389,28 @@ def main() -> int:
     )
 
     # --------------------------------------------------------------- engine
-    filled = market.returns.loc[config.start_timestamp : config.end_timestamp].isna().sum().sum()
-    check("engine: no NaN asset returns to fill", filled == 0, f"NaN return cells={int(filled)}")
+    backtest_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
+    terminal_missing = 0
+    for column in backtest_returns.columns:
+        observed = market.raw_price.loc[backtest_returns.index, column]
+        last_observed = observed.last_valid_index()
+        if last_observed is not None:
+            # Returns after the last observed provider print are the dangerous
+            # tail case: a delisted/halted asset must not be carried flat.
+            terminal_missing += int(backtest_returns.loc[last_observed:, column].isna().sum())
+    missing_policy = config.frictions.missing_return_policy
+    check(
+        "engine: missing returns fail closed",
+        missing_policy == "error",
+        f"policy={missing_policy}; missing_return_fill={config.frictions.missing_return_fill}; "
+        f"terminal missing return cells={terminal_missing}",
+        warn=missing_policy != "error",
+    )
+    check(
+        "engine: no terminal missing asset returns",
+        terminal_missing == 0,
+        f"terminal missing return cells={terminal_missing}",
+    )
 
     last_date = market.price.index.max()
     staleness = (pd.Timestamp.today().normalize() - last_date).days
@@ -392,27 +432,12 @@ def main() -> int:
         warn=True,
     )
     check(
-        "coverage: recent prints are independently verified",
-        False,
-        "the level-corruption test alone needs ~60 days of *future* prices, so it "
-        "cannot see a block that is still in progress. Gate.io covers the "
-        "trailing cross_check_recent_days (365) for listed assets; CoinGecko "
-        "covers Gate-unlisted assets, and CoinPaprika remains the final "
-        "tie-break fallback. The remaining blind spot is a print that CMC and "
-        "the confirming provider are simultaneously wrong about. Verify a "
-        "suspicious recent print against an exchange ticker before sizing a live "
-        "position on it.",
-        warn=True,
-    )
-    check(
-        "modelling: missing returns are not assumed flat",
-        False,
-        "friction.missing_return_fill=0.0 would treat a halted or delisted "
-        "holding as flat instead of writing it down. Continuous spot feeds do "
-        "not halt, and every asset above reports through the final date, so "
-        "this is inert for the current dataset - it only matters if a feed is "
-        "ever truncated.",
-        warn=True,
+        "modelling: missing returns are explicitly handled",
+        missing_policy == "error",
+        "missing returns abort the run by default; an explicit fill policy is "
+        "required to continue. This prevents a halted or delisted holding from "
+        "being silently marked flat.",
+        warn=missing_policy != "error",
     )
 
     width = max(len(n) for n, _, _ in RESULTS)

@@ -45,7 +45,18 @@ def prepare_market_data(panel: pd.DataFrame, metadata: pd.DataFrame, config: Res
     history_count = raw_price.notna().cumsum()
     price = raw_price.ffill(limit=3)
     market_cap = market_cap.ffill(limit=3)
-    returns = price.pct_change().replace([pd.NA, float("inf"), float("-inf")], 0.0).fillna(0.0)
+    # Interior provider gaps are carried at the last observed price, and the
+    # first print after the gap applies the cumulative move.  This is not the
+    # same as treating a delisted asset as permanently flat: returns after the
+    # *last* observed price stay NaN so the engine can fail closed (or apply an
+    # explicit, conservative fill policy).  The old code forward-filled the
+    # entire tail, silently turning a truncated feed into a zero-return asset.
+    carried_price = raw_price.ffill()
+    returns = carried_price.pct_change().replace([float("inf"), float("-inf")], float("nan"))
+    for column in raw_price.columns:
+        last_observed = raw_price[column].last_valid_index()
+        if last_observed is not None:
+            returns.loc[returns.index > last_observed, column] = float("nan")
 
     return MarketDataBundle(
         raw_price=raw_price,

@@ -195,7 +195,11 @@ frictions:
   slippage_bps: 10.0
   max_weight_per_coin: 0.35
   max_weight_per_sector: 0.50
-  missing_return_fill: 0.0
+  # Missing provider prices abort the backtest by default. Do not silently
+  # mark a halted or delisted holding as flat; use an explicit fill policy only
+  # for a labelled sensitivity run.
+  missing_return_policy: error
+  missing_return_fill: -1.0
 
 signals:
   momentum_windows:
@@ -280,7 +284,11 @@ data_quality:
   cross_check_min_overlap_days: 30
   cross_check_max_median_gap: 0.10
   cross_check_max_latest_gap: 0.35
+  # The independent source must cover the primary provider's latest date.
+  # Otherwise the comparison can pass on an old overlap while a fresh bad block
+  # remains invisible. Zero means the latest dates must match.
+  cross_check_max_latest_staleness_days: 0
   exclude_on_cross_check_failure: true
-  # Refuse assets whose independent source is missing entirely. Off by default
-  # so a provider outage degrades to "unverified" instead of an empty pipeline.
-  require_cross_check: false
+  # Refuse assets whose independent source is missing or stale. This makes the
+  # live universe fail closed instead of trading an unverified current print.
+  require_cross_check: true

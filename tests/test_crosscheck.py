@@ -169,3 +169,27 @@ def test_third_source_must_pass_the_full_check_not_just_the_median() -> None:
 
     assert not result.passed
     assert result.reason == "two_providers_disagree"
+
+
+def test_stale_secondary_cannot_verify_the_latest_primary_print() -> None:
+    """A provider that stops 10 days early must not be treated as current."""
+    primary = _frame(120, 100.0, "price")
+    secondary = _frame(110, 100.0, "cg_price")
+
+    result = compare_daily_prices(primary, secondary)
+
+    assert not result.passed
+    assert result.reason == "secondary_stale"
+    assert result.latest_primary_covered is False
+    assert result.latest_staleness_days == 10
+
+
+def test_current_secondary_marks_the_latest_primary_print_covered() -> None:
+    primary = _frame(120, 100.0, "price")
+    secondary = _frame(120, 100.0, "cg_price")
+
+    result = compare_daily_prices(primary, secondary)
+
+    assert result.passed
+    assert result.latest_primary_covered is True
+    assert result.latest_staleness_days == 0

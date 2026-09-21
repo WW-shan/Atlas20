@@ -312,6 +312,12 @@ Two biases had to be removed before any of these numbers meant anything:
    adjudicating vote. The third source must pass the same full test, not merely
    have a similar median, before it can override the second source.
 
+   The independent source must also **cover CoinMarketCap's latest date**. A
+   provider that stopped days earlier cannot certify today's print, so a stale
+   overlap is refused rather than treated as agreement. Unverified assets are
+   refused by default (`data_quality.require_cross_check: true`); the audit
+   records the latest primary/secondary dates and the staleness gap.
+
    The Celsius case is now confirmed: CMC quotes ~$19-44 while CoinGecko and
    Gate.io both quote ~$0.004-0.07, so CMC is the isolated outlier and CEL is
    refused. Huobi Token is also refused: CMC's recent series has a 31% median
@@ -319,17 +325,27 @@ Two biases had to be removed before any of these numbers meant anything:
    CoinGecko at a 2.0% median gap. Binance's public data mirror was tested but
    does not list either HTUSDT or CELUSDT, so it cannot cover these two cases.
    This is why the pipeline does not accept a median-only third-source
-   confirmation.
-   "Disagrees" and "could not be checked" remain separate states: a proven
-   disagreement blocks the asset, while a missing second source is recorded as
-   unverified so a CoinGecko outage degrades the run instead of emptying it
-   (`data_quality.require_cross_check` upgrades that to a hard refusal).
+   confirmation. "Disagrees" and "could not be checked" remain separate
+   states: a proven disagreement blocks the asset, while a missing second
+   source is recorded as unverified; with the new default it is refused rather
+   than silently admitted.
+
+4. **Missing returns are not silently flat.** Interior provider gaps are
+   carried at the last observed price, and the first print after the gap applies
+   the cumulative move. Returns after the final observed price remain missing:
+   a halted or delisted holding aborts the run by default
+   (`frictions.missing_return_policy: error`) instead of being marked flat
+   forever. An explicit `fill` policy is available only for a labelled
+   sensitivity run and defaults to a -100% write-down.
 
 `scripts/audit_data_chain.py` re-checks the whole chain - provider cache
-integrity, panel sanity, price-level corruption, second- and third-source
-agreement, feed continuity, point-in-time ranking and execution freshness - and
-prints PASS/WARN/FAIL. Current state: 30 PASS, 3 WARN, 0 FAIL. Run it before
-trusting any backtest.
+integrity, panel sanity, price-level corruption, latest-date independent-source
+coverage, terminal missing-return handling, feed continuity, point-in-time
+ranking and execution freshness - and prints PASS/WARN/FAIL. Current state:
+35 PASS, 2 WARN, 0 FAIL. The remaining warnings are the uncharged funding cost
+on leveraged exposure and 36 CMC rows where reported market cap differs from
+`price * supply` by more than 1% (rankings still use CMC's reported market cap
+directly). Run it before trusting any backtest.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.

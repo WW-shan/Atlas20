@@ -41,6 +41,19 @@ MAX_SUSTAINED_SHARE = 0.05
 # quote the same underlying move, so only a corrupted print produces it.
 CATASTROPHIC_GAP = 5.0
 MIN_OVERLAP_DAYS = 30
+# The independent series must cover the primary provider's latest date.  A
+# stale overlap can agree perfectly while saying nothing about the current
+# print, which is exactly the blind spot that let a live CMC corruption block
+# remain invisible until enough future data arrived.
+MAX_LATEST_STALENESS_DAYS = 0
+UNVERIFIED_REASONS = {
+    "no_overlap",
+    "insufficient_overlap",
+    "secondary_stale",
+    "latest_primary_unverified",
+    "unverified",
+    "third_source_insufficient_overlap",
+}
 
 
 @dataclass
@@ -55,6 +68,10 @@ class CrossCheckResult:
     latest_overlap_date: pd.Timestamp | None
     disagreeing_share: float = 0.0
     worst_gap: float = float("nan")
+    primary_latest_date: pd.Timestamp | None = None
+    secondary_latest_date: pd.Timestamp | None = None
+    latest_staleness_days: int | None = None
+    latest_primary_covered: bool = False
 
 
 def _daily_closes(frame: pd.DataFrame, price_column: str) -> pd.Series:
@@ -84,14 +101,41 @@ def compare_daily_prices(
     min_overlap_days: int = MIN_OVERLAP_DAYS,
     max_median_gap: float = MEDIAN_GAP_TOLERANCE,
     max_latest_gap: float = LATEST_GAP_TOLERANCE,
+    max_latest_staleness_days: int = MAX_LATEST_STALENESS_DAYS,
 ) -> CrossCheckResult:
-    """Compare two daily close series over their overlapping window."""
+    """Compare two daily close series and require current primary coverage.
+
+    The comparison only certifies the primary provider when the independent
+    series reaches the primary provider's latest date.  A stale secondary
+    series is useful for historical context but cannot validate today's print,
+    so it fails with ``secondary_stale`` instead of passing on an old overlap.
+    """
     left = _daily_closes(primary, primary_column)
     right = _daily_closes(secondary, secondary_column)
 
+    primary_latest = pd.Timestamp(left.index.max()) if not left.empty else None
+    secondary_latest = pd.Timestamp(right.index.max()) if not right.empty else None
+    if primary_latest is not None and secondary_latest is not None:
+        latest_staleness_days = max(int((primary_latest - secondary_latest).days), 0)
+    else:
+        latest_staleness_days = None
+
     overlap = pd.concat({"primary": left, "secondary": right}, axis=1).dropna()
+    latest_primary_covered = primary_latest is not None and primary_latest in overlap.index
+
     if overlap.empty:
-        return CrossCheckResult(False, "no_overlap", 0, np.nan, np.nan, None)
+        return CrossCheckResult(
+            False,
+            "no_overlap",
+            0,
+            np.nan,
+            np.nan,
+            None,
+            primary_latest_date=primary_latest,
+            secondary_latest_date=secondary_latest,
+            latest_staleness_days=latest_staleness_days,
+            latest_primary_covered=False,
+        )
 
     # Symmetric multiplicative gap. A plain relative difference saturates at
     # 100% whenever the bad print is the *lower* one, which would hide a print
@@ -108,9 +152,28 @@ def compare_daily_prices(
 
     def verdict(passed: bool, reason: str) -> CrossCheckResult:
         return CrossCheckResult(
-            passed, reason, days, median_gap, latest_gap, latest_date, disagreeing_share, worst_gap
+            passed,
+            reason,
+            days,
+            median_gap,
+            latest_gap,
+            latest_date,
+            disagreeing_share,
+            worst_gap,
+            primary_latest,
+            secondary_latest,
+            latest_staleness_days,
+            latest_primary_covered,
         )
 
+    if (
+        secondary_latest is None
+        or latest_staleness_days is None
+        or latest_staleness_days > max_latest_staleness_days
+    ):
+        return verdict(False, "secondary_stale")
+    if not latest_primary_covered:
+        return verdict(False, "latest_primary_unverified")
     if days < min_overlap_days:
         return verdict(False, "insufficient_overlap")
     if median_gap > max_median_gap:
@@ -168,11 +231,37 @@ class CrossCheckDecision:
         return self.secondary.worst_gap
 
     @property
+    def effective_result(self) -> CrossCheckResult:
+        """The comparison that actually supports the decision.
+
+        When a stale or disagreeing secondary is replaced by a passing
+        tertiary vote, the tertiary comparison is the one that certifies the
+        current primary print.
+        """
+        if self.confirmed_by is not None and self.tertiary is not None:
+            return self.tertiary
+        return self.secondary
+
+    @property
+    def latest_primary_date(self) -> pd.Timestamp | None:
+        return self.effective_result.primary_latest_date
+
+    @property
+    def latest_secondary_date(self) -> pd.Timestamp | None:
+        return self.effective_result.secondary_latest_date
+
+    @property
+    def latest_staleness_days(self) -> int | None:
+        return self.effective_result.latest_staleness_days
+
+    @property
+    def latest_primary_covered(self) -> bool:
+        return self.effective_result.latest_primary_covered
+
+    @property
     def effective_median_gap(self) -> float:
         """Median gap of the provider pair that actually supported CMC."""
-        if self.confirmed_by is not None and self.tertiary is not None:
-            return self.tertiary.median_gap
-        return self.secondary.median_gap
+        return self.effective_result.median_gap
 
 
 def _has_overlap(result: CrossCheckResult, min_overlap_days: int) -> bool:
@@ -191,6 +280,7 @@ def adjudicate_daily_prices(
     min_overlap_days: int = MIN_OVERLAP_DAYS,
     max_median_gap: float = MEDIAN_GAP_TOLERANCE,
     max_latest_gap: float = LATEST_GAP_TOLERANCE,
+    max_latest_staleness_days: int = MAX_LATEST_STALENESS_DAYS,
 ) -> CrossCheckDecision:
     """Decide whether the primary provider is corroborated.
 
@@ -209,11 +299,12 @@ def adjudicate_daily_prices(
         min_overlap_days=min_overlap_days,
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
+        max_latest_staleness_days=max_latest_staleness_days,
     )
     if secondary_result.passed:
         return CrossCheckDecision(True, secondary_result.reason, secondary_result)
 
-    secondary_unverified = secondary_result.reason in {"no_overlap", "insufficient_overlap"}
+    secondary_unverified = secondary_result.reason in UNVERIFIED_REASONS
     if tertiary is None or tertiary.empty:
         return CrossCheckDecision(
             False,
@@ -229,8 +320,9 @@ def adjudicate_daily_prices(
         min_overlap_days=min_overlap_days,
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
+        max_latest_staleness_days=max_latest_staleness_days,
     )
-    if tertiary_result.reason in {"no_overlap", "insufficient_overlap"}:
+    if tertiary_result.reason in UNVERIFIED_REASONS:
         return CrossCheckDecision(
             False,
             "unverified" if secondary_unverified else "third_source_insufficient_overlap",
@@ -265,9 +357,14 @@ def adjudicate_daily_prices(
         min_overlap_days=min_overlap_days,
         max_median_gap=max_median_gap,
         max_latest_gap=max_latest_gap,
+        max_latest_staleness_days=max_latest_staleness_days,
     )
     secondaries_have_overlap = _has_overlap(secondary_vs_tertiary, min_overlap_days)
-    secondaries_agree_latest = secondaries_have_overlap and secondary_vs_tertiary.latest_gap <= max_latest_gap
+    secondaries_agree_latest = (
+        secondaries_have_overlap
+        and secondary_vs_tertiary.latest_primary_covered
+        and secondary_vs_tertiary.latest_gap <= max_latest_gap
+    )
     secondaries_agree_median = secondaries_have_overlap and secondary_vs_tertiary.median_gap <= max_median_gap
 
     # If both independent providers agree with each other but not with CMC,

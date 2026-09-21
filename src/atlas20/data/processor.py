@@ -32,7 +32,7 @@ from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata
 from atlas20.data.coingecko import CoinGeckoClient
 from atlas20.data.coinmarketcap import CoinMarketCapClient
 from atlas20.data.coinpaprika import CoinPaprikaClient
-from atlas20.data.crosscheck import adjudicate_daily_prices, compare_daily_prices
+from atlas20.data.crosscheck import UNVERIFIED_REASONS, adjudicate_daily_prices, compare_daily_prices
 from atlas20.data.gateio import GateIOClient
 from atlas20.data.validation import summarize_market_history
 from atlas20.logging_utils import ensure_dir, get_logger
@@ -191,19 +191,34 @@ def download_and_cache_raw_data(
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+            max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
         )
 
         if not secondary_result.passed:
-            coingecko_chart_ready = secondary_source == "coingecko" and not secondary.empty
+            # CoinGecko cannot adjudicate its own disagreement.  It can only
+            # act as the tertiary vote when Gate.io was the secondary source.
+            coingecko_chart_ready = False
             if secondary_source == "gateio":
                 # A Gate disagreement is rare.  Fetch CoinGecko only for that
                 # adjudication, which keeps the normal refresh well below its
                 # free-tier request ceiling.
                 try:
-                    coingecko.fetch_daily_market_chart(
+                    chart = coingecko.fetch_daily_market_chart(
                         coin_id, config.data_quality.cross_check_recent_days, force=force
                     )
-                    coingecko_chart_ready = True
+                    chart_result = compare_daily_prices(
+                        history.rename(columns={"close": "price"}),
+                        chart,
+                        secondary_column="cg_price",
+                        min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+                        max_median_gap=config.data_quality.cross_check_max_median_gap,
+                        max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+                        max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+                    )
+                    coingecko_chart_ready = bool(
+                        chart_result.latest_primary_covered
+                        and chart_result.overlap_days >= config.data_quality.cross_check_min_overlap_days
+                    )
                 except Exception as exc:  # noqa: BLE001
                     details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
                     LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
@@ -449,6 +464,7 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+            max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
         )
         tertiary = pd.DataFrame()
         tertiary_column = "pap_price"
@@ -456,9 +472,22 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
         pap_id = asset.get("coinpaprika_id")
         if not secondary_result.passed:
             if secondary_source == "gateio" and not chart.empty:
-                tertiary = chart
-                tertiary_column = "cg_price"
-                tertiary_source = "coingecko"
+                chart_result = compare_daily_prices(
+                    validation.history,
+                    chart,
+                    secondary_column="cg_price",
+                    min_overlap_days=config.data_quality.cross_check_min_overlap_days,
+                    max_median_gap=config.data_quality.cross_check_max_median_gap,
+                    max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+                    max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
+                )
+                if (
+                    chart_result.latest_primary_covered
+                    and chart_result.overlap_days >= config.data_quality.cross_check_min_overlap_days
+                ):
+                    tertiary = chart
+                    tertiary_column = "cg_price"
+                    tertiary_source = "coingecko"
             if tertiary.empty and pap_id is not None and not pd.isna(pap_id):
                 tertiary = coinpaprika.load_daily_history(str(pap_id))
                 if not tertiary.empty:
@@ -474,11 +503,12 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
+            max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
         )
         # "Disagrees" and "could not be checked" are different states. A proven
         # disagreement blocks the asset; a missing second source is recorded
         # and only blocks when the operator demands verification.
-        unverified = cross.reason == "unverified"
+        unverified = cross.reason in UNVERIFIED_REASONS
         blocked_by_cross_check = not cross.passed and (
             (not unverified) or config.data_quality.require_cross_check
         )
@@ -497,6 +527,10 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
                 "crosscheck_reason": cross.reason,
                 "crosscheck_confirmed_by": confirmed_by,
                 "crosscheck_overlap_days": cross.overlap_days,
+                "crosscheck_primary_latest_date": cross.latest_primary_date,
+                "crosscheck_secondary_latest_date": cross.latest_secondary_date,
+                "crosscheck_latest_staleness_days": cross.latest_staleness_days,
+                "crosscheck_latest_primary_covered": cross.latest_primary_covered,
                 "crosscheck_median_gap": cross.median_gap,
                 "crosscheck_latest_gap": cross.latest_gap,
                 "crosscheck_effective_median_gap": cross.effective_median_gap,

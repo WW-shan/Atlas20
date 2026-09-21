@@ -61,6 +61,9 @@ def _write_small_project_config(project_root: Path) -> None:
     ]
     raw["data_quality"]["min_price_days"] = 5
     raw["data_quality"]["min_market_cap_days"] = 5
+    # This fixture has no independent-provider cache; cross-check behavior is
+    # covered by dedicated processor/cross-check tests.
+    raw["data_quality"]["require_cross_check"] = False
     (config_dir / "base.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
     sectors = {
         "default_sector": "Other",

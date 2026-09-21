@@ -88,3 +88,32 @@ def test_per_coin_cap_is_enforced_and_never_raises_the_largest_weight() -> None:
     skewed = cap_and_normalize(pd.Series({"a": 0.7, "b": 0.2, "c": 0.1}), 0.5)
     assert skewed.max() <= 0.5 + 1e-12
     assert skewed.sum() == pytest.approx(1.0)
+
+
+def test_missing_return_for_a_held_asset_fails_closed() -> None:
+    """A halted/delisted holding must never be silently marked flat."""
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    returns = pd.DataFrame({"a": [0.0, float("nan"), float("nan")]}, index=dates)
+    targets = {dates[0]: pd.Series({"a": 1.0})}
+    friction = FrictionConfig(fee_bps=0.0, slippage_bps=0.0, max_weight_per_coin=1.0)
+
+    with pytest.raises(ValueError, match="Missing returns for held assets"):
+        run_backtest("t", returns, targets, pd.Series({"a": "x"}), friction, 100.0)
+
+
+def test_missing_return_fill_requires_an_explicit_policy() -> None:
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    returns = pd.DataFrame({"a": [0.0, float("nan"), float("nan")]}, index=dates)
+    targets = {dates[0]: pd.Series({"a": 1.0})}
+    friction = FrictionConfig(
+        fee_bps=0.0,
+        slippage_bps=0.0,
+        max_weight_per_coin=1.0,
+        missing_return_policy="fill",
+        missing_return_fill=-1.0,
+    )
+
+    result = run_backtest("t", returns, targets, pd.Series({"a": "x"}), friction, 100.0)
+
+    assert result.daily_returns.loc[dates[1]] == pytest.approx(-1.0)
+    assert result.equity_curve.loc[dates[1]] == pytest.approx(0.0)
