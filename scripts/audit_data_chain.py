@@ -25,6 +25,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
+from atlas20.backtest.engine import cap_and_normalize  # noqa: E402
 from atlas20.config import load_config, load_sector_config  # noqa: E402
 from atlas20.data.processor import build_processed_datasets  # noqa: E402
 from atlas20.logging_utils import configure_logging  # noqa: E402
@@ -339,6 +340,33 @@ def main() -> int:
 
     size_ok = bool((universe.groupby("rebalance_date").size() <= config.universe.universe_size).all())
     check("universe: never exceeds universe_size", size_ok, f"max={int(universe.groupby('rebalance_date').size().max())}")
+
+    # A member's rank must come from a same-day market cap. prepare_market_data
+    # forward-fills market cap by up to three days, so a feed that has ended
+    # (EOS -> Vaulta, MKR -> SKY) stays "rankable" on a stale cap for a few
+    # days. Verify no member is actually carried by such a placeholder.
+    raw_caps = panel.set_index(["date", "coin_id"])["market_cap"]
+    stale_ranks: list[str] = []
+    for date, frame in universe.groupby("rebalance_date"):
+        for coin_id in frame["coin_id"]:
+            raw = raw_caps.get((pd.Timestamp(date), coin_id))
+            if raw is None or pd.isna(raw) or float(raw) <= 0:
+                stale_ranks.append(f"{coin_id}@{pd.Timestamp(date).date()}")
+    check(
+        "universe: no rank leans on a forward-filled market cap",
+        not stale_ranks,
+        f"stale-ranked members={stale_ranks[:5]}",
+    )
+
+    # ------------------------------------------------------------- engine
+    # The per-coin cap has to be a real constraint, not a no-op.
+    cap_probe = cap_and_normalize(pd.Series({"a": 0.6, "b": 0.4}), 0.35)
+    cap_ok = bool(cap_probe.max() <= 0.35 + 1e-12 and cap_probe.sum() <= 1.0 + 1e-12)
+    check(
+        "engine: per-coin cap is enforced",
+        cap_ok,
+        f"cap(0.6/0.4, 0.35) -> max={float(cap_probe.max()):.3f} sum={float(cap_probe.sum()):.3f}",
+    )
 
     # --------------------------------------------------------------- engine
     filled = market.returns.loc[config.start_timestamp : config.end_timestamp].isna().sum().sum()
