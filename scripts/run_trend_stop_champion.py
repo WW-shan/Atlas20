@@ -261,6 +261,11 @@ def main() -> None:
     report_lines = [
         "# CTREND Top20 + Daily Own-Trend Stop — 2022 Start",
         "",
+        "> **Research upper tail, not production-ready.** The headline result is tied to the",
+        "> 2022-01-01 rebalance phase, and the inherited 11-day/two-day BTC gate is a local",
+        "> parameter spike. See `PHASE_WARNING.md` and",
+        "> `reports/decision_point_ablation_2022/` before using these numbers.",
+        "",
         "This is the final candidate from the daily-rebalancing research. The coin ranking remains",
         "on the original 21-day schedule; the daily check is used to exit the holding after three",
         "consecutive closes below its own 75-day moving average. Re-entry waits for the next",
