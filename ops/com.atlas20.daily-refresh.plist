@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.daily-refresh</string>
+	<!--
+	  Refreshes the raw provider cache and rebuilds the processed panel.
+
+	  Why a shell wrapper instead of a single command: the download step only
+	  updates data/raw, while every strategy reads data/processed/panel_daily.csv.
+	  Running both keeps "new data arrived" and "the panel knows about it" in the
+	  same job, so a silent half-refresh cannot leave research running on a stale
+	  panel.
+
+	  The schedule fires twice. CoinMarketCap finalises day D's close after
+	  00:00 UTC on D+1 and is sometimes still publishing when the first attempt
+	  runs, so 02:30 UTC is the primary run and 06:30 UTC is the catch-up. Both
+	  write to the same log; a completed refresh is visible as the last
+	  "Processed dataset written" line plus the panel's max date.
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>-lc</string>
+		<string>cd /Users/ww/Project/Atlas20 &amp;&amp; .venv/bin/python scripts/download_data.py --config config/base.yaml &amp;&amp; .venv/bin/python scripts/build_datasets.py --config config/base.yaml</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>2</integer>
+			<key>Minute</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>6</integer>
+			<key>Minute</key>
+			<integer>30</integer>
+		</dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-daily-refresh.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-daily-refresh.log</string>
+</dict>
+</plist>

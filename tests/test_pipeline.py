@@ -94,10 +94,14 @@ def test_benchmark_runs_uncapped_while_strategies_keep_the_cap(tmp_path, monkeyp
         {"cagr": [0.1], "sharpe": [1.0], "max_drawdown": [-0.1]},
         index=pd.Index(["BTC_BH__always_on"], name="strategy"),
     )
-    captured: dict[str, float] = {}
+    captured: dict[str, tuple[float, float]] = {}
 
     def fake_run_backtest(name, **kwargs):
-        captured[name] = kwargs["friction"].max_weight_per_coin
+        friction = kwargs["friction"]
+        captured[name] = (
+            friction.max_weight_per_coin,
+            friction.max_weight_per_sector,
+        )
         return _result(name, index)
 
     monkeypatch.setattr(pipeline, "configure_logging", lambda level: None)
@@ -129,5 +133,8 @@ def test_benchmark_runs_uncapped_while_strategies_keep_the_cap(tmp_path, monkeyp
 
     pipeline.run_research_pipeline(config)
 
-    assert captured["BTC_BH__always_on"] == 1.0
-    assert captured["TOP20_MOM_top6_monthly__always_on"] == config.frictions.max_weight_per_coin
+    assert captured["BTC_BH__always_on"] == (1.0, 1.0)
+    assert captured["TOP20_MOM_top6_monthly__always_on"] == (
+        config.frictions.max_weight_per_coin,
+        config.frictions.max_weight_per_sector,
+    )

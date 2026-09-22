@@ -871,3 +871,84 @@ def test_ended_feed_anchors_the_venue_window_to_its_own_series(tmp_path, monkeyp
     start, end = seen["binance_window"]
     assert pd.Timestamp(end) == pd.Timestamp("2025-03-24"), "the venue window must end at the last print"
     assert pd.Timestamp(start) == days[0], "an ended series is verified over its whole length"
+
+
+def test_panel_refresh_refuses_to_drop_existing_asset(tmp_path):
+    """A transient provider failure must not silently shrink the panel."""
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    path = processed / "panel_daily.csv"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "coin_id": ["bitcoin", "ethereum"],
+        }
+    ).to_csv(path, index=False)
+
+    degraded = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "coin_id": ["bitcoin", "bitcoin"],
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="refusing to overwrite"):
+        processor._guard_panel_regression(path, degraded)
+
+
+def test_panel_refresh_refuses_to_move_end_date_backwards(tmp_path):
+    path = tmp_path / "panel_daily.csv"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-03"]),
+            "coin_id": ["bitcoin", "bitcoin"],
+        }
+    ).to_csv(path, index=False)
+    stale = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "coin_id": ["bitcoin", "bitcoin"],
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="backwards"):
+        processor._guard_panel_regression(path, stale)
+
+
+def test_panel_refresh_refuses_to_truncate_history_start(tmp_path):
+    path = tmp_path / "panel_daily.csv"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-01", "2024-01-03"]),
+            "coin_id": ["bitcoin", "bitcoin"],
+        }
+    ).to_csv(path, index=False)
+    truncated = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            "coin_id": ["bitcoin", "bitcoin"],
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="start date"):
+        processor._guard_panel_regression(path, truncated)
+
+
+def test_persist_false_does_not_overwrite_canonical_panel(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    _write_cmc(raw_dir, 1, _days())
+    processed = tmp_path / "data" / "processed"
+    processed.mkdir(parents=True)
+    path = processed / "panel_daily.csv"
+    path.write_text("sentinel\n", encoding="utf-8")
+
+    panel, _ = processor.build_processed_datasets(
+        config,
+        load_sector_config("config/sectors.yaml"),
+        persist=False,
+    )
+
+    assert not panel.empty
+    assert path.read_text(encoding="utf-8") == "sentinel\n"

@@ -79,6 +79,7 @@ def run_research_pipeline(config: ResearchConfig, refresh_raw: bool = False) -> 
         if getattr(strategy, "family", None) == "benchmark":
             friction = config.frictions.model_copy(deep=True)
             friction.max_weight_per_coin = 1.0
+            friction.max_weight_per_sector = 1.0
         result = run_backtest(
             name=strategy.name,
             asset_returns=backtest_returns,

@@ -558,7 +558,68 @@ def _load_coingecko_chart(path: Path) -> pd.DataFrame:
     )
 
 
-def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _guard_panel_regression(existing_path: Path, new_panel: pd.DataFrame) -> None:
+    """Refuse to replace a good panel with a provider-degraded smaller panel.
+
+    A transient Gate/Binance/CoinGecko failure can make a live asset look
+    "unverified" and cause the processor to omit it.  Writing that result
+    would silently change the historical universe and could remove a coin that
+    the strategy is actually holding.  The processed panel is cumulative:
+    assets may be added, but a refresh must not delete one unless an operator
+    explicitly removes the cache/config and opts into a rebuild.
+    """
+    if not existing_path.exists():
+        return
+    try:
+        existing = pd.read_csv(existing_path, usecols=["date", "coin_id"])
+    except (OSError, ValueError):
+        return
+    if existing.empty:
+        return
+
+    old_ids = set(existing["coin_id"].astype(str))
+    new_ids = set(new_panel["coin_id"].astype(str))
+    missing = sorted(old_ids - new_ids)
+    if missing:
+        preview = ", ".join(missing[:12])
+        suffix = " ..." if len(missing) > 12 else ""
+        raise RuntimeError(
+            "Processed panel regression: refusing to overwrite an existing panel "
+            f"because {len(missing)} asset(s) would disappear: {preview}{suffix}. "
+            "Repair the independent provider cache or explicitly rebuild with "
+            "the intended exclusion before rerunning."
+        )
+
+    old_start = pd.to_datetime(existing["date"], errors="coerce").min()
+    new_start = pd.to_datetime(new_panel["date"], errors="coerce").min()
+    if pd.notna(old_start) and pd.notna(new_start) and pd.Timestamp(new_start) > pd.Timestamp(old_start):
+        raise RuntimeError(
+            "Processed panel regression: refusing to move the panel start date "
+            f"forwards from {pd.Timestamp(old_start).date()} to {pd.Timestamp(new_start).date()}"
+        )
+
+    old_end = pd.to_datetime(existing["date"], errors="coerce").max()
+    new_end = pd.to_datetime(new_panel["date"], errors="coerce").max()
+    if pd.notna(old_end) and pd.notna(new_end) and pd.Timestamp(new_end) < pd.Timestamp(old_end):
+        raise RuntimeError(
+            "Processed panel regression: refusing to move the panel end date "
+            f"backwards from {pd.Timestamp(old_end).date()} to {pd.Timestamp(new_end).date()}"
+        )
+
+
+def _write_csv_atomic(frame: pd.DataFrame, path: Path, *, index: bool = False) -> None:
+    """Write a CSV through a sibling temp file, then replace atomically."""
+    temp_path = path.with_name(f".{path.name}.tmp")
+    frame.to_csv(temp_path, index=index)
+    temp_path.replace(path)
+
+
+def build_processed_datasets(
+    config: ResearchConfig,
+    sector_config: SectorConfig,
+    *,
+    persist: bool = True,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Create the processed long panel and metadata tables from cached raw files."""
     raw_dir = ensure_dir(config.resolve_path(config.paths.raw_dir))
     processed_dir = ensure_dir(config.resolve_path(config.paths.processed_dir))
@@ -886,13 +947,22 @@ def build_processed_datasets(config: ResearchConfig, sector_config: SectorConfig
     metadata = pd.DataFrame(metadata_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
     quality = pd.DataFrame(quality_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
 
-    panel.to_csv(processed_dir / "panel_daily.csv", index=False)
-    metadata.to_csv(processed_dir / "metadata.csv")
-    quality.to_csv(processed_dir / "data_quality.csv")
-
-    LOGGER.info(
-        "Processed dataset written: %s rows across %s assets (all market caps from CoinMarketCap)",
-        len(panel),
-        metadata.shape[0],
-    )
+    panel_path = processed_dir / "panel_daily.csv"
+    if persist:
+        _guard_panel_regression(panel_path, panel)
+        _write_csv_atomic(panel, panel_path, index=False)
+        _write_csv_atomic(metadata, processed_dir / "metadata.csv", index=True)
+        _write_csv_atomic(quality, processed_dir / "data_quality.csv", index=True)
+        LOGGER.info(
+            "Processed dataset written: %s rows across %s assets (all market caps from CoinMarketCap)",
+            len(panel),
+            metadata.shape[0],
+        )
+    else:
+        LOGGER.info(
+            "Processed dataset built in memory: %s rows across %s assets "
+            "(persist=False; canonical processed files untouched)",
+            len(panel),
+            metadata.shape[0],
+        )
     return panel, metadata

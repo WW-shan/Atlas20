@@ -15,6 +15,12 @@ from requests import Response
 from atlas20.config import CoinGeckoConfig
 from atlas20.logging_utils import get_logger
 
+# CoinGecko market-chart payloads are the fallback independent source for
+# assets Gate.io does not list. They must not be cached forever: a two-day-old
+# chart can no longer verify the latest CMC print and causes the fail-closed
+# cross-check to remove an otherwise healthy asset from the whole panel.
+MARKET_CHART_CACHE_MAX_AGE_SECONDS = 3 * 60 * 60
+
 
 class CoinGeckoClient:
     """Thin cache-aware client around the public CoinGecko API."""
@@ -46,8 +52,23 @@ class CoinGeckoClient:
             )
         time.sleep(delay)
 
-    def _request_json(self, endpoint: str, params: dict[str, Any], cache_path: Path, force: bool = False) -> Any:
-        if cache_path.exists() and not force:
+    @staticmethod
+    def _cache_is_fresh(cache_path: Path, max_age_seconds: float | None) -> bool:
+        if not cache_path.exists():
+            return False
+        if max_age_seconds is None:
+            return True
+        return (time.time() - cache_path.stat().st_mtime) <= max_age_seconds
+
+    def _request_json(
+        self,
+        endpoint: str,
+        params: dict[str, Any],
+        cache_path: Path,
+        force: bool = False,
+        max_age_seconds: float | None = None,
+    ) -> Any:
+        if not force and self._cache_is_fresh(cache_path, max_age_seconds):
             return json.loads(cache_path.read_text(encoding="utf-8"))
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
@@ -151,6 +172,7 @@ class CoinGeckoClient:
             },
             cache_path=self._cache_path("market_chart", f"{coin_id}_{days}d.json"),
             force=force,
+            max_age_seconds=MARKET_CHART_CACHE_MAX_AGE_SECONDS,
         )
 
         prices = pd.DataFrame(payload.get("prices", []), columns=["timestamp_ms", "cg_price"])

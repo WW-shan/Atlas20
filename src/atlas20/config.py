@@ -74,7 +74,11 @@ class FrictionConfig(BaseModel):
     fee_bps: float = 10.0
     slippage_bps: float = 10.0
     max_weight_per_coin: float = 0.35
-    max_weight_per_sector: float = 0.50
+    # The engine only applies a sector cap when it is explicitly below 1.0.
+    # Keeping the model default neutral avoids silently halving a deliberately
+    # concentrated single-sector research lane that did not opt into a cap.
+    # Production YAML sets this to 0.50 for the diversified Top20 book.
+    max_weight_per_sector: float = 1.0
     # A missing return is not evidence that a held asset was flat.  The safe
     # default is to abort the backtest and force a data repair.  ``fill`` is an
     # explicit opt-in for sensitivity work; ``missing_return_fill`` is then

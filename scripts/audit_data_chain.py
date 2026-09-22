@@ -218,7 +218,11 @@ def main() -> int:
     )
 
     # ---------------------------------------------------------------- panel
-    panel, metadata = build_processed_datasets(config, load_sector_config(config.resolve_path("config/sectors.yaml")))
+    panel, metadata = build_processed_datasets(
+        config,
+        load_sector_config(config.resolve_path("config/sectors.yaml")),
+        persist=False,
+    )
     panel = panel.sort_values(["coin_id", "date"])
 
     dupes = int(panel.duplicated(subset=["date", "coin_id"]).sum())
