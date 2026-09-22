@@ -1,0 +1,9 @@
+{
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-09-22"
+  },
+  "candidates": 1440,
+  "screen_only": true,
+  "leverage": "hard cap 1.0"
+}

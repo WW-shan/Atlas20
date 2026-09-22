@@ -1,0 +1,235 @@
+{
+  "generated_at": "2026-09-22T13:38:21.751764+00:00",
+  "window": {
+    "start": "2022-01-01T00:00:00",
+    "end": "2026-09-21T00:00:00",
+    "days": 1725
+  },
+  "finalist": {
+    "hold_count": 1,
+    "lookback": 30,
+    "btc_trend_ma": 50,
+    "asset_stop_ma": 50,
+    "target_vol": 0.8,
+    "vol_window": 30,
+    "frequency": "weekly",
+    "frequency_value": "7D",
+    "max_gross_exposure": 1.0,
+    "leverage": false
+  },
+  "sweep_cells": 648,
+  "cost_levels_bps": [
+    5.0,
+    8.0,
+    10.0,
+    15.0
+  ],
+  "data_fingerprint": {
+    "panel": {
+      "path": "/Users/ww/Project/Atlas20/data/processed/panel_daily.csv",
+      "exists": true,
+      "bytes": 20307660,
+      "sha256": "65db45384536f1b8ee974b7d7a55fc2ca34560f72c767d47042b43e237ec84a7"
+    },
+    "rebalance_universe": {
+      "path": "/Users/ww/Project/Atlas20/data/processed/rebalance_universe.csv",
+      "exists": true,
+      "bytes": 440949,
+      "sha256": "02cfdcd51c281bcbb769ba403a952a094c1d99f454ad71e4f7803c1e94e91725"
+    }
+  },
+  "peak_gross_exposure": 1.0,
+  "champion_plateau_score": 0.7083352509451626,
+  "champion_neighbour_beats_share": 0.7777777777777778,
+  "cost_stressed_candidates": [
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.5
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.6
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.7
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.5
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.6
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.6
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.5
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.7
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 100,
+      "asset_ma": 0,
+      "target_vol": 0.5
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.7
+    },
+    {
+      "hold_count": 1,
+      "lookback": 45,
+      "btc_ma": 100,
+      "asset_ma": 50,
+      "target_vol": 1.0
+    },
+    {
+      "hold_count": 1,
+      "lookback": 45,
+      "btc_ma": 100,
+      "asset_ma": 50,
+      "target_vol": 0.9
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.9
+    },
+    {
+      "hold_count": 1,
+      "lookback": 45,
+      "btc_ma": 100,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 1.0
+    },
+    {
+      "hold_count": 2,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 3,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.9
+    },
+    {
+      "hold_count": 1,
+      "lookback": 21,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 45,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 20,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 100,
+      "asset_ma": 50,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 100,
+      "target_vol": 0.8
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.7
+    },
+    {
+      "hold_count": 1,
+      "lookback": 30,
+      "btc_ma": 50,
+      "asset_ma": 50,
+      "target_vol": 0.9
+    }
+  ]
+}

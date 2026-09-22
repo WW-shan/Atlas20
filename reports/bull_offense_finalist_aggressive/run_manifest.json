@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-09-22T12:14:01.821343+00:00",
+  "window": {
+    "start": "2021-01-01T00:00:00",
+    "end": "2026-09-21T00:00:00",
+    "days": 2090
+  },
+  "finalist": {
+    "hold_count": 1,
+    "lookback": 30,
+    "btc_trend_ma": 50,
+    "asset_stop_ma": 50,
+    "target_vol": 0.8,
+    "vol_window": 30,
+    "frequency": "weekly",
+    "frequency_value": "7D",
+    "max_gross_exposure": 1.0,
+    "leverage": false
+  },
+  "sweep_cells": 0,
+  "cost_levels_bps": [
+    5.0,
+    8.0,
+    10.0,
+    15.0
+  ],
+  "data_fingerprint": {
+    "panel": {
+      "path": "/Users/ww/Project/Atlas20/data/processed/panel_daily.csv",
+      "exists": true,
+      "bytes": 22783008,
+      "sha256": "1da8efb24ca89c20543bd2bf867aed3d09d83a56fa0463510f2ea476e27693d8"
+    },
+    "rebalance_universe": {
+      "path": "/Users/ww/Project/Atlas20/data/processed/rebalance_universe.csv",
+      "exists": true,
+      "bytes": 440949,
+      "sha256": "02cfdcd51c281bcbb769ba403a952a094c1d99f454ad71e4f7803c1e94e91725"
+    }
+  },
+  "peak_gross_exposure": 1.0,
+  "champion_plateau_score": null,
+  "champion_neighbour_beats_share": null,
+  "cost_stressed_candidates": [
+    {
+      "hold_count": 1,
+      "lookback": 21,
+      "btc_ma": 50,
+      "asset_ma": 0,
+      "target_vol": 1.0
+    }
+  ]
+}

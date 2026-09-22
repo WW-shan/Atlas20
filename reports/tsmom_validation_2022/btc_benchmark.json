@@ -1,0 +1,14 @@
+{
+  "total_return": 0.8124446738010953,
+  "cagr": 0.1341722670642933,
+  "annualized_volatility": 0.508002832577229,
+  "sharpe": 0.5017356888109968,
+  "sortino": 0.841902303298274,
+  "max_drawdown": -0.6696002725344665,
+  "calmar": 0.20037666137208301,
+  "monthly_win_rate": 0.5614035087719298,
+  "annualized_turnover": 0.2117169373549884,
+  "avg_turnover_per_rebalance": 1.0,
+  "average_holdings": 0.9994202898550725,
+  "multiple": 1.8124446738010953
+}

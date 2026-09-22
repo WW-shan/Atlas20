@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
+import json
 import logging
 import math
+import multiprocessing as mp
 from pathlib import Path
 import sys
 
@@ -659,6 +662,46 @@ def _risk_on_series(market: MarketDataBundle, candidate: CandidateDefinition) ->
 
 
 _REGIME_FRAME_CACHE: dict[int, pd.DataFrame] = {}
+_WORKER_MARKET: MarketDataBundle | None = None
+_WORKER_UNIVERSES: dict[str, pd.DataFrame] | None = None
+_WORKER_CONFIG: ResearchConfig | None = None
+# Candidate definitions for the validation stages (rolling starts, cost
+# stress). The full-window screen only needs the list, but these stages look
+# candidates up by id inside the worker.
+_WORKER_CANDIDATES: dict[str, "CandidateDefinition"] | None = None
+_WORKER_ROLLING_MIN_DAYS: int = 365
+
+
+def _seed_validation_workers(
+    market: MarketDataBundle,
+    universe_by_liquidity: dict[str, pd.DataFrame],
+    config: ResearchConfig,
+    candidate_by_id: dict[str, "CandidateDefinition"],
+) -> None:
+    """Publish the shared panel to forked workers and drop stale caches.
+
+    Forked children inherit whatever was in the parent at fork time, so the
+    caches must be cleared here or a child can silently reuse a regime frame
+    built for a different market bundle.
+    """
+    global _WORKER_MARKET, _WORKER_UNIVERSES, _WORKER_CONFIG, _WORKER_CANDIDATES
+    _WORKER_MARKET = market
+    _WORKER_UNIVERSES = universe_by_liquidity
+    _WORKER_CONFIG = config
+    _WORKER_CANDIDATES = candidate_by_id
+    _REGIME_FRAME_CACHE.clear()
+    _BASE_TARGET_CACHE.clear()
+
+
+def _validation_worker_context():
+    if (
+        _WORKER_MARKET is None
+        or _WORKER_UNIVERSES is None
+        or _WORKER_CONFIG is None
+        or _WORKER_CANDIDATES is None
+    ):
+        raise RuntimeError("convex-validation worker was not initialised")
+    return _WORKER_MARKET, _WORKER_UNIVERSES, _WORKER_CONFIG, _WORKER_CANDIDATES
 
 
 def _regime_frame(market: MarketDataBundle, config: ResearchConfig) -> pd.DataFrame:
@@ -678,7 +721,54 @@ def _regime_frame(market: MarketDataBundle, config: ResearchConfig) -> pd.DataFr
     return cached
 
 
+_BASE_TARGET_CACHE: dict[tuple[object, ...], dict[pd.Timestamp, pd.Series]] = {}
+
+
+def _base_target_cache_key(
+    market: MarketDataBundle,
+    universe: pd.DataFrame,
+    config: ResearchConfig,
+    candidate: CandidateDefinition,
+) -> tuple[object, ...]:
+    """Identify the strategy inputs that are independent of the risk overlay.
+
+    The scan crosses a small number of base strategies with several stop
+    overlays.  Without this cache the expensive factor construction is
+    repeated once per overlay, which dominated the 2022 Top50 screen.
+    """
+    return (
+        candidate.strategy_kind,
+        candidate.top_n,
+        candidate.frequency,
+        candidate.score_family,
+        candidate.include_btc,
+        candidate.liquidity_label,
+        config.start_timestamp.toordinal(),
+        config.end_timestamp.toordinal(),
+        config.regime.model_dump_json(),
+        config.rebalancing.model_dump_json(),
+        len(market.price),
+        len(universe),
+        tuple(market.price.columns),
+    )
+
+
 def _build_base_targets(
+    market: MarketDataBundle,
+    universe: pd.DataFrame,
+    config: ResearchConfig,
+    candidate: CandidateDefinition,
+) -> dict[pd.Timestamp, pd.Series]:
+    cache_key = _base_target_cache_key(market, universe, config, candidate)
+    cached = _BASE_TARGET_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    targets = _build_base_targets_uncached(market, universe, config, candidate)
+    _BASE_TARGET_CACHE[cache_key] = targets
+    return targets
+
+
+def _build_base_targets_uncached(
     market: MarketDataBundle,
     universe: pd.DataFrame,
     config: ResearchConfig,
@@ -776,6 +866,7 @@ def _friction_with_total_cost(
     base: FrictionConfig,
     total_cost_bps: float | None = None,
     max_weight_per_coin: float = 1.0,
+    max_weight_per_sector: float = 1.0,
 ) -> FrictionConfig:
     friction = base.model_copy(deep=True)
     if total_cost_bps is not None:
@@ -788,6 +879,10 @@ def _friction_with_total_cost(
     # which is the opposite of the convexity this lane is searching for, so the
     # cap defaults to uncapped and must be requested explicitly.
     friction.max_weight_per_coin = float(max_weight_per_coin)
+    # Sector caps are built for diversified books. These lanes intentionally
+    # hold one to three leaders, so a sector cap would silently convert the
+    # test into a half-invested portfolio. Keep it uncapped unless requested.
+    friction.max_weight_per_sector = float(max_weight_per_sector)
     return friction
 
 
@@ -823,6 +918,45 @@ def run_one_candidate(
         friction=_friction_with_total_cost(local_config.frictions, total_cost_bps),
         initial_capital=local_config.initial_capital,
         gross_target_exposure=1.0,
+        max_gross_exposure=1.0,
+    )
+
+
+def _candidate_summary_row(
+    candidate: CandidateDefinition,
+    result: BacktestResult,
+    config: ResearchConfig,
+    *,
+    trial_count: int,
+) -> dict[str, object]:
+    metrics = compute_summary_metrics(result, config.annualization_days)
+    row: dict[str, object] = asdict(candidate)
+    row.update(metrics)
+    multiple = float(metrics["total_return"]) + 1.0
+    row["multiple"] = multiple
+    # These diagnostics are filled after a candidate survives selection for the
+    # expensive rolling-start / cost / stability validation stage.
+    row["median_rolling_start_multiple"] = multiple
+    row["cost_survival_100bps"] = 0.0
+    row["stability_score"] = 0.0
+    row["trial_count_estimate"] = trial_count
+    return row
+
+
+def _screen_one_candidate_worker(candidate: CandidateDefinition) -> dict[str, object]:
+    if _WORKER_MARKET is None or _WORKER_UNIVERSES is None or _WORKER_CONFIG is None:
+        raise RuntimeError("convex-validation worker was not initialised")
+    result = run_one_candidate(
+        _WORKER_MARKET,
+        _WORKER_UNIVERSES,
+        _WORKER_CONFIG,
+        candidate,
+    )
+    return _candidate_summary_row(
+        candidate,
+        result,
+        _WORKER_CONFIG,
+        trial_count=0,
     )
 
 
@@ -841,6 +975,44 @@ def _monthly_start_dates(start: pd.Timestamp, end: pd.Timestamp) -> list[pd.Time
     return list(dict.fromkeys(sorted(dates)))
 
 
+def _rolling_start_one_candidate(candidate_id: str) -> list[dict[str, object]]:
+    """Rebuild one candidate from every eligible start date (worker entry)."""
+    market, universe_by_liquidity, config, candidate_by_id = _validation_worker_context()
+    candidate = candidate_by_id[candidate_id]
+
+    max_market_date = pd.Timestamp(market.price.index.max())
+    max_validation_date = min(max_market_date, config.end_timestamp)
+    max_start = max_validation_date - pd.Timedelta(days=_WORKER_ROLLING_MIN_DAYS)
+    start_dates = [
+        start_date
+        for start_date in _monthly_start_dates(config.start_timestamp, max_validation_date)
+        if start_date <= max_start
+    ]
+
+    rows: list[dict[str, object]] = []
+    for start_date in start_dates:
+        result = run_one_candidate(
+            market,
+            universe_by_liquidity,
+            config,
+            candidate,
+            start_date=start_date,
+        )
+        metrics = compute_summary_metrics(result, config.annualization_days)
+        rows.append(
+            {
+                "candidate_id": candidate_id,
+                "start_date": start_date.date().isoformat(),
+                "multiple": float(metrics["total_return"]) + 1.0,
+                "cagr": metrics["cagr"],
+                "sharpe": metrics["sharpe"],
+                "max_drawdown": metrics["max_drawdown"],
+                "annualized_turnover": metrics["annualized_turnover"],
+            }
+        )
+    return rows
+
+
 def compute_rolling_start_validation(
     market: MarketDataBundle,
     universe_by_liquidity: dict[str, pd.DataFrame],
@@ -849,6 +1021,7 @@ def compute_rolling_start_validation(
     candidate_ids: list[str],
     *,
     min_days_after_start: int = 365,
+    max_workers: int = 1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     empty_summary = pd.DataFrame(columns=ROLLING_START_SUMMARY_COLUMNS)
     empty_detail = pd.DataFrame(columns=ROLLING_START_DETAIL_COLUMNS)
@@ -877,28 +1050,45 @@ def compute_rolling_start_validation(
         return empty_summary, empty_detail
 
     rows: list[dict[str, object]] = []
-    for candidate_id in candidate_ids:
-        candidate = candidate_by_id[candidate_id]
-        for start_date in start_dates:
-            result = run_one_candidate(
-                market,
-                universe_by_liquidity,
-                config,
-                candidate,
-                start_date=start_date,
+    if max_workers > 1 and candidate_ids:
+        global _WORKER_ROLLING_MIN_DAYS
+        _seed_validation_workers(market, universe_by_liquidity, config, candidate_by_id)
+        _WORKER_ROLLING_MIN_DAYS = int(min_days_after_start)
+        LOGGER.info(
+            "Parallel rolling-start validation: %d candidates x %d start dates with %d workers",
+            len(candidate_ids),
+            len(start_dates),
+            max_workers,
+        )
+        context = mp.get_context("fork")
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=context) as executor:
+            chunks = list(
+                executor.map(_rolling_start_one_candidate, candidate_ids, chunksize=1)
             )
-            metrics = compute_summary_metrics(result, config.annualization_days)
-            rows.append(
-                {
-                    "candidate_id": candidate_id,
-                    "start_date": start_date.date().isoformat(),
-                    "multiple": float(metrics["total_return"]) + 1.0,
-                    "cagr": metrics["cagr"],
-                    "sharpe": metrics["sharpe"],
-                    "max_drawdown": metrics["max_drawdown"],
-                    "annualized_turnover": metrics["annualized_turnover"],
-                }
-            )
+        rows = [row for chunk in chunks for row in chunk]
+    else:
+        for candidate_id in candidate_ids:
+            candidate = candidate_by_id[candidate_id]
+            for start_date in start_dates:
+                result = run_one_candidate(
+                    market,
+                    universe_by_liquidity,
+                    config,
+                    candidate,
+                    start_date=start_date,
+                )
+                metrics = compute_summary_metrics(result, config.annualization_days)
+                rows.append(
+                    {
+                        "candidate_id": candidate_id,
+                        "start_date": start_date.date().isoformat(),
+                        "multiple": float(metrics["total_return"]) + 1.0,
+                        "cagr": metrics["cagr"],
+                        "sharpe": metrics["sharpe"],
+                        "max_drawdown": metrics["max_drawdown"],
+                        "annualized_turnover": metrics["annualized_turnover"],
+                    }
+                )
 
     by_candidate = pd.DataFrame(rows, columns=ROLLING_START_DETAIL_COLUMNS)
     if by_candidate.empty:
@@ -1222,6 +1412,21 @@ def compute_stability_surface(
     return pd.DataFrame(rows, columns=STABILITY_SURFACE_COLUMNS)
 
 
+def _cost_stress_worker(task: tuple[str, float]) -> tuple[str, float, float]:
+    """Rebuild one candidate at one cost level (worker entry)."""
+    candidate_id, total_cost_bps = task
+    market, universe_by_liquidity, config, candidate_by_id = _validation_worker_context()
+    result = run_one_candidate(
+        market,
+        universe_by_liquidity,
+        config,
+        candidate_by_id[candidate_id],
+        total_cost_bps=total_cost_bps,
+    )
+    metrics = compute_summary_metrics(result, config.annualization_days)
+    return candidate_id, float(total_cost_bps), float(metrics["total_return"]) + 1.0
+
+
 def compute_contribution_summary(
     results: dict[str, BacktestResult],
     market: MarketDataBundle,
@@ -1291,46 +1496,69 @@ def run_full_window_screen(
     universe_by_liquidity: dict[str, pd.DataFrame],
     config: ResearchConfig,
     candidates: list[CandidateDefinition],
+    *,
+    retain_results: bool = True,
+    max_workers: int = 1,
 ) -> tuple[pd.DataFrame, dict[str, BacktestResult]]:
+    total = len(candidates)
+    if max_workers > 1 and retain_results:
+        raise ValueError("parallel full-window screening does not retain per-candidate results")
+
     rows: list[dict[str, object]] = []
     results: dict[str, BacktestResult] = {}
 
-    total = len(candidates)
-    for index, candidate in enumerate(candidates, start=1):
-        result = run_one_candidate(market, universe_by_liquidity, config, candidate)
-        results[candidate.candidate_id] = result
-        if index % 100 == 0 or index == total:
-            LOGGER.info(
-                "Full-window screen progress: %d/%d candidates evaluated (latest=%s)",
-                index,
-                total,
-                candidate.candidate_id,
+    if max_workers > 1 and candidates:
+        _seed_validation_workers(market, universe_by_liquidity, config, candidate_by_id={})
+        chunksize = max(1, min(16, total // max(max_workers * 4, 1)))
+        LOGGER.info(
+            "Parallel full-window screen: %d candidates with %d workers",
+            total,
+            max_workers,
+        )
+        context = mp.get_context("fork")
+        with ProcessPoolExecutor(max_workers=max_workers, mp_context=context) as executor:
+            rows = list(
+                executor.map(
+                    _screen_one_candidate_worker,
+                    candidates,
+                    chunksize=chunksize,
+                )
             )
-
-        metrics = compute_summary_metrics(result, config.annualization_days)
-        row: dict[str, object] = asdict(candidate)
-        row.update(metrics)
-
-        multiple = float(metrics["total_return"]) + 1.0
-        row["multiple"] = multiple
-        row["median_rolling_start_multiple"] = multiple
-        row["cost_survival_100bps"] = 0.0
-        row["stability_score"] = 0.0
-        row["trial_count_estimate"] = len(candidates)
-        rows.append(row)
+    else:
+        for index, candidate in enumerate(candidates, start=1):
+            result = run_one_candidate(market, universe_by_liquidity, config, candidate)
+            if retain_results:
+                results[candidate.candidate_id] = result
+            if index % 100 == 0 or index == total:
+                LOGGER.info(
+                    "Full-window screen progress: %d/%d candidates evaluated (latest=%s)",
+                    index,
+                    total,
+                    candidate.candidate_id,
+                )
+            rows.append(
+                _candidate_summary_row(
+                    candidate,
+                    result,
+                    config,
+                    trial_count=total,
+                )
+            )
 
     if not rows:
         return pd.DataFrame(columns=FULL_WINDOW_SCREEN_COLUMNS), results
 
     summary = pd.DataFrame(rows)
-    rolling_summary, _ = compute_rolling_window_summary(
-        {
-            candidate_id: result.daily_returns
-            for candidate_id, result in results.items()
-        }
-    )
-    if not rolling_summary.empty:
-        summary = summary.merge(rolling_summary, on="candidate_id", how="left")
+    if results:
+        rolling_summary, _ = compute_rolling_window_summary(
+            {
+                candidate_id: result.daily_returns
+                for candidate_id, result in results.items()
+            }
+        )
+        if not rolling_summary.empty:
+            summary = summary.merge(rolling_summary, on="candidate_id", how="left")
+    summary["trial_count_estimate"] = total
     for column in _rolling_window_summary_columns((365 * 3, 365 * 5)):
         if column == "candidate_id":
             continue
@@ -1975,23 +2203,89 @@ def main() -> None:
     )
     parser.add_argument("--max-validation-candidates", type=int, default=60)
     parser.add_argument("--min-multiple-for-validation", type=float, default=25.0)
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel workers for the full-window screen; 1 keeps serial execution.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory for research outputs. Defaults to the sibling "
+            "reports/top20_convex_validation, never inside reports/latest."
+        ),
+    )
+    parser.add_argument("--start-date", default=None, help="Override the backtest start date.")
+    parser.add_argument("--end-date", default=None, help="Override the backtest end date.")
+    parser.add_argument(
+        "--universe-size",
+        type=int,
+        default=None,
+        help="Override the point-in-time Top-N universe size (for example 50).",
+    )
+    parser.add_argument(
+        "--screen-only",
+        action="store_true",
+        help="Write the full-window screen without rolling/cost validation.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.start_date or args.end_date or args.universe_size is not None:
+        config = config.model_copy(deep=True)
+        if args.start_date:
+            config.start_date = args.start_date
+        if args.end_date:
+            config.end_date = args.end_date
+        if args.universe_size is not None:
+            if args.universe_size <= 0:
+                parser.error("--universe-size must be positive")
+            config.universe.universe_size = args.universe_size
     configure_logging(config.logging.level)
     sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
-    panel, metadata = build_processed_datasets(config, sector_config)
+    panel, metadata = build_processed_datasets(config, sector_config, persist=False)
     market = prepare_market_data(panel, metadata, config)
     universe_by_liquidity = _build_universe_variants(market, config)
     candidates = build_candidate_definitions()
 
-    candidate_summary, results = run_full_window_screen(
+    candidate_summary, _ = run_full_window_screen(
         market,
         universe_by_liquidity,
         config,
         candidates,
+        retain_results=False,
+        max_workers=args.workers,
     )
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    if args.screen_only:
+        report_dir = ensure_dir(
+            args.output_dir
+            if args.output_dir is not None
+            else config.resolve_path(config.paths.reports_dir).parent / "top20_convex_validation"
+        )
+        candidate_summary.to_csv(report_dir / "candidate_summary.csv", index=False)
+        trial_log = candidate_records(candidates)
+        trial_log.to_csv(report_dir / "trial_log.csv", index=False)
+        (report_dir / "screen_manifest.json").write_text(
+            json.dumps(
+                {
+                    "window": {
+                        "start": config.start_timestamp.date().isoformat(),
+                        "end": config.end_timestamp.date().isoformat(),
+                    },
+                    "universe_size": config.universe.universe_size,
+                    "candidates": len(candidates),
+                    "screen_only": True,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        print(f"Wrote Top20 convex screen outputs to {report_dir}")
+        return
     validation_ids = select_validation_candidates(
         candidate_summary,
         champion_candidate_id=CHAMPION_CANDIDATE_ID,
@@ -1999,10 +2293,19 @@ def main() -> None:
         min_multiple_for_validation=args.min_multiple_for_validation,
     )
 
-    daily_returns_by_candidate = {
-        candidate_id: results[candidate_id].daily_returns
+    validation_results = {
+        candidate_id: run_one_candidate(
+            market,
+            universe_by_liquidity,
+            config,
+            candidate_by_id[candidate_id],
+        )
         for candidate_id in validation_ids
-        if candidate_id in results
+        if candidate_id in candidate_by_id
+    }
+    daily_returns_by_candidate = {
+        candidate_id: result.daily_returns
+        for candidate_id, result in validation_results.items()
     }
     rolling_window_summary, hundred_x_windows = compute_rolling_window_summary(
         daily_returns_by_candidate
@@ -2013,6 +2316,7 @@ def main() -> None:
         config,
         candidate_by_id,
         validation_ids,
+        max_workers=args.workers,
     )
     stability_surface = compute_stability_surface(
         candidate_summary,
@@ -2020,33 +2324,53 @@ def main() -> None:
         multiple_floor=args.min_multiple_for_validation,
     )
 
-    stressed_multiples: dict[float, dict[str, float]] = {}
-    for total_cost_bps in (20.0, 50.0, 100.0, 150.0):
-        stressed_multiples[total_cost_bps] = {}
-        for candidate_id in validation_ids:
-            if candidate_id not in candidate_by_id:
-                continue
-            stressed_result = run_one_candidate(
-                market,
-                universe_by_liquidity,
-                config,
-                candidate_by_id[candidate_id],
-                total_cost_bps=total_cost_bps,
-            )
-            stressed_metrics = compute_summary_metrics(
-                stressed_result,
-                config.annualization_days,
-            )
-            stressed_multiples[total_cost_bps][candidate_id] = (
-                float(stressed_metrics["total_return"]) + 1.0
-            )
+    cost_levels = (20.0, 50.0, 100.0, 150.0)
+    cost_tasks = [
+        (candidate_id, total_cost_bps)
+        for total_cost_bps in cost_levels
+        for candidate_id in validation_ids
+        if candidate_id in candidate_by_id
+    ]
+    stressed_multiples: dict[float, dict[str, float]] = {
+        level: {} for level in cost_levels
+    }
+    if args.workers > 1 and cost_tasks:
+        # The cost-stress loop rebuilds every candidate at every cost level;
+        # serial execution dominated the runtime of this script once the
+        # validation set grew past a handful of candidates.
+        _seed_validation_workers(market, universe_by_liquidity, config, candidate_by_id)
+        LOGGER.info(
+            "Parallel cost stress: %d candidate/cost pairs with %d workers",
+            len(cost_tasks),
+            args.workers,
+        )
+        context = mp.get_context("fork")
+        with ProcessPoolExecutor(max_workers=args.workers, mp_context=context) as executor:
+            for candidate_id, total_cost_bps, multiple in executor.map(
+                _cost_stress_worker, cost_tasks, chunksize=1
+            ):
+                stressed_multiples[total_cost_bps][candidate_id] = multiple
+    else:
+        for total_cost_bps in cost_levels:
+            for candidate_id in validation_ids:
+                if candidate_id not in candidate_by_id:
+                    continue
+                stressed_result = run_one_candidate(
+                    market,
+                    universe_by_liquidity,
+                    config,
+                    candidate_by_id[candidate_id],
+                    total_cost_bps=total_cost_bps,
+                )
+                stressed_metrics = compute_summary_metrics(
+                    stressed_result,
+                    config.annualization_days,
+                )
+                stressed_multiples[total_cost_bps][candidate_id] = (
+                    float(stressed_metrics["total_return"]) + 1.0
+                )
     cost_sensitivity = compute_cost_sensitivity(candidate_summary, stressed_multiples)
 
-    validation_results = {
-        candidate_id: results[candidate_id]
-        for candidate_id in validation_ids
-        if candidate_id in results
-    }
     contribution_summary = compute_contribution_summary(validation_results, market)
     validated_candidate_summary = build_validated_candidate_summary(
         candidate_summary,
@@ -2065,8 +2389,11 @@ def main() -> None:
     if not trial_log.empty:
         trial_log["selected_for_validation"] = trial_log["candidate_id"].isin(validation_ids)
 
+    reports_dir = config.resolve_path(config.paths.reports_dir)
     report_dir = ensure_dir(
-        config.resolve_path(config.paths.reports_dir) / "top20_convex_validation"
+        args.output_dir
+        if args.output_dir is not None
+        else reports_dir.parent / "top20_convex_validation"
     )
     write_validation_outputs(
         report_dir,

@@ -1,0 +1,2 @@
+hold_count,lookback,btc_ma,asset_ma,target_vol,total_return,cagr,sharpe,max_drawdown,calmar,annualized_turnover,avg_gross_exposure,stress15_total_return,stress15_sharpe,stress15_max_drawdown,pareto
+1,21,50,0,1.0,147.62689514342046,1.3961785340900867,1.5100772311168382,-0.6531671050622965,2.1375518198469665,25.874545040187833,0.3804219590416302,127.14400797851081,1.4764167476669394,-0.6650085656631842,True

@@ -1,0 +1,8 @@
+{
+  "candidates": 400,
+  "base_candidates": 20,
+  "overlays": 20,
+  "max_gross_exposure": 1.000000000000001,
+  "base_cost_bps": 20.0,
+  "no_leverage": true
+}

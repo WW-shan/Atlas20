@@ -3,14 +3,17 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from atlas20.analytics.metrics import compute_summary_metrics
 from atlas20.config import load_config
 from atlas20.universe.builder import MarketDataBundle
+import scripts.run_top20_convex_validation as convex_validation
 from scripts.run_top20_convex_validation import (
     CandidateDefinition,
     CHAMPION_CANDIDATE_ID,
     _add_candidate_ids,
     _all_rebalance_dates,
     _build_universe_variants,
+    _friction_with_total_cost,
     build_validated_candidate_summary,
     build_candidate_definitions,
     compute_contribution_summary,
@@ -93,6 +96,17 @@ def _script_config():
     return config
 
 
+def test_concentrated_validation_lane_disables_diversification_caps() -> None:
+    config = load_config("config/base.yaml")
+
+    friction = _friction_with_total_cost(config.frictions, total_cost_bps=100.0)
+
+    assert friction.max_weight_per_coin == 1.0
+    assert friction.max_weight_per_sector == 1.0
+    assert friction.fee_bps == 50.0
+    assert friction.slippage_bps == 50.0
+
+
 def _script_universe_by_liquidity() -> dict[str, pd.DataFrame]:
     return {"loose": _script_toy_universe(pd.date_range("2024-03-01", periods=4, freq="14D"))}
 
@@ -158,6 +172,54 @@ def test_run_full_window_screen_writes_metrics_for_candidates() -> None:
     assert "raw_convexity_score" in summary.columns
     assert "robust_convexity_score" in summary.columns
     assert "ctrend_lite_test" in results
+
+
+def test_run_full_window_screen_can_drop_backtest_results_for_screening() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    candidates = [_script_candidate()]
+
+    summary, results = run_full_window_screen(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+        retain_results=False,
+    )
+
+    assert len(summary) == 1
+    assert results == {}
+
+
+def test_parallel_full_window_screen_matches_serial_selection_metrics() -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    candidates = [_script_candidate(), _script_candidate(candidate_id="second")]
+
+    serial, _ = run_full_window_screen(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+        retain_results=False,
+    )
+    parallel, parallel_results = run_full_window_screen(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+        retain_results=False,
+        max_workers=2,
+    )
+
+    comparable = ["candidate_id", "multiple", "cagr", "sharpe", "max_drawdown"]
+    pd.testing.assert_frame_equal(
+        serial[comparable].sort_values("candidate_id").reset_index(drop=True),
+        parallel[comparable].sort_values("candidate_id").reset_index(drop=True),
+    )
+    assert parallel_results == {}
 
 
 def test_run_one_candidate_slices_returns_to_config_window() -> None:
@@ -847,6 +909,80 @@ def test_compute_rolling_start_validation_respects_config_end_date() -> None:
     assert (start_dates <= config.end_timestamp).all()
 
 
+def test_compute_rolling_start_validation_parallel_matches_serial() -> None:
+    """The worker-parallel path must be a pure performance change.
+
+    ``max_workers`` was added because the serial rolling-start lane took hours
+    on the full validation set; if the parallel path changed the numbers it
+    would silently invalidate every earlier comparison.
+    """
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    candidates = {
+        "cand_a": _script_candidate(candidate_id="cand_a"),
+        "cand_b": _script_candidate(candidate_id="cand_b", frequency="21D"),
+    }
+
+    serial_summary, serial_detail = compute_rolling_start_validation(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+        ["cand_a", "cand_b"],
+        min_days_after_start=30,
+        max_workers=1,
+    )
+    parallel_summary, parallel_detail = compute_rolling_start_validation(
+        market,
+        universe_by_liquidity,
+        config,
+        candidates,
+        ["cand_a", "cand_b"],
+        min_days_after_start=30,
+        max_workers=2,
+    )
+
+    assert not serial_detail.empty
+    pd.testing.assert_frame_equal(
+        serial_detail.sort_values(["candidate_id", "start_date"]).reset_index(drop=True),
+        parallel_detail.sort_values(["candidate_id", "start_date"]).reset_index(drop=True),
+    )
+    pd.testing.assert_frame_equal(
+        serial_summary.sort_values("candidate_id").reset_index(drop=True),
+        parallel_summary.sort_values("candidate_id").reset_index(drop=True),
+    )
+
+
+def test_cost_stress_worker_matches_inline_backtest() -> None:
+    """The parallel cost-stress worker must reproduce ``run_one_candidate``."""
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    candidate = _script_candidate()
+    candidate_by_id = {candidate.candidate_id: candidate}
+
+    inline = run_one_candidate(
+        market,
+        universe_by_liquidity,
+        config,
+        candidate,
+        total_cost_bps=100.0,
+    )
+    inline_metrics = compute_summary_metrics(inline, config.annualization_days)
+
+    convex_validation._seed_validation_workers(
+        market, universe_by_liquidity, config, candidate_by_id
+    )
+    candidate_id, cost_bps, multiple = convex_validation._cost_stress_worker(
+        (candidate.candidate_id, 100.0)
+    )
+
+    assert candidate_id == candidate.candidate_id
+    assert cost_bps == pytest.approx(100.0)
+    assert multiple == pytest.approx(float(inline_metrics["total_return"]) + 1.0)
+
+
 def test_compute_rolling_start_validation_rejects_unknown_candidate_id() -> None:
     with pytest.raises(ValueError, match="missing"):
         compute_rolling_start_validation(
@@ -1185,3 +1321,25 @@ def test_build_universe_variants_includes_shifted_rolling_start_rebalance_dates(
         pd.Timestamp("2024-04-12"),
     }
     assert expected_shifted_dates.issubset(loose_dates)
+
+
+def test_concentrated_candidate_pins_gross_exposure_to_one(monkeypatch) -> None:
+    market = _script_toy_market()
+    config = _script_config()
+    universe_by_liquidity = _script_universe_by_liquidity()
+    captured: dict[str, object] = {}
+
+    def fake_run_backtest(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(convex_validation, "run_backtest", fake_run_backtest)
+    convex_validation.run_one_candidate(
+        market,
+        universe_by_liquidity,
+        config,
+        _script_candidate(),
+    )
+
+    assert captured["gross_target_exposure"] == 1.0
+    assert captured["max_gross_exposure"] == 1.0

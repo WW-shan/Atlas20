@@ -1,0 +1,12 @@
+{
+  "candidates": 400,
+  "base_candidates": 20,
+  "overlays": 20,
+  "max_gross_exposure": 1.0000000000000009,
+  "base_cost_bps": 20.0,
+  "no_leverage": true,
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-09-22"
+  }
+}
