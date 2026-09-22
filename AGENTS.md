@@ -11,7 +11,8 @@
 ### Universe and data
 
 - The research, backtest, and live strategy universe must be strictly **point-in-time Top 20 by market cap**.
-- Never expand candidate selection to Top 50, Top 100, or any broader universe, including "sensitivity" experiments. If a hypothesis requires a broader universe, reject it or reformulate it inside Top 20.
+- **Top 20 only is a non-negotiable project constraint.** It applies to every backtest, research prototype, parameter sweep, ablation, sensitivity test, scratch script, report, daily signal, and live execution. Never run or evaluate Top 50, Top 100, a broader market universe, or any alternative universe, even as a diagnostic.
+- If an external study, hypothesis, or optimization requires a broader universe, do not reproduce it. Either reformulate it inside the point-in-time Top 20 or reject it.
 - Top 20 membership must be reconstructed from point-in-time market-cap data. Never backfill historical membership using the current Top 20.
 - CoinMarketCap is authoritative for market-cap ranking and membership. Gate and Binance are independent validation sources, not replacements for CMC ranking.
 - An asset absent from CMC is not eligible for ranking or strategy selection. A newly entered Top 20 asset must have its complete available history aligned to its actual entry date; never use look-ahead data or assume it was in Top 20 before then.
