@@ -1,0 +1,39 @@
+{
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-09-21"
+  },
+  "train_end": "2024-12-31",
+  "test_start": "2025-01-01",
+  "cycles": [
+    14,
+    21
+  ],
+  "target_vols": [
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.8
+  ],
+  "vol_windows": [
+    30
+  ],
+  "stop_modes": [
+    "none",
+    "own75"
+  ],
+  "gate_modes": [
+    "none",
+    "btc_ma100",
+    "btc_ma200"
+  ],
+  "cost_bps": [
+    2.0,
+    20.0
+  ],
+  "include_btc": false,
+  "score_family": "ctrend_lite_balanced",
+  "top_n": 1,
+  "data": "data/processed/panel_daily.csv"
+}

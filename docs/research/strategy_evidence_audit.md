@@ -69,6 +69,34 @@
 
 复现实验：`reports/volatility_gate_validation_2022/`。
 
+### 1.3 相位不敏感波动率目标：目前最稳的领先候选
+
+新的候选把固定 21D 和 11D/2 闸门替换为：
+
+- 14D balanced top1，排除 BTC；
+- 75D/3 自身止损，下一次调仓重入；
+- BTC 100D MA，confirm2；
+- 60D 已实现波动率缩放仓位，目标波动 50%–80%，最大 gross exposure = 1.0。
+
+20bps 相位不敏感结果：
+
+| 目标波动 | 全样本总收益 | Sharpe | 最大回撤 | 2025–2026 测试段 | 测试 Sharpe | 测试最大回撤 |
+|---|---:|---:|---:|---:|---:|---:|
+| 50% | 3.91x | 1.069 | -33.9% | 1.64x | 1.120 | -16.0% |
+| 60% | 4.57x | 1.057 | -38.5% | 1.75x | 1.117 | -18.3% |
+| 70% | 5.11x | 1.043 | -42.5% | 1.82x | 1.111 | -20.8% |
+| 80% | 5.17x | 1.004 | -45.7% | 1.85x | 1.080 | -23.3% |
+
+这不是 20x 结果，但比旧的 11D/2 规则更符合外部证据，参数邻域也更连续。7D 和 14D、50%–80% 目标波动、20/30/60D 波动窗口都能得到相近量级；21D/28D 较弱但方向一致。
+
+当前状态：领先研究候选，尚未完成滚动窗口、多重检验和更高成本压力测试。
+
+复现实验：
+
+- `reports/phase_invariant_vol_target_gates_2022/`
+- `reports/vol_target_neighborhood_2022/`
+- `reports/vol_target_frontier_2022/`
+
 ## 2. 决策点逐项审计
 
 | 决策点 | 当前做法 | 来源 | 外部证据 | 项目内结果 | 判定 |
@@ -195,8 +223,8 @@
 
 ### 仍需完成
 
-1. **继续替换或独立验证 BTC 闸门。**
-   波动率缩放 trailing 已经测试，最好也只有 3.22x、相位中位数 1.89x、最差相位 0.20x，不能替代。下一步应测试 BTC 与市场宽度组合、风险预算/波动率目标，或真正的 walk-forward 闸门，而不是继续搜索 10–14 日之间的离散参数。
+1. **验证新的领先候选。**
+   BTC 100D MA + 60D 波动率目标已经形成宽参数平台，但还需要滚动窗口、更高成本、因子家族邻域和真正的 walk-forward 验证。
 
 2. **做多重检验修正。**
    当前已经试了数千组参数。最终候选必须做：
@@ -251,6 +279,21 @@
 - `reports/decision_point_ablation_2022/staggered_basket.csv`
 - `reports/decision_point_ablation_2022/report.md`
 - `reports/decision_point_ablation_2022/manifest.json`
+
+相位不敏感波动率目标：
+
+```bash
+.venv/bin/python scripts/run_phase_invariant_vol_target.py \
+  --config config/base.yaml \
+  --start-date 2022-01-01 \
+  --cycles 7,14,21,28 \
+  --target-vols 0.5,0.6,0.7,0.8 \
+  --vol-windows 20,30,60 \
+  --stop-modes own75 \
+  --gate-modes btc_ma100 \
+  --cost-bps 2,20 \
+  --output-dir reports/vol_target_neighborhood_2022
+```
 
 ## 6. 证据等级说明
 

@@ -86,11 +86,47 @@
 
 ---
 
-## 1. 一句话结论（没有可直接上实盘的冠军）
+### 0.3 相位不敏感 + 波动率目标：新的领先候选（仍为研究态）
 
-在 **真实 point-in-time Top20 + 无杠杆 + 现货** 约束下，当前最高固定起点候选是：
+这轮不再固定 21D，也不再用 11D/2 BTC 闸门，而是：
 
-**CTREND-breakout 单币集中轮动 + 每日自身趋势止损**
+- 选币改为 **14D balanced top1，排除 BTC**；
+- 持仓仍用 **75D/3 自身趋势止损，下一次调仓重入**；
+- 市场闸门改为 **BTC 100D MA，confirm2**；
+- 仓位按 **60D 已实现波动率** 缩放到目标波动，**只能降仓，最大 gross exposure = 1.0，不加杠杆**；
+- 所有相位等权错开，报告相位不敏感组合，而不是固定起点上尾。
+
+2022-01-01 → 2026-09-21，20bps，相位不敏感 14 份组合：
+
+| 目标波动 | 总收益 | Sharpe | 最大回撤 | 2025–2026 测试段 | 测试 Sharpe | 测试最大回撤 |
+|---|---:|---:|---:|---:|---:|---:|
+| 50% | 3.91x | 1.069 | -33.9% | 1.64x | 1.120 | -16.0% |
+| 60% | 4.57x | 1.057 | -38.5% | 1.75x | 1.117 | -18.3% |
+| 70% | 5.11x | 1.043 | -42.5% | 1.82x | 1.111 | -20.8% |
+| 80% | 5.17x | 1.004 | -45.7% | 1.85x | 1.080 | -23.3% |
+
+同期 BTC 约 1.82x；2025–2026 测试段 BTC 约 0.93x。这个候选的参数邻域是连续的：50%–80% 目标波动、60D 波动窗口、7D/14D 调仓周期都能得到相近结论，不像 11D/2 那样一跳就崩。
+
+但结论仍然不能夸大：
+
+- 全样本约 4x–5x，不是 20x；
+- 最大回撤仍有 34%–46%；
+- 单币集中和 2024/2026 行情依赖仍然存在；
+- 这只是一个更稳健的领先候选，尚未完成成本、滚动窗口和多重检验。
+
+复现实验：
+
+- `reports/vol_target_neighborhood_2022/`：7/14/21/28D × 目标波动 50%–80% × 20/30/60D 波动窗口。
+- `reports/vol_target_frontier_2022/`：目标波动 80%–200% 的收益/回撤边界。
+- `reports/phase_invariant_vol_target_gates_2022/`：BTC 100D/200D 闸门和止损开关对照。
+
+---
+
+## 1. 一句话结论（有领先研究候选，但仍不可直接上实盘）
+
+在 **真实 point-in-time Top20 + 无杠杆 + 现货** 约束下，当前更稳健的领先候选已经从固定 21D + 11D/2 BTC 闸门，转向 **14D balanced top1 + 75D/3 自身止损 + BTC 100D MA 闸门 + 波动率目标仓位**。旧的固定起点高收益组合仍保留作上尾对照：
+
+**旧上尾候选：CTREND-breakout 单币集中轮动 + 每日自身趋势止损**
 = 历史 Top20 内排除 BTC → 21 天调仓选 CTREND-breakout 第 1 名 → 每日检查持仓是否连续 3 个交易日收盘低于自身 75 日均线 → 若是则转现金，下一次 21 天调仓才允许重入 → BTC 跌破 11 日前收盘连续 2 天则全部转现金。
 
 | 2022-01-01 → 2026-09-21 | 新策略 @2bps | 新策略 @10bps | 新策略 @20bps | BTC |
@@ -361,6 +397,13 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
   --config config/base.yaml --start-date 2022-01-01 \
   --cost-bps 2,20 --output-dir reports/volatility_gate_validation_2022
 
+# 相位不敏感 + 波动率目标仓位：主候选邻域
+.venv/bin/python scripts/run_phase_invariant_vol_target.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --cycles 7,14,21,28 --target-vols 0.5,0.6,0.7,0.8 \
+  --vol-windows 20,30,60 --stop-modes own75 --gate-modes btc_ma100 \
+  --cost-bps 2,20 --output-dir reports/vol_target_neighborhood_2022
+
 # 数据链审计
 .venv/bin/python scripts/audit_data_chain.py --config config/base.yaml
 ```
@@ -378,6 +421,9 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/strategy_evidence_audit_2022/` | 21D 相位扫描 + 1/3/7/21 份错开组合稳健性审计 | ✅ 权威审计 |
 | `reports/decision_point_ablation_2022/` | 自身止损、BTC 闸门、重入方式的 21 相位/错开组合消融 | ✅ 权威审计，否定 11D/2 为稳定规律 |
 | `reports/volatility_gate_validation_2022/` | BTC 波动率缩放 trailing 闸门参数邻域验证 | ✅ 方向合理，但当前不足以替代 |
+| `reports/phase_invariant_vol_target_gates_2022/` | 相位不敏感 + 波动率目标 + BTC MA 闸门对照 | ✅ 新领先候选研究 |
+| `reports/vol_target_neighborhood_2022/` | 7/14/21/28D × 目标波动 × 波动窗口参数平台 | ✅ 当前最完整稳健性证据 |
+| `reports/vol_target_frontier_2022/` | 目标波动 80%–200% 收益/回撤边界 | ✅ 边界研究 |
 | `docs/research/strategy_evidence_audit.md` | 逐决策点外部证据矩阵和未验证假设 | ✅ 权威审计 |
 | `reports/ctrend_champion_top20_2022/` | 旧冠军（固定21D，无每日自身趋势止损） | ⚠️ 已被新冠军取代 |
 | `reports/convex_validation_2022_top20/` | 2218 组 Top20 2022 起点全量筛选 | ✅ 权威研究 |

@@ -1,0 +1,37 @@
+{
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-09-21"
+  },
+  "train_end": "2024-12-31",
+  "test_start": "2025-01-01",
+  "cycles": [
+    7,
+    14,
+    21
+  ],
+  "target_vols": [
+    0.8,
+    1.0,
+    1.2,
+    1.5,
+    2.0
+  ],
+  "vol_windows": [
+    60
+  ],
+  "stop_modes": [
+    "own75"
+  ],
+  "gate_modes": [
+    "btc_ma100"
+  ],
+  "cost_bps": [
+    2.0,
+    20.0
+  ],
+  "include_btc": false,
+  "score_family": "ctrend_lite_balanced",
+  "top_n": 1,
+  "data": "data/processed/panel_daily.csv"
+}

@@ -38,12 +38,19 @@ returns 2.37x. Those versions still beat BTC's 1.82x in this sample, but there
 is currently no evidence for a stable 20x production strategy. A
 volatility-scaled trailing gate was also tested as an evidence-based
 replacement; its best phase-invariant result was only 3.22x with a -56%
-maximum drawdown. The candidate remains research-only until a parameter-stable
-gate is found and independently validated. See
+maximum drawdown. A newer phase-invariant candidate now combines 14-day
+balanced leader selection, a 75-day/three-day own-trend stop, a BTC 100-day
+moving-average gate, and a 60-day volatility-target exposure capped at 1.0.
+At 20bps, target volatilities of 50%-80% produce 3.91x-5.17x over the full
+sample with Sharpe 1.00-1.07 and -33.9% to -45.7% maximum drawdown. In the
+2025-2026 test segment they produce 1.64x-1.85x with Sharpe 1.08-1.12 and
+-16.0% to -23.3% drawdown. This is the current leading research candidate, but
+it is still not a 20x strategy and remains research-only. See
 `docs/research/strategy_evidence_audit.md`,
 `reports/strategy_evidence_audit_2022/`,
-`reports/decision_point_ablation_2022/`, and
-`reports/volatility_gate_validation_2022/`.
+`reports/decision_point_ablation_2022/`,
+`reports/volatility_gate_validation_2022/`, and
+`reports/vol_target_neighborhood_2022/`.
 
 ## Why It Stands Out
 
