@@ -1,5 +1,13 @@
 # Agent Instructions
 
+## Strategy Research Constraints
+
+- The research, backtest, and live strategy universe must be strictly **point-in-time Top 20 by market cap**.
+- Never expand candidate selection to Top 50, Top 100, or any broader universe, including "sensitivity" experiments. If a hypothesis requires a broader universe, reject it or reformulate it inside Top 20.
+- Top 20 membership must be reconstructed from point-in-time market-cap data. Never backfill historical membership using the current Top 20.
+- Long-only spot only: no shorting, no leverage, and gross exposure must not exceed 1.0.
+- Signals are generated at close and executed T+1; backtests must include trading costs.
+
 ## Python Environment
 
 - Do not install Python dependencies into the system interpreter.
