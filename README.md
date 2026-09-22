@@ -44,8 +44,11 @@ moving-average gate, and a 60-day volatility-target exposure capped at 1.0.
 At 20bps, target volatilities of 50%-80% produce 3.91x-5.17x over the full
 sample with Sharpe 1.00-1.07 and -33.9% to -45.7% maximum drawdown. In the
 2025-2026 test segment they produce 1.64x-1.85x with Sharpe 1.08-1.12 and
--16.0% to -23.3% drawdown. This is the current leading research candidate, but
-it is still not a 20x strategy and remains research-only. See
+-16.0% to -23.3% drawdown. The more conservative 50% target-vol version still
+returns 2.23x at 100bps, and its worst rolling one-year window is 0.77x-0.82x;
+it is more balanced than the old phase-sensitive strategy but is not risk-free.
+This is the current leading research candidate, but it is still not a 20x
+strategy and remains research-only. See
 `docs/research/strategy_evidence_audit.md`,
 `reports/strategy_evidence_audit_2022/`,
 `reports/decision_point_ablation_2022/`,

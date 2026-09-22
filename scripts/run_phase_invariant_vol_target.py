@@ -216,6 +216,41 @@ def _slice_metrics(returns: pd.Series, start: str, end: str | None, annualizatio
     return _metrics_from_returns(sliced, annualization_days)
 
 
+def _rolling_window_summary(
+    returns: pd.Series,
+    *,
+    window_days: int = 365,
+    annualization_days: int = 365,
+) -> dict[str, float]:
+    """Summarize overlapping fixed-length windows of a daily return series."""
+    clean = pd.to_numeric(returns, errors="coerce").replace([float("inf"), float("-inf")], float("nan")).fillna(0.0)
+    if window_days < 1:
+        raise ValueError("window_days must be positive")
+    if len(clean) < window_days:
+        return {
+            "rolling_1y_median_multiple": float("nan"),
+            "rolling_1y_worst_multiple": float("nan"),
+            "rolling_1y_median_sharpe": float("nan"),
+            "rolling_1y_worst_sharpe": float("nan"),
+            "rolling_1y_worst_drawdown": float("nan"),
+        }
+    rows = [
+        _metrics_from_returns(
+            clean.iloc[end - window_days : end],
+            annualization_days,
+        )
+        for end in range(window_days, len(clean) + 1)
+    ]
+    frame = pd.DataFrame(rows)
+    return {
+        "rolling_1y_median_multiple": float(frame["multiple"].median()),
+        "rolling_1y_worst_multiple": float(frame["multiple"].min()),
+        "rolling_1y_median_sharpe": float(frame["sharpe"].median()),
+        "rolling_1y_worst_sharpe": float(frame["sharpe"].min()),
+        "rolling_1y_worst_drawdown": float(frame["max_drawdown"].min()),
+    }
+
+
 def _write_report(output_dir: Path, summary: pd.DataFrame) -> None:
     summary_20 = summary[summary["cost_bps"] == 20.0].copy()
     by_full = summary_20.sort_values("basket_multiple", ascending=False)
@@ -385,6 +420,7 @@ def main() -> None:
     )
 
     basket_rows: list[dict[str, object]] = []
+    basket_return_columns: dict[str, pd.Series] = {}
     for cycle, target_vol, vol_window, stop_mode, gate_mode in variants:
         for cost_bps in costs:
             paths = {
@@ -407,6 +443,16 @@ def main() -> None:
                 end_date.date().isoformat(),
                 config.annualization_days,
             )
+            rolling_metrics = _rolling_window_summary(
+                basket_returns,
+                window_days=365,
+                annualization_days=config.annualization_days,
+            )
+            column_name = (
+                f"c{cycle}_tv{target_vol}_vw{vol_window}_{stop_mode}_{gate_mode}_"
+                f"{int(cost_bps)}bps"
+            )
+            basket_return_columns[column_name] = basket_returns
             basket_rows.append(
                 {
                     "cycle_days": cycle,
@@ -424,6 +470,7 @@ def main() -> None:
                     "test_multiple": test_metrics["multiple"],
                     "test_sharpe": test_metrics["sharpe"],
                     "test_max_drawdown": test_metrics["max_drawdown"],
+                    **rolling_metrics,
                 }
             )
     basket_frame = pd.DataFrame(basket_rows)
@@ -436,6 +483,7 @@ def main() -> None:
     output_dir = ensure_dir(args.output_dir)
     phase_frame.to_csv(output_dir / "phase_metrics.csv", index=False)
     summary.to_csv(output_dir / "variant_summary.csv", index=False)
+    pd.DataFrame(basket_return_columns).to_csv(output_dir / "basket_returns.csv", index_label="date")
     manifest = {
         "window": {
             "start": start_date.date().isoformat(),
