@@ -110,3 +110,27 @@ def test_turnover_gate_is_off_when_ratio_is_zero() -> None:
     universe = build_rebalance_universe(market, [market.price.index[0]], config)
 
     assert "rain_like" in set(universe["coin_id"])
+
+
+def test_explicit_excluded_id_is_removed_from_final_universe() -> None:
+    """The final universe must enforce explicit exclusions, not just the catalog."""
+    config = load_config("config/base.yaml")
+    config.universe.universe_size = 2
+    market = _bundle({"rain": 9.7e9, "real": 5e9})
+
+    universe = build_rebalance_universe(market, [market.price.index[0]], config)
+
+    assert "rain" not in set(universe["coin_id"])
+    assert "real" in set(universe["coin_id"])
+
+
+def test_stablecoin_id_is_removed_from_final_universe() -> None:
+    """Stablecoins must never occupy a strategy slot even if cached data contains them."""
+    config = load_config("config/base.yaml")
+    config.universe.universe_size = 2
+    market = _bundle({"tether": 120e9, "real": 5e9})
+
+    universe = build_rebalance_universe(market, [market.price.index[0]], config)
+
+    assert "tether" not in set(universe["coin_id"])
+    assert "real" in set(universe["coin_id"])

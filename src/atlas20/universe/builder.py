@@ -13,6 +13,46 @@ from atlas20.logging_utils import get_logger
 LOGGER = get_logger(__name__)
 
 
+def _normalize_text(value: object) -> str:
+    return " ".join(str(value).lower().replace("/", " ").replace("-", " ").split())
+
+
+def _apply_universe_exclusions(snapshot: pd.DataFrame, config: ResearchConfig) -> pd.DataFrame:
+    """Apply configured final eligibility exclusions to one snapshot.
+
+    Candidate discovery already filters these names, but the processed panel
+    can contain assets admitted by an older catalog. Re-applying the same gates
+    here keeps the strategy universe fail-closed and prevents a legacy
+    candidate such as Rain from re-entering through cached data.
+    """
+    if snapshot.empty:
+        return snapshot
+
+    coin_ids = snapshot["coin_id"].astype(str).str.lower()
+    symbols = snapshot["symbol"].fillna("").astype(str).str.lower()
+    names = snapshot["name"].fillna("").astype(str).str.lower()
+    excluded = coin_ids.isin({str(value).lower() for value in config.universe.stablecoin_ids})
+    excluded |= coin_ids.isin({str(value).lower() for value in config.universe.excluded_ids})
+
+    for keyword in config.universe.symbol_exclusion_keywords:
+        excluded |= symbols.str.contains(str(keyword).lower(), regex=False)
+    for keyword in config.universe.name_exclusion_keywords:
+        excluded |= names.str.contains(str(keyword).lower(), regex=False)
+
+    if "category_list" in snapshot.columns:
+        categories = snapshot["category_list"].fillna("").map(_normalize_text)
+        category_keywords = {_normalize_text(value) for value in config.universe.category_exclusion_keywords}
+        if category_keywords:
+            excluded |= categories.map(
+                lambda value: any(
+                    keyword == value or keyword in value.split()
+                    for keyword in category_keywords
+                )
+            )
+
+    return snapshot.loc[~excluded].copy()
+
+
 @dataclass
 class MarketDataBundle:
     """Wide daily matrices used by the backtest engine."""
@@ -89,8 +129,14 @@ def build_rebalance_universe(
             }
         )
         snapshot.index.name = "coin_id"
-        snapshot = snapshot.join(metadata[["symbol", "name", "sector"]], how="left")
+        metadata_columns = [
+            column
+            for column in ("symbol", "name", "sector", "category_list")
+            if column in metadata.columns
+        ]
+        snapshot = snapshot.join(metadata[metadata_columns], how="left")
         snapshot = snapshot.reset_index()
+        snapshot = _apply_universe_exclusions(snapshot, config)
         snapshot = snapshot[
             snapshot["price"].notna()
             & (snapshot["price"] > 0)

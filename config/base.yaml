@@ -124,9 +124,11 @@ universe:
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
   # Liquidity gate: keep an asset only if it turns over >= 1% of its market cap
-  # per day, or trades >= $200M/day in absolute terms. This removes
-  # high-supply/low-float names such as Rain (RAIN) while retaining real
+  # per day, or trades >= $200M/day in absolute terms. This retains real
   # mega-caps like Binance Coin that legitimately run a low turnover ratio.
+  # Rain (RAIN) cleared the turnover gate only marginally during its brief
+  # 2026 Top20 appearances; it is explicitly excluded below because the user
+  # rejected that name as a tradable strategy candidate.
   min_turnover_ratio: 0.01
   min_turnover_volume_usd: 200000000
   exclude_wrapped_assets: true
@@ -156,6 +158,9 @@ universe:
     - ether-fi-staked-eth
     - wrapped-eeth
     - renbtc
+    # Explicit user-level exclusion: do not let a marginal-turnover 2026
+    # entrant displace an established Top20 name in strategy selection.
+    - rain
   name_exclusion_keywords:
     - usd
     - treasury
