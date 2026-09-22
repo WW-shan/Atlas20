@@ -522,50 +522,66 @@ turns the fixed-start 22.44x at 20bps into a 3.94x phase median and a 0.61x
 worst phase, and its inherited 11-day/two-day BTC gate is a local parameter
 spike. Do not use that result for live sizing.
 
-The current leading **research** candidate is a phase-invariant, long-only,
-unlevered CTREND-lite rotation:
+The current leading **research** candidate is not one exact parameter set.
+It is a fixed equal-weight ensemble of eight phase-invariant, long-only,
+unlevered CTREND-lite rotations:
 
-> point-in-time Top20 → exclude BTC from the selection pool → 14-day balanced
-> CTREND-lite top-1 → exit on a 75-day/three-day own-trend stop until the next
-> rebalance → BTC 100-day MA with two-day confirmation → scale exposure toward
-> a 50%-80% realized-volatility target, capped at 1.0x.
+> point-in-time Top20 → exclude BTC from the selection pool → balanced
+> CTREND-lite top-1 → 75-day/three-day own-trend stop until the next rebalance
+> → BTC 100-day MA with two-day confirmation → 60-day volatility-target
+> exposure capped at 1.0x → equal capital across 7D/14D rebalance cycles and
+> 50%/60%/70%/80% target volatilities.
 
-| 2022-01-01 .. 2026-09-21, 20bps | 50% target vol | 60% target vol | BTC buy-and-hold |
-| --- | ---: | ---: | ---: |
-| Total return | **4.14x** | **4.75x** | 1.87x |
-| Sharpe | 1.091 | 1.070 | 0.515 |
-| Max drawdown | -33.5% | -38.1% | -66.9% |
-| 2025-2026 test return | 1.65x | 1.75x | 0.93x |
+| 2023-01-01 .. 2026-09-21, 20bps | Parameter ensemble | BTC buy-and-hold |
+| --- | ---: | ---: |
+| Total return | **6.17x** | 5.23x |
+| Sharpe | **1.287** | 1.183 |
+| Max drawdown | **-42.0%** | -53.1% |
+| 2022-01-01 .. 2026-09-21 | 5.05x | 1.87x |
+| Cost stress: 2 / 20 / 100bps | 6.22x / 5.05x / 2.00x | n/a |
 
 This is deliberately qualified:
 
 - The fast simulator was corrected on 2026-09-23 to let weights drift between
   target events, matching the production engine; all volatility-target reports
   were rerun.
-- The result is still only 4x-5x, not 20x, and a worst rolling one-year window
-  is still 0.77x-0.82x.
+- Walk-forward parameter selection did not add value: trailing-Sharpe selection
+  returned 4.12x after switch costs and lost to BTC, while the fixed ensemble
+  returned 6.17x. The simple, pre-specified ensemble is preferred.
+- The ensemble is still only 5x-6x, not 20x, and its worst rolling one-year
+  window at 20bps is 0.72x.
 - A five-family score test shows factor sensitivity: balanced,
   relative-strength, and breakout remain in the 3.67x-4.14x range at 50%
   target volatility, while acceleration and volatility-adjusted fall to
   1.92x-3.20x.
-- The candidate is concentrated in one coin at a time and has not completed
-  rolling walk-forward or multiple-testing corrections.
+- The ensemble diversifies parameters, not the underlying single-coin
+  selection, and has not completed multiple-testing corrections or capacity
+  analysis.
 
 Reproduce the current research candidate with:
 
 ```bash
 .venv/bin/python scripts/run_phase_invariant_vol_target.py \
   --config config/base.yaml --start-date 2022-01-01 \
-  --cycles 7,14,21,28 --target-vols 0.5,0.6,0.7,0.8 \
-  --vol-windows 20,30,60 --stop-modes own75 --gate-modes btc_ma100 \
-  --cost-bps 2,20 --output-dir reports/vol_target_neighborhood_2022
+  --cycles 7,14 --target-vols 0.5,0.6,0.7,0.8 \
+  --vol-windows 60 --stop-modes own75 --gate-modes btc_ma100 \
+  --cost-bps 2,20,100 \
+  --output-dir reports/vol_target_cost_rolling_2022
 
-.venv/bin/python scripts/run_phase_invariant_vol_target.py \
-  --config config/base.yaml --start-date 2022-01-01 \
-  --cycles 14 --target-vols 0.5,0.6 --vol-windows 60 \
-  --stop-modes own75 --gate-modes btc_ma100 --cost-bps 2,20,100 \
-  --score-family ctrend_lite_balanced \
-  --output-dir reports/vol_target_score_family_balanced_2022
+.venv/bin/python scripts/run_vol_target_ensemble.py \
+  --config config/base.yaml \
+  --returns-file reports/vol_target_cost_rolling_2022/basket_returns.csv \
+  --variant-summary reports/vol_target_cost_rolling_2022/variant_summary.csv \
+  --cost-bps 2,20,100 --oos-start 2023-01-01 \
+  --output-dir reports/vol_target_ensemble_2022
+
+.venv/bin/python scripts/run_vol_target_walk_forward.py \
+  --config config/base.yaml \
+  --returns-file reports/vol_target_cost_rolling_2022/basket_returns.csv \
+  --variant-summary reports/vol_target_cost_rolling_2022/variant_summary.csv \
+  --cost-bps 20 --train-days 365 --test-days 90 \
+  --selection-metric sharpe --switch-cost-bps 0,40 \
+  --output-dir reports/vol_target_walk_forward_2022
 ```
 
 The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.

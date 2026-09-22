@@ -1,0 +1,11 @@
+{
+  "returns_file": "reports/vol_target_cost_rolling_2022/basket_returns.csv",
+  "variant_summary": "reports/vol_target_cost_rolling_2022/variant_summary.csv",
+  "cost_bps": [
+    2.0,
+    20.0,
+    100.0
+  ],
+  "oos_start": "2023-01-01",
+  "candidate_scope": "all rows in the variant summary at each cost"
+}

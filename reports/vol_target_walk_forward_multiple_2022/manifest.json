@@ -1,0 +1,24 @@
+{
+  "returns_file": "reports/vol_target_cost_rolling_2022/basket_returns.csv",
+  "variant_summary": "reports/vol_target_cost_rolling_2022/variant_summary.csv",
+  "cost_bps": 20.0,
+  "train_days": 365,
+  "test_days": 90,
+  "selection_metric": "multiple",
+  "switch_cost_bps": [
+    0.0,
+    40.0
+  ],
+  "candidate_count": 8,
+  "candidates": [
+    "c7_tv0.5_vw60_own75_btc_ma100_20bps",
+    "c7_tv0.6_vw60_own75_btc_ma100_20bps",
+    "c7_tv0.7_vw60_own75_btc_ma100_20bps",
+    "c7_tv0.8_vw60_own75_btc_ma100_20bps",
+    "c14_tv0.5_vw60_own75_btc_ma100_20bps",
+    "c14_tv0.6_vw60_own75_btc_ma100_20bps",
+    "c14_tv0.7_vw60_own75_btc_ma100_20bps",
+    "c14_tv0.8_vw60_own75_btc_ma100_20bps"
+  ],
+  "first_test_start": "2023-01-01"
+}
