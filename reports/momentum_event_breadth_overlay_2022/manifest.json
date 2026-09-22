@@ -1,0 +1,38 @@
+{
+  "data": "data/processed/panel_daily.csv",
+  "universe": "point-in-time Top20",
+  "start": "2022-01-01",
+  "end": "2026-09-21",
+  "stress": [
+    "2020-10-03",
+    "2021-12-31"
+  ],
+  "families": [
+    "ctrend_lite_balanced",
+    "ctrend_lite_relative_strength",
+    "ctrend_lite_breakout"
+  ],
+  "breadth_window": 50,
+  "breadth_thresholds": [
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6
+  ],
+  "primary_breadth_threshold": 0.5,
+  "target_vols": [
+    0.7,
+    0.8
+  ],
+  "vol_window": 60,
+  "cost_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "gate": "BTC 100D MA confirm2; breadth sleeve also requires Top20 breadth >= 50%",
+  "execution": "signal close, T+1",
+  "leverage": "none; gross exposure cap 1.0"
+}

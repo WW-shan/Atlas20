@@ -275,6 +275,7 @@
 
 1. **验证新的高收益候选。**
    BTC 100D MA + 60D 波动率目标 + 三族每日动量事件组合已经完成严格 Top20、成本、事件规则邻域、因子族和 2020–2021 压力检查；但事件规则仍是参数尖峰，2024 起子区间只有 13.60x @2bps，不能直接上线。
+   在此基础上新增的当前 Top20 宽度闸门（成员价格高于自身 50D MA 的比例 ≥50%）把 2024 起子区间提高到 17.66x @2bps，最大回撤降到 -32.7%，但全样本降到 16.61x；50/50 宽度混合为全样本 23.10x、2024 起 15.95x。它改善了风险和后段收益，但仍未同时满足“20x + 过拟合通过 + 风险可控”。
 
 2. **做多重检验修正。**
    当前已经试了数千组参数。最终候选必须做：
@@ -363,6 +364,28 @@
 - `reports/momentum_event_ensemble_2022/membership_sensitivity.csv`
 - `reports/momentum_event_ensemble_2022/stress_test.csv`
 - `reports/momentum_event_ensemble_2022/report.md`
+
+Top20 市场宽度闸门（严格 Top20）：
+
+```bash
+.venv/bin/python scripts/run_momentum_event_breadth_overlay.py \
+  --config config/base.yaml \
+  --start-date 2022-01-01 \
+  --target-vols 0.7,0.8 \
+  --vol-window 60 \
+  --breadth-window 50 \
+  --cost-bps 2,20,50,100 \
+  --output-dir reports/momentum_event_breadth_overlay_2022
+```
+
+输出：
+
+- `reports/momentum_event_breadth_overlay_2022/summary.csv`
+- `reports/momentum_event_breadth_overlay_2022/breadth_threshold_sensitivity.csv`
+- `reports/momentum_event_breadth_overlay_2022/blend_sensitivity.csv`
+- `reports/momentum_event_breadth_overlay_2022/stress_test.csv`
+- `reports/momentum_event_breadth_overlay_2022/yearly_returns.csv`
+- `reports/momentum_event_breadth_overlay_2022/report.md`
 
 ## 6. 证据等级说明
 

@@ -58,12 +58,18 @@ momentum-event ensemble, restricted to the point-in-time Top20, reached 28.92x
 at 2bps and 19.69x at 20bps over 2022-01-01 through 2026-09-21; however, it
 falls to 13.60x at 2bps from 2024 onward and is sensitive to the exact event
 rule, so it is a high-return provisional candidate rather than a live-ready
+strategy. Adding a current-Top20 breadth gate (at least 50% above their own
+50-day moving averages) reduces the 2024-onward drawdown to -32.7% and lifts
+that segment to 17.66x at 2bps, but the full-period result falls to 16.61x; a
+50/50 breadth blend returns 23.10x over the full period and 15.95x from 2024.
+The breadth version is therefore also provisional, not a completed 20x
 strategy. See
 `docs/research/strategy_evidence_audit.md`,
 `reports/strategy_evidence_audit_2022/`,
 `reports/decision_point_ablation_2022/`,
-`reports/volatility_gate_validation_2022/`, and
-`reports/vol_target_neighborhood_2022/`.
+`reports/volatility_gate_validation_2022/`,
+`reports/vol_target_neighborhood_2022/`, and
+`reports/momentum_event_breadth_overlay_2022/`.
 
 ## Why It Stands Out
 
@@ -591,6 +597,12 @@ Reproduce the current research candidate with:
   --config config/base.yaml --start-date 2022-01-01 \
   --target-vols 0.7,0.8 --vol-window 60 --cost-bps 2,20,50,100 \
   --output-dir reports/momentum_event_ensemble_2022
+
+.venv/bin/python scripts/run_momentum_event_breadth_overlay.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --target-vols 0.7,0.8 --vol-window 60 --breadth-window 50 \
+  --cost-bps 2,20,50,100 \
+  --output-dir reports/momentum_event_breadth_overlay_2022
 ```
 
 The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.
