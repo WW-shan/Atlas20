@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from scripts.run_phase_invariant_vol_target import (
-    _daily_target_series,
+    _target_event_series,
     _exposure_series_for_targets,
     _volatility_target_variants,
 )
@@ -42,12 +42,14 @@ def test_exposure_series_caps_target_volatility_at_one() -> None:
     assert exposure.loc[index[0]] == pytest.approx(1.0)
 
 
-def test_daily_target_weights_are_forward_filled_between_rebalances() -> None:
+def test_target_events_are_sparse_and_not_forward_filled() -> None:
     index = pd.date_range("2024-01-01", periods=4, freq="D")
     targets = {index[0]: pd.Series({"asset_a": 1.0})}
     exposure = pd.Series([0.5], index=[index[0]])
 
-    assets, weights = _daily_target_series(targets, exposure, index)
+    assets, weights = _target_event_series(targets, exposure, index)
 
-    assert assets.tolist() == ["asset_a", "asset_a", "asset_a", "asset_a"]
-    assert weights.tolist() == pytest.approx([0.5, 0.5, 0.5, 0.5])
+    assert assets.iloc[0] == "asset_a"
+    assert assets.iloc[1:].isna().all()
+    assert weights.iloc[0] == pytest.approx(0.5)
+    assert weights.iloc[1:].isna().all()

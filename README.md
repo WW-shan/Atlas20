@@ -34,21 +34,27 @@ A second audit then isolated the BTC gate: the inherited 11-day/two-day rule is
 a local parameter spike, not a broad plateau. Neighboring lookbacks of 10 and
 14 days fall to 3.05x and 1.98x, and one-day confirmation falls to 2.20x. With
 no gate at all the same phase-invariant basket returns 2.42x; own-stop-only
-returns 2.37x. Those versions still beat BTC's 1.82x in this sample, but there
+returns 2.37x. Those versions still beat BTC's 1.87x in this sample, but there
 is currently no evidence for a stable 20x production strategy. A
 volatility-scaled trailing gate was also tested as an evidence-based
 replacement; its best phase-invariant result was only 3.22x with a -56%
 maximum drawdown. A newer phase-invariant candidate now combines 14-day
 balanced leader selection, a 75-day/three-day own-trend stop, a BTC 100-day
 moving-average gate, and a 60-day volatility-target exposure capped at 1.0.
-At 20bps, target volatilities of 50%-80% produce 3.91x-5.17x over the full
-sample with Sharpe 1.00-1.07 and -33.9% to -45.7% maximum drawdown. In the
-2025-2026 test segment they produce 1.64x-1.85x with Sharpe 1.08-1.12 and
--16.0% to -23.3% drawdown. The more conservative 50% target-vol version still
-returns 2.23x at 100bps, and its worst rolling one-year window is 0.77x-0.82x;
-it is more balanced than the old phase-sensitive strategy but is not risk-free.
-This is the current leading research candidate, but it is still not a 20x
-strategy and remains research-only. See
+The fast simulator was corrected to let weights drift between target events,
+matching the production engine, and all volatility-target reports were rerun.
+At 20bps, target volatilities of 50%-80% produce 4.14x-5.22x over the full
+sample with Sharpe 1.01-1.09 and -33.5% to -45.4% maximum drawdown. In the
+2025-2026 test segment they produce 1.65x-1.85x with Sharpe 1.07-1.12 and
+-16.1% to -23.3% drawdown. A five-family score test shows the result is not
+purely factor-alpha: balanced, relative-strength, and breakout remain in the
+3.67x-4.14x range at 50% target volatility, while acceleration and
+volatility-adjusted families fall to 1.92x-3.20x. The more conservative 50%
+target-vol balanced version still returns 2.37x at 100bps, and its worst
+rolling one-year window is 0.77x-0.82x; it is more balanced than the old
+phase-sensitive strategy but is not risk-free. This is the current leading
+research candidate, but it is still not a 20x strategy and remains
+research-only. See
 `docs/research/strategy_evidence_audit.md`,
 `reports/strategy_evidence_audit_2022/`,
 `reports/decision_point_ablation_2022/`,
@@ -510,54 +516,56 @@ interpretation and caveats.
 It supersedes every earlier narrative in this README, in `reports/`, and in any
 scratch result. If this section disagrees with it, `RESEARCH.md` wins.
 
-The current champion is a real point-in-time Top-20, long-only, unlevered
-concentrated CTREND rotation:
+The previous fixed-21-day CTREND-breakout candidate is now a **phase-sensitive
+upper-tail reference**, not the champion. Shifting its rebalance calendar
+turns the fixed-start 22.44x at 20bps into a 3.94x phase median and a 0.61x
+worst phase, and its inherited 11-day/two-day BTC gate is a local parameter
+spike. Do not use that result for live sizing.
 
-> point-in-time Top20 → exclude BTC from the selection pool → 21-day rebalance
-> → hold the single highest `ctrend_lite_breakout` coin → exit to cash when BTC
-> closes below its price 11 days earlier for two consecutive days → re-enter
-> only at the next 21-day decision.
+The current leading **research** candidate is a phase-invariant, long-only,
+unlevered CTREND-lite rotation:
 
-| 2022-01-01 .. 2026-09-21 | Strategy @2bps | Strategy @20bps | BTC buy-and-hold |
+> point-in-time Top20 → exclude BTC from the selection pool → 14-day balanced
+> CTREND-lite top-1 → exit on a 75-day/three-day own-trend stop until the next
+> rebalance → BTC 100-day MA with two-day confirmation → scale exposure toward
+> a 50%-80% realized-volatility target, capped at 1.0x.
+
+| 2022-01-01 .. 2026-09-21, 20bps | 50% target vol | 60% target vol | BTC buy-and-hold |
 | --- | ---: | ---: | ---: |
-| Total return | **21.56x** | 18.57x | 1.82x |
-| CAGR | 91.6% | 85.6% | 13.5% |
-| Sharpe | 1.298 | 1.249 | 0.502 |
-| Max drawdown | -49.2% | -51.5% | -67.0% |
+| Total return | **4.14x** | **4.75x** | 1.87x |
+| Sharpe | 1.091 | 1.070 | 0.515 |
+| Max drawdown | -33.5% | -38.1% | -66.9% |
+| 2025-2026 test return | 1.65x | 1.75x | 0.93x |
 
-The result is deliberately qualified:
+This is deliberately qualified:
 
-- At the desk's stated ≤2bps round-trip cost it clears 20x; at a conservative
-  20bps round-trip it is 18.57x. The 20x threshold is crossed only at roughly
-  ≤10bps round-trip. Cost sensitivity is material because annual turnover is
-  ~17.6x.
-- The fixed 2022-01-01 start is not representative of every entry date. Across
-  45 monthly rolling starts, the median outcome is 3.48x, the worst is 0.67x,
-  the best is 23.18x, and the worst drawdown is -78.2%.
-- 2023 underperformed BTC. 2024 (+347%) and 2026 YTD (+158%) carry the result;
-  the strategy is concentrated in one coin and has no guarantee of repeating
-  those moves.
-- The independent raw-CMC audit found 83/83 identical Top20 sets and order,
-  zero market-cap mismatches, and zero executed picks outside the point-in-time
-  Top20. See `reports/ctrend_champion_top20_2022/selections.csv` and
-  `universe_audit.csv`.
-- A pure TSMOM grid (1,440 candidates) peaked at 4.95x on Top50 and 2.72x on
-  Top20, so broad time-series momentum did **not** beat the concentrated
-  cross-sectional rotation in this sample. A Top50 sensitivity variant reached
-  23.54x at the fixed start, but its rolling median was 2.15x and its worst
-  drawdown was -94.9%; it is not the production rule.
+- The fast simulator was corrected on 2026-09-23 to let weights drift between
+  target events, matching the production engine; all volatility-target reports
+  were rerun.
+- The result is still only 4x-5x, not 20x, and a worst rolling one-year window
+  is still 0.77x-0.82x.
+- A five-family score test shows factor sensitivity: balanced,
+  relative-strength, and breakout remain in the 3.67x-4.14x range at 50%
+  target volatility, while acceleration and volatility-adjusted fall to
+  1.92x-3.20x.
+- The candidate is concentrated in one coin at a time and has not completed
+  rolling walk-forward or multiple-testing corrections.
 
-Reproduce the champion with:
+Reproduce the current research candidate with:
 
 ```bash
-.venv/bin/python scripts/run_ctrend_champion.py \
+.venv/bin/python scripts/run_phase_invariant_vol_target.py \
   --config config/base.yaml --start-date 2022-01-01 \
-  --cost-bps 2,5,10,20,50,100 \
-  --output-dir reports/ctrend_champion_top20_2022
+  --cycles 7,14,21,28 --target-vols 0.5,0.6,0.7,0.8 \
+  --vol-windows 20,30,60 --stop-modes own75 --gate-modes btc_ma100 \
+  --cost-bps 2,20 --output-dir reports/vol_target_neighborhood_2022
 
-.venv/bin/python scripts/audit_ctrend_selections.py \
+.venv/bin/python scripts/run_phase_invariant_vol_target.py \
   --config config/base.yaml --start-date 2022-01-01 \
-  --output-dir reports/ctrend_champion_top20_2022
+  --cycles 14 --target-vols 0.5,0.6 --vol-windows 60 \
+  --stop-modes own75 --gate-modes btc_ma100 --cost-bps 2,20,100 \
+  --score-family ctrend_lite_balanced \
+  --output-dir reports/vol_target_score_family_balanced_2022
 ```
 
 The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.

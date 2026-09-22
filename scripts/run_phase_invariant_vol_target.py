@@ -8,7 +8,9 @@ a target volatility and capped at 1.0.
 
 Every cycle length is evaluated as an equal-weight basket of all calendar
 phases.  The basket is invariant to the start phase.  Results are also split
-into 2022-2024 and 2025-2026 to expose sample-specific performance.
+into 2022-2024 and 2025-2026 to expose sample-specific performance.  The fast
+single-asset simulator is drift-aware and is cross-checked against the
+production engine semantics rather than assuming free daily rebalancing.
 """
 
 # ruff: noqa: E402
@@ -29,7 +31,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.backtest.calendar import get_rebalance_dates
-from atlas20.backtest.single_asset import simulate_single_asset_weights
+from atlas20.backtest.single_asset import simulate_single_asset_weight_targets
 from atlas20.config import ResearchConfig, load_config
 from atlas20.logging_utils import configure_logging, ensure_dir
 from atlas20.reporting.report import dataframe_to_markdown
@@ -125,11 +127,18 @@ def _exposure_series_for_targets(
     return pd.Series(exposure, dtype=float).sort_index()
 
 
-def _daily_target_series(
+def _target_event_series(
     targets: dict[pd.Timestamp, pd.Series],
     exposure: pd.Series,
     index: pd.DatetimeIndex,
 ) -> tuple[pd.Series, pd.Series]:
+    """Return sparse target events for the drift-aware single-asset simulator.
+
+    The old implementation forward-filled the target weight to every day.
+    That made the fast simulator rebalance to a constant weight for free,
+    which is not what the production engine does.  Here only signal dates are
+    populated; the simulator holds and lets the weight drift between them.
+    """
     assets = pd.Series(pd.NA, index=index, dtype="object")
     weights = pd.Series(float("nan"), index=index, dtype=float)
     for raw_date, target in targets.items():
@@ -143,7 +152,7 @@ def _daily_target_series(
         else:
             assets.loc[date] = str(positive.idxmax())
             weights.loc[date] = float(exposure.get(date, 1.0))
-    return assets.ffill().fillna("__cash__"), weights.ffill().fillna(0.0)
+    return assets, weights
 
 
 def _build_base_targets(
@@ -154,6 +163,7 @@ def _build_base_targets(
     cycle_days: int,
     end_date: pd.Timestamp | None,
     include_btc: bool,
+    score_family: str,
 ) -> dict[pd.Timestamp, pd.Series]:
     local_config = base_config.model_copy(deep=True)
     local_config.start_date = schedule_start.date().isoformat()
@@ -173,7 +183,7 @@ def _build_base_targets(
         local_config,
         top_n=1,
         frequency=frequency,
-        score_family="ctrend_lite_balanced",
+        score_family=score_family,
         include_btc=include_btc,
     ).targets
 
@@ -195,9 +205,9 @@ def _simulate_metrics(
         target_volatility=target_volatility,
         vol_window=vol_window,
     )
-    assets, weights = _daily_target_series(targets, exposure, market.price.index)
+    assets, weights = _target_event_series(targets, exposure, market.price.index)
     returns = market.returns.loc[evaluation_start:end_date]
-    simulation = simulate_single_asset_weights(
+    simulation = simulate_single_asset_weight_targets(
         returns,
         assets.reindex(returns.index),
         weights.reindex(returns.index),
@@ -251,17 +261,20 @@ def _rolling_window_summary(
     }
 
 
-def _write_report(output_dir: Path, summary: pd.DataFrame) -> None:
+def _write_report(output_dir: Path, summary: pd.DataFrame, score_family: str) -> None:
+    score_family_label = score_family.removeprefix("ctrend_lite_")
     summary_20 = summary[summary["cost_bps"] == 20.0].copy()
     by_full = summary_20.sort_values("basket_multiple", ascending=False)
     by_test = summary_20.sort_values("test_multiple", ascending=False)
     lines = [
         "# Phase-Invariant Volatility-Target Validation",
         "",
-        "This study keeps CTREND-lite balanced top-1 selection and replaces the",
+        f"This study keeps CTREND-lite {score_family_label} top-1 selection and replaces the",
         "binary BTC gate with a capped volatility-target exposure. Every cycle is",
         "evaluated as an equal-weight basket of all calendar phases, so the result",
-        "does not depend on a fixed start date. No leverage is allowed.",
+        "does not depend on a fixed start date. No leverage is allowed. The fast",
+        "simulator lets weights drift between target events, matching the",
+        "production engine instead of assuming free daily rebalancing.",
         "",
         "## External evidence",
         "",
@@ -305,6 +318,7 @@ def main() -> None:
     parser.add_argument("--gate-modes", default="none")
     parser.add_argument("--cost-bps", default="2,20")
     parser.add_argument("--include-btc", action="store_true")
+    parser.add_argument("--score-family", default="ctrend_lite_balanced")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -362,6 +376,7 @@ def main() -> None:
                 cycle_days=cycle_days,
                 end_date=end_date,
                 include_btc=args.include_btc,
+                score_family=args.score_family,
             )
             stopped_targets = {
                 "none": base_targets,
@@ -498,7 +513,7 @@ def main() -> None:
         "gate_modes": list(gate_modes),
         "cost_bps": list(costs),
         "include_btc": bool(args.include_btc),
-        "score_family": "ctrend_lite_balanced",
+        "score_family": args.score_family,
         "top_n": 1,
         "data": "data/processed/panel_daily.csv",
     }
@@ -506,7 +521,7 @@ def main() -> None:
         json.dumps(manifest, indent=2),
         encoding="utf-8",
     )
-    _write_report(output_dir, summary)
+    _write_report(output_dir, summary, args.score_family)
     print(summary[summary["cost_bps"] == 20.0].to_string(index=False))
     print(f"Wrote phase-invariant volatility-target validation to {output_dir}")
 
