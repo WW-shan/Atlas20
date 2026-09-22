@@ -1,0 +1,36 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "universe": "strict point-in-time Top20",
+  "portfolio": "long-only spot, no leverage, gross exposure <= 1.0",
+  "execution": "close signal, T+1 execution",
+  "cost_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "sensitivity_cost_bps": 20.0,
+  "primary_spec": {
+    "rebalance_days": 3,
+    "phase_offsets": [
+      0,
+      1,
+      2
+    ],
+    "hold_rank": 2,
+    "btc_ma_window": 100,
+    "btc_confirm_days": 2,
+    "target_volatility": 0.8,
+    "vol_window": 60,
+    "use_btc_gate": true,
+    "use_volatility_target": true
+  },
+  "signal_names": [
+    "weighted_multi_horizon",
+    "ret21",
+    "equal_7_14_28_60",
+    "equal_14_21_28"
+  ]
+}
