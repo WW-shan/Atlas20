@@ -71,3 +71,101 @@ def apply_daily_risk_overlay(
             overlay_targets[current_date] = latest_desired_target.copy()
 
     return dict(sorted(overlay_targets.items(), key=lambda item: item[0]))
+
+
+def _targets_equal(left: pd.Series | None, right: pd.Series | None) -> bool:
+    if left is None or right is None:
+        return False
+    if left.empty and right.empty:
+        return True
+    index = left.index.union(right.index)
+    return bool(
+        (left.reindex(index).fillna(0.0) - right.reindex(index).fillna(0.0))
+        .abs()
+        .max()
+        <= 1e-12
+    )
+
+
+def apply_daily_asset_stop_overlay(
+    base_targets: dict[pd.Timestamp, pd.Series],
+    trend_on: pd.DataFrame,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Exit an asset after it loses its own trend and wait for the next rebalance.
+
+    The signal is evaluated on close ``t`` and the returned target is executed
+    by the backtest engine on ``t+1``. A stopped asset is not re-entered between
+    scheduled rebalances; this avoids repeated whipsaw trades. At the next
+    scheduled rebalance, the base strategy is allowed to select it again only
+    when that asset passes its own trend test on that date.
+
+    Missing trend observations are treated as risk-off. This is deliberately
+    conservative: an asset without enough history to define its stop should
+    not be bought merely because the signal table has a hole.
+    """
+    if not base_targets:
+        return {}
+
+    normalized = {
+        pd.Timestamp(date): target.fillna(0.0).clip(lower=0.0)
+        for date, target in sorted(base_targets.items())
+    }
+    trend = trend_on.astype("boolean").fillna(False).astype(bool)
+    schedule_dates = set(normalized)
+    dates = sorted(set(trend.index) | schedule_dates)
+    assets = sorted(
+        {
+            str(asset)
+            for target in normalized.values()
+            for asset in target.index
+        }
+    )
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    current_target: pd.Series | None = None
+    blocked: set[str] = set()
+    previous: pd.Series | None = None
+
+    for date in dates:
+        timestamp = pd.Timestamp(date)
+        if timestamp in normalized:
+            current_target = normalized[timestamp].reindex(assets).fillna(0.0)
+            blocked = {
+                asset
+                for asset, weight in current_target.items()
+                if weight > 0.0
+                and (
+                    asset not in trend.columns
+                    or timestamp not in trend.index
+                    or not bool(trend.loc[timestamp, asset])
+                )
+            }
+
+        if current_target is None:
+            continue
+
+        if timestamp not in schedule_dates:
+            blocked.update(
+                asset
+                for asset, weight in current_target.items()
+                if weight > 0.0
+                and (
+                    asset not in trend.columns
+                    or timestamp not in trend.index
+                    or not bool(trend.loc[timestamp, asset])
+                )
+            )
+
+        desired = current_target.copy()
+        if blocked:
+            desired.loc[desired.index.intersection(sorted(blocked))] = 0.0
+        if desired.sum() > 0.0:
+            desired = desired / desired.sum()
+        else:
+            desired = pd.Series(dtype=float)
+
+        if timestamp in schedule_dates or not _targets_equal(desired, previous):
+            adjusted[timestamp] = desired.copy()
+        previous = desired.copy()
+
+    return dict(sorted(adjusted.items(), key=lambda item: item[0]))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from atlas20.backtest.engine import run_backtest
+from atlas20.backtest.engine import cap_sector_weights, run_backtest
 from atlas20.config import FrictionConfig, load_config
 
 
@@ -14,6 +14,7 @@ def test_run_backtest_applies_rebalance_one_day_later_and_records_turnover() -> 
     # This test is about the T+1 mechanics, not the diversification cap, so a
     # single pick is allowed to be a full position.
     config.frictions.max_weight_per_coin = 1.0
+    config.frictions.max_weight_per_sector = 1.0
     dates = pd.date_range("2024-01-01", periods=4, freq="D")
     returns = pd.DataFrame({"bitcoin": [0.0, 0.10, 0.0, 0.0], "ethereum": [0.0, 0.0, 0.0, 0.0]}, index=dates)
     targets = {dates[0]: pd.Series({"bitcoin": 1.0})}
@@ -88,6 +89,41 @@ def test_per_coin_cap_is_enforced_and_never_raises_the_largest_weight() -> None:
     skewed = cap_and_normalize(pd.Series({"a": 0.7, "b": 0.2, "c": 0.1}), 0.5)
     assert skewed.max() <= 0.5 + 1e-12
     assert skewed.sum() == pytest.approx(1.0)
+
+
+def test_sector_cap_is_enforced_without_redistributing_to_other_sectors() -> None:
+    weights = pd.Series({"a": 0.6, "b": 0.2, "c": 0.2})
+    sectors = pd.Series({"a": "x", "b": "x", "c": "y"})
+
+    capped = cap_sector_weights(weights, sectors, 0.5)
+
+    assert capped[["a", "b"]].sum() == pytest.approx(0.5)
+    assert capped["a"] == pytest.approx(0.375)
+    assert capped["b"] == pytest.approx(0.125)
+    assert capped["c"] == pytest.approx(0.2)
+    assert capped.sum() == pytest.approx(0.7)
+
+
+def test_run_backtest_applies_sector_cap_after_per_coin_cap() -> None:
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    returns = pd.DataFrame(
+        {"a": [0.0, 0.0, 0.0], "b": [0.0, 0.0, 0.0], "c": [0.0, 0.0, 0.0]},
+        index=dates,
+    )
+    targets = {dates[0]: pd.Series({"a": 0.6, "b": 0.2, "c": 0.2})}
+    sectors = pd.Series({"a": "x", "b": "x", "c": "y"})
+    friction = FrictionConfig(
+        fee_bps=0.0,
+        slippage_bps=0.0,
+        max_weight_per_coin=1.0,
+        max_weight_per_sector=0.5,
+    )
+
+    result = run_backtest("t", returns, targets, sectors, friction, 100.0)
+
+    assert result.weights.loc[dates[1], ["a", "b"]].sum() == pytest.approx(0.5)
+    assert result.weights.loc[dates[1], "c"] == pytest.approx(0.2)
+    assert result.weights.loc[dates[1]].sum() == pytest.approx(0.7)
 
 
 def test_interior_missing_return_for_a_held_asset_fails_closed() -> None:

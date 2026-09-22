@@ -30,6 +30,22 @@ from atlas20.universe.builder import build_rebalance_universe, prepare_market_da
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 
 
+DEFAULT_LEVERAGE_LEVELS = "1.0"
+
+
+def _parse_leverage_levels(value: str) -> tuple[float, ...]:
+    """Parse research leverage levels while failing closed above 1x."""
+    try:
+        levels = tuple(float(part.strip()) for part in value.split(",") if part.strip())
+    except ValueError as exc:
+        raise ValueError("leverage levels must be comma-separated numbers") from exc
+    if not levels:
+        raise ValueError("at least one leverage level is required")
+    if any(level <= 0.0 or level > 1.0 for level in levels):
+        raise ValueError("Atlas20 research is unlevered; leverage levels must be in (0, 1]")
+    return levels
+
+
 def _uncapped_friction(config):
     """Return frictions suitable for a deliberately concentrated research lane.
 
@@ -39,6 +55,7 @@ def _uncapped_friction(config):
     """
     friction = config.frictions.model_copy(deep=True)
     friction.max_weight_per_coin = 1.0
+    friction.max_weight_per_sector = 1.0
     return friction
 
 
@@ -69,12 +86,18 @@ def _profile(name: str, returns: pd.Series, weights: pd.DataFrame, capital: floa
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bull offense scan")
     parser.add_argument("--config", default="config/base.yaml")
+    parser.add_argument(
+        "--leverage-levels",
+        default=DEFAULT_LEVERAGE_LEVELS,
+        help="Comma-separated leverage levels; capped at 1.0 (unlevered).",
+    )
     args = parser.parse_args()
+    leverage_levels = _parse_leverage_levels(args.leverage_levels)
 
     config = load_config(args.config)
     configure_logging("WARNING")
     sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
-    panel, metadata = build_processed_datasets(config, sector_config)
+    panel, metadata = build_processed_datasets(config, sector_config, persist=False)
     market = prepare_market_data(panel, metadata, config)
     sector_by_coin = metadata["sector"]
     # NOTE: this deliberately writes *next to* the pipeline report dir, not
@@ -118,7 +141,7 @@ def main() -> None:
         [1, 2, 3],          # hold_count
         [14, 21, 30, 45],   # lookback
         [20, 50, 100],      # exit MA window
-        [1.0, 1.25, 1.5, 2.0],  # leverage
+        leverage_levels,     # production research is unlevered
     ))
     print(f"Running {len(grid)} combinations...", flush=True)
 

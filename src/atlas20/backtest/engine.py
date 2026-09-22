@@ -68,6 +68,33 @@ def cap_and_normalize(weights: pd.Series, max_weight: float) -> pd.Series:
     return remaining
 
 
+def cap_sector_weights(
+    weights: pd.Series,
+    sector_by_coin: pd.Series,
+    max_weight: float,
+) -> pd.Series:
+    """Trim any sector whose total weight exceeds a configured cap.
+
+    The freed weight is deliberately left in cash instead of being redistributed
+    to other sectors. Redistribution would make the cap depend on which sectors
+    happen to be under the limit and can create a new, unintended concentration
+    elsewhere. This function is applied after the per-coin cap, so both limits
+    hold simultaneously.
+    """
+    cleaned = weights.fillna(0.0).clip(lower=0.0)
+    if cleaned.sum() <= 0.0 or max_weight >= 1.0 or max_weight <= 0.0:
+        return cleaned
+
+    sectors = sector_by_coin.reindex(cleaned.index).fillna("Other")
+    capped = cleaned.copy()
+    for sector in sectors.unique():
+        columns = sectors[sectors == sector].index
+        sector_weight = float(capped[columns].sum())
+        if sector_weight > max_weight:
+            capped[columns] = capped[columns] * (max_weight / sector_weight)
+    return capped
+
+
 
 def aggregate_sector_exposure(weights: pd.DataFrame, sector_by_coin: pd.Series) -> pd.DataFrame:
     """Aggregate daily coin weights into daily sector exposure."""
@@ -130,7 +157,12 @@ def run_backtest(
             if max_gross_exposure is not None:
                 exposure = min(exposure, float(max_gross_exposure))
             exposure = max(exposure, 0.0)
-            pending_target = cap_and_normalize(pending_target, friction.max_weight_per_coin) * exposure
+            pending_target = cap_and_normalize(pending_target, friction.max_weight_per_coin)
+            pending_target = cap_sector_weights(
+                pending_target,
+                sector_by_coin,
+                friction.max_weight_per_sector,
+            ) * exposure
             target_rows.append(pending_target.rename(previous_date).to_frame().T)
 
         cost_return = 0.0

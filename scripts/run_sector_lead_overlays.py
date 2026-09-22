@@ -45,6 +45,43 @@ from atlas20.universe.builder import (  # noqa: E402
 )
 
 
+DEFAULT_MAX_LEVERAGE = 1.0
+
+
+LIQUIDITY_PROFILES: dict[str, dict[str, float | int]] = {
+    "loose": {
+        "min_history_days": 30,
+        "min_daily_dollar_volume": 1_000_000.0,
+        "min_turnover_ratio": 0.0,
+        "min_turnover_volume_usd": 0.0,
+    },
+    "medium": {
+        "min_history_days": 60,
+        "min_daily_dollar_volume": 10_000_000.0,
+        "min_turnover_ratio": 0.005,
+        "min_turnover_volume_usd": 100_000_000.0,
+    },
+    "strict": {
+        "min_history_days": 90,
+        "min_daily_dollar_volume": 25_000_000.0,
+        "min_turnover_ratio": 0.01,
+        "min_turnover_volume_usd": 200_000_000.0,
+    },
+}
+
+
+def _config_with_liquidity(config, label: str):
+    """Return a config copy whose universe gate matches the requested profile."""
+    if label not in LIQUIDITY_PROFILES:
+        supported = ", ".join(sorted(LIQUIDITY_PROFILES))
+        raise ValueError(f"Unsupported liquidity profile {label!r}; expected one of: {supported}")
+
+    tuned = config.model_copy(deep=True)
+    for field, value in LIQUIDITY_PROFILES[label].items():
+        setattr(tuned.universe, field, value)
+    return tuned
+
+
 def _sector_by_coin(market: MarketDataBundle) -> pd.Series:
     return market.metadata["sector"]
 
@@ -107,7 +144,11 @@ def _leverage_for_targets(
     return out
 
 
-def _friction_for_lane(config, max_weight_per_coin: float) -> FrictionConfig:
+def _friction_for_lane(
+    config,
+    max_weight_per_coin: float,
+    max_weight_per_sector: float = 1.0,
+) -> FrictionConfig:
     """Friction config for the concentrated lane.
 
     ``max_weight_per_coin`` is a diversification limit: when it binds, the
@@ -118,6 +159,9 @@ def _friction_for_lane(config, max_weight_per_coin: float) -> FrictionConfig:
     """
     friction = config.frictions.model_copy(deep=True)
     friction.max_weight_per_coin = float(max_weight_per_coin)
+    # This lane is deliberately one to three leaders. A diversified sector cap
+    # would silently turn a single-pick book into a half-invested portfolio.
+    friction.max_weight_per_sector = float(max_weight_per_sector)
     return friction
 
 
@@ -129,13 +173,18 @@ def _run(
     *,
     leverage_by_date: dict[pd.Timestamp, float] | None = None,
     max_weight_per_coin: float = 1.0,
+    max_weight_per_sector: float = 1.0,
 ):
     return run_backtest(
         name=name,
         asset_returns=market.returns.loc[config.start_timestamp : config.end_timestamp],
         rebalance_targets=targets,
         sector_by_coin=_sector_by_coin(market),
-        friction=_friction_for_lane(config, max_weight_per_coin),
+        friction=_friction_for_lane(
+            config,
+            max_weight_per_coin,
+            max_weight_per_sector=max_weight_per_sector,
+        ),
         initial_capital=config.initial_capital,
         gross_target_exposure=1.0,
         leverage_by_date=leverage_by_date,
@@ -152,11 +201,16 @@ def main() -> None:
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--frequency", default="14D")
     parser.add_argument("--top-k", type=int, default=1)
-    parser.add_argument("--liquidity", default="loose")
+    parser.add_argument("--liquidity", choices=sorted(LIQUIDITY_PROFILES), default="loose")
     parser.add_argument("--ma-window", type=int, default=100)
     parser.add_argument("--target-vol", type=float, default=0.60)
     parser.add_argument("--vol-window", type=int, default=30)
-    parser.add_argument("--max-leverage", type=float, default=1.5)
+    parser.add_argument(
+        "--max-leverage",
+        type=float,
+        default=DEFAULT_MAX_LEVERAGE,
+        help="Maximum gross exposure; Atlas20 research defaults to and requires 1.0.",
+    )
     parser.add_argument("--regime", default="bull_only", choices=["bull_only", "always_on"])
     parser.add_argument("--risk-off", default="cash", choices=["cash", "btc"])
     parser.add_argument("--stop-lookback", type=int, default=30)
@@ -167,12 +221,20 @@ def main() -> None:
         default=1.0,
         help="Per-coin cap for this concentrated lane; 1.0 means a single pick may be a full position.",
     )
+    parser.add_argument(
+        "--max-weight-per-sector",
+        type=float,
+        default=1.0,
+        help="Sector cap for this concentrated lane; 1.0 disables the diversified-book cap.",
+    )
     args = parser.parse_args()
+    if args.max_leverage > DEFAULT_MAX_LEVERAGE:
+        parser.error("Atlas20 research is unlevered; --max-leverage cannot exceed 1.0")
 
-    config = load_config(args.config)
+    config = _config_with_liquidity(load_config(args.config), args.liquidity)
     configure_logging(config.logging.level)
     sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
-    panel, metadata = build_processed_datasets(config, sector_config)
+    panel, metadata = build_processed_datasets(config, sector_config, persist=False)
     market = prepare_market_data(panel, metadata, config)
 
     rebalance_dates = get_rebalance_dates(
@@ -230,6 +292,7 @@ def main() -> None:
             config,
             leverage_by_date=lev,
             max_weight_per_coin=args.max_weight_per_coin,
+            max_weight_per_sector=args.max_weight_per_sector,
         )
         metrics = compute_summary_metrics(result, config.annualization_days)
         rows.append(
