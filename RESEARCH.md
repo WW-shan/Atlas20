@@ -14,9 +14,31 @@
 
 ---
 
-## 0. 一句话结论
+## 0. 2026-09-23 相位审计：旧 21D 冠军不能直接上线
 
-在 **真实 point-in-time Top20 + 无杠杆 + 现货** 约束下，当前最强可复现策略是：
+固定 21D 的 25.87x/22.44x 结果对调仓日历起算日极其敏感。保持所有规则不变，只把 21D 日历平移 0–20 天：
+
+| 指标 @20bps | 数值 |
+|---|---:|
+| 当前 2022-01-01 相位 | **22.44x** |
+| 21 个相位中位数 | **3.94x** |
+| 21 个相位最差 | **0.61x** |
+| 21 份完全错开组合 | **5.51x** |
+| 21 份错开 Sharpe / 最大回撤 | **1.11 / -34.6%** |
+
+因此：
+
+- 22.44x 是相位上尾，不是稳定预期；
+- 无杠杆条件下，当前证据不支持稳定做到 20x；
+- 旧冠军标记为 **phase-sensitive / provisional**；
+- 逐决策点外部证据见 `docs/research/strategy_evidence_audit.md`；
+- 复现实验见 `reports/strategy_evidence_audit_2022/`。
+
+---
+
+## 1. 一句话结论（固定起点候选，待相位修正）
+
+在 **真实 point-in-time Top20 + 无杠杆 + 现货** 约束下，当前最高固定起点候选是：
 
 **CTREND-breakout 单币集中轮动 + 每日自身趋势止损**
 = 历史 Top20 内排除 BTC → 21 天调仓选 CTREND-breakout 第 1 名 → 每日检查持仓是否连续 3 个交易日收盘低于自身 75 日均线 → 若是则转现金，下一次 21 天调仓才允许重入 → BTC 跌破 11 日前收盘连续 2 天则全部转现金。
@@ -29,13 +51,15 @@
 | 最大回撤 | -41.8% | -42.6% | -44.0% | -67.0% |
 | 年换手 | 16.7x | 16.7x | 16.7x | ~0.2x |
 
+> 注意：上表是 2022-01-01 单一相位的上尾结果。相位中位数和错开组合见第 0 节。
+
 **为什么不是每天重新选币**：每天检查数据是对的，但“每天重新选第一名”会显著放大噪声和换手。项目实测了 176 组每日事件驱动/ hysteresis 变体：固定起点最高的一组在 20bps 下到 **76.48x**，但参数邻域中位数只有 **2.20x**、邻域最差 **0.11x**，属于明显的参数尖峰，拒绝采用。把每日检查用于“持仓自身趋势退出”，而不是每日轮动，才得到稳健改善。
 
 **结论不是“可以稳定每年翻倍”**：25.87x 仍是 2022-01-01 固定起点的结果。45 个月度起点滚动回测中，@2bps 中位数 **3.80x**、最差 **0.62x**；@20bps 中位数 **3.51x**、最差 **0.585x**。策略比旧冠军更稳，但起点敏感性和单币集中风险仍然存在。
 
 ---
 
-## 1. 定义（完全可复现）
+## 2. 定义（完全可复现）
 
 | 步骤 | 规则 |
 |---|---|
@@ -52,7 +76,7 @@
 
 ---
 
-## 2. 权威结果
+## 3. 权威结果
 
 ### 2.1 成本与总收益
 
@@ -92,7 +116,7 @@
 
 ---
 
-## 3. 候选对比与为什么没有选更高倍数
+## 4. 候选对比与为什么没有选更高倍数
 
 ### 3.1 同一 Top20 面板上的近距离候选
 
@@ -161,7 +185,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ---
 
-## 4. 数据与选币审计
+## 5. 数据与选币审计
 
 ### 4.1 Point-in-time Top20 独立审计
 
@@ -207,7 +231,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ---
 
-## 5. 已知局限（上实盘前必须知道）
+## 6. 已知局限（上实盘前必须知道）
 
 1. **起点敏感**：固定 2022-01-01 的 25.87x 不是任意起点可达；@2bps 滚动中位数 3.80x、最差 0.62x。
 2. **收益集中**：2024 年 +347%，2026 YTD +158%；如果未来没有类似的单币大行情，收益会显著下降。
@@ -220,7 +244,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ---
 
-## 6. 复现命令
+## 7. 复现命令
 
 ```bash
 # 新冠军：21D 选币 + 每日自身75日MA confirm3止损，2/5/10/20/50/100bps
@@ -261,20 +285,28 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
   --config config/base.yaml --start-date 2022-01-01 \
   --workers 8 --screen-only --output-dir reports/tsmom_validation_2022
 
+# 相位敏感性 + 错开组合审计（判断 21D 冠军是否只是日历运气）
+.venv/bin/python scripts/run_strategy_evidence_audit.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --cost-bps 2,20 --tranche-counts 1,3,7,21 \
+  --output-dir reports/strategy_evidence_audit_2022
+
 # 数据链审计
 .venv/bin/python scripts/audit_data_chain.py --config config/base.yaml
 ```
 
 ---
 
-## 7. 文件索引（权威性）
+## 8. 文件索引（权威性）
 
 | 路径 | 内容 | 状态 |
 |---|---|---|
 | `RESEARCH.md` | **本文，唯一权威结论** | ✅ 权威 |
-| `reports/trend_stop_champion_2022/` | **新冠军** 2/5/10/20/50/100bps、逐年、子区间、目标历史、最新信号、基础选币审计 | ✅ 权威 |
+| `reports/trend_stop_champion_2022/` | 固定 21D 冠军结果、逐年、子区间、目标历史、最新信号、基础选币审计 | ⚠️ 相位敏感，只能作为上尾参考 |
 | `reports/trend_stop_validation_2022/` | MA20-200 × confirm1-3 每日自身趋势止损全扫 + fresh rolling | ✅ 权威研究 |
 | `reports/event_driven_validation_2022/` | 176 组每日事件/hysteresis + 36 组每日 rank-stop 混合；用于证明每日轮动未采用 | ✅ 权威研究 |
+| `reports/strategy_evidence_audit_2022/` | 21D 相位扫描 + 1/3/7/21 份错开组合稳健性审计 | ✅ 权威审计 |
+| `docs/research/strategy_evidence_audit.md` | 逐决策点外部证据矩阵和未验证假设 | ✅ 权威审计 |
 | `reports/ctrend_champion_top20_2022/` | 旧冠军（固定21D，无每日自身趋势止损） | ⚠️ 已被新冠军取代 |
 | `reports/convex_validation_2022_top20/` | 2218 组 Top20 2022 起点全量筛选 | ✅ 权威研究 |
 | `reports/convex_validation_2022_top50/` | Top50 灵敏度全量筛选 | ⚠️ 只做灵敏度，不是生产规则 |

@@ -1,0 +1,27 @@
+{
+  "spec": {
+    "frequency": "21D",
+    "ma_window": 75,
+    "confirm_days": 3,
+    "btc_stop_lookback": 11,
+    "btc_stop_confirm_days": 2,
+    "score_family": "ctrend_lite_breakout",
+    "top_n": 1
+  },
+  "window": {
+    "start": "2022-01-01",
+    "end": "2026-09-21"
+  },
+  "cost_bps": [
+    2.0,
+    20.0
+  ],
+  "tranche_counts": [
+    1,
+    3,
+    7,
+    21
+  ],
+  "cycle_days": 21,
+  "data": "data/processed/panel_daily.csv"
+}

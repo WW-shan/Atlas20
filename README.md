@@ -23,15 +23,16 @@ and a React/Vite console for reviewing results.
 
 ## Current Research Conclusion
 
-The latest point-in-time, no-leverage study is recorded in `RESEARCH.md`. The
-current best reproducible candidate keeps the 21-day CTREND-breakout leader
-selection but monitors that holding daily against its own 75-day moving
-average, exiting to cash after three confirmed closes below the average. From
-2022-01-01 through 2026-09-21 it returns 25.87x at 2bps and 22.44x at 20bps,
-versus 1.82x for BTC buy-and-hold at 2bps. Daily leader rotation was tested
-extensively but not adopted: its highest fixed-start result was an isolated
-parameter spike, and its more stable variants did not justify the extra
-turnover.
+The latest point-in-time, no-leverage study is recorded in `RESEARCH.md`.
+The 21-day CTREND-breakout candidate still reports 25.87x at 2bps and 22.44x at
+20bps from the exact 2022-01-01 start, but the September 2026 phase audit shows
+that this result is not robust to the rebalance calendar. Shifting the same
+21-day rule by 0-20 days gives a 20bps median of 3.94x and a worst phase of
+0.61x. A fully staggered 21-tranche implementation returns 5.51x at 20bps with
+a 1.11 Sharpe and -34.6% maximum drawdown, and is invariant to the start phase.
+The phase-sensitive 22.44x result is therefore a research upper tail, not the
+production expectation. See `docs/research/strategy_evidence_audit.md` and
+`reports/strategy_evidence_audit_2022/`.
 
 ## Why It Stands Out
 
