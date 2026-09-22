@@ -144,3 +144,31 @@ def test_single_asset_simulator_matches_general_engine_on_cash_exit() -> None:
         fast.daily_returns,
         check_names=False,
     )
+
+
+def test_daily_event_can_exit_immediately_when_universe_membership_lost() -> None:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    market = _market(dates)
+    scores = pd.DataFrame(
+        {
+            "a": [0.90, 0.85, float("nan"), 0.70, 0.65],
+            "b": [0.10, 0.20, 0.80, 0.60, 0.55],
+        },
+        index=dates,
+    )
+
+    built = build_daily_event_targets_from_scores(
+        market,
+        scores,
+        _config(),
+        DailyEventSpec(
+            min_hold_days=5,
+            hold_rank=1,
+            switch_score_gap=0.0,
+            confirm_days=1,
+            exit_on_universe_drop=True,
+        ),
+    )
+
+    assert built.selection_history["coin_id"].tolist() == ["a", "a", "b", "b", "b"]
+    assert built.selection_history.loc[2, "event"] == "switch"

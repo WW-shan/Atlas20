@@ -40,6 +40,7 @@ class DailyEventSpec:
     hold_rank: int = 3
     switch_score_gap: float = 0.05
     confirm_days: int = 1
+    exit_on_universe_drop: bool = False
 
     def __post_init__(self) -> None:
         if self.min_hold_days < 0:
@@ -145,14 +146,17 @@ def build_daily_event_targets_from_scores(
                 weak_days = 0
                 event = "enter"
             else:
-                if current_asset in scores.index:
+                missing_from_universe = current_asset not in scores.index
+                if not missing_from_universe:
                     current_score = float(scores.loc[current_asset])
                     current_rank = int(scores.index.get_loc(current_asset)) + 1
                     weak_days = weak_days + 1 if current_rank > spec.hold_rank else 0
                 else:
                     weak_days += 1
 
-                can_switch = held_days >= spec.min_hold_days
+                can_switch = held_days >= spec.min_hold_days or (
+                    spec.exit_on_universe_drop and missing_from_universe
+                )
                 gap = top_score - current_score if np.isfinite(current_score) else np.inf
                 gap_trigger = top_asset != current_asset and gap >= spec.switch_score_gap
                 rank_trigger = weak_days >= spec.confirm_days

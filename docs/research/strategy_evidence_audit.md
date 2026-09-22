@@ -273,16 +273,15 @@
 
 ### 仍需完成
 
-1. **验证新的领先候选。**
-   BTC 100D MA + 60D 波动率目标已经形成宽参数平台，但还需要滚动窗口、更高成本、因子家族邻域和真正的 walk-forward 验证。
+1. **验证新的高收益候选。**
+   BTC 100D MA + 60D 波动率目标 + 三族每日动量事件组合已经完成严格 Top20、成本、事件规则邻域、因子族和 2020–2021 压力检查；但事件规则仍是参数尖峰，2024 起子区间只有 13.60x @2bps，不能直接上线。
 
 2. **做多重检验修正。**
    当前已经试了数千组参数。最终候选必须做：
-   - walk-forward / 滚动起点；
-   - 参数邻域；
-   - 子区间；
-   - 成本压力；
-   - White Reality Check / Deflated Sharpe 或等价的多重检验。
+   - 真正的嵌套 walk-forward；
+   - White Reality Check / Deflated Sharpe 或等价的多重检验；
+   - 换手、容量、滑点和退市场景；
+   - 不同市场阶段的独立验证。
 
 ### 暂不改
 
@@ -344,6 +343,26 @@
   --cost-bps 2,20 \
   --output-dir reports/vol_target_neighborhood_2022
 ```
+
+三族每日动量事件组合（严格 Top20）：
+
+```bash
+.venv/bin/python scripts/run_momentum_event_ensemble.py \
+  --config config/base.yaml \
+  --start-date 2022-01-01 \
+  --target-vols 0.7,0.8 \
+  --vol-window 60 \
+  --cost-bps 2,20,50,100 \
+  --output-dir reports/momentum_event_ensemble_2022
+```
+
+输出：
+
+- `reports/momentum_event_ensemble_2022/summary.csv`
+- `reports/momentum_event_ensemble_2022/spec_sensitivity.csv`
+- `reports/momentum_event_ensemble_2022/membership_sensitivity.csv`
+- `reports/momentum_event_ensemble_2022/stress_test.csv`
+- `reports/momentum_event_ensemble_2022/report.md`
 
 ## 6. 证据等级说明
 

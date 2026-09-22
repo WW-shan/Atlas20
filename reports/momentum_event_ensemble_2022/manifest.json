@@ -1,0 +1,36 @@
+{
+  "data": "data/processed/panel_daily.csv",
+  "universe": "point-in-time Top20",
+  "start": "2022-01-01",
+  "end": "2026-09-21",
+  "stress": [
+    "2020-10-03",
+    "2021-12-31"
+  ],
+  "families": [
+    "ctrend_lite_balanced",
+    "ctrend_lite_relative_strength",
+    "ctrend_lite_breakout"
+  ],
+  "event_spec": {
+    "min_hold_days": 5,
+    "hold_rank": 2,
+    "switch_score_gap": 0.1,
+    "confirm_days": 1,
+    "exit_on_universe_drop": true
+  },
+  "target_vols": [
+    0.7,
+    0.8
+  ],
+  "vol_window": 60,
+  "cost_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "gate": "BTC >= 100D MA, confirm 2 days",
+  "execution": "signal close, T+1",
+  "leverage": "none; gross exposure cap 1.0"
+}

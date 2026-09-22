@@ -52,9 +52,13 @@ purely factor-alpha: balanced, relative-strength, and breakout remain in the
 volatility-adjusted families fall to 1.92x-3.20x. The more conservative 50%
 target-vol balanced version still returns 2.37x at 100bps, and its worst
 rolling one-year window is 0.77x-0.82x; it is more balanced than the old
-phase-sensitive strategy but is not risk-free. This is the current leading
-research candidate, but it is still not a 20x strategy and remains
-research-only. See
+phase-sensitive strategy but is not risk-free. This remains the most robust
+research candidate, but it is not a 20x strategy. A separate daily
+momentum-event ensemble, restricted to the point-in-time Top20, reached 28.92x
+at 2bps and 19.69x at 20bps over 2022-01-01 through 2026-09-21; however, it
+falls to 13.60x at 2bps from 2024 onward and is sensitive to the exact event
+rule, so it is a high-return provisional candidate rather than a live-ready
+strategy. See
 `docs/research/strategy_evidence_audit.md`,
 `reports/strategy_evidence_audit_2022/`,
 `reports/decision_point_ablation_2022/`,
@@ -582,6 +586,11 @@ Reproduce the current research candidate with:
   --cost-bps 20 --train-days 365 --test-days 90 \
   --selection-metric sharpe --switch-cost-bps 0,40 \
   --output-dir reports/vol_target_walk_forward_2022
+
+.venv/bin/python scripts/run_momentum_event_ensemble.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --target-vols 0.7,0.8 --vol-window 60 --cost-bps 2,20,50,100 \
+  --output-dir reports/momentum_event_ensemble_2022
 ```
 
 The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.
