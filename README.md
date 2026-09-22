@@ -21,6 +21,18 @@ and a React/Vite console for reviewing results.
 > Research only. Atlas20 does not provide financial advice and does not execute
 > trades.
 
+## Current Research Conclusion
+
+The latest point-in-time, no-leverage study is recorded in `RESEARCH.md`. The
+current best reproducible candidate keeps the 21-day CTREND-breakout leader
+selection but monitors that holding daily against its own 75-day moving
+average, exiting to cash after three confirmed closes below the average. From
+2022-01-01 through 2026-09-21 it returns 25.87x at 2bps and 22.44x at 20bps,
+versus 1.82x for BTC buy-and-hold at 2bps. Daily leader rotation was tested
+extensively but not adopted: its highest fixed-start result was an isolated
+parameter spike, and its more stable variants did not justify the extra
+turnover.
+
 ## Why It Stands Out
 
 - **Point-in-time universe construction**: top-20 candidates are rebuilt at each
@@ -259,8 +271,39 @@ backtest.
 
 CMC finalises day D's close somewhere after 00:00 UTC on D+1 and is sometimes
 still publishing when the job fires, so a second conditional attempt runs
-`ATLAS20_DAILY_REFRESH_CATCHUP_OFFSET_HOURS` later (default 4). It queues a
-refresh only while the last completed day is still missing, so a normal day
+`ATLAS20_DAILY_REFRESH_CATCHUP_OFFSET_HOURS` later (default 4).
+
+That scheduler lives **inside the API process**, so nothing refreshes while the
+API is stopped - which is the normal state on this workstation. For a machine
+that is not running the API around the clock, `ops/com.atlas20.daily-refresh.plist`
+is an equivalent launchd job that runs `scripts/download_data.py` followed by
+`scripts/build_datasets.py` at 02:30 and 06:30 UTC and appends to
+`~/Library/Logs/atlas20-daily-refresh.log`. It is installed on this machine;
+verify it with:
+
+```bash
+launchctl print gui/$(id -u)/com.atlas20.daily-refresh | head
+launchctl list | grep atlas20        # confirms it is registered
+```
+
+For another machine, install the checked-in plist with `cp` plus
+`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.daily-refresh.plist`.
+
+Verify the result by checking the panel's last date, which is the number that
+actually matters for a backtest:
+
+```bash
+tail -3 data/processed/panel_daily.csv | cut -d, -f1
+```
+
+A one-off refresh by hand is the same two commands the job runs:
+
+```bash
+.venv/bin/python scripts/download_data.py --config config/base.yaml
+.venv/bin/python scripts/build_datasets.py --config config/base.yaml
+```
+
+It queues a refresh only while the last completed day is still missing, so a normal day
 costs nothing and a late publication is picked up within hours instead of the
 next morning. The readiness gate treats a panel that is a full day old as
 `stale`: yesterday's close is the baseline, so `MAX_PRIMARY_LAG_DAYS=1` allows
@@ -299,28 +342,27 @@ Git except for the directory placeholder.
 
 Using the cached public-data run included in this workspace:
 
-- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on` - +344% total,
-  CAGR about 29.8%, Sharpe 0.73, max drawdown -82%
-- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only` - CAGR about 15.4%
-- BTC buy-and-hold CAGR: about 19.4% (+176% total)
-- Top-20 equal-weight CAGR: about 10.1%
-- Best sector CAGR: about 15.4%
+- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on` - +323.8% total,
+  CAGR about 28.7%, Sharpe 0.72, max drawdown -74.6%
+- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only` - CAGR about 16.0%
+- BTC buy-and-hold CAGR: about 20.8% (+194.2% total)
+- Top-20 equal-weight CAGR: about 11.2%
+- Best sector CAGR: about 16.0%
 
-Read those honestly. The momentum book does beat BTC buy-and-hold on return
-and Sharpe, but it pays for it with a deeper drawdown (-82% versus -77%) and it
-only wins because the 2021 leg is enormous; it loses to BTC in 2024-2026. The
-concentrated bull-offense family below is what produces the large multiples.
+Read those honestly. The momentum book beats BTC buy-and-hold on return, Sharpe
+and drawdown (-74.6% versus -76.6%), but almost all of the outperformance is
+the 2021 leg (+445% versus BTC's +57%); it loses to BTC in 2022, 2023, 2024 and
+2025. The current concentrated champion is documented in `RESEARCH.md`; the
+standalone snapshots in `reports/latest/` remain useful as broad benchmark
+comparisons, not as the final strategy verdict.
 
-**These numbers moved on 2026-09-22, and the move is a data correction, not a
-strategy change.** Polygon's MATIC ranked inside the real Top-20 on 123 of the
-215 rebalance dates (best rank 6) and was missing from the panel entirely: the
-CoinMarketCap client read an empty page as "this coin has no history" for any
-series that had already ended, so a coin that migrated tickers silently
-disappeared. Restoring it took the best momentum variant from +176% to +344%
-(an A/B run of the same engine, same window, same frictions, differing only in
-whether the recovered series is present). Every number in this section is
-generated from `reports/latest/` by the pipeline and pinned by
-`tests/test_checked_in_report_snapshot.py`.
+**The benchmark moved on 2026-09-22 and that is an engine fix, not a strategy
+change.** `BTC_BH`/`ETH_BH` were still subject to the 50% sector cap, so the
+"buy-and-hold" benchmark was silently half invested in cash; the pipeline now
+lifts both the per-coin and per-sector cap for benchmarks (`max_weight_per_coin`
+and `max_weight_per_sector` = 1.0), which is what a real buy-and-hold is. Every
+number in this section is generated from `reports/latest/` by the pipeline and
+pinned by `tests/test_checked_in_report_snapshot.py`.
 
 The BTC benchmark is anchored on the first day of the backtest window, so the
 comparison is against a real buy-and-hold, not a benchmark that sat in cash
@@ -372,6 +414,11 @@ Two biases had to be removed before any of these numbers meant anything:
    overlap is refused rather than treated as agreement. Unverified assets are
    refused by default (`data_quality.require_cross_check: true`); the audit
    records the latest primary/secondary dates and the staleness gap.
+
+   CoinGecko market-chart caches are refreshed after three hours. This matters
+   for assets Gate.io does not list: a two-day-old fallback chart would fail
+   the latest-date check and wrongly remove the asset's entire history from the
+   panel, even though its CMC history was sound.
 
    A series that has **ended** is the one exception, because there is no
    current print to protect: a delisted or migrated asset is verified over the
@@ -427,64 +474,72 @@ prints PASS/WARN/FAIL. Current state: 43 PASS, 6 WARN, 0 FAIL. The warnings are
 * three short interior provider gaps (LINK 1 day, CRV 4 days, KCS 1 day, all
   around 2022-07-31), which the panel carries at the last observed price.
 
-Run it before trusting any backtest.
+Run it before trusting any backtest. Research scripts build their custom-window
+panels in memory (`persist=False`) and never overwrite the canonical processed
+panel; the daily refresh refuses to shrink the asset set or move the panel
+start/end backwards.
 
 See `reports/latest/atlas20_report.md` and the dated report folders for full
 interpretation and caveats.
 
-### Bull-offense research line
+### Strategy research: read `RESEARCH.md` first
 
-`scripts/run_bull_offense_scan.py` explores the concentrated, trend-filtered
-family that actually answers the "beat BTC buy-and-hold" question, and writes
-to `reports/bull_offense_scan/` (deliberately *outside* `reports/latest`, which
-the pipeline replaces atomically on every run).
+**`RESEARCH.md` is the single authoritative record of the strategy research.**
+It supersedes every earlier narrative in this README, in `reports/`, and in any
+scratch result. If this section disagrees with it, `RESEARCH.md` wins.
 
-Latest run over the same window:
+The current champion is a real point-in-time Top-20, long-only, unlevered
+concentrated CTREND rotation:
 
-- 128 of 144 parameter combinations beat BTC buy-and-hold.
-- The grid median is 31.2x total return (CAGR ~83.5%) versus BTC's 2.76x.
-- The median maximum drawdown is -82.3%; the worst cell loses -97.5% and the
-  least-bad drawdown is -53.7%.
+> point-in-time Top20 → exclude BTC from the selection pool → 21-day rebalance
+> → hold the single highest `ctrend_lite_breakout` coin → exit to cash when BTC
+> closes below its price 11 days earlier for two consecutive days → re-enter
+> only at the next 21-day decision.
 
-The headline numbers survive the survivorship correction - the family's BTC
-trend exit simply steps aside before the collapses (it was flat through both
-the Terra and FTX failures). They are still not a forecast, and the yearly
-breakdown in `bull_offense_yearly_returns.csv` is the honest way to read them:
+| 2022-01-01 .. 2026-09-21 | Strategy @2bps | Strategy @20bps | BTC buy-and-hold |
+| --- | ---: | ---: | ---: |
+| Total return | **21.56x** | 18.57x | 1.82x |
+| CAGR | 91.6% | 85.6% | 13.5% |
+| Sharpe | 1.298 | 1.249 | 0.502 |
+| Max drawdown | -49.2% | -51.5% | -67.0% |
 
-| Year | Best total-return cell (`x2`) | BTC |
-| --- | --- | --- |
-| 2021 | +31,396% | +57% |
-| 2022 | -36% | -65% |
-| 2023 | +546% | +154% |
-| 2024 | +78% | +112% |
-| 2025 | -50% | -7% |
-| 2026 YTD | -4% | -9% |
+The result is deliberately qualified:
 
-**Unlevered spot is the version that matters.** Restricting the grid to the
-`x1` cells - gross exposure never above 1, so no margin, no borrow, no funding
-cost to model - **35 of 36 variants beat BTC**:
+- At the desk's stated ≤2bps round-trip cost it clears 20x; at a conservative
+  20bps round-trip it is 18.57x. The 20x threshold is crossed only at roughly
+  ≤10bps round-trip. Cost sensitivity is material because annual turnover is
+  ~17.6x.
+- The fixed 2022-01-01 start is not representative of every entry date. Across
+  45 monthly rolling starts, the median outcome is 3.48x, the worst is 0.67x,
+  the best is 23.18x, and the worst drawdown is -78.2%.
+- 2023 underperformed BTC. 2024 (+347%) and 2026 YTD (+158%) carry the result;
+  the strategy is concentrated in one coin and has no guarantee of repeating
+  those moves.
+- The independent raw-CMC audit found 83/83 identical Top20 sets and order,
+  zero market-cap mismatches, and zero executed picks outside the point-in-time
+  Top20. See `reports/ctrend_champion_top20_2022/selections.csv` and
+  `universe_audit.csv`.
+- A pure TSMOM grid (1,440 candidates) peaked at 4.95x on Top50 and 2.72x on
+  Top20, so broad time-series momentum did **not** beat the concentrated
+  cross-sectional rotation in this sample. A Top50 sensitivity variant reached
+  23.54x at the fixed start, but its rolling median was 2.15x and its worst
+  drawdown was -94.9%; it is not the production rule.
 
-| | total | CAGR | Sharpe | max drawdown |
-| --- | --- | --- | --- | --- |
-| `BO_h1_lb21_ma50_x1` | 213x | 155.3% | 1.34 | -71.9% |
-| `BO_h3_lb21_ma50_x1` | 172x | 146.1% | **1.51** | -67.1% |
-| `BO_h2_lb30_ma50_x1` | 117x | 130.1% | 1.37 | **-55.7%** |
-| grid median (x1 only) | 30.1x | 82.3% | 1.11 | -69.6% |
-| BTC buy-and-hold | 2.76x | 19.4% | 0.60 | -76.7% |
+Reproduce the champion with:
 
-The unlevered median drawdown is *smaller* than BTC's, and the best cells are
-materially smaller, so this is not simply "more risk, more return". Note the
-Sharpe column: the trend exit is doing the work, not the leverage.
+```bash
+.venv/bin/python scripts/run_ctrend_champion.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --cost-bps 2,5,10,20,50,100 \
+  --output-dir reports/ctrend_champion_top20_2022
 
-Leverage is not monotonic in this grid. At x1.25 and x1.5, 34/36 and 32/36
-variants still beat BTC, but the median drawdown deepens to -79.1% and -86.0%.
-At x2 only 27/36 beat BTC and the median drawdown is -94.3%. Those x2 numbers
-also omit borrow/funding costs, so they are research probes rather than an
-investable result. The x1 table above is the honest deployment candidate.
+.venv/bin/python scripts/audit_ctrend_selections.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --output-dir reports/ctrend_champion_top20_2022
+```
 
-One year (2021, the DOGE/SHIB melt-up) still dominates the compounded result,
-and the leveraged headline cell loses to BTC in both 2024 and 2025. Treat it
-as a high-variance satellite rather than a replacement for the benchmark.
+The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.
+The 2021-inclusive result must not be used to choose live sizing.
 
 ## Key Limitations
 

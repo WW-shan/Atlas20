@@ -1,0 +1,29 @@
+{
+  "start": "2022-01-01",
+  "end": "2026-09-23",
+  "costs": [
+    2.0,
+    5.0,
+    10.0,
+    20.0,
+    50.0
+  ],
+  "ma_windows": [
+    20,
+    30,
+    40,
+    50,
+    60,
+    75,
+    100,
+    150,
+    200
+  ],
+  "confirm_days": [
+    1,
+    2,
+    3
+  ],
+  "data": "data/processed/panel_daily.csv",
+  "maximum_gross_exposure": 1.0
+}

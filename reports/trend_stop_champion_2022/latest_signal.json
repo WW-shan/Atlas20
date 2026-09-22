@@ -1,0 +1,11 @@
+{
+  "as_of": "2026-09-21",
+  "latest_target_date": "2026-09-19",
+  "btc_gate_open": true,
+  "targets": {
+    "avalanche-2": 1.0
+  },
+  "gross_exposure": 1.0,
+  "next_scheduled_rebalance": "2026-10-10",
+  "rule": "Top20 ex-BTC CTREND-breakout top1, 21D; daily own 75d MA confirm3 cash stop; BTC 11d trailing confirm2 cash gate; no leverage"
+}
