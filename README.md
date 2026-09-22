@@ -35,11 +35,15 @@ a local parameter spike, not a broad plateau. Neighboring lookbacks of 10 and
 14 days fall to 3.05x and 1.98x, and one-day confirmation falls to 2.20x. With
 no gate at all the same phase-invariant basket returns 2.42x; own-stop-only
 returns 2.37x. Those versions still beat BTC's 1.82x in this sample, but there
-is currently no evidence for a stable 20x production strategy. The candidate is
-research-only until the gate is replaced or independently validated. See
+is currently no evidence for a stable 20x production strategy. A
+volatility-scaled trailing gate was also tested as an evidence-based
+replacement; its best phase-invariant result was only 3.22x with a -56%
+maximum drawdown. The candidate remains research-only until a parameter-stable
+gate is found and independently validated. See
 `docs/research/strategy_evidence_audit.md`,
-`reports/strategy_evidence_audit_2022/`, and
-`reports/decision_point_ablation_2022/`.
+`reports/strategy_evidence_audit_2022/`,
+`reports/decision_point_ablation_2022/`, and
+`reports/volatility_gate_validation_2022/`.
 
 ## Why It Stands Out
 

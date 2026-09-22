@@ -68,6 +68,22 @@
 - 当前没有可直接上实盘的冠军。11D/2 必须替换为参数不敏感的市场闸门，或通过独立样本重新验证。
 - 复现实验见 `reports/decision_point_ablation_2022/`。
 
+### 0.2 波动率缩放 BTC 闸门：方向合理，但还不足以替代
+
+按 Moreira/Muir 和 Yang 的波动率管理方向，把固定 11D 阈值换成 BTC 自身波动率缩放的 trailing 闸门（Chandelier 风格），并保持 75D/3 自身止损、下一次调仓重入、无杠杆和 T+1 不变。20bps 下最佳参数邻域：
+
+| 参数 | 21 份错开组合 | 相位中位数 | 最差相位 | Sharpe | 最大回撤 |
+|---|---:|---:|---:|---:|---:|
+| lookback 30D / vol30 / 1.5σ / confirm2 | 3.22x | 1.89x | 0.20x | 0.70 | -56.0% |
+| lookback 50D / vol30 / 1.5σ / confirm2 | 3.08x | 1.68x | 0.16x | 0.69 | -56.9% |
+
+结论：
+
+- 波动率缩放闸门比 11D/2 的参数邻域更连续，但绝对收益和相位稳定性仍不足；它不能把策略恢复到“稳定 20x”。
+- 很多更宽的波动率倍数几乎不触发退出，退化回“无 BTC 闸门”版本。
+- 该方向可以继续研究，但当前不替换冠军规则。
+- 复现实验见 `reports/volatility_gate_validation_2022/`。
+
 ---
 
 ## 1. 一句话结论（没有可直接上实盘的冠军）
@@ -340,6 +356,11 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
   --config config/base.yaml --start-date 2022-01-01 \
   --cost-bps 2,20 --output-dir reports/decision_point_ablation_2022
 
+# BTC 波动率缩放 trailing 闸门验证
+.venv/bin/python scripts/run_volatility_gate_validation.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --cost-bps 2,20 --output-dir reports/volatility_gate_validation_2022
+
 # 数据链审计
 .venv/bin/python scripts/audit_data_chain.py --config config/base.yaml
 ```
@@ -356,6 +377,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/event_driven_validation_2022/` | 176 组每日事件/hysteresis + 36 组每日 rank-stop 混合；用于证明每日轮动未采用 | ✅ 权威研究 |
 | `reports/strategy_evidence_audit_2022/` | 21D 相位扫描 + 1/3/7/21 份错开组合稳健性审计 | ✅ 权威审计 |
 | `reports/decision_point_ablation_2022/` | 自身止损、BTC 闸门、重入方式的 21 相位/错开组合消融 | ✅ 权威审计，否定 11D/2 为稳定规律 |
+| `reports/volatility_gate_validation_2022/` | BTC 波动率缩放 trailing 闸门参数邻域验证 | ✅ 方向合理，但当前不足以替代 |
 | `docs/research/strategy_evidence_audit.md` | 逐决策点外部证据矩阵和未验证假设 | ✅ 权威审计 |
 | `reports/ctrend_champion_top20_2022/` | 旧冠军（固定21D，无每日自身趋势止损） | ⚠️ 已被新冠军取代 |
 | `reports/convex_validation_2022_top20/` | 2218 组 Top20 2022 起点全量筛选 | ✅ 权威研究 |
