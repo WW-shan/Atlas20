@@ -1,0 +1,8 @@
+{
+  "n_blocks": 12,
+  "cscv_combinations": 924,
+  "candidates": [
+    "primary",
+    "parameter_ensemble_20bps"
+  ]
+}

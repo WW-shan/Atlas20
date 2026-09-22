@@ -23,53 +23,27 @@ and a React/Vite console for reviewing results.
 
 ## Current Research Conclusion
 
-The latest point-in-time, no-leverage study is recorded in `RESEARCH.md`.
-The 21-day CTREND-breakout candidate still reports 25.87x at 2bps and 22.44x at
-20bps from the exact 2022-01-01 start, but the September 2026 phase audit shows
-that this result is not robust to the rebalance calendar. Shifting the same
-21-day rule by 0-20 days gives a 20bps median of 3.94x and a worst phase of
-0.61x. A fully staggered 21-tranche implementation returns 5.51x at 20bps with
-a 1.11 Sharpe and -34.6% maximum drawdown, and is invariant to the start phase.
-A second audit then isolated the BTC gate: the inherited 11-day/two-day rule is
-a local parameter spike, not a broad plateau. Neighboring lookbacks of 10 and
-14 days fall to 3.05x and 1.98x, and one-day confirmation falls to 2.20x. With
-no gate at all the same phase-invariant basket returns 2.42x; own-stop-only
-returns 2.37x. Those versions still beat BTC's 1.87x in this sample, but there
-is currently no evidence for a stable 20x production strategy. A
-volatility-scaled trailing gate was also tested as an evidence-based
-replacement; its best phase-invariant result was only 3.22x with a -56%
-maximum drawdown. A newer phase-invariant candidate now combines 14-day
-balanced leader selection, a 75-day/three-day own-trend stop, a BTC 100-day
-moving-average gate, and a 60-day volatility-target exposure capped at 1.0.
-The fast simulator was corrected to let weights drift between target events,
-matching the production engine, and all volatility-target reports were rerun.
-At 20bps, target volatilities of 50%-80% produce 4.14x-5.22x over the full
-sample with Sharpe 1.01-1.09 and -33.5% to -45.4% maximum drawdown. In the
-2025-2026 test segment they produce 1.65x-1.85x with Sharpe 1.07-1.12 and
--16.1% to -23.3% drawdown. A five-family score test shows the result is not
-purely factor-alpha: balanced, relative-strength, and breakout remain in the
-3.67x-4.14x range at 50% target volatility, while acceleration and
-volatility-adjusted families fall to 1.92x-3.20x. The more conservative 50%
-target-vol balanced version still returns 2.37x at 100bps, and its worst
-rolling one-year window is 0.77x-0.82x; it is more balanced than the old
-phase-sensitive strategy but is not risk-free. This remains the most robust
-research candidate, but it is not a 20x strategy. A separate daily
-momentum-event ensemble, restricted to the point-in-time Top20, reached 28.92x
-at 2bps and 19.69x at 20bps over 2022-01-01 through 2026-09-21; however, it
-falls to 13.60x at 2bps from 2024 onward and is sensitive to the exact event
-rule, so it is a high-return provisional candidate rather than a live-ready
-strategy. Adding a current-Top20 breadth gate (at least 50% above their own
-50-day moving averages) reduces the 2024-onward drawdown to -32.7% and lifts
-that segment to 17.66x at 2bps, but the full-period result falls to 16.61x; a
-50/50 breadth blend returns 23.10x over the full period and 15.95x from 2024.
-The breadth version is therefore also provisional, not a completed 20x
-strategy. See
-`docs/research/strategy_evidence_audit.md`,
-`reports/strategy_evidence_audit_2022/`,
-`reports/decision_point_ablation_2022/`,
-`reports/volatility_gate_validation_2022/`,
-`reports/vol_target_neighborhood_2022/`, and
-`reports/momentum_event_breadth_overlay_2022/`.
+The authoritative conclusion is now in `RESEARCH.md`. The current research champion is a
+strict point-in-time Top20, no-leverage phase-staggered multi-horizon momentum ensemble.
+It combines four transparent trailing-return signals with three calendar phases, a Top2
+hold band, a BTC 100D MA + confirm2 regime gate, and 60D volatility targeting capped at
+gross exposure 1.0. From 2022-01-01 through 2026-09-21 it returns **28.80x at 2bps** and
+**23.09x at 20bps**, with Sharpe 1.43 and -44.9% maximum drawdown at 20bps. BTC
+buy-and-hold returns 1.87x over the same period.
+
+The candidate passed a fixed-strategy Deflated Sharpe (0.9945), White Reality Check
+(p=0.0150), 365D/90D walk-forward selection (20.78x from 2023 including 40bps switch
+cost), best-year removal (4.83x versus BTC 0.73x after removing 2023), a 2020-2021
+stress test (4.55x at 20bps), and a 10,308-row point-in-time selection audit with zero
+violations. CSCV rejects selecting the best full-sample parameter (PBO 0.6288), so the
+project does **not** use that selection procedure; the fixed primary strategy itself has a
+7.47% below-median OOS rate across 924 CSCV splits.
+
+Reproduce with `scripts/run_phase_momentum.py`, `scripts/run_phase_momentum_walk_forward.py`,
+`scripts/run_phase_momentum_multiple_testing.py`, and
+`scripts/audit_phase_momentum_selections.py`. See `reports/phase_momentum_2022/` and the
+related robustness reports. This is a research champion for small-size live testing, not a
+guarantee of future returns; capacity, execution, exchange, and data-latency risks remain.
 
 ## Why It Stands Out
 

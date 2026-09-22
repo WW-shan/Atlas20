@@ -16,7 +16,92 @@
 
 ---
 
-## 0. 2026-09-23 相位审计：旧 21D 冠军不能直接上线
+## 0. 2026-09-23 新主候选：相位错开多周期动量（生产引擎已验收）
+
+> 本节是新主候选的权威结论，取代旧 21D、11D/2 BTC 闸门和此前“无稳定 20x 策略”的叙述。旧章节仅保留为历史审计记录。
+
+### 0.0 策略规则
+
+- 股票池：严格 point-in-time **Top 20**，包含 BTC；CMC 决定成员，缺失 CMC 的币不参与排名。
+- 信号：四条透明 trailing-return 动量，等权：
+  1. `weighted_multi_horizon`：7/14/21/28/42/60D = 10/15/20/25/15/15%；
+  2. `ret21`；
+  3. `equal_7_14_28_60`；
+  4. `equal_14_21_28`。
+- 每条信号做 3 个相位错开，共 12 个 sleeve；每 sleeve 每 3 天检查一次，合起来每天都有 sleeve 在检查。
+- 持仓只要仍在当前 sleeve 的 Top2 就继续持有；跌出 Top2 才换到当前第 1 名；跌出当天 Top20 立即退出。
+- 风控：BTC 100D MA + confirm2；单 sleeve 按 60D 已实现波动率缩放到 80% 目标波动；gross exposure 硬上限 1.0，无杠杆、无做空。
+- 执行：收盘信号，T+1；所有成本按 2/20/50/100bps 分别重跑生产引擎 `run_backtest`。
+
+### 0.1 主结果
+
+2022-01-01 → 2026-09-21，严格 Top20、无杠杆：
+
+| 往返总成本 | 总收益 | CAGR | Sharpe | 最大回撤 |
+|---|---:|---:|---:|---:|
+| **2bps** | **28.80x** | 103.69% | 1.514 | -42.61% |
+| **20bps** | **23.09x** | 94.38% | 1.433 | -44.92% |
+| 50bps | 15.97x | 79.78% | 1.297 | -48.72% |
+| 100bps | 8.62x | 57.79% | 1.069 | -54.49% |
+| BTC 买入持有 | 1.87x | 14.17% | 0.515 | -66.89% |
+
+逐年收益（20bps 主策略 vs BTC）：
+
+| 年份 | 主策略 | BTC |
+|---|---:|---:|
+| 2022 | -22.8% | -64.3% |
+| 2023 | +378.4% | +155.4% |
+| 2024 | +78.5% | +121.1% |
+| 2025 | +65.5% | -6.3% |
+| 2026 YTD | +111.7% | -1.0% |
+
+### 0.2 过拟合与稳健性门槛
+
+| 检验 | 结果 | 判定 |
+|---|---:|---|
+| 参数邻域（25 个固定变体 @20bps） | 除“去掉 BTC 闸门”为 2.88x 外，其余约 9.5x–30.0x；主策略 23.09x | 通过；BTC 闸门是必要风险开关 |
+| 固定主策略 Deflated Sharpe | 0.9945 | 通过（>0.95） |
+| 固定主策略 White Reality Check | p=0.0150 | 通过（<0.05） |
+| 动态 walk-forward（365D 训练/90D 测试，2023 起，含 40bps 切换成本） | 20.78x，Sharpe 1.621 | 通过（>20x） |
+| 固定主策略 2023 起 OOS | 29.91x，Sharpe 1.734 | 通过 |
+| 固定主策略 CSCV（12 块、924 折） | OOS 排名中位数 0.781；低于中位数比例 7.47% | 通过 |
+| 参数等权集成 CSCV | OOS 排名中位数 0.438；低于中位数比例 85.71% | 拒绝作为冠军 |
+| 去掉最佳年份 2023 | 主策略 4.83x、Sharpe 1.112；BTC 同期 0.73x | 通过；收益不依赖单一年份 |
+| 2020-10-03 → 2021-12-31 压力 | 20bps 4.55x，Sharpe 2.394，最大回撤 -18.9% | 通过 |
+| 逐条选币审计 | 10,308 条选币记录，0 条不在当天 Top20、0 条无价格、0 条 Rain/稳定币；所有快照恰好 20 个币 | 通过 |
+| 事后挑最佳参数 PBO | 0.6288 | 失败；因此禁止动态挑选全样本最佳参数，使用固定主策略 |
+
+解释：
+
+- PBO 0.63 否定的不是固定主策略，而是“在 32 个候选里事后选全样本最佳参数”这一过程；固定主策略的 CSCV OOS 排名稳定性为 7.47% 低于中位数，反而是通过的。
+- 参数等权集成 2bps 为 20.06x，但 20bps 只有 15.97x，且 CSCV 不稳定，因此只保留为风险分散参考，不替代主策略。
+- 止损、移动止损和币自身均线过滤都跑过：固定 20% 止损 20bps 为 24.54x 但回撤略差；移动 20% 止损为 22.00x、回撤 -43.32%；币自身 50D/100D/150D/200D 趋势过滤仅 17.57x/14.71x/10.68x/10.57x。没有一种 overlay 在收益、Sharpe、回撤三项上支配主策略，因此主策略暂不加这些 overlay。
+- 这已经是可上实盘测试的研究冠军，但“研究冠军”不等于“已实盘验收”：容量、真实滑点、交易所退市、数据延迟和监控仍需在实盘小资金阶段继续验证。
+
+### 0.3 复现实验
+
+```bash
+.venv/bin/python scripts/run_phase_momentum.py   --output-dir reports/phase_momentum_2022
+
+.venv/bin/python scripts/run_phase_momentum_walk_forward.py   --output-dir reports/phase_momentum_walk_forward_2022
+
+.venv/bin/python scripts/run_phase_momentum_multiple_testing.py   --candidate-returns reports/phase_momentum_multiple_testing_2022/candidate_returns.csv   --output-dir reports/phase_momentum_multiple_testing_2022
+
+.venv/bin/python scripts/audit_phase_momentum_selections.py   --output-dir reports/phase_momentum_selection_audit_2022
+```
+
+权威报告：
+
+- `reports/phase_momentum_2022/`
+- `reports/phase_momentum_walk_forward_2022/`
+- `reports/phase_momentum_multiple_testing_2022/`
+- `reports/phase_momentum_fixed_cscv_2022/`
+- `reports/phase_momentum_robustness_2022/`
+- `reports/phase_momentum_selection_audit_2022/`
+
+---
+
+## 0.4 历史相位审计：旧 21D 冠军不能直接上线
 
 固定 21D 的 25.87x/22.44x 结果对调仓日历起算日极其敏感。保持所有规则不变，只把 21D 日历平移 0–20 天：
 
