@@ -1,0 +1,14 @@
+{
+  "universe": "strict point-in-time Top20",
+  "cost_bps": 20.0,
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "variants": [
+    "trend_50",
+    "trend_100",
+    "trend_150",
+    "trend_200",
+    "trend_100_trailing_stop_20",
+    "trend_100_target_vol_0.7"
+  ]
+}

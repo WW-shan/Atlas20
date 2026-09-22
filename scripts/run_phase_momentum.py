@@ -172,6 +172,20 @@ def _variant_specs() -> dict[str, PhaseMomentumSpec]:
         "btc_ma_200": replace(base, btc_ma_window=200),
         "no_btc_gate": replace(base, use_btc_gate=False),
         "no_vol_target": replace(base, use_volatility_target=False),
+        "fixed_stop_15": replace(base, stop_loss_kind="fixed", stop_loss_pct=0.15),
+        "fixed_stop_20": replace(base, stop_loss_kind="fixed", stop_loss_pct=0.20),
+        "fixed_stop_25": replace(base, stop_loss_kind="fixed", stop_loss_pct=0.25),
+        "fixed_stop_30": replace(base, stop_loss_kind="fixed", stop_loss_pct=0.30),
+        "fixed_stop_40": replace(base, stop_loss_kind="fixed", stop_loss_pct=0.40),
+        "trailing_stop_15": replace(base, stop_loss_kind="trailing", stop_loss_pct=0.15),
+        "trailing_stop_20": replace(base, stop_loss_kind="trailing", stop_loss_pct=0.20),
+        "trailing_stop_25": replace(base, stop_loss_kind="trailing", stop_loss_pct=0.25),
+        "trailing_stop_30": replace(base, stop_loss_kind="trailing", stop_loss_pct=0.30),
+        "trailing_stop_40": replace(base, stop_loss_kind="trailing", stop_loss_pct=0.40),
+        "asset_trend_50": replace(base, use_asset_trend_filter=True, asset_ma_window=50),
+        "asset_trend_100": replace(base, use_asset_trend_filter=True, asset_ma_window=100),
+        "asset_trend_150": replace(base, use_asset_trend_filter=True, asset_ma_window=150),
+        "asset_trend_200": replace(base, use_asset_trend_filter=True, asset_ma_window=200),
     }
 
 
@@ -192,8 +206,9 @@ def _parameter_sensitivity(
     index: pd.DatetimeIndex,
     *,
     cost_bps: float,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     rows: list[dict[str, object]] = []
+    return_columns: dict[str, pd.Series] = {}
     for name, spec in _variant_specs().items():
         built = build_phase_momentum_targets(market, universe, index, spec=spec)
         result = _production_result(config, market, built, index, cost_bps=cost_bps)
@@ -205,7 +220,8 @@ def _parameter_sensitivity(
                 period="full_2022_plus",
             )
         )
-    return pd.DataFrame(rows)
+        return_columns[name] = result.daily_returns.rename(name)
+    return pd.DataFrame(rows), pd.DataFrame(return_columns)
 
 
 def _signal_ablation(
@@ -333,6 +349,10 @@ def _write_report(
         "only on that sleeve's scheduled check. If it leaves the current Top20, it exits",
         "immediately. BTC must be above its 100D moving average with two-day confirmation.",
         "Each sleeve is scaled to 80% annualized trailing volatility and capped at 1.0.",
+        "The primary specification has no stop-loss or asset-level trend overlay; fixed stops,",
+        "trailing stops, and absolute-trend filters are reported in the parameter neighborhood",
+        "because the external evidence is strong but their incremental value must be",
+        "established on this data before adoption.",
         "",
         "## Cost and benchmark summary",
         "",
@@ -467,7 +487,7 @@ def main() -> None:
     yearly = pd.concat(yearly_frames, axis=1)
     rolling = pd.DataFrame(rolling_rows)
 
-    parameter = _parameter_sensitivity(
+    parameter, parameter_returns = _parameter_sensitivity(
         config,
         market,
         universe,
@@ -500,6 +520,7 @@ def main() -> None:
     yearly.to_csv(output_dir / "yearly.csv", index_label="date")
     rolling.to_csv(output_dir / "rolling_worst.csv", index=False)
     parameter.to_csv(output_dir / "parameter_neighborhood.csv", index=False)
+    parameter_returns.to_csv(output_dir / "parameter_returns.csv", index_label="date")
     signals.to_csv(output_dir / "signal_ablation.csv", index=False)
     monthly.to_csv(output_dir / "monthly_start.csv", index=False)
     sleeve_metrics.to_csv(output_dir / "sleeve_metrics.csv", index=False)
@@ -525,6 +546,10 @@ def main() -> None:
             "vol_window": base_spec.vol_window,
             "use_btc_gate": base_spec.use_btc_gate,
             "use_volatility_target": base_spec.use_volatility_target,
+            "stop_loss_kind": base_spec.stop_loss_kind,
+            "stop_loss_pct": base_spec.stop_loss_pct,
+            "use_asset_trend_filter": base_spec.use_asset_trend_filter,
+            "asset_ma_window": base_spec.asset_ma_window,
         },
         "signal_names": [spec.name for spec in PRIMARY_SIGNAL_SPECS],
     }

@@ -8,6 +8,7 @@ from atlas20.strategies.phase_momentum import (
     PhaseMomentumSpec,
     SleeveTargets,
     aggregate_sleeve_targets,
+    build_parameter_ensemble_targets,
     build_signal_panel,
     build_sleeve_targets,
 )
@@ -178,3 +179,135 @@ def test_aggregate_sleeve_targets_never_exceeds_full_investment() -> None:
     assert targets[dates[0]].sum() == pytest.approx(1.0)
     assert targets[dates[0]].loc["a"] == pytest.approx(2.0 / 3.0)
     assert targets[dates[0]].loc["b"] == pytest.approx(1.0 / 3.0)
+
+
+def test_fixed_stop_exits_and_waits_for_scheduled_reentry() -> None:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0, 70.0, 70.0, 70.0, 80.0],
+            "bitcoin": [100.0] * 5,
+        },
+        index=dates,
+    )
+    market = _market(price)
+    signal_panel = pd.DataFrame({"a": [1.0] * 5}, index=dates)
+    spec = PhaseMomentumSpec(
+        rebalance_days=3,
+        phase_offsets=(0,),
+        hold_rank=1,
+        btc_ma_window=2,
+        btc_confirm_days=1,
+        target_volatility=10.0,
+        vol_window=2,
+        stop_loss_kind="fixed",
+        stop_loss_pct=0.20,
+    )
+
+    sleeve = build_sleeve_targets(
+        market, signal_panel, dates, spec, signal_name="stop_test", phase_offset=0
+    )
+
+    assert sleeve.assets.loc[dates[0]] == "a"
+    assert sleeve.assets.loc[dates[1]] == "__cash__"
+    assert pd.isna(sleeve.assets.loc[dates[2]])
+    assert sleeve.assets.loc[dates[3]] == "a"
+
+
+def test_trailing_stop_uses_high_watermark() -> None:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0, 110.0, 80.0, 80.0, 80.0],
+            "bitcoin": [100.0] * 5,
+        },
+        index=dates,
+    )
+    market = _market(price)
+    signal_panel = pd.DataFrame({"a": [1.0] * 5}, index=dates)
+    spec = PhaseMomentumSpec(
+        rebalance_days=3,
+        phase_offsets=(0,),
+        hold_rank=1,
+        btc_ma_window=2,
+        btc_confirm_days=1,
+        target_volatility=10.0,
+        vol_window=2,
+        stop_loss_kind="trailing",
+        stop_loss_pct=0.20,
+    )
+
+    sleeve = build_sleeve_targets(
+        market, signal_panel, dates, spec, signal_name="trailing_test", phase_offset=0
+    )
+
+    assert sleeve.assets.loc[dates[0]] == "a"
+    assert sleeve.assets.loc[dates[2]] == "__cash__"
+
+
+def test_asset_trend_filter_skips_leader_below_own_moving_average() -> None:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0, 100.0, 100.0, 100.0, 100.0],
+            "b": [100.0, 101.0, 102.0, 103.0, 104.0],
+            "bitcoin": [100.0] * 5,
+        },
+        index=dates,
+    )
+    market = _market(price)
+    signal_panel = pd.DataFrame(
+        {
+            "a": [2.0, 2.0, 2.0, 2.0, 2.0],
+            "b": [1.0, 1.0, 1.0, 1.0, 1.0],
+        },
+        index=dates,
+    )
+    spec = PhaseMomentumSpec(
+        rebalance_days=2,
+        phase_offsets=(0,),
+        hold_rank=1,
+        btc_ma_window=2,
+        btc_confirm_days=1,
+        target_volatility=10.0,
+        vol_window=2,
+        use_asset_trend_filter=True,
+        asset_ma_window=2,
+    )
+
+    sleeve = build_sleeve_targets(
+        market, signal_panel, dates, spec, signal_name="trend_test", phase_offset=0
+    )
+
+    assert sleeve.assets.loc[dates[1]] == "b"
+
+
+def test_parameter_ensemble_combines_pre_specified_specs() -> None:
+    dates = pd.date_range("2024-01-01", periods=12, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0 + index for index in range(12)],
+            "b": [100.0 + 2.0 * index for index in range(12)],
+            "bitcoin": [100.0] * 12,
+        },
+        index=dates,
+    )
+    market = _market(price)
+    universe = _universe([(date, "a") for date in dates] + [(date, "b") for date in dates])
+    specs = (PhaseMomentumSpec(), PhaseMomentumSpec(hold_rank=1))
+    signals = (
+        MomentumSignalSpec(name="one_day", window_weights=((1, 1.0),)),
+        MomentumSignalSpec(name="two_day", window_weights=((2, 1.0),)),
+    )
+
+    built = build_parameter_ensemble_targets(
+        market,
+        universe,
+        dates,
+        parameter_specs=specs,
+        signal_specs=signals,
+    )
+
+    assert len(built.sleeve_targets) == 12
+    assert built.targets
+    assert all(exposure <= 1.0 + 1e-12 for exposure in built.exposures.values())

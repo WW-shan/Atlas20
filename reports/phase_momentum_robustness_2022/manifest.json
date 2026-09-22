@@ -1,0 +1,6 @@
+{
+  "primary": "phase momentum 3d/hold2/tv0.8/MA100",
+  "parameter_ensemble": "fixed equal-weight CORE_PARAMETER_SPECS",
+  "stress_period": "2020-10-03 to 2021-12-31",
+  "matrix": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv"
+}

@@ -52,6 +52,10 @@ class PhaseMomentumSpec:
     weight_tolerance: float = 0.05
     use_btc_gate: bool = True
     use_volatility_target: bool = True
+    stop_loss_kind: str = "none"
+    stop_loss_pct: float = 0.30
+    use_asset_trend_filter: bool = False
+    asset_ma_window: int = 100
 
     def __post_init__(self) -> None:
         if self.rebalance_days < 1:
@@ -72,6 +76,29 @@ class PhaseMomentumSpec:
             raise ValueError("vol_window must be at least 2")
         if self.weight_tolerance < 0.0:
             raise ValueError("weight_tolerance must be non-negative")
+        if self.stop_loss_kind not in {"none", "fixed", "trailing"}:
+            raise ValueError("stop_loss_kind must be 'none', 'fixed', or 'trailing'")
+        if not 0.0 < self.stop_loss_pct < 1.0:
+            raise ValueError("stop_loss_pct must be in (0, 1)")
+        if self.asset_ma_window < 2:
+            raise ValueError("asset_ma_window must be at least 2")
+
+
+CORE_PARAMETER_SPECS: tuple[PhaseMomentumSpec, ...] = (
+    PhaseMomentumSpec(),
+    PhaseMomentumSpec(rebalance_days=1, phase_offsets=(0,)),
+    PhaseMomentumSpec(rebalance_days=2, phase_offsets=(0, 1)),
+    PhaseMomentumSpec(rebalance_days=5, phase_offsets=(0, 1, 2, 3, 4)),
+    PhaseMomentumSpec(hold_rank=1),
+    PhaseMomentumSpec(hold_rank=3),
+    PhaseMomentumSpec(target_volatility=0.60),
+    PhaseMomentumSpec(target_volatility=0.70),
+    PhaseMomentumSpec(target_volatility=0.90),
+    PhaseMomentumSpec(target_volatility=1.00),
+    PhaseMomentumSpec(btc_ma_window=50),
+    PhaseMomentumSpec(btc_ma_window=150),
+    PhaseMomentumSpec(btc_ma_window=200),
+)
 
 
 PRIMARY_SIGNAL_SPECS: tuple[MomentumSignalSpec, ...] = (
@@ -214,15 +241,34 @@ def build_sleeve_targets(
         if spec.use_volatility_target
         else None
     )
+    if spec.use_asset_trend_filter:
+        asset_ma = market.price.rolling(
+            spec.asset_ma_window,
+            min_periods=spec.asset_ma_window,
+        ).mean()
+        asset_trend = (market.price > asset_ma).reindex(index)
+    else:
+        asset_trend = None
     assets = pd.Series(pd.NA, index=index, dtype="object")
     weights = pd.Series(np.nan, index=index, dtype=float)
     history: list[dict[str, object]] = []
     selected: str | None = None
     previous_asset: str | None = None
     previous_weight = 0.0
+    stop_active = False
+    tracked_asset: str | None = None
+    entry_price: float | None = None
+    high_watermark: float | None = None
+
+    def _price(asset: str, date: pd.Timestamp) -> float | None:
+        if asset not in market.price.columns or date not in market.price.index:
+            return None
+        value = float(market.price.at[date, asset])
+        return value if np.isfinite(value) and value > 0.0 else None
 
     for signal_date in index:
         signal_date = pd.Timestamp(signal_date)
+        stopped_today = False
         scores = (
             pd.to_numeric(signal_panel.loc[signal_date], errors="coerce")
             .replace([np.inf, -np.inf], np.nan)
@@ -234,23 +280,78 @@ def build_sleeve_targets(
         selected_rank: int | None = None
         selected_score: float | None = None
 
+        scheduled = ((signal_date - start).days % spec.rebalance_days) == phase_offset
         if scores.empty or not risk_on:
             selected = None
+            stop_active = False
+            tracked_asset = None
+            entry_price = None
+            high_watermark = None
         else:
             ranked = scores.sort_values(ascending=False, kind="mergesort").index.tolist()
-            scheduled = ((signal_date - start).days % spec.rebalance_days) == phase_offset
+            if asset_trend is not None and signal_date in asset_trend.index:
+                eligible = asset_trend.loc[signal_date].reindex(ranked).fillna(False).astype(bool)
+                ranked = [asset for asset in ranked if bool(eligible.get(asset, False))]
+
+            # Stop-loss evaluation happens before selection changes, using the
+            # current close.  The resulting target is still executed T+1 by
+            # the production engine.  A stopped-out sleeve waits until its next
+            # scheduled check before re-entering, otherwise the stop would be
+            # immediately reversed on the following day.
+            if selected is not None and spec.stop_loss_kind != "none":
+                current_price = _price(selected, signal_date)
+                if current_price is not None:
+                    if tracked_asset != selected:
+                        tracked_asset = selected
+                        entry_price = current_price
+                        high_watermark = current_price
+                    else:
+                        if high_watermark is None or current_price > high_watermark:
+                            high_watermark = current_price
+                    reference = entry_price if spec.stop_loss_kind == "fixed" else high_watermark
+                    if reference is not None and current_price <= reference * (1.0 - spec.stop_loss_pct):
+                        selected = None
+                        stop_active = True
+                        stopped_today = True
+                        tracked_asset = None
+                        entry_price = None
+                        high_watermark = None
+
+            if selected is not None and (
+                selected not in scores.index
+                or (asset_trend is not None and not bool(asset_trend.get(signal_date, pd.Series(dtype=bool)).get(selected, False)))
+            ):
+                # Strict point-in-time membership and absolute-trend exit.
+                selected = None
+                tracked_asset = None
+                entry_price = None
+                high_watermark = None
+
+            if not ranked:
+                selected = None
+
             if selected is None:
-                # Re-entry follows the already-confirmed risk gate.  The phase
-                # offsets diversify ranking switches, but adding an extra
-                # cash delay after risk-on has no external evidence and only
-                # introduces implementation drag.
-                selected = str(ranked[0])
-            elif selected not in scores.index:
-                # Strict point-in-time membership: never keep a holding after it
-                # leaves the current Top20.
-                selected = str(ranked[0])
+                if not ranked:
+                    pass
+                elif stop_active:
+                    if scheduled and not stopped_today:
+                        stop_active = False
+                        selected = str(ranked[0])
+                else:
+                    # Re-entry follows the already-confirmed risk gate.  The
+                    # phase offsets diversify ranking switches, but adding an
+                    # extra cash delay after risk-on has no external evidence.
+                    selected = str(ranked[0])
             elif scheduled and selected not in ranked[: spec.hold_rank]:
                 selected = str(ranked[0])
+                tracked_asset = None
+                entry_price = None
+                high_watermark = None
+
+            if selected is not None and tracked_asset != selected:
+                tracked_asset = selected
+                entry_price = _price(selected, signal_date)
+                high_watermark = entry_price
 
         if selected is None:
             desired_weight = 0.0
@@ -368,6 +469,58 @@ def build_phase_momentum_targets(
                     phase_offset=offset,
                 )
             )
+
+    columns = market.returns.columns
+    targets, exposures, history = aggregate_sleeve_targets(tuple(sleeve_targets), columns)
+    return PhaseMomentumBuildResult(
+        targets=targets,
+        exposures=exposures,
+        selection_history=history,
+        sleeve_targets=tuple(sleeve_targets),
+    )
+
+
+def build_parameter_ensemble_targets(
+    market: MarketDataBundle,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    *,
+    parameter_specs: tuple[PhaseMomentumSpec, ...] = CORE_PARAMETER_SPECS,
+    signal_specs: tuple[MomentumSignalSpec, ...] = PRIMARY_SIGNAL_SPECS,
+    include_btc: bool = True,
+) -> PhaseMomentumBuildResult:
+    """Equal-weight every signal/phase sleeve across a fixed parameter grid.
+
+    The grid is defined before looking at the walk-forward results.  Combining
+    all sleeves at the target level is implementable as one portfolio and
+    avoids selecting the single best full-sample parameter set.
+    """
+    if not parameter_specs:
+        raise ValueError("at least one parameter specification is required")
+    signal_panels = {
+        signal_spec.name: build_signal_panel(
+            market,
+            universe,
+            signal_spec,
+            include_btc=include_btc,
+        )
+        for signal_spec in signal_specs
+    }
+    sleeve_targets: list[SleeveTargets] = []
+    for spec in parameter_specs:
+        for signal_spec in signal_specs:
+            panel = signal_panels[signal_spec.name]
+            for offset in spec.phase_offsets:
+                sleeve_targets.append(
+                    build_sleeve_targets(
+                        market,
+                        panel,
+                        index,
+                        spec,
+                        signal_name=signal_spec.name,
+                        phase_offset=offset,
+                    )
+                )
 
     columns = market.returns.columns
     targets, exposures, history = aggregate_sleeve_targets(tuple(sleeve_targets), columns)

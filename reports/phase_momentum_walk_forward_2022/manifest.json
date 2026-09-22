@@ -1,0 +1,40 @@
+{
+  "candidate_returns": "reports/phase_momentum_2022/parameter_returns.csv",
+  "candidate_count": 25,
+  "candidates": [
+    "primary",
+    "rebalance_1d",
+    "rebalance_2d",
+    "rebalance_5d",
+    "hold_rank_1",
+    "hold_rank_3",
+    "target_vol_0.6",
+    "target_vol_0.7",
+    "target_vol_0.9",
+    "target_vol_1.0",
+    "btc_ma_50",
+    "btc_ma_150",
+    "btc_ma_200",
+    "no_btc_gate",
+    "no_vol_target",
+    "fixed_stop_15",
+    "fixed_stop_20",
+    "fixed_stop_25",
+    "fixed_stop_30",
+    "fixed_stop_40",
+    "trailing_stop_15",
+    "trailing_stop_20",
+    "trailing_stop_25",
+    "trailing_stop_30",
+    "trailing_stop_40"
+  ],
+  "train_days": 365,
+  "test_days": 90,
+  "selection_metric": "sharpe",
+  "switch_cost_bps": [
+    0.0,
+    40.0
+  ],
+  "first_test_start": "2023-01-01",
+  "cost_bps_in_candidate_returns": 20.0
+}

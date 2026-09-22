@@ -9,6 +9,9 @@ An incumbent is held while it remains in the Top2 of its sleeve and is replaced
 only on that sleeve's scheduled check. If it leaves the current Top20, it exits
 immediately. BTC must be above its 100D moving average with two-day confirmation.
 Each sleeve is scaled to 80% annualized trailing volatility and capped at 1.0.
+The primary specification has no stop-loss overlay; fixed and trailing stop variants
+are reported in the parameter neighborhood because the external evidence is strong
+but their incremental value must be established on this data before adoption.
 
 ## Cost and benchmark summary
 
@@ -47,10 +50,20 @@ Each sleeve is scaled to 80% annualized trailing volatility and capped at 1.0.
 | 1 | param_rebalance_1d | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 27.9207 | 1.0236 | 1.4667 | -0.4546 |
 | 8 | param_target_vol_0.9 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 26.2553 | 0.9974 | 1.4131 | -0.4817 |
 | 14 | param_no_vol_target | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 24.5528 | 0.9693 | 1.2333 | -0.6685 |
+| 16 | param_fixed_stop_20 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 24.5375 | 0.9690 | 1.4461 | -0.4542 |
+| 22 | param_trailing_stop_25 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 23.5093 | 0.9513 | 1.4303 | -0.4790 |
+| 18 | param_fixed_stop_30 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 23.1156 | 0.9443 | 1.4333 | -0.4449 |
 | 0 | param_primary | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 23.0877 | 0.9438 | 1.4329 | -0.4492 |
+| 19 | param_fixed_stop_40 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 23.0877 | 0.9438 | 1.4329 | -0.4492 |
+| 24 | param_trailing_stop_40 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 23.0877 | 0.9438 | 1.4329 | -0.4492 |
 | 2 | param_rebalance_2d | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 22.9968 | 0.9422 | 1.4119 | -0.4546 |
+| 17 | param_fixed_stop_25 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 22.6941 | 0.9367 | 1.4276 | -0.4524 |
+| 23 | param_trailing_stop_30 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 22.2798 | 0.9292 | 1.4211 | -0.4794 |
+| 21 | param_trailing_stop_20 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 22.0018 | 0.9241 | 1.4123 | -0.4332 |
+| 15 | param_fixed_stop_15 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 20.2876 | 0.8913 | 1.3760 | -0.4392 |
 | 7 | param_target_vol_0.7 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 17.7981 | 0.8396 | 1.4292 | -0.4126 |
 | 3 | param_rebalance_5d | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 15.9073 | 0.7964 | 1.3246 | -0.4843 |
+| 20 | param_trailing_stop_15 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 15.5840 | 0.7886 | 1.2991 | -0.4125 |
 | 4 | param_hold_rank_1 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 14.5505 | 0.7628 | 1.2154 | -0.4745 |
 | 6 | param_target_vol_0.6 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 13.4420 | 0.7335 | 1.4380 | -0.3691 |
 | 11 | param_btc_ma_150 | 20.0000 | full_2022_plus | 2022-01-01 00:00:00 | 2026-09-21 00:00:00 | 1,725.0000 | 11.6056 | 0.6804 | 1.1974 | -0.4570 |

@@ -1,0 +1,9 @@
+{
+  "candidate_returns": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
+  "candidate_count": 32,
+  "best_candidate": "rebalance_1d",
+  "bootstrap_count": 1000,
+  "bootstrap_block_length": 20,
+  "cscv_blocks": 12,
+  "seed": 20260923
+}

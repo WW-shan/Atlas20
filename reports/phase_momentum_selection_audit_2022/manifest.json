@@ -1,0 +1,28 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "spec": {
+    "rebalance_days": 3,
+    "phase_offsets": [
+      0,
+      1,
+      2
+    ],
+    "hold_rank": 2,
+    "btc_ma_window": 100,
+    "btc_confirm_days": 2,
+    "target_volatility": 0.8,
+    "vol_window": 60
+  },
+  "summary": {
+    "selection_rows": 10308,
+    "violations": 0,
+    "missing_price_rows": 0,
+    "outside_top20_rows": 0,
+    "rain_rows": 0,
+    "stablecoin_rows": 0,
+    "max_universe_size": 20,
+    "min_universe_size": 20
+  }
+}

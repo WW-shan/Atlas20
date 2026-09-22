@@ -25,7 +25,9 @@
     "target_volatility": 0.8,
     "vol_window": 60,
     "use_btc_gate": true,
-    "use_volatility_target": true
+    "use_volatility_target": true,
+    "stop_loss_kind": "none",
+    "stop_loss_pct": 0.3
   },
   "signal_names": [
     "weighted_multi_horizon",

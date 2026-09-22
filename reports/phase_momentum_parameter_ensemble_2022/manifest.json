@@ -1,0 +1,12 @@
+{
+  "universe": "strict point-in-time Top20",
+  "parameter_specs": 13,
+  "signal_specs": 4,
+  "sleeves": 152,
+  "cost_bps": [
+    2,
+    20,
+    50,
+    100
+  ]
+}
