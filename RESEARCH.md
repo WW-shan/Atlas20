@@ -34,9 +34,43 @@
 - 逐决策点外部证据见 `docs/research/strategy_evidence_audit.md`；
 - 复现实验见 `reports/strategy_evidence_audit_2022/`。
 
+### 0.1 决策点消融：11D BTC 闸门是局部尖峰，不能直接上线
+
+第二阶段审计保持 Top20、CTREND-breakout、无杠杆、T+1 不变，分别开关自身止损、BTC 闸门和重入规则，并在 21 个调仓相位及 21 份完全错开组合上评估。20bps 下：
+
+| 变体 | 21 份错开组合总收益 | CAGR | Sharpe | 最大回撤 |
+|---|---:|---:|---:|---:|
+| 当前组合：75D/3 止损 + 11D/2 BTC 闸门 | **5.51x** | 43.5% | 1.11 | -34.6% |
+| 仅 BTC 11D/2 闸门，无自身止损 | 5.17x | 41.6% | 1.07 | -35.6% |
+| 无自身止损、无 BTC 闸门 | 2.42x | 20.6% | 0.62 | -67.5% |
+| 仅自身 75D/3 止损，无 BTC 闸门 | 2.37x | 20.1% | 0.60 | -58.0% |
+| 止损后立即重入，无 BTC 闸门 | 2.22x | 18.4% | 0.58 | -62.7% |
+| 自身止损 + BTC 闸门都立即重入 | 1.49x | 8.8% | 0.42 | -60.0% |
+| 仅 BTC 闸门，立即重入 | 1.37x | 6.9% | 0.39 | -61.2% |
+
+关键参数邻域：
+
+| BTC trailing lookback（confirm2） | 10D | 11D | 14D | 20D | 30D | 50D |
+|---|---:|---:|---:|---:|---:|---:|
+| 21 份组合 @20bps | 3.05x | **5.51x** | 1.98x | 2.92x | 4.47x | 4.09x |
+
+| BTC 11D 闸门 confirm | 1 日 | 2 日 | 3 日 | 5 日 |
+|---|---:|---:|---:|---:|
+| 21 份组合 @20bps | 2.20x | **5.51x** | 5.02x | 2.30x |
+
+自身止损网格（20/50/65/75/100/150/200 × confirm1/2/3）在 20bps 下的 21 份组合约为 3.75x–5.66x；50–100D、confirm1–3 是宽平台，75D/3 不是唯一最优，但也没有被邻域否定。
+
+结论：
+
+- **11D/2 BTC 闸门目前是过拟合嫌疑最大的继承规则**；它把 2.4x 基准提高到 5.5x，但 10D/14D 和 confirm1/5 都显著崩落，不能把它当成已验证规律。
+- **“止损后等下一次调仓再重入”得到项目内实证支持**：立即重入因来回打脸和换手，21 份组合明显更差。
+- **75D/3 自身止损处在宽参数平台内**，方向上可保留；但它不是论文规定的唯一参数。
+- 当前没有可直接上实盘的冠军。11D/2 必须替换为参数不敏感的市场闸门，或通过独立样本重新验证。
+- 复现实验见 `reports/decision_point_ablation_2022/`。
+
 ---
 
-## 1. 一句话结论（固定起点候选，待相位修正）
+## 1. 一句话结论（没有可直接上实盘的冠军）
 
 在 **真实 point-in-time Top20 + 无杠杆 + 现货** 约束下，当前最高固定起点候选是：
 
@@ -55,7 +89,11 @@
 
 **为什么不是每天重新选币**：每天检查数据是对的，但“每天重新选第一名”会显著放大噪声和换手。项目实测了 176 组每日事件驱动/ hysteresis 变体：固定起点最高的一组在 20bps 下到 **76.48x**，但参数邻域中位数只有 **2.20x**、邻域最差 **0.11x**，属于明显的参数尖峰，拒绝采用。把每日检查用于“持仓自身趋势退出”，而不是每日轮动，才得到稳健改善。
 
-**结论不是“可以稳定每年翻倍”**：25.87x 仍是 2022-01-01 固定起点的结果。45 个月度起点滚动回测中，@2bps 中位数 **3.80x**、最差 **0.62x**；@20bps 中位数 **3.51x**、最差 **0.585x**。策略比旧冠军更稳，但起点敏感性和单币集中风险仍然存在。
+**止损后为什么不立即重入**：这不是凭直觉保留的规则。逐决策点审计把“下一次调仓重入”和“信号恢复后立即重入”分开比较；立即重入的换手显著上升，21 份错开组合从 5.51x 降到 1.49x，因此当前样本支持等待下一次调仓。
+
+**为什么 11D/2 闸门仍标记为高风险**：它虽然在当前数据上把 21 份组合从 2.37x 提到 5.51x，但 10D/14D、confirm1/5 的邻域都明显更差。没有外部研究直接支持 11D/2；它更像样本内挑出来的参数尖峰，而不是稳定规律。
+
+**结论不是“可以稳定每年翻倍”**：25.87x 仍是 2022-01-01 固定起点的结果。45 个月度起点滚动回测中，@2bps 中位数 **3.80x**、最差 **0.62x**；@20bps 中位数 **3.51x**、最差 **0.585x**。即使改成 21 份错开组合，当前完整规则也只有 5.51x，而且依赖 11D/2 闸门；无闸门版本只有 2.42x。当前证据不支持稳定 20x，更不支持直接上实盘。
 
 ---
 
@@ -181,7 +219,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 21 天选币 + 每日 rank-stop | 25.33x（hr5/c3/mh10） | 2024-2026 仅 1.16x，低于旧冠军 1.63x；拒绝 |
 | 21 天选币 + 每日自身 MA75 confirm3 止损 | **22.44x** | 滚动中位数 3.51x、最差 0.585x；MA 50–100 日邻域均约 21–24x；采用 |
 
-**结论**：每日检查有价值，但价值主要在风险退出、确认和 hysteresis，而不是每天重新排序换仓。固定 21 天选币日历是换手和过拟合控制，不是拒绝每日数据的理由。
+**结论**：每日检查有价值，但价值主要在风险退出、确认和 hysteresis，而不是每天重新排序换仓。固定 21 天选币日历是换手和过拟合控制，不是拒绝每日数据的理由。自身趋势止损方向可以保留，但整体候选仍受第 0.1 节的 BTC 闸门参数脆弱性约束。
 
 ---
 
@@ -222,6 +260,10 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 - Han, Kang, Ryu, *Time-Series and Cross-Sectional Momentum in the Cryptocurrency Market: A Comprehensive Analysis under Realistic Assumptions*：<https://acfr.aut.ac.nz/__data/assets/pdf_file/0009/918729/Time_Series_and_Cross_Sectional_Momentum_in_the_Cryptocurrency_Market_with_IA.pdf>。核心结论：考虑真实成本和日间波动后，很多横截面组合会被清算；时间序列动量证据相对更强，动量集中在大赢家；换仓日选择本身会显著影响结论。
 - Yang, *Cryptocurrency market risk-managed momentum strategies*：<https://doi.org/10.1016/j.frl.2025.107879>。风险缩放把周均收益从 3.18% 提升到 3.47%，年化 Sharpe 从 1.12 提升到 1.42，且在交易成本下仍有稳健性。
 - Kaya, Mostowfi, *Low-volatility strategies for highly liquid cryptocurrencies*：<https://doi.org/10.1016/j.frl.2021.102422>。低波动组合加简单止损能显著降低下行风险并改善 Sharpe。
+- Kaminski, Lo, *When do stop-loss rules stop losses?*：<https://doi.org/10.1016/j.finmar.2013.07.001>。止损是否增加收益取决于采样频率和市场状态；论文支持“止损可以降低波动”，但不支持任意固定参数。
+- Sadaqat, Butt, *Stop-loss rules and momentum payoffs in cryptocurrencies*：<https://doi.org/10.1016/j.jbef.2023.100833>。147 个币、2015-01 至 2022-06 的样本中，止损版动量在收益、Sharpe 和 alpha 上优于普通动量；这支持“止损方向”，不支持直接照搬某个均线周期。
+- Le, Ruthbah, *Trend-following Strategies for Crypto Investors*：<https://www.monash.edu/__data/assets/pdf_file/0011/3744821/Trend-following-Strategies-for-Crypto-Investors.pdf>。测试 20/65/150/200 日均线；BTC 上 65D 较好，ETH 和大型非 BTC 指数上 20D 较好；交易成本显著侵蚀收益。
+- Duarte, *Trailing Stop-Loss and Re-Entry Strategies in Europe*：<https://doi.org/10.24018/ejbmr.2022.7.3.1426>。止损后的重入规则是独立决策点；文章使用 3% 回撤止损和 3% 回升重入，结果显示重入规则有场景依赖，不能默认“一回升就买”。
 - Alpha Architect, *Portfolio Rebalancing Research: Momentum and Tolerance Bands*：<https://alphaarchitect.com/destabilizing-rebalancing>。更频繁地“检查”不等于更频繁地交易；no-trade band 能减少无效换手。
 - Aligrithm, *Percentile-Rank Momentum With Hysteresis*：<https://aligrithm.com/percentile-rank-momentum-with-hysteresis-low-churn-signals>。用高低阈值之间的 hysteresis band 抑制排名噪声；该文也明确指出其 crypto 回测缺少成本和基准，因此本项目只采用方法方向，不采用其收益结论。
 - Vilnius University, *Momentum strategies in cryptocurrency markets* (2026)：8 个大币样本，TSMOM 风险调整后优于 XSMOM：<https://www.journals.vu.lt/BATP/en/article/view/44540>。
@@ -233,14 +275,16 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ## 6. 已知局限（上实盘前必须知道）
 
-1. **起点敏感**：固定 2022-01-01 的 25.87x 不是任意起点可达；@2bps 滚动中位数 3.80x、最差 0.62x。
-2. **收益集中**：2024 年 +347%，2026 YTD +158%；如果未来没有类似的单币大行情，收益会显著下降。
-3. **单币集中**：同一时间只持 1 个币，存在跳空、下架、流动性枯竭和单币黑天鹅风险。
-4. **每日止损会误伤**：75 日均线 + 3 日确认降低了回撤，但趋势震荡期仍可能卖在低点；不能用更高频的每日轮动替代确认机制。
-5. **成本假设**：2bps 依赖你实际成交和返佣；20bps 下为 22.44x，50bps 下为 17.68x，100bps 下为 11.87x。
-6. **容量**：Top20 虽比 Top50 好，但单币满仓时规模受币种深度限制；大额资金需要重新做冲击成本测试。
-7. **过拟合风险**：每日事件驱动最高固定起点 76.48x 已被邻域测试拒绝；新策略仍需持续做 walk-forward、参数邻域和成本压力测试。
-8. **未建模**：税务、返佣到账延迟、交易所限价/滑点、借贷/资金费（当前无杠杆不适用）。
+1. **起点敏感**：固定 2022-01-01 的 25.87x 不是任意起点可达；@2bps 滚动中位数 3.80x、最差 0.62x。完全错开 21 份组合也只有 5.51x。
+2. **市场闸门参数尖峰**：11D/2 BTC trailing 闸门把 21 份组合从 2.37x 提到 5.51x，但 10D/14D、confirm1/5 都显著崩落；当前不能把它当成稳定规律，更不能直接上实盘。
+3. **收益集中**：2024 年 +347%，2026 YTD +158%；如果未来没有类似的单币大行情，收益会显著下降。
+4. **单币集中**：同一时间只持 1 个币，存在跳空、下架、流动性枯竭和单币黑天鹅风险。
+5. **每日止损会误伤**：75 日均线 + 3 日确认处在 50–100D/confirm1–3 的宽平台内，但趋势震荡期仍可能卖在低点；不能用更高频的每日轮动替代确认机制。
+6. **重入规则**：当前样本支持“止损后等到下一次调仓再重入”，立即重入的 21 份组合只有 1.49x；这条结论仍需独立样本验证。
+7. **成本假设**：2bps 依赖你实际成交和返佣；20bps 下为 22.44x，50bps 下为 17.68x，100bps 下为 11.87x。
+8. **容量**：Top20 虽比 Top50 好，但单币满仓时规模受币种深度限制；大额资金需要重新做冲击成本测试。
+9. **过拟合风险**：每日事件驱动最高固定起点 76.48x 和 11D/2 BTC 闸门都已暴露为参数尖峰；新策略仍需持续做 walk-forward、参数邻域和成本压力测试。
+10. **未建模**：税务、返佣到账延迟、交易所限价/滑点、借贷/资金费（当前无杠杆不适用）。
 
 ---
 
@@ -291,6 +335,11 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
   --cost-bps 2,20 --tranche-counts 1,3,7,21 \
   --output-dir reports/strategy_evidence_audit_2022
 
+# 逐决策点消融：自身止损、BTC 闸门、重入方式（21 相位 + 错开组合）
+.venv/bin/python scripts/run_decision_point_ablation.py \
+  --config config/base.yaml --start-date 2022-01-01 \
+  --cost-bps 2,20 --output-dir reports/decision_point_ablation_2022
+
 # 数据链审计
 .venv/bin/python scripts/audit_data_chain.py --config config/base.yaml
 ```
@@ -306,6 +355,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/trend_stop_validation_2022/` | MA20-200 × confirm1-3 每日自身趋势止损全扫 + fresh rolling | ✅ 权威研究 |
 | `reports/event_driven_validation_2022/` | 176 组每日事件/hysteresis + 36 组每日 rank-stop 混合；用于证明每日轮动未采用 | ✅ 权威研究 |
 | `reports/strategy_evidence_audit_2022/` | 21D 相位扫描 + 1/3/7/21 份错开组合稳健性审计 | ✅ 权威审计 |
+| `reports/decision_point_ablation_2022/` | 自身止损、BTC 闸门、重入方式的 21 相位/错开组合消融 | ✅ 权威审计，否定 11D/2 为稳定规律 |
 | `docs/research/strategy_evidence_audit.md` | 逐决策点外部证据矩阵和未验证假设 | ✅ 权威审计 |
 | `reports/ctrend_champion_top20_2022/` | 旧冠军（固定21D，无每日自身趋势止损） | ⚠️ 已被新冠军取代 |
 | `reports/convex_validation_2022_top20/` | 2218 组 Top20 2022 起点全量筛选 | ✅ 权威研究 |

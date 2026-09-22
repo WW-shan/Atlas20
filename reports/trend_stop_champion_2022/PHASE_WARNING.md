@@ -15,7 +15,15 @@ The fully staggered implementation is invariant to the starting phase.  The
 figures in this directory should therefore be treated as a research upper tail,
 not as the production expectation.
 
+A second audit isolates the inherited 11-day/two-day BTC gate.  Even the
+phase-invariant 5.51x basket is a local parameter spike: 10-day and 14-day
+trailing lookbacks return 3.05x and 1.98x, while one-day and five-day
+confirmation settings of the same gate return 2.20x and 2.30x.  The gate must
+be replaced or independently validated before this strategy can be considered
+production ready.
+
 See:
 
 - `docs/research/strategy_evidence_audit.md`
 - `reports/strategy_evidence_audit_2022/`
+- `reports/decision_point_ablation_2022/`
