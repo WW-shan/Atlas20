@@ -1,0 +1,17 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "signals": [
+    "weighted_multi_horizon",
+    "ret21",
+    "equal_7_14_28_60",
+    "equal_14_21_28"
+  ],
+  "phases": [
+    0,
+    1,
+    2
+  ]
+}

@@ -1,5 +1,6 @@
 {
-  "n_blocks": 12,
+  "candidate_returns": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
+  "cscv_blocks": 12,
   "cscv_combinations": 924,
   "candidates": [
     "primary",

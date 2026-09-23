@@ -40,8 +40,10 @@ project does **not** use that selection procedure; the fixed primary strategy it
 7.47% below-median OOS rate across 924 CSCV splits.
 
 Reproduce with `scripts/run_phase_momentum.py`, `scripts/run_phase_momentum_walk_forward.py`,
-`scripts/run_phase_momentum_multiple_testing.py`, and
-`scripts/audit_phase_momentum_selections.py`. See `reports/phase_momentum_2022/` and the
+`scripts/run_phase_momentum_multiple_testing.py`, the leave-one-out and fixed-CSCV
+scripts, `scripts/run_phase_momentum_regime_breakdown.py`,
+`scripts/run_phase_momentum_live_signal.py`, and
+`scripts/audit_phase_momentum_selections.py`. See `reports/phase_momentum_*` and the
 related robustness reports. This is a research champion for small-size live testing, not a
 guarantee of future returns; capacity, execution, exchange, and data-latency risks remain.
 
@@ -500,84 +502,92 @@ interpretation and caveats.
 It supersedes every earlier narrative in this README, in `reports/`, and in any
 scratch result. If this section disagrees with it, `RESEARCH.md` wins.
 
-The previous fixed-21-day CTREND-breakout candidate is now a **phase-sensitive
-upper-tail reference**, not the champion. Shifting its rebalance calendar
-turns the fixed-start 22.44x at 20bps into a 3.94x phase median and a 0.61x
-worst phase, and its inherited 11-day/two-day BTC gate is a local parameter
-spike. Do not use that result for live sizing.
+The previous fixed-21-day CTREND-breakout candidate and the earlier 5x-6x
+volatility-target ensemble are historical research branches, not the current
+champion. The current research champion is a **phase-staggered multi-horizon
+momentum ensemble** inside the strict point-in-time Top20:
 
-The current leading **research** candidate is not one exact parameter set.
-It is a fixed equal-weight ensemble of eight phase-invariant, long-only,
-unlevered CTREND-lite rotations:
+> Top20 → four transparent trailing-return signals (7/14/21/28/42/60D,
+> 21D, 7/14/28/60D equal weight, and 14/21/28D equal weight) → three
+> calendar phases per signal → hold while the incumbent remains in the
+> sleeve's Top2 → BTC 100D MA + confirm2 → 60D volatility target at 80%
+> with gross exposure capped at 1.0 → T+1 execution.
 
-> point-in-time Top20 → exclude BTC from the selection pool → balanced
-> CTREND-lite top-1 → 75-day/three-day own-trend stop until the next rebalance
-> → BTC 100-day MA with two-day confirmation → 60-day volatility-target
-> exposure capped at 1.0x → equal capital across 7D/14D rebalance cycles and
-> 50%/60%/70%/80% target volatilities.
+| 2022-01-01 .. 2026-09-21 | 2bps | 20bps | 50bps | 100bps | BTC |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Total return | **28.80x** | **23.09x** | 15.97x | 8.62x | 1.87x |
+| Sharpe | 1.514 | 1.433 | 1.297 | 1.069 | 0.515 |
+| Max drawdown | -42.6% | -44.9% | -48.7% | -54.5% | -66.9% |
 
-| 2023-01-01 .. 2026-09-21, 20bps | Parameter ensemble | BTC buy-and-hold |
-| --- | ---: | ---: |
-| Total return | **6.17x** | 5.23x |
-| Sharpe | **1.287** | 1.183 |
-| Max drawdown | **-42.0%** | -53.1% |
-| 2022-01-01 .. 2026-09-21 | 5.05x | 1.87x |
-| Cost stress: 2 / 20 / 100bps | 6.22x / 5.05x / 2.00x | n/a |
+Robustness evidence already completed:
 
-This is deliberately qualified:
+- Fixed-strategy Deflated Sharpe: **0.9945** (pass, >0.95).
+- Fixed-strategy White Reality Check: **p=0.0150** (pass, <0.05).
+- 365D/90D walk-forward selection from 2023, including 40bps switch cost:
+  **20.78x**, Sharpe 1.621 (pass, >20x).
+- Fixed-strategy CSCV across 924 splits: below-median OOS rate **7.47%**
+  (pass); parameter-ensemble OOS stability fails and is not used as the
+  champion.
+- Best-year removal: removing 2023 leaves **4.83x** versus BTC **0.73x**
+  (pass); the result is not carried by one year.
+- Leave-one-signal and leave-one-phase checks: removing any signal leaves
+  **20.58x-27.58x** at 20bps; removing any phase leaves **21.26x-23.91x**.
+- 2020-10-03 .. 2021-12-31 stress at 20bps: **4.55x**, Sharpe 2.394,
+  maximum drawdown -18.9%.
+- Point-in-time selection audit: 10,308 rows, zero assets outside the
+  contemporaneous Top20, zero missing prices, zero Rain/stablecoin rows.
+- Market-regime split: in 809 bull days the strategy returns **51.83x**
+  versus BTC **13.65x**; in 916 non-bull days it returns **0.445x** versus
+  BTC **0.137x**. It beats BTC in both states, but non-bull performance is
+  still negative and remains a disclosed risk.
+- PBO of selecting the best full-sample parameter is **0.6288**, so that
+  selection procedure is explicitly rejected. The fixed primary strategy is
+  used instead; it passes the fixed-strategy CSCV test above.
 
-- The fast simulator was corrected on 2026-09-23 to let weights drift between
-  target events, matching the production engine; all volatility-target reports
-  were rerun.
-- Walk-forward parameter selection did not add value: trailing-Sharpe selection
-  returned 4.12x after switch costs and lost to BTC, while the fixed ensemble
-  returned 6.17x. The simple, pre-specified ensemble is preferred.
-- The ensemble is still only 5x-6x, not 20x, and its worst rolling one-year
-  window at 20bps is 0.72x.
-- A five-family score test shows factor sensitivity: balanced,
-  relative-strength, and breakout remain in the 3.67x-4.14x range at 50%
-  target volatility, while acceleration and volatility-adjusted fall to
-  1.92x-3.20x.
-- The ensemble diversifies parameters, not the underlying single-coin
-  selection, and has not completed multiple-testing corrections or capacity
-  analysis.
+This is a research champion for small-size live testing, not a guarantee of
+future returns. Capacity, execution, exchange, delisting, and data-latency
+risks remain.
 
-Reproduce the current research candidate with:
+The latest verified target snapshot is generated by:
 
 ```bash
-.venv/bin/python scripts/run_phase_invariant_vol_target.py \
-  --config config/base.yaml --start-date 2022-01-01 \
-  --cycles 7,14 --target-vols 0.5,0.6,0.7,0.8 \
-  --vol-windows 60 --stop-modes own75 --gate-modes btc_ma100 \
-  --cost-bps 2,20,100 \
-  --output-dir reports/vol_target_cost_rolling_2022
-
-.venv/bin/python scripts/run_vol_target_ensemble.py \
-  --config config/base.yaml \
-  --returns-file reports/vol_target_cost_rolling_2022/basket_returns.csv \
-  --variant-summary reports/vol_target_cost_rolling_2022/variant_summary.csv \
-  --cost-bps 2,20,100 --oos-start 2023-01-01 \
-  --output-dir reports/vol_target_ensemble_2022
-
-.venv/bin/python scripts/run_vol_target_walk_forward.py \
-  --config config/base.yaml \
-  --returns-file reports/vol_target_cost_rolling_2022/basket_returns.csv \
-  --variant-summary reports/vol_target_cost_rolling_2022/variant_summary.csv \
-  --cost-bps 20 --train-days 365 --test-days 90 \
-  --selection-metric sharpe --switch-cost-bps 0,40 \
-  --output-dir reports/vol_target_walk_forward_2022
-
-.venv/bin/python scripts/run_momentum_event_ensemble.py \
-  --config config/base.yaml --start-date 2022-01-01 \
-  --target-vols 0.7,0.8 --vol-window 60 --cost-bps 2,20,50,100 \
-  --output-dir reports/momentum_event_ensemble_2022
-
-.venv/bin/python scripts/run_momentum_event_breadth_overlay.py \
-  --config config/base.yaml --start-date 2022-01-01 \
-  --target-vols 0.7,0.8 --vol-window 60 --breadth-window 50 \
-  --cost-bps 2,20,50,100 \
-  --output-dir reports/momentum_event_breadth_overlay_2022
+.venv/bin/python scripts/run_phase_momentum_live_signal.py \
+  --output-dir reports/phase_momentum_live
 ```
+
+It writes `latest_signal.json` and `latest_signal.md`; it does not place orders.
+
+Reproduce the current champion with:
+
+```bash
+.venv/bin/python scripts/run_phase_momentum.py \
+  --output-dir reports/phase_momentum_2022
+
+.venv/bin/python scripts/run_phase_momentum_walk_forward.py \
+  --output-dir reports/phase_momentum_walk_forward_2022
+
+.venv/bin/python scripts/run_phase_momentum_multiple_testing.py \
+  --candidate-returns reports/phase_momentum_multiple_testing_2022/candidate_returns.csv \
+  --output-dir reports/phase_momentum_multiple_testing_2022
+
+.venv/bin/python scripts/run_phase_momentum_leave_one_out.py \
+  --output-dir reports/phase_momentum_leave_one_out_2022
+
+.venv/bin/python scripts/run_phase_momentum_parameter_leave_one_out.py \
+  --output-dir reports/phase_momentum_parameter_leave_one_out_2022
+
+.venv/bin/python scripts/run_phase_momentum_fixed_cscv.py \
+  --output-dir reports/phase_momentum_fixed_cscv_2022
+
+.venv/bin/python scripts/run_phase_momentum_regime_breakdown.py \
+  --output-dir reports/phase_momentum_regime_2022
+
+.venv/bin/python scripts/audit_phase_momentum_selections.py \
+  --output-dir reports/phase_momentum_selection_audit_2022
+```
+
+Legacy volatility-target and daily-event reports remain in `reports/` for
+audit history, but they are not the current champion.
 
 The older bull-offense numbers (51.3x on 2021, 2.93x on 2022) are superseded.
 The 2021-inclusive result must not be used to choose live sizing.

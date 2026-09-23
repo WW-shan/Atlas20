@@ -1,0 +1,22 @@
+{
+  "config": "config/base.yaml",
+  "returns_file": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "candidates": [
+    "primary",
+    "parameter_ensemble_20bps"
+  ],
+  "benchmark": "BTC buy-and-hold",
+  "regime_definition": {
+    "btc_ma_window": 120,
+    "tracked_total_mcap_ma_window": 120,
+    "tracked_alt_mcap_momentum_window": 60,
+    "use_btc_ma": true,
+    "use_tracked_total_mcap_ma": true,
+    "use_tracked_alt_momentum": false,
+    "combine_method": "all"
+  },
+  "bull_days": 809,
+  "non_bull_days": 916
+}

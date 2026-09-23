@@ -1,0 +1,111 @@
+{
+  "as_of": "2026-09-21",
+  "btc_gate_open": true,
+  "gross_exposure": 0.6496337987424847,
+  "latest_target_date": "2026-09-21",
+  "next_check_date": "2026-09-22",
+  "rule": "Strict point-in-time Top20; four trailing-return signals x three calendar phases; hold while in Top2; BTC 100D MA + confirm2; 60D volatility target at 80%; long-only spot, no leverage; T+1",
+  "sleeves": [
+    {
+      "asset": "zcash",
+      "phase_offset": 0,
+      "signal_name": "weighted_multi_horizon",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 1,
+      "signal_name": "weighted_multi_horizon",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 2,
+      "signal_name": "weighted_multi_horizon",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "near",
+      "phase_offset": 0,
+      "signal_name": "ret21",
+      "target_date": "2026-09-19",
+      "weight": 0.7405584434607788
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 1,
+      "signal_name": "ret21",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "near",
+      "phase_offset": 2,
+      "signal_name": "ret21",
+      "target_date": "2026-09-18",
+      "weight": 0.7451193714193336
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 0,
+      "signal_name": "equal_7_14_28_60",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 1,
+      "signal_name": "equal_7_14_28_60",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "zcash",
+      "phase_offset": 2,
+      "signal_name": "equal_7_14_28_60",
+      "target_date": "2026-09-16",
+      "weight": 0.5941335843113364
+    },
+    {
+      "asset": "near",
+      "phase_offset": 0,
+      "signal_name": "equal_14_21_28",
+      "target_date": "2026-09-19",
+      "weight": 0.7405584434607788
+    },
+    {
+      "asset": "near",
+      "phase_offset": 1,
+      "signal_name": "equal_14_21_28",
+      "target_date": "2026-09-20",
+      "weight": 0.7052761842511172
+    },
+    {
+      "asset": "near",
+      "phase_offset": 2,
+      "signal_name": "equal_14_21_28",
+      "target_date": "2026-09-21",
+      "weight": 0.7051580521384531
+    }
+  ],
+  "target_spec": {
+    "btc_confirm_days": 2,
+    "btc_ma_window": 100,
+    "hold_rank": 2,
+    "phase_offsets": [
+      0,
+      1,
+      2
+    ],
+    "rebalance_days": 3,
+    "target_volatility": 0.8,
+    "vol_window": 60
+  },
+  "targets": {
+    "near": 0.3030558745608718,
+    "zcash": 0.34657792418161293
+  }
+}

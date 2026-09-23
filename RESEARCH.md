@@ -67,6 +67,10 @@
 | 固定主策略 CSCV（12 块、924 折） | OOS 排名中位数 0.781；低于中位数比例 7.47% | 通过 |
 | 参数等权集成 CSCV | OOS 排名中位数 0.438；低于中位数比例 85.71% | 拒绝作为冠军 |
 | 去掉最佳年份 2023 | 主策略 4.83x、Sharpe 1.112；BTC 同期 0.73x | 通过；收益不依赖单一年份 |
+| 去掉任意一条信号 @20bps | 20.58x–27.58x | 通过；不依赖单一信号 |
+| 去掉任意一个相位 @20bps | 21.26x–23.91x | 通过；不依赖单一相位 |
+| 市场状态拆分（bull / non-bull）@20bps | bull 51.83x vs BTC 13.65x；non-bull 0.445x vs BTC 0.137x | 已完成；非 bull 仍为负收益，作为残余风险披露 |
+| 参数等权集成 leave-one-parameter-out @20bps | 15.11x–16.93x | 集成低于 20x，仅保留为风险分散参考，不替代固定主策略 |
 | 2020-10-03 → 2021-12-31 压力 | 20bps 4.55x，Sharpe 2.394，最大回撤 -18.9% | 通过 |
 | 逐条选币审计 | 10,308 条选币记录，0 条不在当天 Top20、0 条无价格、0 条 Rain/稳定币；所有快照恰好 20 个币 | 通过 |
 | 事后挑最佳参数 PBO | 0.6288 | 失败；因此禁止动态挑选全样本最佳参数，使用固定主策略 |
@@ -76,6 +80,7 @@
 - PBO 0.63 否定的不是固定主策略，而是“在 32 个候选里事后选全样本最佳参数”这一过程；固定主策略的 CSCV OOS 排名稳定性为 7.47% 低于中位数，反而是通过的。
 - 参数等权集成 2bps 为 20.06x，但 20bps 只有 15.97x，且 CSCV 不稳定，因此只保留为风险分散参考，不替代主策略。
 - 止损、移动止损和币自身均线过滤都跑过：固定 20% 止损 20bps 为 24.54x 但回撤略差；移动 20% 止损为 22.00x、回撤 -43.32%；币自身 50D/100D/150D/200D 趋势过滤仅 17.57x/14.71x/10.68x/10.57x。没有一种 overlay 在收益、Sharpe、回撤三项上支配主策略，因此主策略暂不加这些 overlay。
+- 市场状态拆分显示主策略在 bull 阶段取得 51.83x，而 BTC 为 13.65x；在 non-bull 阶段主策略为 0.445x，BTC 为 0.137x。主策略在两种状态下都显著优于 BTC，但 non-bull 阶段仍是负收益，不能把整体 23.09x 理解成全天候绝对收益。
 - 这已经是可上实盘测试的研究冠军，但“研究冠军”不等于“已实盘验收”：容量、真实滑点、交易所退市、数据延迟和监控仍需在实盘小资金阶段继续验证。
 
 ### 0.3 复现实验
@@ -87,6 +92,16 @@
 
 .venv/bin/python scripts/run_phase_momentum_multiple_testing.py   --candidate-returns reports/phase_momentum_multiple_testing_2022/candidate_returns.csv   --output-dir reports/phase_momentum_multiple_testing_2022
 
+.venv/bin/python scripts/run_phase_momentum_leave_one_out.py   --output-dir reports/phase_momentum_leave_one_out_2022
+
+.venv/bin/python scripts/run_phase_momentum_parameter_leave_one_out.py   --output-dir reports/phase_momentum_parameter_leave_one_out_2022
+
+.venv/bin/python scripts/run_phase_momentum_fixed_cscv.py   --output-dir reports/phase_momentum_fixed_cscv_2022
+
+.venv/bin/python scripts/run_phase_momentum_regime_breakdown.py   --output-dir reports/phase_momentum_regime_2022
+
+.venv/bin/python scripts/run_phase_momentum_live_signal.py   --output-dir reports/phase_momentum_live
+
 .venv/bin/python scripts/audit_phase_momentum_selections.py   --output-dir reports/phase_momentum_selection_audit_2022
 ```
 
@@ -96,8 +111,12 @@
 - `reports/phase_momentum_walk_forward_2022/`
 - `reports/phase_momentum_multiple_testing_2022/`
 - `reports/phase_momentum_fixed_cscv_2022/`
+- `reports/phase_momentum_leave_one_out_2022/`
+- `reports/phase_momentum_parameter_leave_one_out_2022/`
+- `reports/phase_momentum_regime_2022/`
 - `reports/phase_momentum_robustness_2022/`
 - `reports/phase_momentum_selection_audit_2022/`
+- `reports/phase_momentum_live/`
 
 ---
 
