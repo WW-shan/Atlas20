@@ -30,10 +30,29 @@ function cloneRows(): RunRow[] {
   }));
 }
 
+const STATUS_CHIPS = ["queued", "running", "completed", "failed", "cancelled"];
+const FAMILY_CHIPS = ["ATLAS", "Momentum", "MeanRev", "Carry", "Other"];
+
+function chipCategory(chip: string): string {
+  if (chip === "favorited") return "favorited";
+  if (STATUS_CHIPS.includes(chip)) return "status";
+  if (FAMILY_CHIPS.includes(chip)) return "family";
+  return `strategy:${chip}`;
+}
+
 function matchesChip(row: RunRow, chip: string): boolean {
   if (chip === "favorited") return Boolean(row.favorited);
-  if (["queued", "running", "completed", "failed", "cancelled"].includes(chip)) return row.status === chip;
+  if (STATUS_CHIPS.includes(chip)) return row.status === chip;
   return row.strategy_family === chip || row.strategy.includes(chip);
+}
+
+// Mirrors GET /api/runs: chips OR within a category, AND across categories.
+function matchesChips(row: RunRow, chips: string[]): boolean {
+  const byCategory = new Map<string, string[]>();
+  for (const chip of chips) {
+    byCategory.set(chipCategory(chip), [...(byCategory.get(chipCategory(chip)) ?? []), chip]);
+  }
+  return [...byCategory.values()].every((group) => group.some((chip) => matchesChip(row, chip)));
 }
 
 function rowsForFilter(filter: HistoryFilter): RunRow[] {
@@ -43,7 +62,7 @@ function rowsForFilter(filter: HistoryFilter): RunRow[] {
       row.run_id.toLowerCase().includes(q) ||
       row.strategy.toLowerCase().includes(q) ||
       row.universe.toLowerCase().includes(q);
-    return matchesQuery && filter.chips.every((chip) => matchesChip(row, chip));
+    return matchesQuery && matchesChips(row, filter.chips);
   });
 }
 
@@ -141,6 +160,21 @@ describe("RunHistoryTab", () => {
     await waitForRunRows(2);
   });
 
+  it("combines status chips with OR so completed and failed runs are both listed", async () => {
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await waitForRunRows(14);
+
+    fireEvent.click(screen.getByRole("button", { name: "completed" }));
+    await waitForRunRows(10);
+    fireEvent.click(screen.getByRole("button", { name: "failed" }));
+
+    await waitForRunRows(12);
+    expect(vi.mocked(api.listRuns).mock.calls.at(-1)?.[0].chips).toEqual(["completed", "failed"]);
+    const statuses = Array.from(document.querySelectorAll("tr[data-run-id]")).map((row) => row.textContent ?? "");
+    expect(statuses.some((text) => text.includes("failed"))).toBe(true);
+    expect(statuses.some((text) => text.includes("completed"))).toBe(true);
+  });
+
   it("clicking a row selects it (aria-selected) without navigating", async () => {
     const onNavigate = vi.fn();
     renderWithQuery(<RunHistoryTab onNavigate={onNavigate} />);
@@ -156,6 +190,27 @@ describe("RunHistoryTab", () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     const btn = screen.getByRole("button", { name: /RE-RUN SELECTED/ });
     expect(btn.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("does not offer RE-RUN for the internal universe_refresh job", async () => {
+    serverRows = [
+      {
+        run_id: "btk_0400",
+        strategy: "universe_refresh",
+        strategy_family: "Other",
+        universe: "Data Sources",
+        window: { start: "2026-05-18", end: "2026-05-18" },
+        status: "completed",
+        created_at: "2026-05-18T15:00:00Z",
+      },
+      ...serverRows,
+    ];
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await waitForRunRows(14);
+
+    fireEvent.click(document.querySelector('tr[data-run-id="btk_0400"]') as HTMLElement);
+
+    expect(screen.getByRole("button", { name: /RE-RUN SELECTED/ })).toBeDisabled();
   });
 
   it("clicking RE-RUN SELECTED navigates to backtest with prefillRunId", async () => {
@@ -193,6 +248,23 @@ describe("RunHistoryTab", () => {
     });
   });
 
+  it("rolls back and explains a rejected favorite toggle", async () => {
+    vi.mocked(api.toggleFavorite).mockRejectedValueOnce(
+      new api.ApiError("Rate limit exceeded", { status: 429, code: "rate_limited", details: { limit: "60 per 1 minute" } }),
+    );
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await waitForRunRows(14);
+    const favBtn = document.querySelector('tr[data-run-id="btk_0146"] button[aria-label^="Favorite"]') as HTMLButtonElement;
+
+    fireEvent.click(favBtn);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to update favorite for btk_0146: Rate limit exceeded (60 per 1 minute)",
+    );
+    const after = document.querySelector('tr[data-run-id="btk_0146"] button[aria-pressed]') as HTMLButtonElement;
+    expect(after.getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("clicking an already-favorited row's star un-favorites it (toggle works in both directions)", async () => {
     renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
     await waitForRunRows(14);
@@ -206,6 +278,27 @@ describe("RunHistoryTab", () => {
       expect(after).not.toBeNull();
       expect(after?.getAttribute("aria-pressed")).toBe("false");
     });
+  });
+
+  it("steps back to the last page with rows when the current page empties out", async () => {
+    let pruned = false;
+    vi.mocked(api.listRuns).mockImplementation(async (filter) => {
+      if (filter.page === 1) {
+        return { items: serverRows.slice(0, 14), total: pruned ? 14 : 20, page: 1, pageSize: filter.pageSize };
+      }
+      // Runs aged out of the 30d window before page 2 was requested.
+      pruned = true;
+      return { items: [], total: 14, page: filter.page, pageSize: filter.pageSize };
+    });
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+    await waitForRunRows(14);
+
+    fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+
+    await waitFor(() => expect(api.listRuns).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 })));
+    await waitForRunRows(14);
+    expect(screen.queryByText("No backtests yet")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
   });
 
   it("Pager exists and shows total count", () => {
@@ -254,6 +347,20 @@ describe("RunHistoryTab", () => {
 
     await waitFor(() => expect(api.listRuns).toHaveBeenCalledTimes(2));
     await waitForRunRows(14);
+  });
+
+  it("shows the backend validation message when the run list request is rejected", async () => {
+    vi.mocked(api.listRuns).mockRejectedValueOnce(new api.ApiError("Request validation failed", {
+      status: 422,
+      code: "validation_error",
+      details: [{ loc: ["query", "pageSize"], msg: "Input should be less than or equal to 100" }],
+    }));
+
+    renderWithQuery(<RunHistoryTab onNavigate={() => {}} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to load run history: Request validation failed (pageSize: Input should be less than or equal to 100)",
+    );
   });
 
   it("disables all favorite buttons while a favorite mutation is pending", async () => {

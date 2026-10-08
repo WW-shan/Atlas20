@@ -2,6 +2,8 @@
   "config": "config/base.yaml",
   "start_date": "2022-01-01",
   "end_date": "2026-09-21",
+  "evaluated_start": "2022-01-01",
+  "evaluated_end": "2026-09-21",
   "spec": {
     "rebalance_days": 3,
     "phase_offsets": [
@@ -13,8 +15,22 @@
     "btc_ma_window": 100,
     "btc_confirm_days": 2,
     "target_volatility": 0.8,
-    "vol_window": 60
+    "vol_window": 60,
+    "weight_tolerance": 0.05,
+    "use_btc_gate": true,
+    "use_volatility_target": true,
+    "stop_loss_kind": "none",
+    "stop_loss_pct": 0.3,
+    "use_asset_trend_filter": false,
+    "asset_ma_window": 100
   },
+  "signal_names": [
+    "weighted_multi_horizon",
+    "ret21",
+    "equal_7_14_28_60",
+    "equal_14_21_28"
+  ],
+  "expected_universe_size": 20,
   "summary": {
     "selection_rows": 10308,
     "violations": 0,
@@ -22,7 +38,17 @@
     "outside_top20_rows": 0,
     "rain_rows": 0,
     "stablecoin_rows": 0,
+    "excluded_id_rows": 0,
+    "dates_evaluated": 1725,
+    "dates_without_snapshot": 0,
+    "dates_with_wrong_size": 0,
     "max_universe_size": 20,
-    "min_universe_size": 20
-  }
+    "min_universe_size": 20,
+    "hold_rule_checked_rows": 3436,
+    "hold_rule_violations": 0,
+    "traded_rows": 990,
+    "traded_outside_top20": 0,
+    "traded_without_price": 0
+  },
+  "failed_checks": {}
 }

@@ -105,7 +105,7 @@ export function OverviewTab({ overview, onNavigate }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <span className="mono" style={{ fontSize: 28 }}>{formatCompactCurrency(aum.current)}</span>
             <SparklineChart points={aum.sparkline} tone="violet" height={36} width={280} ariaLabel="Champion equity trend (14 samples)" />
-            <span className="mono" style={{ fontSize: 12, color: "var(--emerald)" }}>
+            <span className="mono" style={{ fontSize: 12, color: aum.deltaPct < 0 ? "var(--rose)" : "var(--emerald)" }}>
               {formatPct(aum.deltaPct, 1)} over last 14 data points
             </span>
           </div>

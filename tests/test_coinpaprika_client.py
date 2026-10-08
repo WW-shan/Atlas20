@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 
+import pandas as pd
+import pytest
 import requests
 
 from atlas20.config import CoinPaprikaConfig
@@ -124,3 +128,36 @@ def test_resolve_can_bypass_a_stale_id_map_after_catalog_refresh(tmp_path: Path)
     )
 
     assert resolved == "jup-jupiter-exchange-token"
+
+
+def test_load_daily_history_keeps_the_newest_window_on_duplicated_dates(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Overlapping history windows must resolve to the newest fetch."""
+    client = _client(tmp_path)
+    directory = tmp_path / "coinpaprika" / "history"
+    directory.mkdir(parents=True, exist_ok=True)
+    days = pd.date_range("2025-08-21", periods=398, freq="D")
+
+    def _rows(price: float) -> list[dict[str, object]]:
+        return [
+            {"timestamp": f"{day.date().isoformat()}T00:00:00Z", "price": price, "volume_24h": 1.0, "market_cap": 2.0}
+            for day in days
+        ]
+
+    for name, price, fetched_at in (
+        ("btc-bitcoin_2025-08-16_2026-09-20.json", 10.0, 1_780_000_000),
+        ("btc-bitcoin_2025-08-17_2026-09-21.json", 11.0, 1_780_000_100),
+    ):
+        path = directory / name
+        path.write_text(json.dumps(_rows(price)), encoding="utf-8")
+        os.utime(path, (fetched_at, fetched_at))
+
+    with caplog.at_level(logging.WARNING):
+        frame = client.load_daily_history("btc-bitcoin")
+
+    assert len(frame) == 398
+    stale = int((frame["pap_price"] != 11.0).sum())
+    assert stale == 0, f"the older window survived on {stale} of 398 duplicated dates"
+    assert client.duplicate_conflicts["btc-bitcoin"] == 398
+    assert "398" in caplog.text and "conflict" in caplog.text

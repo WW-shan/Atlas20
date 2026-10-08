@@ -117,6 +117,19 @@ describe("ReportsExportsTab", () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 
+  it("surfaces per-card download failures instead of leaking an unhandled rejection", async () => {
+    vi.mocked((api as unknown as { downloadReport: (id: string, fmt?: api.ReportFormat) => Promise<void> }).downloadReport)
+      .mockRejectedValueOnce(new api.ApiError("report artifact not found", { status: 404, code: "not_found" }));
+
+    renderWithQuery(<ReportsExportsTab />);
+    await screen.findByRole("list", { name: "Reports archive list" });
+    const firstDownload = screen.getByRole("button", { name: /Download Atlas20/ });
+    fireEvent.click(firstDownload);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to download report: report artifact not found");
+    await waitFor(() => expect(firstDownload).not.toBeDisabled());
+  });
+
   it("renders 6 archive cards (5 ready + 1 generating)", async () => {
     renderWithQuery(<ReportsExportsTab />);
     const list = await screen.findByRole("list", { name: "Reports archive list" });
@@ -196,6 +209,28 @@ describe("ReportsExportsTab", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "New report" })).not.toBeInTheDocument());
   });
 
+  it("refreshes the archive after a report is generated", async () => {
+    const generated: api.ReportEntry = {
+      id: "r7",
+      title: "Atlas20 — Week 21 / 2026",
+      subtitle: "digest_w21 · 2026-05-25 · 1.0 MB",
+      thumbnail: "equity",
+      status: "ready",
+      generated_at: "2026-05-25T14:00:00Z",
+      size_bytes: 1_000_000,
+      report_type: "weekly",
+    };
+    renderWithQuery(<ReportsExportsTab />);
+    await screen.findByRole("list", { name: "Reports archive list" });
+    vi.mocked(api.listReports).mockResolvedValue([generated, ...api.fallbackReports]);
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
+
+    expect(await screen.findByText("Atlas20 — Week 21 / 2026")).toBeInTheDocument();
+  });
+
   it("shows generateReport errors and keeps the new report modal open", async () => {
     vi.mocked(api.generateReport).mockRejectedValueOnce(new Error("validation failed"));
 
@@ -212,6 +247,23 @@ describe("ReportsExportsTab", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("validation failed");
     expect(screen.getByRole("dialog", { name: "New report" })).toBeInTheDocument();
     await waitFor(() => expect(generate).not.toBeDisabled());
+  });
+
+  it("shows field-level details for a rejected (422) report request", async () => {
+    vi.mocked(api.generateReport).mockRejectedValueOnce(new api.ApiError("Request validation failed", {
+      status: 422,
+      code: "validation_error",
+      details: [{ loc: ["body", "run_id"], msg: "String should match pattern '^btk_\\d+$'" }],
+    }));
+
+    renderWithQuery(<ReportsExportsTab />);
+    fireEvent.click(await screen.findByRole("button", { name: /\+ NEW REPORT/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New report" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Generation failed: Request validation failed (run_id: String should match pattern",
+    );
   });
 
   it("shows queued toast after report submission", async () => {

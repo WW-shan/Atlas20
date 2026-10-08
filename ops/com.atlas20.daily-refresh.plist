@@ -18,6 +18,12 @@
 	  runs, so 02:30 UTC is the primary run and 06:30 UTC is the catch-up. Both
 	  write to the same log; a completed refresh is visible as the last
 	  "Processed dataset written" line plus the panel's max date.
+
+	  launchd reads StartCalendarInterval in the machine's LOCAL time zone,
+	  not UTC. This workstation runs Asia/Shanghai (UTC+8), so 02:30/06:30 UTC
+	  are Hour 10 and 14 below. On a machine in another zone, convert again:
+	  Hour 2/6 here would fire at 18:30/22:30 UTC, before the close exists.
+	  tests/test_launchd_refresh_schedule.py pins this.
 	-->
 	<key>ProgramArguments</key>
 	<array>
@@ -31,13 +37,13 @@
 	<array>
 		<dict>
 			<key>Hour</key>
-			<integer>2</integer>
+			<integer>10</integer>
 			<key>Minute</key>
 			<integer>30</integer>
 		</dict>
 		<dict>
 			<key>Hour</key>
-			<integer>6</integer>
+			<integer>14</integer>
 			<key>Minute</key>
 			<integer>30</integer>
 		</dict>

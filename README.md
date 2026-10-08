@@ -23,29 +23,36 @@ and a React/Vite console for reviewing results.
 
 ## Current Research Conclusion
 
-The authoritative conclusion is now in `RESEARCH.md`. The current research champion is a
-strict point-in-time Top20, no-leverage phase-staggered multi-horizon momentum ensemble.
-It combines four transparent trailing-return signals with three calendar phases, a Top2
-hold band, a BTC 100D MA + confirm2 regime gate, and 60D volatility targeting capped at
-gross exposure 1.0. From 2022-01-01 through 2026-09-21 it returns **28.80x at 2bps** and
-**23.09x at 20bps**, with Sharpe 1.43 and -44.9% maximum drawdown at 20bps. BTC
-buy-and-hold returns 1.87x over the same period.
+The authoritative conclusion is in `RESEARCH.md` (section 00, 2026-09-25). The current
+research champion is a strict point-in-time Top20, no-leverage phase-staggered
+multi-horizon momentum ensemble: four transparent trailing-return signals, three calendar
+phases each, a Top2 hold band, a BTC 100D MA + confirm2 regime gate, and 60D volatility
+targeting capped at gross exposure 1.0. The research sample is 2022-01-01 .. 2026-09-21;
+later data is tracked as a genuine out-of-sample period for the frozen specification; the first verified tracking snapshot covers 2026-09-22 .. 2026-10-06.
 
-The candidate passed a fixed-strategy Deflated Sharpe (0.9945), White Reality Check
-(p=0.0150), 365D/90D walk-forward selection (20.78x from 2023 including 40bps switch
-cost), best-year removal (4.83x versus BTC 0.73x after removing 2023), a 2020-2021
-stress test (4.55x at 20bps), and a 10,308-row point-in-time selection audit with zero
-violations. CSCV rejects selecting the best full-sample parameter (PBO 0.6288), so the
-project does **not** use that selection procedure; the fixed primary strategy itself has a
-7.47% below-median OOS rate across 924 CSCV splits.
+| 2022-01-01 .. 2026-09-21 | 2bps (baseline) | 20bps | 50bps | 100bps | BTC |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fill at the signal close | 28.80x | 23.09x | 15.97x | 8.62x | 1.87x |
+| Fill 3h after the close (live timing, worse missing-candle case) | **24.42x** | **19.56x** | 13.50x | 7.27x | |
 
-Reproduce with `scripts/run_phase_momentum.py`, `scripts/run_phase_momentum_walk_forward.py`,
-`scripts/run_phase_momentum_multiple_testing.py`, the leave-one-out and fixed-CSCV
-scripts, `scripts/run_phase_momentum_regime_breakdown.py`,
-`scripts/run_phase_momentum_live_signal.py`, and
-`scripts/audit_phase_momentum_selections.py`. See `reports/phase_momentum_*` and the
-related robustness reports. This is a research champion for small-size live testing, not a
-guarantee of future returns; capacity, execution, exchange, and data-latency risks remain.
+The frozen specification has been tracked out of sample from 2026-09-22 through the latest
+verified day, 2026-10-06 (15 daily observations). With realistic +3h fills it returns 1.0504x
+at 2bps and 1.0486x at 20bps, with -10.50% / -10.57% maximum drawdowns; BTC returns 0.9879x.
+That is a positive start, but 15 days are far too short to validate the strategy or clear any
+of the failed gates below. See `reports/phase_momentum_oos_2026/`.
+
+It is **provisional, not validated**. It clears 20x at the baseline cost even with realistic
+fills, but two AGENTS.md gates fail: the Deflated Sharpe against the project's real trial
+count is **0.735** (6,126 Top20 trials since 2022; PBO 0.526), and the result sits on
+narrow parameter peaks (BTC gate MA50/MA150 give 9.50x/11.61x, hold rank 1/3 give
+14.55x/9.49x at 20bps). Neither can be fixed on the same sample; the frozen champion is
+tracked out of sample instead, and a small pre-registered round (H2-H4 in
+`docs/research/literature_review_2026-09.md`) is logged in
+`reports/research_trial_inventory/preregistered_trials.csv`.
+
+See `RESEARCH.md` section 0.3 for the reproduction commands in dependency order and
+`reports/phase_momentum_*` for the reports. This is research, not a guarantee of future
+returns; capacity, execution, exchange, and data-latency risks remain.
 
 ## Why It Stands Out
 
@@ -120,10 +127,26 @@ flowchart LR
 Use this when you want the full API, worker, and web stack with the same shape
 as the published GHCR images.
 
+Compose requires an API key for mutating routes and report downloads and
+refuses to start without one. Put it in a `.env` file next to
+`docker-compose.yml` (git-ignored; `make dev` reads the same file) or export
+it in your shell. Use 32+ random characters per key; separate several keys
+with commas:
+
 ```bash
+echo "ATLAS20_API_KEYS=$(openssl rand -hex 32)" >> .env
 docker compose up -d
 docker compose exec backend python -m atlas20.api.seed
 ```
+
+Send the key as `X-API-Key` on mutating requests, e.g.
+`curl -X POST -H "X-API-Key: <key>" http://127.0.0.1:8000/api/universe/refresh`.
+The published web image does not send a key yet, so its run, refresh, report
+and download actions return 401 under Compose; see
+[`docs/operations/security.md`](docs/operations/security.md).
+
+Every published port binds to `127.0.0.1` only. For remote access, put an
+authenticating TLS reverse proxy in front instead of widening the bindings.
 
 Then open:
 
@@ -302,6 +325,10 @@ launchctl list | grep atlas20        # confirms it is registered
 
 For another machine, install the checked-in plist with `cp` plus
 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.daily-refresh.plist`.
+launchd reads the plist's `StartCalendarInterval` in the machine's **local**
+time zone, not UTC. The checked-in hours (10 and 14) are 02:30/06:30 UTC for
+this workstation's Asia/Shanghai zone; convert them for any other zone, or the
+job fires before CoinMarketCap has published the close.
 
 Verify the result by checking the panel's last date, which is the number that
 actually matters for a backtest:
@@ -456,12 +483,16 @@ Two biases had to be removed before any of these numbers meant anything:
    unverified; with the new default it is refused rather than silently
    admitted.
 
-4. **Missing returns are not silently flat.** Interior provider gaps are
-   carried at the last observed price, and the first print after the gap applies
-   the cumulative move. Returns after the final observed price remain missing:
-   a halted or delisted holding aborts the run by default
-   (`frictions.missing_return_policy: error`) instead of being marked flat
-   forever. An explicit `fill` policy is available only for a labelled
+4. **Missing returns are not silently flat.** A provider gap inside a live
+   series leaves the gap days without a return, and the first print after the
+   gap is measured from the last one. A coin whose market cap is only carried
+   that day is not ranked that day. The production policy
+   (`frictions.missing_return_policy: carry`) keeps a held coin at its last
+   close through such a gap for at most `missing_return_max_carry_days` (3) and
+   lists every carried holding and every trade priced at a carried close in
+   the backtest's `gap_carries` (written to `gap_carries.csv`); a longer gap
+   aborts the run. A feed that has ended (delisting, migration) is sold at its
+   last print. `error` refuses any held gap; `fill` is only for a labelled
    sensitivity run and defaults to a -100% write-down.
 
 `scripts/audit_data_chain.py` re-checks the whole chain - provider cache
@@ -519,72 +550,47 @@ momentum ensemble** inside the strict point-in-time Top20:
 | Sharpe | 1.514 | 1.433 | 1.297 | 1.069 | 0.515 |
 | Max drawdown | -42.6% | -44.9% | -48.7% | -54.5% | -66.9% |
 
-Robustness evidence already completed:
+Validation after the 2026-09-25 audit (details and the superseded numbers in
+`RESEARCH.md` section 00):
 
-- Fixed-strategy Deflated Sharpe: **0.9945** (pass, >0.95).
-- Fixed-strategy White Reality Check: **p=0.0150** (pass, <0.05).
-- 365D/90D walk-forward selection from 2023, including 40bps switch cost:
-  **20.78x**, Sharpe 1.621 (pass, >20x).
-- Fixed-strategy CSCV across 924 splits: below-median OOS rate **7.47%**
-  (pass); parameter-ensemble OOS stability fails and is not used as the
-  champion.
-- Best-year removal: removing 2023 leaves **4.83x** versus BTC **0.73x**
-  (pass); the result is not carried by one year.
-- Leave-one-signal and leave-one-phase checks: removing any signal leaves
-  **20.58x-27.58x** at 20bps; removing any phase leaves **21.26x-23.91x**.
-- 2020-10-03 .. 2021-12-31 stress at 20bps: **4.55x**, Sharpe 2.394,
+- Execution timing: filling 1/3/6/12 hours after the close gives
+  21.22x/19.56x/20.78x/21.57x at 20bps; filling at the next close gives
+  12.01x. Hourly candles come from Binance and, for coins Binance does not
+  list, Gate.io (`scripts/download_hourly_prices.py --venue gate`).
+- Multiple testing: Deflated Sharpe **0.735** against the 6,126 Top20 trials
+  since 2022 (fail; the old 0.9945 counted only 32 candidates). White Reality
+  Check within the 30-variant family: p=0.019 against zero, p=0.025 against
+  BTC. PBO **0.526** (fail), so no best-parameter selection is used.
+- Parameter neighbourhood: narrow peaks at the BTC MA100 gate and the Top2
+  hold band (see above) - a robustness failure under AGENTS.md.
+- 365D/90D walk-forward from 2023 over the 25 pre-specified variants,
+  including 40bps switch cost: **20.78x** (fills at the close).
+- Best-year removal: removing 2023 leaves **4.83x** versus BTC **0.73x**.
+- Leave-one-signal / leave-one-phase: **20.58x-27.58x** / **21.26x-23.91x**.
+- 2020-10-03 .. 2021-12-31 stress at 20bps: **4.55x**, Sharpe 2.39,
   maximum drawdown -18.9%.
-- Point-in-time selection audit: 10,308 rows, zero assets outside the
-  contemporaneous Top20, zero missing prices, zero Rain/stablecoin rows.
-- Market-regime split: in 809 bull days the strategy returns **51.83x**
-  versus BTC **13.65x**; in 916 non-bull days it returns **0.445x** versus
-  BTC **0.137x**. It beats BTC in both states, but non-bull performance is
-  still negative and remains a disclosed risk.
-- PBO of selecting the best full-sample parameter is **0.6288**, so that
-  selection procedure is explicitly rejected. The fixed primary strategy is
-  used instead; it passes the fixed-strategy CSCV test above.
+- Market regimes with look-ahead-free (previous-day) labels: bull **25.37x**
+  versus BTC 3.27x; non-bull **0.91x** versus BTC 0.57x.
+- Point-in-time selection audit: 10,308 selections, 3,436 hold-rule checks
+  and 990 traded targets, zero violations.
 
-This is a research champion for small-size live testing, not a guarantee of
-future returns. Capacity, execution, exchange, delisting, and data-latency
-risks remain.
-
-The latest verified target snapshot is generated by:
+The latest target snapshot is generated by:
 
 ```bash
-.venv/bin/python scripts/run_phase_momentum_live_signal.py \
-  --output-dir reports/phase_momentum_live
+.venv/bin/python scripts/run_phase_momentum_live_signal.py
 ```
 
-It writes `latest_signal.json` and `latest_signal.md`; it does not place orders.
+It evaluates up to the latest completed UTC day and writes
+`reports/phase_momentum_live/latest_signal.json` and `.md`; it does not place
+orders. It refuses a panel more than `--max-staleness-days` (default 1) behind
+the latest completed UTC day (`--allow-stale` for deliberate backfills) and a
+last day whose volumes look unfinished (`--allow-partial-day` to override; the
+check is recorded in `last_day_check`). The payload says whether a trade is
+required on the as-of date (`trade_required`) and shows both the target and
+the engine's current drifted book (`current_weights`).
 
-Reproduce the current champion with:
-
-```bash
-.venv/bin/python scripts/run_phase_momentum.py \
-  --output-dir reports/phase_momentum_2022
-
-.venv/bin/python scripts/run_phase_momentum_walk_forward.py \
-  --output-dir reports/phase_momentum_walk_forward_2022
-
-.venv/bin/python scripts/run_phase_momentum_multiple_testing.py \
-  --candidate-returns reports/phase_momentum_multiple_testing_2022/candidate_returns.csv \
-  --output-dir reports/phase_momentum_multiple_testing_2022
-
-.venv/bin/python scripts/run_phase_momentum_leave_one_out.py \
-  --output-dir reports/phase_momentum_leave_one_out_2022
-
-.venv/bin/python scripts/run_phase_momentum_parameter_leave_one_out.py \
-  --output-dir reports/phase_momentum_parameter_leave_one_out_2022
-
-.venv/bin/python scripts/run_phase_momentum_fixed_cscv.py \
-  --output-dir reports/phase_momentum_fixed_cscv_2022
-
-.venv/bin/python scripts/run_phase_momentum_regime_breakdown.py \
-  --output-dir reports/phase_momentum_regime_2022
-
-.venv/bin/python scripts/audit_phase_momentum_selections.py \
-  --output-dir reports/phase_momentum_selection_audit_2022
-```
+Reproduce the current champion with the commands in `RESEARCH.md` section
+0.3 (dependency order).
 
 Legacy volatility-target and daily-event reports remain in `reports/` for
 audit history, but they are not the current champion.

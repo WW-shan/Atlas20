@@ -2,11 +2,59 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+# ----------------------------------------------------------------- UTC days
+# CoinMarketCap - the only panel source - closes its daily candles at 00:00
+# UTC, and the exchange venues that vote in the cross-check do the same. The
+# open end of the research window therefore has to be a UTC date. It used to
+# be the host's local date, and this host runs on Asia/Shanghai (UTC+8): from
+# 00:00 to 08:00 local time that named *tomorrow's* UTC date, so the CMC
+# window ran into a day that had not started and the client expected a close
+# that could not exist yet, forcing a tail re-pull on every run in those
+# hours. pandas is imported lazily, as in the properties below, so importing
+# the config models stays cheap.
+
+
+def _utc_now() -> "pd.Timestamp":
+    import pandas as pd
+
+    return pd.Timestamp.now(tz="UTC")
+
+
+def current_utc_day(now: "datetime | pd.Timestamp | None" = None) -> "pd.Timestamp":
+    """Naive midnight of the UTC calendar day in progress at ``now``.
+
+    This is the *exclusive* end of the latest completed UTC day: a provider
+    window that ends here holds every finished daily candle and nothing from
+    the day still trading. A naive ``now`` is read as UTC.
+    """
+    import pandas as pd
+
+    moment = pd.Timestamp(now) if now is not None else _utc_now()
+    moment = moment.tz_localize("UTC") if moment.tzinfo is None else moment.tz_convert("UTC")
+    return moment.normalize().tz_localize(None)
+
+
+def latest_completed_utc_day(now: "datetime | pd.Timestamp | None" = None) -> "pd.Timestamp":
+    """Naive midnight of the newest UTC day whose daily candle has closed.
+
+    The provider finalizes day D's close some time after 00:00 UTC on D+1, so
+    a panel that stops one day before this is still catching up rather than
+    stale.
+    """
+    import pandas as pd
+
+    return current_utc_day(now) - pd.Timedelta(days=1)
 
 
 class PathConfig(BaseModel):
@@ -83,8 +131,15 @@ class FrictionConfig(BaseModel):
     # default is to abort the backtest and force a data repair.  ``fill`` is an
     # explicit opt-in for sensitivity work; ``missing_return_fill`` is then
     # applied, with a conservative -100% default rather than the old silent 0%.
-    missing_return_policy: Literal["error", "fill"] = "error"
+    # ``carry`` is for provider gaps inside a live series (CMC skipped
+    # chainlink, curve and kucoin-shares around 2022-07-31): a held coin keeps
+    # its last close for at most ``missing_return_max_carry_days`` and the
+    # move is booked on the next print, measured from the last one.  Every
+    # carried holding and every trade priced at a carried close is reported
+    # in ``BacktestResult.gap_carries``; a longer gap still aborts.
+    missing_return_policy: Literal["error", "fill", "carry"] = "error"
     missing_return_fill: float = -1.0
+    missing_return_max_carry_days: int = Field(default=3, ge=1)
 
 
 class SignalsConfig(BaseModel):
@@ -275,9 +330,16 @@ class ResearchConfig(BaseModel):
 
     @property
     def end_timestamp(self):
+        """The explicit ``end_date``, else the UTC day in progress.
+
+        An open-ended run ends at ``current_utc_day()``: CMC windows requested
+        up to that midnight hold every completed UTC day (the client treats
+        ``end - 1 day`` as the newest completed day), and never a day that has
+        not started in UTC - whatever the host's time zone.
+        """
         import pandas as pd
 
-        return pd.Timestamp(self.end_date) if self.end_date else pd.Timestamp.today().normalize()
+        return pd.Timestamp(self.end_date) if self.end_date else current_utc_day()
 
     @property
     def regime_modes(self) -> list[str]:

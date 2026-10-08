@@ -1,0 +1,888 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "candidates": {
+    "primary": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "rebalance_1d": {
+      "rebalance_days": 1,
+      "phase_offsets": [
+        0
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "rebalance_2d": {
+      "rebalance_days": 2,
+      "phase_offsets": [
+        0,
+        1
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "rebalance_5d": {
+      "rebalance_days": 5,
+      "phase_offsets": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "hold_rank_1": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 1,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "hold_rank_3": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 3,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "target_vol_0.6": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.6,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "target_vol_0.7": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.7,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "target_vol_0.9": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.9,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "target_vol_1.0": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 1.0,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "btc_ma_50": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 50,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "btc_ma_150": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 150,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "btc_ma_200": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 200,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "no_btc_gate": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": false,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "no_vol_target": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": false,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "fixed_stop_15": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "fixed",
+      "stop_loss_pct": 0.15,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "fixed_stop_20": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "fixed",
+      "stop_loss_pct": 0.2,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "fixed_stop_25": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "fixed",
+      "stop_loss_pct": 0.25,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "fixed_stop_30": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "fixed",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "fixed_stop_40": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "fixed",
+      "stop_loss_pct": 0.4,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trailing_stop_15": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.15,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trailing_stop_20": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.2,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trailing_stop_25": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.25,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trailing_stop_30": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trailing_stop_40": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.4,
+      "use_asset_trend_filter": false,
+      "asset_ma_window": 100
+    },
+    "trend_50": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 50
+    },
+    "trend_100": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 100
+    },
+    "trend_150": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 150
+    },
+    "trend_200": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 200
+    },
+    "trend_100_trailing_stop_20": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.8,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "trailing",
+      "stop_loss_pct": 0.2,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 100
+    },
+    "trend_100_target_vol_0.7": {
+      "rebalance_days": 3,
+      "phase_offsets": [
+        0,
+        1,
+        2
+      ],
+      "hold_rank": 2,
+      "btc_ma_window": 100,
+      "btc_confirm_days": 2,
+      "target_volatility": 0.7,
+      "vol_window": 60,
+      "weight_tolerance": 0.05,
+      "use_btc_gate": true,
+      "use_volatility_target": true,
+      "stop_loss_kind": "none",
+      "stop_loss_pct": 0.3,
+      "use_asset_trend_filter": true,
+      "asset_ma_window": 100
+    },
+    "parameter_ensemble_20bps": [
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 1,
+        "phase_offsets": [
+          0
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 2,
+        "phase_offsets": [
+          0,
+          1
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 5,
+        "phase_offsets": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 1,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 3,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.6,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.7,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.9,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 100,
+        "btc_confirm_days": 2,
+        "target_volatility": 1.0,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 50,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 150,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      },
+      {
+        "rebalance_days": 3,
+        "phase_offsets": [
+          0,
+          1,
+          2
+        ],
+        "hold_rank": 2,
+        "btc_ma_window": 200,
+        "btc_confirm_days": 2,
+        "target_volatility": 0.8,
+        "vol_window": 60,
+        "weight_tolerance": 0.05,
+        "use_btc_gate": true,
+        "use_volatility_target": true,
+        "stop_loss_kind": "none",
+        "stop_loss_pct": 0.3,
+        "use_asset_trend_filter": false,
+        "asset_ma_window": 100
+      }
+    ]
+  }
+}

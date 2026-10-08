@@ -33,6 +33,7 @@ import pandas as pd
 import requests
 
 from atlas20.config import BinanceConfig
+from atlas20.data.cache_merge import describe_conflicts, fetch_ordered, merge_by_fetch_order
 from atlas20.logging_utils import get_logger
 
 BINANCE_COLUMNS = ["date", "binance_price", "binance_volume_usd"]
@@ -56,6 +57,8 @@ class BinanceClient:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
+        # Conflicting duplicate dates found by the latest cache merge per pair.
+        self.duplicate_conflicts: dict[str, int] = {}
 
     def _cache_path(self, pair: str, start: str, end: str) -> Path:
         directory = self.raw_dir / "candles"
@@ -162,9 +165,11 @@ class BinanceClient:
         frame = frame.dropna(subset=["date", "binance_price"])
         frame = frame[frame["binance_price"] > 0]
         frame = self._apply_liquidity_floor(frame, pair=pair)
+        # Stable sort: a date repeated inside one payload resolves to its later
+        # row deterministically instead of to whatever quicksort leaves last.
         return (
             frame[BINANCE_COLUMNS]
-            .sort_values("date")
+            .sort_values("date", kind="mergesort")
             .drop_duplicates("date", keep="last")
             .reset_index(drop=True)
         )
@@ -195,13 +200,19 @@ class BinanceClient:
         return kept.reset_index(drop=True)
 
     def load_daily_candles(self, symbol: str) -> pd.DataFrame:
-        """Load every cached Binance candle window for a symbol."""
+        """Load every cached Binance candle window for a symbol.
+
+        Like Gate.io, every refresh caches a new 400-day window, so dates
+        repeat across files and the newest fetch has to win on each of them
+        (files are merged in fetch order, see ``fetch_ordered``). Copies that
+        disagree are logged and counted in ``duplicate_conflicts``.
+        """
         pair = self.resolve_pair(symbol)
         directory = self.raw_dir / "candles"
         if not directory.exists():
             return pd.DataFrame(columns=BINANCE_COLUMNS)
         frames: list[pd.DataFrame] = []
-        for path in sorted(directory.glob(f"{pair}_*.json")):
+        for path in fetch_ordered(directory.glob(f"{pair}_*.json")):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
@@ -209,10 +220,13 @@ class BinanceClient:
             frame = self._frame_from_payload(payload, pair=pair)
             if not frame.empty:
                 frames.append(frame)
-        if not frames:
-            return pd.DataFrame(columns=BINANCE_COLUMNS)
-        merged = pd.concat(frames, ignore_index=True)
-        return merged.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+        result = merge_by_fetch_order(
+            frames, value_columns=["binance_price", "binance_volume_usd"], columns=BINANCE_COLUMNS
+        )
+        self.duplicate_conflicts[pair] = result.conflicting_dates
+        if result.conflicting_dates:
+            self.logger.warning("Binance %s: %s", pair, describe_conflicts(result))
+        return result.frame
 
     def fetch_daily_candles(
         self,

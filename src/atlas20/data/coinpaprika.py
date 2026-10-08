@@ -27,7 +27,10 @@ import pandas as pd
 import requests
 
 from atlas20.config import CoinPaprikaConfig
+from atlas20.data.cache_merge import describe_conflicts, fetch_ordered, merge_by_fetch_order
 from atlas20.logging_utils import get_logger
+
+PAPRIKA_COLUMNS = ["date", "pap_price", "pap_volume_usd", "pap_market_cap"]
 
 
 def _normalize_name(value: object) -> str:
@@ -55,6 +58,8 @@ class CoinPaprikaClient:
         self.logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
         self._coins_cache: list[dict[str, Any]] | None = None
+        # Conflicting duplicate dates found by the latest cache merge per coin.
+        self.duplicate_conflicts: dict[str, int] = {}
 
     def _cache_path(self, namespace: str, name: str) -> Path:
         directory = self.raw_dir / namespace
@@ -227,10 +232,10 @@ class CoinPaprikaClient:
     @staticmethod
     def _frame_from_payload(payload: object) -> pd.DataFrame:
         if not isinstance(payload, list) or not payload:
-            return pd.DataFrame(columns=["date", "pap_price", "pap_volume_usd", "pap_market_cap"])
+            return pd.DataFrame(columns=PAPRIKA_COLUMNS)
         frame = pd.DataFrame(payload)
         if "timestamp" not in frame.columns or "price" not in frame.columns:
-            return pd.DataFrame(columns=["date", "pap_price", "pap_volume_usd", "pap_market_cap"])
+            return pd.DataFrame(columns=PAPRIKA_COLUMNS)
         frame = frame.rename(
             columns={
                 "timestamp": "date",
@@ -246,9 +251,11 @@ class CoinPaprikaClient:
             frame[column] = pd.to_numeric(frame[column], errors="coerce")
         frame = frame.dropna(subset=["date", "pap_price"])
         frame = frame[frame["pap_price"] > 0]
+        # Stable sort: a date repeated inside one payload resolves to its later
+        # row deterministically instead of to whatever quicksort leaves last.
         return (
-            frame[["date", "pap_price", "pap_volume_usd", "pap_market_cap"]]
-            .sort_values("date")
+            frame[PAPRIKA_COLUMNS]
+            .sort_values("date", kind="mergesort")
             .drop_duplicates("date", keep="last")
             .reset_index(drop=True)
         )
@@ -274,12 +281,17 @@ class CoinPaprikaClient:
         return self._frame_from_payload(payload)
 
     def load_daily_history(self, coin_id: str) -> pd.DataFrame:
-        """Load every cached CoinPaprika history window for a coin id."""
+        """Load every cached CoinPaprika history window for a coin id.
+
+        Overlapping windows resolve to the newest fetch (files are merged in
+        fetch order, see ``fetch_ordered``); copies that disagree are logged
+        and counted in ``duplicate_conflicts``.
+        """
         directory = self.raw_dir / "history"
         if not directory.exists():
-            return pd.DataFrame(columns=["date", "pap_price", "pap_volume_usd", "pap_market_cap"])
+            return pd.DataFrame(columns=PAPRIKA_COLUMNS)
         frames: list[pd.DataFrame] = []
-        for path in sorted(directory.glob(f"{coin_id}_*.json")):
+        for path in fetch_ordered(directory.glob(f"{coin_id}_*.json")):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
@@ -287,11 +299,10 @@ class CoinPaprikaClient:
             frame = self._frame_from_payload(payload)
             if not frame.empty:
                 frames.append(frame)
-        if not frames:
-            return pd.DataFrame(columns=["date", "pap_price", "pap_volume_usd", "pap_market_cap"])
-        merged = pd.concat(frames, ignore_index=True)
-        return (
-            merged.sort_values("date")
-            .drop_duplicates("date", keep="last")
-            .reset_index(drop=True)
+        result = merge_by_fetch_order(
+            frames, value_columns=["pap_price", "pap_volume_usd", "pap_market_cap"], columns=PAPRIKA_COLUMNS
         )
+        self.duplicate_conflicts[coin_id] = result.conflicting_dates
+        if result.conflicting_dates:
+            self.logger.warning("CoinPaprika %s: %s", coin_id, describe_conflicts(result))
+        return result.frame

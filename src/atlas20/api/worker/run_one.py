@@ -19,20 +19,28 @@ import pandas as pd
 from sqlmodel import Session
 
 from atlas20.api._time import utc_iso_from_timestamp
-from atlas20.config import load_config
+from atlas20.config import load_config, load_sector_config
 from atlas20.api.config_adapter import to_research_config
 from atlas20.api.data_freshness import write_refresh_state
 from atlas20.api.repositories import RunsRepo, get_engine
+from atlas20.api.repositories.runs_repo import ACTIVE_RUN_STATUSES
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.services_report import generate_run_report_with_warnings
 from atlas20.api.settings import Settings, get_settings
 from atlas20.backtest.engine import run_backtest
-from atlas20.data.processor import download_and_cache_raw_data
+from atlas20.data.processor import build_processed_datasets, download_and_cache_raw_data
 from atlas20.pipeline import run_research_pipeline
 from atlas20.reporting.report import _pipeline_version, _publish_report_dir, _write_latest_link, _write_latest_pointer
 
 
 PRESET_SLUG_PATTERN = re.compile(r"[^a-z0-9_]+")
+# Private scratch inside a run's staging directory for everything the research
+# pipeline writes besides the run's own artifacts.
+PIPELINE_WORKSPACE = ".pipeline"
+# POST /api/universe/refresh and the daily scheduler store {"kind": ...} as
+# the params of the internal data-refresh job. User backtests cannot carry a
+# "kind" key (BacktestConfig forbids extra fields), whatever their preset.
+UNIVERSE_REFRESH_KIND = "universe_refresh"
 logger = logging.getLogger(__name__)
 
 
@@ -270,9 +278,35 @@ def _execute_pipeline(params_json: str, settings: Settings, tmp_dir: Path) -> No
         return
 
     research_config = to_research_config(config, config.preset, settings)
-    research_config.paths.reports_dir = str(tmp_dir)
-    run_research_pipeline(research_config)
+    # The pipeline also rebuilds the processed panel, universe and regime
+    # files, and points the nearest reports/latest.txt at its output. The
+    # shared copies of those are served to every client (universe timeline,
+    # alerts, overview), so an API run gets private ones and reads raw data
+    # from the configured data root.
+    workspace = tmp_dir.absolute() / PIPELINE_WORKSPACE
+    output_dir = workspace / "reports" / "output"
+    research_config.paths.raw_dir = str(settings.data_root / "raw")
+    research_config.paths.processed_dir = str(workspace / "processed")
+    research_config.paths.reports_dir = str(output_dir)
+    try:
+        run_research_pipeline(research_config)
+        _adopt_pipeline_output(output_dir, tmp_dir)
+    finally:
+        # The run-private panel is a full copy of the dataset; never keep it.
+        shutil.rmtree(workspace / "processed", ignore_errors=True)
+    shutil.rmtree(workspace, ignore_errors=True)
     _ensure_brief_artifact_names(tmp_dir)
+
+
+def _adopt_pipeline_output(output_dir: Path, tmp_dir: Path) -> None:
+    """Move the pipeline's artifacts from its workspace into the run's staging dir."""
+    for source in output_dir.iterdir():
+        target = tmp_dir / source.name
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        elif target.exists() or target.is_symlink():
+            target.unlink()
+        shutil.move(str(source), str(target))
 
 
 def _execute_universe_refresh(settings: Settings) -> None:
@@ -287,7 +321,25 @@ def _execute_universe_refresh(settings: Settings) -> None:
 
     config = load_config(settings.project_root / "config" / "base.yaml")
     config.paths.raw_dir = str(settings.data_root / "raw")
+    # Same two steps as the scheduled job (scripts/download_data.py, then
+    # scripts/build_datasets.py), writing where the API reads processed data.
+    # The build keeps its panel regression guard: a provider-degraded panel
+    # fails the refresh instead of replacing the good one.
+    config.paths.processed_dir = str(settings.data_root / "processed")
     download_and_cache_raw_data(config)
+    sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
+    build_processed_datasets(config, sector_config)
+
+
+def _is_universe_refresh(params_json: str | None) -> bool:
+    """Recognise the internal data-refresh job by its params, never by name."""
+    if not params_json:
+        return False
+    try:
+        params = json.loads(params_json)
+    except ValueError:
+        return False
+    return isinstance(params, dict) and params.get("kind") == UNIVERSE_REFRESH_KIND
 
 
 def _register_completion_reports(run_id: str, settings: Settings) -> None:
@@ -317,9 +369,11 @@ def run(run_id: str, settings: Settings | None = None) -> int:
             return 1
         params_json = run_row.params
         strategy = run_row.strategy
+    is_refresh = _is_universe_refresh(params_json)
 
+    completed = False
     try:
-        if strategy == "universe_refresh":
+        if is_refresh:
             write_refresh_state(settings, run_id=run_id, status="running")
             _execute_universe_refresh(settings)
             write_refresh_state(settings, run_id=run_id, status="completed")
@@ -344,18 +398,10 @@ def run(run_id: str, settings: Settings | None = None) -> int:
         )
         _write_manifest(tmp_dir, settings, params_json)
         metrics = _completion_metrics(tmp_dir, strategy)
-        # Batch 1's publisher uses backup-rename semantics: move existing to
-        # .backup, move tmp to final, then delete .backup after success.
-        # This keeps rollback behavior for partial publish failures.
-        _publish_report_dir(tmp_dir, final_dir)
-        # Re-point latest aliases at the *final* directory, not the .tmp path
-        # the pipeline wrote during export_result_tables.
-        _write_latest_pointer(final_dir)
-        _write_latest_link(final_dir)
         duration_s = max(0, int(time.monotonic() - started))
 
         with Session(engine) as session:
-            RunsRepo(session).update_metrics_from_completion(
+            finished = RunsRepo(session).update_metrics_from_completion(
                 run_id,
                 return_pct=metrics["return_pct"],
                 sharpe=metrics["sharpe"],
@@ -363,13 +409,26 @@ def run(run_id: str, settings: Settings | None = None) -> int:
                 duration_s=duration_s,
             )
             session.commit()
+            final_status = finished.status if finished is not None else _current_status(session, run_id)
+        if final_status != "completed":
+            # Cancelled, or already failed by stale recovery or the timeout:
+            # its results must not become what Overview/Compare show.
+            print(f"run {run_id} ended as {final_status}; results not published", file=sys.stderr)
+            return 0
+        completed = True
+        # Batch 1's publisher uses backup-rename semantics: move existing to
+        # .backup, move tmp to final, then delete .backup after success.
+        # This keeps rollback behavior for partial publish failures.
+        _publish_report_dir(tmp_dir, final_dir)
+        _write_latest_pointer(final_dir)
+        _write_latest_link(final_dir)
         try:
             _register_completion_reports(run_id, settings)
         except Exception as exc:
             print(f"report generation failed for {run_id}: {exc}", file=sys.stderr)
         return 0
     except Exception as exc:
-        if strategy == "universe_refresh":
+        if is_refresh:
             try:
                 write_refresh_state(settings, run_id=run_id, status="failed", error=str(exc)[:1000])
             except Exception:
@@ -381,10 +440,18 @@ def run(run_id: str, settings: Settings | None = None) -> int:
                 error=str(exc)[:1000],
                 heartbeat_at=None,
                 worker_pid=None,
+                # A run marked completed whose results could not be published
+                # has no output to show; this process owns that transition.
+                from_statuses=("completed",) if completed else ACTIVE_RUN_STATUSES,
             )
             session.commit()
         print(str(exc), file=sys.stderr)
         return 1
+
+
+def _current_status(session: Session, run_id: str) -> str | None:
+    run = RunsRepo(session).get(run_id)
+    return run.status if run is not None else None
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -14,6 +14,7 @@ from sqlmodel import Session, col, select
 from atlas20.api.data_freshness import log_data_freshness, primary_lags_last_completed_day
 from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import KvRepo
+from atlas20.api.repositories.runs_repo import UNIVERSE_REFRESH_STRATEGY
 from atlas20.api._time import utc_now
 from atlas20.api.settings import Settings, get_settings
 from atlas20.api.services_report import generate_run_report_with_warnings
@@ -45,7 +46,8 @@ def _pick_completed_run(session: Session, week: int) -> Run | None:
     offset = max(0, week)
     stmt = (
         select(Run)
-        .where(Run.status == "completed")
+        # Refresh jobs complete without report output; the digest needs a backtest.
+        .where(Run.status == "completed", Run.strategy != UNIVERSE_REFRESH_STRATEGY)
         .order_by(col(Run.created_at).desc(), col(Run.run_id).desc())
         .offset(offset)
         .limit(1)
@@ -106,7 +108,7 @@ def _queue_universe_refresh(session: Session, settings: Settings) -> str:
     del settings
     existing = session.exec(
         select(Run).where(
-            Run.strategy == "universe_refresh",
+            Run.strategy == UNIVERSE_REFRESH_STRATEGY,
             col(Run.status).in_(("queued", "running")),
         )
     ).first()
@@ -119,7 +121,7 @@ def _queue_universe_refresh(session: Session, settings: Settings) -> str:
     repo = RunsRepo(session)
     run = repo.create_with_unique_id(
         {
-            "strategy": "universe_refresh",
+            "strategy": UNIVERSE_REFRESH_STRATEGY,
             "universe": "Top-20",
             "window_start": utc_now().date(),
             "window_end": utc_now().date(),
@@ -194,16 +196,17 @@ def start_scheduler(settings: Settings | None = None, scheduler_factory: Any | N
                 id="daily_universe_refresh",
                 replace_existing=True,
             )
-            catchup_hour = settings.daily_refresh_hour_utc + settings.daily_refresh_catchup_offset_hours
-            if catchup_hour <= 23:
-                scheduler.add_job(
-                    run_daily_refresh_catchup,
-                    "cron",
-                    hour=catchup_hour,
-                    minute=settings.daily_refresh_minute_utc,
-                    id="daily_universe_refresh_catchup",
-                    replace_existing=True,
-                )
+            # An evening refresh (e.g. 20:00 + 4h) retries after midnight rather
+            # than never; the retry still only fires while the feed is behind.
+            catchup_hour = (settings.daily_refresh_hour_utc + settings.daily_refresh_catchup_offset_hours) % 24
+            scheduler.add_job(
+                run_daily_refresh_catchup,
+                "cron",
+                hour=catchup_hour,
+                minute=settings.daily_refresh_minute_utc,
+                id="daily_universe_refresh_catchup",
+                replace_existing=True,
+            )
         scheduler.add_job(
             log_data_freshness,
             "interval",

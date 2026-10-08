@@ -15,6 +15,16 @@ describe("OverviewTab", () => {
     expect(screen.getAllByText(fallbackOverview.equity_overlay.atlas_label).length).toBeGreaterThanOrEqual(1);
   });
 
+  it("colors a negative tracked-notional change as a loss", () => {
+    const overview = withOverview({ aum: { ...fallbackOverview.aum, deltaPct: -0.084 } });
+
+    render(<OverviewTab overview={overview} onNavigate={() => {}} />);
+
+    const delta = screen.getByText("-8.4% over last 14 data points");
+    expect(delta.getAttribute("style")).toContain("var(--rose)");
+    expect(delta.getAttribute("style")).not.toContain("var(--emerald)");
+  });
+
   it("renders champion display name in hero", () => {
     const overview = withOverview({
       champion: {

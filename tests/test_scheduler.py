@@ -93,3 +93,31 @@ def test_get_featured_digest_exposes_bundle_when_generated(
     payload = get_featured_digest(db_session)
 
     assert "bundle" in payload.formats
+
+
+def test_featured_digest_skips_universe_refresh_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(tmp_path / "reports"))
+    monkeypatch.setenv("ATLAS20_DATA_ROOT", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    _create_completed_run(db_session, get_settings().report_root, "btk_9010", datetime(2030, 6, 1, tzinfo=timezone.utc))
+    db_session.add(
+        Run(
+            run_id="btk_9011",
+            strategy="universe_refresh",
+            strategy_family="Other",
+            universe="Top-20",
+            window_start=datetime(2030, 6, 8, tzinfo=timezone.utc).date(),
+            window_end=datetime(2030, 6, 8, tzinfo=timezone.utc).date(),
+            status="completed",
+            duration_s=3,
+            params=json.dumps({"kind": "universe_refresh"}),
+            created_at=datetime(2030, 6, 8, tzinfo=timezone.utc),
+        )
+    )
+    db_session.flush()
+
+    generate_featured_digest(session=db_session, formats={"markdown"})
+
+    assert KvRepo(db_session).get("featured_digest_run_id") == "btk_9010"

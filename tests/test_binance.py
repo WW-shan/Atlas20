@@ -10,6 +10,8 @@ each other and CMC does not, the venues are the evidence.
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -212,3 +214,41 @@ def test_corrupt_cache_falls_back_to_the_network(tmp_path: Path) -> None:
     frame = client.fetch_daily_candles("BTC", start="2021-01-01", end="2026-09-21")
 
     assert not frame.empty
+
+
+def _write_window(directory: Path, name: str, rows: list[list], *, fetched_at: float) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    os.utime(path, (fetched_at, fetched_at))
+
+
+def test_load_daily_candles_keeps_the_newest_window_on_duplicated_dates(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Every daily refresh caches a new 400-day window, so dates repeat across
+    files; the newest fetch must win on every one of them, not a random copy."""
+    client = BinanceClient(_config(), tmp_path)
+    directory = tmp_path / "binance" / "candles"
+    days = [day.date().isoformat() for day in pd.date_range("2025-08-21", periods=398, freq="D")]
+    _write_window(
+        directory,
+        "BTCUSDT_2025-08-16_2026-09-20.json",
+        [_kline(day, 80_000.0) for day in days],
+        fetched_at=1_780_000_000,
+    )
+    _write_window(
+        directory,
+        "BTCUSDT_2025-08-17_2026-09-21.json",
+        [_kline(day, 81_000.0) for day in days],
+        fetched_at=1_780_000_100,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        frame = client.load_daily_candles("BTC")
+
+    assert len(frame) == 398
+    stale = int((frame["binance_price"] != 81_000.0).sum())
+    assert stale == 0, f"the older window survived on {stale} of 398 duplicated dates"
+    assert client.duplicate_conflicts["BTCUSDT"] == 398
+    assert "398" in caplog.text and "conflict" in caplog.text

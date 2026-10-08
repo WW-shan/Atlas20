@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -98,3 +98,58 @@ def test_deleting_run_sets_report_files_run_id_to_null(db_session: Session):
 
     row = db_session.exec(select(ReportFile).where(ReportFile.sha256 == "sha-report-fk")).one()
     assert row.run_id is None
+
+
+def _finished_run(run_id: str, strategy: str, created_at: datetime) -> Run:
+    return Run(
+        run_id=run_id,
+        strategy=strategy,
+        strategy_family="Other",
+        universe="Top-20",
+        window_start=date(2024, 1, 1),
+        window_end=date(2026, 5, 18),
+        status="completed",
+        duration_s=5,
+        created_at=created_at,
+    )
+
+
+def test_latest_completed_run_skips_universe_refresh_jobs(db_session: Session):
+    repo = RunsRepo(db_session)
+    repo.create(_finished_run("btk_0300", "base", datetime(2030, 1, 1, tzinfo=timezone.utc)))
+    repo.create(_finished_run("btk_0301", "universe_refresh", datetime(2030, 1, 2, tzinfo=timezone.utc)))
+
+    latest_any = repo.find_latest_completed_by_strategy(None)
+    latest_refresh = repo.find_latest_completed_by_strategy("universe_refresh")
+
+    assert latest_any is not None
+    assert latest_any.run_id == "btk_0300"
+    assert latest_refresh is None
+
+
+def _total(repo: RunsRepo, *chips: str) -> int:
+    return repo.list(chips=list(chips), page_size=1000)[1]
+
+
+def test_status_chips_are_alternatives(db_session: Session):
+    repo = RunsRepo(db_session)
+    completed = _total(repo, "completed")
+    failed = _total(repo, "failed")
+    assert completed > 0 and failed > 0
+
+    assert _total(repo, "completed", "failed") == completed + failed
+
+
+def test_family_chips_are_alternatives_and_categories_combine(db_session: Session):
+    repo = RunsRepo(db_session)
+    rows, _ = repo.list(page_size=1000)
+    atlas = sum(1 for row in rows if row.strategy_family == "ATLAS")
+    momentum = sum(1 for row in rows if row.strategy_family == "Momentum")
+    completed_atlas = sum(1 for row in rows if row.strategy_family == "ATLAS" and row.status == "completed")
+    assert atlas > 0 and momentum > 0
+
+    assert _total(repo, "ATLAS", "Momentum") == atlas + momentum
+    assert _total(repo, "completed", "ATLAS") == completed_atlas
+    assert _total(repo, "completed", "failed", "favorited") == sum(
+        1 for row in rows if row.status in {"completed", "failed"} and row.favorited
+    )

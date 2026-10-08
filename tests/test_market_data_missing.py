@@ -36,7 +36,10 @@ def test_prepare_market_data_preserves_terminal_missing_returns() -> None:
 
 
 def test_prepare_market_data_carries_an_interior_gap_to_the_next_print() -> None:
-    """A one-day CMC gap must not lose the cumulative move on resume."""
+    """A one-day CMC gap must not lose the cumulative move on resume.
+
+    The gap day itself has no return (it used to be booked as 0.0).
+    """
     dates = pd.date_range("2024-01-01", periods=4, freq="D")
     panel = pd.DataFrame(
         {
@@ -54,6 +57,6 @@ def test_prepare_market_data_carries_an_interior_gap_to_the_next_print() -> None
 
     market = prepare_market_data(panel, metadata, load_config("config/base.yaml"))
 
-    assert market.returns.loc[dates[1], "a"] == 0.0
+    assert pd.isna(market.returns.loc[dates[1], "a"])
     assert market.returns.loc[dates[2], "a"] == pytest.approx(0.10)
     assert market.returns.loc[dates[3], "a"] == pytest.approx(0.10)

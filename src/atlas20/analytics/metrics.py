@@ -19,8 +19,11 @@ def _safe_series(series: pd.Series) -> pd.Series:
 def compute_summary_metrics(result: BacktestResult, annualization_days: int = 365) -> dict[str, float]:
     """Compute core performance metrics for one backtest."""
     returns = _safe_series(result.daily_returns)
-    equity = result.equity_curve.astype(float)
-    total_return = equity.iloc[-1] / equity.iloc[0] - 1.0 if len(equity) > 1 and equity.iloc[0] != 0 else 0.0
+    # Compound the returns rather than divide the equity ends: equity[0] is
+    # already after day 0's return. That is harmless for an engine run (day 0
+    # is a structural zero) but dropped the first day of every sliced result -
+    # the ctrend champion's yearly table showed BTC 2024 at 111.5%, not 121.1%.
+    total_return = float((1.0 + returns).prod() - 1.0)
     # The equity curve has one point per day, so the investment spans len - 1
     # days: day 0 closes at the starting capital because the first target only
     # takes effect on day 1. Annualizing over len days understated CAGR, badly
@@ -28,10 +31,17 @@ def compute_summary_metrics(result: BacktestResult, annualization_days: int = 36
     periods = max(len(returns) - 1, 1)
     cagr = (1.0 + returns).prod() ** (annualization_days / periods) - 1.0
     vol = returns.std(ddof=0) * sqrt(annualization_days)
-    downside_std = returns.where(returns < 0, 0.0).std(ddof=0) * sqrt(annualization_days)
+    # Downside deviation below a 0 target, sqrt(mean(min(r, 0)^2)). The std of
+    # min(r, 0) subtracted the mean loss first, shrinking the denominator and
+    # overstating Sortino (BTC since 2021: 1.036 instead of 0.908).
+    downside_std = sqrt(float((returns.clip(upper=0.0) ** 2).mean())) * sqrt(annualization_days) if len(returns) else 0.0
     sharpe = (returns.mean() * annualization_days / vol) if vol > 0 else 0.0
     sortino = (returns.mean() * annualization_days / downside_std) if downside_std > 0 else 0.0
-    max_drawdown = float(result.drawdown.min()) if not result.drawdown.empty else 0.0
+    # Drawdown runs from the starting capital. A result sliced out of a longer
+    # run has an equity curve that starts after its first return, so a
+    # first-day loss never registered ([-10%, +5%] showed no drawdown).
+    wealth = pd.concat([pd.Series([1.0]), (1.0 + returns).cumprod()], ignore_index=True)
+    max_drawdown = float((wealth / wealth.cummax() - 1.0).min())
     calmar = (cagr / abs(max_drawdown)) if max_drawdown < 0 else 0.0
     monthly_returns = (1.0 + returns).resample("ME").prod() - 1.0
     monthly_win_rate = float((monthly_returns > 0).mean()) if not monthly_returns.empty else 0.0
@@ -88,9 +98,18 @@ def rolling_return_series(result: BacktestResult, window_days: int) -> pd.Series
 
 
 def performance_by_regime(results: dict[str, BacktestResult], regime_frame: pd.DataFrame, annualization_days: int = 365) -> pd.DataFrame:
-    """Summarize strategy performance inside bull and non-bull states."""
+    """Summarize strategy performance inside bull and non-bull states.
+
+    Day t's return is labelled with the regime at the previous close (t-1).
+    """
     rows = []
-    bull_state = regime_frame["bull"].reindex(next(iter(results.values())).daily_returns.index).fillna(False)
+    # The regime at close t is computed from prices that already contain day
+    # t's return, so same-day labels sort crash days into non-bull by
+    # construction (a random walk scored bull Sharpe 2.81 vs non-bull -1.96).
+    # Same one-day lag as _lagged_regime_labels in
+    # scripts/run_phase_momentum_regime_breakdown.py.
+    return_index = next(iter(results.values())).daily_returns.index
+    bull_state = regime_frame["bull"].shift(1, freq="D").reindex(return_index).fillna(False).astype(bool)
     for name, result in results.items():
         returns = _safe_series(result.daily_returns)
         for label, mask in {"bull": bull_state, "non_bull": ~bull_state}.items():

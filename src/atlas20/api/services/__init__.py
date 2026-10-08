@@ -7,7 +7,6 @@ import hashlib
 import json
 import logging
 import math
-import re
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -17,7 +16,7 @@ from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
-from atlas20.api.config_adapter import to_research_config
+from atlas20.api.config_adapter import to_research_config, validate_preset
 from atlas20.api.data_access._common import _format_display_name
 from atlas20.api.data_access.compare import UnknownCompareIdError, load_compare_from_reports
 from atlas20.api.data_access.options import load_options_from_reports
@@ -948,8 +947,12 @@ def register_new_backtest(
     strategy_lab_batch_id: str | None = None,
 ) -> RunRowSummary:
     settings = get_settings()
-    # Validate adapter inputs before persisting; the worker rebuilds this config when executing.
+    # Validate adapter inputs before persisting (a missing config/base.yaml is
+    # reported as such); the worker rebuilds this config when executing. Then
+    # reject unknown presets and internal job names such as universe_refresh,
+    # which the adapter still resolves for runs stored before this check.
     to_research_config(config, config.preset, settings)
+    validate_preset(config.preset, settings)
     repo = RunsRepo(session)
     run = repo.create_with_unique_id(
         {
@@ -1305,16 +1308,6 @@ def _report_file_to_entry(row: ReportFile) -> ReportEntry:
     )
 
 
-REPORT_ARCHIVE_EXTENSIONS = {".md", ".pdf", ".png", ".csv", ".zip"}
-REPORT_ID_SAFE = re.compile(r"[^a-z0-9_-]+")
-
-
-def _disk_report_id(report_root: Path, path: Path) -> str:
-    relative = path.relative_to(report_root).as_posix().lower()
-    stem = REPORT_ID_SAFE.sub("_", relative).strip("_")
-    return stem[:64] or "report"
-
-
 def _disk_report_type(relative: Path) -> str:
     parts = relative.parts
     name = relative.name.lower()
@@ -1343,38 +1336,25 @@ def _disk_report_thumbnail(path: Path) -> str:
     return "equity" if suffix == ".png" else "lines"
 
 
-def _should_skip_report_path(relative: Path) -> bool:
-    if any(part.startswith(".") for part in relative.parts):
-        return True
-    if any(".tmp" in part or ".bak_" in part for part in relative.parts):
-        return True
-    return relative.suffix.lower() not in REPORT_ARCHIVE_EXTENSIONS
-
-
 def _discover_report_entries(report_root: Path) -> list[ReportEntry]:
-    root = Path(report_root)
-    if not root.exists():
-        return []
+    # Listing and download share one ID catalogue so every listed ID downloads.
+    from atlas20.api.services_download import disk_report_files
 
-    discovered: list[tuple[Path, Path, int]] = []
+    root = Path(report_root)
+    discovered: list[tuple[str, Path, Path, int]] = []
     filename_counts: dict[str, int] = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(root)
-        if _should_skip_report_path(relative):
-            continue
+    for report_id, path in disk_report_files(root).items():
         size_bytes = path.stat().st_size
-        discovered.append((path, relative, size_bytes))
+        discovered.append((report_id, path, path.relative_to(root), size_bytes))
         filename_counts[path.name] = filename_counts.get(path.name, 0) + 1
 
     entries: list[ReportEntry] = []
-    for path, relative, size_bytes in discovered:
+    for report_id, path, relative, size_bytes in discovered:
         title = relative.as_posix() if filename_counts[path.name] > 1 else path.name
         entries.append(
             ReportEntry.model_validate(
                 {
-                    "id": _disk_report_id(root, path),
+                    "id": report_id,
                     "title": title,
                     "subtitle": f"{relative.as_posix()} - {size_bytes} bytes",
                     "thumbnail": _disk_report_thumbnail(path),

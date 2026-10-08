@@ -8,6 +8,11 @@ from atlas20.api.settings import Settings
 from atlas20.api.settings import get_settings
 
 
+# Prod secrets must be long enough to resist offline guessing: 32+ characters.
+STRONG_SECRET = "prod-signing-secret-0123456789abcdef"
+STRONG_API_KEY = "prod-api-key-0123456789abcdef0123456789"
+
+
 def test_settings_defaults(monkeypatch):
     monkeypatch.delenv("ATLAS20_ANCHOR_DATE", raising=False)
 
@@ -16,7 +21,7 @@ def test_settings_defaults(monkeypatch):
     assert settings.env == "dev"
     assert settings.cors_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
     assert settings.db_url == "sqlite:///./data/atlas20.sqlite"
-    assert settings.secret_key == "dev-only-do-not-use-in-prod"
+    assert settings.secret_key.get_secret_value() == "dev-only-do-not-use-in-prod"
     assert settings.api_keys == set()
     assert settings.jwt_auth_enabled is False
     assert settings.jwt_secret_key is None
@@ -69,14 +74,15 @@ def test_settings_reads_env_overrides(monkeypatch):
     settings = Settings()
 
     assert settings.cors_origins == ["https://example.com"]
-    assert settings.api_keys == {"key-a", "key-b"}
+    assert {api_key.get_secret_value() for api_key in settings.api_keys} == {"key-a", "key-b"}
     assert settings.enable_docs is False
     assert settings.anchor_date == date(2026, 5, 19)
     assert settings.log_level == "DEBUG"
     assert settings.worker_heartbeat_interval_seconds == 0.1
     assert settings.worker_cancel_grace_seconds == 0.2
     assert settings.jwt_auth_enabled is True
-    assert settings.jwt_secret_key == "jwt-secret"
+    assert settings.jwt_secret_key is not None
+    assert settings.jwt_secret_key.get_secret_value() == "jwt-secret"
     assert settings.jwt_issuer == "https://auth.example.com"
     assert settings.jwt_audience == "atlas20-api"
     assert settings.jwt_leeway_seconds == 45
@@ -101,7 +107,7 @@ def test_prod_forces_docs_disabled():
         env="prod",
         cors_origins=["https://example.com"],
         secret_key="prod-secret",
-        api_keys={"prod-key"},
+        api_keys={STRONG_API_KEY},
         enable_docs=True,
     )
 
@@ -135,7 +141,7 @@ def test_prod_accepts_specific_origin_with_credentials_enabled():
         cors_origins=["https://example.com"],
         cors_allow_credentials=True,
         secret_key="prod-secret",
-        api_keys={"prod-key"},
+        api_keys={STRONG_API_KEY},
     )
 
     assert settings.cors_origins == ["https://example.com"]
@@ -163,10 +169,10 @@ def test_prod_accepts_explicit_secret_key():
         env="prod",
         cors_origins=["https://example.com"],
         secret_key="prod-secret",
-        api_keys={"prod-key"},
+        api_keys={STRONG_API_KEY},
     )
 
-    assert settings.secret_key == "prod-secret"
+    assert settings.secret_key.get_secret_value() == "prod-secret"
 
 
 def test_prod_requires_api_key_or_jwt_auth():
@@ -179,17 +185,17 @@ def test_prod_accepts_non_empty_api_keys():
         env="prod",
         cors_origins=["https://example.com"],
         secret_key="prod-secret",
-        api_keys={"prod-key"},
+        api_keys={STRONG_API_KEY},
     )
 
-    assert settings.api_keys == {"prod-key"}
+    assert {api_key.get_secret_value() for api_key in settings.api_keys} == {STRONG_API_KEY}
 
 
 def test_prod_accepts_jwt_auth_without_api_keys():
     settings = Settings(
         env="prod",
         cors_origins=["https://example.com"],
-        secret_key="prod-secret",
+        secret_key=STRONG_SECRET,
         jwt_auth_enabled=True,
     )
 
@@ -211,7 +217,7 @@ def test_prod_docs_can_be_disabled(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
     monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
-    monkeypatch.setenv("ATLAS20_API_KEYS", "prod-key")
+    monkeypatch.setenv("ATLAS20_API_KEYS", STRONG_API_KEY)
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "false")
     get_settings.cache_clear()
 
@@ -229,10 +235,91 @@ def test_prod_docs_are_disabled_even_when_enabled_in_env(monkeypatch):
     monkeypatch.setenv("ATLAS20_ENV", "prod")
     monkeypatch.setenv("ATLAS20_CORS_ORIGINS", "https://example.com")
     monkeypatch.setenv("ATLAS20_SECRET_KEY", "prod-secret")
-    monkeypatch.setenv("ATLAS20_API_KEYS", "prod-key")
+    monkeypatch.setenv("ATLAS20_API_KEYS", STRONG_API_KEY)
     monkeypatch.setenv("ATLAS20_ENABLE_DOCS", "true")
     get_settings.cache_clear()
 
     client = TestClient(create_app())
 
     assert client.get("/docs").status_code == 404
+
+
+
+def test_prod_rejects_empty_secret_key_when_it_signs_jwts():
+    with pytest.raises(ValidationError, match="ATLAS20_SECRET_KEY must be set to a real secret in prod"):
+        Settings(env="prod", cors_origins=["https://example.com"], secret_key="", jwt_auth_enabled=True)
+
+
+@pytest.mark.parametrize(
+    ("secret_key", "jwt_secret_key"),
+    [
+        ("short-app-secret", None),
+        ("short-app-secret", ""),
+        (STRONG_SECRET, "short-jwt-secret"),
+        (STRONG_SECRET, " " * 40),
+    ],
+)
+def test_prod_rejects_weak_jwt_signing_key(secret_key: str, jwt_secret_key: str | None):
+    with pytest.raises(ValidationError, match="JWT signing key .* at least 32 characters"):
+        Settings(
+            env="prod",
+            cors_origins=["https://example.com"],
+            secret_key=secret_key,
+            jwt_secret_key=jwt_secret_key,
+            jwt_auth_enabled=True,
+        )
+
+
+def test_prod_rejects_short_api_keys():
+    with pytest.raises(ValidationError, match="ATLAS20_API_KEYS entries must be at least 32 characters"):
+        Settings(
+            env="prod",
+            cors_origins=["https://example.com"],
+            secret_key=STRONG_SECRET,
+            api_keys={STRONG_API_KEY, "short-key"},
+        )
+
+
+def test_prod_accepts_strong_jwt_signing_key_and_api_keys():
+    settings = Settings(
+        env="prod",
+        cors_origins=["https://example.com"],
+        secret_key="short-app-secret",
+        jwt_secret_key=STRONG_SECRET,
+        jwt_auth_enabled=True,
+        api_keys={STRONG_API_KEY},
+    )
+
+    assert settings.jwt_auth_enabled is True
+
+
+def test_prod_gate_error_does_not_echo_settings_input():
+    leaked_jwt_secret = "leaky-jwt-secret"
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            env="prod",
+            cors_origins=["https://example.com"],
+            secret_key=STRONG_SECRET,
+            api_keys={STRONG_API_KEY},
+            jwt_auth_enabled=True,
+            jwt_secret_key=leaked_jwt_secret,
+        )
+
+    rendered = str(exc_info.value)
+    assert "at least 32 characters" in rendered
+    assert "input_value" not in rendered
+    for secret in (leaked_jwt_secret, STRONG_SECRET, STRONG_API_KEY):
+        assert secret not in rendered
+
+
+def test_settings_masks_secret_values():
+    jwt_secret = "jwt-" + STRONG_SECRET
+    settings = Settings(secret_key=STRONG_SECRET, jwt_secret_key=jwt_secret, api_keys={STRONG_API_KEY})
+
+    rendered = repr(settings) + str(settings) + str(settings.model_dump())
+    for secret in (STRONG_SECRET, jwt_secret, STRONG_API_KEY):
+        assert secret not in rendered
+    assert settings.secret_key.get_secret_value() == STRONG_SECRET
+    assert settings.jwt_signing_key() == jwt_secret
+    assert {api_key.get_secret_value() for api_key in settings.api_keys} == {STRONG_API_KEY}

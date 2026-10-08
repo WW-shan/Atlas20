@@ -5,14 +5,84 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-09-23 |
-> | 数据 | `data/processed/panel_daily.csv`，101 个币，2020-10-03 → **2026-09-21** |
-> | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance 只做独立校验 |
-> | 杠杆 | **全部无杠杆**，gross exposure 硬上限 1.0，不做空 |
-> | 执行 | 信号收盘生成，**T+1** 执行；缺失行情不会静默填 0 |
+> | 最后更新 | 2026-10-08（§00.5 冻结规格样本外跟踪；样本内结论仍以 2026-09-25 审计为准） |
+> | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-06** |
+> | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
+> | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
+> | 执行 | 信号收盘生成、T+1 执行；**实盘口径为收盘后约 3 小时成交**（02:30 UTC 刷新之后），用 Binance/Gate 1 小时 K 线模拟；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
+> | 成本口径 | 基准 **2bps**（AGENTS.md），20/50/100bps 为压力测试 |
 > | 主回测起点 | **2022-01-01**，剔除 2021 泡沫行情 |
 
 > **硬约束（不可突破）**：所有策略研究、回测和实盘候选必须严格限制在 **point-in-time Top 20** 内。不得使用 Top 50、Top 100 或任何更宽股票池，包括“仅作灵敏度测试”的场景；如果某个假设需要更宽股票池，应直接否决或重新设计为 Top 20 内可验证的版本。Top 20 必须按当时真实市值重建，禁止用当前名单回填历史。
+
+---
+
+## 00. 2026-09-25 全面审计与修复后的权威结论（取代 §0 中与此冲突的数字和判定）
+
+> 2026-09-23 → 09-25 对全仓库做了代码审查（数据层、回测引擎、策略、验证统计、API、前端、历史研究代码）。每个确认的缺陷都先写失败测试再修复；随后在修复后的代码上重跑了全部 phase momentum 报告。研究样本仍为 2022-01-01 → 2026-09-21，**此后的数据保留为冻结冠军的真正样本外**，不再用于任何挑选。
+
+### 00.1 判定：冠军仍是研究候选（provisional），不是已验证策略
+
+| 门槛（AGENTS.md） | 结果 | 判定 |
+|---|---|---|
+| ≥20x（基准成本 2bps，实盘成交时点：收盘后 3h，取两种缺 K 线假设中较差者） | **24.42x**，Sharpe 1.45，最大回撤 -43.7% | 通过 |
+| 20bps 压力，同一成交时点 | **19.56x**（50bps 13.50x，100bps 7.27x） | 略低于 20x |
+| 多重检验：Deflated Sharpe，按项目真实试验数 | Top20/2022 口径 N=6,126：**0.735**；全部 N=14,120：0.682；只算 30 个变体家族：0.995 | **失败**（<0.95） |
+| 事后挑参数的过拟合概率 PBO | 0.526 | **失败**（>0.5）；只能用固定主规格 |
+| 参数邻域 | BTC 闸门 MA100 → MA50/MA150/MA200：9.50x/11.61x/6.93x；持有排名 Top2 → Top1/Top3：14.55x/9.49x（20bps，收盘成交） | **失败**：结果依赖单一窄参数（AGENTS.md 明确不算稳健） |
+| White Reality Check（30 变体家族） | 对零 p=0.019；对 BTC 买入持有 p=0.025 | 家族内通过；全项目无法计算（多数历史试验没有保存日收益） |
+| walk-forward（预设 25 变体，365D 训练/90D 测试，2023 起，40bps 切换成本，收盘成交） | 20.78x，Sharpe 1.62 | 通过（仅收盘成交口径） |
+| 去掉最佳年份 2023 | 4.83x（BTC 0.73x） | 仍优于 BTC |
+| 2020-10 → 2021-12 压力 | 20bps 4.55x，Sharpe 2.39，回撤 -18.9%（BTC 4.39x） | 通过 |
+| 逐条选币审计（更严格版本） | 10,308 条选币、3,436 次持有规则检查、990 条成交目标：0 违规 | 通过 |
+
+结论：按 AGENTS.md，冠军在**基准成本下即使按真实成交时点也超过 20x**，但**多重检验（DSR 0.74、PBO 0.53）和参数窄峰两道门槛不通过**，所以只能保持 provisional。这两项都来自研究历史本身（6,126 次 Top20 试验、窄峰参数），在同一段样本上再怎么调都无法修复；唯一干净的办法是冻结规格，用 2026-09-21 之后没有任何试验见过的数据做真正的样本外检验。
+
+### 00.2 修正前后对照（旧数字一律作废）
+
+| 项目 | 旧（§0.1/§0.2） | 新（2026-09-25） | 说明 |
+|---|---|---|---|
+| 成交时点 @20bps | 未测，隐含“收盘价成交” | 收盘 23.09x；+1h 21.22x；**+3h 19.56x**；+6h 20.78x；+12h 21.57x；次日收盘 12.01x；延迟 2 天 5.11x | `reports/phase_momentum_execution_lag_2022/`；91.8% 的成交权重在成交时刻有可用的 Binance/Gate 小时 K 线，其余（Bitget Token 两家都没有、个别币在交易所上市前的日期、开盘价与 CMC 前收差距 >5% 的日期）分别按“次日收盘”和“信号收盘”两种假设成交，取较差者 |
+| Deflated Sharpe | 0.9945（只按 32 个候选） | 家族 0.995；**Top20/2022 全部试验 0.735**；全部试验 0.682 | `reports/research_trial_inventory/`（可复现盘点）、`reports/phase_momentum_multiple_testing_2022/` |
+| White Reality Check | p=0.0150 | 家族对零 p=0.019、对 BTC p=0.025 | 旧值只对主策略单独做，没有任何多重校正 |
+| PBO | 0.6288 | 0.526 | 按论文 logit 规则、去掉 2 个与主策略完全相同的候选、分块覆盖全部日期 |
+| 固定主策略 CSCV | “通过”，低于中位数 7.47% | 2.06% | **不再计为证据**：训练/测试排名分布在构造上相同，只是样本内诊断 |
+| 固定主策略 2023 起 | “OOS 29.91x” | 29.91x | **重标为样本内**：参数是用全样本挑的 |
+| 市场状态拆分 | bull 51.83x / non-bull 0.445x | bull **25.37x**（BTC 3.27x）；non-bull **0.91x**（BTC 0.57x） | 旧版用当天收盘判定当天状态（前视），现用前一天状态 |
+| 币自身趋势过滤 50/100/150/200D | 17.57/14.71/10.68/10.57x | **24.39/16.70/17.03/11.13x** | 旧版按列而不是按行取趋势，导致每天强制换仓；trend_50 事后看三项都优于主策略，但属事后发现，不能直接升级 |
+| 参数等权集成 | “等权” | 按参数组真正等权：20bps **16.63x**；leave-one-parameter-out 15.81–17.65x | 旧版实为按 sleeve 等权 |
+| 月度起点敏感性（54 个起点） | 沿用 2022 年起的路径 | 每个起点重新构建：中位 7.18x，最差 1.69x，最好 31.57x | 旧版切片起步空仓且继承 2022 路径 |
+| 收盘成交主数字 | 20bps 23.09x、2bps 28.80x | 不变 | 各项修复没有改变冠军的实际交易 |
+
+### 00.3 本轮修复中影响研究数字的缺陷
+
+- **回测引擎**：权重上限按 NAV 而不是按已投资部分施加；NaN 目标/敞口直接报错；窗口外的目标日期不再静默丢弃；杠杆被默认禁止；新增收盘后 H 小时成交（`pre_fill_returns`）和短缺口 carry 规则（`gap_carries` 逐条报告）。
+- **股票池/数据**：缺行情日的成交量不再填 0；缺口日收益改为缺失并由下一次报价补齐跨缺口涨跌，不再静默记 0；**当天没有 CMC 市值的币当天不参与排名**（2022-07-31 chainlink、kucoin-shares，2022-07-29/30 curve）；CoinGecko 日期错位一天（中位偏差 2.61% → 0.079%）；多源校验不再“一个源通过就忽略其他源的分歧”；CEL 别名错指到 COMP（已移除）；120 日均线预热不足（buffer 按配置最长回看推导）；数据层对 2022 年以来的面板数值**零改动**。
+- **分析指标**：Sortino 改用下行偏差；回撤从初始资金起算；切片结果的总收益不再丢第一天；月末再平衡日不再把未结束月份的最后一天当月末；类别排除（稳定币等）的兜底真正生效；总市值指数改为链式计算（不再受面板进出影响）。
+- **验证统计**：见 §00.2；试验盘点改为仓库内可复现脚本 `scripts/build_trial_inventory.py`，并新增预先登记台账 `reports/research_trial_inventory/preregistered_trials.csv`。
+
+### 00.4 下一步
+
+1. **冻结**当前主规格（`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`），以 2026-09-22 起的数据做真正样本外记录，不再调参。
+2. **预先登记的新一轮假设**（依据 `docs/research/literature_review_2026-09.md` 第 4 节，参数全部来自文献或已有消融，不做网格）：H2 BTC 闸门窗口集成、H3 Top20 市场宽度共同闸门、H4 每个 sleeve 持有前五分之一（4 个币）。结果写入 `reports/phase_momentum_hypotheses_2026_10/`，每次运行先登记再执行，计入试验总数。
+3. **H1（23:00 UTC 提前一小时决策、收盘成交）需要项目负责人决定**：它与“信号在收盘生成”的规则冲突，未经确认不运行。符合现行规则的替代方案是缩短数据链路：+1h 成交在 20bps 下为 21.22x（+3h 为 19.56x）。
+
+### 00.5 2026-10-08 冻结规格样本外跟踪（15 天，仍为 provisional）
+
+- **规格冻结**：`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`；没有根据 2026-09-22 之后的结果调参、换币、改成本或改执行规则。
+- **样本外窗口**：2026-09-22 → 2026-10-06，共 15 个日收益。2026-10-07 尚未纳入，因为本地数据还没有确认完整；不会用未完成日生成结论。
+- **执行口径**：信号收盘生成，T+1；实盘成交按收盘后 3 小时，使用 Binance 1 小时 K 线。该窗口实际交易目标为 `NEAR`、`ZEC`，小时 K 线成交权重覆盖率为 **100%**，因此 `day_close` 与 `prior_close` 缺 K 线假设在本窗口结果相同。
+
+| 成本 | +3h 总收益 | Sharpe | 最大回撤 | BTC 同期 |
+|---:|---:|---:|---:|---:|
+| 2bps | **1.0504x** | 2.138 | -10.50% | 0.9879x |
+| 20bps | **1.0486x** | 2.078 | -10.57% | 0.9879x |
+| 50bps | **1.0457x** | 1.978 | -10.67% | 0.9879x |
+| 100bps | **1.0409x** | 1.810 | -10.84% | 0.9879x |
+
+- **解读**：样本外开局为正，并跑赢同期 BTC；但 15 天远远不足以通过 DSR、PBO、参数邻域和多年份稳健性门槛。冠军仍然是 **provisional**，这段结果不能用来解除任何门槛，也不能反过来成为调参依据。
+- **最新信号（截至 2026-10-06）**：BTC 100D 闸门开启；12 个 sleeve 的聚合目标为 `NEAR 68.37%`，生产引擎当前漂移仓位为 `NEAR 69.51%`；最近一次目标日期为 2026-10-03，因此当前 `trade_required=false`。
+- **复现**：`.venv/bin/python scripts/run_phase_momentum_oos.py --output-dir reports/phase_momentum_oos_2026`。报告在 `reports/phase_momentum_oos_2026/`，不包含任何参数搜索。
 
 ---
 
@@ -60,54 +130,64 @@
 | 检验 | 结果 | 判定 |
 |---|---:|---|
 | 参数邻域（25 个固定变体 @20bps） | 除“去掉 BTC 闸门”为 2.88x 外，其余约 9.5x–30.0x；主策略 23.09x | 通过；BTC 闸门是必要风险开关 |
-| 固定主策略 Deflated Sharpe | 0.9945 | 通过（>0.95） |
-| 固定主策略 White Reality Check | p=0.0150 | 通过（<0.05） |
+| ~~固定主策略 Deflated Sharpe~~ | ~~0.9945~~ | **作废**：只按 32 个候选计算；按真实试验数为 0.735，失败（见 §00） |
+| ~~固定主策略 White Reality Check~~ | ~~p=0.0150~~ | **作废**：只对主策略单独做；家族内对零 p=0.019、对 BTC p=0.025（见 §00） |
 | 动态 walk-forward（365D 训练/90D 测试，2023 起，含 40bps 切换成本） | 20.78x，Sharpe 1.621 | 通过（>20x） |
-| 固定主策略 2023 起 OOS | 29.91x，Sharpe 1.734 | 通过 |
-| 固定主策略 CSCV（12 块、924 折） | OOS 排名中位数 0.781；低于中位数比例 7.47% | 通过 |
+| 固定主策略 2023 起（~~OOS~~ 样本内） | 29.91x，Sharpe 1.734 | **重标**：参数用全样本挑选，不是样本外（见 §00） |
+| ~~固定主策略 CSCV（12 块、924 折）~~ | ~~低于中位数比例 7.47%~~ | **不计为证据**：训练/测试分布构造上相同，只是样本内诊断（见 §00） |
 | 参数等权集成 CSCV | OOS 排名中位数 0.438；低于中位数比例 85.71% | 拒绝作为冠军 |
 | 去掉最佳年份 2023 | 主策略 4.83x、Sharpe 1.112；BTC 同期 0.73x | 通过；收益不依赖单一年份 |
 | 去掉任意一条信号 @20bps | 20.58x–27.58x | 通过；不依赖单一信号 |
 | 去掉任意一个相位 @20bps | 21.26x–23.91x | 通过；不依赖单一相位 |
-| 市场状态拆分（bull / non-bull）@20bps | bull 51.83x vs BTC 13.65x；non-bull 0.445x vs BTC 0.137x | 已完成；非 bull 仍为负收益，作为残余风险披露 |
+| 市场状态拆分（bull / non-bull）@20bps | ~~bull 51.83x vs BTC 13.65x；non-bull 0.445x vs BTC 0.137x~~ | **作废**（同日标签前视）；前一日标签：bull 25.37x vs BTC 3.27x，non-bull 0.91x vs BTC 0.57x（见 §00） |
 | 参数等权集成 leave-one-parameter-out @20bps | 15.11x–16.93x | 集成低于 20x，仅保留为风险分散参考，不替代固定主策略 |
 | 2020-10-03 → 2021-12-31 压力 | 20bps 4.55x，Sharpe 2.394，最大回撤 -18.9% | 通过 |
 | 逐条选币审计 | 10,308 条选币记录，0 条不在当天 Top20、0 条无价格、0 条 Rain/稳定币；所有快照恰好 20 个币 | 通过 |
-| 事后挑最佳参数 PBO | 0.6288 | 失败；因此禁止动态挑选全样本最佳参数，使用固定主策略 |
+| 事后挑最佳参数 PBO | ~~0.6288~~ 0.526（修正后） | 失败；因此禁止动态挑选全样本最佳参数，使用固定主策略 |
 
 解释：
 
-- PBO 0.63 否定的不是固定主策略，而是“在 32 个候选里事后选全样本最佳参数”这一过程；固定主策略的 CSCV OOS 排名稳定性为 7.47% 低于中位数，反而是通过的。
+- ~~PBO 0.63 否定的不是固定主策略……固定主策略的 CSCV OOS 排名稳定性为 7.47% 低于中位数，反而是通过的。~~ **作废（2026-09-25）**：固定主策略 CSCV 在构造上无法提供样本外证据；PBO 修正后为 0.526，仍失败（见 §00）。
 - 参数等权集成 2bps 为 20.06x，但 20bps 只有 15.97x，且 CSCV 不稳定，因此只保留为风险分散参考，不替代主策略。
-- 止损、移动止损和币自身均线过滤都跑过：固定 20% 止损 20bps 为 24.54x 但回撤略差；移动 20% 止损为 22.00x、回撤 -43.32%；币自身 50D/100D/150D/200D 趋势过滤仅 17.57x/14.71x/10.68x/10.57x。没有一种 overlay 在收益、Sharpe、回撤三项上支配主策略，因此主策略暂不加这些 overlay。
-- 市场状态拆分显示主策略在 bull 阶段取得 51.83x，而 BTC 为 13.65x；在 non-bull 阶段主策略为 0.445x，BTC 为 0.137x。主策略在两种状态下都显著优于 BTC，但 non-bull 阶段仍是负收益，不能把整体 23.09x 理解成全天候绝对收益。
-- 这已经是可上实盘测试的研究冠军，但“研究冠军”不等于“已实盘验收”：容量、真实滑点、交易所退市、数据延迟和监控仍需在实盘小资金阶段继续验证。
+- 止损、移动止损和币自身均线过滤都跑过：固定 20% 止损 20bps 为 24.54x 但回撤略差；移动 20% 止损为 22.00x、回撤 -43.32%；币自身 50D/100D/150D/200D 趋势过滤 ~~仅 17.57x/14.71x/10.68x/10.57x~~（列查找 bug，作废）修正后为 24.39x/16.70x/17.03x/11.13x；trend_50 在三项上都优于主策略，但这是修复后事后看到的，不能据此升级规格（见 §00）。
+- 市场状态拆分（修正后，前一日状态标签）：bull 阶段主策略 25.37x、BTC 3.27x；non-bull 阶段主策略 0.91x、BTC 0.57x。两种状态下都优于 BTC，但 non-bull 阶段仍是小幅负收益，不能把整体 23.09x 理解成全天候绝对收益。
+- ~~这已经是可上实盘测试的研究冠军~~ **（2026-09-25 修正）**：多重检验和参数窄峰两道门槛未通过，冠军只能保持 provisional，按 §00.4 冻结规格做样本外记录；容量、真实滑点、交易所退市、数据延迟和监控仍需验证。
 
 ### 0.3 复现实验
 
+按依赖顺序（默认参数即权威口径，样本 2022-01-01 → 2026-09-21；2026-09-25 全部重跑过）：
+
 ```bash
-.venv/bin/python scripts/run_phase_momentum.py   --output-dir reports/phase_momentum_2022
+# 1) 主报告、候选矩阵、成交时点（Binance/Gate 小时 K 线见 scripts/download_hourly_prices.py）
+.venv/bin/python scripts/run_phase_momentum.py
+.venv/bin/python scripts/run_phase_momentum_candidates.py
+.venv/bin/python scripts/run_phase_momentum_execution_lag.py --lags 0,1,2 --fill-hours 1,3,6,12 --cost-bps 2,20,50,100
 
-.venv/bin/python scripts/run_phase_momentum_walk_forward.py   --output-dir reports/phase_momentum_walk_forward_2022
+# 2) 试验盘点（多重检验的试验数来源）
+.venv/bin/python scripts/build_trial_inventory.py
 
-.venv/bin/python scripts/run_phase_momentum_multiple_testing.py   --candidate-returns reports/phase_momentum_multiple_testing_2022/candidate_returns.csv   --output-dir reports/phase_momentum_multiple_testing_2022
+# 3) 读取候选矩阵的验证
+.venv/bin/python scripts/run_phase_momentum_multiple_testing.py
+.venv/bin/python scripts/run_phase_momentum_walk_forward.py
+.venv/bin/python scripts/run_phase_momentum_fixed_cscv.py
+.venv/bin/python scripts/run_phase_momentum_regime_breakdown.py
+.venv/bin/python scripts/run_phase_momentum_robustness.py
+.venv/bin/python scripts/run_phase_momentum_parameter_ensemble.py
 
-.venv/bin/python scripts/run_phase_momentum_leave_one_out.py   --output-dir reports/phase_momentum_leave_one_out_2022
+# 4) 其余独立研究与审计
+.venv/bin/python scripts/run_phase_momentum_leave_one_out.py
+.venv/bin/python scripts/run_phase_momentum_parameter_leave_one_out.py
+.venv/bin/python scripts/audit_phase_momentum_selections.py
 
-.venv/bin/python scripts/run_phase_momentum_parameter_leave_one_out.py   --output-dir reports/phase_momentum_parameter_leave_one_out_2022
-
-.venv/bin/python scripts/run_phase_momentum_fixed_cscv.py   --output-dir reports/phase_momentum_fixed_cscv_2022
-
-.venv/bin/python scripts/run_phase_momentum_regime_breakdown.py   --output-dir reports/phase_momentum_regime_2022
-
-.venv/bin/python scripts/run_phase_momentum_live_signal.py   --output-dir reports/phase_momentum_live
-
-.venv/bin/python scripts/audit_phase_momentum_selections.py   --output-dir reports/phase_momentum_selection_audit_2022
+# 5) 实盘信号（最新已完成的 UTC 日；拒绝过期或未收完的最后一天，见 --max-staleness-days / --allow-partial-day）
+.venv/bin/python scripts/run_phase_momentum_live_signal.py
 ```
 
 权威报告：
 
-- `reports/phase_momentum_2022/`
+- `reports/phase_momentum_2022/`（含 `gap_carries.csv`：缺口 carry 记录）
+- `reports/phase_momentum_execution_lag_2022/`（`fill_timing.csv`：收盘后 1/3/6/12 小时成交）
+- `reports/research_trial_inventory/`（全项目试验盘点与预先登记台账）
 - `reports/phase_momentum_walk_forward_2022/`
 - `reports/phase_momentum_multiple_testing_2022/`
 - `reports/phase_momentum_fixed_cscv_2022/`

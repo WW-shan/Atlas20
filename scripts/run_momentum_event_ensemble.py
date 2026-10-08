@@ -25,6 +25,7 @@ that a high full-sample return is not mistaken for a robust live strategy.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 import json
 from pathlib import Path
 import sys
@@ -73,7 +74,6 @@ PRIMARY_SPEC = DailyEventSpec(
     hold_rank=2,
     switch_score_gap=0.10,
     confirm_days=1,
-    exit_on_universe_drop=True,
 )
 SENSITIVITY_SPECS: dict[str, DailyEventSpec] = {
     "primary_mh5_hr2_g10_c1": PRIMARY_SPEC,
@@ -82,21 +82,18 @@ SENSITIVITY_SPECS: dict[str, DailyEventSpec] = {
         hold_rank=2,
         switch_score_gap=0.05,
         confirm_days=1,
-        exit_on_universe_drop=True,
     ),
     "wide_band_mh5_hr3_g05_c1": DailyEventSpec(
         min_hold_days=5,
         hold_rank=3,
         switch_score_gap=0.05,
         confirm_days=1,
-        exit_on_universe_drop=True,
     ),
     "slow_mh10_hr2_g10_c1": DailyEventSpec(
         min_hold_days=10,
         hold_rank=2,
         switch_score_gap=0.10,
         confirm_days=1,
-        exit_on_universe_drop=True,
     ),
 }
 
@@ -167,6 +164,26 @@ def _target_assets_from_scores(
             continue
         positive = target[target > 0.0]
         assets.loc[date] = str(positive.idxmax()) if not positive.empty else "__cash__"
+    # Every sleeve target must be scored in that day's point-in-time Top20.
+    # DailyEventSpec once let the incumbent outlive its Top20 membership until
+    # min_hold passed (and this runner reported that as a "non-strict"
+    # diagnostic); check the path so such a regression fails loudly here.
+    outside = [
+        f"{asset} on {pd.Timestamp(date).date()}"
+        for date, asset in assets.items()
+        if not pd.isna(asset)
+        and asset != "__cash__"
+        and not (
+            date in score_panel.index
+            and asset in score_panel.columns
+            and np.isfinite(score_panel.at[date, asset])
+        )
+    ]
+    if outside:
+        raise ValueError(
+            f"{len(outside)} event target(s) outside the day's point-in-time Top20: "
+            + ", ".join(outside[:5])
+        )
     return assets
 
 
@@ -325,6 +342,39 @@ def _build_sleeve_returns(
     return results
 
 
+def _buy_and_hold_returns(
+    sleeve_returns: pd.DataFrame,
+    weights: Sequence[float] | None = None,
+) -> pd.Series:
+    """Daily returns of a book that splits its capital across sleeves once.
+
+    Convention for every combined book in this runner: on the first row each
+    sleeve receives ``weights`` (equal by default) of the initial capital and
+    is then held without re-equalising, so the book's equity is the weighted
+    sum of the sleeve equity curves. The old convention, the mean of the
+    sleeves' daily returns, rebalanced the sleeves back to equal weight every
+    day without charging for it (about 1.7x a year of sleeve turnover).  A
+    missing sleeve return is refused rather than averaged around.
+    """
+    if sleeve_returns.empty or sleeve_returns.shape[1] == 0:
+        raise ValueError("At least one sleeve with at least one return is required")
+    if sleeve_returns.isna().to_numpy().any():
+        missing = [str(column) for column in sleeve_returns.columns[sleeve_returns.isna().any()]]
+        raise ValueError(f"Sleeve returns are missing for {', '.join(missing)}")
+    if weights is None:
+        allocation = np.full(sleeve_returns.shape[1], 1.0 / sleeve_returns.shape[1])
+    else:
+        allocation = np.asarray(weights, dtype=float)
+        if allocation.shape != (sleeve_returns.shape[1],):
+            raise ValueError("weights must have one entry per sleeve")
+        if (allocation < 0.0).any() or not allocation.sum() > 0.0:
+            raise ValueError("weights must be non-negative with a positive sum")
+        allocation = allocation / allocation.sum()
+    equity = (1.0 + sleeve_returns.astype(float)).cumprod().to_numpy() @ allocation
+    book = pd.Series(equity, index=sleeve_returns.index)
+    return book / book.shift(1).fillna(1.0) - 1.0
+
+
 def _ensemble_returns(
     sleeve_results: dict[str, SingleAssetWeightBacktestResult],
     *,
@@ -332,13 +382,21 @@ def _ensemble_returns(
     families: tuple[str, ...] = MOMENTUM_FAMILIES,
     target_vols: tuple[float, ...] = (0.7, 0.8),
     cost_bps: float,
+    start: pd.Timestamp | str | None = None,
+    end: pd.Timestamp | str | None = None,
 ) -> pd.Series:
+    """Equal initial capital in every family/target-vol sleeve, then held.
+
+    The book is funded on ``start`` (the first sleeve date by default), so each
+    evaluation window is its own buy-and-hold book; see
+    :func:`_buy_and_hold_returns`.
+    """
     columns = []
     for family in families:
         for target_vol in target_vols:
             key = f"{spec_name}|{family}|tv{target_vol:.1f}"
-            columns.append(_net_returns(sleeve_results[key], cost_bps))
-    return pd.concat(columns, axis=1).mean(axis=1)
+            columns.append(_net_returns(sleeve_results[key], cost_bps).rename(key))
+    return _buy_and_hold_returns(pd.concat(columns, axis=1).loc[start:end])
 
 
 def _write_report(
@@ -362,11 +420,15 @@ def _write_report(
         "- Daily point-in-time Top20 universe; no Top50/Top100 expansion.",
         "- Three momentum-like CTREND-lite score families: balanced, relative strength, breakout.",
         "- Daily event rule: min hold 5 days, hold-rank band 2, 10% score gap, 1-day confirmation.",
-        "- The incumbent is exited immediately if it leaves the current Top20.",
+        "- The incumbent is exited immediately if it leaves the current Top20; there is no",
+        "  opt-out, and every sleeve target is checked against that day's scored Top20.",
         "- BTC 100-day moving-average gate with 2-day confirmation.",
         "- 60-day realized-volatility target; primary sleeves use 70% and 80% target volatility.",
         "- Gross exposure is capped at 1.0; no shorting and no leverage.",
         "- Signals are generated at close and executed T+1.",
+        "- Each sleeve gets an equal share of the initial capital and is then held without",
+        "  re-equalising (no free daily rebalancing between sleeves). Every period below is",
+        "  its own book, funded on the period's first day.",
         "",
         "## Primary summary",
         "",
@@ -376,7 +438,12 @@ def _write_report(
         "",
         dataframe_to_markdown(spec_sensitivity.sort_values(["cost_bps", "post_2024_multiple"], ascending=[True, False])),
         "",
-        "## Strict Top20 membership sensitivity",
+        "## Top20 membership",
+        "",
+        "Strict Top20 exit is the only rule. The earlier non-strict diagnostic held coins after",
+        "they had left the point-in-time Top20, which breaks the universe constraint, so it is",
+        "no longer run. The table repeats the strict primary so that",
+        "membership_sensitivity.csv keeps its columns.",
         "",
         dataframe_to_markdown(membership_sensitivity.sort_values(["cost_bps", "post_2024_multiple"], ascending=[True, False])),
         "",
@@ -458,25 +525,32 @@ def main() -> None:
     )
 
     output_dir = ensure_dir(args.output_dir)
+    primary_name = "primary_mh5_hr2_g10_c1"
+    start = pd.Timestamp(args.start_date)
+    periods = (
+        ("full_2022_plus", start),
+        ("post_2023", pd.Timestamp("2023-01-01")),
+        ("post_2024", pd.Timestamp("2024-01-01")),
+    )
     summary_rows: list[dict[str, object]] = []
     primary_returns: dict[float, pd.Series] = {}
     for cost_bps in costs:
-        ensemble = _ensemble_returns(
-            sleeve_results,
-            spec_name="primary_mh5_hr2_g10_c1",
-            target_vols=target_vols,
-            cost_bps=cost_bps,
-        )
-        primary_returns[cost_bps] = ensemble
-        for period_name, period_returns in (
-            ("full_2022_plus", ensemble.loc[pd.Timestamp(args.start_date) :]),
-            ("post_2023", ensemble.loc["2023-01-01":]),
-            ("post_2024", ensemble.loc["2024-01-01":]),
-        ):
+        # Each period is its own book, funded on the period's first day; the
+        # sleeves are held from there (see _buy_and_hold_returns).
+        for period_name, period_start in periods:
+            ensemble = _ensemble_returns(
+                sleeve_results,
+                spec_name=primary_name,
+                target_vols=target_vols,
+                cost_bps=cost_bps,
+                start=period_start,
+            )
+            if period_name == "full_2022_plus":
+                primary_returns[cost_bps] = ensemble
             summary_rows.append(
                 _summary_row(
                     "momentum3_event_ensemble",
-                    period_returns,
+                    ensemble,
                     cost_bps=cost_bps,
                     period=period_name,
                 )
@@ -485,91 +559,53 @@ def main() -> None:
     spec_rows: list[dict[str, object]] = []
     for spec_name in SENSITIVITY_SPECS:
         for cost_bps in costs:
-            returns = _ensemble_returns(
-                sleeve_results,
-                spec_name=spec_name,
-                target_vols=target_vols,
-                cost_bps=cost_bps,
-            )
             spec_rows.append(
                 {
                     "spec": spec_name,
                     "cost_bps": cost_bps,
-                    "full_multiple": _metrics_from_returns(
-                        returns.loc[pd.Timestamp(args.start_date) :]
-                    )["multiple"],
-                    "post_2024_multiple": _metrics_from_returns(
-                        returns.loc["2024-01-01":]
-                    )["multiple"],
+                    **{
+                        f"{label}_multiple": _metrics_from_returns(
+                            _ensemble_returns(
+                                sleeve_results,
+                                spec_name=spec_name,
+                                target_vols=target_vols,
+                                cost_bps=cost_bps,
+                                start=period_start,
+                            )
+                        )["multiple"]
+                        for label, period_start in (
+                            ("full", start),
+                            ("post_2024", pd.Timestamp("2024-01-01")),
+                        )
+                    },
                 }
             )
     spec_sensitivity = pd.DataFrame(spec_rows)
 
-    # Rebuild only the primary spec with and without strict membership exit.
-    membership_rows: list[dict[str, object]] = []
-    risk_on = btc_above_moving_average(
-        market.price,
-        ma_window=100,
-        confirm_days=2,
-    ).reindex(index).fillna(True)
-    for strict in (True, False):
-        spec = DailyEventSpec(
-            min_hold_days=5,
-            hold_rank=2,
-            switch_score_gap=0.10,
-            confirm_days=1,
-            exit_on_universe_drop=strict,
-        )
-        results: dict[str, SingleAssetWeightBacktestResult] = {}
-        for family, score_panel in score_panels.items():
-            target_assets = _target_assets_from_scores(
-                market,
-                score_panel,
-                config,
-                spec,
-                index,
-            )
-            for target_vol in target_vols:
-                results[f"{family}|tv{target_vol:.1f}"] = _simulate_sleeve(
-                    market,
-                    target_assets,
-                    risk_on,
-                    target_volatility=target_vol,
-                    vol_window=args.vol_window,
-                )
-        for cost_bps in costs:
-            columns = [
-                _net_returns(results[f"{family}|tv{target_vol:.1f}"], cost_bps)
-                for family in MOMENTUM_FAMILIES
-                for target_vol in target_vols
-            ]
-            returns = pd.concat(columns, axis=1).mean(axis=1)
-            membership_rows.append(
-                {
-                    "strict_top20_exit": strict,
-                    "cost_bps": cost_bps,
-                    "full_multiple": _metrics_from_returns(
-                        returns.loc[pd.Timestamp(args.start_date) :]
-                    )["multiple"],
-                    "post_2024_multiple": _metrics_from_returns(
-                        returns.loc["2024-01-01":]
-                    )["multiple"],
-                }
-            )
-    membership_sensitivity = pd.DataFrame(membership_rows)
+    # Strict Top20 exit is the only rule. The non-strict "diagnostic" that used
+    # to be rebuilt here held coins after they left the Top20 (41.52x/28.43x
+    # at 2/20 bps), a universe violation rather than a sensitivity, and
+    # DailyEventSpec no longer has the switch. The table keeps its schema for
+    # readers of membership_sensitivity.csv.
+    membership_sensitivity = (
+        spec_sensitivity[spec_sensitivity["spec"] == primary_name]
+        .drop(columns="spec")
+        .assign(strict_top20_exit=True)
+        [["strict_top20_exit", "cost_bps", "full_multiple", "post_2024_multiple"]]
+        .reset_index(drop=True)
+    )
 
     # Pre-2022 stress check: the same fixed rule, no parameter re-selection.
     stress_rows: list[dict[str, object]] = []
-    stress_config = config.model_copy(deep=True)
-    stress_config.start_date = args.stress_start
-    stress_config.end_date = args.stress_end
     for cost_bps in costs:
         ensemble = _ensemble_returns(
             sleeve_results,
-            spec_name="primary_mh5_hr2_g10_c1",
+            spec_name=primary_name,
             target_vols=target_vols,
             cost_bps=cost_bps,
-        ).loc[pd.Timestamp(args.stress_start) : pd.Timestamp(args.stress_end)]
+            start=pd.Timestamp(args.stress_start),
+            end=pd.Timestamp(args.stress_end),
+        )
         stress_rows.append(
             _summary_row(
                 "momentum3_event_ensemble",
@@ -582,7 +618,7 @@ def main() -> None:
 
     yearly = pd.DataFrame(
         {
-            f"{cost_bps:g}bps": _yearly_returns(primary_returns[cost_bps].loc[pd.Timestamp(args.start_date) :])
+            f"{cost_bps:g}bps": _yearly_returns(primary_returns[cost_bps])
             for cost_bps in costs
         }
     )
@@ -612,8 +648,12 @@ def main() -> None:
             "hold_rank": PRIMARY_SPEC.hold_rank,
             "switch_score_gap": PRIMARY_SPEC.switch_score_gap,
             "confirm_days": PRIMARY_SPEC.confirm_days,
-            "exit_on_universe_drop": PRIMARY_SPEC.exit_on_universe_drop,
+            "top20_exit": "always: an incumbent absent from the day's Top20 snapshot is exited, min hold notwithstanding",
         },
+        "combination": (
+            "equal initial capital per sleeve, held without re-equalising; each period "
+            "(and returns_*.csv, from start) is its own book funded on its first day"
+        ),
         "target_vols": list(target_vols),
         "vol_window": args.vol_window,
         "cost_bps": list(costs),

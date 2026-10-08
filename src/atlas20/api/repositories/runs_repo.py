@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+from collections.abc import Sequence
 from datetime import date, datetime, time, timezone
 from typing import Any
 
@@ -20,6 +21,10 @@ logger = structlog.get_logger(__name__)
 
 RUN_FAMILY_CHIPS = {"ATLAS", "Momentum", "MeanRev", "Carry", "Other"}
 RUN_STATUS_CHIPS = {"queued", "running", "completed", "failed", "cancelled"}
+# Only these may move to a terminal status; a finished run never changes again.
+ACTIVE_RUN_STATUSES = ("queued", "running")
+# Data-refresh jobs share the runs table but produce no backtest output.
+UNIVERSE_REFRESH_STRATEGY = "universe_refresh"
 
 
 def terminal_duration_seconds(run: Run) -> float | None:
@@ -94,7 +99,8 @@ class RunsRepo:
         return self._s.exec(stmt).first()
 
     def find_latest_completed_by_strategy(self, strategy: str | None) -> Run | None:
-        stmt = select(Run).where(Run.status == "completed")
+        """Latest completed backtest; data-refresh jobs have no output to report on."""
+        stmt = select(Run).where(Run.status == "completed", Run.strategy != UNIVERSE_REFRESH_STRATEGY)
         if strategy:
             stmt = stmt.where(Run.strategy == strategy)
         stmt = stmt.order_by(col(Run.created_at).desc(), col(Run.run_id).desc()).limit(1)
@@ -164,8 +170,19 @@ class RunsRepo:
         eta_s: int | None = None,
         worker_pid: int | None = None,
         heartbeat_at: datetime | None = None,
+        from_statuses: tuple[str, ...] = ACTIVE_RUN_STATUSES,
+        where: Sequence[ColumnElement[bool]] = (),
     ) -> Run | None:
-        current = self.get(run_id)
+        """Move an active run to a terminal status.
+
+        The write is conditional: it only applies while the run is still in
+        ``from_statuses`` and every extra ``where`` clause holds. Returns the
+        updated run, or None when the run is missing or already finished (a
+        late result, timeout or recovery must never rewrite a final status).
+        """
+        current = self._s.exec(
+            select(Run).where(Run.run_id == run_id).execution_options(populate_existing=True)
+        ).first()
         previous_status = current.status if current is not None else None
         if status == "completed" and duration_s is None:
             raise ValueError("duration_s is required for completed runs")
@@ -195,7 +212,7 @@ class RunsRepo:
 
         result = self._s.exec(
             sa_update(Run)
-            .where(col(Run.run_id) == run_id)
+            .where(col(Run.run_id) == run_id, col(Run.status).in_(from_statuses), *where)
             .values(**fields)
             .execution_options(synchronize_session=False)
         )
@@ -206,6 +223,16 @@ class RunsRepo:
         updated = self.get(run_id)
         _record_terminal_transition(previous_status, updated)
         return updated
+
+    def mark_cancelled(self, run_id: str, *, error: str) -> Run | None:
+        """Cancel an active run; returns None if it already finished."""
+        return self.update_metrics_from_completion(
+            run_id,
+            status="cancelled",
+            error=error,
+            heartbeat_at=None,
+            worker_pid=None,
+        )
 
     def request_cancel(self, run_id: str) -> Run | None:
         self._s.exec(
@@ -276,17 +303,20 @@ class RunsRepo:
                     func.lower(col(Run.strategy_family)).like(pattern),
                 )
             )
-        for chip in chips:
-            if not chip:
-                continue
-            if chip == "favorited":
-                filters.append(col(Run.favorited).is_(True))
-            elif chip in RUN_STATUS_CHIPS:
-                filters.append(col(Run.status) == chip)
-            elif chip in RUN_FAMILY_CHIPS:
-                filters.append(col(Run.strategy_family) == chip)
-            else:
-                filters.append(func.lower(col(Run.strategy)).like(f"%{chip.lower()}%"))
+        # Chips of one kind are alternatives (completed OR failed); different
+        # kinds narrow each other (completed AND ATLAS).
+        selected = [chip for chip in dict.fromkeys(chips) if chip]
+        statuses = [chip for chip in selected if chip in RUN_STATUS_CHIPS]
+        families = [chip for chip in selected if chip in RUN_FAMILY_CHIPS]
+        strategy_terms = [chip for chip in selected if chip not in RUN_STATUS_CHIPS | RUN_FAMILY_CHIPS | {"favorited"}]
+        if "favorited" in selected:
+            filters.append(col(Run.favorited).is_(True))
+        if statuses:
+            filters.append(col(Run.status).in_(statuses))
+        if families:
+            filters.append(col(Run.strategy_family).in_(families))
+        if strategy_terms:
+            filters.append(or_(*(func.lower(col(Run.strategy)).like(f"%{term.lower()}%") for term in strategy_terms)))
         if date_cutoff is not None:
             cutoff = datetime.combine(date_cutoff, time.min, tzinfo=timezone.utc)
             filters.append(col(Run.created_at) >= cutoff)

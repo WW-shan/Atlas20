@@ -22,7 +22,7 @@ The MVP `/metrics` endpoint is unauthenticated, matching the current GET-route e
 
 | Metric | Process | Notes |
 | --- | --- | --- |
-| `http_requests_total{method,handler,status}` | API | HTTP instrumentation via `prometheus-fastapi-instrumentator`. Default metric name (no namespace configured); `status` is grouped (`should_group_status_codes=True`) so the label is `"2xx" / "3xx" / "4xx" / "5xx"`, not the raw code. |
+| `http_requests_total{method,handler,status}` | API | HTTP instrumentation via `prometheus-fastapi-instrumentator`. Default metric name (no namespace configured); `status` is grouped (`should_group_status_codes=True`) so the label is `"2xx" / "3xx" / "4xx" / "5xx"`, not the raw code. `handler` is the matched route template; requests that match no route share `handler="unmatched"` so arbitrary paths cannot create new series. |
 | `atlas20_rate_limit_hits_total{route}` | API | slowapi handler |
 | `atlas20_report_generations_total{format,status}` | API | `completed`/`failed` incremented inside `services_report.generate_run_report_with_warnings` (invoked from POST `/api/reports/generate` and the weekly digest scheduler); `skipped` incremented in the POST `/api/reports/generate` handler itself. |
 | `atlas20_backtests_total{status}` | Worker (main path) + API (lifespan recovery only) | Incremented per terminal transition. The API process emits this only during lifespan startup when `recover_stale_runs` reclassifies orphaned runs as failed; the dominant emitter is the worker subprocess via multiproc aggregation. |

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
@@ -13,11 +14,13 @@ import { DataSourceTile } from "../../components/universe/DataSourceTile";
 import { DataAlertRow } from "../../components/universe/DataAlertRow";
 
 import {
+  describeApiError,
   fallbackDataAlerts,
   fallbackDataSources,
   fallbackUniverseTimeline,
   getDataAlerts,
   getDataSources,
+  getUniverseRefreshStatus,
   getUniverseTimeline,
   refreshUniverse,
 } from "../../lib/api";
@@ -26,6 +29,8 @@ import { qk } from "../../lib/qk";
 type Props = {
   apiEnabled?: boolean;
 };
+
+const REFRESH_POLL_MS = 3000;
 
 export function UniverseHealthTab({ apiEnabled: apiEnabledOverride }: Props = {}) {
   const apiEnabled = apiEnabledOverride ?? import.meta.env.MODE !== "test";
@@ -52,12 +57,26 @@ export function UniverseHealthTab({ apiEnabled: apiEnabledOverride }: Props = {}
     enabled: apiEnabled,
   });
 
+  // POST /universe/refresh only queues a job (202). Invalidating right away
+  // refetched the old data, so follow the job and reload once it completes.
+  const [refreshRunId, setRefreshRunId] = useState<string | undefined>(undefined);
   const refresh = useMutation({
     mutationFn: refreshUniverse,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.universe.all() });
+    onSuccess: (result) => setRefreshRunId(result.run_id),
+  });
+  const refreshStatus = useQuery({
+    queryKey: qk.universeRefresh(refreshRunId ?? "__none__"),
+    queryFn: getUniverseRefreshStatus,
+    enabled: apiEnabled && !!refreshRunId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "queued" || status === "running" ? REFRESH_POLL_MS : false;
     },
   });
+  const refreshState = refreshStatus.data?.status;
+  useEffect(() => {
+    if (refreshState === "completed") void queryClient.invalidateQueries({ queryKey: qk.universe.all() });
+  }, [refreshState, queryClient]);
 
   const tData = timeline.data ?? fallbackUniverseTimeline;
   const sData = sources.data ?? fallbackDataSources;
@@ -100,6 +119,26 @@ export function UniverseHealthTab({ apiEnabled: apiEnabledOverride }: Props = {}
         >
           UNIVERSE COMPOSITION · LAST 180 DAYS
         </SectionHeader>
+        {refresh.isError && (
+          <div style={{ marginBottom: 12 }}>
+            <ErrorBanner message={describeApiError(refresh.error, "Unable to refresh universe data")} />
+          </div>
+        )}
+        {refreshRunId && (refreshState === "queued" || refreshState === "running") && (
+          <p role="status" className="muted" style={{ margin: "0 0 12px", fontSize: 12 }}>
+            Refresh {refreshRunId} {refreshState} — data reloads when it completes.
+          </p>
+        )}
+        {refreshRunId && refreshState === "completed" && (
+          <p role="status" className="muted" style={{ margin: "0 0 12px", fontSize: 12 }}>
+            Universe data refreshed ({refreshRunId})
+          </p>
+        )}
+        {refreshRunId && (refreshState === "failed" || refreshState === "cancelled") && (
+          <div style={{ marginBottom: 12 }}>
+            <ErrorBanner message={`Universe refresh ${refreshRunId} ${refreshState}.`} />
+          </div>
+        )}
         <UniverseTimeline data={tData} />
         <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 11, color: "var(--muted)" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from atlas20.api.config_adapter import to_research_config
+from atlas20.api.config_adapter import known_presets, to_research_config, validate_preset
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.settings import Settings
 from atlas20.config import ResearchConfig
@@ -175,3 +175,85 @@ def test_to_research_config_wraps_yaml_parse_errors(tmp_path: Path):
 
     with pytest.raises(ValueError, match="failed to parse config YAML"):
         to_research_config(api_config, api_config.preset, settings(tmp_path))
+
+
+@pytest.mark.parametrize("preset", ["does not exist", "ATLAS Adaptive v3", "five_year_2020_2024", "sectors"])
+def test_validate_preset_rejects_unknown_preset(preset: str):
+    with pytest.raises(ValueError, match="unknown preset"):
+        validate_preset(preset, settings())
+
+
+@pytest.mark.parametrize("preset", ["universe_refresh", "Universe Refresh"])
+def test_validate_preset_rejects_reserved_presets(preset: str):
+    with pytest.raises(ValueError, match="reserved for internal runs"):
+        validate_preset(preset, settings())
+
+
+@pytest.mark.parametrize("preset", ["base", "Base", "BTC_BH__always_on", "TOP20_MOM_top6_biweekly__always_on"])
+def test_validate_preset_accepts_config_and_strategy_presets(preset: str):
+    validate_preset(preset, settings())
+
+
+def test_to_research_config_logs_when_stored_preset_is_unknown(caplog):
+    # Runs stored before submission-time validation still resolve to base.yaml,
+    # but no longer silently.
+    api_config = valid_config(preset="does not exist")
+
+    with caplog.at_level("WARNING", logger="atlas20.api.config_adapter"):
+        to_research_config(api_config, api_config.preset, settings())
+
+    assert any("not a known preset" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.parametrize("preset", ["universe_refresh", "Universe Refresh", "universe-refresh"])
+def test_to_research_config_rejects_reserved_internal_presets(preset: str):
+    api_config = valid_config(preset=preset)
+
+    with pytest.raises(ValueError, match="reserved for internal runs"):
+        to_research_config(api_config, api_config.preset, settings())
+
+
+def test_reserved_preset_is_rejected_even_with_matching_yaml(tmp_path: Path):
+    import shutil
+
+    (tmp_path / "config").mkdir()
+    shutil.copy(PROJECT_ROOT / "config" / "base.yaml", tmp_path / "config" / "base.yaml")
+    shutil.copy(PROJECT_ROOT / "config" / "base.yaml", tmp_path / "config" / "universe_refresh.yaml")
+    api_config = valid_config(preset="universe_refresh")
+
+    with pytest.raises(ValueError, match="reserved for internal runs"):
+        to_research_config(api_config, api_config.preset, settings(tmp_path))
+
+
+def test_to_research_config_rejects_shared_non_preset_config():
+    api_config = valid_config(preset="sectors")
+
+    with pytest.raises(ValueError, match="unknown preset"):
+        to_research_config(api_config, api_config.preset, settings())
+
+
+@pytest.mark.parametrize(
+    ("preset", "rebalance"),
+    [
+        ("BTC_BH__always_on", "Monthly"),
+        ("TOP20_MOM_top6_biweekly__always_on", "Weekly"),
+        ("TOP20_SECTOR_top3_weekly__bull_only", "Biweekly"),
+    ],
+)
+def test_to_research_config_accepts_base_strategy_names_as_presets(preset: str, rebalance: str):
+    # /api/options advertises strategy names from report summaries as presets;
+    # they resolve to base.yaml independent of the cadence being run.
+    api_config = valid_config(preset=preset, window={"rebalance": rebalance})
+
+    config = to_research_config(api_config, api_config.preset, settings())
+
+    assert config.project_name == "Atlas20 Rotation"
+
+
+def test_known_presets_lists_config_presets_and_base_strategy_names():
+    presets = known_presets(settings())
+
+    assert "base" in presets
+    assert "TOP20_MOM_top6_biweekly__always_on" in presets
+    assert "sectors" not in presets
+    assert "universe_refresh" not in presets

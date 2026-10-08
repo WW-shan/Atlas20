@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-09-25 full audit (details: `RESEARCH.md` section 00)
+
+Every defect below was reproduced with a failing test before it was fixed.
+
+#### Research-changing
+
+- **Execution timing.** The engine can fill part-way into the next day
+  (`pre_fill_returns`, `atlas20.backtest.intraday`), using Binance and Gate.io
+  1-hour candles (`scripts/download_hourly_prices.py`). A fill 3 hours after
+  the close takes the champion from 23.09x to 19.56x at 20bps (24.42x at the
+  2bps baseline).
+- **Multiple testing against the real trial count.** A reproducible
+  inventory (`scripts/build_trial_inventory.py`, `reports/research_trial_inventory/`)
+  counts 14,120 configurations (6,126 on Top20 since 2022). The champion's
+  Deflated Sharpe is 0.735, not 0.9945. PBO uses the paper's logit rule and
+  drops identical candidates. The fixed-strategy CSCV is labelled an
+  in-sample diagnostic, and the Reality Check adds a BTC benchmark.
+- **Strategy and validation code.** Asset-trend filters looked up a column
+  instead of a row. `selected_rank` recorded column order. Missing
+  volatility or BTC-gate data now fails closed. The parameter ensemble
+  weights parameter sets equally. Monthly-start slices are rebuilt per start.
+  Regime splits use previous-day labels. The walk-forward pool is pinned, and
+  chained metrics count every day.
+- **Engine and analytics.** Weight caps apply to NAV. Non-finite targets or
+  exposures raise. Leverage is refused (gross exposure <= 1.0). The `carry`
+  missing-return policy reports `gap_carries`. Sortino uses the downside
+  deviation, drawdown starts from the initial capital, and sliced total
+  returns keep their first day. Month-end means a real month end. The
+  single-asset simulator sells ended feeds like the engine.
+- **Universe and data.** A coin with no same-day CMC market cap is not
+  ranked. Volume is carried like price. Gap days have no return instead of a
+  silent 0.0. Every cross-check source votes (one passing source no longer
+  hides another's disagreement). CoinGecko dates shift one day. The CEL alias
+  pointed at Compound. The history buffer covers the longest lookback.
+  Level-corruption drops are reported. Duplicate cache rows are resolved
+  newest-fetch-first. Dates are UTC. The audit checks every rebalance date,
+  fails on long gaps and stale panels, and detects a partial last day.
+- **Legacy research.** Event-driven variants held coins after they left the
+  Top20. Rank-stop variants dropped the BTC gate. TSMOM and the convex screen
+  could run Top50. Screens parked risk-off money in BTC/ETH. Ensembles assumed
+  free daily rebalancing. Affected `RESEARCH.md` numbers are superseded, and
+  the Top50 report directories are marked VOID.
+
+#### Operations, API and console
+
+- Daily refresh runs at 02:30/06:30 UTC (launchd uses local time). The
+  processed-data guard lets configured exclusions leave the panel. The live
+  signal refuses stale or partial last days and reports `trade_required` and
+  the drifted book.
+- API: strong prod secrets and SecretStr; limiter keyed on the verified
+  principal; commits before the response; idempotency tied to the payload;
+  worker stale-run recovery and resilience; terminal statuses can't change;
+  `/readyz` no longer depends on data freshness; API runs never rewrite shared
+  processed data; presets are validated; page bounds are enforced; Compose
+  binds to 127.0.0.1 and requires an API key.
+- Web console: 25 fixes, including surfacing 409/422/429 errors, no demo data
+  shown as real, runs pinned to the Top20 universe, and a submit/poll race.
+
 ### Fixed
 
 - **Recovered Polygon's MATIC era, the largest survivorship hole found so

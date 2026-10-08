@@ -254,6 +254,52 @@ def test_failed_refresh_today_is_reported_immediately(tmp_path):
     assert "provider timeout" in status["reason"]
 
 
+def test_failed_retry_after_todays_success_does_not_fail_the_feed(tmp_path):
+    settings = _settings(tmp_path)
+    _write_cmc_day(tmp_path, "2026-09-20")
+    write_refresh_state(
+        settings,
+        run_id="btk_9021",
+        status="completed",
+        now=datetime(2026, 9, 21, 2, 10, tzinfo=timezone.utc),
+    )
+    write_refresh_state(
+        settings,
+        run_id="btk_9022",
+        status="failed",
+        error="HTTP 429",
+        now=datetime(2026, 9, 21, 15, 0, tzinfo=timezone.utc),
+    )
+
+    status = evaluate_data_freshness(settings, now=datetime(2026, 9, 21, 16, 0, tzinfo=timezone.utc))
+
+    assert status["status"] == "ok"
+    assert "HTTP 429" in status["reason"]
+    assert freshness_alert(settings, now=datetime(2026, 9, 21, 16, 0, tzinfo=timezone.utc)) is None
+
+
+def test_success_after_a_failed_refresh_today_is_ok(tmp_path):
+    settings = _settings(tmp_path)
+    _write_cmc_day(tmp_path, "2026-09-20")
+    write_refresh_state(
+        settings,
+        run_id="btk_9023",
+        status="failed",
+        error="provider timeout",
+        now=datetime(2026, 9, 21, 2, 10, tzinfo=timezone.utc),
+    )
+    write_refresh_state(
+        settings,
+        run_id="btk_9024",
+        status="completed",
+        now=datetime(2026, 9, 21, 6, 10, tzinfo=timezone.utc),
+    )
+
+    status = evaluate_data_freshness(settings, now=datetime(2026, 9, 21, 7, 0, tzinfo=timezone.utc))
+
+    assert status["status"] == "ok"
+
+
 def test_freshness_alert_is_emitted_for_bad_status(tmp_path):
     settings = _settings(tmp_path)
     _write_cmc_day(tmp_path, "2026-09-19")

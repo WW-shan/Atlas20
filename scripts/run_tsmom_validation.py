@@ -5,8 +5,8 @@ hypothesis supported by the momentum literature: a coin must first pass its
 own trailing-return / trend gate, and only then is it eligible for selection or
 regular volatility-scaled portfolio weight.
 
-All runs use point-in-time universes, T+1 execution, and a hard gross-exposure
-cap of 1.0.
+All runs use the point-in-time Top20 universe, T+1 execution, and a hard
+gross-exposure cap of 1.0.
 """
 
 from __future__ import annotations
@@ -50,6 +50,14 @@ from atlas20.universe.builder import (  # noqa: E402
 
 LOGGER = logging.getLogger("atlas20.scripts.tsmom_validation")
 
+# AGENTS.md: "Top 20 only is a non-negotiable project constraint ... Never run
+# or evaluate Top 50 ... even as a diagnostic".  The first version of this grid
+# also looped over a Top50 "sensitivity" universe: 720 of its 1440 candidates
+# ran on Top50 and ranked together with Top20 for the validation slots (19 of
+# the top 20 screen rows were Top50).  That output is VOID; see
+# reports/tsmom_validation_2022/void_legacy_top20_top50_screen/README.md.
+TOP20_UNIVERSE_SIZE = 20
+
 
 @dataclass(frozen=True)
 class TSMOMBaseSpec:
@@ -61,6 +69,13 @@ class TSMOMBaseSpec:
     score_family: str
     weighting: str
     asset_ma_window: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.universe_size != TOP20_UNIVERSE_SIZE:
+            raise ValueError(
+                f"TSMOM candidate {self.base_id!r} uses universe_size={self.universe_size}; "
+                "the project universe is the point-in-time Top20 only"
+            )
 
 
 @dataclass(frozen=True)
@@ -82,45 +97,43 @@ def _candidate_id(base: TSMOMBaseSpec, overlay: TSMOMOverlaySpec) -> str:
 
 
 def _build_base_specs() -> list[TSMOMBaseSpec]:
-    """Build the pre-registered TSMOM grid.
+    """Build the pre-registered TSMOM grid on the point-in-time Top20.
 
     The grid keeps the economically meaningful dimensions and avoids filling
-    it with near-duplicate weighting rules.  The same lookback/frequency grid
-    is run on both the true Top20 and a Top50 sensitivity universe; Top50 is
-    explicitly a sensitivity test, not a replacement for the user's Top20
-    production rule.
+    it with near-duplicate weighting rules.  Candidate IDs keep the historical
+    ``tsmom_u20`` prefix so the reruns line up with the Top20 rows of the
+    legacy screen in the trial inventory.
     """
     specs: list[TSMOMBaseSpec] = []
-    for universe_size in (20, 50):
-        for lookback in (30, 90, 180):
-            for frequency in ("7D", "14D", "28D"):
-                for top_n in (1, 3, None):
-                    weightings = ("equal",) if top_n == 1 else ("equal", "inverse_vol")
-                    for score_family in ("tsmom", "tsmom_vol_adjusted"):
-                        for weighting in weightings:
-                            base_id = "__".join(
-                                [
-                                    f"tsmom_u{universe_size}",
-                                    f"lb{lookback}",
-                                    frequency.lower(),
-                                    f"top{top_n if top_n is not None else 'all'}",
-                                    score_family,
-                                    weighting,
-                                    "ownma_none",
-                                ]
+    for lookback in (30, 90, 180):
+        for frequency in ("7D", "14D", "28D"):
+            for top_n in (1, 3, None):
+                weightings = ("equal",) if top_n == 1 else ("equal", "inverse_vol")
+                for score_family in ("tsmom", "tsmom_vol_adjusted"):
+                    for weighting in weightings:
+                        base_id = "__".join(
+                            [
+                                f"tsmom_u{TOP20_UNIVERSE_SIZE}",
+                                f"lb{lookback}",
+                                frequency.lower(),
+                                f"top{top_n if top_n is not None else 'all'}",
+                                score_family,
+                                weighting,
+                                "ownma_none",
+                            ]
+                        )
+                        specs.append(
+                            TSMOMBaseSpec(
+                                base_id=base_id,
+                                universe_size=TOP20_UNIVERSE_SIZE,
+                                lookback=lookback,
+                                frequency=frequency,
+                                top_n=top_n,
+                                score_family=score_family,
+                                weighting=weighting,
+                                asset_ma_window=None,
                             )
-                            specs.append(
-                                TSMOMBaseSpec(
-                                    base_id=base_id,
-                                    universe_size=universe_size,
-                                    lookback=lookback,
-                                    frequency=frequency,
-                                    top_n=top_n,
-                                    score_family=score_family,
-                                    weighting=weighting,
-                                    asset_ma_window=None,
-                                )
-                            )
+                        )
     return specs
 
 
@@ -145,6 +158,13 @@ def _universe_variants(
     market: MarketDataBundle,
     config: ResearchConfig,
 ) -> tuple[dict[int, pd.DataFrame], list[pd.Timestamp]]:
+    # Fail closed before any universe is built: a config (or a future edit)
+    # that asks for another size must not quietly produce a non-Top20 study.
+    if int(config.universe.universe_size) != TOP20_UNIVERSE_SIZE:
+        raise ValueError(
+            f"config.universe.universe_size={config.universe.universe_size}; "
+            "the TSMOM study runs on the point-in-time Top20 only"
+        )
     frequency_values = sorted(
         {
             "7D",
@@ -167,11 +187,9 @@ def _universe_variants(
             )
         }
     )
-    universes: dict[int, pd.DataFrame] = {}
-    for size in (20, 50):
-        local = config.model_copy(deep=True)
-        local.universe.universe_size = size
-        universes[size] = build_rebalance_universe(market, rebalance_dates, local)
+    universes = {
+        TOP20_UNIVERSE_SIZE: build_rebalance_universe(market, rebalance_dates, config)
+    }
     return universes, rebalance_dates
 
 
@@ -478,9 +496,8 @@ def _write_report(
         "# Time-Series Momentum Validation",
         "",
         "This report is generated from the real point-in-time CMC panel. "
-        "Every candidate is long-only, unlevered, executed T+1, and charged "
-        "20bps per side in the screen. Top50 rows are a sensitivity universe, "
-        "not the production Top20 rule.",
+        "Every candidate trades the point-in-time Top20 only, is long-only, "
+        "unlevered, executed T+1, and charged 20bps per side in the screen.",
         "",
         "## BTC Benchmark",
         "",

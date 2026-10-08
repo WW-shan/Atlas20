@@ -234,3 +234,298 @@ def test_ended_primary_still_needs_a_real_overlap() -> None:
 
     assert not result.passed
     assert result.reason == "insufficient_overlap"
+
+
+def _with_block(days: int, *, start: int, length: int, factor: float, level: float = 1.0) -> np.ndarray:
+    prices = np.full(days, level, dtype=float)
+    prices[start : start + length] *= factor
+    return prices
+
+
+def test_venue_catches_a_multi_week_block_the_aggregator_tolerances_let_through() -> None:
+    """A 16-day block at 2.9x sits below the 3x sustained gap and the 5x
+    catastrophic gap, so the aggregator tolerances pass it. A correctly
+    aligned exchange venue agrees with CMC to ~0.09% on a healthy day, so the
+    same block is unambiguous there."""
+    primary = _frame(400, _with_block(400, start=300, length=16, factor=2.9), "price")
+    venue = _frame(400, 1.0, "gate_price")
+
+    aggregator = compare_daily_prices(primary, venue, secondary_column="gate_price")
+    exchange = compare_daily_prices(primary, venue, secondary_column="gate_price", exchange_venue=True)
+
+    assert aggregator.passed, "aggregator tolerances are unchanged"
+    assert not exchange.passed
+    assert exchange.reason == "venue_sustained_disagreement"
+    assert exchange.longest_disagreement_run == 16
+
+
+def test_venue_catches_a_block_that_is_64_percent_too_low() -> None:
+    primary = _frame(400, _with_block(400, start=200, length=20, factor=0.36), "price")
+    venue = _frame(400, 1.0, "binance_price")
+
+    result = compare_daily_prices(primary, venue, secondary_column="binance_price", exchange_venue=True)
+
+    assert not result.passed
+    assert result.reason == "venue_sustained_disagreement"
+
+
+def test_venue_catches_the_last_five_days_thirty_percent_high() -> None:
+    primary = _frame(400, _with_block(400, start=395, length=5, factor=1.30), "price")
+    venue = _frame(400, 1.0, "gate_price")
+
+    result = compare_daily_prices(primary, venue, secondary_column="gate_price", exchange_venue=True)
+
+    assert not result.passed
+    assert result.reason == "venue_sustained_disagreement"
+
+
+def test_short_venue_dislocation_is_not_a_data_error() -> None:
+    """FLOW on Binance is the worst healthy venue pair in the cache: it
+    traded up to 43% away from CMC, but never more than 25% apart on more
+    than two consecutive days. A three-day dislocation must still pass."""
+    prices = np.full(400, 1.0)
+    prices[100:103] = 1.27
+    prices[250:252] = [1.43, 1.30]
+    primary = _frame(400, prices, "price")
+    venue = _frame(400, 1.0, "binance_price")
+
+    result = compare_daily_prices(primary, venue, secondary_column="binance_price", exchange_venue=True)
+
+    assert result.passed, result
+    assert result.longest_disagreement_run == 3
+
+
+def test_recent_window_stops_a_long_overlap_from_diluting_a_block() -> None:
+    """The overlap grows with every cached fetch. A 40-day 3.5x block is 4%
+    of a 1,000-day overlap - under the 5% sustained share - but 11% of the
+    most recent year, which is the window the tolerances were calibrated on."""
+    primary = _frame(1000, _with_block(1000, start=800, length=40, factor=3.5), "price")
+    source = _frame(1000, 1.0, "cg_price")
+
+    whole = compare_daily_prices(primary, source)
+    recent = compare_daily_prices(primary, source, recent_days=365)
+
+    assert whole.passed, "documents the dilution the recent window fixes"
+    assert not recent.passed
+    assert recent.reason == "sustained_disagreement"
+
+
+def test_recent_window_keeps_checking_an_old_block() -> None:
+    """Restricting the level tests to the recent year must not let an older
+    block through: the whole overlap is still tested as well."""
+    primary = _frame(1000, _with_block(1000, start=100, length=80, factor=3.5), "price")
+    source = _frame(1000, 1.0, "cg_price")
+
+    result = compare_daily_prices(primary, source, recent_days=365)
+
+    assert not result.passed
+    assert result.reason == "sustained_disagreement"
+
+
+# --------------------------------------------------------------------------
+# Multi-source adjudication: every independent source votes.
+
+
+def _source(name: str, frame: pd.DataFrame, column: str):
+    from atlas20.data.crosscheck import IndependentSource
+
+    return IndependentSource(name, frame, column)
+
+
+def test_a_passing_source_does_not_hide_other_sources_disagreement() -> None:
+    """CMC=250, Gate=Binance=100, CoinGecko=250. Ranking sources by "passes
+    first" let CoinGecko certify CMC and discarded two exchange venues that
+    agree with each other against it."""
+    from atlas20.data.crosscheck import adjudicate_sources
+
+    primary = _frame(120, 250.0, "price")
+    decision = adjudicate_sources(
+        primary,
+        [
+            _source("gateio", _frame(120, 100.0, "gate_price"), "gate_price"),
+            _source("binance", _frame(120, 100.0, "binance_price"), "binance_price"),
+            _source("coingecko", _frame(120, 250.0, "cg_price"), "cg_price"),
+        ],
+    )
+
+    assert not decision.passed
+    assert decision.reason == "cmc_isolated"
+    assert set(decision.verdicts) == {"gateio", "binance", "coingecko"}
+    assert decision.verdicts["coingecko"].passed
+    assert not decision.verdicts["gateio"].passed
+
+
+def _old_block_sources(with_binance: bool):
+    """A 25-day 3.5x CMC block ~13 months back. The exchange venues cache 404
+    days and see it; CoinGecko's 365-day chart starts after it."""
+    days = 404
+    primary = _frame(days, _with_block(days, start=10, length=25, factor=3.5), "price")
+    sources = [_source("gateio", _frame(days, 1.0, "gate_price"), "gate_price")]
+    if with_binance:
+        sources.append(_source("binance", _frame(days, 1.0, "binance_price"), "binance_price"))
+    chart = _frame(days, 1.0, "cg_price").iloc[-365:]
+    sources.append(_source("coingecko", chart, "cg_price"))
+    return primary, sources
+
+
+def test_a_source_that_cannot_see_the_disputed_days_cannot_confirm_cmc() -> None:
+    from atlas20.data.crosscheck import UNVERIFIED_REASONS, adjudicate_sources
+
+    primary, sources = _old_block_sources(with_binance=False)
+
+    decision = adjudicate_sources(primary, sources)
+
+    assert decision.verdicts["coingecko"].passed, "CoinGecko never saw the block"
+    assert not decision.verdicts["gateio"].passed
+    assert not decision.passed
+    assert decision.reason == "secondary_disagreement_unresolved"
+    assert decision.reason not in UNVERIFIED_REASONS
+
+
+def test_a_second_venue_that_sees_the_same_block_isolates_cmc() -> None:
+    from atlas20.data.crosscheck import adjudicate_sources
+
+    primary, sources = _old_block_sources(with_binance=True)
+
+    decision = adjudicate_sources(primary, sources)
+
+    assert not decision.passed
+    assert decision.reason == "cmc_isolated"
+
+
+def test_tie_break_must_agree_with_cmc_on_the_disputed_days_not_just_overall() -> None:
+    """A 16-day 2.9x block trips the venue test but passes the aggregator
+    tolerances, so CoinGecko "passes" in aggregate while quoting the same
+    prices as the venue on exactly the disputed days. That is a vote against
+    CMC, not a confirmation."""
+    from atlas20.data.crosscheck import adjudicate_sources
+
+    primary = _frame(400, _with_block(400, start=300, length=16, factor=2.9), "price")
+    decision = adjudicate_sources(
+        primary,
+        [
+            _source("gateio", _frame(400, 1.0, "gate_price"), "gate_price"),
+            _source("coingecko", _frame(400, 1.0, "cg_price").iloc[-365:], "cg_price"),
+        ],
+    )
+
+    assert decision.verdicts["coingecko"].passed
+    assert not decision.passed
+    assert decision.reason == "cmc_isolated"
+
+
+def test_other_venue_confirms_cmc_when_one_venue_is_the_outlier() -> None:
+    from atlas20.data.crosscheck import adjudicate_sources
+
+    primary = _frame(120, 250.0, "price")
+    decision = adjudicate_sources(
+        primary,
+        [
+            _source("gateio", _frame(120, 100.0, "gate_price"), "gate_price"),
+            _source("binance", _frame(120, 250.0, "binance_price"), "binance_price"),
+        ],
+    )
+
+    assert decision.passed
+    assert decision.reason == "third_source_confirms_cmc"
+    assert decision.confirmed_by == "binance"
+    assert decision.secondary_source == "gateio"
+    assert decision.tertiary_source == "binance"
+
+
+def test_disagreement_with_a_stale_tie_break_is_not_downgraded_to_unverified() -> None:
+    """The tie-break stopped before the disputed days. The disagreement is
+    proven and stays a disagreement; it used to come back as
+    ``third_source_insufficient_overlap``, an *unverified* reason, which an
+    operator running with ``require_cross_check=False`` would admit."""
+    from atlas20.data.crosscheck import UNVERIFIED_REASONS
+
+    primary = _frame(120, _with_block(120, start=110, length=10, factor=2.0), "price")
+    secondary = _frame(120, 1.0, "cg_price")
+    stale_tertiary = _frame(100, 1.0, "pap_price")
+
+    result = adjudicate_daily_prices(primary, secondary, stale_tertiary)
+
+    assert not result.passed
+    assert result.reason not in UNVERIFIED_REASONS
+    assert result.reason == "secondary_disagreement_unresolved"
+
+
+def test_unverified_secondary_does_not_mask_a_disagreeing_tertiary() -> None:
+    """A stale secondary plus a tertiary that proves a 2x level error used to
+    come back as ``unverified``."""
+    from atlas20.data.crosscheck import UNVERIFIED_REASONS
+
+    primary = _frame(120, 1.0, "price")
+    stale_secondary = _frame(110, 1.0, "cg_price")
+    tertiary = _frame(120, 2.0, "pap_price")
+
+    result = adjudicate_daily_prices(primary, stale_secondary, tertiary)
+
+    assert not result.passed
+    assert result.reason not in UNVERIFIED_REASONS
+
+
+def test_every_source_verdict_is_recorded_when_all_agree() -> None:
+    from atlas20.data.crosscheck import adjudicate_sources
+
+    primary = _frame(120, 1.0, "price")
+    decision = adjudicate_sources(
+        primary,
+        [
+            _source("gateio", _frame(120, 1.0, "gate_price"), "gate_price"),
+            _source("binance", _frame(120, 1.0, "binance_price"), "binance_price"),
+            _source("coingecko", _frame(110, 1.0, "cg_price"), "cg_price"),
+        ],
+    )
+
+    assert decision.passed
+    assert decision.reason == "ok"
+    assert decision.confirmed_by == "gateio"
+    assert decision.verdicts["coingecko"].reason == "secondary_stale"
+
+
+def test_stale_source_that_proves_a_block_reports_the_disagreement() -> None:
+    """Staleness only means the *latest* print cannot be certified. A source
+    four days behind (most cached CoinGecko charts are) still proves a 3.5x
+    block on the days it does cover, and that must not be downgraded to the
+    unverified ``secondary_stale``."""
+    from atlas20.data.crosscheck import UNVERIFIED_REASONS
+
+    primary = _frame(120, _with_block(120, start=60, length=20, factor=3.5), "price")
+    stale = _frame(116, 1.0, "cg_price")
+
+    result = compare_daily_prices(primary, stale)
+
+    assert not result.passed
+    assert result.reason == "sustained_disagreement"
+    assert result.reason not in UNVERIFIED_REASONS
+
+
+def test_primary_behind_its_source_records_the_lag() -> None:
+    """``latest_staleness_days`` only measures a source that is *behind* CMC
+    (it was clamped at zero), so a CMC feed that stopped while its venue kept
+    printing looked perfectly current."""
+    primary = _frame(120, 1.0, "price")
+    ahead = _frame(123, 1.0, "gate_price")
+
+    result = compare_daily_prices(primary, ahead, secondary_column="gate_price", exchange_venue=True)
+
+    assert result.passed, "the overlap agrees; the lag is reported, not a disagreement"
+    assert result.latest_staleness_days == 0
+    assert result.primary_lag_days == 3
+
+
+def test_price_correlation_is_reported_on_the_overlap() -> None:
+    days = 120
+    trend = 100.0 * 1.01 ** np.arange(days)
+    primary = _frame(days, trend, "price")
+    rng = np.random.default_rng(3)
+    close = _frame(days, trend * (1 + rng.normal(0, 0.002, days)), "gate_price")
+    flat = _frame(days, 100.0 * (1 + rng.normal(0, 0.01, days)), "gate_price")
+
+    tracking = compare_daily_prices(primary, close, secondary_column="gate_price")
+    unrelated = compare_daily_prices(primary, flat, secondary_column="gate_price", max_median_gap=10.0)
+
+    assert tracking.price_correlation > 0.999
+    assert unrelated.price_correlation < 0.5

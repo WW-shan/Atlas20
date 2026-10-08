@@ -33,8 +33,6 @@ from atlas20.api.routes.strategy_lab import router as strategy_lab_router
 from atlas20.api.routes.universe import router as universe_router
 from atlas20.api.scheduler import start_scheduler
 from atlas20.api.settings import Settings, get_settings
-from atlas20.api.worker.main import session_scope
-from atlas20.api.worker.recovery import recover_stale_runs
 
 logger = logging.getLogger(__name__)
 
@@ -82,16 +80,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _include_health_routes(app)
     expose_metrics(app)
     upgrade_to_head(settings)
-    try:
-        with session_scope(settings) as session:
-            recovered = recover_stale_runs(session, stale_after_seconds=60)
-    except ModuleNotFoundError:
-        if settings.db_url.startswith("sqlite"):
-            raise
-        logger.warning("Skipping stale run recovery because the DB driver is unavailable")
-        recovered = 0
-    if recovered:
-        logger.info("Recovered %d stale running runs", recovered)
+    # Orphaned runs are recovered by the workers (worker/recovery.py), which
+    # watch whether heartbeats advance. A one-shot check here would compare
+    # this host's clock with the workers' and could fail runs that are alive.
     scheduler = start_scheduler(settings)
     try:
         yield

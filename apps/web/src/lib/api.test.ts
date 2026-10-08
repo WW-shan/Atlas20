@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ApiError,
+  describeApiError,
   defaultBacktestConfig,
   defaultHistoryFilter,
   compareMetricMeta,
@@ -313,5 +315,46 @@ describe("requestJson API key header", () => {
       message: "Atlas20 API download failed: 404",
       status: 404,
     });
+  });
+});
+
+describe("describeApiError", () => {
+  it("surfaces the backend message and field-level validation details for 422s", () => {
+    const error = new ApiError("Request validation failed", {
+      status: 422,
+      code: "validation_error",
+      details: [
+        { loc: ["body", "universe", "topN"], msg: "Input should be less than or equal to 20", type: "less_than_equal" },
+      ],
+    });
+
+    expect(describeApiError(error, "Unable to queue backtest")).toBe(
+      "Unable to queue backtest: Request validation failed (universe.topN: Input should be less than or equal to 20)",
+    );
+  });
+
+  it("includes the rate limit window for 429s", () => {
+    const error = new ApiError("Rate limit exceeded", {
+      status: 429,
+      code: "rate_limited",
+      details: { limit: "10 per 1 minute" },
+    });
+
+    expect(describeApiError(error, "Unable to queue backtest")).toBe(
+      "Unable to queue backtest: Rate limit exceeded (10 per 1 minute)",
+    );
+  });
+
+  it("uses plain backend messages for 409 conflicts", () => {
+    const error = new ApiError("Idempotency-Key is still in progress", { status: 409, code: "conflict", details: null });
+
+    expect(describeApiError(error, "Unable to queue backtest")).toBe(
+      "Unable to queue backtest: Idempotency-Key is still in progress",
+    );
+  });
+
+  it("falls back to the context sentence for non-API failures", () => {
+    expect(describeApiError(new TypeError("Failed to fetch"), "Unable to queue backtest")).toBe("Unable to queue backtest.");
+    expect(describeApiError(undefined, "Unable to queue backtest")).toBe("Unable to queue backtest.");
   });
 });

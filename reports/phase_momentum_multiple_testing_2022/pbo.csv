@@ -1,2 +1,2 @@
-pbo,median_oos_percentile,mean_oos_percentile,cscv_combinations,most_selected_candidate,most_selected_count
-0.6287878787878788,0.4375,0.4217397186147186,924.0,rebalance_1d,338.0
+pbo,median_oos_logit,cscv_combinations,rows_used,most_selected_candidate,most_selected_count
+0.525974025974026,-0.06453852113757118,924,1725,rebalance_1d,361

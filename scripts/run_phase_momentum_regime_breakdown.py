@@ -88,6 +88,22 @@ def _regime_table(
     return pd.DataFrame(rows)
 
 
+def _lagged_regime_labels(bull: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
+    """Label each day's return with the regime known at the previous close.
+
+    The regime on date D is computed from D's close, which already contains
+    D's return. Labelling D's return with it sorts crash days into "non-bull"
+    by construction, so each return uses the state from D-1 instead.
+    """
+    lagged = bull.shift(1, freq="D").reindex(index)
+    missing = lagged.isna()
+    if missing.any():
+        raise ValueError(
+            f"regime frame is missing {int(missing.sum())} date(s) in the return window"
+        )
+    return lagged.astype(bool)
+
+
 def _validate_returns(returns: pd.Series, label: str) -> None:
     numeric = pd.to_numeric(returns, errors="coerce")
     bad = int((~np.isfinite(numeric)).sum())
@@ -130,13 +146,7 @@ def main() -> None:
         (returns_frame.index >= pd.Timestamp(args.start_date))
         & (returns_frame.index <= pd.Timestamp(args.end_date))
     ]
-    regime_bull = regime_frame["bull"].reindex(returns_frame.index)
-    missing_regime = regime_bull.isna()
-    if missing_regime.any():
-        raise ValueError(
-            f"regime frame is missing {int(missing_regime.sum())} date(s) in the return window"
-        )
-    bull = regime_bull.astype(bool)
+    bull = _lagged_regime_labels(regime_frame["bull"], pd.DatetimeIndex(returns_frame.index))
     returns_by_strategy: dict[str, pd.Series] = {}
     for candidate in candidates:
         series = returns_frame[candidate]
@@ -169,6 +179,9 @@ def main() -> None:
             f"- BTC {config.regime.btc_ma_window}D moving-average state",
             f"- tracked total market-cap {config.regime.tracked_total_mcap_ma_window}D moving-average state",
             f"- combine method: `{config.regime.combine_method}`",
+            "",
+            "Each day's return is labelled with the regime known at the previous close;",
+            "the same-day state would already contain that day's return.",
             "",
             f"Bull days: {int(bull.sum())}; non-bull days: {int((~bull).sum())}.",
             "",

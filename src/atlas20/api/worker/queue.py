@@ -20,7 +20,7 @@ class WorkerQueue:
     def __init__(self, session: Session):
         self._s = session
 
-    def claim_one(self) -> Run | None:
+    def claim_one(self, *, worker_id: str | None = None) -> Run | None:
         self._begin_immediate_for_sqlite()
         candidate = self._s.exec(
             select(Run).where(Run.status == "queued").order_by(col(Run.created_at).asc()).limit(1)
@@ -45,6 +45,7 @@ class WorkerQueue:
             previous_status=candidate.status,
             status="running",
             worker_pid=os.getpid(),
+            worker_id=worker_id,
         )
         candidate.status = "running"
         candidate.worker_pid = os.getpid()

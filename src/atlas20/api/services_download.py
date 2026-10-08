@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+import hashlib
 from pathlib import Path
 import re
 
@@ -34,7 +36,60 @@ CONTENT_TYPES = {
     "csv": "text/csv",
     "bundle": "application/zip",
 }
+FORMAT_SUFFIX = {
+    "markdown": ".md",
+    "pdf": ".pdf",
+    "png": ".png",
+    "csv": ".csv",
+    "bundle": ".zip",
+}
 SAFE_FILENAME_CHARS = re.compile(r"[^\w.-]+", re.UNICODE)
+REPORT_ARCHIVE_EXTENSIONS = frozenset(FORMAT_SUFFIX.values())
+REPORT_ID_SAFE = re.compile(r"[^a-z0-9_-]+")
+REPORT_ID_MAX_LENGTH = 64  # schemas.ReportId
+_REPORT_ID_HASH_LENGTH = 12
+
+
+def is_listable_report_path(relative: Path) -> bool:
+    if any(part.startswith(".") for part in relative.parts):
+        return False
+    if any(".tmp" in part or ".bak_" in part for part in relative.parts):
+        return False
+    return relative.suffix.lower() in REPORT_ARCHIVE_EXTENSIONS
+
+
+def disk_report_files(report_root: Path) -> dict[str, Path]:
+    """Map each report file under report_root to the ID /api/reports lists it under.
+
+    Listing and download share this map, so a listed ID always resolves to the
+    file it names. The ID is the slugged relative path, unless that is too long
+    for ReportId or shared with another file; then a hash of the path keeps it
+    unique. Symlinks that leave report_root are neither listed nor served.
+    """
+    root = Path(report_root)
+    if not root.is_dir():
+        return {}
+    resolved_root = root.resolve()
+    files: list[tuple[str, Path]] = []
+    for path in sorted(root.rglob("*")):
+        relative_path = path.relative_to(root)
+        if not is_listable_report_path(relative_path) or not path.is_file():
+            continue
+        try:
+            path.resolve().relative_to(resolved_root)
+        except ValueError:
+            continue
+        files.append((relative_path.as_posix(), path))
+    slugs = {relative: REPORT_ID_SAFE.sub("_", relative.lower()).strip("_") or "report" for relative, _ in files}
+    slug_counts = Counter(slugs.values())
+    catalogue: dict[str, Path] = {}
+    for relative, path in files:
+        report_id = slugs[relative]
+        if len(report_id) > REPORT_ID_MAX_LENGTH or slug_counts[report_id] > 1:
+            digest = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:_REPORT_ID_HASH_LENGTH]
+            report_id = f"{report_id[: REPORT_ID_MAX_LENGTH - _REPORT_ID_HASH_LENGTH - 1]}_{digest}"
+        catalogue[report_id] = path
+    return catalogue
 
 
 def _sanitize_filename(filename: str) -> str:
@@ -117,6 +172,18 @@ def _fallback_run_path(report_id: str, fmt: str, settings: Settings) -> Path | N
     return None
 
 
+def _disk_report_path(report_id: str, fmt: str | None, settings: Settings) -> tuple[Path, str | None, str | None] | None:
+    path = disk_report_files(settings.report_root).get(report_id)
+    if path is None or (fmt is not None and path.suffix.lower() != FORMAT_SUFFIX[fmt]):
+        return None
+    if path.relative_to(settings.report_root).parts[0] == "app_runs":
+        # Run artifacts keep their integrity check against the run's report manifest.
+        return path, None, None
+    # Research and latest/ reports have no manifest; like the featured
+    # digest's latest-markdown fallback they are served as listed.
+    return path, None, sha256_file(path)
+
+
 def _latest_markdown_report(settings: Settings) -> Path | None:
     latest_dir = Path(settings.report_root) / "latest"
     if not latest_dir.is_dir():
@@ -142,6 +209,9 @@ def _resolve_report_file(
         fallback = _fallback_run_path(report_id, "markdown", settings)
         if fallback is not None:
             return fallback, report_id, None
+        disk_report = _disk_report_path(report_id, None, settings)
+        if disk_report is not None:
+            return disk_report
         raise HTTPException(status_code=404, detail="report not found")
 
     kind = FORMAT_KIND[fmt]
@@ -160,6 +230,9 @@ def _resolve_report_file(
     fallback = _fallback_run_path(report_id, fmt, settings)
     if fallback is not None:
         return fallback, report_id, None
+    disk_report = _disk_report_path(report_id, fmt, settings)
+    if disk_report is not None:
+        return disk_report
     raise HTTPException(status_code=404, detail="report not found")
 
 

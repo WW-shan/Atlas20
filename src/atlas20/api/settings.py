@@ -11,12 +11,15 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 DEV_CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 DEV_LOCALHOST_HOSTS = {"localhost"}
+DEFAULT_SECRET_KEY = "dev-only-do-not-use-in-prod"
+# HMAC keys and API keys shorter than this are guessable offline; prod refuses them.
+MIN_PROD_SECRET_LENGTH = 32
 
 
 def _parse_string_collection(value: Any) -> list[str]:
@@ -52,10 +55,11 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=lambda: list(DEV_CORS_ORIGINS))
     cors_allow_credentials: bool = True
     db_url: str = "sqlite:///./data/atlas20.sqlite"
-    secret_key: str = "dev-only-do-not-use-in-prod"
-    api_keys: Annotated[set[str], NoDecode] = Field(default_factory=set)
+    # Secrets are SecretStr so repr(), model_dump() and logs never show them.
+    secret_key: SecretStr = SecretStr(DEFAULT_SECRET_KEY)
+    api_keys: Annotated[set[SecretStr], NoDecode] = Field(default_factory=set)
     jwt_auth_enabled: bool = False
-    jwt_secret_key: str | None = None
+    jwt_secret_key: SecretStr | None = None
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
     jwt_leeway_seconds: int = Field(default=30, ge=0, le=300)
@@ -102,7 +106,14 @@ class Settings(BaseSettings):
     # feed's latest date once this fraction of cached assets covers it.
     data_freshness_min_primary_coverage: float = Field(default=0.9, ge=0.5, le=1.0)
 
-    model_config = SettingsConfigDict(env_prefix="ATLAS20_", env_file=".env", extra="ignore")
+    # hide_input_in_errors: a failing gate must not echo the raw settings
+    # (secrets included) into the startup traceback.
+    model_config = SettingsConfigDict(
+        env_prefix="ATLAS20_",
+        env_file=".env",
+        extra="ignore",
+        hide_input_in_errors=True,
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -128,11 +139,25 @@ class Settings(BaseSettings):
                 raise ValueError("ATLAS20_CORS_ORIGINS must be set in prod")
             if any(_is_dev_origin(origin) for origin in self.cors_origins):
                 raise ValueError("dev origins are not allowed in prod")
-            if self.secret_key == "dev-only-do-not-use-in-prod":
+            secret_key = self.secret_key.get_secret_value()
+            if not secret_key.strip() or secret_key == DEFAULT_SECRET_KEY:
                 raise ValueError("ATLAS20_SECRET_KEY must be set to a real secret in prod")
+            if self.jwt_auth_enabled and len(self.jwt_signing_key().strip()) < MIN_PROD_SECRET_LENGTH:
+                raise ValueError(
+                    "the JWT signing key (ATLAS20_JWT_SECRET_KEY, or ATLAS20_SECRET_KEY when that is unset) "
+                    f"must be at least {MIN_PROD_SECRET_LENGTH} characters in prod"
+                )
+            if any(len(api_key.get_secret_value().strip()) < MIN_PROD_SECRET_LENGTH for api_key in self.api_keys):
+                raise ValueError(f"ATLAS20_API_KEYS entries must be at least {MIN_PROD_SECRET_LENGTH} characters in prod")
             if not self.api_keys and not self.jwt_auth_enabled:
                 raise ValueError("ATLAS20_API_KEYS or ATLAS20_JWT_AUTH_ENABLED must configure authentication in prod")
         return self
+
+    def jwt_signing_key(self) -> str:
+        """HS256 key for bearer tokens: ATLAS20_JWT_SECRET_KEY, else ATLAS20_SECRET_KEY."""
+        if self.jwt_secret_key is not None and self.jwt_secret_key.get_secret_value():
+            return self.jwt_secret_key.get_secret_value()
+        return self.secret_key.get_secret_value()
 
 
 @lru_cache

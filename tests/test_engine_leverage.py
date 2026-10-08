@@ -1,8 +1,9 @@
-"""Dynamic leverage support in the backtest engine.
+"""Exposure schedules in the backtest engine.
 
-A leverage schedule scales exposure at each rebalance date. Between rebalances
-the position drifts with price (no daily leverage reset), which matches how a
-live account behaves without constant rebalancing.
+An exposure schedule scales the book at each rebalance date. Between rebalances
+the position drifts with price (no daily reset), which matches how a live
+account behaves without constant rebalancing. Atlas20 is unlevered long-only
+spot (AGENTS.md): gross exposure is capped at 1.0 and a higher cap is refused.
 """
 
 from __future__ import annotations
@@ -29,31 +30,31 @@ def test_constant_gross_exposure_applies_on_first_day() -> None:
 
     result = run_backtest(
         "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
-        gross_target_exposure=2.0,
+        gross_target_exposure=0.5,
     )
 
-    # Signals take effect the day after the rebalance date, so day 2 earns 2x.
-    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.20, rel=1e-9)
-    # The position then drifts with price instead of resetting to 2x daily.
-    assert result.equity_curve.iloc[2] == pytest.approx(100.0 * 1.20 * 1.1833333, rel=1e-6)
+    # Signals take effect the day after the rebalance date, so day 2 earns half.
+    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.05, rel=1e-9)
+    # The position then drifts with price instead of resetting to 50% daily.
+    assert result.equity_curve.iloc[2] == pytest.approx(100.0 * 1.05 * (1.0 + 0.55 / 1.05 * 0.10), rel=1e-9)
 
 
-def test_leverage_schedule_overrides_constant_exposure() -> None:
+def test_exposure_schedule_overrides_constant_exposure() -> None:
     returns = _market([0.10, 0.10, 0.10])
     targets = {
         returns.index[0]: pd.Series({"bitcoin": 1.0}),
         returns.index[1]: pd.Series({"bitcoin": 1.0}),
     }
-    schedule = {returns.index[0]: 2.0, returns.index[1]: 1.0}
+    schedule = {returns.index[0]: 0.5, returns.index[1]: 1.0}
 
     result = run_backtest(
         "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
         leverage_by_date=schedule,
     )
 
-    # Day 2 uses the 2x scheduled for day 1; day 3 resets to 1x.
-    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.20, rel=1e-9)
-    assert result.equity_curve.iloc[2] == pytest.approx(100.0 * 1.20 * 1.10, rel=1e-6)
+    # Day 2 uses the 50% scheduled for day 1; day 3 is fully invested.
+    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.05, rel=1e-9)
+    assert result.equity_curve.iloc[2] == pytest.approx(100.0 * 1.05 * 1.10, rel=1e-9)
 
 
 def test_missing_schedule_date_defaults_to_constant_exposure() -> None:
@@ -62,22 +63,37 @@ def test_missing_schedule_date_defaults_to_constant_exposure() -> None:
 
     result = run_backtest(
         "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
-        gross_target_exposure=1.5,
+        gross_target_exposure=0.5,
         leverage_by_date={},
     )
 
-    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.15, rel=1e-9)
+    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.05, rel=1e-9)
 
 
-def test_leverage_schedule_is_clamped_to_configured_bounds() -> None:
+def test_exposure_above_one_is_capped_at_one_by_default() -> None:
     returns = _market([0.10, 0.10])
     targets = {returns.index[0]: pd.Series({"bitcoin": 1.0})}
 
-    result = run_backtest(
+    constant = run_backtest(
+        "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
+        gross_target_exposure=2.0,
+    )
+    scheduled = run_backtest(
         "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
         leverage_by_date={returns.index[0]: 99.0},
-        max_gross_exposure=3.0,
     )
 
-    assert result.rebalance_targets.iloc[0].sum() == pytest.approx(3.0)
-    assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.30, rel=1e-9)
+    for result in (constant, scheduled):
+        assert result.rebalance_targets.iloc[0].sum() == pytest.approx(1.0)
+        assert result.equity_curve.iloc[1] == pytest.approx(100.0 * 1.10, rel=1e-9)
+
+
+def test_a_leverage_cap_above_one_is_refused() -> None:
+    returns = _market([0.10, 0.10])
+    targets = {returns.index[0]: pd.Series({"bitcoin": 1.0})}
+
+    with pytest.raises(ValueError, match="unlevered"):
+        run_backtest(
+            "t", returns, targets, pd.Series({"bitcoin": "x"}), _friction(), 100.0,
+            max_gross_exposure=3.0,
+        )

@@ -489,3 +489,14 @@ def test_metrics_endpoint_includes_http_request_counter(tmp_path, monkeypatch) -
         body = client.get("/metrics").text
 
     assert 'http_requests_total{handler="/api/options",method="GET",status="2xx"}' in body
+
+
+def test_unmatched_paths_share_one_http_metrics_label(tmp_path, monkeypatch) -> None:
+    with TestClient(_app(tmp_path, monkeypatch)) as client:
+        for index in range(3):
+            assert client.get(f"/does-not-exist-{index}").status_code == 404
+        body = client.get("/metrics").text
+
+    assert "/does-not-exist-" not in body
+    assert 'http_requests_total{handler="unmatched",method="GET",status="4xx"}' in body
+    assert 'http_request_duration_seconds_count{handler="unmatched",method="GET"}' in body

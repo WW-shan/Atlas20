@@ -11,11 +11,14 @@ Data chain (single source of truth):
   asset.
 * Binance - second exchange venue (reached through its official public data
   mirror, because api.binance.com is geo-blocked here and api.binance.us is a
-  far thinner book), used when the preferred venue disagrees or cannot certify
-  the latest print.
+  far thinner book).
 * CoinPaprika - fallback adjudication when neither the second source nor
   CoinGecko can provide the tie-break vote. No validator ever rewrites a panel
   value.
+
+The download fetches CoinGecko and CoinPaprika only when they are needed as a
+tie-break; the build then lets every cached source vote (see
+``atlas20.data.crosscheck.adjudicate_sources``).
 
 CoinMarketCap is the only historical provider. Because price, volume and
 market cap come from one snapshot, the price/market-cap ratio is internally
@@ -26,7 +29,7 @@ instead of a price-scaled proxy.
 from __future__ import annotations
 
 import json
-from math import ceil
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -34,11 +37,12 @@ import pandas as pd
 
 from atlas20.config import ResearchConfig, SectorConfig
 from atlas20.data.binance import BinanceClient
+from atlas20.data.cache_merge import describe_conflicts, fetch_ordered, merge_by_fetch_order
 from atlas20.data.catalog import asset_is_excluded, deduplicate_assets, metadata_is_excluded
-from atlas20.data.coingecko import CoinGeckoClient
+from atlas20.data.coingecko import CoinGeckoClient, daily_closes_from_market_chart
 from atlas20.data.coinmarketcap import CoinMarketCapClient
 from atlas20.data.coinpaprika import CoinPaprikaClient
-from atlas20.data.crosscheck import UNVERIFIED_REASONS, adjudicate_daily_prices, compare_daily_prices
+from atlas20.data.crosscheck import UNVERIFIED_REASONS, IndependentSource, adjudicate_sources, compare_daily_prices
 from atlas20.data.gateio import GateIOClient
 from atlas20.data.validation import summarize_market_history
 from atlas20.logging_utils import ensure_dir, get_logger
@@ -76,6 +80,28 @@ def _last_print_date(history: pd.DataFrame) -> pd.Timestamp | None:
     if last.tzinfo is not None:
         last = last.tz_convert("UTC").tz_localize(None)
     return last.normalize()
+
+
+def _pre_window_buffer_days(config: ResearchConfig) -> int:
+    """Days of history the panel must carry before ``start_date``.
+
+    Every configured lookback that reads pre-window data has to be warm on
+    the first backtest day: universe eligibility counts ``min_history_days``
+    of prints, the regime filter uses the BTC and tracked-market-cap moving
+    averages and the alt-momentum change, and the momentum score reads its
+    longest trailing return. The buffer used to be ``min_history_days`` alone
+    (90) while the regime averages span 120 days, so regime_frame.csv showed
+    bull=False on 2021-01-01..01-29 from moving-average warm-up alone - CMC's
+    BTC closed above its 120-day average on every one of those days.
+    """
+    lookbacks = [
+        config.universe.min_history_days,
+        config.regime.btc_ma_window,
+        config.regime.tracked_total_mcap_ma_window,
+        config.regime.tracked_alt_mcap_momentum_window,
+        *config.signals.momentum_weight_map().keys(),
+    ]
+    return max(int(value) for value in lookbacks)
 
 
 def _feed_ended(history: pd.DataFrame, end: pd.Timestamp) -> bool:
@@ -143,6 +169,106 @@ def _load_onboarded_candidates(config: ResearchConfig) -> list[dict]:
     return list(onboarded.values())
 
 
+def _load_cached_id_map(raw_dir: Path) -> dict[str, int] | None:
+    """The cached CMC symbol -> id map, read without touching the network."""
+    path = raw_dir / "coinmarketcap" / "id_map.json"
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    mapping: dict[str, int] = {}
+    for symbol, cmc_id in payload.items():
+        try:
+            mapping[str(symbol).upper()] = int(cmc_id)
+        except (TypeError, ValueError):
+            continue
+    return mapping
+
+
+def _check_aliases_against_id_map(id_map: dict[str, int], aliases: dict[str, int]) -> None:
+    """Refuse an alias that points at an id the id map gives another symbol.
+
+    ``CEL: 5692`` was one: the id map assigns 5692 to COMP, so Celsius and
+    Compound both read Compound's history, and Celsius surfaced as a steady
+    ~988x "CMC outlier" against its venues instead of as the mapping error it
+    was. An alias exists for a ticker CMC no longer lists; it can never be
+    right to point it at an id another live ticker owns.
+    """
+    owners: dict[int, list[str]] = {}
+    for symbol, cmc_id in id_map.items():
+        owners.setdefault(int(cmc_id), []).append(str(symbol).upper())
+    problems = []
+    for symbol, cmc_id in sorted(aliases.items()):
+        others = sorted(owner for owner in owners.get(int(cmc_id), []) if owner != str(symbol).upper())
+        if others:
+            problems.append(f"{str(symbol).upper()} -> {int(cmc_id)}, which the CMC id map assigns to {', '.join(others)}")
+    if problems:
+        raise ValueError(
+            "universe.cmc_symbol_aliases contradict the CoinMarketCap id map: "
+            + "; ".join(problems)
+            + ". Verify the coin's own CMC id (symbol and name) or remove the alias."
+        )
+
+
+def _check_unique_cmc_ids(assignments: list[tuple[str, str, int]]) -> None:
+    """Refuse two candidates that resolve to the same CMC series.
+
+    ``assignments`` holds ``(coin_id, symbol, cmc_id)``. Two coins can never
+    share one provider history; if they do, one of them is being fed the
+    other's prices, market caps and Top-N rank.
+    """
+    by_id: dict[int, list[str]] = {}
+    for coin_id, symbol, cmc_id in assignments:
+        by_id.setdefault(int(cmc_id), []).append(f"{coin_id} ({str(symbol).upper()})")
+    shared = {cmc_id: coins for cmc_id, coins in sorted(by_id.items()) if len(coins) > 1}
+    if shared:
+        raise ValueError(
+            "Several candidates resolve to one CoinMarketCap series: "
+            + "; ".join(f"cmc_id {cmc_id}: {', '.join(coins)}" for cmc_id, coins in shared.items())
+            + ". Fix universe.cmc_symbol_aliases or the id map before building."
+        )
+
+
+def _resolve_candidate_cmc_ids(
+    candidates: pd.DataFrame,
+    id_map: dict[str, int] | None,
+    aliases: dict[str, int],
+) -> dict[str, int | None]:
+    """CMC id per candidate, resolved the way the download resolves it.
+
+    Config aliases win over the cached id map, exactly as in
+    ``download_and_cache_raw_data``, so an alias fix takes effect on the next
+    build instead of waiting for a download to rewrite the candidate cache.
+    Without a cached id map (a cache that predates it) the candidate's stored
+    id is used as before.
+    """
+    resolved: dict[str, int | None] = {}
+    for _, asset in candidates.iterrows():
+        coin_id = str(asset["id"])
+        symbol = str(asset["symbol"]).upper()
+        stored = asset.get("cmc_id")
+        stored_id = None if stored is None or pd.isna(stored) else int(stored)
+        if id_map is None:
+            resolved[coin_id] = stored_id
+            continue
+        cmc_id = aliases.get(symbol, id_map.get(symbol))
+        if cmc_id != stored_id:
+            LOGGER.warning(
+                "CoinMarketCap id for %s (%s) resolves to %s under the current aliases and id map "
+                "(candidate cache says %s); using the resolved id",
+                coin_id,
+                symbol,
+                cmc_id,
+                stored_id,
+            )
+        resolved[coin_id] = cmc_id
+    return resolved
+
+
 def _history_window(config: ResearchConfig) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Return the [start, end] range that must be cached.
 
@@ -186,8 +312,10 @@ def download_and_cache_raw_data(
 
     LOGGER.info("Fetching CoinMarketCap symbol->id map")
     id_map = cmc.fetch_id_map(force=force or refresh_catalog)
+    aliases = {k.upper(): int(v) for k, v in config.universe.cmc_symbol_aliases.items()}
+    _check_aliases_against_id_map({str(k).upper(): int(v) for k, v in id_map.items()}, aliases)
     # Curated aliases win: they cover tickers CMC no longer lists.
-    id_map = {**id_map, **{k.upper(): int(v) for k, v in config.universe.cmc_symbol_aliases.items()}}
+    id_map = {**id_map, **aliases}
 
     # Refresh CoinPaprika's catalog at most once per run, and only if a
     # disputed asset actually needs it.  Resolving each disagreement against a
@@ -339,6 +467,9 @@ def download_and_cache_raw_data(
                 details = f"{details} | crosscheck_chart_missing: {exc}".lstrip(" |")
                 LOGGER.warning("Validation chart unavailable for %s (%s): %s", coin_id, symbol, exc)
 
+        # The same tests the build applies (venue block test for Gate.io,
+        # recent window for a live feed), so every dispute the build will see
+        # has had its tie-break fetched here.
         secondary_result = compare_daily_prices(
             history.rename(columns={"close": "price"}),
             secondary,
@@ -348,6 +479,8 @@ def download_and_cache_raw_data(
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
             max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
             require_latest_coverage=not feed_ended,
+            exchange_venue=secondary_source == "gateio",
+            recent_days=None if feed_ended else config.data_quality.cross_check_recent_days,
         )
 
         if not secondary_result.passed:
@@ -421,6 +554,7 @@ def download_and_cache_raw_data(
         screening_rows.append({"coin_id": coin_id, "symbol": symbol, "name": name, "status": status, "details": details})
         valid_assets.append(enriched_asset)
 
+    _check_unique_cmc_ids([(str(a["id"]), str(a["symbol"]), int(a["cmc_id"])) for a in valid_assets])
     candidate_path = _candidate_assets_path(config)
     candidate_path.parent.mkdir(parents=True, exist_ok=True)
     candidate_path.write_text(json.dumps(valid_assets, indent=2), encoding="utf-8")
@@ -438,56 +572,117 @@ def load_candidate_assets(config: ResearchConfig) -> pd.DataFrame:
 
 
 def _load_cmc_history(raw_dir: Path, cmc_id: int) -> pd.DataFrame | None:
-    """Load a cached CoinMarketCap history and normalize it for the panel.
+    """Load a cached CoinMarketCap history without independent evidence.
+
+    Every row the level-corruption test flags is dropped, as no venue is
+    consulted here; the panel build uses ``_read_cmc_history`` and
+    ``_judge_level_corruption`` instead, which keep venue-confirmed moves.
+    """
+    loaded = _read_cmc_history(raw_dir, cmc_id)
+    if loaded.frame is None:
+        return None
+    flagged = set(loaded.level_corruption_dates)
+    return loaded.frame[~loaded.frame["date"].isin(flagged)].reset_index(drop=True)
+
+
+# Every value a CMC row carries into the panel. Two cached fetches of the same
+# day that differ in any of them are a provider revision, which is reported.
+CMC_HISTORY_COLUMNS = ["date", "price", "volume_usd", "market_cap", "circulating_supply"]
+CMC_VALUE_COLUMNS = CMC_HISTORY_COLUMNS[1:]
+
+
+@dataclass(frozen=True, eq=False)
+class CmcHistoryLoad:
+    """A normalized CMC history plus the evidence of what loading resolved.
+
+    ``duplicate_dates`` counts days cached by more than one fetch (the daily
+    tail refresh re-requests overlapping windows, so most days are);
+    ``conflicting_duplicate_dates`` counts the ones whose copies disagree,
+    where the newest fetch was kept.
+    """
+
+    frame: pd.DataFrame | None
+    duplicate_dates: int = 0
+    conflicting_duplicate_dates: int = 0
+    # Rows the level-corruption ring test flags (see ``_level_corruption_mask``).
+    # They are still in ``frame``: whether they go depends on venue evidence
+    # that only the build loop holds (``_judge_level_corruption``).
+    level_corruption_dates: tuple[pd.Timestamp, ...] = ()
+
+
+def _cmc_rows_from_payload(payload: list[object]) -> pd.DataFrame:
+    """One cached CMC window, cleaned row by row.
 
     CMC stores 0 (not null) for assets it tracks without supply data, e.g.
     WhiteBIT Coin. A zero market cap is missing information, not a real value:
     keeping it would rank the asset inside the Top-N and displace a genuine
-    constituent.
+    constituent. A row without a positive close is not the fetch's answer for
+    that day, so it is dropped *before* the merge and an older valid copy can
+    stand in for it.
+    """
+    rows = []
+    for row in payload:
+        if not isinstance(row, dict):
+            continue
+        quote = row.get("quote") or {}
+        opened = row.get("timeOpen")
+        if not opened:
+            continue
+        ts = pd.Timestamp(opened)
+        ts = ts.tz_localize(None) if ts.tzinfo is not None else ts
+        rows.append(
+            {
+                "date": ts.normalize(),
+                "price": quote.get("close"),
+                "volume_usd": quote.get("volume"),
+                "market_cap": quote.get("marketCap"),
+                "circulating_supply": quote.get("circulatingSupply"),
+            }
+        )
+    frame = pd.DataFrame(rows, columns=CMC_HISTORY_COLUMNS)
+    for column in CMC_VALUE_COLUMNS:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce").astype(float)
+    frame.loc[frame["market_cap"] <= 0, "market_cap"] = np.nan
+    frame = frame.dropna(subset=["price"])
+    return frame[frame["price"] > 0].reset_index(drop=True)
+
+
+def _read_cmc_history(raw_dir: Path, cmc_id: int) -> CmcHistoryLoad:
+    """Load and normalize a cached CoinMarketCap history, with its evidence.
+
+    Overlapping cache windows are merged so the newest *fetch* wins every
+    duplicated date. The loader used to concatenate the files in name order
+    and then call an unstable ``sort_values("date")``, so ``keep="last"`` kept
+    whichever copy the sort left last - on a revised synthetic tail the new
+    value survived on 209 dates and the stale one on 189. Name order is not
+    fetch order either: a forced full re-download is the newest fetch, yet its
+    name (the earliest start epoch) sorts first. The shared
+    :mod:`atlas20.data.cache_merge` helpers order files by fetch time and
+    describe every duplicate whose copies disagree.
     """
     directory = raw_dir / "coinmarketcap" / "history"
     if not directory.exists():
-        return None
+        return CmcHistoryLoad(None)
 
     frames: list[pd.DataFrame] = []
-    for path in sorted(directory.glob(f"{cmc_id}_*.json")):
+    for path in fetch_ordered(directory.glob(f"{cmc_id}_*.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
-        if not payload:
+        if not payload or not isinstance(payload, list):
             continue
-        rows = []
-        for row in payload:
-            quote = row.get("quote") or {}
-            opened = row.get("timeOpen")
-            if not opened:
-                continue
-            ts = pd.Timestamp(opened)
-            ts = ts.tz_localize(None) if ts.tzinfo is not None else ts
-            rows.append(
-                {
-                    "date": ts.normalize(),
-                    "price": quote.get("close"),
-                    "volume_usd": quote.get("volume"),
-                    "market_cap": quote.get("marketCap"),
-                    "circulating_supply": quote.get("circulatingSupply"),
-                }
-            )
-        if rows:
-            frames.append(pd.DataFrame(rows))
+        frame = _cmc_rows_from_payload(payload)
+        if not frame.empty:
+            frames.append(frame)
 
     if not frames:
-        return None
+        return CmcHistoryLoad(None)
 
-    merged = pd.concat(frames, ignore_index=True)
-    merged["market_cap"] = pd.to_numeric(merged["market_cap"], errors="coerce")
-    merged.loc[merged["market_cap"] <= 0, "market_cap"] = np.nan
-    merged["price"] = pd.to_numeric(merged["price"], errors="coerce")
-    merged["volume_usd"] = pd.to_numeric(merged["volume_usd"], errors="coerce")
-    merged = merged.dropna(subset=["price"])
-    merged = merged[merged["price"] > 0]
-    merged = merged.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+    result = merge_by_fetch_order(frames, value_columns=CMC_VALUE_COLUMNS, columns=CMC_HISTORY_COLUMNS)
+    if result.conflicting_dates:
+        LOGGER.warning("CoinMarketCap id=%s: %s", cmc_id, describe_conflicts(result))
+    merged = result.frame
 
     # A coin cannot hold a Top-N rank before the provider reports a circulating
     # supply, so any earlier price row is uninvestable - and it is exactly
@@ -500,12 +695,18 @@ def _load_cmc_history(raw_dir: Path, cmc_id: int) -> pd.DataFrame | None:
     if pd.notna(first_supply):
         merged = merged[merged["date"] >= first_supply]
 
-    merged = _drop_level_corruption(merged)
-    return merged.reset_index(drop=True)
+    merged = merged.sort_values("date", kind="mergesort").reset_index(drop=True)
+    flagged = merged.loc[_level_corruption_mask(merged), "date"]
+    return CmcHistoryLoad(
+        merged,
+        duplicate_dates=result.duplicate_dates,
+        conflicting_duplicate_dates=result.conflicting_dates,
+        level_corruption_dates=tuple(pd.Timestamp(day) for day in flagged),
+    )
 
 
-def _drop_level_corruption(frame: pd.DataFrame, factor: float = 20.0) -> pd.DataFrame:
-    """Remove blocks where the provider reports a wildly wrong price level.
+def _level_corruption_mask(frame: pd.DataFrame, factor: float = 20.0) -> pd.Series:
+    """Flag rows where the provider reports a wildly wrong price level.
 
     Huobi Token is the motivating case: CMC served ~$0.000002 instead of ~$0.5
     for 34 consecutive days in early 2025, then returned to the correct level.
@@ -523,42 +724,173 @@ def _drop_level_corruption(frame: pd.DataFrame, factor: float = 20.0) -> pd.Data
       what keeps a real launch rally (PEPE's first week, a 100x run) intact.
     * Only a row that is far from *both* rings, which by construction agree,
       can be a reversion artefact.
+
+    A genuine 20x round trip inside two months still looks exactly like this,
+    which is why a flag is only a candidate: see ``_judge_level_corruption``.
+    ``frame`` must be sorted by date; the mask is aligned with its index.
     """
     if frame.empty:
-        return frame
-    ordered = frame.sort_values("date").reset_index(drop=True)
-    price = ordered["price"].astype(float)
-
+        return pd.Series(False, index=frame.index)
+    price = frame["price"].astype(float)
     before = price.shift(31).rolling(30, min_periods=15).median()
     after = price.shift(-61).rolling(30, min_periods=15).median()
     rings_agree = (before / after).between(1.0 / 3.0, 3.0)
     baseline = (before * after) ** 0.5
     ratio = price / baseline
-
     corrupted = rings_agree & ((ratio > factor) | (ratio < 1.0 / factor))
-    return ordered.loc[~corrupted.fillna(False)].reset_index(drop=True)
+    return corrupted.fillna(False).astype(bool)
+
+
+def _drop_level_corruption(frame: pd.DataFrame, factor: float = 20.0) -> pd.DataFrame:
+    """Drop every flagged row (the evidence-free rule; see the mask)."""
+    if frame.empty:
+        return frame
+    ordered = frame.sort_values("date", kind="mergesort").reset_index(drop=True)
+    return ordered.loc[~_level_corruption_mask(ordered, factor)].reset_index(drop=True)
+
+
+def _judge_level_corruption(
+    history: pd.DataFrame,
+    flagged: tuple[pd.Timestamp, ...],
+    sources: list[IndependentSource],
+    *,
+    tolerance: float,
+) -> tuple[list[pd.Timestamp], list[pd.Timestamp]]:
+    """Split flagged rows into (dropped, confirmed) using independent prints.
+
+    The ring test cannot tell a provider level error from a genuine 20x round
+    trip, and it used to delete both silently - a real move was erased and the
+    asset then carried at a stale price. A flagged row is now *kept* only when
+    an exchange venue prints within ``tolerance`` of CMC that day and no
+    independent source is further than that: a real move trades on the order
+    books. Every other flagged row is dropped - one a source disputes is proven
+    corruption, and one no venue confirms keeps the old evidence-free rule
+    (Huobi Token's 2025 block predates every cached venue window) - but the
+    drop is now logged and counted in ``level_corruption_rows``.
+    """
+    if not flagged:
+        return [], []
+    closes = history.set_index("date")["price"].astype(float)
+    confirmed_days: list[pd.Timestamp] = []
+    dropped_days: list[pd.Timestamp] = []
+    quotes = {source.name: _source_closes(source) for source in sources}
+    for day in flagged:
+        cmc_close = float(closes.get(day, np.nan))
+        venue_confirms = False
+        disputed = False
+        for source in sources:
+            quote = quotes[source.name].get(day)
+            if quote is None or not np.isfinite(cmc_close) or quote <= 0:
+                continue
+            gap = max(cmc_close / quote, quote / cmc_close) - 1.0
+            if gap > tolerance:
+                disputed = True
+            elif source.exchange_venue:
+                venue_confirms = True
+        if venue_confirms and not disputed:
+            confirmed_days.append(day)
+        else:
+            dropped_days.append(day)
+    return dropped_days, confirmed_days
+
+
+def _source_closes(source: IndependentSource) -> dict[pd.Timestamp, float]:
+    frame = source.frame
+    if frame is None or frame.empty or source.column not in frame.columns:
+        return {}
+    dates = pd.to_datetime(frame["date"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    values = pd.to_numeric(frame[source.column], errors="coerce")
+    return {pd.Timestamp(day): float(value) for day, value in zip(dates, values, strict=True) if pd.notna(day) and pd.notna(value)}
+
+
+def _date_ranges(days: list[pd.Timestamp]) -> str:
+    """Compact ``first..last`` ranges of consecutive days, comma separated."""
+    if not days:
+        return ""
+    ordered = sorted(pd.Timestamp(day) for day in days)
+    ranges: list[str] = []
+    start = previous = ordered[0]
+    for day in ordered[1:]:
+        if day - previous != pd.Timedelta(days=1):
+            ranges.append(f"{start.date()}..{previous.date()}" if start != previous else f"{start.date()}")
+            start = day
+        previous = day
+    ranges.append(f"{start.date()}..{previous.date()}" if start != previous else f"{start.date()}")
+    return ", ".join(ranges)
 
 
 def _load_coingecko_chart(path: Path) -> pd.DataFrame:
-    """Normalize a cached CoinGecko market chart into a daily close series."""
+    """Normalize a cached CoinGecko market chart into a daily close series.
+
+    Same parser as the live client, so the build and the download compare the
+    same, correctly dated closes (00:00 UTC of D+1 is D's close).
+    """
     if not path.exists():
         return pd.DataFrame(columns=["date", "cg_price"])
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return pd.DataFrame(columns=["date", "cg_price"])
-    prices = payload.get("prices") or []
-    if not prices:
+    if not isinstance(payload, dict):
         return pd.DataFrame(columns=["date", "cg_price"])
-    return pd.DataFrame(
-        {
-            "date": [pd.Timestamp(row[0], unit="ms").normalize() for row in prices],
-            "cg_price": [row[1] for row in prices],
-        }
-    )
+    return daily_closes_from_market_chart(payload)[["date", "cg_price"]]
 
 
-def _guard_panel_regression(existing_path: Path, new_panel: pd.DataFrame) -> None:
+@dataclass(frozen=True, eq=False)
+class PanelEnd:
+    """Where the panel may end, and which live assets hold it there."""
+
+    covered_end: pd.Timestamp
+    panel_end: pd.Timestamp
+    last_print: pd.Series
+    holding: tuple[str, ...]
+
+
+def _panel_end(panel: pd.DataFrame, ended: set[str], min_daily_coverage: float) -> PanelEnd:
+    """Find the last date the panel can publish without dropping a live asset.
+
+    Coverage is measured against the assets *live on each date*: an asset
+    counts from its first print, and an ended feed (a delisting or migration,
+    see ``_feed_ended``) only up to its last one. Counting ended feeds on every
+    later date froze the panel end: with 2 of 10 feeds ended, every newer date
+    sat at 8/10 < 90% and 41 fully covered dates were dropped.
+
+    The coverage bar alone still let a *live* asset drop out of the newest
+    dates - at 9/10 the largest coin's three-day CMC stall passed, it vanished
+    from the point-in-time Top-N on the live-signal dates and the next coin
+    was promoted. So the end is held at the last print of any live asset
+    that stops early. Blocking that asset instead would delete its whole
+    history (and trip the regression guard); holding the end keeps every
+    published date complete, records the lag, and lets the live signal's
+    freshness guard refuse a stale panel. ``_feed_ended`` bounds the hold: a
+    feed silent for more than ``ENDED_FEED_GRACE_DAYS`` counts as ended.
+    """
+    spans = panel.groupby("coin_id")["date"].agg(["min", "max"])
+    dates = pd.DatetimeIndex(sorted(panel["date"].unique()))
+    expected = np.zeros(len(dates), dtype=int)
+    for coin_id, first, last in spans.itertuples():
+        live_on = dates >= first
+        if coin_id in ended:
+            live_on &= dates <= last
+        expected += live_on.astype(int)
+    present = panel.groupby("date")["coin_id"].nunique().reindex(dates, fill_value=0).to_numpy()
+    required = np.maximum(1, np.ceil(expected * min_daily_coverage))
+    covered = dates[present >= required]
+    if covered.empty:
+        raise ValueError("No panel date has sufficient provider coverage")
+    covered_end = pd.Timestamp(covered.max())
+    live_last = spans.loc[[coin_id for coin_id in spans.index if coin_id not in ended], "max"]
+    holding = live_last[live_last < covered_end]
+    panel_end = pd.Timestamp(min(covered_end, holding.min())) if not holding.empty else covered_end
+    return PanelEnd(covered_end, panel_end, spans["max"], tuple(sorted(holding.index)))
+
+
+def _guard_panel_regression(
+    existing_path: Path,
+    new_panel: pd.DataFrame,
+    *,
+    intended_exclusions: set[str] | frozenset[str] = frozenset(),
+) -> None:
     """Refuse to replace a good panel with a provider-degraded smaller panel.
 
     A transient Gate/Binance/CoinGecko failure can make a live asset look
@@ -566,7 +898,9 @@ def _guard_panel_regression(existing_path: Path, new_panel: pd.DataFrame) -> Non
     would silently change the historical universe and could remove a coin that
     the strategy is actually holding.  The processed panel is cumulative:
     assets may be added, but a refresh must not delete one unless an operator
-    explicitly removes the cache/config and opts into a rebuild.
+    excludes it by id in the config (``intended_exclusions``).  Only explicit
+    ids count; a keyword or metadata change is provider-driven and still
+    blocks the write.
     """
     if not existing_path.exists():
         return
@@ -579,15 +913,25 @@ def _guard_panel_regression(existing_path: Path, new_panel: pd.DataFrame) -> Non
 
     old_ids = set(existing["coin_id"].astype(str))
     new_ids = set(new_panel["coin_id"].astype(str))
+    excluded = {str(value).lower() for value in intended_exclusions}
     missing = sorted(old_ids - new_ids)
-    if missing:
-        preview = ", ".join(missing[:12])
-        suffix = " ..." if len(missing) > 12 else ""
+    intended = [coin_id for coin_id in missing if coin_id.lower() in excluded]
+    unexpected = [coin_id for coin_id in missing if coin_id.lower() not in excluded]
+    if intended:
+        LOGGER.warning(
+            "Removing %s asset(s) from the processed panel because the config excludes them by id: %s",
+            len(intended),
+            ", ".join(intended),
+        )
+    if unexpected:
+        preview = ", ".join(unexpected[:12])
+        suffix = " ..." if len(unexpected) > 12 else ""
         raise RuntimeError(
             "Processed panel regression: refusing to overwrite an existing panel "
-            f"because {len(missing)} asset(s) would disappear: {preview}{suffix}. "
-            "Repair the independent provider cache or explicitly rebuild with "
-            "the intended exclusion before rerunning."
+            f"because {len(unexpected)} asset(s) would disappear: {preview}{suffix}. "
+            "Repair the independent provider cache, or, if the removal is intended, "
+            "add the coin id to universe.excluded_ids (or universe.stablecoin_ids) "
+            "before rerunning."
         )
 
     old_start = pd.to_datetime(existing["date"], errors="coerce").min()
@@ -635,16 +979,30 @@ def build_processed_datasets(
     binance = BinanceClient(config.providers.binance, raw_dir)
     coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
+    id_map = _load_cached_id_map(raw_dir)
+    aliases = {k.upper(): int(v) for k, v in config.universe.cmc_symbol_aliases.items()}
+    if id_map is not None:
+        _check_aliases_against_id_map(id_map, aliases)
+    cmc_ids = _resolve_candidate_cmc_ids(candidates, id_map, aliases)
+    assignments: list[tuple[str, str, int]] = []
+    for _, asset in candidates.iterrows():
+        resolved_id = cmc_ids.get(str(asset["id"]))
+        if resolved_id is not None:
+            assignments.append((str(asset["id"]), str(asset["symbol"]), resolved_id))
+    _check_unique_cmc_ids(assignments)
+
+    feed_ended_by_asset: dict[str, bool] = {}
     for _, asset in candidates.iterrows():
         coin_id = str(asset["id"])
         symbol = str(asset["symbol"]).upper()
         name = str(asset.get("name", coin_id))
 
-        cmc_id = asset.get("cmc_id")
-        if cmc_id is None or pd.isna(cmc_id):
+        cmc_id = cmc_ids.get(coin_id)
+        if cmc_id is None:
             LOGGER.warning("Missing CoinMarketCap id for %s (%s); skipping", coin_id, symbol)
             continue
-        history = _load_cmc_history(raw_dir, int(cmc_id))
+        loaded = _read_cmc_history(raw_dir, int(cmc_id))
+        history = loaded.frame
         if history is None or history.empty:
             LOGGER.warning("Missing CoinMarketCap cache for %s (%s); skipping", coin_id, symbol)
             continue
@@ -655,15 +1013,8 @@ def build_processed_datasets(
             LOGGER.info("Skipping %s (%s) during processing because metadata marks it ineligible", coin_id, symbol)
             continue
 
-        validation = summarize_market_history(
-            coin_id=coin_id,
-            symbol=symbol,
-            name=name,
-            history=history,
-            quality_config=config.data_quality,
-        )
-
         feed_ended = _feed_ended(history, config.end_timestamp)
+        feed_ended_by_asset[coin_id] = feed_ended
         chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
         chart = _load_coingecko_chart(chart_path)
         gateio_pair = asset.get("gateio_pair")
@@ -675,84 +1026,67 @@ def build_processed_datasets(
         # Independent sources.  Gate.io and Binance are exchange venues;
         # CoinGecko is an aggregator and carries the weakest evidence, but it
         # still counts as an independent vote when no order book covers a name.
-        # CMC owns every value in the panel either way - these only decide
-        # whether to trust it.
-        venue_frames = [
-            ("gateio", gate_frame, "gate_price"),
-            ("binance", binance_frame, "binance_price"),
-            ("coingecko", chart, "cg_price"),
+        # CoinPaprika is the last-resort vote the download fetches when nothing
+        # else can break a tie. CMC owns every value in the panel either way -
+        # these only decide whether to trust it.
+        pap_frame = pd.DataFrame()
+        pap_id = asset.get("coinpaprika_id")
+        if pap_id is not None and not pd.isna(pap_id):
+            pap_frame = coinpaprika.load_daily_history(str(pap_id))
+        sources = [
+            IndependentSource("gateio", gate_frame, "gate_price"),
+            IndependentSource("binance", binance_frame, "binance_price"),
+            IndependentSource("coingecko", chart, "cg_price"),
+            IndependentSource("coinpaprika", pap_frame, "pap_price"),
         ]
 
-        def _evaluate(name: str, frame: pd.DataFrame, column: str) -> tuple[str, pd.DataFrame, str, object]:
-            return (
-                name,
-                frame,
-                column,
-                compare_daily_prices(
-                    validation.history,
-                    frame,
-                    secondary_column=column,
-                    min_overlap_days=config.data_quality.cross_check_min_overlap_days,
-                    max_median_gap=config.data_quality.cross_check_max_median_gap,
-                    max_latest_gap=config.data_quality.cross_check_max_latest_gap,
-                    max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
-                    require_latest_coverage=not feed_ended,
-                ),
+        corrupted_days, confirmed_days = _judge_level_corruption(
+            history,
+            loaded.level_corruption_dates,
+            sources,
+            tolerance=config.data_quality.cross_check_max_median_gap,
+        )
+        if corrupted_days:
+            LOGGER.warning(
+                "Dropping %s CMC row(s) of %s (%s) as price-level corruption: %s",
+                len(corrupted_days),
+                coin_id,
+                symbol,
+                _date_ranges(corrupted_days),
+            )
+            history = history[~history["date"].isin(set(corrupted_days))].reset_index(drop=True)
+        if confirmed_days:
+            LOGGER.warning(
+                "Keeping %s flagged CMC row(s) of %s (%s): an exchange venue confirms the move on %s",
+                len(confirmed_days),
+                coin_id,
+                symbol,
+                _date_ranges(confirmed_days),
             )
 
-        evaluations = [_evaluate(name, frame, column) for name, frame, column in venue_frames if not frame.empty]
-        # Rank by evidence, not by provider type: a venue whose data stops
-        # months ago cannot certify the current print, and putting it first
-        # would only force a pointless extra hop. Prefer a source that actually
-        # passes; fall back to the venue order when none does so the reader can
-        # still see the strongest available disagreement.
-        passing = [item for item in evaluations if item[3].passed]
-        ordered = passing + [item for item in evaluations if not item[3].passed]
-        if ordered:
-            secondary_source, secondary_frame, secondary_column, secondary_result = ordered[0]
-        else:
-            secondary_source, secondary_frame, secondary_column = "coingecko", chart, "cg_price"
-            secondary_result = compare_daily_prices(
-                validation.history,
-                secondary_frame,
-                secondary_column=secondary_column,
-                min_overlap_days=config.data_quality.cross_check_min_overlap_days,
-                max_median_gap=config.data_quality.cross_check_max_median_gap,
-                max_latest_gap=config.data_quality.cross_check_max_latest_gap,
-                max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
-                require_latest_coverage=not feed_ended,
-            )
-        tertiary = pd.DataFrame()
-        tertiary_column = "pap_price"
-        tertiary_source = ""
-        pap_id = asset.get("coinpaprika_id")
-        if not secondary_result.passed:
-            # Any independent source other than the one already disagreeing can
-            # carry the tie-break vote.
-            for name, frame, column, _result in ordered[1:]:
-                if frame.empty:
-                    continue
-                tertiary = frame
-                tertiary_column = column
-                tertiary_source = name
-                break
-            if tertiary.empty and pap_id is not None and not pd.isna(pap_id):
-                tertiary = coinpaprika.load_daily_history(str(pap_id))
-                if not tertiary.empty:
-                    tertiary_column = "pap_price"
-                    tertiary_source = "coinpaprika"
-        cross = adjudicate_daily_prices(
+        validation = summarize_market_history(
+            coin_id=coin_id,
+            symbol=symbol,
+            name=name,
+            history=history,
+            quality_config=config.data_quality,
+        )
+
+        # Every source votes. Taking the first source that *passes* discarded
+        # every other source's disagreement: CMC=250 against Gate=Binance=100
+        # was admitted on CoinGecko's word, and a CMC block 13 months back was
+        # "confirmed" by a CoinGecko chart that starts after it. A live feed's
+        # level tests also run on the recent window, so the ever-growing venue
+        # overlap cannot dilute a block; an ended feed is verified whole.
+        cross = adjudicate_sources(
             validation.history,
-            secondary_frame,
-            tertiary,
-            secondary_column=secondary_column,
-            tertiary_column=tertiary_column,
-            tertiary_source=tertiary_source,
+            sources,
             min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             max_median_gap=config.data_quality.cross_check_max_median_gap,
             max_latest_gap=config.data_quality.cross_check_max_latest_gap,
             max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
             require_latest_coverage=not feed_ended,
+            recent_days=None if feed_ended else config.data_quality.cross_check_recent_days,
         )
         # "Disagrees" and "could not be checked" are different states. A proven
         # disagreement blocks the asset; a missing second source is recorded
@@ -766,15 +1100,47 @@ def build_processed_datasets(
         )
         tertiary_result = cross.tertiary
         secondary_tertiary_result = cross.secondary_vs_tertiary
-        confirmed_by = cross.confirmed_by or (secondary_source if secondary_result.passed else "")
+        tertiary_source = cross.tertiary_source
+        confirmed_by = cross.confirmed_by or ""
+        lags = [result.primary_lag_days for result in cross.verdicts.values() if result.primary_lag_days is not None]
+        primary_lag_days = max(lags) if lags else 0
+        # Each source's own verdict against CMC, so a disagreement is visible
+        # even when another source settled it.
+        source_verdicts: dict[str, object] = {}
+        for source in sources:
+            result = cross.verdicts.get(source.name)
+            source_verdicts[f"crosscheck_{source.name}_reason"] = result.reason if result is not None else ""
+            source_verdicts[f"crosscheck_{source.name}_overlap_days"] = (
+                result.overlap_days if result is not None else pd.NA
+            )
+            source_verdicts[f"crosscheck_{source.name}_median_gap"] = (
+                result.median_gap if result is not None else pd.NA
+            )
         quality_rows.append(
             validation.summary
             | {
                 "metadata_available": bool(metadata_payload),
+                # Days cached by more than one fetch, and those whose copies
+                # disagree (a provider revision; the newest fetch was kept).
+                "cmc_duplicate_dates": loaded.duplicate_dates,
+                "cmc_conflicting_duplicate_dates": loaded.conflicting_duplicate_dates,
+                # Rows dropped as price-level corruption, and flagged rows kept
+                # because an exchange venue confirmed the move.
+                "level_corruption_rows": len(corrupted_days),
+                "level_corruption_dates": _date_ranges(corrupted_days),
+                "level_corruption_confirmed_rows": len(confirmed_days),
+                # The API's data-quality alerts read these four. They describe
+                # the comparison the decision rests on: the source that admitted
+                # the asset, or the disagreement that refused it.
+                "latest_overlap_date": cross.effective_result.latest_overlap_date,
+                "latest_price_gap": cross.effective_result.latest_gap,
+                "median_price_gap": cross.effective_result.median_gap,
+                "price_correlation": cross.effective_result.price_correlation,
                 "crosscheck_passed": cross.passed,
                 "crosscheck_verified": not unverified,
                 "crosscheck_reason": cross.reason,
                 "crosscheck_confirmed_by": confirmed_by,
+                "crosscheck_secondary_source": cross.secondary_source,
                 "crosscheck_overlap_days": cross.overlap_days,
                 "crosscheck_primary_latest_date": cross.latest_primary_date,
                 "crosscheck_secondary_latest_date": cross.latest_secondary_date,
@@ -811,6 +1177,11 @@ def build_processed_datasets(
                 # days of the primary series rest on CMC alone so the audit can
                 # price that in instead of hiding it.
                 "crosscheck_primary_ended": bool(feed_ended),
+                # CMC stopping before an independent source is the reverse of
+                # a stale source: the venue proves the asset kept trading. A
+                # live asset flagged here holds the panel end (``_panel_end``).
+                "crosscheck_primary_lag_days": primary_lag_days,
+                "crosscheck_primary_stale": bool(primary_lag_days and not feed_ended),
                 "crosscheck_unverified_tail_days": (
                     max(
                         int(
@@ -827,14 +1198,16 @@ def build_processed_datasets(
                 ),
                 "included_in_panel": bool(admitted),
             }
+            | source_verdicts
         )
-        if cross.passed and cross.confirmed_by:
+        if cross.passed and cross.reason != "ok":
             LOGGER.warning(
-                "Admitted %s (%s) with %s confirming CMC; CoinGecko median gap %.2f%%",
+                "Admitted %s (%s) after %s disputed CMC: %s confirms CMC on every disputed day (%s)",
                 coin_id,
                 symbol,
+                cross.secondary_source,
                 cross.confirmed_by,
-                (cross.median_gap or 0.0) * 100,
+                cross.secondary.reason,
             )
         if not admitted:
             if validation.passed and blocked_by_cross_check:
@@ -858,14 +1231,11 @@ def build_processed_datasets(
             continue
 
         framed = validation.history.copy()
-        # Include pre-window history so universe eligibility (history_days) can
-        # be satisfied at start_timestamp. Without this, history_count begins at
-        # 0 on the backtest start date and the universe builder rejects every
-        # coin until min_history_days has accumulated -- which for short
-        # windows means no eligible assets at any rebalance. The end of the
-        # window stays fixed because no data after the backtest end is needed.
-        history_buffer = pd.Timedelta(days=config.universe.min_history_days)
-        data_start = config.start_timestamp - history_buffer
+        # Include pre-window history so every trailing statistic is already
+        # warm on start_timestamp (see ``_pre_window_buffer_days``). The end of
+        # the window stays fixed because no data after the backtest end is
+        # needed.
+        data_start = config.start_timestamp - pd.Timedelta(days=_pre_window_buffer_days(config))
         framed = framed[(framed["date"] >= data_start) & (framed["date"] <= config.end_timestamp)].copy()
         if framed.empty:
             continue
@@ -914,8 +1284,8 @@ def build_processed_datasets(
                 "sector": sector_map.resolve_coin_sector(coin_id, name, categories),
                 "metadata_available": bool(metadata_payload),
                 "validation_passed": validation.summary["validation_passed"],
-                "latest_price_gap": validation.summary["latest_price_gap"],
-                "median_price_gap": validation.summary["median_price_gap"],
+                "latest_price_gap": cross.effective_result.latest_gap,
+                "median_price_gap": cross.effective_result.median_gap,
                 "direct_market_cap_days": validation.summary["direct_market_cap_days"],
                 "direct_price_days": validation.summary["direct_price_days"],
                 "history_days": validation.summary["history_days"],
@@ -926,30 +1296,57 @@ def build_processed_datasets(
         raise ValueError("No processed panel rows could be built")
 
     panel = pd.concat(panel_frames, ignore_index=True)
-    total_assets = panel["coin_id"].nunique()
-    required_coverage = max(1, ceil(total_assets * config.data_quality.min_daily_coverage))
-    coverage = panel.groupby("date")["coin_id"].nunique()
-    covered_dates = coverage[coverage >= required_coverage]
-    if covered_dates.empty:
-        raise ValueError("No panel date has sufficient provider coverage")
-    panel_end = covered_dates.index.max()
+    ended_ids = {coin_id for coin_id, ended in feed_ended_by_asset.items() if ended}
+    tail = _panel_end(panel, ended_ids, config.data_quality.min_daily_coverage)
+    panel_end = tail.panel_end
+    if tail.holding:
+        LOGGER.warning(
+            "Holding the panel end at %s (data covers %s): live asset(s) whose CMC feed stops early: %s",
+            panel_end.date(),
+            tail.covered_end.date(),
+            ", ".join(
+                f"{coin_id} (last print {tail.last_print[coin_id].date()}, "
+                f"{(tail.covered_end - tail.last_print[coin_id]).days}d behind)"
+                for coin_id in tail.holding
+            ),
+        )
     dropped = panel[panel["date"] > panel_end]
     if not dropped.empty:
         dropped_dates = sorted(str(value.date()) for value in dropped["date"].unique())
+        first_dropped = dropped["date"].min()
+        missing = sorted(
+            coin_id
+            for coin_id, last in tail.last_print.items()
+            if coin_id not in ended_ids and last < first_dropped
+        )
         LOGGER.warning(
-            "Dropping partial provider dates %s: coverage below %s/%s assets",
+            "Dropping partial provider dates %s: live asset(s) without a CMC row on %s: %s",
             dropped_dates,
-            required_coverage,
-            total_assets,
+            first_dropped.date(),
+            ", ".join(missing[:10]) + (" ..." if len(missing) > 10 else ""),
         )
     panel = panel[panel["date"] <= panel_end].copy()
     panel = panel.sort_values(["date", "market_cap"], ascending=[True, False]).reset_index(drop=True)
     metadata = pd.DataFrame(metadata_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
     quality = pd.DataFrame(quality_rows).drop_duplicates(subset=["coin_id"]).set_index("coin_id")
+    # How far each admitted asset's last CMC print is behind the newest date
+    # the rest of the universe covers (for an ended feed: how long ago it
+    # ended), and whether it is what holds the panel end back.
+    last_print = tail.last_print.reindex(quality.index)
+    quality["cmc_lag_days"] = (tail.covered_end - last_print).dt.days
+    quality["holds_panel_end"] = quality.index.isin(tail.holding)
+    quality["panel_end_date"] = panel_end
 
     panel_path = processed_dir / "panel_daily.csv"
     if persist:
-        _guard_panel_regression(panel_path, panel)
+        _guard_panel_regression(
+            panel_path,
+            panel,
+            intended_exclusions={
+                *config.universe.excluded_ids,
+                *config.universe.stablecoin_ids,
+            },
+        )
         _write_csv_atomic(panel, panel_path, index=False)
         _write_csv_atomic(metadata, processed_dir / "metadata.csv", index=True)
         _write_csv_atomic(quality, processed_dir / "data_quality.csv", index=True)

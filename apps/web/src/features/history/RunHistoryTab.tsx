@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Toolbar } from "../../components/history/Toolbar";
@@ -15,6 +15,8 @@ import { SparklineChart } from "../../components/charts/SparklineChart";
 
 import {
   defaultHistoryFilter,
+  describeApiError,
+  isBacktestRun,
   listRuns,
   toggleFavorite,
 } from "../../lib/api";
@@ -88,6 +90,16 @@ export function RunHistoryTab({ onNavigate }: Props) {
       : row;
 
   const serverData = query.data;
+
+  // If the current page emptied out (runs aged out of the date window, were
+  // pruned, or the last favorite on it was removed), step back to the last
+  // page that still has rows instead of claiming there are no runs.
+  useEffect(() => {
+    if (!serverData || serverData.items.length > 0 || filter.page <= 1) return;
+    const lastPage = Math.max(1, Math.ceil(serverData.total / filter.pageSize));
+    if (lastPage < filter.page) setFilter((current) => ({ ...current, page: lastPage }));
+  }, [serverData, filter.page, filter.pageSize]);
+
   const { rows, total } = useMemo(() => {
     return {
       rows: (serverData?.items ?? []).map(applyLocalFavorite),
@@ -105,8 +117,13 @@ export function RunHistoryTab({ onNavigate }: Props) {
       : favoriteRefetchId;
   const favoritesDisabled = Boolean(favoriteMutation.isPending || favoriteRefetchId || query.isFetching);
 
+  // universe_refresh rows are data jobs, not backtests; re-running one would
+  // submit "universe_refresh" as a preset, which the backend rejects.
+  const selectedRow = rows.find((row) => row.run_id === selectedId);
+  const canRerun = Boolean(selectedId) && (selectedRow === undefined || isBacktestRun(selectedRow));
+
   const handleRerun = () => {
-    if (selectedId) onNavigate("backtest", selectedId);
+    if (selectedId && canRerun) onNavigate("backtest", selectedId);
   };
 
   return (
@@ -127,18 +144,24 @@ export function RunHistoryTab({ onNavigate }: Props) {
           </span>
         )}
         <Button
-          variant={selectedId ? "gold" : "outline-muted"}
+          variant={canRerun ? "gold" : "outline-muted"}
           size="sm"
-          disabled={!selectedId}
+          disabled={!canRerun}
           onClick={handleRerun}
         >
           ▶ RE-RUN SELECTED
         </Button>
       </div>
 
+      {favoriteMutation.isError && (
+        <ErrorBanner
+          message={describeApiError(favoriteMutation.error, `Unable to update favorite for ${favoriteMutation.variables}`)}
+        />
+      )}
+
       {query.isError && (
         <ErrorBanner
-          message="Unable to load run history."
+          message={describeApiError(query.error, "Unable to load run history")}
           onRetry={() => { void query.refetch(); }}
         />
       )}

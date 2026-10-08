@@ -115,6 +115,110 @@ describe("BacktestStudioTab", () => {
     expect(screen.queryByText(historyRun.run_id)).not.toBeInTheDocument();
   });
 
+  it.each([
+    [
+      422,
+      "validation_error",
+      "unknown preset 'universe_refresh'",
+      null,
+      "Unable to queue backtest: unknown preset 'universe_refresh'",
+    ],
+    [
+      409,
+      "conflict",
+      "a request with this Idempotency-Key is still in progress",
+      null,
+      "Unable to queue backtest: a request with this Idempotency-Key is still in progress",
+    ],
+    [
+      429,
+      "rate_limited",
+      "Rate limit exceeded",
+      { limit: "10 per 1 minute" },
+      "Unable to queue backtest: Rate limit exceeded (10 per 1 minute)",
+    ],
+  ])("surfaces a %i RUN BACKTEST rejection with the backend message", async (status, code, message, details, expected) => {
+    vi.mocked(api.runBacktest).mockRejectedValue(new api.ApiError(message, { status, code, details }));
+
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
+    const button = await screen.findByRole("button", { name: /RUN BACKTEST/ });
+    fireEvent.click(button);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(expected);
+    await waitFor(() => expect(button).not.toBeDisabled());
+  });
+
+  it("re-runs a legacy non-Top-20 run on the point-in-time Top 20 universe", async () => {
+    vi.mocked(api.getRunDetail).mockResolvedValue({ ...api.fallbackRunDetail, run_id: "btk_0141", universe: "Top-10" });
+
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0141" onNavigate={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /RUN BACKTEST/ }));
+
+    await waitFor(() => expect(api.runBacktest).toHaveBeenCalled());
+    expect(vi.mocked(api.runBacktest).mock.calls[0][0].universe.topN).toBe(20);
+  });
+
+  it("does not auto-select the daily universe_refresh job from the run queue", async () => {
+    vi.mocked(api.listRunsQueue).mockResolvedValue([
+      { run_id: "btk_0300", strategy: "universe_refresh", status: "running", duration_s: 5, params_summary: "Data Sources" },
+    ]);
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    await waitFor(() => expect(api.getRunDetail).toHaveBeenCalledWith("btk_0146"));
+    expect(api.getRunDetail).not.toHaveBeenCalledWith("btk_0300");
+  });
+
+  it("falls back to the latest completed backtest even when refresh jobs fill the recent history", async () => {
+    const refreshRow = (index: number): api.RunRow => ({
+      run_id: `btk_04${String(index).padStart(2, "0")}`,
+      strategy: "universe_refresh",
+      strategy_family: "Other",
+      universe: "Data Sources",
+      window: { start: "2026-09-01", end: "2026-09-01" },
+      status: index % 2 === 0 ? "completed" : "failed",
+      created_at: `2026-09-${String(20 - index).padStart(2, "0")}T00:00:00Z`,
+    });
+    const backtest: api.RunRow = { ...api.fallbackRunsList[6], run_id: "btk_0142" };
+    vi.mocked(api.listRunsQueue).mockResolvedValue([]);
+    vi.mocked(api.listRuns).mockImplementation(async (filter) => {
+      const rows = [...Array.from({ length: 12 }, (_, index) => refreshRow(index)), backtest]
+        .filter((row) => filter.chips.length === 0 || filter.chips.includes(row.status));
+      return { items: rows.slice(0, filter.pageSize), total: rows.length, page: 1, pageSize: filter.pageSize };
+    });
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    await waitFor(() => expect(api.getRunDetail).toHaveBeenCalledWith("btk_0142"));
+  });
+
+  it("does not let a queue poll that started before submission drop the new run", async () => {
+    const submittedRun: api.RunRowSummary = {
+      ...api.fallbackRunsQueue[0],
+      run_id: "btk_0200",
+      status: "queued",
+      params_summary: "N=20 / Weekly / 2024-2026",
+    };
+    let resolveStalePoll: (runs: api.RunRowSummary[]) => void = () => {};
+    vi.mocked(api.listRunsQueue)
+      .mockImplementationOnce(() => new Promise<api.RunRowSummary[]>((resolve) => { resolveStalePoll = resolve; }))
+      .mockResolvedValue([submittedRun]);
+    vi.mocked(api.runBacktest).mockResolvedValue(submittedRun);
+
+    renderWithQuery(<BacktestStudioTab prefillRunId="btk_0142" onNavigate={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /RUN BACKTEST/ }));
+    expect(await screen.findByText("Backtest queued: btk_0200")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveStalePoll([]);
+    });
+
+    const queuePanel = await screen.findByRole("complementary", { name: "Run queue" });
+    await waitFor(() => expect(queuePanel).toHaveTextContent("btk_0200"));
+    expect(screen.queryByText("Backtest completed: btk_0200")).not.toBeInTheDocument();
+  });
+
   it("renders + NEW RUN button", async () => {
     renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
     expect(await screen.findByRole("button", { name: /\+ NEW RUN/ })).toBeInTheDocument();
@@ -131,6 +235,18 @@ describe("BacktestStudioTab", () => {
       run_id: "btk_0142",
       formats: ["markdown", "pdf", "png", "bundle"],
     }));
+  });
+
+  it("reports a failed report regeneration as an error with the backend message", async () => {
+    vi.mocked(api.generateReport).mockRejectedValue(new api.ApiError("run artifacts not found", { status: 404, code: "not_found" }));
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    const button = await screen.findByRole("button", { name: "Regenerate this run's report" });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to regenerate report: run artifacts not found");
+    expect(screen.queryByText("Report regeneration failed")).not.toBeInTheDocument();
   });
 
   it("renders Run Queue header with active count", async () => {

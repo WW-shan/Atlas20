@@ -42,9 +42,11 @@ from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 from atlas20.signals.risk import btc_above_moving_average  # noqa: E402
 from atlas20.universe.builder import MarketDataBundle  # noqa: E402
 
+from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E402
 from scripts.run_momentum_event_ensemble import (  # noqa: E402
     MOMENTUM_FAMILIES,
     PRIMARY_SPEC,
+    _buy_and_hold_returns,
     _load_market,
     _net_returns,
     _score_panels,
@@ -118,25 +120,71 @@ def _build_sleeve_results(
     return results
 
 
+def _sleeve_net_returns(
+    sleeve_results: dict[str, SingleAssetWeightBacktestResult],
+    *,
+    target_vols: tuple[float, ...],
+    cost_bps: float,
+    label: str = "",
+) -> pd.DataFrame:
+    return pd.concat(
+        [
+            _net_returns(sleeve_results[f"{family}|tv{target_vol:.1f}"], cost_bps).rename(
+                f"{label}{family}|tv{target_vol:.1f}"
+            )
+            for family in MOMENTUM_FAMILIES
+            for target_vol in target_vols
+        ],
+        axis=1,
+    )
+
+
 def _ensemble_returns(
     sleeve_results: dict[str, SingleAssetWeightBacktestResult],
     *,
     target_vols: tuple[float, ...],
     cost_bps: float,
+    start: pd.Timestamp | str | None = None,
+    end: pd.Timestamp | str | None = None,
 ) -> pd.Series:
-    columns = [
-        _net_returns(sleeve_results[f"{family}|tv{target_vol:.1f}"], cost_bps)
-        for family in MOMENTUM_FAMILIES
-        for target_vol in target_vols
-    ]
-    return pd.concat(columns, axis=1).mean(axis=1)
+    """Equal initial capital in each family/target-vol sleeve, then held.
+
+    Funded on ``start``, so every evaluation window is its own buy-and-hold
+    book (see ``_buy_and_hold_returns`` in run_momentum_event_ensemble).
+    """
+    frame = _sleeve_net_returns(sleeve_results, target_vols=target_vols, cost_bps=cost_bps)
+    return _buy_and_hold_returns(frame.loc[start:end])
 
 
-def _period_metrics(returns: pd.Series, start: str, end: str | None = None) -> dict[str, float]:
-    from scripts.run_strategy_evidence_audit import _metrics_from_returns
+def _blend_returns(
+    baseline_results: dict[str, SingleAssetWeightBacktestResult],
+    breadth_results: dict[str, SingleAssetWeightBacktestResult],
+    *,
+    baseline_weight: float,
+    target_vols: tuple[float, ...],
+    cost_bps: float,
+    start: pd.Timestamp | str | None = None,
+    end: pd.Timestamp | str | None = None,
+) -> pd.Series:
+    """Book with ``baseline_weight`` of its capital in the baseline sleeves.
 
-    sliced = returns.loc[start:end]
-    return _metrics_from_returns(sliced)
+    The rest goes to the breadth sleeves, equal within each book, and all
+    twelve sleeves are then held without re-equalising. The blends used to be
+    weighted means of the two books' daily returns: a daily rebalance between
+    baseline and breadth that was never charged.
+    """
+    if not 0.0 <= baseline_weight <= 1.0:
+        raise ValueError("baseline_weight must be within [0, 1]")
+    baseline = _sleeve_net_returns(
+        baseline_results, target_vols=target_vols, cost_bps=cost_bps, label="baseline|"
+    )
+    breadth = _sleeve_net_returns(
+        breadth_results, target_vols=target_vols, cost_bps=cost_bps, label="breadth|"
+    )
+    weights = [baseline_weight / baseline.shape[1]] * baseline.shape[1] + [
+        (1.0 - baseline_weight) / breadth.shape[1]
+    ] * breadth.shape[1]
+    return _buy_and_hold_returns(pd.concat([baseline, breadth], axis=1).loc[start:end], weights)
 
 
 def _write_report(
@@ -159,8 +207,11 @@ def _write_report(
         "- BTC 100-day MA gate with 2-day confirmation.",
         "- Breadth is the fraction of the current Top20 above its own 50-day MA.",
         "- The breadth sleeve requires BTC risk-on and breadth >= 50%.",
-        "- The blend is the daily equal-weight portfolio of baseline and breadth sleeves.",
-        "- 60-day realized-volatility target; 70% and 80% sleeves are equal-weighted.",
+        "- The blends put 25%/50%/75% of the initial capital in the baseline sleeves and the",
+        "  rest in the breadth sleeves, then hold them; there is no (uncharged) daily",
+        "  rebalancing between the two books or between sleeves.",
+        "- 60-day realized-volatility target; the 70% and 80% sleeves of each family start",
+        "  with equal capital. Every period below is its own book, funded on its first day.",
         "- No leverage, no shorting, gross exposure capped at 1.0, T+1 execution.",
         "",
         "## Primary comparison",
@@ -278,45 +329,53 @@ def main() -> None:
     )
 
     output_dir = ensure_dir(args.output_dir)
-    summary_rows: list[dict[str, object]] = []
-    primary_returns: dict[str, dict[float, pd.Series]] = {
-        "baseline": {},
-        "breadth50": {},
-        "blend50": {},
-        "blend25": {},
-        "blend75": {},
+    start = pd.Timestamp(args.start_date)
+    post_2024 = pd.Timestamp("2024-01-01")
+    periods = (
+        ("full_2022_plus", start),
+        ("post_2023", pd.Timestamp("2023-01-01")),
+        ("post_2024", post_2024),
+    )
+    breadth_results = threshold_results[0.50]
+    # Share of the initial capital in the baseline sleeves; the rest is in the
+    # breadth-50% sleeves. Every book is funded on its period's first day and
+    # then held (see _blend_returns).
+    primary_weights = {
+        "baseline": 1.0,
+        "breadth50": 0.0,
+        "blend25": 0.25,
+        "blend50": 0.50,
+        "blend75": 0.75,
     }
-    for cost_bps in costs:
-        baseline = _ensemble_returns(
+
+    def book(
+        baseline_weight: float,
+        cost_bps: float,
+        period_start: pd.Timestamp,
+        period_end: pd.Timestamp | None = None,
+    ) -> pd.Series:
+        return _blend_returns(
             baseline_results,
+            breadth_results,
+            baseline_weight=baseline_weight,
             target_vols=target_vols,
             cost_bps=cost_bps,
+            start=period_start,
+            end=period_end,
         )
-        breadth50 = _ensemble_returns(
-            threshold_results[0.50],
-            target_vols=target_vols,
-            cost_bps=cost_bps,
-        )
-        blends = {
-            "blend25": 0.25 * baseline + 0.75 * breadth50,
-            "blend50": 0.50 * baseline + 0.50 * breadth50,
-            "blend75": 0.75 * baseline + 0.25 * breadth50,
-        }
-        for strategy, returns in (
-            ("baseline", baseline),
-            ("breadth50", breadth50),
-            *blends.items(),
-        ):
-            primary_returns[strategy][cost_bps] = returns
-            for period_name, start in (
-                ("full_2022_plus", args.start_date),
-                ("post_2023", "2023-01-01"),
-                ("post_2024", "2024-01-01"),
-            ):
+
+    summary_rows: list[dict[str, object]] = []
+    primary_returns: dict[str, dict[float, pd.Series]] = {name: {} for name in primary_weights}
+    for cost_bps in costs:
+        for strategy, baseline_weight in primary_weights.items():
+            for period_name, period_start in periods:
+                returns = book(baseline_weight, cost_bps, period_start)
+                if period_name == "full_2022_plus":
+                    primary_returns[strategy][cost_bps] = returns
                 summary_rows.append(
                     _summary_row(
                         strategy,
-                        returns.loc[pd.Timestamp(start) :],
+                        returns,
                         cost_bps=cost_bps,
                         period=period_name,
                     )
@@ -325,13 +384,17 @@ def main() -> None:
     threshold_rows: list[dict[str, object]] = []
     for threshold, results in threshold_results.items():
         for cost_bps in costs:
-            returns = _ensemble_returns(
-                results,
-                target_vols=target_vols,
-                cost_bps=cost_bps,
+            full, post = (
+                _metrics_from_returns(
+                    _ensemble_returns(
+                        results,
+                        target_vols=target_vols,
+                        cost_bps=cost_bps,
+                        start=period_start,
+                    )
+                )
+                for period_start in (start, post_2024)
             )
-            full = _period_metrics(returns, args.start_date)
-            post_2024 = _period_metrics(returns, "2024-01-01")
             threshold_rows.append(
                 {
                     "breadth_threshold": threshold,
@@ -339,21 +402,20 @@ def main() -> None:
                     "full_multiple": full["multiple"],
                     "full_sharpe": full["sharpe"],
                     "full_max_drawdown": full["max_drawdown"],
-                    "post_2024_multiple": post_2024["multiple"],
-                    "post_2024_sharpe": post_2024["sharpe"],
-                    "post_2024_max_drawdown": post_2024["max_drawdown"],
+                    "post_2024_multiple": post["multiple"],
+                    "post_2024_sharpe": post["sharpe"],
+                    "post_2024_max_drawdown": post["max_drawdown"],
                 }
             )
     threshold_sensitivity = pd.DataFrame(threshold_rows)
 
     blend_rows: list[dict[str, object]] = []
     for cost_bps in costs:
-        baseline = primary_returns["baseline"][cost_bps]
-        breadth50 = primary_returns["breadth50"][cost_bps]
         for baseline_weight in (0.0, 0.25, 0.50, 0.75, 1.0):
-            returns = baseline_weight * baseline + (1.0 - baseline_weight) * breadth50
-            full = _period_metrics(returns, args.start_date)
-            post_2024 = _period_metrics(returns, "2024-01-01")
+            full, post = (
+                _metrics_from_returns(book(baseline_weight, cost_bps, period_start))
+                for period_start in (start, post_2024)
+            )
             blend_rows.append(
                 {
                     "baseline_weight": baseline_weight,
@@ -362,9 +424,9 @@ def main() -> None:
                     "full_multiple": full["multiple"],
                     "full_sharpe": full["sharpe"],
                     "full_max_drawdown": full["max_drawdown"],
-                    "post_2024_multiple": post_2024["multiple"],
-                    "post_2024_sharpe": post_2024["sharpe"],
-                    "post_2024_max_drawdown": post_2024["max_drawdown"],
+                    "post_2024_multiple": post["multiple"],
+                    "post_2024_sharpe": post["sharpe"],
+                    "post_2024_max_drawdown": post["max_drawdown"],
                 }
             )
     blend_sensitivity = pd.DataFrame(blend_rows)
@@ -372,13 +434,15 @@ def main() -> None:
     stress_rows: list[dict[str, object]] = []
     for cost_bps in costs:
         for strategy in ("baseline", "breadth50", "blend50"):
-            returns = primary_returns[strategy][cost_bps].loc[
-                pd.Timestamp(args.stress_start) : pd.Timestamp(args.stress_end)
-            ]
             stress_rows.append(
                 _summary_row(
                     strategy,
-                    returns,
+                    book(
+                        primary_weights[strategy],
+                        cost_bps,
+                        pd.Timestamp(args.stress_start),
+                        pd.Timestamp(args.stress_end),
+                    ),
                     cost_bps=cost_bps,
                     period="stress_2020_10_to_2021_12",
                 )
@@ -387,9 +451,7 @@ def main() -> None:
 
     yearly = pd.DataFrame(
         {
-            f"{strategy}_{cost_bps:g}bps": _yearly_returns(
-                primary_returns[strategy][cost_bps].loc[pd.Timestamp(args.start_date) :]
-            )
+            f"{strategy}_{cost_bps:g}bps": _yearly_returns(primary_returns[strategy][cost_bps])
             for strategy in ("baseline", "breadth50", "blend50")
             for cost_bps in (2.0, 20.0)
         }
@@ -423,6 +485,11 @@ def main() -> None:
         "vol_window": args.vol_window,
         "cost_bps": list(costs),
         "gate": "BTC 100D MA confirm2; breadth sleeve also requires Top20 breadth >= 50%",
+        "combination": (
+            "blend weights split the initial capital between the baseline and breadth sleeves "
+            "(equal within each); all sleeves are held without re-equalising, and each period "
+            "(and every returns csv, from start) is its own book funded on its first day"
+        ),
         "execution": "signal close, T+1",
         "leverage": "none; gross exposure cap 1.0",
     }

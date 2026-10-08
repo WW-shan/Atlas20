@@ -8,9 +8,15 @@ export function useRunBacktest() {
 
   return useMutation({
     mutationFn: (payload: BacktestConfig) => runBacktest(payload),
-    onSuccess: (result: RunRowSummary) => {
-      const prev = queryClient.getQueryData<RunRowSummary[]>(qk.runs.queue()) ?? [];
-      queryClient.setQueryData<RunRowSummary[]>(qk.runs.queue(), [result, ...prev]);
+    onSuccess: async (result: RunRowSummary) => {
+      // A queue poll that started before this run was committed would land
+      // after the write below and drop the run (faking a "completed"
+      // transition and stopping the idle-aware polling). Cancel it first.
+      await queryClient.cancelQueries({ queryKey: qk.runs.queue() });
+      queryClient.setQueryData<RunRowSummary[]>(qk.runs.queue(), (prev = []) => [
+        result,
+        ...prev.filter((run) => run.run_id !== result.run_id),
+      ]);
       void queryClient.invalidateQueries({ queryKey: qk.runs.listAll() });
     },
   });

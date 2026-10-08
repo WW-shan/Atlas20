@@ -15,7 +15,7 @@ def test_register_new_backtest_purges_expired_idempotency_rows(db_session: Sessi
         db_session,
         BacktestConfig.model_validate(
             {
-                "preset": "ATLAS Adaptive v3",
+                "preset": "base",
                 "universe": {"topN": 20, "excludeStable": True, "excludeWrapped": True},
                 "window": {"start": "2024-01-01", "end": "2026-05-18", "rebalance": "Weekly"},
                 "allocation": {"positionPct": 5.0, "slots": 10},

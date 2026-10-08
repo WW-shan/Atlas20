@@ -11,6 +11,8 @@ from datetime import timedelta
 import json
 from pathlib import Path
 
+import pytest
+
 from atlas20.api import scheduler as scheduler_module
 from atlas20.api._time import utc_now
 from atlas20.api.settings import Settings
@@ -186,3 +188,24 @@ def _recording_queue(monkeypatch) -> list[str]:
 
     monkeypatch.setattr(scheduler_module, "run_daily_refresh", _fake)
     return queued
+
+
+@pytest.mark.parametrize(("hour", "offset", "expected"), [(20, 4, 0), (22, 23, 21), (23, 1, 0)])
+def test_daily_refresh_catchup_wraps_past_midnight(tmp_path, monkeypatch, hour, offset, expected) -> None:
+    monkeypatch.delenv("ATLAS20_DISABLE_SCHEDULER", raising=False)
+    created = _install_fake(monkeypatch)
+    monkeypatch.setattr(scheduler_module, "_acquire_scheduler_lock", lambda settings: object())
+    monkeypatch.setattr(scheduler_module, "_attach_lock_release", lambda sched, lock: sched)
+    settings = Settings(
+        report_root=tmp_path / "reports",
+        daily_refresh_enabled=True,
+        daily_refresh_hour_utc=hour,
+        daily_refresh_minute_utc=15,
+        daily_refresh_catchup_offset_hours=offset,
+    )
+
+    scheduler_module.start_scheduler(settings, scheduler_factory=created["factory"])
+
+    jobs = {job["id"]: job for job in created["scheduler"].jobs}
+    assert jobs["daily_universe_refresh_catchup"]["hour"] == expected
+    assert jobs["daily_universe_refresh_catchup"]["minute"] == 15

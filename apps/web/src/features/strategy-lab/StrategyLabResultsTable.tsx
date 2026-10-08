@@ -15,9 +15,11 @@ type Props = {
   onOpenRun: (runId: string) => void;
 };
 
+// return_pct is the run's total return over its window (worker writes
+// total_return), not an annualized CAGR.
 const metricLabels: Record<StrategyLabSortMetric, string> = {
   sharpe: "Sharpe",
-  return_pct: "CAGR",
+  return_pct: "Total Return",
   calmar: "Calmar",
   max_dd: "Max DD",
 };
@@ -61,7 +63,7 @@ export function StrategyLabResultsTable({ results, sortMetric, onSortMetricChang
                 <th style={cellStyle}>Preset</th>
                 <th style={cellStyle}>Top N</th>
                 <th style={cellStyle}>Rebalance</th>
-                <th style={cellStyle}>CAGR</th>
+                <th style={cellStyle}>Total Return</th>
                 <th style={cellStyle}>Sharpe</th>
                 <th style={cellStyle}>Calmar</th>
                 <th style={cellStyle}>Max DD</th>

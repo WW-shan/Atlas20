@@ -45,21 +45,51 @@ def _parse_floats(value: str) -> tuple[float, ...]:
     return parsed
 
 
+def _candidate_column(row: pd.Series) -> str:
+    """Return-column name of one variant-summary row, spelled as the producer does.
+
+    run_phase_invariant_vol_target.py names basket columns
+    ``f"c{cycle}_tv{target_vol}_vw{vol_window}_{stop_mode}_{gate_mode}_{int(cost_bps)}bps"``
+    with ``target_vol`` a float, so 1.0 is written ``tv1.0``. This reader used
+    ``:g`` (``tv1``), which never matched an integer-valued target vol.
+    """
+    return (
+        f"c{int(row['cycle_days'])}_tv{float(row['target_volatility'])}_"
+        f"vw{int(row['vol_window'])}_{row['stop_mode']}_{row['gate_mode']}_"
+        f"{int(float(row['cost_bps']))}bps"
+    )
+
+
 def _candidate_columns(summary: pd.DataFrame, returns: pd.DataFrame, cost_bps: float) -> list[str]:
-    """Map summary rows to the matching return columns."""
+    """Map summary rows to the matching return columns.
+
+    Every summary row at ``cost_bps`` must have its column: a name mismatch
+    used to be skipped silently and shrank the candidate set.
+    """
     cost_matches = summary[summary["cost_bps"].astype(float).round(6) == round(cost_bps, 6)]
-    columns: list[str] = []
-    for _, row in cost_matches.iterrows():
-        column = (
-            f"c{int(row['cycle_days'])}_tv{float(row['target_volatility']):g}_"
-            f"vw{int(row['vol_window'])}_{row['stop_mode']}_{row['gate_mode']}_"
-            f"{int(round(float(row['cost_bps'])))}bps"
+    if cost_matches.empty:
+        raise ValueError(f"No candidate rows found for cost_bps={cost_bps}")
+    columns = list(dict.fromkeys(_candidate_column(row) for _, row in cost_matches.iterrows()))
+    missing = [column for column in columns if column not in returns.columns]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} candidate(s) have no return column: {', '.join(missing[:5])}"
         )
-        if column in returns.columns:
-            columns.append(column)
-    if not columns:
-        raise ValueError(f"No candidate return columns found for cost_bps={cost_bps}")
-    return list(dict.fromkeys(columns))
+    return columns
+
+
+def _equal_weight_candidates(returns: pd.DataFrame, candidates: list[str]) -> pd.Series:
+    """Equal initial capital in every candidate, then held without re-equalising.
+
+    The benchmark used to be the mean of the candidates' daily returns, a free
+    daily rebalance across candidates. The book's equity is the mean of the
+    candidate equity curves from the first row of ``returns``.
+    """
+    frame = returns[candidates].astype(float)
+    if frame.isna().to_numpy().any():
+        raise ValueError("Candidate returns are missing inside the out-of-sample window")
+    book = (1.0 + frame).cumprod().mean(axis=1)
+    return book / book.shift(1).fillna(1.0) - 1.0
 
 
 def _metric_value(returns: pd.Series, metric: str) -> float:
@@ -246,7 +276,7 @@ def main() -> None:
     oos_index = returns.loc[first_test_start:].index
     for candidate in candidates:
         summary_rows.append(_summary_row(candidate, returns.loc[oos_index, candidate]))
-    equal_weight = returns.loc[oos_index, candidates].mean(axis=1)
+    equal_weight = _equal_weight_candidates(returns.loc[oos_index], candidates)
     return_columns["equal_weight_candidates"] = equal_weight
     summary_rows.append(_summary_row("equal_weight_candidates", equal_weight))
 

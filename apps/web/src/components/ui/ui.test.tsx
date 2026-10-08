@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Pill } from "./Pill";
@@ -128,6 +128,17 @@ describe("Pager", () => {
     render(<Pager total={14} page={1} pageSize={14} onChange={() => {}} />);
     expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("windows page buttons around the current page for long histories", () => {
+    render(<Pager total={14 * 300} page={150} pageSize={14} onChange={() => {}} />);
+    const nav = screen.getByRole("navigation", { name: "Pagination" });
+
+    expect(within(nav).getAllByRole("button").length).toBeLessThanOrEqual(7);
+    for (const page of [1, 149, 150, 151, 300]) {
+      expect(within(nav).getByRole("button", { name: `Page ${page}` })).toBeInTheDocument();
+    }
+    expect(within(nav).getByRole("button", { name: "Page 150" })).toHaveAttribute("aria-current", "page");
   });
 
   it("displays Showing X-Y of Z with mono numbers", () => {

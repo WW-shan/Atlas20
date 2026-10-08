@@ -2,6 +2,9 @@ name: atlas20
 
 x-atlas20-env: &atlas20-env
   ATLAS20_ENV: dev
+  # Mutating routes need X-API-Key. Compose refuses to start without it; set it
+  # in the shell or in a .env file next to this file (see README "Docker Compose").
+  ATLAS20_API_KEYS: "${ATLAS20_API_KEYS:?Set ATLAS20_API_KEYS to one or more comma-separated API keys (32+ random chars each, e.g. openssl rand -hex 32) before running docker compose}"
   ATLAS20_DB_URL: sqlite:///./data/atlas20.sqlite
   ATLAS20_REPORT_ROOT: /app/reports
   ATLAS20_DATA_ROOT: /app/data
@@ -19,7 +22,8 @@ services:
       - atlas20_data:/app/data
       - atlas20_reports:/app/reports
     ports:
-      - "${ATLAS20_BACKEND_PORT:-8000}:8000"
+      # Loopback only; put a TLS reverse proxy in front for remote access.
+      - "127.0.0.1:${ATLAS20_BACKEND_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/readyz || exit 1"]
       interval: 30s
@@ -38,25 +42,27 @@ services:
       - atlas20_data:/app/data
       - atlas20_reports:/app/reports
     ports:
-      - "${ATLAS20_WORKER_METRICS_PORT:-8001}:8001"
+      - "127.0.0.1:${ATLAS20_WORKER_METRICS_PORT:-8001}:8001"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import re,time,urllib.request as u; m=re.search(r'^atlas20_worker_last_poll_timestamp_seconds\\s+(\\S+)', u.urlopen('http://127.0.0.1:8001/metrics',timeout=2).read().decode(), re.M); v=float(m.group(1)) if m else 0; exit(0 if v and time.time()-v < 30 else 1)\""]
       interval: 30s
       timeout: 5s
       start_period: 30s
       retries: 3
+    # service_started, not service_healthy: the backend's /readyz needs fresh
+    # data that only this worker produces, so waiting on it deadlocks a new stack.
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
 
   web:
     image: ghcr.io/ww-shan/atlas20-web:${ATLAS20_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     ports:
-      - "${ATLAS20_WEB_PORT:-5173}:80"
+      - "127.0.0.1:${ATLAS20_WEB_PORT:-5173}:80"
 
 volumes:
   atlas20_data:

@@ -153,6 +153,22 @@ def _subperiod_rows(result: BacktestResult, config) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _asset_contributions(result: BacktestResult, returns: pd.DataFrame) -> pd.Series:
+    """Per-coin sum of ``weight * return`` over the backtest.
+
+    The engine's ``weights.loc[t]`` is the book held through day ``t`` (after
+    that day's T+1 trade, marked to the close), so it is multiplied by day
+    ``t``'s return with no shift, as run_bull_offense_finalist._contribution
+    does.  The old ``weights.shift(1)`` dropped every holding's first day and
+    credited a sold coin with the day after its exit (champion at 2bps: the
+    contributions summed to 4.19 against 3.92 of summed daily returns).  For a
+    multi-coin book the close-marked weights add a second-order drift term.
+    """
+    weights = result.weights.reindex(columns=returns.columns).fillna(0.0)
+    asset_returns = returns.reindex(index=weights.index, columns=weights.columns).fillna(0.0)
+    return weights.mul(asset_returns).sum(axis=0)
+
+
 def _latest_signal_payload(
     targets: dict[pd.Timestamp, pd.Series],
     risk_on: pd.Series,
@@ -321,9 +337,7 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    weights = primary.weights.reindex(columns=market.returns.columns).fillna(0.0)
-    asset_returns = market.returns.reindex(index=weights.index, columns=weights.columns).fillna(0.0)
-    contributions = weights.shift(1).fillna(0.0).mul(asset_returns).sum(axis=0)
+    contributions = _asset_contributions(primary, market.returns)
     contribution = (
         contributions.sort_values(ascending=False)
         .rename("contribution")

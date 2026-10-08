@@ -1,6 +1,6 @@
 {
-  "candidate_returns": "reports/phase_momentum_2022/parameter_returns.csv",
-  "candidate_count": 25,
+  "candidate_returns": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
+  "candidate_count": 23,
   "candidates": [
     "primary",
     "rebalance_1d",
@@ -21,13 +21,15 @@
     "fixed_stop_20",
     "fixed_stop_25",
     "fixed_stop_30",
-    "fixed_stop_40",
     "trailing_stop_15",
     "trailing_stop_20",
     "trailing_stop_25",
-    "trailing_stop_30",
-    "trailing_stop_40"
+    "trailing_stop_30"
   ],
+  "identical_candidates_counted_once": {
+    "fixed_stop_40": "primary",
+    "trailing_stop_40": "primary"
+  },
   "train_days": 365,
   "test_days": 90,
   "selection_metric": "sharpe",

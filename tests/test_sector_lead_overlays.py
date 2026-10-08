@@ -53,3 +53,29 @@ def test_concentrated_sector_lane_disables_diversification_caps() -> None:
 
 def test_sector_overlay_default_is_unlevered() -> None:
     assert DEFAULT_MAX_LEVERAGE == 1.0
+
+
+class _ReachedDataLoad(Exception):
+    """The fake loader was called: main() accepted its arguments."""
+
+
+def test_cli_has_no_btc_parking_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    # AGENTS.md: "Cash is the only defensive asset".  The legacy
+    # --risk-off btc choice parked the whole book in BTC whenever the BTC
+    # volatility stop turned off.
+    import scripts.run_sector_lead_overlays as sector_overlays
+
+    reached: list[bool] = []
+
+    def fake_build_processed_datasets(*args: object, **kwargs: object) -> object:
+        reached.append(True)
+        raise _ReachedDataLoad
+
+    monkeypatch.setattr(sector_overlays, "build_processed_datasets", fake_build_processed_datasets)
+    monkeypatch.setattr(sector_overlays, "configure_logging", lambda *args, **kwargs: None)
+    monkeypatch.setattr("sys.argv", ["run_sector_lead_overlays.py", "--risk-off", "btc"])
+
+    with pytest.raises(SystemExit):
+        sector_overlays.main()
+
+    assert reached == []

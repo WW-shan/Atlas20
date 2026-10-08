@@ -1,0 +1,1245 @@
+{
+  "script": "scripts/run_phase_momentum_hypotheses.py",
+  "review": "docs/research/literature_review_2026-09.md",
+  "config": "config/base.yaml",
+  "hourly_dir": "data/raw/binance_1h",
+  "main_window": [
+    "2022-01-01",
+    "2026-09-21"
+  ],
+  "stress_window": [
+    "2020-10-03",
+    "2021-12-31"
+  ],
+  "cost_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "fills": [
+    "lag0",
+    "lag1",
+    "h3_day_close",
+    "h3_prior_close"
+  ],
+  "fill_hours": 3,
+  "missing_fill_policies": [
+    "day_close",
+    "prior_close"
+  ],
+  "bootstrap": {
+    "count": 1000,
+    "block_length": 20,
+    "seed": 20260923
+  },
+  "entrant_days": 30,
+  "trials": {
+    "PR2026-10-B": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H2": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": [
+              50,
+              100,
+              150,
+              200
+            ],
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H3": {
+      "construction": "build_parameter_ensemble_targets (equal book weights, 1/24 per sleeve)",
+      "books": [
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        },
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": 0.5,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H4": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 8,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 4,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H2-D50": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 50,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": null,
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H2-D100": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": null,
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H2-D150": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 150,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": null,
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H2-D200": {
+      "construction": "build_phase_momentum_targets",
+      "books": [
+        {
+          "weight": 1.0,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 200,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": null,
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    }
+  },
+  "run_facts": {
+    "hourly_coins": [
+      "algorand",
+      "apecoin",
+      "aptos",
+      "avalanche-2",
+      "axie-infinity",
+      "binancecoin",
+      "bitcoin",
+      "bitcoin-cash",
+      "bittensor",
+      "canton-network",
+      "cardano",
+      "celestia",
+      "chainlink",
+      "cosmos",
+      "crypto-com-chain",
+      "decentraland",
+      "dogecoin",
+      "elrond-erd-2",
+      "ethena",
+      "ethereum",
+      "ethereum-classic",
+      "fantom",
+      "filecoin",
+      "flow",
+      "ftx-token",
+      "hedera-hashgraph",
+      "hyperliquid",
+      "immutable-x",
+      "injective-protocol",
+      "internet-computer",
+      "kaspa",
+      "leo-token",
+      "lido-dao",
+      "litecoin",
+      "maker",
+      "mantle",
+      "matic-network",
+      "monero",
+      "near",
+      "okb",
+      "optimism",
+      "pepe",
+      "polkadot",
+      "render-token",
+      "ripple",
+      "shiba-inu",
+      "solana",
+      "stellar",
+      "sui",
+      "terra-luna",
+      "the-open-network",
+      "tron",
+      "uniswap",
+      "vechain",
+      "world-liberty-financial",
+      "zcash"
+    ],
+    "builds": {
+      "PR2026-10-B": {
+        "target_events": 437,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.4979710144927536
+      },
+      "PR2026-10-H2": {
+        "target_events": 628,
+        "sleeves": 12,
+        "gate_exposure_share_of_days": {
+          "0": 0.3397101449275362,
+          "0.25": 0.12753623188405797,
+          "0.5": 0.06144927536231884,
+          "0.75": 0.10898550724637682,
+          "1": 0.36231884057971014
+        },
+        "risk_on_share_of_sleeve_days": 0.6602898550724637
+      },
+      "PR2026-10-H3": {
+        "target_events": 475,
+        "sleeves": 24,
+        "breadth_below_threshold_share_of_days": 0.5820289855072464,
+        "risk_on_share_of_sleeve_days": 0.41884057971014493
+      },
+      "PR2026-10-H4": {
+        "target_events": 647,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.4979710144927536
+      },
+      "PR2026-10-H2-D50": {
+        "target_events": 444,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.5124637681159421
+      },
+      "PR2026-10-H2-D100": {
+        "target_events": 437,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.4979710144927536
+      },
+      "PR2026-10-H2-D150": {
+        "target_events": 444,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.5031884057971014
+      },
+      "PR2026-10-H2-D200": {
+        "target_events": 458,
+        "sleeves": 12,
+        "risk_on_share_of_sleeve_days": 0.5130434782608696
+      }
+    },
+    "main_days": 1725,
+    "stress_days": 455
+  },
+  "ran_at_utc": "2026-09-25T00:27:27Z",
+  "ledger": "reports/research_trial_inventory/preregistered_trials.csv",
+  "ledger_sha256_at_evaluation": "3dc49cd5b29f6d7b3de7ab71ba500adfeb0eeea16567da6f543adae24b0e3bc8",
+  "trial_summary": "reports/research_trial_inventory/summary.json",
+  "trial_summary_sha256": "2b598e9b7271396eaf1487d7e8d235e01323589df65c8abbf924dd7f3ffa7452",
+  "trial_scopes": [
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6126,
+      "trial_sharpe_std_per_period": 0.01640290100776845
+    },
+    {
+      "scope": "all_trials",
+      "trial_count": 14120,
+      "trial_sharpe_std_per_period": 0.01640290100776845
+    }
+  ],
+  "decision_sample": {
+    "rows": 1725,
+    "start": "2022-01-01",
+    "end": "2026-09-21"
+  },
+  "identical_return_series": {
+    "PR2026-10-H2-D100": "PR2026-10-B"
+  },
+  "evaluated_at_utc": "2026-10-08T01:26:53Z"
+}

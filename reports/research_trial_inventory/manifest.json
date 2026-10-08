@@ -1,0 +1,704 @@
+{
+  "script": "scripts/build_trial_inventory.py",
+  "repository_head": "46c1af3934a459252c8cea18c1c149fc75705505",
+  "april_commit": "9d71d1e^",
+  "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
+  "bull_scan_commit": "5b37099",
+  "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
+  "research_md": "RESEARCH.md",
+  "research_md_sha256": "b968768b133ed4c262f584c9f6f4c679957d5dbff313aeec37f502ae74df95ce",
+  "research_md_anchors_found": {
+    "无 BTC 闸门只有 10.80x": true,
+    "MA50/confirm1–3": true,
+    "MA100/confirm1–3": true,
+    "MA200/confirm1–3": true,
+    "90%/100%": true,
+    "加入 BTC 后同一策略 @2bps 只有约 15x": true
+  },
+  "reference_cost_bps": 20.0,
+  "sharpe_decimals": 9,
+  "periods_per_year": 365,
+  "scope_top20_2022": {
+    "universe": "Top20",
+    "window_start": "2022-01-01"
+  },
+  "processing_order": [
+    "convex_validation_2022_top20",
+    "convex_overlay_sweep_2022_top20",
+    "convex_overlay_sweep_2022_top20_validation",
+    "ctrend_focus_2022_top20",
+    "ctrend_champion_top20_2022",
+    "no_leverage_ablation_2022",
+    "tsmom_validation_2022",
+    "bull_offense_finalist_2022",
+    "trend_stop_champion_2022",
+    "trend_stop_validation_2022",
+    "event_driven_validation_2022",
+    "strategy_evidence_audit_2022",
+    "decision_point_ablation_2022",
+    "volatility_gate_validation_2022",
+    "phase_invariant_vol_target_2022",
+    "phase_invariant_vol_target_gates_2022",
+    "phase_invariant_vol_target_gates_btc_2022",
+    "vol_target_frontier_2022",
+    "vol_target_neighborhood_2022",
+    "vol_target_cost_rolling_2022",
+    "vol_target_score_family_balanced_2022",
+    "vol_target_score_family_relative_strength_2022",
+    "vol_target_score_family_breakout_2022",
+    "vol_target_score_family_acceleration_2022",
+    "vol_target_score_family_vol_adjusted_2022",
+    "vol_target_ensemble_2022",
+    "vol_target_walk_forward_2022",
+    "vol_target_walk_forward_multiple_2022",
+    "momentum_event_ensemble_2022",
+    "momentum_event_breadth_overlay_2022",
+    "research_md:momentum_event_gate_audit",
+    "research_md:trend_stop_champion_with_btc",
+    "phase_momentum_2022",
+    "phase_momentum_parameter_ensemble_2022",
+    "phase_momentum_trend_overlay_2022",
+    "phase_momentum_walk_forward_2022",
+    "phase_momentum_leave_one_out_2022",
+    "phase_momentum_parameter_leave_one_out_2022",
+    "phase_momentum_execution_lag_2022",
+    "phase_momentum_hypotheses_2026_10",
+    "convex_validation_2022_top50",
+    "ctrend_focus_2022_top50",
+    "ensemble_ctrend_2022_top50",
+    "no_leverage_ablation_v2",
+    "top20_convex_validation(old panel)",
+    "bull_offense_finalist",
+    "bull_offense_finalist_aggressive",
+    "pipeline_latest",
+    "pipeline_bear_bottom_2022_11_21",
+    "pipeline_five_year_2020_2024",
+    "pipeline_five_year_exact_2021_04_22",
+    "git:profit_max_search",
+    "git:profit_max_refine",
+    "git:sector_lead_v3_scan(bear_bottom)",
+    "git:sector_lead_v3_scan(five_year_exact)",
+    "git:sector_lead_v3_study",
+    "git:sector_v2_study",
+    "git:stop_scan_trailing",
+    "git:stop_study",
+    "bull_offense_scan",
+    "git:bull_offense_scan@5b37099"
+  ],
+  "study_primary_cost_bps": {
+    "pipeline_latest": 20.0,
+    "pipeline_bear_bottom_2022_11_21": 20.0,
+    "pipeline_five_year_2020_2024": 20.0,
+    "pipeline_five_year_exact_2021_04_22": 20.0,
+    "bull_offense_scan": 20.0,
+    "git:bull_offense_scan@5b37099": 20.0,
+    "bull_offense_finalist": 10.0,
+    "bull_offense_finalist_2022": 10.0,
+    "bull_offense_finalist_aggressive": 15.0,
+    "top20_convex_validation(old panel)": 20.0,
+    "convex_validation_2022_top20": 20.0,
+    "convex_validation_2022_top50": 20.0,
+    "convex_overlay_sweep_2022_top20": 20.0,
+    "convex_overlay_sweep_2022_top20_validation": 20.0,
+    "ctrend_focus_2022_top20": 20.0,
+    "ctrend_focus_2022_top50": 20.0,
+    "ensemble_ctrend_2022_top50": 20.0,
+    "ctrend_champion_top20_2022": 20.0,
+    "trend_stop_champion_2022": 20.0,
+    "trend_stop_validation_2022": 20.0,
+    "event_driven_validation_2022": 20.0,
+    "strategy_evidence_audit_2022": 20.0,
+    "decision_point_ablation_2022": 20.0,
+    "volatility_gate_validation_2022": 20.0,
+    "no_leverage_ablation_2022": 20.0,
+    "no_leverage_ablation_v2": 20.0,
+    "tsmom_validation_2022": 20.0,
+    "phase_invariant_vol_target_2022": 20.0,
+    "phase_invariant_vol_target_gates_2022": 20.0,
+    "phase_invariant_vol_target_gates_btc_2022": 20.0,
+    "vol_target_frontier_2022": 20.0,
+    "vol_target_neighborhood_2022": 20.0,
+    "vol_target_cost_rolling_2022": 20.0,
+    "vol_target_score_family_acceleration_2022": 20.0,
+    "vol_target_score_family_balanced_2022": 20.0,
+    "vol_target_score_family_breakout_2022": 20.0,
+    "vol_target_score_family_relative_strength_2022": 20.0,
+    "vol_target_score_family_vol_adjusted_2022": 20.0,
+    "vol_target_walk_forward_2022": 20.0,
+    "vol_target_walk_forward_multiple_2022": 20.0,
+    "vol_target_ensemble_2022": 20.0,
+    "momentum_event_ensemble_2022": 20.0,
+    "momentum_event_breadth_overlay_2022": 20.0,
+    "phase_momentum_2022": 20.0,
+    "phase_momentum_trend_overlay_2022": 20.0,
+    "phase_momentum_parameter_ensemble_2022": 20.0,
+    "phase_momentum_walk_forward_2022": 20.0,
+    "phase_momentum_leave_one_out_2022": 20.0,
+    "phase_momentum_parameter_leave_one_out_2022": 20.0,
+    "phase_momentum_execution_lag_2022": 20.0,
+    "phase_momentum_hypotheses_2026_10": 20.0,
+    "git:profit_max_search": 20.0,
+    "git:profit_max_refine": 20.0,
+    "git:sector_lead_v3_scan(bear_bottom)": 20.0,
+    "git:sector_lead_v3_scan(five_year_exact)": 20.0,
+    "git:sector_lead_v3_study": 20.0,
+    "git:sector_v2_study": 20.0,
+    "git:stop_scan_trailing": 20.0,
+    "git:stop_study": 20.0
+  },
+  "rows_read": 20387,
+  "rows_at_primary_cost": 17849,
+  "repeated_rows_skipped": 56,
+  "unscored_configurations": [
+    {
+      "study": "momentum_event_ensemble_2022",
+      "config_id": "loose_gap_mh5_hr2_g05_c1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 20.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "multiples only (no Sharpe recorded)",
+      "source": "reports/momentum_event_ensemble_2022/spec_sensitivity.csv; membership_sensitivity.csv"
+    },
+    {
+      "study": "momentum_event_ensemble_2022",
+      "config_id": "wide_band_mh5_hr3_g05_c1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 20.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "multiples only (no Sharpe recorded)",
+      "source": "reports/momentum_event_ensemble_2022/spec_sensitivity.csv; membership_sensitivity.csv"
+    },
+    {
+      "study": "momentum_event_ensemble_2022",
+      "config_id": "slow_mh10_hr2_g10_c1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 20.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "multiples only (no Sharpe recorded)",
+      "source": "reports/momentum_event_ensemble_2022/spec_sensitivity.csv; membership_sensitivity.csv"
+    },
+    {
+      "study": "momentum_event_ensemble_2022",
+      "config_id": "non_strict_top20_exit",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 20.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "multiples only (no Sharpe recorded)",
+      "source": "reports/momentum_event_ensemble_2022/spec_sensitivity.csv; membership_sensitivity.csv"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "no_btc_gate",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: 无 BTC 闸门只有 10.80x"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma50_confirm1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA50/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma50_confirm2",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA50/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma50_confirm3",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA50/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma100_confirm1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA100/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma100_confirm3",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA100/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma200_confirm1",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA200/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma200_confirm2",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA200/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "btc_ma200_confirm3",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: MA200/confirm1–3"
+    },
+    {
+      "study": "research_md:momentum_event_gate_audit",
+      "config_id": "target_vol_90_100",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: 90%/100%"
+    },
+    {
+      "study": "research_md:trend_stop_champion_with_btc",
+      "config_id": "btc_in_selection",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-23",
+      "cost_bps": 2.0,
+      "universe": "Top20",
+      "family": "ctrend_lite",
+      "reason": "RESEARCH.md text only (2 bps multiple)",
+      "source": "RESEARCH.md: 加入 BTC 后同一策略 @2bps 只有约 15x"
+    }
+  ],
+  "sources": {
+    "5b37099:reports/bull_offense_scan/bull_offense_summary.csv": {
+      "origin": "git show 5b37099",
+      "sha256": "7fe40088d38bd38ede6d447dcef60cb5b62fb0dd2df9894a1d322d61c54cc5f9"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/all1m_feature5_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "3042c3634a2b51805e844b1d65204e971c535b98878b2ce6589ec44c7065e3b6"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/all1m_weight_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "6f07ad93ec31d0f888d9fee53a05f19a4550d3738f5cdc63194dcfe4df9753c6"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/calendar_fine_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "32117d32f7c792ea91e7b9c097cccd99e2b6b019b87db7219bf27ed4c8e1e5d6"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/confirm2_weight_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "064236bc8822996228bafb8251c6f549ac66ffe7a9275506210d8c47e77644f0"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/confirm_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "4f1fdea49458bf96d0b42c40009c60871c3c7816eb475bac3221fc10a7f17736"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/exbtc_weight_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "ffb3056c882e69f0b8b20e4e296287c5a639e313855a9afb264c99e5a6c16948"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/feature5_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "f34f62dcdd4ba4458da0d0fc11269260c48e5a877bb3792e14b57a892ecc1423"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/focused_profit_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "f52ced257ed8c6269853f268fa681abed3bb6ad2aaa89c5039e4e8b87b58dbaf"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/focused_weight_surface.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "3b49d0cd66775898cb331fcfa95c01852f7b43d6b2abccc7df9c6fb2e20151e3"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/local_weight_surface.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "52f59fefa30890550a06aeb9f551495b41f823714ab90e85272db1043092ed86"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/newchamp_confirm_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "76193761e21a422f0fef20026d259766987ba452db122c687daea97ee377c1c2"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/random_weight_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "0c6e8d5085a0d8573dd9cc6e4a0f4f34b4224c170c712d0b9ca6c45164389ddd"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/regime_overlay_search_narrow.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "2e57d221299161f6962628a258ecf013c6a9b83297dc79db7dc8539dc35d4331"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_refine/universe_looseness_search.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "d2b887d3e1bb58c4140280292f0cc90e5ee764e2297cfa14b7cc19970fa52979"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/profit_max_search/profit_max_search_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "0dfe3d30fd0db9a442015c7b84ddf9dd5a4e3837ba3a9560643364a3526774c8"
+    },
+    "9d71d1e^:reports/bear_bottom_to_current_2022_11_21_2026_04_22/sector_lead_v3_scan/sector_lead_v3_scan_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "254d8cc052a1d386f642c656c44acdcb0a44fd10b22a2522b54e4c26fa36a229"
+    },
+    "9d71d1e^:reports/five_year_exact_2021_04_22_2026_04_22/sector_lead_v3_scan/sector_lead_v3_scan_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "3390a334e45d08bfa4132d111ece9d410c0229ba932c780312e299274fa4a42b"
+    },
+    "9d71d1e^:reports/five_year_exact_2021_04_22_2026_04_22/sector_lead_v3_study/sector_lead_v3_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "2a9233e2a71f0fedfd7b79f2cd0555c97b795192e2ef018bbfeddb90a8dd71bf"
+    },
+    "9d71d1e^:reports/five_year_exact_2021_04_22_2026_04_22/sector_v2_study/sector_v2_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "fdceee98b7518df844b4a0270dbbbd1ab20394f7b2401efb78a29a50bdbfcd91"
+    },
+    "9d71d1e^:reports/five_year_exact_2021_04_22_2026_04_22/stop_scan_trailing/trailing_stop_scan_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "9098382d7caae472d840995c8517635981d7e626d30fe6d6260fe8abf4891193"
+    },
+    "9d71d1e^:reports/five_year_exact_2021_04_22_2026_04_22/stop_study/stop_study_summary.csv": {
+      "origin": "git show 9d71d1e^",
+      "sha256": "faf0f525cfc19908064ac86f2a9c32b1242564eafafb5aa0eeb49a1df4a71913"
+    },
+    "reports/bear_bottom_to_current_2022_11_21_2026_04_22/strategy_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "2c0417d9b1a09702386e970c2c70abccdaa132fab63cea442af78fda69f25bb9"
+    },
+    "reports/bull_offense_finalist/cost_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "fa6fc278cafbf80582aee0bf93585fc2d8e6c511febff59bf39bea9d6d9ea722"
+    },
+    "reports/bull_offense_finalist/sweep_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "3f28e5b420cd4fc1187cc7e4c1781a648ff912bffad5e835043e48d1430cd835"
+    },
+    "reports/bull_offense_finalist_2022/cost_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "79aee291122c91508ffcfd911d9de42026563681c8fb2bf944ebf9581dac0d9e"
+    },
+    "reports/bull_offense_finalist_2022/sweep_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "e3d01b7c42702503ebb3457d1d3d138f44bdfc205cd28ec0a10f5c6f679bd24b"
+    },
+    "reports/bull_offense_finalist_aggressive/cost_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "b3e09cc2b86b3f09cdc88afd4642cc994c482fb50e20810ae565893b22d742c2"
+    },
+    "reports/bull_offense_scan/bull_offense_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "367c0385086d4597ad818114df092f41ad8c936f2a80dcfdcf2be2bb192a5151"
+    },
+    "reports/convex_overlay_sweep_2022_top20/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "e0b5f40e115b364dbc884904307afcce94d728c2096778ebcef7ab8cfd6028ec"
+    },
+    "reports/convex_overlay_sweep_2022_top20_validation/voltarget_overlay.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "13aa1f66c0ac28ec38b63a0bc9c5f0b82992bd78355360fd744a6ea7ccec0b6a"
+    },
+    "reports/convex_validation_2022_top20/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "99fa051bd3ddccc6ba127b7313b3583f3e1d30acbbb51f6a20ad32bb567b3b39"
+    },
+    "reports/convex_validation_2022_top50/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "e61200c1ab24d83514dea45c10ccfc339b27f3b4a67c13b8805bda5d79850a29"
+    },
+    "reports/ctrend_champion_top20_2022/performance_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "869c9c6f9e1cfa1b94dfadb66de8808b578cff2c31602ea1d4f5bd01f2db8f20"
+    },
+    "reports/ctrend_focus_2022_top20/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "b249a4704ae206147f83001f40478dd267ff4ccaaa51beb934a92aa700c20a4a"
+    },
+    "reports/ctrend_focus_2022_top50/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "ae99446189cb4f9f9dae0e9e23f6423cf1e5dfc1381cf784c84fecfdc176da30"
+    },
+    "reports/decision_point_ablation_2022/staggered_basket.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "af25b558727717f8f97dc8338edbd254666529f29c127711894712971c017275"
+    },
+    "reports/ensemble_ctrend_2022_top50/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "7b87496a6502c6c29526e793cb5c1a31fc2071b9e0147b5499dca4e121576fb6"
+    },
+    "reports/event_driven_validation_2022/event_variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "70288988d5f952b57564d1dc497082743159fcae15ad690baab8399df7b6f60a"
+    },
+    "reports/five_year_2020_2024/strategy_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "73933b48253933da1648d83f76a898c0a70dec8c9dc2ee3e4cb567b14f2abfe2"
+    },
+    "reports/five_year_exact_2021_04_22_2026_04_22/strategy_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "bcb6ef10db8f34b4cdbc3d2253c7c532ac0f4fa498f601761abc7fb24c5b8b36"
+    },
+    "reports/latest/strategy_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "eea0ca3e0f2e3c1ea4a59ab210142edc5fff1f1c0141bea89ee59cf587958245"
+    },
+    "reports/momentum_event_breadth_overlay_2022/blend_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "278aba6e42698ef6e35169caa6ae7bc4e13194020ac2c11446fd30bd2470d9cd"
+    },
+    "reports/momentum_event_breadth_overlay_2022/breadth_threshold_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "ea177c3589b8b9e52bd4c4853c094b242051757a72a82e8e699cc2c0c4e4ace9"
+    },
+    "reports/momentum_event_ensemble_2022/membership_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "f21f32adee2b71c1dff919a44bc00cb22e02cb2240ae097612fe5ef1f22df31d"
+    },
+    "reports/momentum_event_ensemble_2022/spec_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "999b6402da33834e13edcdf99e33004d4e5fb8754f0048a6685f568a50e58c8c"
+    },
+    "reports/momentum_event_ensemble_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "2982637baaa834fcb26e743ee5151261427460362a0314b806eb3e3db2ecf051"
+    },
+    "reports/no_leverage_ablation_2022/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "bc48f2a9ea1221d371b0bbd1587e6bfa9870e3d09da08e96d190f2a7ce2bfbac"
+    },
+    "reports/no_leverage_ablation_2022/cost_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "e0c3802d6f352f9eb5093cc4f1937c293faeaed988a84cccbf97024df2099017"
+    },
+    "reports/no_leverage_ablation_v2/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "fed39827e80982770cfaae5ec8eb6ca463287e69d6ba305fc54f672ba039032f"
+    },
+    "reports/no_leverage_ablation_v2/cost_sensitivity.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "28da4c0451b365d77ba853d3d25ad7d00abb7b96f73bc7c40a7309dd0c1151c9"
+    },
+    "reports/phase_invariant_vol_target_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "a75faed01fa689cc054793748baa6ef20a251a48af822d3a1330abb63186b133"
+    },
+    "reports/phase_invariant_vol_target_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "51cf61bb4aad267431920e2996d63dbaae23390b19793e928e2453fddf0b908c"
+    },
+    "reports/phase_invariant_vol_target_gates_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "6bf5dee92cadada5b6913db03e7b409c1d72b6f31665ee73e95fcaaa3c6bb732"
+    },
+    "reports/phase_invariant_vol_target_gates_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "9b4fc83d18c98932ec9d37a2815e15b72a4bdf0ab0c5941886b40ed9c3fccc84"
+    },
+    "reports/phase_invariant_vol_target_gates_btc_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "763ccd776aa96470497f3c0b521d99276731ede5d0987679d2eef74a0dda4c42"
+    },
+    "reports/phase_invariant_vol_target_gates_btc_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "a5dec9149175dfb1c44b326c1b510740420ee416444392cc00cfb28b587c48fb"
+    },
+    "reports/phase_momentum_2022/parameter_neighborhood.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "8c89d0d47d083870ccaa97e1eec90413e6633976fd8697b3ba8806e2f7c079c2"
+    },
+    "reports/phase_momentum_2022/signal_ablation.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "244f48845dbfea920dfa4db5bf4dd05df72c47bc28769ada804bdf9d2facb92f"
+    },
+    "reports/phase_momentum_2022/summary.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "cf62e7ef1123eb750106843aed29b8301107e90ba911fda942aa3db788233df1"
+    },
+    "reports/phase_momentum_execution_lag_2022/summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "f5ceb23221f3c2f6bbb8c9b01392c1e686d2d80a266c34269c7e56ed8e6c24f6"
+    },
+    "reports/phase_momentum_hypotheses_2026_10/runs.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "45bf0af1ab2b68f472a7804a39da7cd18f6eb517a862c496292b34821722b048"
+    },
+    "reports/phase_momentum_leave_one_out_2022/summary.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "d1bdf5e16affc4eca250accdc34bccd9b85a82ac6673f596e47400d9419b1199"
+    },
+    "reports/phase_momentum_multiple_testing_2022/candidate_sharpes.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "91fe12bb517267b5c492705dfdf28c22a5591371793003cc3228a4ae88280349"
+    },
+    "reports/phase_momentum_parameter_ensemble_2022/summary.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "8b760884ebb560cff7c3103ae48246b6de746756499a8a8dfd4c902330ec67d8"
+    },
+    "reports/phase_momentum_parameter_leave_one_out_2022/summary.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "93882f09e616a06f4d99a5b8e8e06173fa55363b0cc7f307fe61626f0e055627"
+    },
+    "reports/phase_momentum_trend_overlay_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "486aa2e3d7069d119957194e03a9c9f42f5532fd21cc4027ed3fb36266bbd8d7"
+    },
+    "reports/phase_momentum_walk_forward_2022/summary.csv": {
+      "origin": "working tree (modified)",
+      "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
+    },
+    "reports/research_trial_inventory/preregistered_trials.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "93f5e7d5b32fab9bfaa1d5cd203ab6a01a5e75b0ac16e4144264df1a21889cbe"
+    },
+    "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "cd48c5408a00e4fbb842ba02fefc175583d6ea768c41ab86a7bb1a9329a32e40"
+    },
+    "reports/top20_convex_validation/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "1928c43f6a5ed40fecf9785ec58b1cd77d1dfe3c1df8f583d12390405be6457f"
+    },
+    "reports/trend_stop_champion_2022/performance_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "ed7654030d6a1a487eeb0ec24d01ce8fca3d56a837e7518ce895334283e1340a"
+    },
+    "reports/trend_stop_validation_2022/trend_stop_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "64f0b6bb9a71096a4ee53af9489af84c320c0b4c8562347e7a7273ea598d9a57"
+    },
+    "reports/tsmom_validation_2022/candidate_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "a21a02abcf0b9bf27966f07468d746db73e77fa5f129547a788cdec64a94fe26"
+    },
+    "reports/vol_target_cost_rolling_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "8c250480638c7296c62a3dea8f72e667ca9b3137e04d250d802d8fbde8875fa9"
+    },
+    "reports/vol_target_cost_rolling_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "66e9d39d833ee563db82201aa5bdaba2df2c32087ab78cc6d5a27e71f78d201c"
+    },
+    "reports/vol_target_ensemble_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "4f9c070d68e64819db1da5c990a5238dec5252d77e7ec4ed123b6e925eabd79f"
+    },
+    "reports/vol_target_frontier_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "3ccc05e30e769eb1b59314d8ac584d9d7d8ea3fe936412c5d5958a68d9840ce2"
+    },
+    "reports/vol_target_frontier_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "5bcf3e2a4c3ec33fc240a297068cd8753bfa5b4357a659ff6da0e5ab62927e95"
+    },
+    "reports/vol_target_neighborhood_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "c8d0c43b67c4748f0dd253d62299805b9ccba37c406598219b3c55bb87f34c64"
+    },
+    "reports/vol_target_neighborhood_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "536ada2b63e91d9215fc1216d86a05724368e9a73775840c1762f51c353708b5"
+    },
+    "reports/vol_target_score_family_acceleration_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "ab4750e7483a722b172c4baf6d78eabd385bc7ce73cc560ccefffaf2b501019a"
+    },
+    "reports/vol_target_score_family_acceleration_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "017b183a25d285aef48702f9fbdcad830cec90db52e6cca7df273e8bd846f99c"
+    },
+    "reports/vol_target_score_family_balanced_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "ec31b605c2ad5800b7171d22c30543177914b9246f359be62023f20e1843f740"
+    },
+    "reports/vol_target_score_family_balanced_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "6b6318d5c99902ea520b981231c7553b58faa73b0de6c93df9735d2f07623d01"
+    },
+    "reports/vol_target_score_family_breakout_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "c49e0f65cd4a98d4e8489e59e6f7deb4f18978ae0429c6aa6dd7e5c4ecbd5e09"
+    },
+    "reports/vol_target_score_family_breakout_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "e15d58817d984cb3a3849c0092620c03b4c679b540670f23b6dce72f19b4a2a8"
+    },
+    "reports/vol_target_score_family_relative_strength_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "9cdf99657d55fb0ee440eb49fb52e1d8b4b5c6dc0d300c67ccee8bee51d987f1"
+    },
+    "reports/vol_target_score_family_relative_strength_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "d536394ee86577d60de867382cbea873d5c485b1150df5872b51e58e49226abc"
+    },
+    "reports/vol_target_score_family_vol_adjusted_2022/manifest.json": {
+      "origin": "working tree (committed)",
+      "sha256": "2c94093a0d4bae8c472b1d5d11e6d471974d77e891a5faa6ca2ee154860450e7"
+    },
+    "reports/vol_target_score_family_vol_adjusted_2022/variant_summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "efa32924dd9adc9cebf035d8b1574cea7f699de6a6850525395aeb4d58491cd0"
+    },
+    "reports/vol_target_walk_forward_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "75970438337522a79ffa772320337079565c4692e227355e9af7e6fb42a13516"
+    },
+    "reports/vol_target_walk_forward_multiple_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "6e138c75726e39da4d4940874770cc10ee35152b163b9a8c5e86953c532e3eb2"
+    },
+    "reports/volatility_gate_validation_2022/staggered_basket.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "838262614fae6189d8d1014413400f0f0426cd0ae691d67470ee6195050b401c"
+    }
+  },
+  "outputs": [
+    "trial_inventory.csv",
+    "trial_sharpes.csv",
+    "summary.json",
+    "manifest.json",
+    "README.md"
+  ]
+}

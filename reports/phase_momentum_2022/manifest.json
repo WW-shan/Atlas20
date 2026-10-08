@@ -27,7 +27,9 @@
     "use_btc_gate": true,
     "use_volatility_target": true,
     "stop_loss_kind": "none",
-    "stop_loss_pct": 0.3
+    "stop_loss_pct": 0.3,
+    "use_asset_trend_filter": false,
+    "asset_ma_window": 100
   },
   "signal_names": [
     "weighted_multi_horizon",

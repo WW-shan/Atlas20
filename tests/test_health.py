@@ -30,7 +30,11 @@ def test_readyz_returns_ready_when_checks_pass(tmp_path, monkeypatch) -> None:
         response = client.get("/readyz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready", "checks": {"db": "ok", "reports": "ok", "data": "disabled"}}
+    assert response.json() == {
+        "status": "ready",
+        "checks": {"db": "ok", "reports": "ok"},
+        "data_freshness": {"status": "disabled", "reason": "daily refresh is disabled"},
+    }
 
 
 def test_readyz_returns_503_when_db_check_fails(tmp_path, monkeypatch) -> None:
@@ -53,7 +57,9 @@ def test_readyz_returns_503_when_db_check_fails(tmp_path, monkeypatch) -> None:
     assert response.json()["checks"]["db"] == "fail"
 
 
-def test_readyz_returns_503_when_data_freshness_is_stale(tmp_path, monkeypatch) -> None:
+def test_readyz_stays_ready_when_data_freshness_is_bad(tmp_path, monkeypatch) -> None:
+    # Freshness is not process health: the worker that refreshes the data only
+    # starts once the backend is ready, so gating readiness on it deadlocks.
     app = _app(tmp_path, monkeypatch)
 
     from atlas20.api.routes import health
@@ -67,8 +73,39 @@ def test_readyz_returns_503_when_data_freshness_is_stale(tmp_path, monkeypatch) 
     with TestClient(app) as client:
         response = client.get("/readyz")
 
-    assert response.status_code == 503
-    assert response.json()["checks"]["data"] == "missing"
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert "data" not in response.json()["checks"]
+    assert response.json()["data_freshness"] == {"status": "missing", "reason": "no successful refresh"}
+
+
+def test_readyz_is_ready_on_a_fresh_install_with_daily_refresh_enabled(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("ATLAS20_DAILY_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("ATLAS20_DAILY_REFRESH_HOUR_UTC", "0")
+    monkeypatch.setenv("ATLAS20_DAILY_REFRESH_GRACE_MINUTES", "0")
+
+    with TestClient(_app(tmp_path, monkeypatch)) as client:
+        response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json()["data_freshness"]["status"] == "missing"
+
+
+def test_readyz_survives_a_freshness_evaluation_error(tmp_path, monkeypatch) -> None:
+    app = _app(tmp_path, monkeypatch)
+
+    from atlas20.api.routes import health
+
+    def broken(settings):
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(health, "evaluate_data_freshness", broken)
+
+    with TestClient(app) as client:
+        response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json()["data_freshness"]["status"] == "unknown"
 
 
 def test_data_freshness_endpoint_reports_disabled_state(tmp_path, monkeypatch) -> None:

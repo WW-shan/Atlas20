@@ -354,6 +354,54 @@ def _friction_for_spec(config: ResearchConfig, spec: BaseSpec) -> FrictionConfig
     return friction
 
 
+def _universe_rebalance_dates(
+    market: MarketDataBundle,
+    config: ResearchConfig,
+) -> list[pd.Timestamp]:
+    """Every date on which a base strategy reads a universe snapshot.
+
+    Each builder schedules itself with ``get_rebalance_dates(price.index,
+    start, frequency, config.rebalancing.frequencies.get(frequency,
+    frequency))``, so the universe is built from exactly that call.  The first
+    version built it on fixed 7/14/21/28-day schedules and dropped
+    ``month_end``: the monthly bases (TOP20_EQ_bull, TOP20_MOM_top6_monthly_bull,
+    TOP20_SECTOR_top3_monthly_bull) then found no snapshot on 48 of 56
+    month-ends, held cash there, and averaged 0.035 gross exposure against
+    0.45 for the biweekly momentum base.  The single-coin benchmarks never read
+    the universe.
+    """
+    dates: set[pd.Timestamp] = set()
+    for spec in BASE_SPECS:
+        if spec.family == "benchmark":
+            continue
+        frequency_value = config.rebalancing.frequencies.get(spec.frequency, spec.frequency)
+        dates.update(
+            get_rebalance_dates(
+                market.price.index,
+                config.start_timestamp,
+                spec.frequency,
+                frequency_value,
+            )
+        )
+    return sorted(dates)
+
+
+def build_ablation_universe(market: MarketDataBundle, config: ResearchConfig) -> pd.DataFrame:
+    rebalance_dates = _universe_rebalance_dates(market, config)
+    universe = build_rebalance_universe(market, rebalance_dates, config)
+    # A strategy date without a snapshot silently becomes an all-cash target,
+    # which is how the month-end bases went flat.  Fail instead.
+    covered = set(pd.to_datetime(universe["rebalance_date"]))
+    missing = [date for date in rebalance_dates if date not in covered]
+    if missing:
+        shown = ", ".join(date.date().isoformat() for date in missing[:5])
+        raise ValueError(
+            f"No universe snapshot on {len(missing)} of {len(rebalance_dates)} "
+            f"strategy rebalance dates (first: {shown})"
+        )
+    return universe
+
+
 def run_candidate(
     spec: BaseSpec,
     overlay: OverlaySpec,
@@ -532,27 +580,7 @@ def main() -> None:
     panel, metadata = build_processed_datasets(config, sector_config, persist=False)
     market = prepare_market_data(panel, metadata, config)
 
-    frequency_values = sorted(
-        {
-            value
-            for value in config.rebalancing.frequencies.values()
-            if value not in {"month_end"}
-        }
-        | {"7D", "14D", "21D", "28D"}
-    )
-    rebalance_dates = sorted(
-        {
-            date
-            for frequency in frequency_values
-            for date in get_rebalance_dates(
-                market.price.index,
-                config.start_timestamp,
-                frequency,
-                frequency,
-            )
-        }
-    )
-    universe = build_rebalance_universe(market, rebalance_dates, config)
+    universe = build_ablation_universe(market, config)
     regime_frame = build_regime_frame(market.price, market.market_cap, config)
 
     rows: list[dict[str, object]] = []

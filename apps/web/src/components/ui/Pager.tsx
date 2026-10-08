@@ -6,9 +6,23 @@ export type PagerProps = {
   onChange: (page: number) => void;
 };
 
+const MAX_UNWINDOWED_PAGES = 7;
+
+// First, last and the current page's neighbours, with gaps in between, so a
+// long run history does not render hundreds of buttons in one row.
+function visiblePages(page: number, totalPages: number): (number | "gap")[] {
+  if (totalPages <= MAX_UNWINDOWED_PAGES) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const anchors = [...new Set([1, page - 1, page, page + 1, totalPages])]
+    .filter((p) => p >= 1 && p <= totalPages)
+    .sort((a, b) => a - b);
+  return anchors.flatMap((p, i) => (i > 0 && p - anchors[i - 1] > 1 ? ["gap" as const, p] : [p]));
+}
+
 export function Pager({ total, page, pageSize, disabled, onChange }: PagerProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages = visiblePages(page, totalPages);
   const from = Math.min((page - 1) * pageSize + 1, total);
   const to = Math.min(page * pageSize, total);
 
@@ -23,7 +37,14 @@ export function Pager({ total, page, pageSize, disabled, onChange }: PagerProps)
         <span className="mono">{total.toLocaleString()}</span>
       </span>
       <div style={{ display: "flex", gap: 4 }}>
-        {pages.map((p) => {
+        {pages.map((p, index) => {
+          if (p === "gap") {
+            return (
+              <span key={`gap-${index}`} aria-hidden="true" className="mono muted" style={{ minWidth: 20, textAlign: "center", fontSize: 12, alignSelf: "center" }}>
+                …
+              </span>
+            );
+          }
           const buttonDisabled = Boolean(disabled || p === page);
           return (
             <button

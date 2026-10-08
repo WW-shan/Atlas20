@@ -9,6 +9,8 @@ data-api exposes true daily market cap and circulating supply.
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -228,3 +230,222 @@ def test_fetch_history_persists_rows_in_ascending_order(tmp_path: Path) -> None:
     )
     dates = [row["timeOpen"][:10] for row in cached]
     assert dates == sorted(dates), "cached rows must be chronological"
+
+
+# --------------------------------------------------------------------------
+# Duplicate dates across cache windows: the newest fetch must win.
+#
+# The daily refresh writes a ~400-row tail window every day, so almost every
+# date is cached several times (43,939 overlapping rows on 2026-09-24). The
+# merge concatenated the windows and then ran pandas' default quicksort, which
+# is not stable, so ``keep="last"`` kept whichever copy the sort happened to
+# leave last: with a revised tail the new value survived on 209 of 398 dates
+# and the stale one on the other 189.
+
+
+def _write_window(directory: Path, name: str, rows: list[dict], *, fetched_at: float) -> Path:
+    """Write a cache window and stamp it with the time it was fetched."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    os.utime(path, (fetched_at, fetched_at))
+    return path
+
+
+def _overlap_days() -> list[str]:
+    return [day.date().isoformat() for day in pd.date_range("2025-08-21", periods=398, freq="D")]
+
+
+def test_merged_cache_keeps_the_newest_fetch_on_every_duplicated_date(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = CoinMarketCapClient(_config(), tmp_path)
+    history = tmp_path / "coinmarketcap" / "history"
+    _write_window(
+        history,
+        "99_1577836800_1789862400.json",
+        [_quote(day, 100.0, 1000.0) for day in _overlap_days()],
+        fetched_at=1_780_000_000,
+    )
+    _write_window(
+        history,
+        "99_1789516800_1789948800.json",
+        [_quote(day, 101.0, 1000.0) for day in _overlap_days()],
+        fetched_at=1_780_000_100,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        merged = client.cached_history(99)
+
+    assert len(merged) == 398
+    stale = int((merged["close"] != 101.0).sum())
+    assert stale == 0, f"the older fetch survived on {stale} of 398 duplicated dates"
+    assert client.duplicate_conflicts[99] == 398
+    assert "398" in caplog.text and "conflict" in caplog.text
+
+
+def test_merged_cache_orders_windows_by_fetch_time_not_by_filename(tmp_path: Path) -> None:
+    """A forced full re-download is the newest fetch, yet its filename (the
+    earliest start epoch) sorts before every tail window, so filename order is
+    not fetch order."""
+    client = CoinMarketCapClient(_config(), tmp_path)
+    history = tmp_path / "coinmarketcap" / "history"
+    _write_window(
+        history,
+        "99_1789516800_1789948800.json",
+        [_quote(day, 100.0, 1000.0) for day in _overlap_days()],
+        fetched_at=1_780_000_000,
+    )
+    _write_window(
+        history,
+        "99_1577836800_1790035200.json",
+        [_quote(day, 102.0, 1000.0) for day in _overlap_days()],
+        fetched_at=1_780_000_100,
+    )
+
+    merged = client.cached_history(99)
+
+    assert (merged["close"] == 102.0).all()
+
+
+def test_identical_duplicates_are_not_reported_as_conflicts(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = CoinMarketCapClient(_config(), tmp_path)
+    history = tmp_path / "coinmarketcap" / "history"
+    rows = [_quote(day, 100.0, 1000.0) for day in _overlap_days()]
+    _write_window(history, "99_1577836800_1789862400.json", rows, fetched_at=1_780_000_000)
+    _write_window(history, "99_1789516800_1789948800.json", rows, fetched_at=1_780_000_100)
+
+    with caplog.at_level(logging.WARNING):
+        merged = client.cached_history(99)
+
+    assert len(merged) == 398
+    assert client.duplicate_conflicts[99] == 0
+    assert "conflict" not in caplog.text
+
+
+# --------------------------------------------------------------------------
+# An empty or unreadable answer is not coverage.
+#
+# The first run for a new entrant cached a 0-row answer to the full backfill
+# under the full-range filename (99_1577836800_...json). From then on the
+# filename alone made ``has_backfill`` True, so every later run only pulled a
+# "tail" - which the endpoint answers with the most recent ~400 rows - and the
+# coin's history stayed truncated at 2025-08 although it starts in 2021.
+
+
+def _history_rows(first: str, last: str) -> list[dict]:
+    return [_quote(day.date().isoformat(), 1.0, 1000.0) for day in pd.date_range(first, last, freq="D")]
+
+
+class _EndpointSession(_FakeSession):
+    """Answers like the endpoint: the newest 400 rows opened at or before
+    timeEnd (inclusive - the real 2019-2026 backfills have no gap at any of
+    their page boundaries)."""
+
+    def __init__(self, rows: list[dict], *, healthy: bool = True) -> None:
+        super().__init__([])
+        self.rows = rows
+        self.healthy = healthy
+
+    def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+        del url, timeout
+        self.calls.append(dict(params))
+        if not self.healthy:
+            return _FakeResponse({"data": {"quotes": []}, "status": {"error_code": "0"}})
+        end = int(params["timeEnd"])
+        rows = [row for row in self.rows if int(pd.Timestamp(row["timeOpen"]).timestamp()) <= end]
+        return _FakeResponse({"data": {"quotes": rows[-400:]}, "status": {"error_code": "0"}})
+
+
+def test_an_empty_backfill_answer_is_neither_cached_nor_counted(tmp_path: Path) -> None:
+    rows = _history_rows("2021-01-01", "2026-09-22")
+    client = CoinMarketCapClient(_config(), tmp_path)
+    history_dir = tmp_path / "coinmarketcap" / "history"
+
+    client.session = _EndpointSession(rows, healthy=False)  # type: ignore[assignment]
+    first = client.ensure_history(99, start="2020-01-01", end="2026-09-22")
+    persisted_after_empty_answer = sorted(path.name for path in history_dir.glob("99_*.json"))
+    backfilled_after_empty_answer = client.has_backfill(99, start="2020-01-01")
+
+    client.session = _EndpointSession(rows)  # type: ignore[assignment]
+    second = client.ensure_history(99, start="2020-01-01", end="2026-09-23")
+
+    assert first.empty
+    assert pd.Timestamp(second["date"].min()).date().isoformat() == "2021-01-01", (
+        "the healthy run after an empty backfill answer must backfill in full, "
+        f"not pull a tail (got {len(second)} rows from {pd.Timestamp(second['date'].min()).date()})"
+    )
+    assert len(second) == len(rows)
+    assert persisted_after_empty_answer == [], "an empty backfill answer must not be cached"
+    assert backfilled_after_empty_answer is False
+
+
+def test_a_legacy_empty_backfill_file_is_not_coverage(tmp_path: Path) -> None:
+    """A 0-row file left by an older run - even under today's exact filename -
+    must neither satisfy ``has_backfill`` nor be served as a cache hit."""
+    rows = _history_rows("2021-01-01", "2026-09-22")
+    history_dir = tmp_path / "coinmarketcap" / "history"
+    history_dir.mkdir(parents=True)
+    (history_dir / "99_1577836800_1790121600.json").write_text("[]", encoding="utf-8")
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = _EndpointSession(rows)  # type: ignore[assignment]
+
+    assert client.has_backfill(99, start="2020-01-01") is False
+    history = client.ensure_history(99, start="2020-01-01", end="2026-09-23")
+
+    assert pd.Timestamp(history["date"].min()).date().isoformat() == "2021-01-01"
+    assert len(history) == len(rows)
+
+
+def test_an_unreadable_backfill_file_is_not_coverage(tmp_path: Path) -> None:
+    """A truncated write would otherwise count as a backfill forever too."""
+    rows = _history_rows("2021-01-01", "2026-09-22")
+    history_dir = tmp_path / "coinmarketcap" / "history"
+    history_dir.mkdir(parents=True)
+    (history_dir / "99_1577836800_1790121600.json").write_text('[{"timeOpen": "2021-01-0', encoding="utf-8")
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = _EndpointSession(rows)  # type: ignore[assignment]
+
+    assert client.has_backfill(99, start="2020-01-01") is False
+    history = client.ensure_history(99, start="2020-01-01", end="2026-09-23")
+
+    assert len(history) == len(rows)
+
+
+@pytest.mark.parametrize("error_code", ["500", 1006])
+def test_a_nonzero_error_code_raises_even_when_a_data_key_is_present(tmp_path: Path, error_code: object) -> None:
+    class _ErrorSession(_FakeSession):
+        def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+            del url, timeout
+            self.calls.append(dict(params))
+            return _FakeResponse(
+                {
+                    "data": {"quotes": []},
+                    "status": {"error_code": error_code, "error_message": "Internal system error"},
+                }
+            )
+
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = _ErrorSession([])  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="error_code"):
+        client.fetch_history(99, start="2020-01-01", end="2026-09-23")
+    assert not list((tmp_path / "coinmarketcap" / "history").glob("99_*.json"))
+
+
+@pytest.mark.parametrize("error_code", ["0", 0, None])
+def test_a_success_status_code_is_accepted(tmp_path: Path, error_code: object) -> None:
+    class _OkSession(_FakeSession):
+        def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+            del url, timeout
+            self.calls.append(dict(params))
+            return _FakeResponse(
+                {"data": {"quotes": [_quote("2024-01-01", 1.0, 10.0)]}, "status": {"error_code": error_code}}
+            )
+
+    client = CoinMarketCapClient(_config(), tmp_path)
+    client.session = _OkSession([])  # type: ignore[assignment]
+
+    assert len(client.fetch_history(99, start="2024-01-01", end="2024-01-02")) == 1

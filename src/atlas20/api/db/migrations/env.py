@@ -13,7 +13,21 @@ from atlas20.api.settings import get_settings
 
 config = context.config
 
-if config.config_file_name is not None:
+
+def _should_configure_logging() -> bool:
+    # fileConfig() replaces the root logger's level and handlers (closing the
+    # old ones). That suits the `alembic` CLI, but the API lifespan and the
+    # seed CLI run command.upgrade() in-process after configure_logging();
+    # rewriting root there drops INFO logs, closes the log file handler and
+    # bypasses redaction. Only the CLI sets cmd_opts; programmatic callers can
+    # still opt in with config.attributes["configure_logger"] = True.
+    configure_logger = config.attributes.get("configure_logger")
+    if configure_logger is not None:
+        return bool(configure_logger)
+    return config.cmd_opts is not None
+
+
+if config.config_file_name is not None and _should_configure_logging():
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = SQLModel.metadata

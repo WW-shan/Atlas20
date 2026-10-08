@@ -1,7 +1,44 @@
 {
   "candidate_returns": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
   "candidate_count": 32,
+  "unique_candidate_count": 30,
+  "identical_candidates": {
+    "fixed_stop_40": "primary",
+    "trailing_stop_40": "primary"
+  },
+  "common_sample": {
+    "rows": 1725,
+    "start": "2022-01-01",
+    "end": "2026-09-21",
+    "rule": "every candidate and the BTC benchmark have a finite return on every date; otherwise the run stops"
+  },
+  "primary": "primary",
   "best_candidate": "rebalance_1d",
+  "trial_summary": "reports/research_trial_inventory/summary.json",
+  "trial_summary_sha256": "2b598e9b7271396eaf1487d7e8d235e01323589df65c8abbf924dd7f3ffa7452",
+  "trial_scopes": [
+    {
+      "scope": "family",
+      "trial_count": 30,
+      "trial_sharpe_std_per_period": 0.008956784268338626,
+      "trial_sharpe_std_annualized": 0.1711191231767764,
+      "sharpe_std_source": "family candidates"
+    },
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6126,
+      "trial_sharpe_std_per_period": 0.01640290100776845,
+      "trial_sharpe_std_annualized": 0.3133769837380973,
+      "sharpe_std_source": "top20_2022_trials"
+    },
+    {
+      "scope": "all_trials",
+      "trial_count": 14120,
+      "trial_sharpe_std_per_period": 0.01640290100776845,
+      "trial_sharpe_std_annualized": 0.3133769837380973,
+      "sharpe_std_source": "top20_2022_trials"
+    }
+  ],
   "bootstrap_count": 1000,
   "bootstrap_block_length": 20,
   "cscv_blocks": 12,

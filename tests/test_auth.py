@@ -4,6 +4,7 @@ import hmac
 import json
 import re
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 import pytest
 from sqlmodel import Session
@@ -15,7 +16,7 @@ from atlas20.api.settings import get_settings
 
 
 DEFAULT_BACKTEST_CONFIG = {
-    "preset": "ATLAS Adaptive v3",
+    "preset": "base",
     "universe": {"topN": 20, "excludeStable": True, "excludeWrapped": True},
     "window": {"start": "2024-01-01", "end": "2026-05-18", "rebalance": "Weekly"},
     "allocation": {"positionPct": 5.0, "slots": 10},
@@ -275,3 +276,89 @@ def test_verify_api_key_returns_non_secret_jwt_principal(monkeypatch):
 
     assert re.fullmatch(r"jwt-[0-9a-f]{8}", principal)
     assert "researcher" not in principal
+
+
+def test_jwt_signed_with_empty_hmac_key_is_rejected(monkeypatch):
+    # Defense in depth: even outside prod (where the settings gate does not run),
+    # an empty signing key must never validate a forged token.
+    monkeypatch.setenv("ATLAS20_JWT_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ATLAS20_SECRET_KEY", "")
+    monkeypatch.delenv("ATLAS20_JWT_SECRET_KEY", raising=False)
+    monkeypatch.delenv("ATLAS20_API_KEYS", raising=False)
+    get_settings.cache_clear()
+    forged = _jwt({"sub": "attacker", "exp": 4_102_444_800}, secret="")
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key(authorization=f"Bearer {forged}")
+
+    assert exc_info.value.status_code == 401
+
+
+_B64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+
+def _flip_unused_signature_bits(token: str) -> str:
+    # A 32-byte HMAC is 43 base64url chars; the last char's two low bits are
+    # padding, so a lenient decoder maps both spellings to the same bytes.
+    last = token[-1]
+    return token[:-1] + _B64URL_ALPHABET[_B64URL_ALPHABET.index(last) ^ 1]
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda token: token + "~~~~", id="discarded-characters"),
+        pytest.param(lambda token: token + "==", id="padding"),
+        pytest.param(_flip_unused_signature_bits, id="non-zero-trailing-bits"),
+    ],
+)
+def test_bearer_token_with_non_canonical_base64_is_rejected(tmp_path, monkeypatch, db_session: Session, mutate):
+    client = _client(tmp_path, monkeypatch, db_session, jwt_auth_enabled=True, jwt_secret_key="jwt-secret")
+    token = _jwt({"sub": "researcher", "exp": 4_102_444_800})
+    mutated = mutate(token)
+
+    response = client.post("/api/reports/generate", json=REPORT_REQUEST, headers={"Authorization": f"Bearer {mutated}"})
+
+    assert mutated != token
+    assert response.status_code == 401
+    assert _error_message(response) == "invalid bearer token"
+
+
+def test_non_ascii_api_key_header_returns_401(tmp_path, monkeypatch, db_session: Session):
+    client = _client(tmp_path, monkeypatch, db_session, api_keys="valid-key")
+
+    response = client.post(
+        "/api/reports/generate",
+        json=REPORT_REQUEST,
+        headers={"X-API-Key": "café".encode("utf-8")},
+    )
+
+    assert response.status_code == 401
+    assert _error_message(response) == "invalid API key"
+
+
+def test_verify_api_key_rejects_non_ascii_key(monkeypatch):
+    monkeypatch.setenv("ATLAS20_API_KEYS", "valid-key")
+    get_settings.cache_clear()
+
+    with pytest.raises(HTTPException) as exc_info:
+        verify_api_key("café")
+
+    assert exc_info.value.status_code == 401
+
+
+def test_non_ascii_audience_claim_returns_401(tmp_path, monkeypatch, db_session: Session):
+    client = _client(
+        tmp_path,
+        monkeypatch,
+        db_session,
+        jwt_auth_enabled=True,
+        jwt_secret_key="jwt-secret",
+        jwt_audience="atlas20-api",
+    )
+    token = _jwt({"sub": "researcher", "exp": 4_102_444_800, "aud": "café"})
+
+    response = client.post("/api/reports/generate", json=REPORT_REQUEST, headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert _error_message(response) == "invalid bearer token"

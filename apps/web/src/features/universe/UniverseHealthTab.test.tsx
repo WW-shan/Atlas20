@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "../../lib/api";
@@ -13,6 +13,7 @@ vi.mock("../../lib/api", async () => {
     getDataSources: vi.fn(),
     getDataAlerts: vi.fn(),
     refreshUniverse: vi.fn(),
+    getUniverseRefreshStatus: vi.fn(),
   };
 });
 
@@ -89,6 +90,60 @@ describe("UniverseHealthTab", () => {
     renderWithQuery(<UniverseHealthTab />);
     expect(document.querySelectorAll('[data-icon="InfoCircle"]').length).toBe(0);
     expect(document.querySelectorAll('[data-icon="info-circle"]').length).toBe(0);
+  });
+
+  it("surfaces a rate-limited FORCE REFRESH (429) with the backend message", async () => {
+    vi.mocked(api.refreshUniverse).mockRejectedValueOnce(
+      new api.ApiError("Rate limit exceeded", { status: 429, code: "rate_limited", details: { limit: "1 per 1 minute" } }),
+    );
+
+    renderWithQuery(<UniverseHealthTab />);
+    fireEvent.click(screen.getByRole("button", { name: /FORCE REFRESH/ }));
+
+    const message = await screen.findByText("Unable to refresh universe data: Rate limit exceeded (1 per 1 minute)");
+    expect(message.closest("[role='alert']")).not.toBeNull();
+  });
+
+  it("labels a data source that has never synced instead of inventing an age", async () => {
+    vi.mocked(api.getDataSources).mockResolvedValue([
+      { id: "gate", name: "Gate · Price cross-check", status: "error", last_sync_seconds: 999_999 },
+    ]);
+
+    renderWithQuery(<UniverseHealthTab apiEnabled />);
+
+    expect(await screen.findByText("Last sync · never")).toBeInTheDocument();
+    expect(screen.queryByText(/11d ago/)).not.toBeInTheDocument();
+  });
+
+  it("reloads universe data once the queued FORCE REFRESH job completes, then stops polling", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(api.refreshUniverse).mockResolvedValue({ run_id: "btk_0500", status: "queued" });
+      vi.mocked(api.getUniverseRefreshStatus)
+        .mockResolvedValueOnce({ run_id: "btk_0500", status: "running" })
+        .mockResolvedValue({ run_id: "btk_0500", status: "completed" });
+
+      renderWithQuery(<UniverseHealthTab apiEnabled />);
+      fireEvent.click(await screen.findByRole("button", { name: /FORCE REFRESH/ }));
+
+      expect(await screen.findByText(/Refresh btk_0500 running/)).toBeInTheDocument();
+      expect(api.getDataSources).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      expect(await screen.findByText("Universe data refreshed (btk_0500)")).toBeInTheDocument();
+      await waitFor(() => expect(api.getDataSources).toHaveBeenCalledTimes(2));
+      const statusCalls = vi.mocked(api.getUniverseRefreshStatus).mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+      expect(api.getUniverseRefreshStatus).toHaveBeenCalledTimes(statusCalls);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps universe data visible after a refresh failure", async () => {

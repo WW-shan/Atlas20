@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from atlas20.strategies.bull_offense import (
     build_bull_offense_targets,
@@ -32,6 +33,17 @@ def _bundle(prices: dict[str, np.ndarray], volumes: dict[str, np.ndarray] | None
         volume=volume,
         history_count=price.notna().cumsum(),
         metadata=pd.DataFrame(),
+    )
+
+
+def _every_coin_universe(price: pd.DataFrame) -> pd.DataFrame:
+    """A daily universe holding every coin of the toy panel.
+
+    The builder no longer falls back to the whole price panel when the
+    universe is missing, so tests that want an unrestricted pool say so.
+    """
+    return pd.DataFrame(
+        [{"rebalance_date": date, "coin_id": coin} for date in price.index for coin in price.columns]
     )
 
 
@@ -69,7 +81,7 @@ def test_targets_go_flat_when_exit_signal_triggers() -> None:
 
     result = build_bull_offense_targets(
         market,
-        universe=None,
+        universe=_every_coin_universe(price),
         hold_count=2,
         exit_ma_window=50,
         max_leverage=1.0,
@@ -104,7 +116,7 @@ def test_targets_are_long_and_concentrated_in_uptrend() -> None:
 
     result = build_bull_offense_targets(
         market,
-        universe=None,
+        universe=_every_coin_universe(price),
         hold_count=2,
         exit_ma_window=50,
         max_leverage=1.0,
@@ -244,3 +256,66 @@ def test_targets_tolerate_universe_on_a_different_calendar() -> None:
     held = [t for t in result.targets.values() if not t.empty and t.sum() > 0]
     assert held, "carrying the latest snapshot forward must keep the pool non-empty"
     assert all(t.index.tolist() == ["alt"] for t in held)
+
+
+def _uptrend_market_with_outsider() -> MarketDataBundle:
+    # "outsider" is the strongest coin in the panel but never in the Top20;
+    # the panel holds ~100 coins (current candidates + legacy watchlist), so a
+    # whole-panel pool is a different, non-Top20 strategy.
+    n = 120
+    return _bundle(
+        {
+            "bitcoin": np.linspace(100, 200, n),
+            "top20coin": np.linspace(10, 12, n),
+            "outsider": np.linspace(1, 9, n),
+        }
+    )
+
+
+def test_missing_universe_is_rejected() -> None:
+    market = _uptrend_market_with_outsider()
+
+    with pytest.raises(ValueError, match="universe"):
+        build_bull_offense_targets(
+            market,
+            universe=None,
+            hold_count=1,
+            lookback=30,
+            exit_ma_window=50,
+            rebalance_dates=[market.price.index[100]],
+        )
+
+
+def test_empty_universe_holds_cash_instead_of_the_whole_panel() -> None:
+    market = _uptrend_market_with_outsider()
+    date = market.price.index[100]
+    empty = pd.DataFrame({"rebalance_date": pd.Series(dtype="datetime64[ns]"), "coin_id": pd.Series(dtype=str)})
+
+    result = build_bull_offense_targets(
+        market,
+        empty,
+        hold_count=1,
+        lookback=30,
+        exit_ma_window=50,
+        rebalance_dates=[date],
+    )
+
+    assert result.targets[date].empty
+    assert result.leverage_by_date[date] == 0.0
+
+
+def test_given_universe_limits_the_pool_to_its_members() -> None:
+    market = _uptrend_market_with_outsider()
+    date = market.price.index[100]
+    universe = pd.DataFrame({"rebalance_date": [date, date], "coin_id": ["bitcoin", "top20coin"]})
+
+    result = build_bull_offense_targets(
+        market,
+        universe,
+        hold_count=1,
+        lookback=30,
+        exit_ma_window=50,
+        rebalance_dates=[date],
+    )
+
+    assert result.targets[date].to_dict() == {"bitcoin": 1.0}

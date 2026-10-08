@@ -20,13 +20,65 @@ import pandas as pd
 import requests
 
 from atlas20.config import CoinMarketCapConfig
+from atlas20.data.cache_merge import FetchOrderMerge, describe_conflicts, fetch_ordered, merge_by_fetch_order
 from atlas20.logging_utils import get_logger
 
 COLUMNS = ["date", "close", "volume_usd", "market_cap", "circulating_supply"]
+VALUE_COLUMNS = [column for column in COLUMNS if column != "date"]
 
 
 def _empty() -> pd.DataFrame:
     return pd.DataFrame(columns=COLUMNS)
+
+
+def _read_rows(path: Path) -> list[dict] | None:
+    """Quote rows of one cached window, or None when the file holds none.
+
+    An empty answer, a truncated write and a non-list payload all mean the
+    same thing: this window is *not* coverage. Counting such a file is how a
+    0-row answer to a new entrant's backfill made ``has_backfill`` True for
+    good and froze the coin on ~400 days of history.
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return None
+    if not isinstance(payload, list):
+        return None
+    rows = [row for row in payload if isinstance(row, dict) and row.get("timeOpen")]
+    return rows or None
+
+
+def _frame_from_rows(rows: list[dict]) -> pd.DataFrame:
+    """Normalize one fetch's quote rows, dropping rows without a usable close.
+
+    Row order is preserved (no sort here): the fetch-order merge resolves any
+    repeated date, and it must see the rows exactly as the provider sent them.
+    """
+    records = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        quote = row.get("quote") or {}
+        opened = row.get("timeOpen")
+        if not opened:
+            continue
+        records.append(
+            {
+                "date": pd.Timestamp(opened).normalize(),
+                "close": quote.get("close"),
+                "volume_usd": quote.get("volume"),
+                "market_cap": quote.get("marketCap"),
+                "circulating_supply": quote.get("circulatingSupply"),
+            }
+        )
+    if not records:
+        return _empty()
+    frame = pd.DataFrame(records)[COLUMNS]
+    frame = frame.dropna(subset=["close", "market_cap"])
+    frame = frame[frame["close"] > 0]
+    frame["date"] = pd.to_datetime(frame["date"])
+    return frame.reset_index(drop=True)
 
 
 def _to_epoch(value: str | date | datetime) -> int:
@@ -58,6 +110,9 @@ class CoinMarketCapClient:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
+        # Conflicting duplicate dates found by the latest merge of each coin's
+        # cache windows, so a caller can report them next to the history.
+        self.duplicate_conflicts: dict[int, int] = {}
 
     def _cache_path(self, coin_id: int, start: int, end: int) -> Path:
         directory = self.raw_dir / "history"
@@ -152,10 +207,24 @@ class CoinMarketCapClient:
         )
         response.raise_for_status()
         payload = response.json()
-        if not isinstance(payload, dict) or "data" not in payload:
-            message = payload.get("status", {}).get("error_message") if isinstance(payload, dict) else None
-            raise ValueError(f"CoinMarketCap returned no data for id={coin_id}: {message or payload}")
-        return list(payload["data"].get("quotes") or [])
+        if not isinstance(payload, dict):
+            raise ValueError(f"CoinMarketCap returned an unexpected payload for id={coin_id}: {str(payload)[:200]}")
+        status = payload.get("status") if isinstance(payload.get("status"), dict) else {}
+        # The status block is authoritative even when a ``data`` key is present:
+        # an error answered as ``{"data": {"quotes": []}, "status": {"error_code":
+        # "500"}}`` used to read as "no rows", which the rewind logic then took
+        # for a delisted series and the cache stored as an empty backfill.
+        error_code = status.get("error_code")
+        if error_code is not None and str(error_code).strip() not in {"", "0"}:
+            raise ValueError(
+                f"CoinMarketCap error for id={coin_id}: error_code={error_code} "
+                f"({status.get('error_message') or 'no message'})"
+            )
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            message = status.get("error_message")
+            raise ValueError(f"CoinMarketCap returned no data for id={coin_id}: {message or str(payload)[:200]}")
+        return list(data.get("quotes") or [])
 
     def _fetch_range(self, coin_id: int, start: int, end: int) -> list[dict]:
         """Walk backwards from ``end`` until ``start`` is covered.
@@ -211,10 +280,12 @@ class CoinMarketCapClient:
         return rows
 
     def _cached_windows(self, coin_id: int) -> list[tuple[int, int]]:
-        """Return the (start, end) epoch pairs this coin was already asked for.
+        """Return the (start, end) epoch pairs this coin holds real rows for.
 
-        Read from the cache filenames rather than the payload so coverage can
-        be assessed without parsing every file.
+        The window comes from the filename, but a file only counts when it
+        holds rows: a filename alone once certified an empty backfill as
+        coverage, after which the coin was never backfilled again. Parsing is
+        cheap here (the whole 145 MB CMC cache parses in under a second).
         """
         directory = self.raw_dir / "history"
         if not directory.exists():
@@ -225,56 +296,54 @@ class CoinMarketCapClient:
             if len(parts) != 3:
                 continue
             try:
-                windows.append((int(parts[1]), int(parts[2])))
+                window = (int(parts[1]), int(parts[2]))
             except ValueError:
                 continue
+            if _read_rows(path) is None:
+                continue
+            windows.append(window)
         return windows
 
+    def _merge(self, coin_id: int, frames: list[pd.DataFrame]) -> pd.DataFrame:
+        """Merge per-fetch frames (oldest fetch first); the newest fetch wins.
+
+        A duplicated date whose copies disagree is a provider revision or a
+        provisional print cached before the day was final. The newest copy is
+        kept either way, but the disagreement is logged and counted instead of
+        being resolved in silence.
+        """
+        result: FetchOrderMerge = merge_by_fetch_order(frames, value_columns=VALUE_COLUMNS, columns=COLUMNS)
+        self.duplicate_conflicts[int(coin_id)] = result.conflicting_dates
+        if result.conflicting_dates:
+            self.logger.warning("CoinMarketCap id=%s: %s", coin_id, describe_conflicts(result))
+        return result.frame if not result.frame.empty else _empty()
+
     def _merged_cache(self, coin_id: int) -> pd.DataFrame:
-        """Every cached window for this coin, merged and normalized."""
+        """Every cached window for this coin, merged so the newest fetch wins.
+
+        Files are visited in fetch order (see ``fetch_ordered``), not filename
+        order: a forced full re-download is the newest fetch, yet its name -
+        the earliest start epoch - sorts before every tail window.
+        """
         directory = self.raw_dir / "history"
         if not directory.exists():
             return _empty()
         frames: list[pd.DataFrame] = []
-        for path in sorted(directory.glob(f"{coin_id}_*.json")):
-            try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+        for path in fetch_ordered(directory.glob(f"{coin_id}_*.json")):
+            rows = _read_rows(path)
+            if rows is None:
                 continue
-            if not payload:
-                continue
-            records = []
-            for row in payload:
-                quote = row.get("quote") or {}
-                opened = row.get("timeOpen")
-                if not opened:
-                    continue
-                records.append(
-                    {
-                        "date": pd.Timestamp(opened).normalize(),
-                        "close": quote.get("close"),
-                        "volume_usd": quote.get("volume"),
-                        "market_cap": quote.get("marketCap"),
-                        "circulating_supply": quote.get("circulatingSupply"),
-                    }
-                )
-            if records:
-                frames.append(pd.DataFrame(records))
-        if not frames:
-            return _empty()
-
-        frame = pd.concat(frames, ignore_index=True)[COLUMNS]
-        frame = frame.dropna(subset=["close", "market_cap"])
-        frame = frame[frame["close"] > 0]
-        frame["date"] = pd.to_datetime(frame["date"])
-        return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+            frame = _frame_from_rows(rows)
+            if not frame.empty:
+                frames.append(frame)
+        return self._merge(coin_id, frames)
 
     def cached_history(self, coin_id: int) -> pd.DataFrame:
         """Return the merged on-disk history without making a network request."""
         return self._merged_cache(coin_id)
 
     def has_backfill(self, coin_id: int, *, start: str | date | datetime) -> bool:
-        """True when a cached window reaches back to the required start."""
+        """True when a cached window *with rows* reaches back to the start."""
         start_ts = _to_epoch(start)
         return any(window_start <= start_ts for window_start, _ in self._cached_windows(coin_id))
 
@@ -357,38 +426,33 @@ class CoinMarketCapClient:
         end_ts = _to_epoch(end)
         cache_path = self._cache_path(coin_id, start_ts, end_ts)
 
-        if cache_path.exists() and not force:
-            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        # An empty or unreadable cached window is a miss, not a hit: serving it
+        # would hand back "no history" for a window that was never answered.
+        cached = _read_rows(cache_path) if cache_path.exists() and not force else None
+        if cached is not None:
+            payload = cached
         else:
             payload = self._fetch_range(coin_id, start_ts, end_ts)
             # Paging walks backwards, so the merged rows arrive newest-first.
             # Persist them chronologically: downstream dedupe/merge logic
             # assumes ascending order.
             payload = sorted(payload, key=lambda row: row.get("timeOpen", ""))
-            cache_path.write_text(json.dumps(payload), encoding="utf-8")
+            if payload:
+                cache_path.write_text(json.dumps(payload), encoding="utf-8")
+            else:
+                # Never persist an empty answer. Under the full-range name it
+                # would count as a finished backfill and a new entrant would
+                # stay truncated forever; under a tail name it records nothing
+                # that the next (forced) tail pull would not ask again anyway.
+                self.logger.warning(
+                    "CoinMarketCap id=%s returned no rows for %s..%s; not caching the empty answer",
+                    coin_id,
+                    pd.Timestamp(start_ts, unit="s").date(),
+                    pd.Timestamp(end_ts, unit="s").date(),
+                )
 
         if not payload:
             return _empty()
-
-        records = []
-        for row in payload:
-            quote = row.get("quote") or {}
-            opened = row.get("timeOpen")
-            if not opened:
-                continue
-            records.append(
-                {
-                    "date": pd.Timestamp(opened).normalize(),
-                    "close": quote.get("close"),
-                    "volume_usd": quote.get("volume"),
-                    "market_cap": quote.get("marketCap"),
-                    "circulating_supply": quote.get("circulatingSupply"),
-                }
-            )
-        if not records:
-            return _empty()
-
-        frame = pd.DataFrame(records)[COLUMNS]
-        frame = frame.dropna(subset=["close", "market_cap"])
-        frame = frame[frame["close"] > 0]
-        return frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+        # One fetch, but pages can overlap at their boundaries: resolve any
+        # repeated date with the same stable, reported merge as the cache.
+        return self._merge(coin_id, [_frame_from_rows(payload)])

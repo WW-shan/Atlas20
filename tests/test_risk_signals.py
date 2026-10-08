@@ -8,10 +8,51 @@ import pytest
 
 from atlas20.signals.risk import (
     absolute_trend_mask,
+    btc_above_moving_average,
+    btc_above_trailing_price,
     btc_above_volatility_scaled_trailing,
     realized_volatility,
     volatility_target_leverage,
 )
+
+
+def test_btc_ma_gate_is_open_in_warm_up_but_closed_on_a_later_gap() -> None:
+    dates = pd.date_range("2024-01-01", periods=8, freq="D")
+    btc = [100.0, 101.0, 102.0, 103.0, float("nan"), 105.0, 106.0, 107.0]
+    price = pd.DataFrame({"bitcoin": btc}, index=dates)
+
+    risk_on = btc_above_moving_average(price, ma_window=3, confirm_days=1)
+
+    assert risk_on.iloc[:4].tolist() == [True, True, True, True]
+    # The gap blanks the moving average for a full window: that is missing
+    # data, not a warm-up, so the gate must not stay open.
+    assert risk_on.iloc[4:7].tolist() == [False, False, False]
+    assert bool(risk_on.iloc[7]) is True
+
+
+def test_btc_trailing_gate_fails_closed_on_a_gap_after_warm_up() -> None:
+    dates = pd.date_range("2024-01-01", periods=6, freq="D")
+    btc = [100.0, 101.0, 102.0, float("nan"), 104.0, 105.0]
+    price = pd.DataFrame({"bitcoin": btc}, index=dates)
+
+    risk_on = btc_above_trailing_price(price, lookback_days=1, confirm_days=1)
+
+    assert risk_on.iloc[:3].tolist() == [True, True, True]
+    assert risk_on.iloc[3:5].tolist() == [False, False]
+    assert bool(risk_on.iloc[5]) is True
+
+
+def test_chandelier_gate_fails_closed_on_a_gap_after_warm_up() -> None:
+    dates = pd.date_range("2024-01-01", periods=10, freq="D")
+    btc = [100.0, 101.0, 102.0, 103.0, 104.0, float("nan"), 106.0, 107.0, 108.0, 109.0]
+    price = pd.DataFrame({"bitcoin": btc}, index=dates)
+
+    risk_on = btc_above_volatility_scaled_trailing(
+        price, lookback=2, vol_window=2, vol_multiple=1.0, confirm_days=1
+    )
+
+    assert bool(risk_on.iloc[0]) is True
+    assert not risk_on.iloc[5:8].any()
 
 
 def test_chandelier_stop_exits_after_a_deep_break_from_the_high() -> None:
@@ -70,6 +111,28 @@ def test_volatility_target_leverage_respects_bounds_and_scales_inversely() -> No
     assert float(leverage.min().min()) >= 0.0
     # The calm asset is levered up; the wild one is cut back.
     assert leverage.loc[dates[-1], "quiet"] > leverage.loc[dates[-1], "wild"]
+
+
+def test_volatility_target_leverage_is_flat_not_full_on_a_gap_after_warm_up() -> None:
+    """Only the warm-up falls back to full exposure.
+
+    A provider gap longer than the 3-day carry leaves one missing price, which
+    blanks the rolling std for a whole window. The fallback used to apply
+    there too, so a ~115% vol asset targeted at 0.5 went from ~0.43 to 1.0
+    for a month right after the gap.
+    """
+    dates = pd.date_range("2024-01-01", periods=120, freq="D")
+    wild = pd.Series(100.0 * np.cumprod(1.0 + np.tile([0.06, -0.06], 60)), index=dates)
+    wild.iloc[60:64] = np.nan
+    price = wild.ffill(limit=3).to_frame("wild")
+
+    leverage = volatility_target_leverage(price, target_volatility=0.5, window=30)["wild"]
+
+    assert leverage.iloc[:30].tolist() == [1.0] * 30
+    assert leverage.iloc[30:63].between(0.40, 0.46).all()
+    undefined_after_warm_up = leverage.iloc[63:94]
+    assert undefined_after_warm_up.tolist() == [0.0] * 31
+    assert leverage.iloc[94:].between(0.40, 0.46).all()
 
 
 def test_absolute_trend_mask_requires_price_above_own_average() -> None:

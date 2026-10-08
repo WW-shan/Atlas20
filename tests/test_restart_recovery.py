@@ -1,14 +1,10 @@
 from datetime import date, timedelta
 
-from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
-from atlas20.api import app as app_module
 from atlas20.api._time import utc_now
-from atlas20.api.app import create_app
 from atlas20.api.db.models import Run
 from atlas20.api.repositories import RunsRepo
-from atlas20.api.settings import get_settings
 from atlas20.api.worker.recovery import recover_stale_runs
 
 
@@ -110,24 +106,3 @@ def test_worker_startup_recovery_skips_other_workers_runs(tmp_path):
         assert mine_after.error == "worker died — restart recovery"
         assert other_after is not None
         assert other_after.status == "running"
-
-
-def test_lifespan_calls_recover_stale_runs(tmp_path, monkeypatch):
-    db_path = tmp_path / "atlas20.sqlite"
-    monkeypatch.setenv("ATLAS20_DB_URL", f"sqlite:///{db_path.as_posix()}")
-    get_settings.cache_clear()
-    calls = []
-
-    def fake_recover(session, stale_after_seconds):
-        calls.append((session is not None, stale_after_seconds))
-        return 0
-
-    monkeypatch.setattr(app_module, "recover_stale_runs", fake_recover)
-
-    try:
-        with TestClient(create_app()):
-            pass
-    finally:
-        get_settings.cache_clear()
-
-    assert calls == [(True, 60)]

@@ -103,11 +103,15 @@ universe:
   # otherwise because the client gave up on the first empty page (see
   # `_EMPTY_PAGE_REWIND_SECONDS`). Fantom is deliberately absent: it never
   # ranked better than 21st on a rebalance date, so it displaced nobody.
+  #
+  # An alias must be the coin's own id, checked by symbol and name: the build
+  # and the download refuse an alias whose id the cached id map assigns to a
+  # different ticker, and any two candidates that resolve to one CMC id.
+  # `CEL: 5692` was such a mistake - 5692 is Compound (COMP) - and is gone.
   cmc_symbol_aliases:
     EOS: 1765
     MKR: 1518
     HT: 2502
-    CEL: 5692
     MATIC: 3890
     FTM: 3513
   # Historical watchlist coins the panel provably cannot carry, with the reason
@@ -120,6 +124,17 @@ universe:
       there is no candidate row to onboard. It held a real Top-20 slot on 7 of
       the strategy's 215 rebalance dates (all in 2021-2022); on those dates the
       next-ranked coin is promoted in its place.
+    celsius-degree-token: >-
+      No verified CoinMarketCap id. The cached id map has no CEL entry (only
+      CELO and CELR) and no cached CMC history is Celsius's. The former alias
+      CEL -> 5692 was Compound's id (the id map assigns 5692 to COMP; the
+      cached 5692 series is COMP at 196 on 2020-07-01, 780 on 2021-05-10 and
+      57 on 2022-06-01), so every CEL row was Compound's price - the "1,085x
+      broken CMC series" was this mapping error, not a CMC fault. CEL was
+      refused by the cross-check (cmc_isolated) in every build, so removing
+      the alias changes no panel row. Its Top-20 cost cannot be measured from
+      the cache (no Celsius market-cap series is cached); onboarding needs
+      Celsius's own CMC id, verified by symbol and name.
   min_history_days: 90
   min_daily_dollar_volume: 25000000
   min_price: 0.000001
@@ -220,11 +235,17 @@ frictions:
   slippage_bps: 10.0
   max_weight_per_coin: 0.35
   max_weight_per_sector: 0.50
-  # Missing provider prices abort the backtest by default. Do not silently
-  # mark a halted or delisted holding as flat; use an explicit fill policy only
-  # for a labelled sensitivity run.
-  missing_return_policy: error
+  # A held coin with no provider print is never marked flat silently. Ended
+  # feeds (delistings, migrations) are sold at their last print. A gap inside a
+  # live series (CMC skipped chainlink, curve and kucoin-shares around
+  # 2022-07-31) is carried at the last close for at most
+  # missing_return_max_carry_days - the same limit the market-data builder
+  # carries prices - and the move is booked on the next print. Every carried
+  # holding and every trade priced at a carried close is listed in the
+  # backtest's gap_carries and logged; a longer gap aborts the backtest.
+  missing_return_policy: carry
   missing_return_fill: -1.0
+  missing_return_max_carry_days: 3
 
 signals:
   momentum_windows:

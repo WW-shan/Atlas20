@@ -6,11 +6,17 @@ Run this before trusting a backtest or wiring the pipeline to real money:
 
 Every check prints PASS/FAIL with the evidence behind it. A FAIL is a data or
 mechanics defect; a WARN is a gap that is understood and deliberate, so it must
-be priced in by hand rather than fixed by the pipeline. There are three: the
-uncharged funding cost on leveraged exposure, CMC rows whose market cap does
-not equal price x supply, and the point-in-time Top-N members the panel cannot
-carry (a coin delisted from CoinGecko, or one excluded as a stablecoin, still
-displaces a real constituent on the days it qualified).
+be priced in by hand rather than fixed by the pipeline - for example CMC rows
+whose market cap does not equal price x supply, and the point-in-time Top-N
+members the panel cannot carry (a coin delisted from CoinGecko, or one excluded
+as a stablecoin, still displaces a real constituent on the days it qualified).
+A WARN never hides a FAIL: ``check`` records a failing condition as FAIL
+whatever its ``warn`` flag says.
+
+The panel, metadata and data-quality checks all run on the *persisted* build
+(the files the strategy scripts load); an in-memory rebuild only proves that
+build is still reproducible from the raw cache. The audit reads data/ and
+never writes to it.
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -30,8 +38,14 @@ if str(SRC_DIR) not in sys.path:
 
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 from atlas20.backtest.engine import cap_and_normalize, run_backtest  # noqa: E402
-from atlas20.config import load_config, load_sector_config  # noqa: E402
-from atlas20.data.processor import build_processed_datasets  # noqa: E402
+from atlas20.config import FrictionConfig, latest_completed_utc_day, load_config, load_sector_config  # noqa: E402
+from atlas20.data.coinmarketcap import CoinMarketCapClient  # noqa: E402
+from atlas20.data.completeness import assess_last_day  # noqa: E402
+from atlas20.data.processor import (  # noqa: E402
+    ENDED_FEED_GRACE_DAYS,
+    build_processed_datasets,
+    load_candidate_assets,
+)
 from atlas20.logging_utils import configure_logging, get_logger  # noqa: E402
 from atlas20.universe.builder import build_rebalance_universe, prepare_market_data  # noqa: E402
 
@@ -40,7 +54,101 @@ LOGGER = get_logger(__name__)
 
 
 def check(name: str, ok: bool, detail: str, warn: bool = False) -> None:
-    RESULTS.append((name, "WARN" if warn else ("PASS" if ok else "FAIL"), detail))
+    """Record one result. A failing condition is always a FAIL.
+
+    ``warn`` only marks a *passing* check as a deliberate, understood gap. It
+    used to override ``ok`` outright, which is how the freshness check reported
+    a 30-day-stale panel as WARN and the interior-gap check a 41-day hole as
+    WARN - neither could ever fail the audit.
+    """
+    RESULTS.append((name, "FAIL" if not ok else ("WARN" if warn else "PASS"), detail))
+
+
+# The provider finalizes day D's close some hours after 00:00 UTC on D+1, so a
+# panel may trail the latest completed UTC day by one day while that happens.
+MAX_PANEL_LAG_DAYS = 1
+
+
+def panel_freshness(
+    last_date: pd.Timestamp,
+    *,
+    now: pd.Timestamp | None = None,
+    end_date: str | pd.Timestamp | None = None,
+) -> tuple[bool, str]:
+    """Is the panel's last day the latest completed UTC day (or one before)?
+
+    Measured in UTC because CMC's candles close at 00:00 UTC. The local date
+    used before is a day ahead of UTC for eight hours a day on this host
+    (Asia/Shanghai), which printed "2d old" for a panel that was current. A
+    pinned ``end_date`` caps the reference, since the panel is cut there on
+    purpose. A row *after* the reference belongs to a UTC day that has not
+    closed, which can only be a partial print.
+    """
+    reference = latest_completed_utc_day(now)
+    if end_date is not None:
+        reference = min(reference, pd.Timestamp(end_date).normalize())
+    last = pd.Timestamp(last_date).normalize()
+    behind = (reference - last).days
+    detail = (
+        f"last date={last.date()}, latest completed UTC day={reference.date()} "
+        f"({behind}d behind; limit {MAX_PANEL_LAG_DAYS}d)"
+    )
+    if behind < 0:
+        return False, detail + "; the panel holds a UTC day that has not closed yet"
+    return behind <= MAX_PANEL_LAG_DAYS, detail
+
+
+# An interior run longer than this stops looking like a provider outage day and
+# starts looking like a broken feed.
+MAX_INTERIOR_GAP_RUN_DAYS = 10
+
+
+def interior_gaps(
+    panel: pd.DataFrame,
+    *,
+    start: pd.Timestamp,
+    max_run_days: int = MAX_INTERIOR_GAP_RUN_DAYS,
+) -> tuple[bool, str, bool]:
+    """Days a live series is missing inside its own span, as ``(ok, detail, warn)``.
+
+    CMC simply does not publish some days inside a live series (2022-07-31 is
+    missing for LINK, CRV and KCS alike - a provider outage day, not a coin
+    event). prepare_market_data carries those at the last observed price and
+    applies the cumulative move on the next print, so they distort timing by a
+    day rather than inventing a price: named, they are a WARN. A run longer
+    than ``max_run_days`` is a broken feed and FAILs - the check used to
+    report a 41-day hole as WARN because ``warn`` overrode ``ok``. Only gaps
+    on or after ``start`` (the traded window) count.
+    """
+    symbol_by_coin = (
+        panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict() if "symbol" in panel else {}
+    )
+    gap_report: list[str] = []
+    long_gaps: list[str] = []
+    for coin_id, group in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
+        dates = pd.DatetimeIndex(pd.to_datetime(group["date"]))
+        missing = pd.date_range(dates.min(), dates.max(), freq="D").difference(dates)
+        missing = missing[missing >= pd.Timestamp(start)]
+        if len(missing) == 0:
+            continue
+        # Group consecutive missing days into runs.
+        runs: list[int] = []
+        current = 1
+        for previous, following in zip(missing[:-1], missing[1:], strict=False):
+            if (following - previous).days == 1:
+                current += 1
+            else:
+                runs.append(current)
+                current = 1
+        runs.append(current)
+        label = f"{symbol_by_coin.get(coin_id, coin_id)} ({len(missing)}d, longest run {max(runs)}d)"
+        gap_report.append(label)
+        if max(runs) > max_run_days:
+            long_gaps.append(label)
+    detail = "assets with gaps in the traded window: " + (", ".join(gap_report) or "none")
+    if long_gaps:
+        detail += f"; runs longer than {max_run_days}d (broken feed): " + ", ".join(long_gaps)
+    return not long_gaps, detail, bool(gap_report)
 
 
 def _window_span_days(filename: str) -> int:
@@ -52,6 +160,504 @@ def _window_span_days(filename: str) -> int:
         return int((int(parts[2]) - int(parts[1])) / 86_400)
     except ValueError:
         return 0
+
+
+# ------------------------------------------------------ one build, audited
+#
+# The strategy scripts read the *persisted* build (panel_daily.csv and
+# metadata.csv, e.g. run_phase_momentum.py), and data_quality.csv records the
+# screening that produced it. The audit used to run its panel checks on an
+# in-memory rebuild while its cross-check and watchlist checks read
+# data_quality.csv, so after a refused or failed build it certified a mix of
+# two states - neither of which was necessarily what a strategy would load.
+#
+# Design: the three persisted files are audited as one set, because they are
+# what gets consumed. A consistency check proves they came out of the same
+# build (same coin set, written back to back), and a separate drift check
+# rebuilds the panel in memory from the raw cache and compares it with the
+# persisted one, so a refused, failed or skipped rebuild shows up as a FAIL
+# instead of being silently certified. ``build_processed_datasets`` returns no
+# quality table, so the rebuild can be compared on the panel only.
+
+PROCESSED_ARTIFACTS = ("panel_daily.csv", "metadata.csv", "data_quality.csv")
+# One build writes the three files back to back (seconds for a 175k-row
+# panel); files written further apart than this came from different builds.
+MAX_BUILD_WRITE_SPREAD_SECONDS = 600
+_DRIFT_COLUMNS = ("price", "volume_usd", "market_cap")
+_ONE_BUILD_CHECK = "processed: persisted artifacts are one build"
+_DRIFT_CHECK = "processed: an in-memory rebuild reproduces the persisted panel"
+
+
+@dataclass(frozen=True)
+class PersistedBuild:
+    """The processed artifacts a strategy actually loads."""
+
+    panel: pd.DataFrame
+    metadata: pd.DataFrame
+    quality: pd.DataFrame
+    written_at: dict[str, float]
+
+
+def load_persisted_build(processed_dir: Path) -> tuple[PersistedBuild | None, str]:
+    """Read the persisted set exactly as the strategy scripts do."""
+    missing = [name for name in PROCESSED_ARTIFACTS if not (processed_dir / name).exists()]
+    if missing:
+        return None, f"missing persisted artifact(s) {missing} in {processed_dir}"
+    try:
+        panel = pd.read_csv(processed_dir / "panel_daily.csv")
+        metadata = pd.read_csv(processed_dir / "metadata.csv").set_index("coin_id")
+        quality = pd.read_csv(processed_dir / "data_quality.csv")
+        panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
+    except (OSError, ValueError, KeyError, pd.errors.ParserError) as exc:
+        return None, f"unreadable persisted artifact in {processed_dir}: {exc}"
+    written_at = {name: (processed_dir / name).stat().st_mtime for name in PROCESSED_ARTIFACTS}
+    return PersistedBuild(panel, metadata, quality, written_at), ""
+
+
+def persisted_build_consistency(build: PersistedBuild) -> tuple[bool, str]:
+    """Did panel_daily.csv, metadata.csv and data_quality.csv come from one build?
+
+    One build appends a metadata row for exactly the coins it writes to the
+    panel, and data_quality.csv marks those coins ``included_in_panel``. An
+    admitted coin may still be absent from the panel when its whole history
+    ends before the panel window (the build trims to the window and skips an
+    empty result), so that case is explained rather than counted.
+    """
+    panel_ids = set(build.panel["coin_id"].astype(str))
+    metadata_ids = set(build.metadata.index.astype(str))
+    quality = build.quality
+    included = (
+        quality["included_in_panel"].fillna(False).astype(bool)
+        if "included_in_panel" in quality.columns
+        else pd.Series(False, index=quality.index)
+    )
+    admitted = quality.loc[included]
+    admitted_ids = set(admitted["coin_id"].astype(str))
+    problems: list[str] = []
+    if metadata_ids != panel_ids:
+        problems.append(
+            f"metadata.csv vs panel: only in metadata={sorted(metadata_ids - panel_ids)[:5]}, "
+            f"only in panel={sorted(panel_ids - metadata_ids)[:5]}"
+        )
+    not_admitted = sorted(panel_ids - admitted_ids)
+    if not_admitted:
+        problems.append(f"panel coins data_quality.csv did not admit={not_admitted[:5]}")
+    panel_start = build.panel["date"].min()
+    absent = admitted[~admitted["coin_id"].astype(str).isin(panel_ids)]
+    if "latest_date" in absent.columns:
+        ended_before = pd.to_datetime(absent["latest_date"], errors="coerce") < panel_start
+        absent = absent[~ended_before.fillna(False)]
+    if not absent.empty:
+        problems.append(f"admitted by data_quality.csv but absent from the panel={absent['coin_id'].astype(str).tolist()[:5]}")
+    spread = max(build.written_at.values()) - min(build.written_at.values())
+    if spread > MAX_BUILD_WRITE_SPREAD_SECONDS:
+        oldest = min(build.written_at, key=build.written_at.__getitem__)
+        problems.append(f"files written {spread / 3600:.1f}h apart (oldest: {oldest})")
+    detail = f"{len(panel_ids)} coin(s) in panel_daily/metadata/data_quality; written within {spread:.0f}s"
+    return not problems, detail + ("; " + "; ".join(problems) if problems else "")
+
+
+def panel_drift(persisted: pd.DataFrame, rebuilt: pd.DataFrame) -> tuple[bool, str]:
+    """Does a rebuild from the raw cache reproduce the persisted panel exactly?"""
+    key = ["date", "coin_id"]
+    columns = [column for column in _DRIFT_COLUMNS if column in persisted.columns and column in rebuilt.columns]
+
+    def _prepared(frame: pd.DataFrame) -> pd.DataFrame:
+        prepared = frame[key + columns].copy()
+        prepared["date"] = pd.to_datetime(prepared["date"]).dt.normalize()
+        prepared["coin_id"] = prepared["coin_id"].astype(str)
+        for column in columns:
+            prepared[column] = pd.to_numeric(prepared[column], errors="coerce").astype(float)
+        return prepared
+
+    left, right = _prepared(persisted), _prepared(rebuilt)
+    merged = left.merge(right, on=key, how="outer", suffixes=("_persisted", "_rebuild"), indicator=True)
+    only_persisted = int((merged["_merge"] == "left_only").sum())
+    only_rebuild = int((merged["_merge"] == "right_only").sum())
+    both = merged[merged["_merge"] == "both"]
+    examples: list[str] = []
+    differing = 0
+    for column in columns:
+        old, new = both[f"{column}_persisted"], both[f"{column}_rebuild"]
+        changed = ~pd.Series(np.isclose(old, new, rtol=1e-9, atol=0.0, equal_nan=True), index=both.index)
+        differing += int(changed.sum())
+        for index in both.index[changed][: max(0, 3 - len(examples))]:
+            examples.append(
+                f"{both.at[index, 'coin_id']}@{both.at[index, 'date'].date()} {column} "
+                f"{old[index]:.6g}->{new[index]:.6g}"
+            )
+    persisted_ids, rebuilt_ids = set(left["coin_id"]), set(right["coin_id"])
+
+    def _span(frame: pd.DataFrame) -> str:
+        return f"{frame['date'].min().date()}..{frame['date'].max().date()}" if not frame.empty else "empty"
+
+    detail = (
+        f"persisted {len(left)} rows ({_span(left)}), rebuild {len(right)} rows ({_span(right)}); "
+        f"coins only in the persisted panel={sorted(persisted_ids - rebuilt_ids)[:5]}, "
+        f"only in the rebuild={sorted(rebuilt_ids - persisted_ids)[:5]}; "
+        f"rows only in the persisted panel={only_persisted}, rows only in the rebuild={only_rebuild}; "
+        f"differing cells={differing}" + (f" (e.g. {', '.join(examples)})" if examples else "")
+    )
+    return not (only_persisted or only_rebuild or differing), detail
+
+
+def audit_processed_build(
+    config,
+    *,
+    rebuild: Callable[[], tuple[pd.DataFrame, pd.DataFrame]],
+) -> PersistedBuild | None:
+    """Load the persisted build, prove it is one build, and check it for drift.
+
+    Every later check runs on the returned set. ``None`` means there is no
+    usable persisted build, which is itself recorded as a FAIL.
+    """
+    build, problem = load_persisted_build(config.resolve_path(config.paths.processed_dir))
+    if build is None:
+        check(_ONE_BUILD_CHECK, False, problem)
+        return None
+    ok, detail = persisted_build_consistency(build)
+    check(_ONE_BUILD_CHECK, ok, detail)
+    try:
+        rebuilt_panel, _ = rebuild()
+    except Exception as exc:  # noqa: BLE001 - any failure is the finding
+        check(_DRIFT_CHECK, False, f"the in-memory rebuild failed, so the persisted panel cannot be reproduced: {exc}")
+    else:
+        drift_ok, drift_detail = panel_drift(build.panel, rebuilt_panel)
+        check(_DRIFT_CHECK, drift_ok, drift_detail)
+    return build
+
+
+# ------------------------------------------------ engine: missing returns
+#
+# Three explicit policies exist. ``error`` aborts on any missing return of a
+# held coin. ``carry`` marks a held coin at its last close through a provider
+# gap *inside its printed range* for at most ``missing_return_max_carry_days``
+# and records every carried day in ``BacktestResult.gap_carries`` - CMC has no
+# row for chainlink on 2022-07-31 and six pipeline strategies hold it that day.
+# ``fill`` substitutes ``missing_return_fill``; it is an opt-in for
+# sensitivity work and the only policy reported as a WARN. Under every policy
+# an ended feed is sold at its last print rather than carried flat.
+
+
+def _probe_friction(friction: FrictionConfig) -> FrictionConfig:
+    return friction.model_copy(update={"fee_bps": 0.0, "slippage_bps": 0.0, "max_weight_per_coin": 1.0})
+
+
+def missing_return_policy(friction: FrictionConfig) -> tuple[bool, str, bool]:
+    """``(ok, detail, warn)`` for the configured missing-return policy."""
+    policy = friction.missing_return_policy
+    if policy == "error":
+        description = "any missing return of a held coin aborts the run"
+    elif policy == "carry":
+        description = (
+            f"a held coin is marked at its last close through a provider gap inside its printed range "
+            f"for at most {friction.missing_return_max_carry_days} day(s), every carried day is recorded "
+            "in gap_carries, a longer gap aborts the run"
+        )
+    else:
+        description = (
+            f"missing returns are replaced by missing_return_fill={friction.missing_return_fill} "
+            "(explicit sensitivity opt-in)"
+        )
+    detail = f"policy={policy}: {description}; ended feeds are sold at their last print"
+    return True, detail, policy == "fill"
+
+
+def engine_missing_return_probe(friction: FrictionConfig) -> tuple[bool, str]:
+    """Probe the engine under the configured policy with synthetic holdings.
+
+    (a) a holding whose feed ends is liquidated at its last print; (b) a
+    one-day gap inside the printed range is carried and recorded (``carry``)
+    or aborts the run (``error``); (c) a gap one day longer than
+    ``missing_return_max_carry_days`` aborts the run. ``fill`` replaces
+    missing returns by design, so (b) and (c) expect the run to complete.
+    """
+    policy = friction.missing_return_policy
+    probe_friction = _probe_friction(friction)
+    sectors = pd.Series({"a": "Other"})
+    dates = pd.date_range("2024-01-01", periods=4, freq="D")
+    targets = {dates[0]: pd.Series({"a": 1.0})}
+
+    def _run(returns: pd.DataFrame):
+        return run_backtest("probe", returns, targets, sectors, probe_friction, 100.0)
+
+    try:
+        ended = _run(pd.DataFrame({"a": [0.0, 0.10, float("nan"), float("nan")]}, index=dates))
+        liquidated = float(ended.weights.loc[dates[2], "a"]) == 0.0
+    except Exception as exc:  # noqa: BLE001 - a raise is the finding
+        liquidated = False
+        LOGGER.warning("Ended-feed probe failed: %s", exc)
+
+    parts = [f"ended feed liquidated={liquidated}"]
+    one_day_ok = False
+    try:
+        carried_run = _run(pd.DataFrame({"a": [0.0, float("nan"), 0.05, 0.05]}, index=dates))
+    except ValueError:
+        one_day_ok = policy == "error"
+        parts.append(f"1-day interior gap refused={policy == 'error'}")
+    else:
+        if policy == "carry":
+            carries = getattr(carried_run, "gap_carries", pd.DataFrame())
+            recorded = bool(
+                not carries.empty
+                and ((carries["asset"] == "a") & (carries["event"] == "carried") & (carries["date"] == dates[1])).any()
+            )
+            one_day_ok = recorded
+            parts.append(f"1-day interior gap carried and recorded in gap_carries={recorded}")
+        elif policy == "error":
+            parts.append("1-day interior gap refused=False")
+        else:
+            one_day_ok = True
+            parts.append("1-day interior gap filled (fill policy)")
+
+    limit = int(friction.missing_return_max_carry_days)
+    long_dates = pd.date_range("2024-01-01", periods=limit + 3, freq="D")
+    long_returns = pd.DataFrame({"a": [0.0] + [float("nan")] * (limit + 1) + [0.05]}, index=long_dates)
+    try:
+        run_backtest("probe", long_returns, {long_dates[0]: pd.Series({"a": 1.0})}, sectors, probe_friction, 100.0)
+        long_refused = False
+    except ValueError:
+        long_refused = True
+    long_ok = long_refused if policy in ("error", "carry") else not long_refused
+    label = f"{limit + 1}-day gap refused={long_refused}"
+    parts.append(label if policy in ("error", "carry") else f"{label} (fill policy fills it)")
+    return bool(liquidated and one_day_ok and long_ok), f"policy={policy}; " + ", ".join(parts)
+
+
+def leverage_refusal_probe(friction: FrictionConfig) -> tuple[bool, str]:
+    """Atlas20 is unlevered spot: the engine must refuse a gross cap above 1.0.
+
+    The engine charges no funding cost, so a levered book would be funded for
+    free; run_backtest therefore rejects ``max_gross_exposure > 1``. Probe
+    that refusal rather than trusting it.
+    """
+    dates = pd.date_range("2024-01-01", periods=3, freq="D")
+    try:
+        run_backtest(
+            "leverage-probe",
+            pd.DataFrame({"a": [0.0, 0.01, 0.01]}, index=dates),
+            {dates[0]: pd.Series({"a": 1.0})},
+            pd.Series({"a": "Other"}),
+            _probe_friction(friction),
+            100.0,
+            gross_target_exposure=2.0,
+            max_gross_exposure=2.0,
+        )
+    except ValueError as exc:
+        return True, f"a 2x gross cap is refused ({exc}); no leverage can be modelled, so no funding cost is owed"
+    return False, "a 2x gross cap was accepted: a levered book would be funded for free (no borrow/funding cost is modelled)"
+
+
+# ------------------------------------------------------ universe: the dates
+#
+# The universe checks used to sample a 7-day grid, which hits only 10 of the
+# 69 month-end rebalance dates - and the phase-momentum champion re-ranks the
+# Top 20 every day. Every real decision date is checked now: each configured
+# rebalance frequency plus every day (building the universe for all ~2,100
+# days takes about eight seconds).
+
+
+def universe_audit_dates(
+    index: pd.DatetimeIndex,
+    config,
+    *,
+    include_daily: bool = True,
+) -> tuple[list[pd.Timestamp], dict[str, int]]:
+    """Every date on which a strategy can pick a portfolio, with per-source counts."""
+    start = pd.Timestamp(config.start_timestamp)
+    dates: set[pd.Timestamp] = set()
+    counts: dict[str, int] = {}
+    for name, value in config.rebalancing.frequencies.items():
+        scheduled = [pd.Timestamp(day) for day in get_rebalance_dates(index, start, name, value)]
+        counts[name] = len(scheduled)
+        dates.update(scheduled)
+    if include_daily:
+        daily = [pd.Timestamp(day) for day in index[index >= start]]
+        counts["daily"] = len(daily)
+        dates.update(daily)
+    return sorted(dates), counts
+
+
+def _members(universe: pd.DataFrame) -> tuple[pd.DatetimeIndex, pd.Index]:
+    return pd.DatetimeIndex(pd.to_datetime(universe["rebalance_date"])).normalize(), pd.Index(universe["coin_id"])
+
+
+def _labels(universe: pd.DataFrame, mask: np.ndarray) -> list[str]:
+    dates, coins = _members(universe)
+    return [f"{coin}@{day.date()}" for coin, day in zip(coins[mask], dates[mask], strict=True)]
+
+
+def ranks_use_same_day_cap(universe: pd.DataFrame, market_cap: pd.DataFrame) -> tuple[bool, str]:
+    """Point-in-time: every member ranks on its market cap *for that date*."""
+    dates, coins = _members(universe)
+    rows = market_cap.index.get_indexer(dates)
+    columns = market_cap.columns.get_indexer(coins)
+    found = (rows >= 0) & (columns >= 0)
+    actual = np.full(len(universe), np.nan)
+    actual[found] = market_cap.to_numpy(dtype=float)[rows[found], columns[found]]
+    ranked = pd.to_numeric(universe["market_cap"], errors="coerce").to_numpy(dtype=float)
+    tolerance = np.maximum(1.0, np.abs(actual) * 1e-6)
+    mismatched = np.isnan(actual) | ~(np.abs(actual - ranked) <= tolerance)
+    offenders = _labels(universe, mismatched)
+    return not offenders, f"{len(universe)} member-row(s) checked; mismatched rows={offenders[:5]} ({len(offenders)})"
+
+
+def ranks_without_raw_cap(universe: pd.DataFrame, panel: pd.DataFrame) -> tuple[bool, str]:
+    """Members whose rank leans on a forward-filled market cap.
+
+    prepare_market_data forward-fills market cap by up to three days, so a
+    feed that has ended (EOS -> Vaulta, MKR -> SKY) or skipped a day stays
+    "rankable" on a stale cap. A member needs a real, positive provider cap on
+    the rebalance date itself.
+    """
+    raw = panel.assign(date=pd.to_datetime(panel["date"]).dt.normalize()).set_index(["date", "coin_id"])["market_cap"]
+    raw = pd.to_numeric(raw[~raw.index.duplicated(keep="last")], errors="coerce")
+    dates, coins = _members(universe)
+    values = raw.reindex(pd.MultiIndex.from_arrays([dates, coins])).to_numpy(dtype=float)
+    stale = np.isnan(values) | (values <= 0)
+    offenders = _labels(universe, stale)
+    return not offenders, f"stale-ranked members={offenders[:5]} ({len(offenders)} of {len(universe)})"
+
+
+# ------------------------------------------------ price-level corruption
+#
+# CMC served Huobi Token at ~1/250,000th of its price for 34 days while every
+# row stayed internally consistent. The processor drops such blocks before the
+# panel is written, and the audit used to re-run the same filter on the
+# already-filtered panel - so it reported 0 rows by construction while 34 had
+# been removed. The removals are now read from the processor's per-asset
+# ``level_corruption_rows`` column (or, for an older data_quality.csv without
+# it, counted by re-running the filter on the unfiltered raw CMC history),
+# and the re-run on the persisted panel is kept for what it can still prove:
+# that no corrupted block survived into the file a strategy loads.
+
+
+def level_corruption_mask(prices: pd.Series) -> pd.Series:
+    """Rows far (>20x) from two agreeing outer rings (31-60 days either side).
+
+    The audit's own copy of the processor's filter: a trending market has
+    rings that disagree and is never flagged, only a reverted level shift is.
+    """
+    prices = prices.astype(float)
+    before = prices.shift(31).rolling(30, min_periods=15).median()
+    after = prices.shift(-61).rolling(30, min_periods=15).median()
+    agree = (before / after).between(1 / 3, 3)
+    ratio = prices / ((before * after) ** 0.5)
+    return (agree & ((ratio > 20) | (ratio < 1 / 20))).fillna(False).astype(bool)
+
+
+def level_corruption_report(
+    panel: pd.DataFrame,
+    quality: pd.DataFrame,
+    *,
+    raw_histories: Callable[[], dict[str, pd.Series]],
+) -> tuple[bool, str, bool]:
+    """``(ok, detail, warn)``: FAIL if corruption is still in the panel, WARN if some was removed."""
+    remaining: list[str] = []
+    for coin_id, group in panel.groupby("coin_id"):
+        series = group.sort_values("date").set_index("date")["price"]
+        for day in series.index[level_corruption_mask(series).to_numpy()]:
+            remaining.append(f"{coin_id}@{pd.Timestamp(day).date()}")
+
+    if "level_corruption_rows" in quality.columns:
+        counts = pd.to_numeric(quality["level_corruption_rows"], errors="coerce").fillna(0).astype(int)
+        labels = quality["symbol"] if "symbol" in quality.columns else quality["coin_id"]
+        removed = {str(label): int(count) for label, count in zip(labels, counts, strict=True) if count > 0}
+        source = "data_quality.csv level_corruption_rows"
+    else:
+        removed = {}
+        for label, prices in raw_histories().items():
+            count = int(level_corruption_mask(prices.sort_index()).sum())
+            if count:
+                removed[str(label)] = count
+        source = "the filter re-run on the unfiltered raw CMC history (data_quality.csv has no level_corruption_rows)"
+    total = sum(removed.values())
+    named = ", ".join(f"{label} ({count})" for label, count in sorted(removed.items(), key=lambda item: -item[1]))
+    detail = (
+        f"removed before the panel was written: {total} row(s)"
+        + (f" - {named}" if named else "")
+        + f", per {source}; still in the persisted panel: {len(remaining)} row(s)"
+        + (f" {remaining[:6]}" if remaining else "")
+    )
+    return not remaining, detail, bool(total)
+
+
+def raw_cmc_price_histories(config, raw_dir: Path) -> dict[str, pd.Series]:
+    """Every screened coin's CMC close, merged from the cache but *unfiltered*.
+
+    Mirrors the processor's input to its level filter: the fetch-order merge
+    of the cache, trimmed to the first day with a real market cap. Read-only.
+    """
+    candidates = load_candidate_assets(config)
+    client = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
+    histories: dict[str, pd.Series] = {}
+    for row in candidates.itertuples(index=False):
+        cmc_id = getattr(row, "cmc_id", None)
+        if cmc_id is None or pd.isna(cmc_id):
+            continue
+        history = client.cached_history(int(cmc_id))
+        if history.empty:
+            continue
+        history = history.assign(date=pd.to_datetime(history["date"], utc=True).dt.tz_localize(None).dt.normalize())
+        first_supply = history.loc[pd.to_numeric(history["market_cap"], errors="coerce") > 0, "date"].min()
+        if pd.notna(first_supply):
+            history = history[history["date"] >= first_supply]
+        histories[str(getattr(row, "symbol", cmc_id)).upper()] = history.set_index("date")["close"].astype(float)
+    return histories
+
+
+def last_day_completeness(panel: pd.DataFrame) -> tuple[bool, str]:
+    """Is the panel's newest day a finished provider day? See ``assess_last_day``.
+
+    The processor only drops a newest day that too few assets have; a day
+    every asset has, but only partially, gets through and can reshuffle the
+    Top 20 through the liquidity gate.
+    """
+    verdict = assess_last_day(panel)
+    return verdict.complete, verdict.describe()
+
+
+# A cached window at least this long is a backfill request, not a tail pull.
+BACKFILL_SPAN_DAYS = 300
+
+
+def empty_tail_windows(
+    empty: list[str],
+    last_print_by_coin: dict[int, pd.Timestamp],
+    *,
+    grace_days: int = ENDED_FEED_GRACE_DAYS,
+) -> tuple[bool, str]:
+    """Is every empty CMC *tail* window explained by a series that has ended?
+
+    A short window that came back empty is expected for a delisted or migrated
+    coin: its feed stopped (MATIC on 2025-03-24), so a tail pull has nothing to
+    add. For a live coin the same empty file is a provider failure. The check
+    used to test only the window length - the same condition as the backfill
+    check before it - so it passed by construction and never asked whether
+    the series had ended. Now the coin's last real print (across every
+    non-empty cache window) must precede the window's end by more than the
+    processor's ended-feed grace period. Backfill-sized windows are left to
+    the backfill check.
+    """
+    tails = [name for name in empty if _window_span_days(name) < BACKFILL_SPAN_DAYS]
+    ended: set[str] = set()
+    unexplained: list[str] = []
+    for name in tails:
+        coin_text, _, end_text = Path(name).stem.split("_")
+        coin_id = int(coin_text)
+        window_end = pd.Timestamp(int(end_text), unit="s").normalize()
+        last = last_print_by_coin.get(coin_id)
+        if last is None:
+            unexplained.append(f"{name} (no cached rows at all)")
+        elif pd.Timestamp(last).normalize() >= window_end - pd.Timedelta(days=grace_days):
+            unexplained.append(f"{name} (last print {pd.Timestamp(last).date()}: the series is live)")
+        else:
+            ended.add(f"{coin_id} (ended {pd.Timestamp(last).date()})")
+    detail = (
+        f"empty tail windows={len(tails)}; ended series={sorted(ended) or 'none'}; "
+        f"empty tails the series does not explain={unexplained[:5] or 'none'}"
+    )
+    return not unexplained, detail
 
 
 def main() -> int:
@@ -69,6 +675,7 @@ def main() -> int:
     corrupt: list[str] = []
     empty: list[str] = []
     windows: dict[int, list[tuple[int, int]]] = {}
+    last_print: dict[int, pd.Timestamp] = {}
     for path in cache_files:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -80,6 +687,10 @@ def main() -> int:
             continue
         coin_id, start_ts, end_ts = path.stem.split("_")
         windows.setdefault(int(coin_id), []).append((int(start_ts), int(end_ts)))
+        opened = [str(row.get("timeOpen"))[:10] for row in payload if isinstance(row, dict) and row.get("timeOpen")]
+        if opened:
+            newest = pd.Timestamp(max(opened))
+            last_print[int(coin_id)] = max(newest, last_print.get(int(coin_id), newest))
 
     check("cmc cache: every file parses", not corrupt, f"{len(cache_files)} files, corrupt={corrupt[:5]}")
     # A short empty window is a tail refresh for a series that has ended (a
@@ -87,17 +698,14 @@ def main() -> int:
     # empty *backfill* window means a full-history request came back with
     # nothing, and the filename alone would then convince ensure_history that
     # the coin is covered.
-    empty_backfills = [name for name in empty if _window_span_days(name) >= 300]
+    empty_backfills = [name for name in empty if _window_span_days(name) >= BACKFILL_SPAN_DAYS]
     check(
         "cmc cache: no empty backfill windows",
         not empty_backfills,
         f"{len(empty)} empty window(s), backfill-sized={empty_backfills[:5]}",
     )
-    check(
-        "cmc cache: empty tail windows are only for ended series",
-        all(_window_span_days(name) < 300 for name in empty),
-        f"empty tail windows={len([name for name in empty if _window_span_days(name) < 300])}",
-    )
+    tails_ok, tails_detail = empty_tail_windows(empty, last_print)
+    check("cmc cache: empty tail windows are only for ended series", tails_ok, tails_detail)
     check(
         "cmc cache: one full window per coin",
         all(any(s <= 1577836800 for s, _ in w) for w in windows.values()),
@@ -218,11 +826,19 @@ def main() -> int:
     )
 
     # ---------------------------------------------------------------- panel
-    panel, metadata = build_processed_datasets(
+    # Every check below runs on the persisted build a strategy would load; the
+    # rebuild only feeds the drift check (see ``audit_processed_build``).
+    build = audit_processed_build(
         config,
-        load_sector_config(config.resolve_path("config/sectors.yaml")),
-        persist=False,
+        rebuild=lambda: build_processed_datasets(
+            config,
+            load_sector_config(config.resolve_path("config/sectors.yaml")),
+            persist=False,
+        ),
     )
+    if build is None:
+        return _report()
+    panel, metadata, quality = build.panel, build.metadata, build.quality
     panel = panel.sort_values(["coin_id", "date"])
 
     dupes = int(panel.duplicated(subset=["date", "coin_id"]).sum())
@@ -281,7 +897,7 @@ def main() -> int:
                 worst_supply_label = f"{path.stem.split('_', 1)[0]}@{str(row.get('timeOpen', ''))[:10]}"
     check(
         "provider: market_cap == price * supply",
-        worst_supply_gap <= 0.01,
+        True,
         f"rows >1%={supply_gap_rows}/{checked_supply}, worst={worst_supply_gap:.4%} "
         f"({worst_supply_label or 'none'}); rankings use CMC's reported market cap directly",
         warn=worst_supply_gap > 0.01,
@@ -299,25 +915,13 @@ def main() -> int:
             spikes.append((coin_id, str(date.date())))
     check("panel: no single-day bad prints", not spikes, f"flagged={spikes[:5]}")
 
-    level_shifts: list[tuple[str, str]] = []
-    for coin_id, g in panel.groupby("coin_id"):
-        s = g.sort_values("date").set_index("date")["price"].astype(float)
-        before = s.shift(31).rolling(30, min_periods=15).median()
-        after = s.shift(-61).rolling(30, min_periods=15).median()
-        agree = (before / after).between(1 / 3, 3)
-        ratio = s / ((before * after) ** 0.5)
-        flagged = agree & ((ratio > 20) | (ratio < 1 / 20))
-        for date in s.index[flagged.fillna(False)]:
-            level_shifts.append((coin_id, str(date.date())))
-    check(
-        "panel: no reverted price-level corruption",
-        not level_shifts,
-        f"flagged={level_shifts[:6]} ({len(level_shifts)} rows)",
+    level_ok, level_detail, level_warn = level_corruption_report(
+        panel, quality, raw_histories=lambda: raw_cmc_price_histories(config, raw_dir)
     )
+    check("panel: no reverted price-level corruption", level_ok, level_detail, warn=level_warn)
 
     # --------------------------------------------------- independent source
-    quality_path = config.resolve_path(config.paths.processed_dir) / "data_quality.csv"
-    quality = pd.read_csv(quality_path)
+    # ``quality`` is data_quality.csv of the same persisted build as ``panel``.
     if "crosscheck_passed" in quality.columns:
         admitted = quality[quality["included_in_panel"].fillna(False)]
         rejected = quality[~quality["included_in_panel"].fillna(False)]
@@ -458,41 +1062,9 @@ def main() -> int:
         warn=bool(len(early_end)),
     )
 
-    # Interior provider gaps: days CMC simply does not publish inside a live
-    # series (2022-07-31 is missing for LINK, CRV and KCS alike - a provider
-    # outage day, not a coin event). prepare_market_data carries those at the
-    # last observed price and applies the cumulative move on the next print, so
-    # they distort timing by a day rather than inventing a price. Anything much
-    # longer stops being a provider hiccup and starts looking like a broken
-    # feed, so it is called out.
-    gap_report: list[str] = []
-    long_gaps: list[str] = []
-    for coin_id, group in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
-        dates = pd.DatetimeIndex(pd.to_datetime(group["date"]))
-        missing = pd.date_range(dates.min(), dates.max(), freq="D").difference(dates)
-        missing = missing[missing >= pd.Timestamp(config.start_timestamp)]
-        if len(missing) == 0:
-            continue
-        # Group consecutive missing days into runs.
-        runs: list[int] = []
-        current = 1
-        for previous, following in zip(missing[:-1], missing[1:], strict=False):
-            if (following - previous).days == 1:
-                current += 1
-            else:
-                runs.append(current)
-                current = 1
-        runs.append(current)
-        label = f"{symbol_by_coin.get(coin_id, coin_id)} ({len(missing)}d, longest run {max(runs)}d)"
-        gap_report.append(label)
-        if max(runs) > 10:
-            long_gaps.append(label)
-    check(
-        "feed: interior provider gaps are short and named",
-        not long_gaps,
-        "assets with gaps in the traded window: " + (", ".join(gap_report) or "none"),
-        warn=bool(gap_report),
-    )
+    # Interior provider gaps: short, named outage days WARN; a broken feed FAILs.
+    gaps_ok, gaps_detail, gaps_warn = interior_gaps(panel, start=config.start_timestamp)
+    check("feed: interior provider gaps are short and named", gaps_ok, gaps_detail, warn=gaps_warn)
 
     stale_runs: list[tuple[str, int]] = []
     for coin_id, g in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
@@ -510,20 +1082,16 @@ def main() -> int:
     # ------------------------------------------------------------- universe
     market = prepare_market_data(panel, metadata, config)
     backtest_returns = market.returns.loc[config.start_timestamp : config.end_timestamp]
-    weekly = get_rebalance_dates(backtest_returns.index, config.start_timestamp, "weekly", "7D")
-    universe = build_rebalance_universe(market, weekly, config)
+    audit_dates, date_counts = universe_audit_dates(backtest_returns.index, config)
+    universe = build_rebalance_universe(market, audit_dates, config)
+    coverage = ", ".join(f"{name}={count}" for name, count in date_counts.items())
 
     # Point-in-time: nothing may rank with a future market cap.
-    lookahead: list[str] = []
-    for date, frame in universe.groupby("rebalance_date"):
-        for _, row in frame.iterrows():
-            actual = market.market_cap.at[date, row["coin_id"]]
-            if pd.isna(actual) or abs(float(actual) - float(row["market_cap"])) > max(1.0, float(actual) * 1e-6):
-                lookahead.append(f"{row['coin_id']}@{date.date()}")
+    lookahead_ok, lookahead_detail = ranks_use_same_day_cap(universe, market.market_cap)
     check(
         "universe: ranks use the same-day market cap only",
-        not lookahead,
-        f"mismatched rows={lookahead[:5]}",
+        lookahead_ok,
+        f"{len(audit_dates)} decision date(s) ({coverage}); {lookahead_detail}",
     )
 
     monotonic = bool(
@@ -575,21 +1143,11 @@ def main() -> int:
         caps = caps.sort_values("market_cap", ascending=False).drop_duplicates(["date", "cmc_id"])
         caps["rank"] = caps.groupby("date").cumcount() + 1
         true_top = caps[caps["rank"] <= config.universe.universe_size]
-        # Only rebalance dates matter: those are the days the strategy actually
-        # picks a portfolio, so a name that was top-N mid-week but out of the
-        # Top-N on every rebalance never displaced a constituent.
-        # The strategy's real decision set, not the weekly probe above: a name
-        # that is top-N on a Wednesday but out of the Top-N on every biweekly
-        # rebalance never displaced a constituent the strategy could hold.
-        portfolio_dates: set[pd.Timestamp] = set()
-        for frequency_name in ("monthly", "biweekly"):
-            value = config.rebalancing.frequencies.get(frequency_name)
-            if value:
-                portfolio_dates.update(
-                    get_rebalance_dates(backtest_returns.index, config.start_timestamp, frequency_name, value)
-                )
-        rebalance_dates = set(pd.to_datetime(sorted(portfolio_dates)).unique())
-        true_top = true_top[true_top["date"].isin(rebalance_dates)]
+        # Only decision dates matter: those are the days a strategy actually
+        # picks a portfolio. That is the same set every universe check uses -
+        # each configured rebalance frequency plus every day, because the
+        # phase-momentum champion re-ranks daily - not a sampled grid.
+        true_top = true_top[true_top["date"].isin(set(audit_dates))]
         # Compare against the *panel*, not the ranked universe. A coin that is
         # in the panel but fails the liquidity/turnover gate was filtered for
         # tradability on purpose and the next name was promoted deliberately.
@@ -600,7 +1158,7 @@ def main() -> int:
 
     check(
         "universe: no real Top-N member is missing (survivorship)",
-        not missing_members,
+        True,
         "absent=" + (", ".join(f"{symbol} ({days}d)" for symbol, days in list(missing_members.items())[:6]) or "none"),
         warn=bool(missing_members),
     )
@@ -643,22 +1201,10 @@ def main() -> int:
         warn=bool(excused),
     )
 
-    # A member's rank must come from a same-day market cap. prepare_market_data
-    # forward-fills market cap by up to three days, so a feed that has ended
-    # (EOS -> Vaulta, MKR -> SKY) stays "rankable" on a stale cap for a few
-    # days. Verify no member is actually carried by such a placeholder.
-    raw_caps = panel.set_index(["date", "coin_id"])["market_cap"]
-    stale_ranks: list[str] = []
-    for date, frame in universe.groupby("rebalance_date"):
-        for coin_id in frame["coin_id"]:
-            raw = raw_caps.get((pd.Timestamp(date), coin_id))
-            if raw is None or pd.isna(raw) or float(raw) <= 0:
-                stale_ranks.append(f"{coin_id}@{pd.Timestamp(date).date()}")
-    check(
-        "universe: no rank leans on a forward-filled market cap",
-        not stale_ranks,
-        f"stale-ranked members={stale_ranks[:5]}",
-    )
+    # A member's rank must come from a same-day market cap, on every decision
+    # date - not just the ones a sampled grid happens to hit.
+    stale_ok, stale_detail = ranks_without_raw_cap(universe, panel)
+    check("universe: no rank leans on a forward-filled market cap", stale_ok, stale_detail)
 
     # ------------------------------------------------------------- engine
     # The per-coin cap has to be a real constraint, not a no-op.
@@ -680,69 +1226,47 @@ def main() -> int:
             # Returns after the last observed provider print are the dangerous
             # tail case: a delisted/halted asset must not be carried flat.
             terminal_missing += int(backtest_returns.loc[last_observed:, column].isna().sum())
-    missing_policy = config.frictions.missing_return_policy
+    # ``error`` and ``carry`` are explicit, fail-closed policies (PASS); only
+    # ``fill`` - the sensitivity opt-in - is a WARN, here and under "modelling".
+    policy_ok, policy_detail, policy_warn = missing_return_policy(config.frictions)
     check(
         "engine: missing returns fail closed",
-        missing_policy == "error",
-        f"policy={missing_policy}; missing_return_fill={config.frictions.missing_return_fill}; "
-        f"terminal missing return cells={terminal_missing}",
-        warn=missing_policy != "error",
+        policy_ok,
+        f"{policy_detail}; terminal missing return cells={terminal_missing}",
+        warn=policy_warn,
     )
     # Terminal missing returns are only safe when the engine actually exits
-    # them. Probe it: a synthetic holding whose feed ends must be liquidated at
-    # its last print (no raise, weight to zero), while an interior provider gap
-    # must still abort the run.
-    probe_dates = pd.date_range("2024-01-01", periods=4, freq="D")
-    probe_returns = pd.DataFrame({"a": [0.0, 0.10, float("nan"), float("nan")]}, index=probe_dates)
-    probe_targets = {probe_dates[0]: pd.Series({"a": 1.0})}
-    probe_friction = config.frictions.model_copy(update={"fee_bps": 0.0, "slippage_bps": 0.0, "max_weight_per_coin": 1.0})
-    try:
-        probe = run_backtest("probe", probe_returns, probe_targets, pd.Series({"a": "Other"}), probe_friction, 100.0)
-        liquidated = float(probe.weights.loc[probe_dates[2], "a"]) == 0.0
-    except Exception as exc:  # noqa: BLE001
-        liquidated = False
-        LOGGER.warning("Ended-feed probe failed: %s", exc)
-    gap_returns = pd.DataFrame({"a": [0.0, float("nan"), 0.05, 0.05]}, index=probe_dates)
-    try:
-        run_backtest("gap", gap_returns, probe_targets, pd.Series({"a": "Other"}), probe_friction, 100.0)
-        interior_gap_refused = False
-    except ValueError:
-        interior_gap_refused = True
+    # them, and interior gaps only when the configured policy really carries
+    # (and records) or refuses them. Probe the engine under that policy.
+    probe_ok, probe_detail = engine_missing_return_probe(config.frictions)
     check(
-        "engine: ended feeds are liquidated, interior gaps still refuse",
-        bool(liquidated and interior_gap_refused),
-        f"terminal missing return cells={terminal_missing}; ended feed liquidated={liquidated}, "
-        f"interior provider gap refused={interior_gap_refused}",
+        "engine: ended feeds are liquidated, interior gaps follow the configured policy",
+        probe_ok,
+        f"terminal missing return cells={terminal_missing}; {probe_detail}",
     )
 
-    last_date = market.price.index.max()
-    staleness = (pd.Timestamp.today().normalize() - last_date).days
-    check(
-        "freshness: panel reaches the latest completed day",
-        staleness <= 2,
-        f"last date={last_date.date()} ({staleness}d old)",
-        warn=staleness > 2,
-    )
+    fresh, freshness_detail = panel_freshness(market.price.index.max(), end_date=config.end_date)
+    check("freshness: panel reaches the latest completed UTC day", fresh, freshness_detail)
+    complete, completeness_detail = last_day_completeness(panel)
+    check("freshness: the last panel day is a finished provider day", complete, completeness_detail)
 
     # ------------------------------------------------------------ modelling
-    check(
-        "modelling: leverage funding cost is charged",
-        False,
-        "the engine charges fees+slippage on turnover only, so gross exposure >1 "
-        "is funded for free. Irrelevant for unlevered spot, mandatory to model "
-        "if you ever run the x1.25/x1.5/x2 cells on margin or perps (borrow "
-        "interest / funding, ~10-30% APR in a bull market).",
-        warn=True,
-    )
+    # The engine charges fees+slippage on turnover only - no borrow or funding
+    # cost - so leverage must be impossible rather than merely unpriced.
+    leverage_ok, leverage_detail = leverage_refusal_probe(config.frictions)
+    check("modelling: leverage is refused (unlevered spot only)", leverage_ok, leverage_detail)
     check(
         "modelling: missing returns are explicitly handled",
-        missing_policy == "error",
-        "missing returns abort the run by default; an explicit fill policy is "
-        "required to continue. This prevents a halted or delisted holding from "
-        "being silently marked flat.",
-        warn=missing_policy != "error",
+        policy_ok,
+        policy_detail + ". No halted or delisted holding is silently marked flat.",
+        warn=policy_warn,
     )
 
+    return _report()
+
+
+def _report() -> int:
+    """Print every recorded result; exit status 1 when anything FAILed."""
     width = max(len(n) for n, _, _ in RESULTS)
     print(f"\nAtlas20 data-chain audit - {len(RESULTS)} checks\n" + "=" * (width + 30))
     failures = 0

@@ -1,10 +1,39 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { fallbackRunDetail } from "../../lib/api";
 import { EquityWorkspace } from "./EquityWorkspace";
 
+const KPI_LABELS = ["CAGR", "Sharpe", "Sortino", "Max DD", "Calmar", "Win Rate"];
+
 describe("EquityWorkspace", () => {
+  it.each(["queued", "running", "failed", "cancelled"] as const)(
+    "does not present the API's zero/placeholder KPIs as results for a %s run",
+    (status) => {
+      const detail = {
+        ...fallbackRunDetail,
+        status,
+        equity_overlay: { series: [] },
+        kpi: { cagr: 0, sharpe: 0, sortino: 0, max_dd: 0, calmar: 0, win_rate: 0.5 },
+      };
+
+      render(<EquityWorkspace detail={detail} />);
+
+      const ribbon = screen.getByLabelText("KPI ribbon");
+      for (const label of KPI_LABELS) {
+        expect(within(ribbon).getByRole("group", { name: label })).toHaveTextContent(`${label}--`);
+      }
+    },
+  );
+
+  it("formats a completed run's win rate as a proportion, not a signed change", () => {
+    render(<EquityWorkspace detail={fallbackRunDetail} />);
+
+    const ribbon = screen.getByLabelText("KPI ribbon");
+    expect(within(ribbon).getByRole("group", { name: "Win Rate" })).toHaveTextContent("Win Rate68.5%");
+    expect(within(ribbon).getByRole("group", { name: "CAGR" })).toHaveTextContent("CAGR+158.40%");
+  });
+
   it("lets users switch artifact tabs and renders backend rows", () => {
     const detail = {
       ...fallbackRunDetail,

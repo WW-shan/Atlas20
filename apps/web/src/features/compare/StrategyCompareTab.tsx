@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { Card } from "../../components/ui/Card";
 import { DemoDataBanner } from "../../components/ui/DemoDataBanner";
@@ -14,7 +14,7 @@ import { JaccardHeatmap } from "../../components/compare/JaccardHeatmap";
 import { SharedHoldingsBars } from "../../components/compare/SharedHoldingsBars";
 import { AddStrategyModal } from "./AddStrategyModal";
 
-import { fallbackCompare, fallbackOptions, getCompare, getOptions } from "../../lib/api";
+import { describeApiError, fallbackOptions, getCompare, getOptions } from "../../lib/api";
 import type { CompareSelectionItem } from "../../lib/api";
 import type { ChartRange } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
@@ -48,13 +48,12 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   const options = useQuery({
     queryKey: qk.options(),
     queryFn: getOptions,
-    // Keep the static fallback visible as initialData so the AddStrategy
-    // modal's preset list is never empty while /api/options is loading. The
-    // seeding effect below explicitly waits for `isFetched && !isPending`
-    // before consuming the data so it can distinguish "fallback placeholder"
-    // from "real backend response" — without that gate, the seeding would
-    // immediately fire with the hardcoded fallback labels.
-    initialData: fallbackOptions,
+    // Keep the static fallback visible as placeholderData so the AddStrategy
+    // modal's preset list is never empty while /api/options is loading.
+    // Unlike initialData it is never written to the shared options cache and
+    // it disappears on error, so the seeding effect below only ever consumes
+    // a real backend response (never the hardcoded fallback labels).
+    placeholderData: fallbackOptions,
   });
 
   // First-load: when no explicit initial selections were passed in props, seed
@@ -69,25 +68,28 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
       seededRef.current = true;
       return;
     }
-    // `isFetched && !isPending` is true only once the network call returns,
-    // which lets us reject the initialData fallback while still keeping it
-    // visible for the AddStrategy modal during load.
-    if (!options.isFetched || options.isPending) return;
+    // Only a successful network response may seed; the placeholder fallback
+    // stays visible for the AddStrategy modal during load but never seeds.
+    if (!options.isSuccess || options.isPlaceholderData) return;
     const seeded = buildSelectionsFromPresets(options.data?.presets, 3);
     if (seeded.length === 0) return;
     seededRef.current = true;
     setSelections(seeded);
-  }, [options.isFetched, options.isPending, options.data?.presets, initialSelections, selections.length]);
+  }, [options.isSuccess, options.isPlaceholderData, options.data?.presets, initialSelections, selections.length]);
 
   const query = useQuery({
     queryKey: qk.compare(ids, range),
     queryFn: () => getCompare(ids, range),
     enabled: hasSelections,
+    // While a new range/selection loads, keep the last real comparison on
+    // screen (with the loading bar) instead of the static demo payload,
+    // whose holdings overlap and strategies are not the user's selection.
+    placeholderData: keepPreviousData,
   });
 
   const compareFailed = query.isError || query.isRefetchError;
   const compareLoading = hasSelections && query.isFetching;
-  const data = query.data ?? (compareFailed ? undefined : fallbackCompare);
+  const data = query.data;
   const strategyOptions = useMemo(() => {
     const strategyLabels = (options.data?.strategies ?? []).map((s) => s.display_name);
     const presetLabels = (options.data?.presets ?? []).map((p) => p.display_name);
@@ -106,12 +108,22 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
   const handleAddStrategies = (labels: string[]) => {
     const presetByLabel = new Map((options.data?.presets ?? []).map((p) => [p.display_name, p.slug]));
     const strategyByLabel = new Map((options.data?.strategies ?? []).map((s) => [s.display_name, s.strategy]));
-    setSelections((current) => labels.map((label, index) => {
-      const id = strategyByLabel.get(label) ?? presetByLabel.get(label) ?? label;
-      const existing = current.find((selection) => selection.id === id);
-      if (existing) return { ...existing, label };
-      return { id, label, tone: TONES[index % TONES.length] };
-    }));
+    setSelections((current) => {
+      // Existing selections keep their id and line color: re-deriving the id
+      // from the display label breaks when options changed since they were
+      // added (the label then became the id sent to /api/compare).
+      const resolved = labels.map((label) => {
+        const existing = current.find((selection) => selection.label === label);
+        return existing ?? { id: strategyByLabel.get(label) ?? presetByLabel.get(label) ?? label, label, tone: undefined };
+      });
+      const usedTones = new Set(resolved.flatMap((item) => (item.tone ? [item.tone] : [])));
+      const freeTones = TONES.filter((tone) => !usedTones.has(tone));
+      let nextFree = 0;
+      return resolved.map((item, index) => ({
+        ...item,
+        tone: item.tone ?? freeTones[nextFree++] ?? TONES[index % TONES.length],
+      }));
+    });
     setAddModalOpen(false);
   };
 
@@ -132,6 +144,13 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
         </div>
       </Card>
 
+      {options.isError && (
+        <ErrorBanner
+          message={describeApiError(options.error, "Unable to load strategy options")}
+          onRetry={() => { void options.refetch(); }}
+        />
+      )}
+
       {!hasSelections ? (
         <EmptyState
           title="No strategies selected"
@@ -141,7 +160,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
         <>
           {compareFailed && (
             <ErrorBanner
-              message="Unable to load strategy comparison."
+              message={describeApiError(query.error, "Unable to load strategy comparison")}
               onRetry={() => { void query.refetch(); }}
             />
           )}

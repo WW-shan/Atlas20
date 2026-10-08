@@ -1,9 +1,15 @@
 {
   "candidate_returns": "reports/phase_momentum_multiple_testing_2022/candidate_returns.csv",
   "cscv_blocks": 12,
-  "cscv_combinations": 924,
+  "half_samples": 924,
   "candidates": [
     "primary",
     "parameter_ensemble_20bps"
-  ]
+  ],
+  "family_size": 30,
+  "identical_candidates": {
+    "fixed_stop_40": "primary",
+    "trailing_stop_40": "primary"
+  },
+  "interpretation": "in-sample half-sample rank consistency; not out-of-sample evidence"
 }

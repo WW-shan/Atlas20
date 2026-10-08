@@ -21,6 +21,44 @@ from atlas20.logging_utils import get_logger
 # cross-check to remove an otherwise healthy asset from the whole panel.
 MARKET_CHART_CACHE_MAX_AGE_SECONDS = 3 * 60 * 60
 
+_DAY_MS = 86_400_000
+MARKET_CHART_COLUMNS = ["date", "cg_price", "cg_market_cap", "cg_volume_usd"]
+
+
+def daily_closes_from_market_chart(payload: dict[str, Any] | None) -> pd.DataFrame:
+    """Turn a ``market_chart`` payload into one close per UTC day.
+
+    CoinGecko stamps its daily point for day D at 00:00 UTC of D+1: it is the
+    snapshot taken the moment D closes. Labelling it D+1 - which a plain
+    ``normalize()`` does - compares it with the wrong CMC close. On the cached
+    universe that one-day slip put the median CMC-vs-CoinGecko gap at 2.61%
+    (XMR: CoinGecko 2026-09-22T00:00 = 590.79 against CMC closes of 589.42 on
+    09-21 and 573.51 on 09-22); shifted back a day it is 0.079%, the same as
+    the correctly aligned exchange venues. The payload also ends with an
+    intraday "now" point, which is a partial day and never a close, so only
+    exact-midnight points are kept.
+    """
+    payload = payload or {}
+    prices = pd.DataFrame(payload.get("prices") or [], columns=["timestamp_ms", "cg_price"])
+    if prices.empty:
+        return pd.DataFrame(columns=MARKET_CHART_COLUMNS)
+    market_caps = pd.DataFrame(payload.get("market_caps") or [], columns=["timestamp_ms", "cg_market_cap"])
+    volumes = pd.DataFrame(payload.get("total_volumes") or [], columns=["timestamp_ms", "cg_volume_usd"])
+    frame = prices.merge(market_caps, on="timestamp_ms", how="left").merge(volumes, on="timestamp_ms", how="left")
+    frame["timestamp_ms"] = pd.to_numeric(frame["timestamp_ms"], errors="coerce")
+    frame = frame.dropna(subset=["timestamp_ms"])
+    frame = frame[frame["timestamp_ms"].astype("int64") % _DAY_MS == 0]
+    if frame.empty:
+        return pd.DataFrame(columns=MARKET_CHART_COLUMNS)
+    frame["date"] = pd.to_datetime(frame["timestamp_ms"].astype("int64") - _DAY_MS, unit="ms").dt.normalize()
+    for column in ("cg_price", "cg_market_cap", "cg_volume_usd"):
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    return (
+        frame.sort_values("timestamp_ms", kind="mergesort")
+        .drop_duplicates("date", keep="last")[MARKET_CHART_COLUMNS]
+        .reset_index(drop=True)
+    )
+
 
 class CoinGeckoClient:
     """Thin cache-aware client around the public CoinGecko API."""
@@ -162,7 +200,11 @@ class CoinGeckoClient:
         )
 
     def fetch_daily_market_chart(self, coin_id: str, days: int, force: bool = False) -> pd.DataFrame:
-        """Fetch recent daily price, market-cap, and volume history for a coin."""
+        """Fetch recent daily closes, market caps and volumes for a coin.
+
+        Each row is labelled with the UTC day it closes; see
+        :func:`daily_closes_from_market_chart`.
+        """
         payload = self._request_json(
             endpoint=f"coins/{coin_id}/market_chart",
             params={
@@ -174,18 +216,4 @@ class CoinGeckoClient:
             force=force,
             max_age_seconds=MARKET_CHART_CACHE_MAX_AGE_SECONDS,
         )
-
-        prices = pd.DataFrame(payload.get("prices", []), columns=["timestamp_ms", "cg_price"])
-        market_caps = pd.DataFrame(payload.get("market_caps", []), columns=["timestamp_ms", "cg_market_cap"])
-        volumes = pd.DataFrame(payload.get("total_volumes", []), columns=["timestamp_ms", "cg_volume_usd"])
-        if prices.empty:
-            return pd.DataFrame(columns=["date", "cg_price", "cg_market_cap", "cg_volume_usd"])
-
-        frame = prices.merge(market_caps, on="timestamp_ms", how="outer").merge(volumes, on="timestamp_ms", how="outer")
-        frame["date"] = pd.to_datetime(frame["timestamp_ms"], unit="ms").dt.normalize()
-        frame = (
-            frame.sort_values("timestamp_ms")
-            .groupby("date", as_index=False)
-            .last()[["date", "cg_price", "cg_market_cap", "cg_volume_usd"]]
-        )
-        return frame
+        return daily_closes_from_market_chart(payload)

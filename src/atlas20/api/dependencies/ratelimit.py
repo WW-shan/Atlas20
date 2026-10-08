@@ -1,6 +1,5 @@
 """SlowAPI limiter shared by mutating routes."""
 
-import hashlib
 import inspect
 
 from fastapi import Request
@@ -11,21 +10,16 @@ from starlette.responses import Response
 from typing import cast
 
 from atlas20.api._metrics import record_rate_limit_hit
+from atlas20.api.dependencies.auth import authenticated_principal
 from atlas20.api.errors import build_error_response
-from atlas20.api.settings import get_settings
 
 
 def _key_func(request: Request) -> str:
-    settings = get_settings()
-    api_key = request.headers.get("X-API-Key") if settings.api_keys else None
-    if api_key:
-        return api_key
-    authorization = request.headers.get("Authorization") if settings.jwt_auth_enabled else None
-    if authorization:
-        scheme, _, token = authorization.partition(" ")
-        if scheme.lower() == "bearer" and token.strip():
-            return "bearer-" + hashlib.sha256(token.strip().encode()).hexdigest()[:16]
-    return get_remote_address(request)
+    # Bucket by the verified principal (a hash, never a credential). Raw header
+    # text is attacker-chosen, so keying on it hands out a fresh bucket per
+    # request; slowapi also logs the key at WARNING on every 429.
+    principal = authenticated_principal(request.headers.get("X-API-Key"), request.headers.get("Authorization"))
+    return principal if principal is not None else get_remote_address(request)
 
 
 limiter = Limiter(key_func=_key_func, headers_enabled=True)

@@ -48,11 +48,24 @@ def _confirmed_state(raw_signal: pd.Series, confirm_days: int) -> pd.Series:
 
 
 
+def _open_only_during_warm_up(condition: pd.Series, defined: pd.Series) -> pd.Series:
+    """Fill undefined rows: risk-on before the reference first exists, risk-off after.
+
+    Warm-up rows have no reference yet, so the gate stays open as it always
+    has.  A reference that disappears later means missing data (a rolling
+    window with a gap stays undefined for a whole window), and the gate fails
+    closed instead of reopening for that stretch.
+    """
+    defined = defined.fillna(False).astype(bool)
+    warmed_up = defined.astype(int).cummax().astype(bool)
+    return condition.fillna(False).astype(bool).where(defined, ~warmed_up)
+
+
 def btc_above_trailing_price(price: pd.DataFrame, lookback_days: int, confirm_days: int = 1) -> pd.Series:
     """Risk-on when BTC is at or above its trailing price level."""
     btc = price['bitcoin']
     reference = btc.shift(lookback_days)
-    raw = (btc >= reference).where(reference.notna(), True)
+    raw = _open_only_during_warm_up(btc >= reference, btc.notna() & reference.notna())
     return _confirmed_state(raw, confirm_days).rename(f'btc_ge_{lookback_days}d_ago')
 
 
@@ -61,7 +74,7 @@ def btc_above_moving_average(price: pd.DataFrame, ma_window: int, confirm_days: 
     """Risk-on when BTC is at or above a moving average."""
     btc = price['bitcoin']
     ma = btc.rolling(ma_window, min_periods=ma_window).mean()
-    raw = (btc >= ma).where(ma.notna(), True)
+    raw = _open_only_during_warm_up(btc >= ma, btc.notna() & ma.notna())
     return _confirmed_state(raw, confirm_days).rename(f'btc_ge_ma_{ma_window}')
 
 
@@ -120,7 +133,7 @@ def btc_above_volatility_scaled_trailing(
     daily_vol = btc.pct_change().rolling(vol_window, min_periods=vol_window).std()
     band = vol_multiple * daily_vol * (lookback ** 0.5)
     exit_level = trailing_high * (1.0 - band)
-    raw = (btc >= exit_level).where(exit_level.notna(), True)
+    raw = _open_only_during_warm_up(btc >= exit_level, btc.notna() & exit_level.notna())
     return _confirmed_state(raw, confirm_days).rename(
         f"btc_chandelier_{lookback}_{vol_multiple}"
     )
@@ -141,12 +154,20 @@ def volatility_target_leverage(
     """Leverage per asset/date that scales exposure toward a constant volatility.
 
     ``target / realized`` so a calm asset is levered up and a wild one is cut
-    back, clamped to ``[min_leverage, max_leverage]``. Undefined (warm-up) rows
-    fall back to 1.0 so the strategy is not silently flat at the start.
+    back, clamped to ``[min_leverage, max_leverage]``. Undefined warm-up rows
+    (before an asset's first defined volatility) fall back to 1.0 so the
+    strategy is not silently flat at the start. An undefined volatility after
+    warm-up is missing data and gives 0.0 (fail closed).
     """
     vol = realized_volatility(price, window)
     leverage = (target_volatility / vol).clip(lower=min_leverage, upper=max_leverage)
-    return leverage.where(vol.notna(), 1.0)
+    # One missing price blanks the rolling std for a whole window. The 1.0
+    # fallback used to cover that stretch too, so exposure jumped to full for
+    # a month after a provider gap. Same rule as _open_only_during_warm_up for
+    # the BTC gates, applied per asset: open only before the first defined value.
+    defined = vol.notna()
+    warmed_up = defined.astype(int).cummax().astype(bool)
+    return leverage.where(defined, (~warmed_up).astype(float))
 
 
 def absolute_trend_mask(price: pd.DataFrame, ma_window: int = 100) -> pd.DataFrame:

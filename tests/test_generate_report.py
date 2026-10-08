@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
 import hashlib
 import json
 import os
@@ -13,7 +14,7 @@ from sqlmodel import Session, select
 
 from atlas20.api import services_report
 from atlas20.api.app import create_app
-from atlas20.api.db.models import ReportFile
+from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import ReportsRepo, RunsRepo, get_session
 from atlas20.api.settings import get_settings
 
@@ -259,3 +260,34 @@ def test_reports_repo_upsert_replaces_same_run_kind(db_session: Session) -> None
 
     assert second.id == first.id
     assert repo.by_run("btk_0142")[0].sha256 == "new"
+
+
+def test_generate_report_without_run_id_skips_universe_refresh_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    client = _client(tmp_path, monkeypatch, db_session)
+    _prepare_run(db_session, get_settings().report_root)
+    RunsRepo(db_session).update("btk_0142", created_at=datetime(2029, 1, 1, tzinfo=timezone.utc))
+    db_session.add(
+        Run(
+            run_id="btk_0999",
+            strategy="universe_refresh",
+            strategy_family="Other",
+            universe="Top-20",
+            window_start=date(2030, 1, 1),
+            window_end=date(2030, 1, 1),
+            status="completed",
+            duration_s=3,
+            params=json.dumps({"kind": "universe_refresh"}),
+            created_at=datetime(2030, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    db_session.flush()
+
+    response = client.post("/api/reports/generate", json={"formats": ["markdown"]})
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["job_id"] == "report-btk_0142"
+    assert payload["files"]
+    assert not any("generation skipped" in warning for warning in payload["warnings"])

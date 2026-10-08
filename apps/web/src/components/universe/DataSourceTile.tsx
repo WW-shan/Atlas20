@@ -11,7 +11,12 @@ const toneByStatus: Record<DataSource["status"], { color: string; pill: "emerald
   error:    { color: "var(--rose)",    pill: "rose" },
 };
 
+// The API reports a source with no synced files as exactly this many
+// seconds (services.DATA_SOURCE_STALE_SECONDS); it is not a real age.
+const NEVER_SYNCED_SECONDS = 999_999;
+
 function formatLastSync(s: number): string {
+  if (s === NEVER_SYNCED_SECONDS) return "never";
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;

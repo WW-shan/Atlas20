@@ -28,7 +28,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.backtest.engine import BacktestResult, run_backtest  # noqa: E402
+from atlas20.backtest.engine import BacktestResult, delay_by_trading_days, run_backtest  # noqa: E402
 from atlas20.backtest.single_asset import simulate_single_asset_weight_targets  # noqa: E402
 from atlas20.config import ResearchConfig, load_config  # noqa: E402
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
@@ -90,8 +90,16 @@ def _production_result(
     index: pd.DatetimeIndex,
     *,
     cost_bps: float,
+    execution_lag_days: int = 0,
+    pre_fill: pd.DataFrame | None = None,
 ) -> BacktestResult:
-    """Run one candidate through the production engine at a total cost."""
+    """Run one candidate through the production engine at a total cost.
+
+    ``execution_lag_days=0`` fills at the signal close (the engine default);
+    each extra day delays every target and exposure by one trading day.
+    ``pre_fill`` (from ``atlas20.backtest.intraday.pre_fill_returns``) moves
+    the fill part-way into the execution day instead.
+    """
     friction = config.frictions.model_copy(
         update={
             "fee_bps": float(cost_bps),
@@ -104,16 +112,20 @@ def _production_result(
         }
     )
     sectors = market.metadata["sector"].reindex(market.returns.columns).fillna("Other")
+    # Delay along the evaluated window: a target delayed past its last day can
+    # never execute inside it, and a target from outside it is a caller error.
+    window = pd.DatetimeIndex(index)
     return run_backtest(
         f"phase_momentum_{cost_bps:g}bps",
         market.returns.loc[index],
-        built.targets,
+        delay_by_trading_days(built.targets, window, execution_lag_days),
         sectors,
         friction,
         initial_capital=1.0,
         gross_target_exposure=1.0,
-        leverage_by_date=built.exposures,
+        leverage_by_date=delay_by_trading_days(built.exposures, window, execution_lag_days),
         max_gross_exposure=1.0,
+        pre_fill_returns=None if pre_fill is None else pre_fill.loc[index],
     )
 
 
@@ -256,11 +268,20 @@ def _signal_ablation(
 def _monthly_start_sensitivity(
     config: ResearchConfig,
     market: MarketDataBundle,
-    built: PhaseMomentumBuildResult,
+    universe: pd.DataFrame,
     index: pd.DatetimeIndex,
     *,
     cost_bps: float,
+    spec: PhaseMomentumSpec | None = None,
+    signal_specs: tuple[MomentumSignalSpec, ...] = PRIMARY_SIGNAL_SPECS,
 ) -> pd.DataFrame:
+    """Rebuild the strategy from each month start, as a live launch would.
+
+    Slicing one full-sample build would start every slice in cash until the
+    next aggregate target event and inherit the 2022-anchored sleeve path.
+    """
+    spec = spec or PhaseMomentumSpec()
+    universe_dates = pd.to_datetime(universe["rebalance_date"]).dt.normalize()
     starts = pd.date_range(index.min().normalize(), index.max().normalize(), freq="MS")
     rows: list[dict[str, object]] = []
     for start in starts:
@@ -269,6 +290,13 @@ def _monthly_start_sensitivity(
         sliced_index = index[index >= start]
         if len(sliced_index) < 90:
             continue
+        built = build_phase_momentum_targets(
+            market,
+            universe.loc[universe_dates >= start],
+            sliced_index,
+            signal_specs=signal_specs,
+            spec=spec,
+        )
         result = _production_result(config, market, built, sliced_index, cost_bps=cost_bps)
         rows.append(
             {
@@ -456,8 +484,10 @@ def main() -> None:
     summary_rows: list[dict[str, object]] = []
     yearly_frames: list[pd.DataFrame] = []
     rolling_rows: list[dict[str, object]] = []
+    gap_carry_frames: list[pd.DataFrame] = []
     for cost in costs:
         result = _production_result(config, market, built, index, cost_bps=cost)
+        gap_carry_frames.append(result.gap_carries.assign(cost_bps=float(cost)))
         summary_rows.append(
             _summary_row(
                 "phase_momentum",
@@ -504,9 +534,10 @@ def main() -> None:
     monthly = _monthly_start_sensitivity(
         config,
         market,
-        built,
+        universe,
         index,
         cost_bps=args.sensitivity_cost_bps,
+        spec=base_spec,
     )
     sleeve_metrics = _sleeve_metrics(
         market,
@@ -525,6 +556,9 @@ def main() -> None:
     monthly.to_csv(output_dir / "monthly_start.csv", index=False)
     sleeve_metrics.to_csv(output_dir / "sleeve_metrics.csv", index=False)
     built.selection_history.to_csv(output_dir / "selection_history.csv", index=False)
+    # Holdings carried through provider gaps and trades priced at a carried
+    # close (see missing_return_policy="carry"); written even when empty.
+    pd.concat(gap_carry_frames, ignore_index=True).to_csv(output_dir / "gap_carries.csv", index=False)
     selection_summary.to_csv(output_dir / "selection_summary.csv", index=False)
 
     manifest = {

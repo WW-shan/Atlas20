@@ -75,7 +75,7 @@ def _btc_trend_ok(price: pd.DataFrame, as_of_date: pd.Timestamp, ma_window: int)
 
 def build_bull_offense_targets(
     market: MarketDataBundle,
-    universe: pd.DataFrame | None,
+    universe: pd.DataFrame,
     *,
     hold_count: int = 2,
     frequency: str = "weekly",
@@ -95,6 +95,15 @@ def build_bull_offense_targets(
     misaligning with a universe built on a different frequency and produces
     an empty candidate pool (every target flat).
     """
+    # Fail closed.  A missing or empty universe used to widen the pool to every
+    # column of the price panel (~100 coins: current candidates plus the legacy
+    # watchlist), silently turning this Top20 strategy into a whole-panel one.
+    # Every other builder holds cash on a date with no snapshot.
+    if universe is None:
+        raise ValueError(
+            "build_bull_offense_targets needs the point-in-time universe; "
+            "selecting from the whole price panel would leave the Top20"
+        )
     price = market.price
     if price.empty:
         return BullOffenseBuildResult(targets={}, leverage_by_date={}, signal_history=pd.DataFrame())
@@ -108,14 +117,14 @@ def build_bull_offense_targets(
 
     targets: dict[pd.Timestamp, pd.Series] = {}
     leverage: dict[pd.Timestamp, float] = {}
-    rows: list[dict] = []
+    rows: list[dict[str, object]] = []
 
     # Point-in-time universe: only coins that actually ranked inside the
     # configured Top-N at this rebalance date may be selected. Falling back to
     # every column in the price matrix would silently look ahead, because the
     # panel also contains coins that were never in the top ranks.
     universe_by_date: dict[pd.Timestamp, list[str]] = {}
-    if universe is not None and not universe.empty:
+    if not universe.empty:
         universe_by_date = {
             pd.Timestamp(d): frame["coin_id"].tolist()
             for d, frame in universe.groupby("rebalance_date")
@@ -134,11 +143,10 @@ def build_bull_offense_targets(
 
     for date in rebalance_dates:
         trend_ok = _btc_trend_ok(price, date, exit_ma_window)
-        if universe is not None and not universe.empty:
-            allowed = set(_universe_at(pd.Timestamp(date)))
-            pool = [c for c in price.columns if c in allowed]
-        else:
-            pool = list(price.columns)
+        # No snapshot on or before this date (or an empty universe) leaves an
+        # empty pool, which holds cash below.
+        allowed = set(_universe_at(pd.Timestamp(date)))
+        pool = [c for c in price.columns if c in allowed]
         candidates = [
             c
             for c in pool

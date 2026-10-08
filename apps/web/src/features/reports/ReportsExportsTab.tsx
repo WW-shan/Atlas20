@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilePlus2 } from "lucide-react";
 
 import { Card } from "../../components/ui/Card";
@@ -15,6 +15,7 @@ import { ReportCard } from "../../components/reports/ReportCard";
 import { NewReportModal } from "./NewReportModal";
 
 import {
+  describeApiError,
   downloadReport,
   fallbackOptions,
   generateReport,
@@ -39,8 +40,10 @@ export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
   const [typeFilter, setTypeFilter] = useState<ReportTypeFilter>("all");
   const [reportDownloadPendingId, setReportDownloadPendingId] = useState<string | undefined>(undefined);
+  const [downloadError, setDownloadError] = useState<string | undefined>(undefined);
   const [newReportOpen, setNewReportOpen] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
 
   const featured = useQuery({
     queryKey: qk.reports.featured(),
@@ -56,7 +59,7 @@ export function ReportsExportsTab() {
   const options = useQuery({
     queryKey: qk.options(),
     queryFn: getOptions,
-    initialData: fallbackOptions,
+    placeholderData: fallbackOptions,
   });
 
   const sorted = useMemo(() => {
@@ -83,8 +86,11 @@ export function ReportsExportsTab() {
   const handleDownloadOne = async (id: string) => {
     if (reportDownloadPendingId) return;
     setReportDownloadPendingId(id);
+    setDownloadError(undefined);
     try {
       await downloadReport(id);
+    } catch (error) {
+      setDownloadError(describeApiError(error, "Unable to download report"));
     } finally {
       setReportDownloadPendingId(undefined);
     }
@@ -96,6 +102,9 @@ export function ReportsExportsTab() {
 
   const handleGenerateReport = async (payload: GenerateReportRequest) => {
     const response = await generateReport(payload);
+    // Generation is synchronous (status "completed"): refresh the archive and
+    // featured digest so the new report shows up without leaving the tab.
+    void queryClient.invalidateQueries({ queryKey: qk.reports.all() });
     setReportToast(response.warnings.length > 0 ? response.warnings.join("; ") : "Report queued for generation");
   };
 
@@ -165,6 +174,11 @@ export function ReportsExportsTab() {
               message="Unable to load reports archive."
               onRetry={() => { void archive.refetch(); }}
             />
+          </div>
+        )}
+        {downloadError && (
+          <div style={{ marginBottom: 16 }}>
+            <ErrorBanner message={downloadError} />
           </div>
         )}
         {archive.isLoading && <ArchiveSkeleton />}

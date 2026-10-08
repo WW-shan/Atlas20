@@ -125,7 +125,6 @@ def _script_candidate(**overrides: object) -> CandidateDefinition:
         "include_btc": True,
         "overlay_set": "no_stop_control",
         "risk_off_asset": "cash",
-        "initial_asset": "cash",
         "stop_kind": "none",
         "stop_lookback": None,
         "stop_confirm_days": 1,
@@ -150,7 +149,6 @@ def _stability_summary_row(**overrides: object) -> dict[str, object]:
         "stop_confirm_days": 2,
         "ma_window": None,
         "risk_off_asset": "btc",
-        "initial_asset": "btc",
         "multiple": 50.0,
     }
     row.update(overrides)
@@ -228,11 +226,7 @@ def test_run_one_candidate_slices_returns_to_config_window() -> None:
     market.returns = market.price.pct_change().fillna(0.0)
     config = _script_config()
     config.end_date = "2024-03-15"
-    candidate = _script_candidate(
-        candidate_id="window_slice_test",
-        risk_off_asset="btc",
-        initial_asset="btc",
-    )
+    candidate = _script_candidate(candidate_id="window_slice_test")
 
     result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
 
@@ -324,27 +318,6 @@ def test_run_full_window_screen_can_exclude_btc_for_leader_momentum() -> None:
     assert (targets["bitcoin"] <= 0.0).all()
 
 
-def test_run_one_candidate_parks_in_eth_when_trailing_stop_turns_off() -> None:
-    market = _script_toy_market()
-    market.price.loc[pd.Timestamp("2024-02-27") : pd.Timestamp("2024-02-29"), "bitcoin"] = 200.0
-    market.price.loc[pd.Timestamp("2024-03-01") : pd.Timestamp("2024-03-08"), "bitcoin"] = 50.0
-    market.returns = market.price.pct_change().fillna(0.0)
-    config = _script_config()
-    candidate = _script_candidate(
-        candidate_id="eth_parking_stop_test",
-        stop_kind="trailing",
-        stop_lookback=3,
-        risk_off_asset="eth",
-        initial_asset="cash",
-    )
-
-    result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
-
-    targets = result.rebalance_targets
-    assert not targets.empty
-    assert (targets["ethereum"] > 0.0).any()
-
-
 def test_run_full_window_screen_handles_leader_momentum_candidate() -> None:
     market = _script_toy_market()
     config = _script_config()
@@ -398,8 +371,8 @@ def test_champion_ablation_definitions_cover_required_axes() -> None:
     assert {"7D", "14D", "21D", "28D"}.issubset(set(champion_rows["frequency"]))
     assert {"loose", "medium", "strict"}.issubset(set(champion_rows["liquidity_label"]))
     assert {True, False}.issubset(set(champion_rows["include_btc"]))
-    assert {"btc", "cash", "eth"}.issubset(set(champion_rows["risk_off_asset"]))
-    assert {"btc", "cash", "eth"}.issubset(set(champion_rows["initial_asset"]))
+    # Cash is the only defensive asset: the BTC/ETH parking arms are gone.
+    assert set(champion_rows["risk_off_asset"]) == {"cash"}
     assert {"none", "trailing"}.issubset(set(champion_rows["stop_kind"]))
     assert {10, 11, 12, 13, 14, 15}.issubset(
         set(champion_rows["stop_lookback"].dropna().astype(int))
@@ -842,7 +815,6 @@ def test_compute_rolling_start_validation_runs_multiple_starts() -> None:
         include_btc=True,
         overlay_set="no_stop_control",
         risk_off_asset="cash",
-        initial_asset="cash",
         stop_kind="none",
         stop_lookback=None,
         stop_confirm_days=1,
@@ -1343,3 +1315,149 @@ def test_concentrated_candidate_pins_gross_exposure_to_one(monkeypatch) -> None:
 
     assert captured["gross_target_exposure"] == 1.0
     assert captured["max_gross_exposure"] == 1.0
+
+
+# --------------------------------------------------------------------------
+# Top20-only universe (legacy review F4) and cash-only parking (F8).
+
+
+class _ReachedDataLoad(Exception):
+    """The fake loader was called: main() accepted its arguments."""
+
+
+def _stop_at_data_load(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    # Intercept main() at its first data access, so a regression can show that
+    # a non-Top20 size got through argument validation without ever loading a
+    # panel or building a non-Top20 universe.
+    sizes: list[int] = []
+
+    def fake_build_processed_datasets(config: object, *args: object, **kwargs: object) -> object:
+        sizes.append(int(config.universe.universe_size))  # type: ignore[attr-defined]
+        raise _ReachedDataLoad
+
+    monkeypatch.setattr(convex_validation, "build_processed_datasets", fake_build_processed_datasets)
+    monkeypatch.setattr(convex_validation, "configure_logging", lambda *args, **kwargs: None)
+    return sizes
+
+
+def test_cli_has_no_universe_size_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The legacy --universe-size flag took any N (its help text suggested 50)
+    # and produced reports/convex_validation_2022_top50.  The default output
+    # dir also ignored the size, so a Top50 run overwrote the Top20 report.
+    sizes = _stop_at_data_load(monkeypatch)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["run_top20_convex_validation.py", "--universe-size", "50", "--screen-only"],
+    )
+
+    with pytest.raises(SystemExit):
+        convex_validation.main()
+
+    assert sizes == []
+
+
+def test_cli_rejects_config_with_non_top20_universe(monkeypatch: pytest.MonkeyPatch) -> None:
+    sizes = _stop_at_data_load(monkeypatch)
+    config = load_config("config/base.yaml").model_copy(deep=True)
+    config.universe.universe_size = 50
+    monkeypatch.setattr(convex_validation, "load_config", lambda *args, **kwargs: config)
+    monkeypatch.setattr("sys.argv", ["run_top20_convex_validation.py", "--screen-only"])
+
+    with pytest.raises(SystemExit):
+        convex_validation.main()
+
+    assert sizes == []
+
+
+def test_universe_variants_reject_non_top20_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        convex_validation,
+        "build_rebalance_universe",
+        lambda *args, **kwargs: pytest.fail("a non-Top20 universe must never be built"),
+    )
+    config = _script_config()
+    config.universe.universe_size = 50
+
+    with pytest.raises(ValueError, match="Top20"):
+        _build_universe_variants(_script_toy_market(), config)
+
+
+def test_candidate_grid_parks_only_in_cash() -> None:
+    # AGENTS.md: "Cash is the only defensive asset".  The legacy grid parked
+    # 1100 of 2218 candidates in BTC (and one in ETH) whenever the BTC stop
+    # turned off, CHAMPION_CANDIDATE_ID included.  Its initial_asset="btc"
+    # seed was dated on the first panel day, before every backtest window, so
+    # the engine never saw it.
+    candidates = build_candidate_definitions()
+
+    assert {candidate.risk_off_asset for candidate in candidates} == {"cash"}
+    assert "initial_asset" not in CandidateDefinition.__dataclass_fields__
+    assert CHAMPION_CANDIDATE_ID in {candidate.candidate_id for candidate in candidates}
+    # champion_ablation_cash_parking became a duplicate of stop11 and
+    # champion_ablation_eth_parking is gone: 2218 -> 2216 recipes.
+    assert len(candidates) == 2216
+
+
+def test_candidate_definition_rejects_non_cash_parking() -> None:
+    with pytest.raises(ValueError, match="cash"):
+        _script_candidate(candidate_id="btc_parking_probe", risk_off_asset="btc")
+
+
+def test_champion_parking_moves_to_cash_when_trailing_stop_turns_off() -> None:
+    # Replaces the legacy "parks in ETH" test: whatever the champion recipe
+    # does on a risk-off day, it must not buy BTC (or anything else).
+    champion = next(
+        candidate
+        for candidate in build_candidate_definitions()
+        if candidate.candidate_id == CHAMPION_CANDIDATE_ID
+    )
+    market = _script_toy_market()
+    market.price.loc[pd.Timestamp("2024-02-27") : pd.Timestamp("2024-02-29"), "bitcoin"] = 200.0
+    market.price.loc[pd.Timestamp("2024-03-01") : pd.Timestamp("2024-03-08"), "bitcoin"] = 50.0
+    market.returns = market.price.pct_change().fillna(0.0)
+    config = _script_config()
+    candidate = _script_candidate(
+        candidate_id="champion_parking_stop_test",
+        stop_kind="trailing",
+        stop_lookback=3,
+        risk_off_asset=champion.risk_off_asset,
+    )
+
+    result = run_one_candidate(market, _script_universe_by_liquidity(), config, candidate)
+
+    targets = result.rebalance_targets
+    risk_off_days = pd.Timestamp("2024-03-01"), pd.Timestamp("2024-03-08")
+    in_risk_off = targets.loc[risk_off_days[0] : risk_off_days[1]]
+    assert not in_risk_off.empty
+    assert (in_risk_off.sum(axis=1) == 0.0).all()
+    assert (result.weights.loc["2024-03-03":"2024-03-08"].sum(axis=1) == 0.0).all()
+
+
+def test_compute_contribution_summary_credits_the_coin_held_that_day() -> None:
+    # Legacy review F5: weights.shift(1) dropped each holding's first day and
+    # credited the sold coin with the day after its exit, so this switch from
+    # solana (+0.2) to chainlink (+0.3) reported solana as 100% of the gains.
+    from atlas20.backtest.engine import run_backtest
+    from atlas20.config import FrictionConfig
+
+    market = _script_toy_market()
+    index = market.price.index[:6]
+    returns = pd.DataFrame(0.0, index=index, columns=market.returns.columns)
+    returns["solana"] = [0.0, 0.10, 0.10, 0.10, 0.10, 0.10]
+    returns["chainlink"] = [0.0, 0.50, -0.20, 0.30, 0.0, 0.0]
+    market.returns = returns
+    friction = FrictionConfig(fee_bps=0, slippage_bps=0, max_weight_per_coin=1.0, max_weight_per_sector=1.0)
+    result = run_backtest(
+        "switch",
+        returns,
+        {index[0]: pd.Series({"solana": 1.0}), index[2]: pd.Series({"chainlink": 1.0})},
+        market.metadata["sector"],
+        friction,
+        1.0,
+    )
+
+    summary = compute_contribution_summary({"switch": result}, market)
+
+    assert summary.loc[0, "top_coin_id"] == "chainlink"
+    assert summary.loc[0, "top1_contribution_share"] == pytest.approx(0.6)
+    assert summary.loc[0, "top3_contribution_share"] == pytest.approx(1.0)

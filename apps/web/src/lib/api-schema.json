@@ -3193,6 +3193,7 @@
             "required": false,
             "schema": {
               "default": 1,
+              "maximum": 100000,
               "minimum": 1,
               "title": "Page",
               "type": "integer"
@@ -3204,6 +3205,7 @@
             "required": false,
             "schema": {
               "default": 14,
+              "maximum": 100,
               "minimum": 1,
               "title": "Pagesize",
               "type": "integer"

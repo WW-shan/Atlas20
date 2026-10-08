@@ -7,7 +7,9 @@ from contextlib import contextmanager
 import errno
 import logging
 import os
+import secrets
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -20,10 +22,13 @@ from atlas20.api._time import utc_now
 from atlas20.api.repositories import RunsRepo, get_engine
 from atlas20.api.settings import Settings, get_settings
 from atlas20.api.worker.queue import WorkerQueue
-from atlas20.api.worker.recovery import recover_runs_owned_by_pid
+from atlas20.api.worker.recovery import StaleRunMonitor, stale_threshold_seconds
 
 logger = logging.getLogger(__name__)
 _shutdown_requested = threading.Event()
+# Cap on the retry delay after a failed poll. Kept under the 30s staleness
+# window of the docker healthcheck that reads the poll-tick gauge.
+MAX_POLL_BACKOFF_SECONDS = 15.0
 _metrics_server_started = False
 _metrics_server_lock = threading.Lock()
 
@@ -114,15 +119,17 @@ def _terminate_process(proc: subprocess.Popen[bytes], grace_seconds: float) -> N
         proc.wait()
 
 
+def make_worker_id() -> str:
+    """Name this worker process uniquely: host, PID and a random suffix.
+
+    A PID alone does not identify a worker: every containerised worker is PID 1.
+    """
+    return f"{socket.gethostname()}:{os.getpid()}:{secrets.token_hex(4)}"
+
+
 def _mark_cancelled(run_id: str, settings: Settings) -> None:
     with session_scope(settings) as session:
-        RunsRepo(session).update(
-            run_id,
-            status="cancelled",
-            error="cancelled by user",
-            heartbeat_at=None,
-            worker_pid=None,
-        )
+        RunsRepo(session).mark_cancelled(run_id, error="cancelled by user")
 
 
 def _mark_failed(run_id: str, settings: Settings, error: str) -> None:
@@ -215,13 +222,7 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
         if run is None:
             return
         if run.requested_cancel:
-            repo.update(
-                run_id,
-                status="cancelled",
-                error="cancelled before execution",
-                heartbeat_at=None,
-                worker_pid=None,
-            )
+            repo.mark_cancelled(run_id, error="cancelled before execution")
             return
 
     proc: subprocess.Popen[bytes] = subprocess.Popen(
@@ -231,12 +232,17 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
         env=os.environ.copy(),
     )
     interval = heartbeat_interval_seconds if heartbeat_interval_seconds is not None else settings.worker_heartbeat_interval_seconds
-    stop_event, cancelled_event, thread = start_heartbeat_thread(
-        run_id,
-        proc,
-        settings,
-        heartbeat_interval_seconds=interval,
-    )
+    try:
+        stop_event, cancelled_event, thread = start_heartbeat_thread(
+            run_id,
+            proc,
+            settings,
+            heartbeat_interval_seconds=interval,
+        )
+    except BaseException:
+        # Without a heartbeat thread nobody can cancel or supervise the run.
+        _terminate_process(proc, settings.worker_cancel_grace_seconds)
+        raise
     try:
         try:
             stdout, stderr = proc.communicate(timeout=settings.run_timeout_seconds)
@@ -256,11 +262,53 @@ def _execute_run(run_id: str, settings: Settings, *, heartbeat_interval_seconds:
         thread.join(timeout=interval + 1)
 
 
-def _recover_on_startup(settings: Settings) -> None:
-    with session_scope(settings) as session:
-        recovered = recover_runs_owned_by_pid(session, my_pid=os.getpid())
+def _recover_orphaned_runs(settings: Settings, monitor: StaleRunMonitor, worker_id: str) -> int:
+    try:
+        with session_scope(settings) as session:
+            recovered = monitor.recover(session)
+    except Exception as exc:
+        logger.warning("stale run recovery failed: %s", exc)
+        return 0
     if recovered:
-        logger.info("Recovered %d stale running runs", recovered)
+        logger.info("Worker %s recovered %d orphaned running run(s)", worker_id, recovered)
+    return recovered
+
+
+def _recovery_loop(
+    settings: Settings,
+    monitor: StaleRunMonitor,
+    stop_event: threading.Event,
+    interval_seconds: float,
+    worker_id: str,
+) -> None:
+    while True:
+        _recover_orphaned_runs(settings, monitor, worker_id)
+        if stop_event.wait(interval_seconds):
+            return
+
+
+def start_recovery_thread(
+    settings: Settings,
+    monitor: StaleRunMonitor,
+    stop_event: threading.Event,
+    *,
+    worker_id: str | None = None,
+    interval_seconds: float | None = None,
+) -> threading.Thread:
+    """Fail runs orphaned by any dead worker, on a cadence of its own.
+
+    It runs beside the poll loop because that loop blocks for a whole backtest,
+    and orphans (whose cancel requests nobody acts on) must not wait for it.
+    """
+    interval = interval_seconds if interval_seconds is not None else settings.worker_heartbeat_interval_seconds
+    thread = threading.Thread(
+        target=_recovery_loop,
+        args=(settings, monitor, stop_event, interval, worker_id or make_worker_id()),
+        name="atlas20-stale-run-recovery",
+        daemon=True,
+    )
+    thread.start()
+    return thread
 
 
 def main() -> None:
@@ -270,22 +318,64 @@ def main() -> None:
 
     warn_if_shadow_install()
     start_metrics_server(settings.worker_metrics_port)
-    _recover_on_startup(settings)
+    worker_id = make_worker_id()
+    logger.info("Worker %s starting", worker_id)
+    monitor = StaleRunMonitor(stale_threshold_seconds(settings.worker_heartbeat_interval_seconds))
+    recovery_thread = start_recovery_thread(settings, monitor, _shutdown_requested, worker_id=worker_id)
 
+    failures = 0
     while not _shutdown_requested.is_set():
-        run_id: str | None = None
+        try:
+            worked = _poll_once(settings, worker_id)
+        except Exception:
+            # A locked or briefly unreachable database must not kill the
+            # worker; queued runs would otherwise wait for a manual restart.
+            failures += 1
+            delay = _poll_backoff_seconds(settings, failures)
+            logger.exception("worker poll failed (%d in a row); retrying in %.1fs", failures, delay)
+            _shutdown_requested.wait(delay)
+            continue
+        failures = 0
+        if not worked:
+            _shutdown_requested.wait(settings.worker_poll_interval_seconds)
+    recovery_thread.join(timeout=settings.worker_heartbeat_interval_seconds + 1)
+
+
+def _poll_once(settings: Settings, worker_id: str) -> bool:
+    """Claim and execute one queued run; return False when the queue was empty."""
+    from atlas20.api._metrics import record_worker_poll_tick
+
+    run_id: str | None = None
+    try:
         with session_scope(settings) as session:
-            claimed = WorkerQueue(session).claim_one()
+            claimed = WorkerQueue(session).claim_one(worker_id=worker_id)
             if claimed is not None:
                 run_id = claimed.run_id
-
-        from atlas20.api._metrics import record_worker_poll_tick
-
+    finally:
+        # The loop is alive even when the claim failed; the healthcheck gauge
+        # tracks liveness, not database health.
         record_worker_poll_tick()
-        if run_id is None:
-            _shutdown_requested.wait(settings.worker_poll_interval_seconds)
-            continue
+    if run_id is None:
+        return False
+    try:
         _execute_run(run_id, settings)
+    except Exception as exc:
+        _mark_failed_best_effort(run_id, settings, f"worker error: {exc}")
+        raise
+    return True
+
+
+def _mark_failed_best_effort(run_id: str, settings: Settings, error: str) -> None:
+    try:
+        _mark_failed(run_id, settings, error)
+    except Exception:
+        # Stale-heartbeat recovery fails the run later if this write cannot land.
+        logger.exception("could not mark run %s failed", run_id)
+
+
+def _poll_backoff_seconds(settings: Settings, failures: int) -> float:
+    base = max(settings.worker_poll_interval_seconds, 0.01)
+    return float(min(MAX_POLL_BACKOFF_SECONDS, base * 2 ** min(failures - 1, 16)))
 
 
 if __name__ == "__main__":

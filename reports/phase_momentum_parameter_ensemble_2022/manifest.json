@@ -1,12 +1,16 @@
 {
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
   "universe": "strict point-in-time Top20",
   "parameter_specs": 13,
   "signal_specs": 4,
   "sleeves": 152,
+  "weighting": "equal weight per parameter set",
   "cost_bps": [
-    2,
-    20,
-    50,
-    100
+    2.0,
+    20.0,
+    50.0,
+    100.0
   ]
 }

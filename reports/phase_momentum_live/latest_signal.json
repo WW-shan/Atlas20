@@ -1,80 +1,101 @@
 {
-  "as_of": "2026-09-21",
+  "as_of": "2026-10-06",
   "btc_gate_open": true,
-  "gross_exposure": 0.6496337987424847,
-  "latest_target_date": "2026-09-21",
-  "next_check_date": "2026-09-22",
-  "rule": "Strict point-in-time Top20; four trailing-return signals x three calendar phases; hold while in Top2; BTC 100D MA + confirm2; 60D volatility target at 80%; long-only spot, no leverage; T+1",
+  "cost_bps": 20.0,
+  "current_gross_exposure": 0.6950872361713466,
+  "current_weights": {
+    "near": 0.6950872361713466
+  },
+  "end_date": "2026-10-06",
+  "gross_exposure": 0.6836818502538271,
+  "last_day_check": {
+    "complete": true,
+    "date": "2026-10-06",
+    "market_cap_coverage": 1.0,
+    "median_volume_ratio": 0.7772692979854857,
+    "reasons": [],
+    "volume_floor": 0.6
+  },
+  "latest_target_date": "2026-10-03",
+  "next_check_date": "2026-10-07",
+  "panel_last_date": "2026-10-06",
+  "rule": "Strict point-in-time Top20; 4 trailing-return signals (weighted_multi_horizon, ret21, equal_7_14_28_60, equal_14_21_28) x 3 calendar phases of a 3D rebalance cycle; hold while in Top2; BTC 100D MA + confirm2; 60D volatility target at 80%; long-only spot, no leverage; T+1",
+  "signal_names": [
+    "weighted_multi_horizon",
+    "ret21",
+    "equal_7_14_28_60",
+    "equal_14_21_28"
+  ],
   "sleeves": [
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 0,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-10-01",
+      "weight": 0.6656108021027933
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 1,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-10-02",
+      "weight": 0.6631801042717702
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 2,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-10-03",
+      "weight": 0.6638327499019586
     },
     {
       "asset": "near",
       "phase_offset": 0,
       "signal_name": "ret21",
-      "target_date": "2026-09-19",
-      "weight": 0.7405584434607788
+      "target_date": "2026-09-30",
+      "weight": 0.6869524303585423
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 1,
       "signal_name": "ret21",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-09-29",
+      "weight": 0.6947818830384337
     },
     {
       "asset": "near",
       "phase_offset": 2,
       "signal_name": "ret21",
-      "target_date": "2026-09-18",
-      "weight": 0.7451193714193336
+      "target_date": "2026-09-28",
+      "weight": 0.6935044284991294
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 0,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-10-01",
+      "weight": 0.6656108021027933
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 1,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-09-23",
+      "weight": 0.7094895861204339
     },
     {
-      "asset": "zcash",
+      "asset": "near",
       "phase_offset": 2,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-09-16",
-      "weight": 0.5941335843113364
+      "target_date": "2026-10-03",
+      "weight": 0.6638327499019586
     },
     {
       "asset": "near",
       "phase_offset": 0,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-09-19",
-      "weight": 0.7405584434607788
+      "target_date": "2026-09-30",
+      "weight": 0.6869524303585423
     },
     {
       "asset": "near",
@@ -91,21 +112,33 @@
       "weight": 0.7051580521384531
     }
   ],
+  "start_date": "2022-01-01",
   "target_spec": {
+    "asset_ma_window": 100,
+    "breadth_ma_window": 50,
+    "breadth_threshold": null,
     "btc_confirm_days": 2,
     "btc_ma_window": 100,
+    "btc_ma_windows": null,
     "hold_rank": 2,
+    "holdings_per_sleeve": 1,
     "phase_offsets": [
       0,
       1,
       2
     ],
     "rebalance_days": 3,
+    "stop_loss_kind": "none",
+    "stop_loss_pct": 0.3,
     "target_volatility": 0.8,
-    "vol_window": 60
+    "use_asset_trend_filter": false,
+    "use_btc_gate": true,
+    "use_volatility_target": true,
+    "vol_window": 60,
+    "weight_tolerance": 0.05
   },
   "targets": {
-    "near": 0.3030558745608718,
-    "zcash": 0.34657792418161293
-  }
+    "near": 0.6836818502538271
+  },
+  "trade_required": false
 }

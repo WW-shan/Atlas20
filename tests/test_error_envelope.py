@@ -13,7 +13,7 @@ from atlas20.api.settings import get_settings
 
 
 DEFAULT_BACKTEST_CONFIG = {
-    "preset": "ATLAS Adaptive v3",
+    "preset": "base",
     "universe": {"topN": 20, "excludeStable": True, "excludeWrapped": True},
     "window": {"start": "2024-01-01", "end": "2026-05-18", "rebalance": "Weekly"},
     "allocation": {"positionPct": 5.0, "slots": 10},

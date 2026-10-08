@@ -30,6 +30,10 @@ export const qk = {
     batch: (batchId: string) => ["strategy-lab", "batch", batchId] as const,
   },
 
+  // Outside the ["universe"] prefix so invalidating universe data after a
+  // refresh completes does not refetch (and re-trigger) the job status.
+  universeRefresh: (runId: string) => ["universe-refresh", runId] as const,
+
   universe: {
     all:      () => ["universe"] as const,
     timeline: () => ["universe", "timeline"] as const,
@@ -38,6 +42,7 @@ export const qk = {
   },
 
   reports: {
+    all:      () => ["reports"] as const,
     featured: () => ["reports", "featured"] as const,
     archive:  (sort: ReportSortKey) => ["reports", "archive", sort] as const,
   },

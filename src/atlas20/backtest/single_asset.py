@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 
@@ -141,6 +142,9 @@ def simulate_single_asset_weight_targets(
     events the position is held and its market-value weight drifts with the
     asset return, matching :func:`atlas20.backtest.engine.run_backtest` for a
     one-asset book. Signals are executed on the following calendar day (T+1).
+    Like the engine, a holding whose feed has ended (missing after its last
+    print) is sold at that print; only an interior gap is subject to
+    ``missing_return_policy``.
 
     ``target_assets`` uses ``"__cash__"`` or a null value for an event that
     moves the book to cash; ``target_weights`` is a fraction in ``[0, 1]``.
@@ -169,6 +173,13 @@ def simulate_single_asset_weight_targets(
     asset_values = assets.to_numpy(dtype=object, copy=False)
     weight_values = weights.to_numpy(dtype=float, copy=False)
     column_positions = {str(column): position for position, column in enumerate(returns.columns)}
+    # The row of each asset's last print (-1 if it never printed). As in
+    # run_backtest, a held asset missing *after* that row has an ended feed (a
+    # delisting or token migration), not a provider gap, and is sold there.
+    last_print_rows = [
+        int(printed[-1]) if printed.size else -1
+        for printed in (np.flatnonzero(~np.isnan(column)) for column in return_values.T)
+    ]
     current_asset: str | None = None
     current_weight = 0.0
     pending_asset: str | None = None
@@ -209,11 +220,19 @@ def simulate_single_asset_weight_targets(
                 raise ValueError(f"Target asset {current_asset!r} is absent from asset_returns")
             raw_return = return_values[row_position, column_position]
             if pd.isna(raw_return):
-                if missing_return_policy == "error":
+                if 0 <= last_print_rows[column_position] < row_position:
+                    # Sold at the last close: no return for the day, the exit
+                    # turnover and cost are paid, and the book is cash after.
+                    turnover += current_weight
+                    cost += current_weight * fee_rate
+                    current_asset = None
+                    current_weight = 0.0
+                elif missing_return_policy == "error":
                     raise ValueError(
                         f"Missing return for held asset {current_asset!r} on {pd.Timestamp(date).date()}"
                     )
-                asset_return = float(missing_return_fill)
+                else:
+                    asset_return = float(missing_return_fill)
             else:
                 asset_return = float(raw_return)
 

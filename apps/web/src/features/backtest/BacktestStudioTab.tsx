@@ -12,11 +12,15 @@ import { EquityWorkspace } from "../../components/backtest/EquityWorkspace";
 import { RunQueue } from "../../components/backtest/RunQueue";
 import {
   defaultBacktestConfig,
+  describeApiError,
   generateReport,
   getOptions,
   getRunDetail,
+  isBacktestRun,
   listRuns,
+  RESEARCH_UNIVERSE_TOP_N,
   type BacktestConfig,
+  type HistoryFilter,
   type RunDetailPayload,
 } from "../../lib/api";
 import { qk } from "../../lib/qk";
@@ -39,13 +43,17 @@ function reducer(state: BacktestConfig, action: Action): BacktestConfig {
   return { ...state, ...action.patch };
 }
 
+// Server-side "completed" filter so failed/queued rows can't use up the page;
+// 50 rows leaves room for daily universe_refresh jobs, which also complete.
+const RECENT_COMPLETED_RUNS: HistoryFilter = { q: "", chips: ["completed"], dateRange: "all", page: 1, pageSize: 50 };
+
 function hydrateFromDetail(detail: RunDetailPayload): BacktestConfig {
-  const topNMatch = detail.universe.match(/(\d+)/);
-  const topN = topNMatch ? Math.min(50, Math.max(1, Number(topNMatch[1]))) : defaultBacktestConfig.universe.topN;
+  // Re-runs always use the point-in-time Top 20 (AGENTS.md), even when the
+  // source run predates that constraint (e.g. a legacy "Top-10" run).
   return {
     ...defaultBacktestConfig,
-    preset: detail.strategy,
-    universe: { ...defaultBacktestConfig.universe, topN },
+    preset: isBacktestRun(detail) ? detail.strategy : defaultBacktestConfig.preset,
+    universe: { ...defaultBacktestConfig.universe, topN: RESEARCH_UNIVERSE_TOP_N },
     window: {
       ...defaultBacktestConfig.window,
       start: detail.window.start,
@@ -59,6 +67,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const [submittedRunId, setSubmittedRunId] = useState<string | undefined>(undefined);
   const [reportPending, setReportPending] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
+  const [reportError, setReportError] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
   const runMutation = useRunBacktest();
   const queue = useRunQueue();
@@ -70,12 +79,12 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   // Latest backtest run from history, used as a graceful prefill fallback
   // when no run is currently in flight (queue is empty). Without this, a
   // fresh visit to Backtest would show "—" and an empty workspace even
-  // though plenty of past runs exist. Pull a small page and pick the first
-  // entry that's an actual backtest — skipping `universe_refresh` and other
+  // though plenty of past runs exist. Ask the server for completed runs and
+  // pick the first actual backtest — skipping `universe_refresh` and other
   // background jobs that don't have a return_pct to plot.
   const recentRunsQuery = useQuery({
-    queryKey: qk.runs.list({ q: "", chips: [], dateRange: "30d", page: 1, pageSize: 10 }),
-    queryFn: () => listRuns({ q: "", chips: [], dateRange: "30d", page: 1, pageSize: 10 }),
+    queryKey: qk.runs.list(RECENT_COMPLETED_RUNS),
+    queryFn: () => listRuns(RECENT_COMPLETED_RUNS),
     staleTime: 60 * 1000,
   });
 
@@ -90,9 +99,9 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   // failed runs from prefilling — their detail payload turns into all
   // zeros downstream, which would surface as ghost "CAGR 0%, Sharpe 0"
   // KPIs as if the strategy had a flat year.
-  const latestQueueRunId = queue.data?.[0]?.run_id;
+  const latestQueueRunId = queue.data?.find(isBacktestRun)?.run_id;
   const latestHistoryRunId = recentRunsQuery.data?.items
-    .find((row) => row.strategy !== "universe_refresh" && row.status === "completed" && row.return_pct != null)?.run_id;
+    .find((row) => isBacktestRun(row) && row.status === "completed" && row.return_pct != null)?.run_id;
   const selectedRunId = prefillRunId ?? submittedRunId ?? latestQueueRunId ?? latestHistoryRunId;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
@@ -142,6 +151,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const handleRegenerateReport = () => {
     if (!detailData || reportPending) return;
     setReportPending(true);
+    setReportError(undefined);
     void generateReport({
       type: "run",
       run_id: detailData.run_id,
@@ -150,13 +160,14 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
       .then((response) => {
         setReportToast(response.warnings.length > 0 ? response.warnings.join("; ") : "Report regenerated");
       })
-      .catch(() => setReportToast("Report regeneration failed"))
+      .catch((error: unknown) => setReportError(describeApiError(error, "Unable to regenerate report")))
       .finally(() => setReportPending(false));
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 24, height: "calc(100vh - var(--topnav-h) - var(--space-6) - var(--pageheader-h))", overflow: "hidden" }}>
       {reportToast && <Toast>{reportToast}</Toast>}
+      {reportError && <ErrorBanner message={reportError} />}
 
       {/* Mini page header with RUN ID pill + NEW RUN button */}
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -176,6 +187,8 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
           onClick={() => {
             hydratedFor.current = undefined;
             setSubmittedRunId(undefined);
+            runMutation.reset();
+            setReportError(undefined);
             dispatch({ type: "reset" });
           }}
         >
@@ -184,7 +197,10 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "340px 1fr 320px", gap: 16, flex: 1, minHeight: 0, alignItems: "stretch" }}>
-        <div style={{ overflowY: "auto", minHeight: 0 }}>
+        <div style={{ overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          {runMutation.isError && (
+            <ErrorBanner message={describeApiError(runMutation.error, "Unable to queue backtest")} />
+          )}
           {isInitialDetailLoading ? (
             <DetailPrefillSkeleton />
           ) : (

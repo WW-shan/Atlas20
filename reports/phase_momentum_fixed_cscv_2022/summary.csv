@@ -1,3 +1,3 @@
-candidate,splits,test_percentile_median,test_percentile_mean,below_median_rate,train_percentile_median
-parameter_ensemble_20bps,924,0.4375,0.4075351731601732,0.8571428571428571,0.4375
-primary,924,0.78125,0.7512344426406926,0.07467532467532467,0.78125
+candidate,splits,half_sample_percentile_median,half_sample_percentile_mean,below_median_rate
+parameter_ensemble_20bps,924,0.3870967741935484,0.39083228599357633,0.8474025974025974
+primary,924,0.7419354838709677,0.736628962435414,0.020562770562770564

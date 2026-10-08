@@ -50,7 +50,7 @@ def summarize_market_history(
 
     frame = frame.dropna(subset=["date"])
     frame = frame[frame["price"] > 0]
-    frame = frame.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+    frame = frame.sort_values("date", kind="mergesort").drop_duplicates("date", keep="last").reset_index(drop=True)
 
     price_days = int(frame["price"].notna().sum())
     market_cap_days = int((frame["market_cap"] > 0).sum())
@@ -78,14 +78,13 @@ def summarize_market_history(
         "history_days": price_days,
         "first_date": frame["date"].min(),
         "latest_date": frame["date"].max(),
-        "latest_overlap_date": latest_market_cap_date,
+        # The newest day with a real market cap - the last day the asset can
+        # be ranked. (It used to be published as ``latest_overlap_date``,
+        # which the processor now reports from the cross-check instead, along
+        # with the independent-source gaps and correlation.)
+        "latest_market_cap_date": latest_market_cap_date,
         "validation_passed": passed,
         "validation_reason": reason,
-        # Retained for the data-quality alert contract in the API.  The
-        # cross-check module fills the independent-source fields separately.
-        "latest_price_gap": np.nan,
-        "median_price_gap": np.nan,
-        "price_correlation": np.nan,
         "direct_market_cap_days": market_cap_days,
         "direct_price_days": price_days,
     }

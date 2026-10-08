@@ -140,6 +140,15 @@ export type RunRow = {
   favorited?: boolean | null;
 };
 
+// The scheduler's daily data refresh is stored as a run row with strategy
+// "universe_refresh". It is not a backtest: it has no metrics to show, and
+// POST /backtests/run rejects its name as a preset.
+export const UNIVERSE_REFRESH_STRATEGY = "universe_refresh";
+
+export function isBacktestRun(run: { strategy: string }): boolean {
+  return run.strategy !== UNIVERSE_REFRESH_STRATEGY;
+}
+
 export type RunRowSummary = Pick<RunRow, "run_id" | "strategy" | "status" | "duration_s" | "eta_s" | "favorited"> & {
   params_summary: string;
 };
@@ -233,13 +242,17 @@ export const fallbackOptions: OptionsPayload = {
   sectors: ["DeFi", "Layer1", "Layer2", "Meme", "Oracle", "Payments"],
 };
 
+// AGENTS.md: research, backtests and sweeps run only on the point-in-time
+// Top 20 by market cap. The console never offers another universe size.
+export const RESEARCH_UNIVERSE_TOP_N = 20;
+
 export const defaultBacktestConfig: BacktestConfig = {
   // "base" is a real preset slug present in config/base.yaml — the engine
   // resolves it directly without falling back to the legacy "ATLAS Adaptive
   // v3" placeholder. Using a real default means a fresh visitor who clicks
   // RUN BACKTEST without changing anything still submits a valid request.
   preset: "base",
-  universe: { topN: 20, excludeStable: true, excludeWrapped: true },
+  universe: { topN: RESEARCH_UNIVERSE_TOP_N, excludeStable: true, excludeWrapped: true },
   window: { start: "2024-01-01", end: "2026-05-18", rebalance: "Weekly" },
   allocation: { positionPct: 5.0, slots: 10 },
   costs: { feeBps: 10, slippageBps: 5 },
@@ -717,6 +730,36 @@ export class ApiError extends Error {
   }
 }
 
+function describeApiErrorDetails(details: unknown): string | undefined {
+  if (Array.isArray(details)) {
+    // FastAPI validation errors: [{ loc: ["body", "universe", "topN"], msg }]
+    const parts = details.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const { loc, msg } = item as { loc?: unknown; msg?: unknown };
+      if (typeof msg !== "string") return [];
+      const path = Array.isArray(loc)
+        ? loc.filter((segment) => segment !== "body" && segment !== "query").join(".")
+        : "";
+      return [path ? `${path}: ${msg}` : msg];
+    });
+    return parts.length > 0 ? parts.slice(0, 3).join("; ") : undefined;
+  }
+  if (details && typeof details === "object") {
+    const limit = (details as { limit?: unknown }).limit;
+    if (typeof limit === "string" && limit) return limit;
+  }
+  return undefined;
+}
+
+// Turns a failed request into a sentence for the UI. 409/422/429 responses
+// carry actionable backend messages (rejected preset, idempotency conflict,
+// rate limit window); showing only a generic "failed" hides them.
+export function describeApiError(error: unknown, context: string): string {
+  if (!(error instanceof ApiError)) return `${context}.`;
+  const details = describeApiErrorDetails(error.details);
+  return details ? `${context}: ${error.message} (${details})` : `${context}: ${error.message}`;
+}
+
 async function apiErrorFromResponse(response: Response, fallbackMessage: string): Promise<ApiError> {
   const payload = await response.clone().json().catch(() => undefined) as ApiErrorPayload | undefined;
   const error = payload?.error;
@@ -863,6 +906,16 @@ export function getDataAlerts() {
 
 export function refreshUniverse() {
   return requestJson<{ run_id: string; status: string }>("/universe/refresh", { method: "POST" });
+}
+
+// Latest universe_refresh job (the POST above only queues it).
+export type UniverseRefreshStatus = {
+  run_id: string | null;
+  status: "idle" | RunStatusEnum;
+};
+
+export function getUniverseRefreshStatus() {
+  return requestJson<UniverseRefreshStatus>("/universe/refresh-status");
 }
 
 export function getFeaturedDigest() {

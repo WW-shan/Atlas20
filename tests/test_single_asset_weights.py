@@ -140,3 +140,60 @@ def test_sparse_weight_targets_match_production_engine() -> None:
         engine.weights["asset_a"],
         check_names=False,
     )
+
+
+@pytest.mark.parametrize("policy", ["error", "fill"])
+def test_sparse_weight_targets_sell_an_ended_feed_like_the_production_engine(policy: str) -> None:
+    """A holding whose feed has ended is sold at its last print, as in run_backtest.
+
+    The fast simulator used to raise under the default policy (or book the
+    -100% fill), so it disagreed with the engine it stands in for whenever a
+    held coin was delisted or migrated.
+    """
+    index = pd.date_range("2024-01-01", periods=5, freq="D")
+    returns = pd.DataFrame(
+        {"asset_a": [0.0, 0.10, -0.05, float("nan"), float("nan")]},
+        index=index,
+    )
+    assets = pd.Series(["asset_a", pd.NA, pd.NA, pd.NA, pd.NA], index=index, dtype="object")
+    weights = pd.Series([0.5, float("nan"), float("nan"), float("nan"), float("nan")], index=index)
+
+    fast = simulate_single_asset_weight_targets(
+        returns,
+        assets,
+        weights,
+        total_cost_bps=20.0,
+        missing_return_policy=policy,
+    )
+    engine = run_backtest(
+        "engine_check",
+        returns,
+        {index[0]: pd.Series({"asset_a": 1.0})},
+        pd.Series({"asset_a": "Other"}),
+        FrictionConfig(
+            fee_bps=10.0,
+            slippage_bps=10.0,
+            max_weight_per_coin=1.0,
+            max_weight_per_sector=1.0,
+            missing_return_policy=policy,
+        ),
+        initial_capital=1.0,
+        leverage_by_date={index[0]: 0.5},
+        max_gross_exposure=1.0,
+    )
+
+    pd.testing.assert_series_equal(fast.daily_returns, engine.daily_returns, check_names=False)
+    pd.testing.assert_series_equal(fast.turnover, engine.turnover, check_names=False)
+    pd.testing.assert_series_equal(fast.weights, engine.weights["asset_a"], check_names=False)
+    pd.testing.assert_series_equal(fast.holdings, engine.holdings_count, check_names=False)
+    assert fast.weights.iloc[3:].tolist() == [0.0, 0.0]
+
+
+def test_sparse_weight_targets_still_refuse_an_interior_gap() -> None:
+    index = pd.date_range("2024-01-01", periods=4, freq="D")
+    returns = pd.DataFrame({"asset_a": [0.0, float("nan"), 0.05, 0.05]}, index=index)
+    assets = pd.Series(["asset_a", pd.NA, pd.NA, pd.NA], index=index, dtype="object")
+    weights = pd.Series([0.5, float("nan"), float("nan"), float("nan")], index=index)
+
+    with pytest.raises(ValueError, match="Missing return for held asset"):
+        simulate_single_asset_weight_targets(returns, assets, weights, total_cost_bps=0.0)

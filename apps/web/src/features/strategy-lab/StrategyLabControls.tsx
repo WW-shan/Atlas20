@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { SectionHeader } from "../../components/ui/SectionHeader";
-import type { BacktestConfig, OptionsPayload } from "../../lib/api";
+import { RESEARCH_UNIVERSE_TOP_N, type BacktestConfig, type OptionsPayload } from "../../lib/api";
 
 type Props = {
   options: OptionsPayload;
@@ -32,6 +32,15 @@ export function StrategyLabControls({
   onToggleRebalance,
   onSubmit,
 }: Props) {
+  // A selected preset that /api/options does not list (e.g. the default
+  // "base") is still submitted, so keep it visible and deselectable.
+  const presetOptions = [
+    ...selectedPresets
+      .filter((slug) => !options.presets.some((preset) => preset.slug === slug))
+      .map((slug) => ({ slug, display_name: slug })),
+    ...options.presets,
+  ];
+
   return (
     <Card ariaLabel="Strategy Lab experiment matrix">
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
@@ -48,7 +57,7 @@ export function StrategyLabControls({
 
       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 1fr", gap: 18, marginTop: 14 }}>
         <ControlGroup label="Presets">
-          {options.presets.map((preset) => (
+          {presetOptions.map((preset) => (
             <label key={preset.slug} style={optionStyle}>
               <input
                 type="checkbox"
@@ -62,7 +71,8 @@ export function StrategyLabControls({
 
         <ControlGroup label="Universe">
           {options.universes
-            .filter((universe) => universe.topN >= 10)
+            // Point-in-time Top 20 only (AGENTS.md); never sweep other universes.
+            .filter((universe) => universe.topN === RESEARCH_UNIVERSE_TOP_N)
             .map((universe) => (
               <label key={universe.topN} style={optionStyle}>
                 <input

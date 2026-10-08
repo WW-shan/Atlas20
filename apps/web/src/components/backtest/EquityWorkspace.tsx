@@ -199,6 +199,11 @@ function TradesTable({ rows }: { rows: RunTradeRow[] }) {
 
 export function EquityWorkspace({ detail }: Props) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("Equity");
+  // Only completed runs have metrics. For queued/running/failed/cancelled
+  // runs the API fills `kpi` with zeros and synthesized defaults (e.g. a
+  // 50% win rate), which must not read as backtest results.
+  const hasResults = detail.status === "completed";
+  const kpiValue = (formatted: string) => (hasResults ? formatted : "--");
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16, minHeight: 0 }}>
@@ -286,12 +291,12 @@ export function EquityWorkspace({ detail }: Props) {
         }}
         aria-label="KPI ribbon"
       >
-        <KpiTile inline label="CAGR" value={formatPct(detail.kpi.cagr)} />
-        <KpiTile inline label="Sharpe" value={detail.kpi.sharpe.toFixed(2)} />
-        <KpiTile inline label="Sortino" value={detail.kpi.sortino.toFixed(2)} />
-        <KpiTile inline label="Max DD" value={formatPct(detail.kpi.max_dd)} delta={{ value: "", tone: "rose" }} />
-        <KpiTile inline label="Calmar" value={detail.kpi.calmar.toFixed(2)} />
-        <KpiTile inline label="Win Rate" value={formatPct(detail.kpi.win_rate, 1)} />
+        <KpiTile inline label="CAGR" value={kpiValue(formatPct(detail.kpi.cagr))} />
+        <KpiTile inline label="Sharpe" value={kpiValue(detail.kpi.sharpe.toFixed(2))} />
+        <KpiTile inline label="Sortino" value={kpiValue(detail.kpi.sortino.toFixed(2))} />
+        <KpiTile inline label="Max DD" value={kpiValue(formatPct(detail.kpi.max_dd))} delta={{ value: "", tone: "rose" }} />
+        <KpiTile inline label="Calmar" value={kpiValue(detail.kpi.calmar.toFixed(2))} />
+        <KpiTile inline label="Win Rate" value={kpiValue(formatPlainPct(detail.kpi.win_rate))} />
       </div>
     </div>
   );

@@ -12,8 +12,10 @@ def get_rebalance_dates(index: pd.DatetimeIndex, start_date: pd.Timestamp, frequ
         return []
 
     if frequency_value == "month_end":
-        month_ends = usable_index.to_series().groupby(usable_index.to_period("M")).max().tolist()
-        return [pd.Timestamp(value) for value in month_ends]
+        # Only a calendar month end counts. Taking each month's last index date
+        # made the final date of an unfinished month (a panel ending 2026-09-22)
+        # a rebalance, and that date moved every day the panel grew.
+        return [pd.Timestamp(value) for value in usable_index[usable_index.is_month_end]]
 
     if frequency_name == "biweekly" or frequency_value.endswith("D"):
         days = int(frequency_value.replace("D", ""))

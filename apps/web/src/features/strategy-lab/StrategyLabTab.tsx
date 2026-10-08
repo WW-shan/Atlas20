@@ -11,9 +11,11 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import type { RunStatusEnum } from "../../components/ui/types";
 import {
   defaultBacktestConfig,
+  describeApiError,
   fallbackOptions,
   getOptions,
   getStrategyLabBatch,
+  RESEARCH_UNIVERSE_TOP_N,
   submitStrategyLabBatch,
 } from "../../lib/api";
 import type { BacktestConfig, StrategyLabBatchPayload } from "../../lib/api";
@@ -28,22 +30,25 @@ type Props = {
 const terminalStatuses: RunStatusEnum[] = ["completed", "failed", "cancelled"];
 
 export function StrategyLabTab({ onNavigate }: Props) {
+  // placeholderData (not initialData): initialData would be written into the
+  // shared qk.options() cache as fresh data, so with this staleTime the real
+  // /api/options was never fetched and other tabs read the static presets too.
   const options = useQuery({
     queryKey: qk.options(),
     queryFn: getOptions,
-    initialData: fallbackOptions,
+    placeholderData: fallbackOptions,
     staleTime: 5 * 60 * 1000,
   });
   const optionData = options.data ?? fallbackOptions;
   const [selectedPresets, setSelectedPresets] = useState<string[]>([fallbackOptions.presets[0]?.slug ?? "base"]);
-  const [selectedTopNs, setSelectedTopNs] = useState<number[]>([10, 20]);
+  const [selectedTopNs, setSelectedTopNs] = useState<number[]>([RESEARCH_UNIVERSE_TOP_N]);
   const [selectedRebalances, setSelectedRebalances] = useState<BacktestConfig["window"]["rebalance"][]>(["Monthly"]);
   const [batchId, setBatchId] = useState<string | undefined>();
   const [queuedMessage, setQueuedMessage] = useState<string | undefined>();
   const [sortMetric, setSortMetric] = useState<StrategyLabSortMetric>("sharpe");
 
   const runCount = selectedPresets.length * selectedTopNs.length * selectedRebalances.length;
-  const submitDisabled = runCount === 0 || runCount > 24;
+  const submitDisabled = runCount === 0 || runCount > 24 || options.isError;
   const batch = useQuery({
     queryKey: qk.strategyLab.batch(batchId ?? "__none__"),
     queryFn: () => getStrategyLabBatch(batchId as string),
@@ -97,12 +102,18 @@ export function StrategyLabTab({ onNavigate }: Props) {
         onSubmit={() => submitMutation.mutate(request)}
       />
 
+      {options.isError && (
+        <ErrorBanner
+          message={describeApiError(options.error, "Unable to load Strategy Lab presets")}
+          onRetry={() => { void options.refetch(); }}
+        />
+      )}
       {runCount > 24 && (
         <ErrorBanner message="Strategy Lab can queue at most 24 runs per batch." />
       )}
       {submitMutation.isError && (
         <ErrorBanner
-          message="Unable to queue Strategy Lab experiment."
+          message={describeApiError(submitMutation.error, "Unable to queue Strategy Lab experiment")}
           onRetry={() => submitMutation.mutate(request)}
         />
       )}

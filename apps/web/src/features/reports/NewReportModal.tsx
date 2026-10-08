@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
-import type { GenerateReportRequest, ReportFormat } from "../../lib/api";
+import { ApiError, describeApiError, type GenerateReportRequest, type ReportFormat } from "../../lib/api";
 
 const REPORT_TYPES: GenerateReportRequest["type"][] = ["weekly", "run", "compare", "universe"];
 const FORMATS: ReportFormat[] = ["markdown", "pdf", "png", "csv"];
@@ -65,7 +65,8 @@ export function NewReportModal({ open, presets, onClose, onGenerate }: Props) {
     void onGenerate(payload)
       .then(() => onClose())
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Generation failed");
+        if (err instanceof ApiError) setError(describeApiError(err, "Generation failed"));
+        else setError(err instanceof Error ? err.message : "Generation failed");
       })
       .finally(() => setPending(false));
   };

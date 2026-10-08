@@ -1,0 +1,26 @@
+{
+  "all_trials": {
+    "n_trials": 14120,
+    "n_with_sharpe": 14105,
+    "n_without_sharpe": 15,
+    "n_distinct_sharpe_values": 8936,
+    "sharpe_mean_annualized": 0.7934247625076583,
+    "sharpe_std_annualized": 0.6519060339941565,
+    "sharpe_std_per_period": 0.03412232134734506,
+    "periods_per_year": 365,
+    "sharpe_std_ddof": 1,
+    "filter": "trial_sharpes.csv rows with all_trials == True (one row per configuration at its study's primary cost; pure buy-and-hold benchmarks and re-listings excluded; new = no earlier-processed study has the same identity or the same window_start/universe/cost/Sharpe rounded to 1e-9), plus configurations without a Sharpe (trial_inventory.csv)"
+  },
+  "top20_2022_trials": {
+    "n_trials": 6126,
+    "n_with_sharpe": 6111,
+    "n_without_sharpe": 15,
+    "n_distinct_sharpe_values": 3814,
+    "sharpe_mean_annualized": 0.4294627659992821,
+    "sharpe_std_annualized": 0.3133769837380973,
+    "sharpe_std_per_period": 0.01640290100776845,
+    "periods_per_year": 365,
+    "sharpe_std_ddof": 1,
+    "filter": "all_trials rows with universe == 'Top20' and window_start == '2022-01-01' (top20_2022_trials == True), plus configurations without a Sharpe in that scope"
+  }
+}

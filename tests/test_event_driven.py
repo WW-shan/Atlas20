@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from atlas20.backtest.engine import run_backtest
 from atlas20.backtest.single_asset import simulate_single_asset_targets
@@ -146,7 +147,12 @@ def test_single_asset_simulator_matches_general_engine_on_cash_exit() -> None:
     )
 
 
-def test_daily_event_can_exit_immediately_when_universe_membership_lost() -> None:
+def test_daily_event_always_exits_when_universe_membership_lost() -> None:
+    # Incident: the Top20 exit used to be an opt-in flag
+    # (exit_on_universe_drop, default False), so a held coin that left the
+    # point-in-time Top20 was kept until min_hold_days had passed. On the real
+    # panel mh5/hr2/gap0.10/c1 held a non-Top20 coin on 17 signal days (ftx-token,
+    # flow, kaspa, ...): 69.95x at 20 bps as run versus 19.69x with the exit.
     dates = pd.date_range("2024-01-01", periods=5, freq="D")
     market = _market(dates)
     scores = pd.DataFrame(
@@ -161,14 +167,42 @@ def test_daily_event_can_exit_immediately_when_universe_membership_lost() -> Non
         market,
         scores,
         _config(),
-        DailyEventSpec(
-            min_hold_days=5,
-            hold_rank=1,
-            switch_score_gap=0.0,
-            confirm_days=1,
-            exit_on_universe_drop=True,
-        ),
+        DailyEventSpec(min_hold_days=5, hold_rank=1, switch_score_gap=0.0, confirm_days=1),
     )
 
     assert built.selection_history["coin_id"].tolist() == ["a", "a", "b", "b", "b"]
-    assert built.selection_history.loc[2, "event"] == "switch"
+    assert built.selection_history.loc[2, "event"] == "universe_exit"
+
+
+def test_daily_event_top20_exit_ignores_min_hold_and_confirmation() -> None:
+    # The reviewer's repro: "a" leads on day 0 and is absent from every later
+    # Top20 snapshot. Neither the default spec nor a 20-day minimum hold with a
+    # two-day confirmation may keep it for a single extra signal day.
+    dates = pd.date_range("2024-01-01", periods=8, freq="D")
+    market = _market(dates)
+    scores = pd.DataFrame(
+        {"a": [0.90] + [float("nan")] * 7, "b": [0.50] * 8},
+        index=dates,
+    )
+
+    for spec in (
+        DailyEventSpec(),
+        DailyEventSpec(min_hold_days=20, hold_rank=5, switch_score_gap=0.50, confirm_days=2),
+    ):
+        built = build_daily_event_targets_from_scores(market, scores, _config(), spec)
+
+        assert built.selection_history["coin_id"].tolist() == ["a"] + ["b"] * 7
+        assert built.selection_history.loc[1, "event"] == "universe_exit"
+        assert all(
+            target.index.tolist() == ["b"]
+            for date, target in built.targets.items()
+            if date > dates[0]
+        )
+
+
+def test_daily_event_spec_has_no_opt_out_of_the_top20_exit() -> None:
+    # Holding a coin after it leaves the Top20 is a universe violation, not a
+    # sensitivity setting; run_momentum_event_ensemble once ran it as a
+    # "diagnostic" (the 41.52x/28.43x in RESEARCH 0.7). The switch is gone.
+    with pytest.raises(TypeError):
+        DailyEventSpec(exit_on_universe_drop=False)  # type: ignore[call-arg]

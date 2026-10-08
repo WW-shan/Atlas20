@@ -212,7 +212,9 @@ def main() -> None:
         help="Maximum gross exposure; Atlas20 research defaults to and requires 1.0.",
     )
     parser.add_argument("--regime", default="bull_only", choices=["bull_only", "always_on"])
-    parser.add_argument("--risk-off", default="cash", choices=["cash", "btc"])
+    # There is deliberately no --risk-off choice.  AGENTS.md: "Cash is the only
+    # defensive asset"; the legacy "--risk-off btc" parked the book in BTC
+    # whenever the BTC volatility stop turned off.
     parser.add_argument("--stop-lookback", type=int, default=30)
     parser.add_argument("--stop-vol-multiple", type=float, default=2.0)
     parser.add_argument(
@@ -252,8 +254,6 @@ def main() -> None:
         frequency=args.frequency,
         regime_mode=args.regime,
     ).targets
-    parked = None if args.risk_off == "cash" else pd.Series({"bitcoin": 1.0})
-
     trend_mask = absolute_trend_mask(market.price, args.ma_window)
     trend_targets = _apply_trend_filter(base, trend_mask)
 
@@ -271,8 +271,9 @@ def main() -> None:
         vol_multiple=args.stop_vol_multiple,
         confirm_days=1,
     )
-    stop_targets = apply_daily_risk_overlay(base, risk_on, risk_off_target=parked)
-    stop_trend_targets = apply_daily_risk_overlay(trend_targets, risk_on, risk_off_target=parked)
+    # risk_off_target=None: a risk-off day moves the whole book to cash.
+    stop_targets = apply_daily_risk_overlay(base, risk_on, risk_off_target=None)
+    stop_trend_targets = apply_daily_risk_overlay(trend_targets, risk_on, risk_off_target=None)
 
     variants = {
         "S1_baseline_top1": (base, None),
@@ -315,7 +316,7 @@ def main() -> None:
     print(f"BTC buy&hold total return: {btc_return:.4f} ({btc_return * 100:.1f}%)")
     print(f"Universe: sector_lead top{args.top_k} {args.frequency} liquidity={args.liquidity} "
           f"gate={config.universe.min_turnover_ratio} regime={args.regime} "
-          f"risk_off={args.risk_off}")
+          "risk_off=cash")
     print(f"Bull days: {int(regime['bull'].sum())}/{len(regime)}")
     print()
     print(table.to_string(index=False, float_format=lambda v: f"{v:,.4f}"))

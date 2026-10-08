@@ -156,8 +156,16 @@ def _rank_stop_asset_series(
     values: list[str] = []
     for date in base_assets.index:
         signal_date = pd.Timestamp(date)
+        base = str(base_assets.loc[signal_date])
         if signal_date in schedule_dates:
-            current = str(base_assets.loc[signal_date])
+            current = base
+            weak_days = 0
+            held_days = 0
+        elif not base:
+            # The BTC gate's cash days are part of the base path.  The rank
+            # stop must not keep the previous scheduled coin through a
+            # mid-period risk-off reversal.
+            current = ""
             weak_days = 0
             held_days = 0
         elif current:

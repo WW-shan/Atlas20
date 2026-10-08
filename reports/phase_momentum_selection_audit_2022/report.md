@@ -1,29 +1,57 @@
 # Phase-Momentum Selection Audit
 
-Every non-empty selection is checked against the point-in-time Top20 snapshot
-used by the strategy. A violation means the selected asset was absent from that
-snapshot, had no price, was Rain, or was a stablecoin.
+Every check uses the point-in-time Top20 snapshot the strategy ranked from and
+the provider's own print for the day (a carried, forward-filled price counts
+as missing):
+
+- every non-empty sleeve selection is in that date's snapshot, has a print, and
+  is not Rain, a configured stablecoin (`universe.stablecoin_ids`) or a
+  configured excluded id (`universe.excluded_ids`);
+- every evaluated date has a snapshot of exactly 20 coins;
+- on each sleeve's scheduled check the asset it holds ranks within the hold rank;
+- every positive weight of every traded aggregate target is in that date's
+  snapshot and has a print.
+
+Result: PASS: every violation count is zero.
 
 ## Summary
 
-| index | selection_rows | violations | missing_price_rows | outside_top20_rows | rain_rows | stablecoin_rows | max_universe_size | min_universe_size |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 10,308.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 20.0000 | 20.0000 |
+| check | count |
+| --- | --- |
+| selection_rows | 10308 |
+| violations | 0 |
+| missing_price_rows | 0 |
+| outside_top20_rows | 0 |
+| rain_rows | 0 |
+| stablecoin_rows | 0 |
+| excluded_id_rows | 0 |
+| dates_evaluated | 1725 |
+| dates_without_snapshot | 0 |
+| dates_with_wrong_size | 0 |
+| max_universe_size | 20 |
+| min_universe_size | 20 |
+| hold_rule_checked_rows | 3436 |
+| hold_rule_violations | 0 |
+| traded_rows | 990 |
+| traded_outside_top20 | 0 |
+| traded_without_price | 0 |
 
-## Violations
+## Selection violations
 
-| index | signal_date | signal_name | phase_offset | selected_asset | in_point_in_time_top20 | has_price | snapshot_size | is_rain | is_stablecoin |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| index | signal_date | signal_name | phase_offset | selected_asset | selected_rank | in_point_in_time_top20 | has_price | snapshot_size | is_rain | is_stablecoin | is_excluded_id |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
-## Universe size
+## Snapshot violations
 
-| index | rebalance_date | universe_size |
-| --- | --- | --- |
-| count | 1725 | 1,725.0000 |
-| mean | 2024-05-12 00:00:00 | 20.0000 |
-| min | 2022-01-01 00:00:00 | 20.0000 |
-| 25% | 2023-03-08 00:00:00 | 20.0000 |
-| 50% | 2024-05-12 00:00:00 | 20.0000 |
-| 75% | 2025-07-17 00:00:00 | 20.0000 |
-| max | 2026-09-21 00:00:00 | 20.0000 |
-| std | nan | 0.0000 |
+| index | date | universe_size | has_snapshot | wrong_size |
+| --- | --- | --- | --- | --- |
+
+## Hold-rule violations
+
+| index | signal_date | signal_name | phase_offset | selected_asset | selected_rank | hold_rule_ok |
+| --- | --- | --- | --- | --- | --- | --- |
+
+## Traded-target violations
+
+| index | target_date | asset | weight | in_point_in_time_top20 | has_price |
+| --- | --- | --- | --- | --- | --- |

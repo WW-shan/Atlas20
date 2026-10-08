@@ -27,12 +27,71 @@ for path in (PROJECT_ROOT, SRC_DIR):
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 
+from scripts.run_phase_momentum_multiple_testing import _dedupe_identical_columns  # noqa: E402
 from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E402
 from scripts.run_vol_target_walk_forward import _walk_forward  # noqa: E402
 
+# The neighbourhood that existed before any walk-forward result was seen.  The
+# trend-filter variants, their combinations and the parameter ensemble were
+# added afterwards; letting the selection rule choose among after-the-fact
+# additions leaks the full-sample result back into the out-of-sample test
+# (the published pool of 25 gave 20.78x, the 32-column matrix 29.23x).
+PRE_SPECIFIED_POOL: tuple[str, ...] = (
+    "primary",
+    "rebalance_1d",
+    "rebalance_2d",
+    "rebalance_5d",
+    "hold_rank_1",
+    "hold_rank_3",
+    "target_vol_0.6",
+    "target_vol_0.7",
+    "target_vol_0.9",
+    "target_vol_1.0",
+    "btc_ma_50",
+    "btc_ma_150",
+    "btc_ma_200",
+    "no_btc_gate",
+    "no_vol_target",
+    "fixed_stop_15",
+    "fixed_stop_20",
+    "fixed_stop_25",
+    "fixed_stop_30",
+    "fixed_stop_40",
+    "trailing_stop_15",
+    "trailing_stop_20",
+    "trailing_stop_25",
+    "trailing_stop_30",
+    "trailing_stop_40",
+)
+
+
+def _candidate_pool(
+    returns: pd.DataFrame,
+    requested: tuple[str, ...],
+) -> tuple[list[str], dict[str, str]]:
+    """The selection pool, failing on missing names and counting twins once."""
+    missing = [name for name in requested if name not in returns.columns]
+    if missing:
+        raise ValueError(f"candidate returns lack pool member(s): {', '.join(missing)}")
+    unique, duplicates = _dedupe_identical_columns(returns[list(requested)])
+    return list(unique.columns), duplicates
+
+
+def _with_start_day(returns: pd.Series) -> pd.Series:
+    """Prepend the zero-return start day that engine series begin with.
+
+    ``_metrics_from_returns`` annualizes over ``len - 1`` days and measures
+    drawdown from the first equity point, because an engine series opens with
+    a structural zero day.  A chained out-of-sample path (and a slice of BTC or
+    of the fixed primary) has no such day: without one the first real day fell
+    out of the CAGR period and a loss on it never counted as drawdown.
+    """
+    start = pd.Timestamp(returns.index.min()) - pd.Timedelta(days=1)
+    return pd.concat([pd.Series([0.0], index=pd.DatetimeIndex([start])), returns.astype(float)])
+
 
 def _summary_row(name: str, returns: pd.Series) -> dict[str, object]:
-    metrics = _metrics_from_returns(returns)
+    metrics = _metrics_from_returns(_with_start_day(returns))
     return {
         "strategy": name,
         "start": returns.index.min(),
@@ -102,7 +161,12 @@ def main() -> None:
     parser.add_argument(
         "--candidate-returns",
         type=Path,
-        default=Path("reports/phase_momentum_2022/parameter_returns.csv"),
+        default=Path("reports/phase_momentum_multiple_testing_2022/candidate_returns.csv"),
+    )
+    parser.add_argument(
+        "--candidates",
+        default=",".join(PRE_SPECIFIED_POOL),
+        help="Comma-separated selection pool; every name must be in the returns file.",
     )
     parser.add_argument("--train-days", type=int, default=365)
     parser.add_argument("--test-days", type=int, default=90)
@@ -117,9 +181,10 @@ def main() -> None:
 
     configure_logging("ERROR")
     returns = pd.read_csv(args.candidate_returns, parse_dates=["date"]).set_index("date").sort_index()
-    candidates = [column for column in returns.columns if column != "date"]
-    if not candidates:
-        raise ValueError("No candidate return columns found")
+    requested = tuple(item.strip() for item in args.candidates.split(",") if item.strip())
+    if not requested:
+        raise ValueError("No candidates requested")
+    candidates, duplicates = _candidate_pool(returns, requested)
     switch_costs = tuple(float(item.strip()) for item in args.switch_cost_bps.split(",") if item.strip())
     if not switch_costs or any(cost < 0.0 for cost in switch_costs):
         raise ValueError("switch-cost-bps must be a non-empty list of non-negative values")
@@ -166,6 +231,7 @@ def main() -> None:
         "candidate_returns": str(args.candidate_returns),
         "candidate_count": len(candidates),
         "candidates": candidates,
+        "identical_candidates_counted_once": duplicates,
         "train_days": args.train_days,
         "test_days": args.test_days,
         "selection_metric": args.selection_metric,

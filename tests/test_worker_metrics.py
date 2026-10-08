@@ -123,8 +123,8 @@ def test_worker_main_invokes_shadow_warning(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(worker_main, "_shutdown_requested", shutdown)
     monkeypatch.setattr(worker_main, "setup_signal_handlers", lambda: None)
     monkeypatch.setattr(worker_main, "start_metrics_server", lambda port: None)
-    monkeypatch.setattr(worker_main, "_recover_on_startup", lambda settings: None)
-    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self: None)
+    monkeypatch.setattr(worker_main, "_recover_orphaned_runs", lambda settings, monitor, worker_id: 0)
+    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self, **kwargs: None)
 
     worker_main.main()
 
@@ -165,8 +165,8 @@ def test_worker_main_stamps_poll_tick_gauge(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(worker_main, "_shutdown_requested", shutdown)
     monkeypatch.setattr(worker_main, "setup_signal_handlers", lambda: None)
     monkeypatch.setattr(worker_main, "start_metrics_server", lambda port: None)
-    monkeypatch.setattr(worker_main, "_recover_on_startup", lambda settings: None)
-    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self: None)
+    monkeypatch.setattr(worker_main, "_recover_orphaned_runs", lambda settings, monitor, worker_id: 0)
+    monkeypatch.setattr(worker_main.WorkerQueue, "claim_one", lambda self, **kwargs: None)
 
     worker_main.main()
 

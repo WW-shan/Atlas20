@@ -86,12 +86,15 @@ def _metrics_from_returns(returns: pd.Series, annualization_days: int = 365) -> 
     cagr = multiple ** (annualization_days / periods) - 1.0 if multiple > 0 else -1.0
     volatility = float(clean.std(ddof=0) * math.sqrt(annualization_days))
     sharpe = float(clean.mean() * annualization_days / volatility) if volatility > 0.0 else 0.0
-    drawdown = equity / equity.cummax() - 1.0
+    # The running peak starts at the starting capital (1.0). Without it a
+    # first-day loss was never a drawdown: [-10%, +5%] reported 0.0.
+    wealth = pd.concat([pd.Series([1.0]), equity], ignore_index=True)
+    drawdown = wealth / wealth.cummax() - 1.0
     return {
         "multiple": multiple,
         "cagr": cagr,
         "sharpe": sharpe,
-        "max_drawdown": float(drawdown.min()) if not drawdown.empty else 0.0,
+        "max_drawdown": float(drawdown.min()),
     }
 
 
@@ -110,10 +113,24 @@ def _phase_offsets(tranche_count: int, shift: int, cycle_days: int = DEFAULT_CYC
 
 
 def _combine_tranches(paths: dict[int, pd.Series], offsets: list[int]) -> pd.Series:
+    """Daily returns of a basket that funds each tranche equally once, then holds.
+
+    Every tranche receives the same share of the initial capital on the first
+    date and is never re-equalised, so the basket equity is the mean of the
+    tranche equity curves. The basket used to be the mean of the tranches'
+    daily returns: a free daily rebalance across tranches that no cost model
+    charged (21-tranche CTREND basket at 20 bps: 5.44x that way, 5.29x held).
+    Tranche paths must cover the same dates; a missing return is refused
+    instead of being averaged around.
+    """
     if not offsets:
         raise ValueError("offsets must be non-empty")
     frame = pd.concat([paths[offset].rename(offset) for offset in offsets], axis=1, sort=True)
-    return frame.mean(axis=1)
+    if frame.isna().to_numpy().any():
+        missing = [str(offset) for offset in frame.columns[frame.isna().any()]]
+        raise ValueError(f"Tranche returns are missing or misaligned for offsets {', '.join(missing)}")
+    basket = (1.0 + frame.astype(float)).cumprod().mean(axis=1)
+    return basket / basket.shift(1).fillna(1.0) - 1.0
 
 
 def _target_asset_series(targets: dict[pd.Timestamp, pd.Series], index: pd.DatetimeIndex) -> pd.Series:

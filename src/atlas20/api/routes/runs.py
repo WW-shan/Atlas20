@@ -13,10 +13,16 @@ from atlas20.api.services import ConsoleService, get_console_service
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
+# Paging bounds for GET /api/runs. Each listed run reads its artifacts from
+# disk, so the page size caps the work one (unauthenticated) request can cause;
+# the page cap keeps the SQL offset far inside SQLite's 64-bit integer range.
+MAX_RUNS_PAGE = 100_000
+MAX_RUNS_PAGE_SIZE = 100
+
 
 @router.get("/runs/queue", response_model=list[RunRowSummary], response_model_exclude_none=True)
 def get_runs_queue(
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     service: ConsoleService = Depends(get_console_service),
 ) -> list[RunRowSummary]:
     return service.list_runs_queue(session)
@@ -25,12 +31,12 @@ def get_runs_queue(
 @router.get("/runs", response_model=RunsListResponse, response_model_exclude_none=True)
 def get_runs(
     request: Request,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     q: str = "",
     chips: str = "",
     dateRange: Literal["7d", "30d", "90d", "ytd", "all"] = "30d",
-    page: int = Query(default=1, ge=1),
-    pageSize: int = Query(default=14, ge=1),
+    page: int = Query(default=1, ge=1, le=MAX_RUNS_PAGE),
+    pageSize: int = Query(default=14, ge=1, le=MAX_RUNS_PAGE_SIZE),
     service: ConsoleService = Depends(get_console_service),
 ) -> dict[str, Any]:
     allowed = set(HistoryFilter.model_fields)
@@ -57,7 +63,7 @@ def get_runs(
 @router.get("/runs/{run_id}", response_model=RunRow, response_model_exclude_none=True)
 def get_run(
     run_id: RunId,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     service: ConsoleService = Depends(get_console_service),
 ) -> RunRow:
     run = service.get_run(session, run_id)
@@ -69,7 +75,7 @@ def get_run(
 @router.get("/runs/{run_id}/detail", response_model=RunDetailPayload, response_model_exclude_none=True)
 def get_run_detail(
     run_id: RunId,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     service: ConsoleService = Depends(get_console_service),
 ) -> RunDetailPayload:
     detail = service.get_run_detail(session, run_id)
@@ -84,7 +90,7 @@ def post_run_favorite(
     request: Request,
     response: Response,
     run_id: RunId,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     service: ConsoleService = Depends(get_console_service),
 ) -> dict[str, Any]:
     del request, response
@@ -100,7 +106,7 @@ def cancel_run(
     request: Request,
     response: Response,
     run_id: RunId,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session, scope="function"),
     service: ConsoleService = Depends(get_console_service),
 ) -> dict[str, Any]:
     del request

@@ -10,6 +10,9 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 
 
 EXCLUDED_PATHS = {"/healthz", "/readyz", "/metrics"}
+# Requests that match no route share one label; raw paths are client-chosen
+# and would let anyone mint unbounded Prometheus series.
+UNMATCHED_HANDLER = "unmatched"
 HTTP_REQUESTS_TOTAL = Counter(
     "http_requests_total",
     "Total HTTP requests.",
@@ -25,7 +28,7 @@ HTTP_REQUEST_DURATION_SECONDS = Histogram(
 def _handler_for_request(request: Request) -> str:
     route = request.scope.get("route")
     route_path = getattr(route, "path", None)
-    return str(route_path) if route_path else request.url.path
+    return str(route_path) if route_path else UNMATCHED_HANDLER
 
 
 def instrument_metrics(app: FastAPI) -> None:

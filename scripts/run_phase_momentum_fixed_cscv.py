@@ -1,4 +1,14 @@
-"""CSCV stability check for the fixed primary and parameter-ensemble strategies."""
+"""Half-sample rank consistency for fixed phase-momentum candidates.
+
+This is an in-sample diagnostic, not an out-of-sample test.  CSCV enumerates
+every half of the blocks as a training set, so every "test" half is also some
+split's training half and the two percentile distributions are identical by
+construction.  The runner therefore reports one distribution: how often a
+fixed candidate ranks in the bottom half of its own family across half-samples.
+It cannot correct for a candidate having been chosen on the full sample; the
+selection-bias statistics (PBO, Deflated Sharpe, Reality Check) live in
+``scripts/run_phase_momentum_multiple_testing.py``.
+"""
 
 # ruff: noqa: E402
 
@@ -10,7 +20,6 @@ import json
 from pathlib import Path
 import sys
 
-import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -22,7 +31,12 @@ for path in (PROJECT_ROOT, SRC_DIR):
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 
-from scripts.run_phase_momentum_multiple_testing import _block_sharpes  # noqa: E402
+from scripts.run_phase_momentum_multiple_testing import (  # noqa: E402
+    _block_sharpes,
+    _cscv_blocks,
+    _dedupe_identical_columns,
+    _require_common_sample,
+)
 
 
 def main() -> None:
@@ -46,45 +60,43 @@ def main() -> None:
 
     configure_logging("ERROR")
     returns = pd.read_csv(args.candidate_returns, parse_dates=["date"]).set_index("date").sort_index()
+    returns = _require_common_sample(returns.apply(pd.to_numeric, errors="coerce"))
     candidates = [item.strip() for item in args.candidates.split(",") if item.strip()]
     missing = [candidate for candidate in candidates if candidate not in returns.columns]
     if missing:
         raise ValueError(f"Missing candidates: {missing}")
-    if args.cscv_blocks < 4 or args.cscv_blocks % 2 != 0:
-        raise ValueError("cscv-blocks must be an even integer >= 4")
-    block_size = len(returns) // args.cscv_blocks
-    blocks = [
-        frame
-        for _, frame in returns.groupby(np.arange(len(returns)) // block_size)
-    ][: args.cscv_blocks]
+    # Identical return series are one trial; rank each requested candidate
+    # through the column that represents it.
+    returns, duplicates = _dedupe_identical_columns(returns)
+    column_for = {candidate: duplicates.get(candidate, candidate) for candidate in candidates}
+    blocks = _cscv_blocks(returns, args.cscv_blocks)
     half = args.cscv_blocks // 2
     rows: list[dict[str, object]] = []
-    for train_indices in combinations(range(args.cscv_blocks), half):
-        train_set = set(train_indices)
-        test_indices = [index for index in range(args.cscv_blocks) if index not in train_set]
-        train = pd.concat([blocks[index] for index in train_indices], axis=0)
-        test = pd.concat([blocks[index] for index in test_indices], axis=0)
-        train_perf = _block_sharpes(train)
-        test_perf = _block_sharpes(test)
+    # Each half-sample appears exactly once here; its complement is another
+    # iteration of the same loop, so there is no separate "test" side.
+    for half_indices in combinations(range(args.cscv_blocks), half):
+        sample = pd.concat([blocks[index] for index in half_indices], axis=0)
+        performance = _block_sharpes(sample)
+        # Relative rank r / (N + 1), the CSCV paper's convention.
+        percentiles = performance.rank(method="average") / (len(performance) + 1.0)
         for candidate in candidates:
+            column = column_for[candidate]
             rows.append(
                 {
                     "candidate": candidate,
-                    "train_percentile": float(train_perf.rank(pct=True).loc[candidate]),
-                    "test_percentile": float(test_perf.rank(pct=True).loc[candidate]),
-                    "train_sharpe": float(train_perf.loc[candidate]),
-                    "test_sharpe": float(test_perf.loc[candidate]),
+                    "half_sample_blocks": "-".join(str(index) for index in half_indices),
+                    "half_sample_percentile": float(percentiles.loc[column]),
+                    "half_sample_sharpe": float(performance.loc[column]),
                 }
             )
     splits = pd.DataFrame(rows)
     summary = (
         splits.groupby("candidate")
         .agg(
-            splits=("test_percentile", "size"),
-            test_percentile_median=("test_percentile", "median"),
-            test_percentile_mean=("test_percentile", "mean"),
-            below_median_rate=("test_percentile", lambda values: float((values <= 0.5).mean())),
-            train_percentile_median=("train_percentile", "median"),
+            splits=("half_sample_percentile", "size"),
+            half_sample_percentile_median=("half_sample_percentile", "median"),
+            half_sample_percentile_mean=("half_sample_percentile", "mean"),
+            below_median_rate=("half_sample_percentile", lambda values: float((values <= 0.5).mean())),
         )
         .reset_index()
     )
@@ -94,16 +106,26 @@ def main() -> None:
     manifest = {
         "candidate_returns": str(args.candidate_returns),
         "cscv_blocks": args.cscv_blocks,
-        "cscv_combinations": len(splits) // len(candidates),
+        "half_samples": len(splits) // len(candidates),
         "candidates": candidates,
+        "family_size": int(len(returns.columns)),
+        "identical_candidates": duplicates,
+        "interpretation": "in-sample half-sample rank consistency; not out-of-sample evidence",
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     (output_dir / "report.md").write_text(
         "\n".join(
             [
-                "# Fixed-Strategy CSCV Stability",
+                "# Fixed-Candidate Half-Sample Rank Consistency",
                 "",
-                "This test does not select the best in-sample parameter. It measures how often each fixed candidate ranks below the median out of sample across CSCV splits.",
+                "This is an in-sample diagnostic and is not out-of-sample evidence. CSCV",
+                "enumerates every half of the blocks, so each candidate's percentile over the",
+                "\"test\" halves is the same distribution as over the \"training\" halves. The",
+                "table shows how consistently each fixed candidate ranks within its own family",
+                f"of {len(returns.columns)} distinct candidates across half-samples. It cannot",
+                "correct for a candidate having been chosen with the full sample in view; see",
+                "the PBO, Deflated Sharpe and Reality Check in",
+                "`reports/phase_momentum_multiple_testing_2022/` for that.",
                 "",
                 "## Summary",
                 "",

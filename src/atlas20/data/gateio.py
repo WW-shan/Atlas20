@@ -18,6 +18,7 @@ import pandas as pd
 import requests
 
 from atlas20.config import GateIOConfig
+from atlas20.data.cache_merge import describe_conflicts, fetch_ordered, merge_by_fetch_order
 from atlas20.logging_utils import get_logger
 
 GATE_COLUMNS = ["date", "gate_price", "gate_volume_usd"]
@@ -33,6 +34,8 @@ class GateIOClient:
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
+        # Conflicting duplicate dates found by the latest cache merge per pair.
+        self.duplicate_conflicts: dict[str, int] = {}
 
     def _cache_path(
         self,
@@ -121,9 +124,11 @@ class GateIOClient:
         frame["gate_volume_usd"] = pd.to_numeric(frame["gate_volume_usd"], errors="coerce")
         frame = frame.dropna(subset=["date", "gate_price"])
         frame = frame[frame["gate_price"] > 0]
+        # Stable sort: a date repeated inside one payload resolves to its later
+        # row deterministically instead of to whatever quicksort leaves last.
         return (
             frame[GATE_COLUMNS]
-            .sort_values("date")
+            .sort_values("date", kind="mergesort")
             .drop_duplicates("date", keep="last")
             .reset_index(drop=True)
         )
@@ -159,13 +164,20 @@ class GateIOClient:
         return self._frame_from_payload(payload)
 
     def load_daily_candles(self, symbol: str) -> pd.DataFrame:
-        """Load every cached Gate.io candle window for a symbol."""
+        """Load every cached Gate.io candle window for a symbol.
+
+        The processor caches a fresh 400-day window every day, so a date sits
+        in many files. The newest fetch wins (files are merged in fetch order,
+        see ``fetch_ordered``): a window fetched while a day was still trading
+        carries a provisional candle that a later window replaces. Copies that
+        disagree are logged and counted in ``duplicate_conflicts``.
+        """
         pair = self.resolve_pair(symbol)
         directory = self.raw_dir / "candles"
         if not directory.exists():
             return pd.DataFrame(columns=GATE_COLUMNS)
         frames: list[pd.DataFrame] = []
-        for path in sorted(directory.glob(f"{pair}_*.json")):
+        for path in fetch_ordered(directory.glob(f"{pair}_*.json")):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
@@ -173,7 +185,10 @@ class GateIOClient:
             frame = self._frame_from_payload(payload)
             if not frame.empty:
                 frames.append(frame)
-        if not frames:
-            return pd.DataFrame(columns=GATE_COLUMNS)
-        merged = pd.concat(frames, ignore_index=True)
-        return merged.sort_values("date").drop_duplicates("date", keep="last").reset_index(drop=True)
+        result = merge_by_fetch_order(
+            frames, value_columns=["gate_price", "gate_volume_usd"], columns=GATE_COLUMNS
+        )
+        self.duplicate_conflicts[pair] = result.conflicting_dates
+        if result.conflicting_dates:
+            self.logger.warning("Gate.io %s: %s", pair, describe_conflicts(result))
+        return result.frame

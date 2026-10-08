@@ -42,6 +42,20 @@ from atlas20.universe.builder import (  # noqa: E402
 )
 
 
+# AGENTS.md: "Cash is the only defensive asset when no eligible position passes
+# the rules."  The first version of this scan also "parked" the book in BTC (or
+# ETH) whenever the BTC stop turned off: 1100 of its 2218 recipes, one ETH
+# recipe, and CHAMPION_CANDIDATE_ID itself.  Those rows are non-compliant
+# trials.  Its initial_asset="btc" seed never did anything: the overlay dated
+# the seed on the first day of the whole panel (2020-10-03), before every
+# backtest window, and the engine only executes targets inside the window.
+CASH_PARKING = "cash"
+
+# AGENTS.md: "Top 20 only is a non-negotiable project constraint".  The legacy
+# --universe-size flag produced reports/convex_validation_2022_top50 (VOID).
+TOP20_UNIVERSE_SIZE = 20
+
+
 @dataclass(frozen=True)
 class CandidateDefinition:
     candidate_id: str
@@ -56,11 +70,17 @@ class CandidateDefinition:
     include_btc: bool
     overlay_set: str
     risk_off_asset: str
-    initial_asset: str
     stop_kind: str
     stop_lookback: int | None
     stop_confirm_days: int
     ma_window: int | None
+
+    def __post_init__(self) -> None:
+        if self.risk_off_asset != CASH_PARKING:
+            raise ValueError(
+                f"{self.candidate_id} parks in {self.risk_off_asset!r} on risk-off; "
+                "cash is the only defensive asset"
+            )
 
 
 LIQUIDITY_SETS: dict[str, tuple[int, float]] = {
@@ -71,45 +91,41 @@ LIQUIDITY_SETS: dict[str, tuple[int, float]] = {
 
 
 OVERLAY_SETS: dict[str, dict[str, object]] = {
+    # The "btc_" names describe the BTC stop signal, not the parking asset.
     "champion_like": {
         "stop_kind": "trailing",
         "stop_lookback": 11,
         "stop_confirm_days": 2,
         "ma_window": None,
-        "risk_off_asset": "btc",
-        "initial_asset": "btc",
+        "risk_off_asset": CASH_PARKING,
     },
     "btc_fast_stop": {
         "stop_kind": "trailing",
         "stop_lookback": 10,
         "stop_confirm_days": 1,
         "ma_window": None,
-        "risk_off_asset": "cash",
-        "initial_asset": "btc",
+        "risk_off_asset": CASH_PARKING,
     },
     "btc_medium_stop": {
         "stop_kind": "trailing",
         "stop_lookback": 14,
         "stop_confirm_days": 2,
         "ma_window": None,
-        "risk_off_asset": "btc",
-        "initial_asset": "btc",
+        "risk_off_asset": CASH_PARKING,
     },
     "btc_ma_defensive": {
         "stop_kind": "ma",
         "stop_lookback": None,
         "stop_confirm_days": 2,
         "ma_window": 100,
-        "risk_off_asset": "cash",
-        "initial_asset": "btc",
+        "risk_off_asset": CASH_PARKING,
     },
     "no_stop_control": {
         "stop_kind": "none",
         "stop_lookback": None,
         "stop_confirm_days": 1,
         "ma_window": None,
-        "risk_off_asset": "cash",
-        "initial_asset": "cash",
+        "risk_off_asset": CASH_PARKING,
     },
 }
 
@@ -149,12 +165,6 @@ LEADER_MOMENTUM_WEIGHTS: dict[str, dict[str, float]] = {
     },
 }
 
-
-PARKING_TARGETS: dict[str, pd.Series | None] = {
-    "cash": None,
-    "btc": pd.Series({"bitcoin": 1.0}),
-    "eth": pd.Series({"ethereum": 1.0}),
-}
 
 CHAMPION_CANDIDATE_ID = (
     "champion_ablation__leader_momentum__top1__14d__base__loose__with_btc__"
@@ -242,7 +252,6 @@ STABILITY_REQUIRED_COLUMNS: tuple[str, ...] = (
     "stop_confirm_days",
     "ma_window",
     "risk_off_asset",
-    "initial_asset",
     "multiple",
 )
 
@@ -266,8 +275,7 @@ def _champion_ablation_overlays() -> dict[str, dict[str, object]]:
             "stop_lookback": stop_lookback,
             "stop_confirm_days": 2,
             "ma_window": None,
-            "risk_off_asset": "btc",
-            "initial_asset": "btc",
+            "risk_off_asset": CASH_PARKING,
         }
         for stop_lookback in (10, 11, 12, 13, 14, 15)
     }
@@ -277,33 +285,17 @@ def _champion_ablation_overlays() -> dict[str, dict[str, object]]:
             "stop_lookback": 11,
             "stop_confirm_days": confirm_days,
             "ma_window": None,
-            "risk_off_asset": "btc",
-            "initial_asset": "btc",
+            "risk_off_asset": CASH_PARKING,
         }
     overlays["champion_ablation_no_stop"] = {
         "stop_kind": "none",
         "stop_lookback": None,
         "stop_confirm_days": 1,
         "ma_window": None,
-        "risk_off_asset": "btc",
-        "initial_asset": "btc",
+        "risk_off_asset": CASH_PARKING,
     }
-    overlays["champion_ablation_cash_parking"] = {
-        "stop_kind": "trailing",
-        "stop_lookback": 11,
-        "stop_confirm_days": 2,
-        "ma_window": None,
-        "risk_off_asset": "cash",
-        "initial_asset": "cash",
-    }
-    overlays["champion_ablation_eth_parking"] = {
-        "stop_kind": "trailing",
-        "stop_lookback": 11,
-        "stop_confirm_days": 2,
-        "ma_window": None,
-        "risk_off_asset": "eth",
-        "initial_asset": "eth",
-    }
+    # The legacy "cash_parking" arm is now identical to stop11 and the
+    # "eth_parking" arm is forbidden, so both are gone (2218 -> 2216 recipes).
     return overlays
 
 
@@ -346,7 +338,6 @@ def _candidate_from_parts(
         include_btc=include_btc,
         overlay_set=overlay_set,
         risk_off_asset=str(overlay["risk_off_asset"]),
-        initial_asset=str(overlay["initial_asset"]),
         stop_kind=str(overlay["stop_kind"]),
         stop_lookback=overlay["stop_lookback"] if isinstance(overlay["stop_lookback"], int) else None,
         stop_confirm_days=int(overlay["stop_confirm_days"]),
@@ -826,17 +817,6 @@ def _build_base_targets_uncached(
     )
 
 
-def _parking_target(candidate: CandidateDefinition, asset: str, field_name: str) -> pd.Series | None:
-    try:
-        return PARKING_TARGETS[asset]
-    except KeyError as exc:
-        known_assets = ", ".join(sorted(PARKING_TARGETS))
-        raise ValueError(
-            f"Unknown {field_name} for {candidate.candidate_id}: {asset!r}; "
-            f"expected one of: {known_assets}"
-        ) from exc
-
-
 def _candidate_targets(
     market: MarketDataBundle,
     universe_by_liquidity: dict[str, pd.DataFrame],
@@ -854,12 +834,9 @@ def _candidate_targets(
 
     base_targets = _build_base_targets(market, universe, config, candidate)
     risk_on = _risk_on_series(market, candidate)
-    return apply_daily_risk_overlay(
-        base_targets,
-        risk_on,
-        risk_off_target=_parking_target(candidate, candidate.risk_off_asset, "risk_off_asset"),
-        initial_target=_parking_target(candidate, candidate.initial_asset, "initial_asset"),
-    )
+    # risk_off_target=None is an all-cash book (CandidateDefinition only
+    # accepts cash parking); there is no initial seed.
+    return apply_daily_risk_overlay(base_targets, risk_on, risk_off_target=None)
 
 
 def _friction_with_total_cost(
@@ -1318,7 +1295,6 @@ def _candidate_surface_matches(candidate: pd.Series, neighbor: pd.Series) -> boo
         "liquidity_label",
         "stop_kind",
         "risk_off_asset",
-        "initial_asset",
     )
     if any(
         not _matches_when_present(neighbor, candidate, column) for column in exact_columns
@@ -1453,8 +1429,13 @@ def compute_contribution_summary(
             index=weights.index,
             columns=weights.columns,
         ).fillna(0.0)
+        # weights.loc[t] is the book held through day t (after that day's T+1
+        # trade), so it earns day t's return with no shift.  The legacy
+        # weights.shift(1) dropped each holding's first day and credited a
+        # sold coin with the day after its exit, which skewed the top1/3/5
+        # single-asset dependence shares.
         contribution = (
-            weights.shift(1).fillna(0.0).mul(asset_returns).sum(axis=0).sort_values(
+            weights.mul(asset_returns).sum(axis=0).sort_values(
                 ascending=False,
                 kind="mergesort",
             )
@@ -2089,6 +2070,11 @@ def _build_universe_variants(
     market: MarketDataBundle,
     config: ResearchConfig,
 ) -> dict[str, pd.DataFrame]:
+    if int(config.universe.universe_size) != TOP20_UNIVERSE_SIZE:
+        raise ValueError(
+            f"config.universe.universe_size={config.universe.universe_size}; "
+            "the convex scan runs on the point-in-time Top20 only"
+        )
     if market.price.empty:
         rebalance_index = market.price.index
     else:
@@ -2133,7 +2119,6 @@ def _matching_liquidity_rows(
         "stop_confirm_days",
         "ma_window",
         "risk_off_asset",
-        "initial_asset",
     ]
     mask = pd.Series(True, index=summary.index)
     for column in match_columns:
@@ -2220,12 +2205,8 @@ def main() -> None:
     )
     parser.add_argument("--start-date", default=None, help="Override the backtest start date.")
     parser.add_argument("--end-date", default=None, help="Override the backtest end date.")
-    parser.add_argument(
-        "--universe-size",
-        type=int,
-        default=None,
-        help="Override the point-in-time Top-N universe size (for example 50).",
-    )
+    # There is deliberately no --universe-size: the universe is the
+    # point-in-time Top20, and the output directory never depends on a size.
     parser.add_argument(
         "--screen-only",
         action="store_true",
@@ -2234,16 +2215,17 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config)
-    if args.start_date or args.end_date or args.universe_size is not None:
+    if int(config.universe.universe_size) != TOP20_UNIVERSE_SIZE:
+        parser.error(
+            f"{args.config} sets universe_size={config.universe.universe_size}; "
+            "this scan runs on the point-in-time Top20 only"
+        )
+    if args.start_date or args.end_date:
         config = config.model_copy(deep=True)
         if args.start_date:
             config.start_date = args.start_date
         if args.end_date:
             config.end_date = args.end_date
-        if args.universe_size is not None:
-            if args.universe_size <= 0:
-                parser.error("--universe-size must be positive")
-            config.universe.universe_size = args.universe_size
     configure_logging(config.logging.level)
     sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))
     panel, metadata = build_processed_datasets(config, sector_config, persist=False)

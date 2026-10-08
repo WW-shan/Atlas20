@@ -72,29 +72,31 @@ describe("StrategyCompareTab", () => {
     expect(screen.getByRole("button", { name: "Add strategy" })).toBeInTheDocument();
   });
 
-  it("renders 8 metric rows in ComparisonTable", () => {
+  it("renders 8 metric rows in ComparisonTable", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    const table = screen.getByRole("table", { name: "Metric comparison table" });
+    const table = await screen.findByRole("table", { name: "Metric comparison table" });
     const bodyRows = table.querySelectorAll("tbody tr");
     expect(bodyRows.length).toBe(8);
   });
 
-  it("marks best CAGR cell as ATLAS via data-best", () => {
+  it("marks best CAGR cell as ATLAS via data-best", async () => {
     const { container } = renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+    await screen.findByRole("table", { name: "Metric comparison table" });
     const bestCagr = container.querySelector('[data-metric="cagr"][data-best="true"]');
     expect(bestCagr).not.toBeNull();
     expect(bestCagr?.getAttribute("data-strategy")).toBe("atlas");
   });
 
-  it("marks best Max DD cell as MeanRev (lower-is-better)", () => {
+  it("marks best Max DD cell as MeanRev (lower-is-better)", async () => {
     const { container } = renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+    await screen.findByRole("table", { name: "Metric comparison table" });
     const bestDd = container.querySelector('[data-metric="max_dd"][data-best="true"]');
     expect(bestDd?.getAttribute("data-strategy")).toBe("meanrev");
   });
 
-  it("renders Jaccard heatmap with 9 cells (3x3)", () => {
+  it("renders Jaccard heatmap with 9 cells (3x3)", async () => {
     const { container } = renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    const heatmap = screen.getByRole("table", { name: "Jaccard holdings overlap heatmap" });
+    const heatmap = await screen.findByRole("table", { name: "Jaccard holdings overlap heatmap" });
     const cells = heatmap.querySelectorAll("[data-row]");
     expect(cells.length).toBe(9);
     // 3 diagonal cells
@@ -102,31 +104,31 @@ describe("StrategyCompareTab", () => {
     expect(diag.length).toBe(3);
   });
 
-  it("renders top shared holdings with 5 rows", () => {
+  it("renders top shared holdings with 5 rows", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    const list = screen.getByRole("list", { name: "Top shared holdings" });
+    const list = await screen.findByRole("list", { name: "Top shared holdings" });
     const items = list.querySelectorAll("[role='listitem']");
     expect(items.length).toBe(5);
     expect(screen.getByText("SOL")).toBeInTheDocument();
     expect(screen.getByText("TIA")).toBeInTheDocument();
   });
 
-  it("range tablist starts at YTD active", () => {
+  it("range tablist starts at YTD active", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    const ytdTab = screen.getByRole("tab", { name: "YTD" });
+    const ytdTab = await screen.findByRole("tab", { name: "YTD" });
     expect(ytdTab.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("clicking 1Y range updates active range tab", () => {
+  it("clicking 1Y range updates active range tab", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    fireEvent.click(screen.getByRole("tab", { name: "1Y" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "1Y" }));
     expect(screen.getByRole("tab", { name: "1Y" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tab", { name: "YTD" }).getAttribute("aria-selected")).toBe("false");
   });
 
-  it("equity overlay chart has accessible name with range", () => {
+  it("equity overlay chart has accessible name with range", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
-    expect(screen.getByRole("img", { name: /Equity overlay across 3 strategies, range YTD/ })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /Equity overlay across 3 strategies, range YTD/ })).toBeInTheDocument();
   });
 
   it("opens add strategy modal with presets from getOptions", async () => {
@@ -180,6 +182,23 @@ describe("StrategyCompareTab", () => {
     expect(new URLSearchParams(window.location.search).get("ids")?.split(",")).toHaveLength(5);
   });
 
+  it("keeps existing selections' ids and colors when adding a strategy", async () => {
+    renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add strategy" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add strategy" });
+    fireEvent.click(within(dialog).getByRole("option", { name: "ATLAS v3" }));
+    fireEvent.click(within(dialog).getByRole("option", { name: "Base Config" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(api.getCompare).toHaveBeenLastCalledWith(["momentum", "meanrev", "base"], "YTD"));
+    const tones = within(screen.getByRole("list", { name: "Selected strategies" }))
+      .getAllByRole("listitem")
+      .map((chip) => chip.getAttribute("data-tone"));
+    expect(tones.slice(0, 2)).toEqual(["violet", "cyan"]);
+    expect(new Set(tones).size).toBe(tones.length);
+  });
+
   it("canceling add strategy preserves the previous compare selection", async () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
 
@@ -199,6 +218,28 @@ describe("StrategyCompareTab", () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
 
     expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
+  });
+
+  it("does not render placeholder comparison data while the real comparison loads", () => {
+    vi.mocked(api.getCompare).mockImplementation(() => new Promise<api.ComparePayload>(() => {}));
+
+    renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+
+    expect(screen.queryByRole("table", { name: "Metric comparison table" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Jaccard holdings overlap heatmap" })).not.toBeInTheDocument();
+    expect(screen.queryByText("DEMO DATA")).not.toBeInTheDocument();
+  });
+
+  it("keeps the previous real comparison visible while a new range loads", async () => {
+    renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
+    expect(await screen.findByLabelText("atlas × momentum: 0.25")).toBeInTheDocument();
+
+    vi.mocked(api.getCompare).mockImplementation(() => new Promise<api.ComparePayload>(() => {}));
+    fireEvent.click(screen.getByRole("tab", { name: "1Y" }));
+
+    await waitFor(() => expect(api.getCompare).toHaveBeenLastCalledWith(["atlas", "momentum", "meanrev"], "1Y"));
+    expect(screen.getByLabelText("atlas × momentum: 0.25")).toBeInTheDocument();
+    expect(screen.queryByText("DEMO DATA")).not.toBeInTheDocument();
   });
 
   it("renders compare error banner and retries the compare query", async () => {
@@ -295,6 +336,17 @@ describe("StrategyCompareTab", () => {
     // list would clobber any user edits made between the two fetches.
     expect(screen.getAllByText("ETH Benchmark · Bull Only").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("TOP20_SECTOR_top4_monthly__bull_only")).not.toBeInTheDocument();
+  });
+
+  it("does not seed placeholder presets as compare selections when /api/options fails", async () => {
+    vi.mocked(api.getOptions).mockRejectedValue(new api.ApiError("Internal server error", { status: 500 }));
+
+    renderWithQuery(<StrategyCompareTab />);
+
+    expect(await screen.findByText("Unable to load strategy options: Internal server error")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Selected strategies" });
+    expect(list.querySelectorAll("[role='listitem']")).toHaveLength(0);
+    expect(api.getCompare).not.toHaveBeenCalled();
   });
 
   it("keeps fallback strategy options visible while options are loading", async () => {

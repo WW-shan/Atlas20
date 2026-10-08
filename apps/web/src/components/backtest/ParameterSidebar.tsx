@@ -1,4 +1,4 @@
-import type { BacktestConfig } from "../../lib/api";
+import { RESEARCH_UNIVERSE_TOP_N, type BacktestConfig } from "../../lib/api";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Button } from "../ui/Button";
 
@@ -27,15 +27,11 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius-input)",
 };
 
-const FALLBACK_PRESETS = [
-  { slug: "base", display_name: "Base Config" },
-  { slug: "five_year_2020_2024", display_name: "Five Year 2020 2024" },
-  { slug: "five_year_exact_2021_04_22_2026_04_22", display_name: "Five Year Exact 2021 04 22 2026 04 22" },
-  { slug: "bear_bottom_to_current_2022_11_21_2026_04_22", display_name: "Bear Bottom To Current 2022 11 21 2026 04 22" },
-];
-
 export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing, presets }: Props) {
-  const options = presets && presets.length > 0 ? presets : FALLBACK_PRESETS;
+  // Presets come only from /api/options. Until they load (or if the request
+  // fails) offer just the current value; hardcoded slugs without a backend
+  // config were rejected as unknown presets or silently ran base.yaml.
+  const options = presets ?? [];
   const fullList = options.some((p) => p.slug === value.preset) ? options : [{ slug: value.preset, display_name: value.preset }, ...options];
   return (
     <aside
@@ -68,19 +64,11 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing
 
       <div>
         <SectionHeader>UNIVERSE</SectionHeader>
-        <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-          Top-N
-          <span className="mono" style={{ color: "var(--text)" }}>N = {value.universe.topN}</span>
-        </label>
-        <input
-          type="range"
-          min={5}
-          max={50}
-          value={value.universe.topN}
-          onChange={(e) => onChange({ ...value, universe: { ...value.universe, topN: Number(e.target.value) } })}
-          aria-label="Top-N universe size"
-          style={{ width: "100%", accentColor: "var(--violet)" }}
-        />
+        {/* Fixed by project constraint (AGENTS.md): point-in-time Top 20 only. */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+          Top-N · point-in-time market cap
+          <span className="mono" style={{ color: "var(--text)" }}>N = {RESEARCH_UNIVERSE_TOP_N}</span>
+        </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginTop: 12 }}>
           <input
             type="checkbox"

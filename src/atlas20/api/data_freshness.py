@@ -373,9 +373,10 @@ def evaluate_data_freshness(settings: Settings, *, now: datetime | None = None) 
             f"primary data lag {(now.date() - primary).days}d exceeds "
             f"{settings.data_freshness_max_primary_lag_days}d"
         )
-    elif state_status == "failed" and checked_at is not None and checked_at.date() == now.date():
-        status, reason = "failed", state_error or "today's refresh failed"
     elif last_success_at is not None and last_success_at.date() == now.date():
+        # Today's data landed. A retry that fails afterwards changes no data,
+        # so it is reported in the reason instead of failing the feed until
+        # midnight; a failure is only the outcome when nothing succeeded today.
         if no_advance_days >= settings.data_freshness_max_no_advance_days:
             status = "stalled"
             reason = f"primary date did not advance for {no_advance_days} calendar day(s)"
@@ -383,6 +384,10 @@ def evaluate_data_freshness(settings: Settings, *, now: datetime | None = None) 
             status, reason = "stale", "refresh completed without a primary date"
         else:
             status, reason = "ok", "today's refresh completed"
+        if state_status == "failed" and checked_at is not None and checked_at > last_success_at:
+            reason = f"{reason}; a later retry failed at {_iso(checked_at)}: {state_error or 'unknown error'}"
+    elif state_status == "failed" and checked_at is not None and checked_at.date() == now.date():
+        status, reason = "failed", state_error or "today's refresh failed"
     elif now < deadline:
         status = "running" if state_status == "running" else "pending"
         reason = f"waiting for today's refresh deadline {_iso(deadline)}"

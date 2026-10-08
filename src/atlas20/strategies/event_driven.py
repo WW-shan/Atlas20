@@ -10,7 +10,9 @@ ground used in the research:
 * keep the current leader while it remains inside a hold-rank band;
 * switch only after a confirmation window, or when the challenger's score
   exceeds the incumbent by a no-trade gap;
-* enforce a minimum holding period before any discretionary switch.
+* enforce a minimum holding period before any discretionary switch;
+* exit an incumbent that has left the point-in-time universe at once; that
+  exit is not discretionary and ignores the minimum hold.
 
 Signals are emitted on close ``t`` and the backtest engine executes them on
 ``t+1``.  No leverage or shorting is introduced here.
@@ -34,13 +36,20 @@ from atlas20.universe.builder import MarketDataBundle
 
 @dataclass(frozen=True)
 class DailyEventSpec:
-    """Parameters controlling the daily leader hysteresis rule."""
+    """Parameters controlling the daily leader hysteresis rule.
+
+    There is deliberately no switch for the Top20 exit: an incumbent absent
+    from the day's scored point-in-time Top20 is always exited, whatever the
+    minimum hold or confirmation says. It used to be an opt-in flag
+    (``exit_on_universe_drop``, default False), and the default held coins that
+    had left the Top20 for up to ``min_hold_days`` (mh5/hr2/gap0.10/c1 held one
+    on 17 signal days: 69.95x at 20 bps as run versus 19.69x with the exit).
+    """
 
     min_hold_days: int = 5
     hold_rank: int = 3
     switch_score_gap: float = 0.05
     confirm_days: int = 1
-    exit_on_universe_drop: bool = False
 
     def __post_init__(self) -> None:
         if self.min_hold_days < 0:
@@ -145,19 +154,23 @@ def build_daily_event_targets_from_scores(
                 held_days = 0
                 weak_days = 0
                 event = "enter"
+            elif current_asset not in scores.index:
+                # The incumbent is not in today's scored Top20 snapshot: it
+                # left the point-in-time universe (or cannot be scored, which
+                # makes it ineligible too). Exit now and rotate into the
+                # leader; min-hold and confirmation only govern switches
+                # between eligible coins.
+                current_asset = top_asset
+                held_days = 0
+                weak_days = 0
+                event = "universe_exit"
             else:
-                missing_from_universe = current_asset not in scores.index
-                if not missing_from_universe:
-                    current_score = float(scores.loc[current_asset])
-                    current_rank = int(scores.index.get_loc(current_asset)) + 1
-                    weak_days = weak_days + 1 if current_rank > spec.hold_rank else 0
-                else:
-                    weak_days += 1
+                current_score = float(scores.loc[current_asset])
+                current_rank = int(scores.index.get_loc(current_asset)) + 1
+                weak_days = weak_days + 1 if current_rank > spec.hold_rank else 0
 
-                can_switch = held_days >= spec.min_hold_days or (
-                    spec.exit_on_universe_drop and missing_from_universe
-                )
-                gap = top_score - current_score if np.isfinite(current_score) else np.inf
+                can_switch = held_days >= spec.min_hold_days
+                gap = top_score - current_score
                 gap_trigger = top_asset != current_asset and gap >= spec.switch_score_gap
                 rank_trigger = weak_days >= spec.confirm_days
                 if can_switch and (gap_trigger or rank_trigger):

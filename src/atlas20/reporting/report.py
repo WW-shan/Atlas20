@@ -15,7 +15,7 @@ import time
 import pandas as pd
 
 from atlas20.api._time import utc_iso_from_timestamp, utc_now_iso
-from atlas20.backtest.engine import BacktestResult
+from atlas20.backtest.engine import GAP_CARRY_COLUMNS, BacktestResult
 from atlas20.config import ResearchConfig
 
 
@@ -174,6 +174,7 @@ def _artifact_kind(path: Path) -> str:
         "drawdowns.csv": "drawdowns",
         "turnover_summary.csv": "turnover",
         "selection_history.csv": "selection_history",
+        "gap_carries.csv": "gap_carries",
     }
     return mapping.get(path.name, path.suffix.lstrip(".") or "file")
 
@@ -260,6 +261,25 @@ def _build_selection_history(results: dict[str, BacktestResult]) -> pd.DataFrame
     return history.sort_values(["rebalance_date", "strategy", "coin_rank"]).reset_index(drop=True)
 
 
+def _build_gap_carries(results: dict[str, BacktestResult]) -> pd.DataFrame:
+    """Every holding carried through a provider gap, and every stale fill, per strategy.
+
+    Written even when empty, so a report shows that nothing was carried rather
+    than leaving the question open.
+    """
+    frames = [
+        result.gap_carries.assign(strategy=name)
+        for name, result in results.items()
+        if not result.gap_carries.empty
+    ]
+    columns = ["strategy", *GAP_CARRY_COLUMNS]
+    if not frames:
+        return pd.DataFrame(columns=columns)
+    carries = pd.concat(frames, ignore_index=True)[columns]
+    carries["date"] = pd.to_datetime(carries["date"]).dt.strftime("%Y-%m-%d")
+    return carries.sort_values(["strategy", "date", "asset"]).reset_index(drop=True)
+
+
 def _write_result_tables(
     results: dict[str, BacktestResult],
     summary: pd.DataFrame,
@@ -290,6 +310,7 @@ def _write_result_tables(
         result.weights.to_csv(weights_dir / f"{safe_strategy_name}.csv")
 
     _build_selection_history(results).to_csv(report_dir / "selection_history.csv", index=False)
+    _build_gap_carries(results).to_csv(report_dir / "gap_carries.csv", index=False)
 
 
 def _temporary_report_dir(report_dir: Path) -> Path:

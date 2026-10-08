@@ -306,3 +306,32 @@ def test_selection_history_collapses_duplicate_rebalance_dates(tmp_path: Path) -
     weights_by_coin = first_date.set_index("coin_id")["coin_weight"].to_dict()
     assert pytest.approx(weights_by_coin["bitcoin"], rel=1e-6) == 0.60
     assert pytest.approx(weights_by_coin["ethereum"], rel=1e-6) == 0.40
+
+
+def test_export_result_tables_lists_every_gap_carry_by_strategy(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+    results, summary, yearly_returns, regime_performance = _inputs()
+    results["TOP20_EQ__always_on"].gap_carries = pd.DataFrame(
+        {
+            "date": [pd.Timestamp("2024-01-03")],
+            "asset": ["solana"],
+            "weight": [0.30],
+            "event": ["carried"],
+        }
+    )
+
+    export_result_tables(results, summary, yearly_returns, regime_performance, report_dir)
+
+    carries = pd.read_csv(report_dir / "gap_carries.csv")
+    assert carries.columns.tolist() == ["strategy", "date", "asset", "weight", "event"]
+    assert carries.values.tolist() == [["TOP20_EQ__always_on", "2024-01-03", "solana", 0.30, "carried"]]
+
+
+def test_export_result_tables_writes_an_empty_gap_carry_table_when_nothing_was_carried(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "run_001"
+
+    _export(report_dir)
+
+    carries = pd.read_csv(report_dir / "gap_carries.csv")
+    assert carries.empty
+    assert carries.columns.tolist() == ["strategy", "date", "asset", "weight", "event"]
