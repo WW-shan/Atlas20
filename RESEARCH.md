@@ -83,6 +83,7 @@
 - **解读**：样本外开局为正，并跑赢同期 BTC；但 16 天远远不足以通过 DSR、PBO、参数邻域和多年份稳健性门槛。冠军仍然是 **provisional**，这段结果不能用来解除任何门槛，也不能反过来成为调参依据。
 - **最新信号（截至 2026-10-07）**：BTC 100D 闸门开启；12 个 sleeve 的聚合目标为 `NEAR 68.37%`，生产引擎当前漂移仓位为 `NEAR 70.62%`；最近一次目标日期为 2026-10-03，因此当前 `trade_required=false`；下一次检查日期为 2026-10-08。
 - **数据链修正（2026-10-08 刷新）**：EOS、HT、MKR 在迁移/退市后 CMC 仍打印 legacy 价格但 `marketCap=0`。处理器现在截断「最后一次正市值之后、超出 7 天宽限」的纯价格尾部，并把「市值 feed 已结束、当前独立缓存无法回看比对」的资产标记为 `crosscheck_historical_unverified`：历史保留（point-in-time 名单不重写），但市值结束日之后永不参与排名；审计对这类资产报 WARN 而非 FAIL，已证实的分歧仍然 FAIL。HT 的 34 行价格级损坏（已移除）在缺口检查中按文档化移除豁免为 WARN。数据链审计现为 **FAIL=0**（42 PASS / 9 WARN）。
+- **对研究样本无影响（已核验）**：被截断的行全部在「最后一次正市值」之后；`build_rebalance_universe` 对 carry 来的市值明确拒绝排名（逐日记录 "no same-day market cap from CMC"）。在 2022-01-01 → 2026-10-07 的日频名单里，EOS、HT 从未进入 universe，MKR 最后一次进入是 2023-10-14（其市值 feed 结束于 2025-05-25），因此被截断的行不可能被选中或持有；冠军与 H2-H4（样本到 2026-09-21）的选币名单和组合收益不会因本次截断而改变。
 - **复现**：`.venv/bin/python scripts/run_phase_momentum_oos.py --end-date 2026-10-07`；最新信号 `.venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live`。报告在 `reports/phase_momentum_oos_2026/`，不包含任何参数搜索。
 
 ---
