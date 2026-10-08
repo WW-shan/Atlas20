@@ -218,7 +218,24 @@ def _patch_inputs(
             captured.update(start_date=start_date, end_date=end_date)
         return config, market, pd.DataFrame(), index
 
+    def assess_last_day(_config, end):
+        # The synthetic inputs are a finished panel; the real (gitignored)
+        # data/processed/panel_daily.csv is not present on a CI runner, so the
+        # completeness check must be faked here rather than read from disk.
+        return LastDayCompleteness(
+            date=pd.Timestamp(end),
+            complete=True,
+            assets=len(market.price.columns),
+            median_volume_ratio=1.0,
+            low_volume_share=0.0,
+            market_cap_coverage=1.0,
+            volume_floor=0.6,
+            reasons=(),
+            low_volume_assets=(),
+        )
+
     monkeypatch.setattr(live, "_load_market", load_market)
+    monkeypatch.setattr(live, "_assess_last_day", assess_last_day)
     monkeypatch.setattr(live, "build_phase_momentum_targets", lambda *args, **kwargs: built)
 
 

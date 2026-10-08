@@ -70,24 +70,50 @@ def _synthetic_market() -> tuple[MarketDataBundle, pd.DataFrame, pd.DatetimeInde
     return _market(price), _universe(rows), index
 
 
+_DIGEST_DECIMALS = 9
+
+
 def _digest(built) -> str:
+    """Quantised digest of the default targets, exposures and selection history.
+
+    Floats are formatted to ``_DIGEST_DECIMALS`` places before hashing. The
+    pipeline is deterministic across refactors, but the last bit of a float
+    depends on the CPU/architecture: macOS arm64 (the research box) and the
+    Linux CI runner differ by at most 1.1e-16 on this synthetic market
+    (measured 2026-10-08), and hashing raw ``repr`` turned that one-ULP
+    difference into a spurious digest mismatch. Nine decimals still catches any
+    real change; the held-asset sets stay exact and the history's float columns
+    are quantised the same way.
+    """
+
+    def _quantised(value: float) -> str:
+        return f"{float(value):.{_DIGEST_DECIMALS}f}"
+
     targets = [
-        [str(pd.Timestamp(date).date()), [[str(asset), repr(float(weight))] for asset, weight in series.items()]]
+        [str(pd.Timestamp(date).date()), [[str(asset), _quantised(weight)] for asset, weight in series.items()]]
         for date, series in sorted(built.targets.items())
     ]
-    exposures = [[str(pd.Timestamp(date).date()), repr(float(value))] for date, value in sorted(built.exposures.items())]
-    history = built.selection_history.to_csv(index=False)
-    payload = json.dumps({"targets": targets, "exposures": exposures, "history": history}, sort_keys=True)
+    exposures = [[str(pd.Timestamp(date).date()), _quantised(value)] for date, value in sorted(built.exposures.items())]
+    history_frame = built.selection_history.copy()
+    for column in history_frame.columns:
+        if pd.api.types.is_float_dtype(history_frame[column]):
+            history_frame[column] = history_frame[column].map(
+                lambda value: None if pd.isna(value) else float(f"{float(value):.{_DIGEST_DECIMALS}f}")
+            )
+    payload = json.dumps(
+        {"targets": targets, "exposures": exposures, "history": history_frame.to_csv(index=False)}, sort_keys=True
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 # Digest of build_phase_momentum_targets(PhaseMomentumSpec()) on _synthetic_market(),
 # computed with src/atlas20/strategies/phase_momentum.py *before* the opt-in fields
-# were added (working tree of 2026-09-25, md5 1ed7313b65cb785075f646c35d5cedf2).
-DEFAULT_TARGETS_DIGEST = "da7475f37e9dcac7413f259d65ceac44731f06b52e9f067a7a4d7139d99842ee"
+# were added (working tree of 2026-09-25, md5 1ed7313b65cb785075f646c35d5cedf2),
+# re-quantised to 9 decimals so it is stable across CPU architectures.
+DEFAULT_TARGETS_DIGEST = "f745bcbbdf3ade50af26d972ccb7155096f2dffc380c6419b33d25ed03c28c23"
 
 
-def test_default_targets_are_byte_identical_to_the_pre_change_champion() -> None:
+def test_default_targets_match_the_pre_change_champion() -> None:
     market, universe, index = _synthetic_market()
 
     built = build_phase_momentum_targets(market, universe, index, spec=PhaseMomentumSpec())

@@ -38,7 +38,10 @@ dev = [
   "pytest>=8.0",
   "httpx>=0.28",
   "pip-audit>=2.7",
-  "ruff>=0.6",
+  # Pinned: ruff 0.16 widened its default rule set, so the lint job failed on
+  # code the project's venv (0.15.17) had always passed. Upgrade deliberately
+  # with `ruff check --fix src tests` plus a full test run.
+  "ruff==0.15.17",
   "mypy>=1.11",
 ]
 
