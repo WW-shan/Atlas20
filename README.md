@@ -52,7 +52,10 @@ tracked out of sample instead, and a small pre-registered round (H2-H4 in
 risk variants (8.79x / 19.90x at 20bps) and H4 was rejected; the pre-declared neighbourhood
 round run afterwards (6 new trials on 2026-10-08) showed H2 keeps its criterion only when
 MA200 is dropped and H3 only at the 0.55 threshold, so neither is a robust replacement for
-the frozen champion (see `RESEARCH.md` section 00.6).
+the frozen champion (see `RESEARCH.md` section 00.6). A pre-declared entrant attribution check
+(`RESEARCH.md` section 00.7) shows the champion's return comes from long-standing Top20 incumbents,
+not from temporary new entrants (-8% to -9% of total contribution at the live +3h fill), which
+answers the survivor-momentum critique of the crypto momentum literature directly.
 
 See `RESEARCH.md` section 0.3 for the reproduction commands in dependency order and
 `reports/phase_momentum_*` for the reports. This is research, not a guarantee of future
