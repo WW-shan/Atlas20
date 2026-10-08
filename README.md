@@ -63,8 +63,10 @@ but 16 days are far too short to validate the strategy or clear the failed gates
 It is **provisional, not validated**. It clears 20x at the baseline 2bps cost even with realistic
 fills, but one AGENTS.md gate still fails: the Deflated Sharpe against the project's real trial
 count is **0.860** at the protocol fill (+3h, worse missing-candle policy; 6,135 Top20 trials since
-2022). That cannot be fixed on the same sample; the frozen specification is tracked out of sample
-instead. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
+2022). `scripts/analyze_dsr_gap.py` prices that gap: holding the return distribution's shape fixed,
+the gate needs an annualized Sharpe of **1.846** against today's 1.623, i.e. **+13.7%**, not a
+missing decimal. It cannot be fixed on the same sample by re-cutting the trial count; the frozen
+specification is tracked out of sample instead. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
 00.13). A pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes

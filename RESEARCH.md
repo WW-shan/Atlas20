@@ -319,6 +319,15 @@
 - **kill criterion（预注册并已实装进评估器，20bps +3h 较差缺 K 线）**：`MDD improvement 8.71pp >= 5pp`（MDD -0.3697 vs B -0.4567）✔；`Sharpe 1.6231 > H3 1.4658` ✔；`1 年滚动最差 0.8063 > H3 0.7325` ✔。2bps（+9.02pp / 1.7223 > 1.5504 / 0.8130 > 0.7507）与 50bps（+8.21pp / 1.4570 > 1.3240 / 0.7517 > 0.6728）同判 → **通过**（`reports/phase_momentum_hypotheses_2026_10/kill.csv`）。H5 是本项目**第一个既通过 kill criterion、又通过 PBO 的规格**。
 - **仍然失败 / 未证明的门槛**（任何一条都不因切换而解除；H5 仍为 **provisional**，tier 2「risk variant recorded」）：
   - **DSR**：协议口径 **0.860**（+1h 0.901，收盘 0.892）< 0.95 → **失败**（H3 0.755、B 0.675，同一口径）。DSR 用 `top20_2022_trials` 的 **N=6,135**（本轮把 3 个 H5 试验并入台账后重建的 `reports/research_trial_inventory/summary.json`，N 6,132→6,135）与家庭内 N=36 两个口径；家庭内 DSR 0.999 只是说明「在本家族里它是最强的」，不解除项目级门槛。
+  - **DSR 差距有多远（新增，`scripts/analyze_dsr_gap.py`，`reports/phase_momentum_dsr_gap/`）**：保持 H5 协议日收益的分布形状（波动、偏度、峰度）不变、只把均值抬到刚好让 DSR = 0.95，需要的年化 Sharpe 是：
+
+| DSR 口径 | N | E[max] 年化 | 现在 DSR | 现在的 Sharpe | 达到 0.95 所需 Sharpe | 差距 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| family（本族候选） | 36 | 0.398 | **0.999** ✅ | 1.623 | 1.623 | 已通过 |
+| top20_2022_trials（项目口径） | 6,135 | 1.180 | 0.860 ❌ | 1.623 | **1.846** | **+13.7%** |
+| all_trials | 14,129 | 1.244 | 0.822 ❌ | 1.623 | **1.908** | **+17.6%** |
+
+    这是**反事实定价**，不是可达性声明：它说明项目级 DSR 门槛要求 Sharpe 再高约 14%，而不是「差一点」。同一份计算也说明为什么不能靠换口径过关——只有 family 口径会通过，而 family 口径不反映选择历史。
   - **PBO**：**通过**。把 H5 三档（0.60/0.75/0.90）与 H3 三档一起并入原 30 个单规格变体（去重后 **36 个候选**）重跑 CSCV（`scripts/build_phase_momentum_extended_candidates.py` + `scripts/run_phase_momentum_multiple_testing.py`；`reports/phase_momentum_multiple_testing_overlays/`）：**PBO = 0.192 < 0.5 → 通过**（H3 0.558、B 0.526，两者都是 fail）。H5(0.75) 是该族里被选中最多的候选（623/924），且全样本收盘 Sharpe 最高（1.6836）。White Reality Check：对零 p=0.019，对 BTC p=0.025。
   - **参数邻域**：**稳健**。预注册邻域 0.60/0.90 在 2/20/50bps 下都**保持** H5 的 kill criterion（H5-T60 协议口径 13.63x / Sharpe 1.540 / MDD -36.3%；H5-T90 21.68x / 1.555 / -37.0%）。收益对分位敏感（0.60 明显更低，18.16x@2bps vs 26.51x），但**风险指标（MDD、1 年滚动最差）对三档单调且稳健**——这正是采用 H5 的理由，不是收益。
   - **单资产依赖**：§00.9 的结论（12 个 sleeve 实际是 1–2 币组合）对 H5 同样成立；H5 没有降低对单一币的依赖。
@@ -350,11 +359,13 @@
       --returns-file reports/phase_momentum_multiple_testing_overlays/candidate_returns.csv \
       --candidates primary,h3_breadth_050,h5_disp_p75 \
       --output-dir reports/phase_momentum_regime_overlays
-  # 6) 实盘信号与样本外跟踪
+  # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
+  .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
+  # 7) 实盘信号与样本外跟踪
   .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
   .venv/bin/python scripts/run_phase_momentum_oos.py --trial-id PR2026-10-H5 --end-date 2026-10-07
   ```
-  明细：`reports/phase_momentum_candidate_eval_h5/`、`reports/phase_momentum_multiple_testing_overlays/`、`reports/phase_momentum_regime_overlays/`、`reports/phase_momentum_hypotheses_2026_10/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
+  明细：`reports/phase_momentum_candidate_eval_h5/`、`reports/phase_momentum_multiple_testing_overlays/`、`reports/phase_momentum_regime_overlays/`、`reports/phase_momentum_dsr_gap/`、`reports/phase_momentum_hypotheses_2026_10/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
 
 ---
 
@@ -1084,6 +1095,20 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 路径 | 内容 | 状态 |
 |---|---|---|
 | `RESEARCH.md` | **本文，唯一权威结论** | ✅ 权威 |
+| `docs/research/literature_review_2026-09.md` | H1–H5 的预注册规则、参数来源与 kill criterion（H5 于 2026-10-08 追加） | ✅ 权威预注册 |
+| `reports/phase_momentum_hypotheses_2026_10/` | H2–H5 预注册试验：判据、DSR、Reality Check、压力窗口、逐年、逐币归因 | ✅ 当前权威 |
+| `reports/phase_momentum_candidate_eval_h5/` | B / H3 / H5 与两族邻域的同口径横评（含 DSR） | ✅ 当前权威 |
+| `reports/phase_momentum_multiple_testing_overlays/` | 36 候选族的 CSCV/PBO（H5 = 0.192，首个通过）、DSR、Reality Check | ✅ 当前权威 |
+| `reports/phase_momentum_regime_overlays/` | B / H3 / H5 的 bull 与 non-bull 拆分 | ✅ 当前权威 |
+| `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
+| `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
+| `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
+| `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |
+| `reports/phase_momentum_oos_2026/` | 冻结规格自 2026-09-22 起的样本外跟踪 | ✅ 当前 |
+| `reports/phase_momentum_multiple_testing_2022/` | 30 个单规格变体的 CSCV/PBO（B = 0.526） | ✅ 历史基线 |
+| `reports/phase_momentum_candidate_eval/` | H3 采用时的横评快照 | ⚠️ 已被 §00.13 取代 |
+| `reports/phase_momentum_multiple_testing_h3/` | H3 的 PBO（0.558，fail） | ⚠️ 历史 |
+| `reports/research_trial_inventory/` | 试验台账、DSR 分母（Top20/2022 = 6,135）与 manifest | ✅ 权威计数 |
 | `reports/trend_stop_champion_2022/` | 固定 21D 冠军结果、逐年、子区间、目标历史、最新信号、基础选币审计 | ⚠️ 相位敏感，只能作为上尾参考 |
 | `reports/trend_stop_validation_2022/` | MA20-200 × confirm1-3 每日自身趋势止损全扫 + fresh rolling | ✅ 权威研究 |
 | `reports/event_driven_validation_2022/` | 176 组每日事件/hysteresis + 36 组每日 rank-stop 混合；用于证明每日轮动未采用 | ✅ 权威研究 |

@@ -401,13 +401,26 @@ Each decision gets the project rule, the in-project evidence, what the literatur
 
 ## 4. Pre-registered hypotheses for the next round
 
-Four hypotheses, fixed before any backtest. Three target fragility or drawdown, one targets execution latency; none is designed to add return. Each primary run counts as one trial. The diagnostic runs listed under each hypothesis are declared here and logged, but they are attribution runs and may not be promoted to candidates.
+Four hypotheses, fixed before any backtest. Three target fragility or drawdown, one targets execution latency; none is designed to add return. H5 was added on 2026-10-08 in a second, separately pre-registered round (mechanism and full rule below; registered in `reports/research_trial_inventory/preregistered_trials.csv` before it ran).
+
+Each primary run counts as one trial. The diagnostic runs listed under each hypothesis are declared here and logged, but they are attribution runs and may not be promoted to candidates.
 
 > **2026-10-08 addendum.** The pre-declared neighbourhoods were run this day, after H2 and H3 passed their
 > kill criteria: six new ledger trials (H2 leave-one-window-out x4; H3 thresholds 0.45/0.55), registered
 > before running. Results and the updated multiple-testing count are in `RESEARCH.md` section 00.6. The panel
 > also grew from the 101 coins recorded above to 102 at the CMC refresh; the frozen research window and the
 > point-in-time membership rule are unchanged.
+
+> **2026-10-08 addendum (H5).** H5 was registered in the ledger, run through the production engine, and it
+> **passed** its kill criterion at 2/20/50 bps (MDD improvement 8.71 pp over B, Sharpe 1.623 vs H3's 1.466,
+> one-year rolling worst 0.806 vs H3's 0.733 at the protocol setting). Its pre-declared 0.60/0.90 percentile
+> neighbourhoods both keep the criterion. It is also the first specification in this project to pass the PBO
+> gate (**0.192** over the extended 36-candidate family; H3 0.558 and B 0.526 both fail). It remains provisional:
+> the Deflated Sharpe over the project's 6,135 Top20/2022 trials is **0.860 < 0.95**, and the protocol return
+> (19.53x at 20 bps +3h) is below 20x, the "recorded risk variant" case written into the kill criterion. H5 was
+> adopted as the frozen specification on that basis; the full record, including the two evaluator defects fixed
+> during the adoption (a missing H5 entry in `NEIGHBOURHOOD_IDS` and H5 falling through to H4's criterion), is
+> in `RESEARCH.md` section 00.13.
 
 ### 4.0 Common protocol
 
@@ -497,14 +510,57 @@ Four hypotheses, fixed before any backtest. Three target fragility or drawdown, 
 
 **Kill criterion.** Reject unless, at 20 bps with +3h fills (worse policy), maximum drawdown improves by at least 5 percentage points and D1d is above the champion's 0.52. A pass below 20x is recorded as a risk variant, and RESEARCH.md should then describe the champion's one-coin sleeves as trading robustness for return. Pre-declared neighbourhood if it passes: N = 3 with a top-6 band and N = 5 with a top-10 band.
 
+### H5. Cross-sectional dispersion overlay
+
+**Question.** Cross-sectional dispersion predicts momentum breakdowns better than market volatility in crypto; does scaling the book down while dispersion sits above its own recent quantile cut drawdown and lift Sharpe without giving up the 20x return?
+
+**Rule.** Keep every champion and H3 rule and multiply each sleeve's target weight by
+`dispersion_factor(D) = min(1, rolling 252-day P75 of dispersion / dispersion(D))`, where `dispersion(D)` is
+the cross-sectional standard deviation (ddof = 1) of the point-in-time Top20's trailing 21-day returns on
+day D; a day with fewer than five usable members has no reading and leaves the factor at 1. The registered
+primary construction is the H3 blend (champion + Top20 breadth co-gate at 0.50, mixed 50/50 at the target
+level) with the overlay applied to both books, so H5 is a change to the then-frozen specification rather
+than to the champion alone. Gross exposure still caps at 1: the overlay can only de-risk.
+
+**Parameters and their sources.** Mechanism: Makgolo and Zhang (2026), "Cross-Sectional Dispersion and the
+State Dependence of Cryptocurrency Momentum", SSRN 6648082 - dispersion predicts momentum breakdowns better
+than BTC volatility, and a dispersion-scaled book cut maximum drawdown from -42.5% to -17.1% (Sharpe 0.63 to
+0.80). The paper's exact scaling function could not be read (SSRN blocks the full text), so the
+`min(1, rolling-percentile / current)` form is the in-project analogue of the volatility target the champion
+already uses. 21 days is the project's shortest documented momentum horizon; 252 days and the 0.75 target are
+in-project choices fixed before running, on the screening in `RESEARCH.md` section 00.12.
+
+**Rationale.** Section 3.5's volatility scaling reacts to each coin's own volatility. The cross-sectional
+co-movement of returns is a different state variable. The screening in `RESEARCH.md` section 00.12 found the
+top dispersion quintile of the point-in-time Top20 earns -0.17% over the following 21 days against +6.11% for
+the other four quintiles (Spearman -0.196), and inverse-dispersion scaling was the only screened overlay that
+kept 20x at 20 bps while lifting Sharpe.
+
+**Expected direction.** Lower maximum drawdown and a higher Sharpe, at or slightly below the H3 return.
+
+**Test.** 2/20/50/100 bps; +3h fills under both missing-candle policies; lag 0 and lag 1 day; turnover (the
+overlay's extra turnover must be charged, unlike the screening); entrant attribution; the 2020-10 to 2021-12
+stress window; the bull/non-bull split.
+
+**Kill criterion.** Reject unless, at 20 bps with +3h fills (worse policy), all hold: MDD(H5) - MDD(B) >=
+0.05, Sharpe(H5) > Sharpe(H3), and the one-year rolling worst multiple is above H3's. The same verdict is
+required at 2 and 50 bps. A pass below 20x is recorded as a risk variant. Pre-declared neighbourhood if it
+passes: the dispersion-target percentiles 0.60 and 0.90.
+
+**Deviation stated before running.** The section 00.12 screening applied the overlay to H3's daily returns
+without charging its extra turnover; this run charges everything through the production engine at the target
+event. The screening also only ever saw the blend, so "overlay on both books" is an in-project choice
+disclosed here rather than a screened result.
+
 ### 4.5 Trial budget
 
 | Item | Runs | Counted as |
 |---|---:|---|
 | H1-H4 primary runs | 4 | new trials (N rises from 6,119 to 6,123) |
+| H5 primary run (added 2026-10-08, registered before running) | 1 | new trial (N 6,132 -> 6,133; H5's own neighbourhood adds 2 more after its pass) |
 | Cost and fill-policy repeats (2/20/50/100 bps x 2 policies, lag 0 and lag 1d) | per hypothesis | the same trial at different stress settings |
 | Declared diagnostic runs: H1 (i) and the four H2 single-window reruns at +3h. H1 (ii) and (iii) are statistics of the H1 run, not extra runs | 5 | logged, never promotable |
-| Pre-declared neighbourhoods (only after a pass) | at most 4 (H2) + 2 (H3) + 2 (H4) | new trials, logged before running |
+| Pre-declared neighbourhoods (only after a pass) | at most 4 (H2) + 2 (H3) + 2 (H4) + 2 (H5) | new trials, logged before running |
 
 ---
 

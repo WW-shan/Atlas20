@@ -1,0 +1,8 @@
+{
+  "script": "scripts/analyze_dsr_gap.py",
+  "returns": "reports/phase_momentum_hypotheses_2026_10/returns_20bps.csv",
+  "column": "PR2026-10-H5|h3_day_close|20",
+  "trial_summary": "reports/research_trial_inventory/summary.json",
+  "candidate_sharpes": "reports/phase_momentum_multiple_testing_overlays/candidate_sharpes.csv",
+  "target": 0.95
+}
