@@ -65,7 +65,19 @@ fills, but one AGENTS.md gate still fails: the Deflated Sharpe against the proje
 count is **0.860** at the protocol fill (+3h, worse missing-candle policy; 6,135 Top20 trials since
 2022). `scripts/analyze_dsr_gap.py` prices that gap: holding the return distribution's shape fixed,
 the gate needs an annualized Sharpe of **1.846** against today's 1.623, i.e. **+13.7%**, not a
-missing decimal. It cannot be fixed on the same sample by re-cutting the trial count; the frozen
+missing decimal.
+
+`RESEARCH.md` section 00.14 asks where that 13.7% is lost, and returns a negative result that
+closes a direction. The worst months are concentrated: 2023-04 lost **-19.3%** while BTC rose
+**+2.8%**, with the BTC gate open all month and average gross exposure at 90% - and the dispersion
+factor was **1.000 every day** (dispersion sat at 0.59 of its own 252-day 75th percentile, the state
+the mechanism calls favourable for momentum). Comparing the nine months at or below -8% against the
+other 44, none of the six observable state variables (BTC gate, breadth, dispersion ratio, market
+volatility, the strategy's own trailing 63-day return, gross exposure) separates them by more than
+**0.4 standard deviations**. H5's Sharpe gain comes from cutting volatility across the board, not
+from dodging crashes, and another overlay from the same family is unlikely to close the gap - it
+would only raise the trial count, and with it the required Sharpe. Closing it needs a genuinely new
+information source, confirmed out of sample; the trial count is not re-cut, and the frozen
 specification is tracked out of sample instead. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and

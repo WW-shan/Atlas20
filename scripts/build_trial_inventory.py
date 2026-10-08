@@ -164,6 +164,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "phase_momentum_asset_attribution_h3": "per-coin attribution of H3 (trials counted via the ledger)",
     "phase_momentum_book_concentration": "book concentration of the primary (no new configuration)",
     "phase_momentum_candidate_eval": "side-by-side re-listing of registered trials (counted via the ledger)",
+    "phase_momentum_crash_states": "crash-month state diagnostic of the frozen trial (no configuration)",
     "phase_momentum_candidate_eval_h5": "side-by-side re-listing of registered trials (counted via the ledger)",
     "phase_momentum_dispersion_diagnostic": "diagnostic screening of the dispersion mechanism (no configuration)",
     "phase_momentum_dsr_gap": "prices the Deflated Sharpe gap of a saved return series (no configuration)",

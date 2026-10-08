@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-08（§00.10 候选同口径横评与 DSR 口径修正；§00.11 采用 H3；§00.12 横截面离散度筛查；§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-08（§00.11 采用 H3；§00.12 横截面离散度筛查；§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断（否定性结果）；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -361,11 +361,52 @@
       --output-dir reports/phase_momentum_regime_overlays
   # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
   .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
+  # 6b) 崩溃月归因：有没有状态变量能标记最差月份（§00.14）
+  .venv/bin/python scripts/analyze_momentum_crash_states.py --output-dir reports/phase_momentum_crash_states
   # 7) 实盘信号与样本外跟踪
   .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
   .venv/bin/python scripts/run_phase_momentum_oos.py --trial-id PR2026-10-H5 --end-date 2026-10-07
   ```
   明细：`reports/phase_momentum_candidate_eval_h5/`、`reports/phase_momentum_multiple_testing_overlays/`、`reports/phase_momentum_regime_overlays/`、`reports/phase_momentum_dsr_gap/`、`reports/phase_momentum_hypotheses_2026_10/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
+
+### 00.14 2026-10-08 诊断：DSR 差距不能靠「再加一层市场状态 overlay」补上（否定性结果）
+
+> 背景：§00.13 把 H5 的 DSR 差距定价为「年化 Sharpe 还需再高 **13.7%**」。本节先做归因，回答「这 13.7% 到底亏在哪、能不能靠再叠一层状态变量补上」，再决定要不要开新试验。**本节只做诊断：不预注册、不新增试验、不改变冻结规格。**
+
+- **亏损集中度**：H5 协议口径（20bps、+3h）57 个日历月里 17 个月为负（29.8%；同期 BTC 为 25/57）。回撤主要由**少数几个月**贡献。最扎眼的是「大盘上涨、策略却大跌」的月份：2023-04（H5 **-19.3%** vs BTC +2.8%）、2024-01（-10.6% vs +0.8%）、2023-07（-11.4% vs -4.1%），以及 2024-04（-19.0% vs -15.0%，这一类主要是市场型）。
+- **这些月份叠加层在干什么**（`scripts/analyze_momentum_crash_states.py`；`reports/phase_momentum_crash_states/`）：
+
+| 月份 | H5（净） | BTC | BTC 闸门开 | disp_ratio | gross |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2023-04 | **-19.3%** | +2.8% | 100% | **0.59** | **0.90** |
+| 2024-04 | -19.0% | -15.0% | 100% | 0.69 | 0.34 |
+| 2023-07 | -11.4% | -4.1% | 100% | 1.66 | 0.34 |
+| 2024-01 | -10.6% | +0.8% | 100% | 0.70 | 0.41 |
+
+  （`disp_ratio` = 当日离散度 / 其自身 252 日 75 分位；< 1 表示叠加层认为「离散度不高」，factor 保持 1。）
+
+- **关键观察**：2023-04 的 disp_ratio 全月均值 **0.59** —— 离散度一直低于 75 分位，**factor 全程 = 1.000，叠加层根本没触发**，而 gross 高达 **90%**。也就是说，除了市场型下跌之外，最伤人的「大盘没事、动量自己反转」月份恰好落在叠加层的**盲区**里（低离散度，按 Makgolo–Zhang 的机制本该对动量*有利*）。当月亏损来自 OKB（-7.7pp）、cardano（-2.8pp）、ripple（-2.3pp）、dogecoin（-1.1pp）；2024-01 来自 internet-computer（-6.4pp）、ethereum-classic（-3.0pp）。
+- **状态变量筛查（否定性结果）**：把 9 个崩溃月（≤ -8%）与其余 44 个月对比 6 个**当日可观测**的状态变量：
+
+| 状态变量 | 崩溃月均值 | 其余月均值 | 差值 / 其余月标准差 |
+| --- | ---: | ---: | ---: |
+| BTC 闸门开 | 0.650 | 0.499 | +0.35 |
+| breadth | 0.370 | 0.480 | -0.37 |
+| disp_ratio | 0.751 | 0.943 | -0.38 |
+| 市场 60D 已实现波动 | 0.718 | 0.705 | +0.06 |
+| 策略自身过去 63 日收益 | 0.217 | 0.122 | +0.36 |
+| gross | 0.310 | 0.266 | +0.18 |
+
+  **没有一个变量的区分度超过 0.4σ。** 换句话：在这一族状态变量里找不到能标记崩溃月的变量，因此**再加一层同族 overlay 更可能只是增加试验数**（分母变大、所需 Sharpe 反而更高），而不是补上 13.7%。
+- **结论（方向性）**：
+  1. H5 的 Sharpe 增益（1.466 → 1.623）来自**整体降波动**，不是靠躲过崩溃月 —— 崩溃月不在它的状态空间里。
+  2. 要补上 13.7% 的 Sharpe，需要**这一族（价格动量 / 波动 / 宽度 / 离散度）之外的新信息源**，而不是继续微调现有状态变量。
+  3. 本节是**样本内假设生成**：即便将来某个变量能区分崩溃月，也必须在预注册后由样本外数据确认，才可能改规则。**当前冻结规格不变。**
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/analyze_momentum_crash_states.py
+  ```
+  明细：`reports/phase_momentum_crash_states/monthly_state.csv`、`state_separation.csv`、`report.md`。
 
 ---
 
@@ -1101,6 +1142,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_multiple_testing_overlays/` | 36 候选族的 CSCV/PBO（H5 = 0.192，首个通过）、DSR、Reality Check | ✅ 当前权威 |
 | `reports/phase_momentum_regime_overlays/` | B / H3 / H5 的 bull 与 non-bull 拆分 | ✅ 当前权威 |
 | `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
+| `reports/phase_momentum_crash_states/` | 崩溃月与可观测状态变量的对照（否定性结果：无变量区分度 > 0.4σ） | ✅ 当前权威 |
 | `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
 | `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
 | `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |

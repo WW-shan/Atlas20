@@ -1,0 +1,12 @@
+{
+  "script": "scripts/analyze_momentum_crash_states.py",
+  "trial_id": "PR2026-10-H5",
+  "returns_file": "reports/phase_momentum_hypotheses_2026_10/returns_20bps.csv",
+  "column": "PR2026-10-H5|h3_day_close|20",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "crash_threshold": -0.08,
+  "monthly_observations": 53,
+  "crash_months": 9
+}
