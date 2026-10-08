@@ -236,7 +236,7 @@
 - **+1h 实盘目标口径**（若 CMC 发布时间探针证明 00:30 UTC 前可拿到 D-1 收盘）：H3 **23.44x** / Sharpe 1.534 / MDD **-33.4%** / DSR 0.808；B 21.22x / 1.398 / -46.6% / 0.703。H3 在 +1h 口径下同时站上 20x。
 - **仍然失败 / 未证明的门槛**（与 §00.1 相同，只是数字换成 H3；任何一条都不因切换而解除）：
   - **DSR**：协议口径 **0.758**（+1h 0.808）< 0.95 → **失败**。
-  - **PBO**：尚未对 H3 计算（B 为 0.526）→ **未证明**，按 AGENTS.md 不得当作通过。
+  - **PBO**：已补算 → **失败**。在同一 20bps、收盘成交口径下，把 H3 三档（0.45/0.50/0.55）并入原 30 个单规格变体（去重后 33 个候选）重跑 CSCV（`scripts/run_phase_momentum_multiple_testing.py`，与 §00.1 的 B 同一方法，先复现 B 的 0.525974 再算）：**PBO = 0.558**（B 为 0.526）。只看 H3 邻域的口径更差：H3 三档 + B 共 4 个候选为 **0.658**，只看 H3 三档为 **0.775**。H3 (0.50) 在这族里的全样本收盘 Sharpe 最高（1.5233），也是被选中最多的候选（334/924），但样本外排名落在中位数以下的比例仍 >50%。结论：**PBO 门槛对 H3 同样不通过**（B 也不通过），切换规格不能解除这道门槛；这与 §00.10 的采用理由一致——采用 H3 靠的是回撤优势，不是 PBO。
   - **参数窄峰**：收益对宽度阈值敏感（+1h 下 0.45/0.50/0.55 → 22.87x/23.44x/18.62x，0.50 是峰值，0.45 只低 2.4%）；该阈值来自 §0.8 样本内 5 点网格，属**二次选择**。**回撤优势是单调且稳健的**（-34.6%/-33.4%/-30.2%），这才是采用 H3 的主要理由。
   - **单资产依赖**：§00.9 的结论（12 个 sleeve 实际是 1–2 币组合）对两个 book 都成立；H3 没有降低对单一币的依赖，只是用宽度闸门把 book B 在风险期转现金。
 - **样本外**：2026-09-22 → 2026-10-07 的 16 天窗口里，宽度共闸从未触发（breadth 始终 ≥ 0.50），因此 H3 与 B 的收益逐位相同（+3h 20bps **1.0883x**，MDD -10.57%）。这段窗口原本是 B 的冻结窗口，对 H3 也是切参前数据，但**不构成 H3 的独立证据**。`reports/phase_momentum_oos_2026/` 现已切换为跟踪 H3（manifest `trial_id=PR2026-10-H3`，report.md 首行标明 tracked specification）；B 的旧快照保留在 git 历史与本文件 §00.5。
@@ -245,8 +245,13 @@
   ```bash
   .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
   .venv/bin/python scripts/run_phase_momentum_oos.py --trial-id PR2026-10-H3 --end-date 2026-10-07
+  # H3 的 PBO（把 H3 三档并入原候选族后重跑 CSCV）
+  .venv/bin/python scripts/build_phase_momentum_h3_candidates.py
+  .venv/bin/python scripts/run_phase_momentum_multiple_testing.py \
+      --candidate-returns reports/phase_momentum_multiple_testing_h3/candidate_returns.csv \
+      --primary h3_breadth_050 --output-dir reports/phase_momentum_multiple_testing_h3
   ```
-  明细：`reports/phase_momentum_candidate_eval/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
+  明细：`reports/phase_momentum_candidate_eval/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`、`reports/phase_momentum_multiple_testing_h3/`。
 
 ---
 

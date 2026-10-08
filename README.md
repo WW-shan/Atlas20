@@ -57,8 +57,8 @@ It is **provisional, not validated**. It clears 20x at the baseline 2bps cost ev
 realistic fills, but two AGENTS.md gates fail: the Deflated Sharpe against the project's real
 trial count is **0.758** at the protocol fill (+3h, worse missing-candle policy; 6,132 Top20
 trials since 2022), and the result sits on a narrow parameter peak (the 0.50 breadth threshold,
-picked in an earlier in-sample grid; PBO is **not yet computed** for H3, and the pre-switch B's
-PBO was 0.526). Neither can be fixed on the same sample; the frozen specification is tracked
+picked in an earlier in-sample grid; PBO is **0.558** for H3 over the extended candidate family,
+also a fail, versus 0.526 for the pre-switch B). Neither can be fixed on the same sample; the frozen specification is tracked
 out of sample instead, and the pre-registered round (H2-H4 in
 `docs/research/literature_review_2026-09.md`) is logged in
 `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H3 was adopted as
@@ -582,8 +582,8 @@ co-gate** (book B), inside the strict point-in-time Top20:
 | Max drawdown | -35.6% | -37.9% | -41.4% | -48.3% | -66.9% |
 
 The validation below is the 2026-09-25 audit of the pre-switch single-book
-champion B; H3's own gate status (DSR 0.758, PBO not yet computed, threshold
-narrow peak) is in `RESEARCH.md` section 00.11. B's audit record:
+champion B; H3's own gate status (DSR 0.758, PBO 0.558, threshold narrow
+peak) is in `RESEARCH.md` section 00.11. B's audit record:
 
 - Execution timing: filling 1/3/6/12 hours after the close gives
   21.22x/19.56x/20.78x/21.57x at 20bps; filling at the next close gives
