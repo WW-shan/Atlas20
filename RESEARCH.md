@@ -253,6 +253,45 @@
   ```
   明细：`reports/phase_momentum_candidate_eval/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`、`reports/phase_momentum_multiple_testing_h3/`。
 
+### 00.12 2026-10-08 新方向：横截面离散度（dispersion）风险叠加（仅筛查，未预注册、未过生产引擎）
+
+> 背景：§00.11 的结论是 H3 仍过不了 DSR/PBO，而唯一干净的修复（等样本外积累）太慢。本轮回到外部文献，找 **§5「已否决」清单之外**的新机制。**本节全部是筛查，不是候选，也没有改变冻结规格。**
+
+- **新证据（2026 年，均不在原 §2 清单内）**：
+  - Makgolo & Zhang (2026), *Cross-Sectional Dispersion and the State Dependence of Cryptocurrency Momentum*, SSRN 6648082（University of Chicago Booth / Bentley）。要点：**横截面离散度比 BTC 波动率更能预测加密动量的崩溃**；极端离散度状态下动量显著走弱；按离散度缩放的策略 Sharpe **0.63 → 0.80**，最大回撤 **-42.5% → -17.1%**。来源：SSRN 摘要页 + QuantSeeker 2026-04-28 综述（SSRN 正文被反爬，未能取到全文，缩放函数的确切形式未核实）。
+  - Xu & Wu (2026), *Size-Momentum Puzzle in Cryptocurrencies*, SSRN 6628860：小币（最小五分位）周度反转 4.9%，大币动量 +1.0%——**支持 Top20-only 的设定**（本项目选的都是大币）。
+  - Li et al. (2026), *Taming crypto anomalies: A Lasso-type factor model*, Finance Research Letters：加密三因子模型含 **residual momentum** 因子（列在此备查，本轮未测）。
+- **本项目诊断**（`scripts/diagnose_cross_sectional_dispersion.py`；`reports/phase_momentum_dispersion_diagnostic/`）：在 2022-01-01..2026-09-21 上，把 H3 的前瞻收益按**当日 point-in-time Top20** 的横截面离散度分五档（无前视，离散度只用当日及之前的数据）：
+
+| 离散度定义 | 前瞻窗口 | 最高档前瞻均值 | 其余四档均值 | 差 | Spearman |
+|---|---|---:|---:|---:|---:|
+| 近 21 日收益的横截面 std | 21 天 | **-0.17%** | +6.11% | **-6.28pp** | -0.196 |
+| 近 7 日收益的横截面 std | 21 天 | +1.26% | +5.75% | -4.50pp | -0.161 |
+| 当日收益的横截面 std | 21 天 | +1.90% | +5.59% | -3.70pp | -0.153 |
+
+  外部机制在本策略上**成立**：离散度越高，未来 21 天越差。
+
+- **可交易版本的筛查**（`scripts/backtest_dispersion_overlay.py`；`reports/phase_momentum_dispersion_overlay/`）：直接在 H3 的日收益上乘一个由**当日**离散度算出的敞口系数（**只用 t-1 的信息**）。**注意：这是筛查，按日缩放隐含每日调仓、且没有计入这部分额外换手**，所以收益被高估；真实实现只在目标事件上再平衡。
+
+| 叠加规则 | 2bps 总收益 | 2bps Sharpe | 2bps MDD | 20bps 总收益 | 20bps Sharpe | 20bps MDD |
+|---|---:|---:|---:|---:|---:|---:|
+| 无（H3） | 27.77x | 1.609 | -35.6% | 22.53x | 1.524 | -37.9% |
+| 二元闸：pct≥0.80 转现金 | 11.91x | 1.530 | -37.9% | — | — | — |
+| 逆离散度缩放 `min(1, 252D median / disp)` | 15.69x | 1.701 | -33.8% | 13.16x | 1.605 | -36.1% |
+| 逆离散度缩放 `min(1, 252D P75 / disp)` | **25.27x** | **1.755** | -35.5% | **20.82x** | **1.664** | -37.8% |
+
+- **解读**：
+  1. 二元"极端就转现金"的闸门**伤害收益**（高离散度常常伴随强趋势，砍掉的是好日子），**否决**。
+  2. 连续的**逆离散度缩放**（dispersion targeting，和波动率目标同构）在 P75 目标下把 Sharpe 从 **1.52 提到 1.66（+9%）**，20bps 总收益从 22.53x 降到 20.82x（**仍 >20x**），回撤基本不变（-37.8% vs -37.9%）。
+  3. 这是本轮到目前**唯一一个在 20bps 下同时保住 20x 并提高 Sharpe 的方向**；但它**没有降低回撤**（这是 H3 采用时的主要理由），也没有解决 DSR/PBO 的试验数问题。
+- **状态**：**未预注册、未过生产引擎、未计入试验台账**。要成为候选必须：(1) 写进预注册台账；(2) 用生产引擎（按目标事件计费）重跑；(3) 过 H3 的 kill criterion，并补 DSR/PBO/邻域/成本压力。**尚未做任何一步**，因此**不能**据此改冻结规格。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/diagnose_cross_sectional_dispersion.py
+  .venv/bin/python scripts/backtest_dispersion_overlay.py
+  ```
+  明细：`reports/phase_momentum_dispersion_diagnostic/`、`reports/phase_momentum_dispersion_overlay/`。
+
 ---
 
 ## 0. 2026-09-23 新主候选：相位错开多周期动量（生产引擎已验收）

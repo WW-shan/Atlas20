@@ -1,0 +1,16 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "trial_id": "PR2026-10-H3",
+  "measure": "trailing_21d",
+  "lookback": 252,
+  "thresholds": [
+    0.6,
+    0.7,
+    0.8,
+    0.9
+  ],
+  "note": "Screening only: the gate zeroes the book's return on risk-off days and does not charge the extra entry/exit turnover. The production-engine version must be pre-registered before it is treated as a candidate."
+}

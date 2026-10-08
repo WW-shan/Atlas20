@@ -1,0 +1,19 @@
+{
+  "config": "config/base.yaml",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "trial_id": "PR2026-10-H3",
+  "quantiles": 5,
+  "measures": [
+    "trailing_21d",
+    "trailing_7d",
+    "daily"
+  ],
+  "horizons": [
+    1,
+    5,
+    21
+  ],
+  "interpretation": "Diagnostic only: forward returns of the frozen book bucketed by cross-sectional dispersion. A negative top-minus-rest spread supports the external momentum-breakdown mechanism; it does not by itself justify a rule change."
+}
