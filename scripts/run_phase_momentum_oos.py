@@ -261,6 +261,14 @@ def main() -> None:
         type=Path,
         default=Path("reports/phase_momentum_oos_2026"),
     )
+    parser.add_argument(
+        "--trial-id",
+        default=None,
+        help=(
+            "registered trial to track (default: the frozen champion's PhaseMomentumSpec "
+            "defaults). Pass PR2026-10-H3 to track the breadth co-gate challenger."
+        ),
+    )
     args = parser.parse_args()
     if not 1 <= args.fill_hours <= 23:
         raise ValueError("--fill-hours must be within [1, 23]")
@@ -273,8 +281,15 @@ def main() -> None:
         end_date=args.end_date,
     )
     oos_index = _oos_index(index, args.research_end_date)
-    spec = PhaseMomentumSpec()
-    built = build_phase_momentum_targets(market, universe, index, spec=spec)
+    if args.trial_id:
+        from scripts.run_phase_momentum_hypotheses import build_trial, trial_by_id
+
+        trial = trial_by_id(args.trial_id)
+        spec = trial.books[0][0]
+        built = build_trial(trial, market, universe, index)
+    else:
+        spec = PhaseMomentumSpec()
+        built = build_phase_momentum_targets(market, universe, index, spec=spec)
     hourly = load_hourly_bars(args.hourly_dir)
     summary, daily_returns, coin_attribution, concentration = _scenario_returns(
         config,
@@ -317,7 +332,11 @@ def main() -> None:
         "missing_hourly_policies": list(MISSING_FILL_POLICIES),
         "hourly_dir": str(args.hourly_dir),
         "hourly_coins": sorted(hourly),
-        "strategy": "frozen phase momentum champion (PhaseMomentumSpec defaults, PRIMARY_SIGNAL_SPECS)",
+        "trial_id": args.trial_id or "champion-defaults",
+        "strategy": (
+            f"registered trial {args.trial_id}" if args.trial_id
+            else "frozen phase momentum champion (PhaseMomentumSpec defaults, PRIMARY_SIGNAL_SPECS)"
+        ),
         "spec": asdict(spec),
         "interpretation": (
             "The specification was frozen before this window. These are tracking returns, "
