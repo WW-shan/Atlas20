@@ -183,7 +183,7 @@ def main() -> None:
     parser.add_argument("--research-end-date", default="2026-09-21")
     parser.add_argument(
         "--end-date",
-        default="2026-10-06",
+        default="2026-10-07",
         help="last verified panel date to include in this tracking snapshot",
     )
     parser.add_argument("--cost-bps", default="2,20,50,100")

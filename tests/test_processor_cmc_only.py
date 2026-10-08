@@ -1635,3 +1635,43 @@ def test_download_fetches_a_tie_break_when_the_venue_test_fails(tmp_path, monkey
     processor.download_and_cache_raw_data(config)
 
     assert calls["chart"] == 1, "a venue-test failure needs the tie-break chart"
+
+
+def test_market_cap_end_trims_the_price_only_tail() -> None:
+    """EOS/MKR keep printing a legacy price after CMC stops publishing supply.
+
+    Those rows can never be ranked, and comparing the legacy ticker with the
+    migrated token makes the independent-source check fail. The feed is ended
+    at its last real market cap instead.
+    """
+    days = pd.date_range("2025-05-01", periods=12, freq="D")
+    history = pd.DataFrame(
+        {
+            "date": days,
+            "price": [1.0] * len(days),
+            "volume_usd": [10.0] * len(days),
+            "market_cap": [100.0] * 4 + [float("nan")] * 8,
+        }
+    )
+
+    trimmed, ended = processor._trim_market_cap_ended(history)
+
+    assert ended is True
+    assert trimmed["date"].max() == days[3]
+
+
+def test_market_cap_short_tail_is_not_treated_as_ended() -> None:
+    days = pd.date_range("2025-05-01", periods=8, freq="D")
+    history = pd.DataFrame(
+        {
+            "date": days,
+            "price": [1.0] * len(days),
+            "volume_usd": [10.0] * len(days),
+            "market_cap": [100.0] * 4 + [float("nan")] * 4,
+        }
+    )
+
+    trimmed, ended = processor._trim_market_cap_ended(history)
+
+    assert ended is False
+    assert trimmed["date"].max() == days[-1]

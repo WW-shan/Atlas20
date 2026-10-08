@@ -24,7 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,10 +108,11 @@ def interior_gaps(
     *,
     start: pd.Timestamp,
     max_run_days: int = MAX_INTERIOR_GAP_RUN_DAYS,
+    explained_missing: Mapping[str, Collection[pd.Timestamp]] | None = None,
 ) -> tuple[bool, str, bool]:
-    """Days a live series is missing inside its own span, as ``(ok, detail, warn)``.
+    """Days a series is missing inside its own span, as ``(ok, detail, warn)``.
 
-    CMC simply does not publish some days inside a live series (2022-07-31 is
+    CMC simply does not publish some days inside a series (2022-07-31 is
     missing for LINK, CRV and KCS alike - a provider outage day, not a coin
     event). prepare_market_data carries those at the last observed price and
     applies the cumulative move on the next print, so they distort timing by a
@@ -119,36 +120,71 @@ def interior_gaps(
     than ``max_run_days`` is a broken feed and FAILs - the check used to
     report a 41-day hole as WARN because ``warn`` overrode ``ok``. Only gaps
     on or after ``start`` (the traded window) count.
+
+    ``explained_missing`` names the days the processor *deliberately* dropped,
+    by coin id or symbol: a documented price-level corruption block such as
+    HT's 34 corrupt prints. A long run is excused from the FAIL only when
+    every day in it is explained *and* the feed has ended - the asset cannot
+    rank after that point, so the hole cannot reach a traded window - while a
+    long hole with any unexplained day, or on a live feed, still FAILs.
     """
+    explained = {
+        str(key): {pd.Timestamp(day).normalize() for day in days} for key, days in (explained_missing or {}).items()
+    }
+
+    def documented_days(coin_id: object, symbol: str) -> set[pd.Timestamp]:
+        for key in (str(coin_id), symbol):
+            if key in explained:
+                return explained[key]
+        return set()
+
     symbol_by_coin = (
         panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict() if "symbol" in panel else {}
     )
+    panel_last = pd.Timestamp(panel["date"].max()).normalize()
     gap_report: list[str] = []
-    long_gaps: list[str] = []
+    broken: list[str] = []
+    excused: list[str] = []
     for coin_id, group in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
+        symbol = str(symbol_by_coin.get(coin_id, coin_id))
         dates = pd.DatetimeIndex(pd.to_datetime(group["date"]))
         missing = pd.date_range(dates.min(), dates.max(), freq="D").difference(dates)
         missing = missing[missing >= pd.Timestamp(start)]
         if len(missing) == 0:
             continue
         # Group consecutive missing days into runs.
-        runs: list[int] = []
-        current = 1
+        runs: list[list[pd.Timestamp]] = []
+        current: list[pd.Timestamp] = [missing[0]]
         for previous, following in zip(missing[:-1], missing[1:], strict=False):
             if (following - previous).days == 1:
-                current += 1
+                current.append(following)
             else:
                 runs.append(current)
-                current = 1
+                current = [following]
         runs.append(current)
-        label = f"{symbol_by_coin.get(coin_id, coin_id)} ({len(missing)}d, longest run {max(runs)}d)"
+        removed = documented_days(coin_id, symbol)
+        removed_here = [day for day in missing if day in removed]
+        feed_ended = pd.Timestamp(dates.max()).normalize() < panel_last
+        long_runs = [run for run in runs if len(run) > max_run_days]
+        unexcused = [run for run in long_runs if not (feed_ended and set(run) <= removed)]
+        label = f"{symbol} ({len(missing)}d, longest run {max(len(run) for run in runs)}d"
+        if removed_here:
+            label += f", {len(removed_here)}d documented corruption removals"
+        label += ")"
         gap_report.append(label)
-        if max(runs) > max_run_days:
-            long_gaps.append(label)
+        if unexcused:
+            broken.append(label)
+        elif long_runs:
+            excused.append(label)
     detail = "assets with gaps in the traded window: " + (", ".join(gap_report) or "none")
-    if long_gaps:
-        detail += f"; runs longer than {max_run_days}d (broken feed): " + ", ".join(long_gaps)
-    return not long_gaps, detail, bool(gap_report)
+    if broken:
+        detail += f"; runs longer than {max_run_days}d (broken feed): " + ", ".join(broken)
+    if excused:
+        detail += (
+            f"; runs longer than {max_run_days}d explained by documented corruption removals on an "
+            "ended feed that can no longer rank (WARN, not a silent pass): " + ", ".join(excused)
+        )
+    return not broken, detail, bool(gap_report)
 
 
 def _window_span_days(filename: str) -> int:
@@ -606,6 +642,177 @@ def raw_cmc_price_histories(config, raw_dir: Path) -> dict[str, pd.Series]:
     return histories
 
 
+def parse_date_ranges(text: object) -> set[pd.Timestamp]:
+    """Parse ``2025-02-05..2025-02-28, 2025-03-02..2025-03-11`` back into days."""
+    if not isinstance(text, str) or not text.strip():
+        return set()
+    days: set[pd.Timestamp] = set()
+    for chunk in text.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            if ".." in chunk:
+                first, last = (part.strip() for part in chunk.split("..", 1))
+                days.update(pd.date_range(pd.Timestamp(first).normalize(), pd.Timestamp(last).normalize(), freq="D"))
+            else:
+                days.add(pd.Timestamp(chunk).normalize())
+        except ValueError:
+            LOGGER.warning("Ignoring an unparsable level_corruption_dates range: %r", chunk)
+    return days
+
+
+def documented_removal_dates(
+    quality: pd.DataFrame,
+    *,
+    raw_histories: Callable[[], dict[str, pd.Series]] | None = None,
+) -> dict[str, set[pd.Timestamp]]:
+    """Days the processor deliberately dropped as price-level corruption.
+
+    The interior-gap check must be able to tell HT's documented corrupt prints
+    (dropped before the panel was written, ``level_corruption_rows``=34) from
+    an unexplained hole. ``level_corruption_dates`` carries the exact days; a
+    build without usable dates falls back to re-running the audit's copy of
+    the filter on the unfiltered raw CMC history, keyed by symbol because
+    that is how the raw cache is keyed.
+    """
+    if "level_corruption_rows" not in quality.columns and "level_corruption_dates" not in quality.columns:
+        return {}
+    counts = (
+        pd.to_numeric(quality["level_corruption_rows"], errors="coerce").fillna(0).astype(int)
+        if "level_corruption_rows" in quality.columns
+        else pd.Series(1, index=quality.index)
+    )
+    mapping: dict[str, set[pd.Timestamp]] = {}
+    unresolved: list[tuple[str, str]] = []
+    for row, count in zip(quality.itertuples(index=False), counts, strict=True):
+        if count <= 0:
+            continue
+        key = str(row.coin_id)
+        days = parse_date_ranges(getattr(row, "level_corruption_dates", ""))
+        if days:
+            mapping[key] = days
+        else:
+            unresolved.append((key, str(getattr(row, "symbol", key))))
+    if unresolved and raw_histories is not None:
+        raw = raw_histories()
+        for key, symbol in unresolved:
+            prices = raw.get(symbol)
+            if prices is None or prices.empty:
+                continue
+            ordered = prices.sort_index()
+            mask = level_corruption_mask(ordered)
+            mapping[key] = {pd.Timestamp(day).normalize() for day in ordered.index[mask.to_numpy()]}
+    return mapping
+
+
+# A market-cap-ended legacy ticker (EOS -> Vaulta, MKR -> SKY) can outlive
+# every venue that still quotes it: CMC keeps printing a legacy price while
+# ``marketCap`` is 0, and the rolling independent cache no longer reaches the
+# last rankable day. The processor keeps such an asset's frozen history - the
+# point-in-time universe must not be rewritten - and marks it
+# ``crosscheck_historical_unverified``. For the audit that marker is a WARN,
+# never a pass: the asset cannot rank after its market-cap end, so it cannot
+# be selected, and no live venue is left to check it against. A live asset
+# without a source, or *any* asset whose overlapping prints are proven to
+# disagree, still FAILs.
+
+
+def _historical_only_mask(admitted: pd.DataFrame) -> pd.Series:
+    if "crosscheck_historical_unverified" not in admitted.columns:
+        return pd.Series(False, index=admitted.index)
+    return admitted["crosscheck_historical_unverified"].fillna(False).astype(bool)
+
+
+def _overlap_days(value: object) -> int:
+    return int(value) if pd.notna(value) else 0
+
+
+def admitted_agreement_check(admitted: pd.DataFrame) -> tuple[bool, str, bool]:
+    """``(ok, detail, warn)``: does every admitted asset agree with the second source?
+
+    Historical-only assets are reported apart from proven disagreements: they
+    WARN (kept for the point-in-time universe, never rankable after their
+    market-cap feed ended), while disagreement the provider data actually
+    proves still FAILs.
+    """
+    passed = admitted["crosscheck_passed"].fillna(False).astype(bool)
+    historical = _historical_only_mask(admitted)
+    disagreeing = admitted[~passed & ~historical]
+    historical_only = admitted[historical]
+    detail = (
+        f"{len(admitted)} admitted, verified={int(passed.sum())}; "
+        f"still disagreeing={disagreeing['symbol'].tolist()[:5]}"
+    )
+    if not historical_only.empty:
+        detail += (
+            "; market-cap feed ended with no verifiable current overlap (historical-only, never "
+            f"rankable after the feed end)={historical_only['symbol'].tolist()}"
+        )
+    return disagreeing.empty, detail, not historical_only.empty
+
+
+def admitted_source_check(admitted: pd.DataFrame) -> tuple[bool, str, bool]:
+    """``(ok, detail, warn)``: every *live* admitted asset has an independent source.
+
+    A historical-only asset WARNs - no current venue quotes it any more, so
+    the overlap can no longer be repaired - while a live asset without a
+    source is a defect the audit still FAILs.
+    """
+    verified = (
+        admitted["crosscheck_verified"].fillna(False).astype(bool)
+        if "crosscheck_verified" in admitted.columns
+        else pd.Series(True, index=admitted.index)
+    )
+    historical = _historical_only_mask(admitted)
+    missing = admitted[~verified & ~historical]
+    historical_only = admitted[historical]
+    detail = f"assets without a usable independent source={missing['symbol'].tolist()[:5]}"
+    if not historical_only.empty:
+        detail += (
+            "; historical-only assets whose source can no longer be reached (market-cap feed ended, "
+            f"never rankable after it)={historical_only['symbol'].tolist()}"
+        )
+    return missing.empty, detail, not historical_only.empty
+
+
+def ended_overlap_check(admitted: pd.DataFrame, *, min_overlap_days: int) -> tuple[bool, str, bool] | None:
+    """``(ok, detail, warn)``: ended feeds verify on the overlap they do have.
+
+    ``None`` means the build is too old to carry the ended-feed columns. A
+    historical-only asset has no overlap left to verify, so it WARNs; an ended
+    feed with a *provable* comparison that falls below the floor FAILs.
+    """
+    if "crosscheck_primary_ended" not in admitted.columns:
+        return None
+    ended = admitted[admitted["crosscheck_primary_ended"].fillna(False).astype(bool)]
+    if ended.empty:
+        return None
+    tails = pd.to_numeric(ended.get("crosscheck_unverified_tail_days"), errors="coerce").fillna(0)
+    overlap = pd.to_numeric(ended.get("crosscheck_overlap_days"), errors="coerce").fillna(0)
+    historical = _historical_only_mask(ended)
+    weak = overlap < min_overlap_days
+    weak_live = weak & ~historical
+    labels = []
+    for row, tail in zip(ended.itertuples(), tails, strict=False):
+        provider = row.crosscheck_confirmed_by
+        provider = provider if isinstance(provider, str) and provider else "no provider"
+        labels.append(
+            f"{row.symbol} ({_overlap_days(row.crosscheck_overlap_days)}d overlap vs {provider}, "
+            f"{int(tail)}d unverifiable tail)"
+        )
+    detail = "ended feed(s) verified over an overlap: " + ", ".join(labels)
+    if weak_live.any():
+        detail += f"; below the {min_overlap_days}d floor: " + ", ".join(ended.loc[weak_live, "symbol"].tolist())
+    historical_weak = weak & historical
+    if historical_weak.any():
+        detail += (
+            "; historical-only assets with no reachable overlap (market-cap feed ended, never "
+            f"rankable after it): {ended.loc[historical_weak, 'symbol'].tolist()}"
+        )
+    return not weak_live.any(), detail, bool(weak.any())
+
+
 def last_day_completeness(panel: pd.DataFrame) -> tuple[bool, str]:
     """Is the panel's newest day a finished provider day? See ``assess_last_day``.
 
@@ -925,19 +1132,19 @@ def main() -> int:
     if "crosscheck_passed" in quality.columns:
         admitted = quality[quality["included_in_panel"].fillna(False)]
         rejected = quality[~quality["included_in_panel"].fillna(False)]
-        still_disagreeing = admitted[~admitted["crosscheck_passed"].fillna(False)]
-        verified = admitted["crosscheck_verified"].fillna(False) if "crosscheck_verified" in admitted else pd.Series(True, index=admitted.index)
-        missing = admitted[~verified.astype(bool)]
+        agreement_ok, agreement_detail, agreement_warn = admitted_agreement_check(admitted)
         check(
             "cross-check: every admitted asset agrees with an independent provider",
-            still_disagreeing.empty,
-            f"{len(admitted)} admitted, verified={len(admitted) - len(missing)}; "
-            f"still disagreeing={still_disagreeing['symbol'].tolist()[:5]}",
+            agreement_ok,
+            agreement_detail,
+            warn=agreement_warn,
         )
+        source_ok, source_detail, source_warn = admitted_source_check(admitted)
         check(
             "cross-check: independent source available for every admitted asset",
-            missing.empty,
-            f"assets without a usable independent source={missing['symbol'].tolist()[:5]}",
+            source_ok,
+            source_detail,
+            warn=source_warn,
         )
         if "crosscheck_latest_primary_covered" in admitted.columns:
             # A live series must be corroborated at its newest print. An ended
@@ -956,19 +1163,16 @@ def main() -> int:
                 uncovered.empty,
                 f"{len(live)} live asset(s) checked; latest-date-uncovered={uncovered['symbol'].tolist()[:5]}",
             )
-            ended = admitted[ended_flag]
-            if not ended.empty:
-                tails = pd.to_numeric(ended.get("crosscheck_unverified_tail_days"), errors="coerce").fillna(0)
-                weak = ended[ended["crosscheck_overlap_days"].fillna(0) < config.data_quality.cross_check_min_overlap_days]
+            ended_verdict = ended_overlap_check(
+                admitted, min_overlap_days=config.data_quality.cross_check_min_overlap_days
+            )
+            if ended_verdict is not None:
+                ended_ok, ended_detail, ended_warn = ended_verdict
                 check(
                     "cross-check: ended series verify on their overlap",
-                    weak.empty,
-                    "ended feed(s) verified over an overlap: "
-                    + ", ".join(
-                        f"{row.symbol} ({int(row.crosscheck_overlap_days)}d overlap vs "
-                        f"{row.crosscheck_confirmed_by}, {int(tail)}d unverifiable tail)"
-                        for row, tail in zip(ended.itertuples(), tails, strict=False)
-                    ),
+                    ended_ok,
+                    ended_detail,
+                    warn=ended_warn,
                 )
         else:
             check(
@@ -1062,8 +1266,16 @@ def main() -> int:
         warn=bool(len(early_end)),
     )
 
-    # Interior provider gaps: short, named outage days WARN; a broken feed FAILs.
-    gaps_ok, gaps_detail, gaps_warn = interior_gaps(panel, start=config.start_timestamp)
+    # Interior provider gaps: short, named outage days WARN; a broken feed FAILs,
+    # unless the missing days are documented corruption removals on an ended feed
+    # (HT), which can no longer place the asset in a traded window.
+    gaps_ok, gaps_detail, gaps_warn = interior_gaps(
+        panel,
+        start=config.start_timestamp,
+        explained_missing=documented_removal_dates(
+            quality, raw_histories=lambda: raw_cmc_price_histories(config, raw_dir)
+        ),
+    )
     check("feed: interior provider gaps are short and named", gaps_ok, gaps_detail, warn=gaps_warn)
 
     stale_runs: list[tuple[str, int]] = []

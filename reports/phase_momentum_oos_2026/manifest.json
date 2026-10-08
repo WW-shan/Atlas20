@@ -2,10 +2,10 @@
   "config": "config/base.yaml",
   "research_start_date": "2022-01-01",
   "research_end_date": "2026-09-21",
-  "end_date": "2026-10-06",
+  "end_date": "2026-10-07",
   "oos_start": "2026-09-22",
-  "oos_end": "2026-10-06",
-  "oos_days": 15,
+  "oos_end": "2026-10-07",
+  "oos_days": 16,
   "cost_bps": [
     2.0,
     20.0,

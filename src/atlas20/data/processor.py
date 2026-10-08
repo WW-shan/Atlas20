@@ -112,6 +112,31 @@ def _feed_ended(history: pd.DataFrame, end: pd.Timestamp) -> bool:
     return bool(last < pd.Timestamp(end).normalize() - pd.Timedelta(days=ENDED_FEED_GRACE_DAYS))
 
 
+def _trim_market_cap_ended(history: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+    """Drop a long price-only tail after the provider's last real market cap.
+
+    EOS and MKR are the canonical cases: CMC continues to publish a legacy
+    price after the token migration but returns marketCap=0, so the asset can
+    never be ranked again. Keeping those rows makes a refresh look like a
+    live feed, forces the independent-source check to compare a different
+    token, and can delete the asset's valid history when the check fails.
+    A short outage (within the ended-feed grace) is left untouched.
+    """
+    if history is None or history.empty:
+        return history, False
+    frame = history.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
+    market_cap = pd.to_numeric(frame.get("market_cap"), errors="coerce")
+    with_cap = frame.loc[market_cap > 0, "date"].dropna()
+    if with_cap.empty:
+        return frame, False
+    last_cap = pd.Timestamp(with_cap.max())
+    last_price = pd.Timestamp(frame["date"].max())
+    if last_cap >= last_price - pd.Timedelta(days=ENDED_FEED_GRACE_DAYS):
+        return frame, False
+    return frame[frame["date"] <= last_cap].copy(), True
+
+
 def _candidate_assets_path(config: ResearchConfig) -> Path:
     return config.resolve_path(config.paths.raw_dir) / "coingecko" / CANDIDATE_ASSETS_FILE
 
@@ -1013,7 +1038,16 @@ def build_processed_datasets(
             LOGGER.info("Skipping %s (%s) during processing because metadata marks it ineligible", coin_id, symbol)
             continue
 
-        feed_ended = _feed_ended(history, config.end_timestamp)
+        history, market_cap_ended = _trim_market_cap_ended(history)
+        if market_cap_ended:
+            LOGGER.warning(
+                "Treating %s (%s) as ended at %s: CMC has no positive market cap after that date "
+                "while legacy price prints continue",
+                coin_id,
+                symbol,
+                pd.Timestamp(history["date"].max()).date(),
+            )
+        feed_ended = market_cap_ended or _feed_ended(history, config.end_timestamp)
         feed_ended_by_asset[coin_id] = feed_ended
         chart_path = raw_dir / "coingecko" / "market_chart" / f"{coin_id}_{config.data_quality.cross_check_recent_days}d.json"
         chart = _load_coingecko_chart(chart_path)
@@ -1092,8 +1126,15 @@ def build_processed_datasets(
         # disagreement blocks the asset; a missing second source is recorded
         # and only blocks when the operator demands verification.
         unverified = cross.reason in UNVERIFIED_REASONS
+        # A market-cap-ended legacy ticker (EOS -> Vaulta, MKR -> SKY) may
+        # have no current venue overlap: the rolling independent cache no
+        # longer reaches back to its last rankable day. Keep the frozen
+        # history so the point-in-time universe is not rewritten, but mark it
+        # unverified and never let it rank after its market-cap end. A proven
+        # disagreement still blocks it; only "could not check" is tolerated.
+        historical_unverified = bool(market_cap_ended and validation.passed and unverified)
         blocked_by_cross_check = not cross.passed and (
-            (not unverified) or config.data_quality.require_cross_check
+            (not unverified) or (config.data_quality.require_cross_check and not historical_unverified)
         )
         admitted = validation.passed and not (
             config.data_quality.exclude_on_cross_check_failure and blocked_by_cross_check
@@ -1197,6 +1238,8 @@ def build_processed_datasets(
                     else 0
                 ),
                 "included_in_panel": bool(admitted),
+                "market_cap_feed_ended": bool(market_cap_ended),
+                "crosscheck_historical_unverified": historical_unverified,
             }
             | source_verdicts
         )
@@ -1208,6 +1251,15 @@ def build_processed_datasets(
                 cross.secondary_source,
                 cross.confirmed_by,
                 cross.secondary.reason,
+            )
+        if historical_unverified:
+            LOGGER.warning(
+                "Keeping %s (%s) as historical-only: the market-cap feed ended at %s and the "
+                "current independent cache has no usable overlap (%s); it cannot rank after that date",
+                coin_id,
+                symbol,
+                pd.Timestamp(history["date"].max()).date(),
+                cross.reason,
             )
         if not admitted:
             if validation.passed and blocked_by_cross_check:

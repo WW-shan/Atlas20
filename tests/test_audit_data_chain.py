@@ -147,6 +147,54 @@ def test_gaps_before_the_traded_window_are_ignored_and_no_gap_passes() -> None:
     assert _status() == "PASS"
 
 
+# HT's real case: CMC served corrupt prints for 34 days (2025-02-05..2025-02-28
+# and 2025-03-02..2025-03-11), the processor dropped them, and the feed ended
+# on 2025-03-13. The 24-day first block is far longer than the broken-feed
+# limit, so the audit must excuse it only as a named, documented removal on a
+# feed that can no longer rank - never as a silent pass.
+
+_REMOVAL_DAYS = pd.date_range("2024-03-01", periods=24, freq="D")
+
+
+def test_a_documented_removal_on_an_ended_feed_warns_not_fails() -> None:
+    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(_REMOVAL_DAYS)
+    panel = _panel({"bitcoin": _DAYS, "ht": ended_days})
+
+    ok, detail, warn = audit.interior_gaps(
+        panel, start=pd.Timestamp("2024-01-01"), explained_missing={"ht": _REMOVAL_DAYS}
+    )
+    audit.check(_GAP_NAME, ok, detail, warn=warn)
+
+    assert _status() == "WARN"
+    assert "HT (24d, longest run 24d, 24d documented corruption removals)" in detail
+    assert "documented corruption removals on an ended feed" in detail
+
+
+def test_a_documented_removal_on_a_live_feed_still_fails() -> None:
+    panel = _panel({"bitcoin": _DAYS, "ht": _DAYS.difference(_REMOVAL_DAYS)})
+
+    ok, detail, warn = audit.interior_gaps(
+        panel, start=pd.Timestamp("2024-01-01"), explained_missing={"ht": _REMOVAL_DAYS}
+    )
+    audit.check(_GAP_NAME, ok, detail, warn=warn)
+
+    assert _status() == "FAIL"
+    assert "runs longer than 10d (broken feed): HT (24d, longest run 24d" in detail
+
+
+def test_a_long_gap_with_unexplained_days_still_fails() -> None:
+    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(_REMOVAL_DAYS)
+    panel = _panel({"bitcoin": _DAYS, "ht": ended_days})
+
+    ok, detail, warn = audit.interior_gaps(
+        panel, start=pd.Timestamp("2024-01-01"), explained_missing={"ht": _REMOVAL_DAYS[:20]}
+    )
+    audit.check(_GAP_NAME, ok, detail, warn=warn)
+
+    assert _status() == "FAIL"
+    assert "broken feed" in detail
+
+
 # ---------------------------------------------------- empty CMC tail windows
 
 
@@ -650,6 +698,133 @@ def test_no_corruption_anywhere_passes() -> None:
     audit.check("panel: no reverted price-level corruption", ok, detail, warn=warn)
 
     assert _status() == "PASS"
+
+
+def test_documented_removals_are_read_from_the_quality_ranges() -> None:
+    quality = pd.DataFrame(
+        {
+            "coin_id": ["huobi-token", "bitcoin"],
+            "symbol": ["HT", "BTC"],
+            "level_corruption_rows": [34, 0],
+            "level_corruption_dates": ["2025-02-05..2025-02-28, 2025-03-02..2025-03-11", ""],
+        }
+    )
+
+    mapping = audit.documented_removal_dates(quality, raw_histories=_no_raw_history)
+
+    assert len(mapping["huobi-token"]) == 34
+    assert pd.Timestamp("2025-02-28") in mapping["huobi-token"]
+    assert "bitcoin" not in mapping
+
+
+def test_documented_removals_fall_back_to_the_raw_filter_without_dates() -> None:
+    quality = pd.DataFrame({"coin_id": ["huobi-token"], "symbol": ["HT"], "level_corruption_rows": [34]})
+    prices = _corrupted_prices()
+
+    mapping = audit.documented_removal_dates(quality, raw_histories=lambda: {"HT": prices})
+
+    assert len(mapping["huobi-token"]) == 34
+    assert prices.index[100] in mapping["huobi-token"]
+    assert prices.index[133] in mapping["huobi-token"]
+
+
+# ------------------------------------------------- historical-only assets
+#
+# EOS, HT and MKR kept printing a legacy CMC price after their market cap hit
+# zero, so the rolling independent cache no longer overlaps their last
+# rankable day. The processor keeps the frozen history (the point-in-time
+# universe must not be rewritten) and flags them historical-only: WARN, never
+# a silent pass. A live asset without a source, or any proven disagreement,
+# must still FAIL.
+
+
+def _crosscheck_row(
+    symbol: str,
+    *,
+    passed: bool,
+    verified: bool,
+    historical: bool,
+    ended: bool,
+    overlap_days: int,
+    confirmed_by: object = "binance",
+    tail_days: int = 0,
+) -> dict[str, object]:
+    return {
+        "symbol": symbol,
+        "crosscheck_passed": passed,
+        "crosscheck_verified": verified,
+        "crosscheck_historical_unverified": historical,
+        "crosscheck_primary_ended": ended,
+        "crosscheck_overlap_days": overlap_days,
+        "crosscheck_confirmed_by": confirmed_by,
+        "crosscheck_unverified_tail_days": tail_days,
+    }
+
+
+def test_a_historical_only_asset_warns_instead_of_failing_the_source_checks() -> None:
+    admitted = pd.DataFrame(
+        [
+            _crosscheck_row("EOS", passed=False, verified=False, historical=True, ended=True, overlap_days=0, confirmed_by=float("nan")),
+            _crosscheck_row("BTC", passed=True, verified=True, historical=False, ended=False, overlap_days=1000),
+        ]
+    )
+
+    ok, detail, warn = audit.admitted_agreement_check(admitted)
+    audit.check("cross-check: every admitted asset agrees with an independent provider", ok, detail, warn=warn)
+    assert _status() == "WARN"
+    assert "still disagreeing=[]" in detail and "EOS" in detail
+
+    ok, detail, warn = audit.admitted_source_check(admitted)
+    audit.check("cross-check: independent source available for every admitted asset", ok, detail, warn=warn)
+    assert _status() == "WARN"
+    assert "assets without a usable independent source=[]" in detail and "EOS" in detail
+
+    verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
+    assert verdict is not None
+    ok, detail, warn = verdict
+    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
+    assert _status() == "WARN"
+    assert "EOS (0d overlap vs no provider, 0d unverifiable tail)" in detail
+
+
+def test_a_proven_disagreement_still_fails_next_to_a_historical_only_asset() -> None:
+    admitted = pd.DataFrame(
+        [
+            _crosscheck_row("CEL", passed=False, verified=False, historical=False, ended=False, overlap_days=200),
+            _crosscheck_row("EOS", passed=False, verified=False, historical=True, ended=True, overlap_days=0, confirmed_by=float("nan")),
+        ]
+    )
+
+    ok, detail, warn = audit.admitted_agreement_check(admitted)
+    audit.check("cross-check: every admitted asset agrees with an independent provider", ok, detail, warn=warn)
+    assert _status() == "FAIL"
+    assert "still disagreeing=['CEL']" in detail
+
+    ok, detail, warn = audit.admitted_source_check(admitted)
+    audit.check("cross-check: independent source available for every admitted asset", ok, detail, warn=warn)
+    assert _status() == "FAIL"
+    assert "['CEL']" in detail
+
+    verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
+    assert verdict is not None
+    ok, detail, warn = verdict
+    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
+    assert _status() == "WARN"  # only EOS is an ended feed here, and it is historical-only
+    assert "EOS" in detail
+
+
+def test_an_ended_feed_below_the_overlap_floor_still_fails() -> None:
+    admitted = pd.DataFrame(
+        [_crosscheck_row("MATIC", passed=True, verified=True, historical=False, ended=True, overlap_days=3)]
+    )
+
+    verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
+    assert verdict is not None
+    ok, detail, warn = verdict
+    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
+
+    assert _status() == "FAIL"
+    assert "below the 30d floor: MATIC" in detail
 
 
 # ------------------------------------------------ last day is a finished day

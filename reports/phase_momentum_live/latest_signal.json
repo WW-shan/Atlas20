@@ -1,24 +1,24 @@
 {
-  "as_of": "2026-10-06",
+  "as_of": "2026-10-07",
   "btc_gate_open": true,
   "cost_bps": 20.0,
-  "current_gross_exposure": 0.6950872361713466,
+  "current_gross_exposure": 0.7062075193063002,
   "current_weights": {
-    "near": 0.6950872361713466
+    "near": 0.7062075193063002
   },
-  "end_date": "2026-10-06",
+  "end_date": "2026-10-07",
   "gross_exposure": 0.6836818502538271,
   "last_day_check": {
     "complete": true,
-    "date": "2026-10-06",
+    "date": "2026-10-07",
     "market_cap_coverage": 1.0,
-    "median_volume_ratio": 0.7772692979854857,
+    "median_volume_ratio": 1.138378371832379,
     "reasons": [],
     "volume_floor": 0.6
   },
   "latest_target_date": "2026-10-03",
-  "next_check_date": "2026-10-07",
-  "panel_last_date": "2026-10-06",
+  "next_check_date": "2026-10-08",
+  "panel_last_date": "2026-10-07",
   "rule": "Strict point-in-time Top20; 4 trailing-return signals (weighted_multi_horizon, ret21, equal_7_14_28_60, equal_14_21_28) x 3 calendar phases of a 3D rebalance cycle; hold while in Top2; BTC 100D MA + confirm2; 60D volatility target at 80%; long-only spot, no leverage; T+1",
   "signal_names": [
     "weighted_multi_horizon",

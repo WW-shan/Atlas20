@@ -28,7 +28,7 @@ research champion is a strict point-in-time Top20, no-leverage phase-staggered
 multi-horizon momentum ensemble: four transparent trailing-return signals, three calendar
 phases each, a Top2 hold band, a BTC 100D MA + confirm2 regime gate, and 60D volatility
 targeting capped at gross exposure 1.0. The research sample is 2022-01-01 .. 2026-09-21;
-later data is tracked as a genuine out-of-sample period for the frozen specification; the first verified tracking snapshot covers 2026-09-22 .. 2026-10-06.
+later data is tracked as a genuine out-of-sample period for the frozen specification; the latest verified tracking snapshot covers 2026-09-22 .. 2026-10-07.
 
 | 2022-01-01 .. 2026-09-21 | 2bps (baseline) | 20bps | 50bps | 100bps | BTC |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -36,9 +36,9 @@ later data is tracked as a genuine out-of-sample period for the frozen specifica
 | Fill 3h after the close (live timing, worse missing-candle case) | **24.42x** | **19.56x** | 13.50x | 7.27x | |
 
 The frozen specification has been tracked out of sample from 2026-09-22 through the latest
-verified day, 2026-10-06 (15 daily observations). With realistic +3h fills it returns 1.0504x
-at 2bps and 1.0486x at 20bps, with -10.50% / -10.57% maximum drawdowns; BTC returns 0.9879x.
-That is a positive start, but 15 days are far too short to validate the strategy or clear any
+verified day, 2026-10-07 (16 daily observations). With realistic +3h fills it returns 1.0902x
+at 2bps and 1.0883x at 20bps, with -10.50% / -10.57% maximum drawdowns; BTC returns 0.9616x.
+That is a positive start, but 16 days are far too short to validate the strategy or clear any
 of the failed gates below. See `reports/phase_momentum_oos_2026/`.
 
 It is **provisional, not validated**. It clears 20x at the baseline cost even with realistic
