@@ -78,7 +78,25 @@ volatility, the strategy's own trailing 63-day return, gross exposure) separates
 from dodging crashes, and another overlay from the same family is unlikely to close the gap - it
 would only raise the trial count, and with it the required Sharpe. Closing it needs a genuinely new
 information source, confirmed out of sample; the trial count is not re-cut, and the frozen
-specification is tracked out of sample instead. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
+specification is tracked out of sample instead.
+
+`RESEARCH.md` section 00.15 then screens the only untapped source inside the panel - volume,
+turnover and market-cap concentration - against external mechanisms (Baker & Stein 2004 on
+turnover as a sentiment indicator, Lee & Swaminathan 2000 on volume and momentum persistence,
+Begušić & Kostanjčar 2019 on crypto momentum being concentrated in the most liquid coins,
+Brauneis et al. 2021 on crypto liquidity measurement, and the 2025 open-access *Financial Markets and Portfolio Management* result that
+volatility management mitigates large-cap crypto momentum crashes). Nine states were screened
+against a bar fixed before the numbers were seen (|Spearman| >= 0.25 against next-month excess
+return, monotone terciles, |crash - rest| >= 0.5σ). **All nine failed.** The closest direction -
+market-cap concentration, where crash months are preceded by a *more diffuse* Top20 (HHI 0.412 vs
+0.448, Welch t = -2.1) - misses the rank-information bar (rho = +0.166, p = 0.21), so it is
+recorded as a rejected hypothesis rather than promoted to H6. The same screen corrects section
+00.14: its table covered 53 of 57 months and had silently dropped 2022-04, a 10th crash month,
+because `disp_ratio` needs 126 usable readings; recomputed state by state, the conclusion holds.
+Read at the close *before* the month, the frozen spec is not defensive going into its worst months
+(BTC gate open 0.90 vs 0.45, breadth 0.69 vs 0.37, gross 0.45 vs 0.23) - it is fully risk-on, and
+those states are on through the bull market too, so they cannot be a de-risking filter without
+giving up most of the return. No new trial was registered and the trial count is unchanged. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
 00.13). A pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes

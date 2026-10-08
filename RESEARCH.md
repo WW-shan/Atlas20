@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-08（§00.11 采用 H3；§00.12 横截面离散度筛查；§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断（否定性结果）；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 量能/换手状态筛查全部被拒 + §00.14 勘误；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -361,7 +361,10 @@
       --output-dir reports/phase_momentum_regime_overlays
   # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
   .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
-  # 6b) 崩溃月归因：有没有状态变量能标记最差月份（§00.14）
+  # 6c) 量能/换手/集中度状态筛查（§00.15，全部被拒）
+  .venv/bin/python scripts/analyze_momentum_flow_states.py --output-dir reports/phase_momentum_flow_states
+
+  # 6b) 崩溃月归因：有没有状态变量能标记最差月份（§00.14，表格已被 §00.15 勘误）
   .venv/bin/python scripts/analyze_momentum_crash_states.py --output-dir reports/phase_momentum_crash_states
   # 7) 实盘信号与样本外跟踪
   .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
@@ -407,6 +410,60 @@
   .venv/bin/python scripts/analyze_momentum_crash_states.py
   ```
   明细：`reports/phase_momentum_crash_states/monthly_state.csv`、`state_separation.csv`、`report.md`。
+- **勘误（2026-10-09，§00.15 给出）**：上表是在 **53/57** 个月上算的 —— 该脚本按行 dropna，而 `disp_ratio` 需要 126 个可用离散度读数、`own63` 需要 63 日收益序列预热，于是**整行丢掉了 2022-01..04**，其中 2022-04（-10.5%）正是一个崩溃月。按「逐状态丢缺失值 + 原口径」重算后结论不变（见 §00.15 表二），但样本应为 **57 个月、10 个崩溃月**。
+
+---
+
+### 00.15 2026-10-09 诊断：量能/换手状态变量筛查 —— 全部被拒（否定性结果，仍不开新试验）
+
+> 背景：§00.14 的结论是「要补上 13.7% 的 Sharpe，需要价格动量 / 波动 / 宽度 / 离散度这一族之外的**新信息源**」。在不新增数据拉取的前提下，面板里唯一没被用过的信息就是**成交量与市值**。本节对该族做**只筛查、不预注册、不新增试验、不改规则**的诊断；筛选门槛在跑数之前写死在脚本 docstring 里。外部证据见 `docs/research/literature_review_2026-09.md` §7（S37–S43，逐条 fetch 验证）。
+
+**外部机制（与筛查变量的对应）**
+
+| 机制 | 来源 | 对应状态变量 |
+| --- | --- | --- |
+| 流动性/换手率作为情绪指标：换手率越高，随后收益越低（卖空约束下的过度反应） | Baker & Stein (2004), JFM, doi:10.1016/j.finmar.2003.11.005（NBER w8816 摘要已 fetch） | `turnover`、`turnover_ratio`、`volume_ratio` |
+| 过去换手率同时预测动量的幅度与持续性；高换手赢家长期反转 | Lee & Swaminathan (2000), JF, doi:10.1111/0022-1082.00280 | `holdings_turnover_ratio` |
+| 动量集中在**流动性最好**的币（羊群机制） | Begušić & Kostanjčar (2019), arXiv:1904.00890（arXiv API 摘要已 fetch） | `turnover_disp_ratio` |
+| 日频数据可构造有效加密流动性指标；流动性波动被定价 | Brauneis et al. (2021), JBF, doi:10.1016/j.jbankfin.2020.106041；FRL 2021, doi:10.1016/j.frl.2021.102031 | `amihud_ratio` |
+| 集中度/羊群：Top20 内部市值与成交量集中度 | 本项目内机制（`mcap_hhi`、`btc_share`、`volume_top3_share`）；外部证据仅部分支持 | 3 个集中度变量 |
+
+**预设门槛（先写后跑）**：同时满足三条才允许升级为 H6 —— ① `|Spearman(状态, 次月 H5−BTC)| ≥ 0.25`；② `H5−BTC` 的三分位均值单调；③ `|崩溃月−其余月| / 其余月标准差 ≥ 0.50`。对照量取**超额收益**（H5 − BTC），因为 §00.14 的失败模式是「大盘涨、策略跌」。
+
+**结果：9 个状态变量全部未通过**（`reports/phase_momentum_flow_states/`）
+
+| 状态变量 | Spearman（对超额） | 崩溃−其余（σ） | 三分位单调 | 升级 H6 |
+| --- | ---: | ---: | :--: | :--: |
+| `turnover` | -0.069 | +0.04 | 否 | 否 |
+| `turnover_ratio` | +0.083 | -0.22 | 是 | 否 |
+| `volume_ratio` | +0.090 | +0.21 | 是 | 否 |
+| `turnover_disp_ratio` | +0.126 | +0.68 | 否 | 否 |
+| `amihud_ratio` | -0.109 | -0.15 | 否 | 否 |
+| `mcap_hhi` | +0.166 | **-0.53**（t≈-2.1） | 否 | 否 |
+| `btc_share` | +0.158 | **-0.52**（t≈-2.0） | 否 | 否 |
+| `volume_top3_share` | -0.171 | -0.42 | 否 | 否 |
+| `holdings_turnover_ratio` | -0.175 | **+2.09**（仅 28/57 个月可用） | 否 | 否 |
+
+- **唯一接近的方向**是市值集中度：崩溃月之前的 Top20 **更分散**（HHI 0.412 vs 0.448、BTC 占比 0.599 vs 0.635），但它的秩相关只有 0.166（p≈0.21），且三分位不单调 —— **未达预设门槛，不升级**。`holdings_turnover_ratio` 的 2.09σ 不可用：它只在持仓月有定义（28/57，崩溃月只剩 7 个），是典型的选择性样本，且极端值（2023-07 达 11.9）主导。
+- **§00.14 勘误与「可执行口径」重算**：按同样的**月内均值**口径、逐状态丢缺失值、全 57 个月重算，结论不变（σ：`gate_open` +0.36、`breadth` -0.31、`disp_ratio` -0.38、`mkt_vol` +0.05、`gross` +0.22）。但换成**月初读数**（overlay 真正能用的口径）后，同一个变量族其实**是能区分**的：
+
+| 月初可执行状态 | 崩溃月均值 | 其余月均值 | 差值/σ | Welch t |
+| --- | ---: | ---: | ---: | ---: |
+| BTC 闸门开 | **0.900** | 0.447 | +0.90 | 3.66 |
+| breadth | **0.690** | 0.372 | +0.95 | 3.94 |
+| 月初 gross | **0.455** | 0.226 | +0.72 | 2.27 |
+
+  即：**H5 进入最差月份时并不是防守状态，而是「闸门开、宽度高、仓位接近半仓」的满风险状态**，而这些状态在牛市中同样长期为真 —— 用它们做减仓过滤器，等于砍掉大部分收益。这正是 §00.14 否定性结论的可执行表述，也是为什么这条线**不值得再开 H6**。
+- **结论**：
+  1. 量能/换手/集中度这一族**不能**补 DSR 缺口：最强的候选也达不到预设的样本内门槛。
+  2. 已记录的**被拒假设**：Top20 换手率择时（Baker–Stein 方向）、持仓拥挤度、Amihud 非流动性、集中度择时。除非有**新的样本外数据**，不再从这一族派生新试验。
+  3. 若要继续追 DSR，剩下三条诚实路径：(a) 接受 H5 为「冻结但未通过 DSR」的当前最优；(b) 用 2026-09-22 起的**真实样本外**累积来正当地降低试验数权重（慢，且不能调参）；(c) 引入**面板之外**的新数据源（链上/资金费率等），需要先解决数据获取。
+  4. **冻结规格不变**；本节不新增试验，台账计数不变。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/analyze_momentum_flow_states.py --output-dir reports/phase_momentum_flow_states
+  ```
+  明细：`reports/phase_momentum_flow_states/{monthly_state.csv,daily_flow_state.csv,state_separation.csv,state_separation_legacy_corrected.csv,state_separation_legacy_actionable.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
 
 ---
 
@@ -1143,6 +1200,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_regime_overlays/` | B / H3 / H5 的 bull 与 non-bull 拆分 | ✅ 当前权威 |
 | `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
 | `reports/phase_momentum_crash_states/` | 崩溃月与可观测状态变量的对照（否定性结果：无变量区分度 > 0.4σ） | ✅ 当前权威 |
+| `reports/phase_momentum_flow_states/` | 量能/换手/集中度状态筛查（9 个变量全部被拒）；含 §00.14 表格的全样本勘误 | ✅ 当前权威 |
 | `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
 | `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
 | `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |

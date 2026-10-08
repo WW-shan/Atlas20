@@ -631,5 +631,110 @@ Local evidence lives in `/tmp/smart-search-evidence/atlas20-research/` (JSON fro
 | S34 | `arxiv-crypto-intraday.xml` | abstract |
 | S35 | `arxiv-abstracts-1.xml` | abstract |
 | S36 | `08-novymarx-velikov-2016.json` | abstract |
+| S37 | NBER w8816 page (`smart-search fetch`), doi:10.1016/j.finmar.2003.11.005 | abstract (Baker & Stein, 2004) |
+| S38 | OpenAlex `https://api.openalex.org/works/https://doi.org/10.1111/0022-1082.00280` | journal abstract (Lee & Swaminathan, 2000) |
+| S39 | arXiv API `https://export.arxiv.org/api/query?id_list=1904.00890` | abstract (Begušić & Kostanjčar, 2019) |
+| S40 | OpenAlex `.../10.1016/j.jbankfin.2020.106041` | abstract (Brauneis et al., 2021) |
+| S41 | OpenAlex `.../10.1016/j.frl.2021.102031` | abstract (liquidity volatility, 2021) |
+| S42 | OpenAlex `.../10.1016/j.irfa.2021.101908` | abstract (Zaremba et al., 2022) |
+| S43 | `smart-search fetch https://link.springer.com/article/10.1007/s11408-025-00474-9` | full text (open access, 2025) |
+
+Addendum (2026-10-09) discovery pattern: the xAI main-search provider returned HTTP 502 for
+every `smart-search search` call and `smart-search exa-search` is unconfigured, so discovery
+used the OpenAlex works API (`https://api.openalex.org/works?search=...`) and the arXiv API
+(`https://export.arxiv.org/api/query?...`) directly, with `smart-search fetch` (Tavily) used
+to pull and verify the source pages themselves. `api.semanticscholar.org` returned HTTP 429
+throughout. SSRN landing pages return empty content to the fetch provider; no SSRN claim is
+relied on.
 
 Fetch pattern used for new evidence: `smart-search fetch <url> --format json --output <file>` (with the retry wrapper `tools/fr.sh`), IDEAS/RePEc pages located through DuckDuckGo HTML results (`tools/ideas.sh`), and OpenAlex title search (`tools/oat.sh`). From mid-session the fetch provider returned empty content for every URL; the affected references are marked in section 2.6.
+
+---
+
+## 7. Addendum 2026-10-09: volume / turnover state screen for H6 (rejected)
+
+### 7.1 Why this screen
+
+Section 00.14 of `RESEARCH.md` closed the *market-state* family: every variable the frozen
+spec (H5) already sees — BTC gate, Top20 breadth, dispersion ratio, realised volatility,
+the strategy's own trailing 63-day return, gross exposure — separates its worst months
+from the rest by less than 0.4 standard deviations, and the H5 Sharpe gain comes from
+cutting volatility across the board rather than from dodging crashes. Closing the
+Deflated-Sharpe gap (+13.7% of annualised Sharpe on the `top20_2022_trials` scope) would
+therefore need a *new information source*. With no fresh provider pull available, the only
+untapped source in the panel is the volume / market-cap side, so the next step is to screen
+it — as a diagnostic only, with no rule change and no new registered trial.
+
+### 7.2 Sources read and verified
+
+| ID | Source | Verified content | Design decision it speaks to |
+|---|---|---|---|
+| S37 | Baker & Stein (2004), *Journal of Financial Markets* 7(3), doi:10.1016/j.finmar.2003.11.005; NBER w8816 abstract fetched | "increases in liquidity — such as lower bid-ask spreads, a lower price impact of trade, or **higher share turnover** — predict lower subsequent returns in both firm-level and aggregate data"; the mechanism is irrational investors in the presence of short-sale constraints | A market-level turnover overlay: de-risk when Top20 turnover is high relative to its own history |
+| S38 | Lee & Swaminathan (2000), *Journal of Finance* 55(5), doi:10.1111/0022-1082.00280 (abstract) | Past trading volume "predicts both the magnitude and persistence of price momentum"; high-turnover winners reverse over longer horizons | Turnover of the coins actually held as a crowding state |
+| S39 | Begušić & Kostanjčar (2019), arXiv:1904.00890 (abstract fetched via arXiv API) | Momentum is strongest "in the most liquid cryptocurrencies", which "supports the theories of investor herding behaviour"; profitable long-only illiquid-losers / liquid-winners strategies | Momentum strength is liquidity-state dependent — but Top20 membership is already the liquid set, so cross-sectional variation is limited |
+| S40 | Brauneis, Mestel, Riordan & Theissen (2021), *Journal of Banking & Finance* 124, doi:10.1016/j.jbankfin.2020.106041 (abstract) | Low-frequency, transaction-based liquidity estimates are informative for crypto; Corwin–Schultz and Abdi–Ranaldo beat other measures | Justifies building a daily illiquidity state from daily volume (Amihud-style) |
+| S41 | *Finance Research Letters* 42 (2021) 102031, doi:10.1016/j.frl.2021.102031 (abstract) | The volatility of market liquidity is priced: a positive relationship between liquidity volatility and expected returns among the five largest coins | Liquidity *volatility* as a risk state (proxied here by `amihud_ratio` to its own median) |
+| S42 | Zaremba, Bilgin, Long, Mercik & Szczygielski (2022), *International Review of Financial Analysis*, doi:10.1016/j.irfa.2021.101908 (abstract) | Daily reversal in crypto "results from the illiquidity of coins"; stronger where liquidity is worse | Conflicting evidence: illiquidity can reverse momentum rather than strengthen it — the reason `amihud_ratio` is screened in both directions |
+| S43 | *Financial Markets and Portfolio Management* (2025), doi:10.1007/s11408-025-00474-9 (open access, full text fetched) | Large-cap crypto momentum "is subject to severe crashes"; "even a single cryptocurrency can cause insignificant momentum portfolio returns"; "volatility management is a useful tool for mitigating cryptocurrency momentum crashes" | The closest external analogue to this project (large caps, equal-weighted momentum) and independent support for the H5 direction |
+
+Not used as evidence: SSRN 4378429 ("Impact of Size and Volume on Cryptocurrency Momentum
+and Reversal") and SSRN 4825389 ("Cryptocurrency Volume-Weighted Time Series Momentum").
+Both are visible in OpenAlex metadata, but every fetch of their SSRN landing pages returned
+empty content, so no claim from them is relied on here.
+
+### 7.3 Screen design (fixed before the numbers were seen)
+
+Pre-declared in `scripts/analyze_momentum_flow_states.py`: a state is promoted to a
+pre-registered H6 only if **all three** hold on 2022-01-01..2026-09-21 —
+
+1. `|Spearman(state, next-month H5 − BTC)| >= 0.25`;
+2. tercile means of `H5 − BTC` monotone;
+3. `|crash − rest| / rest_std >= 0.50`.
+
+The comparison number is the strategy's *excess* return, not the market, because
+Section 00.14's failure mode is "market up, strategy down". States: Top20 turnover and its
+ratio to its own 252-day median, Top20 dollar volume ratio, cross-sectional turnover
+dispersion ratio, Amihud-style illiquidity ratio, market-cap Herfindahl, BTC share of Top20
+market cap, top-3 volume share, and the turnover of the coins the frozen spec holds.
+
+### 7.4 Result: all nine states rejected
+
+| state | Spearman vs excess | crash − rest (σ) | monotone terciles | promoted |
+|---|---:|---:|---|:--:|
+| `turnover` | -0.069 | 0.04 | no | no |
+| `turnover_ratio` | +0.083 | -0.22 | yes | no |
+| `volume_ratio` | +0.090 | +0.21 | yes | no |
+| `turnover_disp_ratio` | +0.126 | +0.68 | no | no |
+| `amihud_ratio` | -0.109 | -0.15 | no | no |
+| `mcap_hhi` | +0.166 | -0.53 | no | no |
+| `btc_share` | +0.158 | -0.52 | no | no |
+| `volume_top3_share` | -0.171 | -0.42 | no | no |
+| `holdings_turnover_ratio` | -0.175 | +2.09 | no | no |
+
+The two states with any real crash/rest separation are the concentration pair
+(`mcap_hhi`, `btc_share`: a concentrated Top20 precedes *better* months, so only 10 crash
+months are diffuse; Welch t ≈ -2.0) and the held-coins turnover ratio, which is unusable —
+its 252-day median needs a long warm-up and it is undefined whenever the book is in cash,
+which leaves 28 months of 57 and only 7 of the 10 crash months. The two states whose terciles
+are monotone carry almost no rank information (|ρ| ≤ 0.09). Recorded as a rejected
+hypothesis in `reports/phase_momentum_flow_states/`.
+
+### 7.5 Correction to Section 00.14
+
+The Section 00.14 table was computed on 53 of the 57 months: it dropped every month with a
+missing state, and two warm-ups bind early on — `disp_ratio` needs 126 usable dispersion
+readings and `own63` needs 63 days of the return series — which silently removed
+2022-01..04, including 2022-04, a 10th crash month. Recomputing with the same within-month averaging
+convention and state-by-state missing-value handling leaves the conclusion intact (crash
+minus rest, in σ of the rest months: `gate_open` +0.36, `breadth` -0.31, `disp_ratio` -0.38,
+`mkt_vol` +0.05, `gross` +0.22) but the sample is now the full 57 months with 10 crash
+months. The corrected table is in `reports/phase_momentum_flow_states/state_separation_legacy_corrected.csv`.
+
+Read at the close *before* the month — the convention an overlay would have to use, and
+therefore the more informative one for a risk rule — the same states do separate:
+`gate_open` 0.90 in crash months versus 0.45 elsewhere (t = 3.7), `breadth` 0.69 versus 0.37
+(t = 3.9) and start-of-month gross 0.45 versus 0.23 (t = 2.3). That is the actionable
+statement of Section 00.14's negative result: the frozen spec is *not* defensive going into
+its worst months, it is fully risk-on, and the states that "predict" those months are the
+same states that are on through the bull market, so they cannot be used as a de-risking
+filter without giving up most of the return.

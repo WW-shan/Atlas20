@@ -1,0 +1,43 @@
+{
+  "script": "scripts/analyze_momentum_flow_states.py",
+  "trial_id": "PR2026-10-H5",
+  "returns_file": "reports/phase_momentum_hypotheses_2026_10/returns_20bps.csv",
+  "column": "PR2026-10-H5|h3_day_close|20",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "crash_threshold": -0.08,
+  "ic_bar": 0.25,
+  "separation_bar": 0.5,
+  "state_columns": [
+    "turnover",
+    "turnover_ratio",
+    "volume_ratio",
+    "turnover_disp_ratio",
+    "amihud_ratio",
+    "mcap_hhi",
+    "btc_share",
+    "volume_top3_share",
+    "holdings_turnover_ratio"
+  ],
+  "legacy_state_columns": {
+    "mean_convention": [
+      "gate_open_mean",
+      "breadth_mean",
+      "disp_ratio_mean",
+      "mkt_vol_mean",
+      "gross_mean"
+    ],
+    "before_convention": [
+      "gate_open_before",
+      "breadth_before",
+      "disp_ratio_before",
+      "mkt_vol_before",
+      "own63_before",
+      "gross_before"
+    ]
+  },
+  "monthly_observations": 57,
+  "crash_months": 10,
+  "promoted": []
+}
