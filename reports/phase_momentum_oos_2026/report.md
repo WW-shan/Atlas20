@@ -1,5 +1,7 @@
 # Phase-Momentum Frozen-Spec Out-of-Sample Tracking
 
+Tracked specification: `PR2026-10-H3` (registered trial PR2026-10-H3).
+
 Research sample: `2022-01-01` .. `2026-09-21`. 
 Out-of-sample window: `2026-09-22` .. `2026-10-07` (16 daily observations).
 

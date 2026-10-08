@@ -23,6 +23,8 @@
 
 ### 00.1 判定：冠军仍是研究候选（provisional），不是已验证策略
 
+> **规格已被 §00.11 取代（2026-10-08）**：冻结规格现在是 H3（Top20 宽度共闸 50/50 混合，`PR2026-10-H3`），不再是本节表中的 B（单 book 冠军）。下表保留为切换前的 B 审计记录，数字仍然有效（B 依旧是基线）。
+
 | 门槛（AGENTS.md） | 结果 | 判定 |
 |---|---|---|
 | ≥20x（基准成本 2bps，实盘成交时点：收盘后 3h，取两种缺 K 线假设中较差者） | **24.42x**，Sharpe 1.45，最大回撤 -43.7% | 通过 |
@@ -68,6 +70,8 @@
 3. **H1（23:00 UTC 提前一小时决策、收盘成交）需要项目负责人决定**：它与“信号在收盘生成”的规则冲突，未经确认不运行。符合现行规则的替代方案是缩短数据链路：+1h 成交在 20bps 下为 21.22x（+3h 为 19.56x）。该替代方案的落地清单见 `docs/operations/execution_latency.md`。**测量已于 2026-10-08 启动**：`ops/com.atlas20.cmc-probe.plist` 已安装为 launchd 作业，在 00:05–03:50 UTC 每 15 分钟跑一次 `scripts/probe_cmc_publication.py`（每次 10 个币、160 请求/天，约为一次正常刷新的 1.5 倍），结果追加写入 `reports/provider_publication/cmc_publication_probe.csv`；首次冒烟运行成功（2026-10-07 覆盖 10/10）。用 T90（≥90% 样本拿到 D-1 的最早 UTC 时刻）决定刷新时点与成交时点。
 
 ### 00.5 2026-10-08 冻结规格样本外跟踪（16 天，仍为 provisional）
+
+> **规格已被 §00.11 取代（2026-10-08）**：本节记录的是切换前的 B（单 book 冠军）。`reports/phase_momentum_oos_2026/` 现在跟踪 H3；在这 16 天里宽度共闸从未触发，H3 与 B 的收益逐位相同，所以本节数字对 H3 同样成立。
 
 - **规格冻结**：`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`；没有根据 2026-09-22 之后的结果调参、换币、改成本或改执行规则。
 - **样本外窗口**：2026-09-22 → 2026-10-07，共 16 个日收益。面板已刷新至 2026-10-07，且该日通过完整收盘校验（97 个资产全周数据、成交量与市值覆盖率达标）。
@@ -212,6 +216,37 @@
 - **复现**：`.venv/bin/python scripts/analyze_phase_momentum_book.py`；明细 `reports/phase_momentum_book_concentration/daily_book.csv`。
 - **已接入样本外跟踪**：`scripts/run_phase_momentum_oos.py` 现在同时输出 `oos_coin_attribution.csv` 与 `oos_concentration.csv`，report.md 增加「OOS per-coin concentration」小节（每个成本取较差缺 K 线口径），并给出同样的 drop-top1/drop-top5 反事实。当前 16 天窗口只有 `near` 一个贡献币（份额 122%，窗口太短、不构成证据）。
 - **复现**：`.venv/bin/python scripts/attribute_phase_momentum_assets.py`（冠军）与 `... --trial-id PR2026-10-H3 --output-dir reports/phase_momentum_asset_attribution_h3`；报告在 `reports/phase_momentum_asset_attribution/` 与 `reports/phase_momentum_asset_attribution_h3/`。
+
+### 00.11 2026-10-08 采用 H3 作为冻结规格（仍为 provisional；取代 §00.1/§00.5 的规格指定）
+
+- **决定**：按 §00.10 的同口径横评，本轮把冻结规格从 **B（单 book 冠军）** 切换为 **H3（Top20 宽度共闸 50/50 混合，注册号 `PR2026-10-H3`）**。这是一次**规格指定**的切换，不是新的参数搜索：H3 在运行前已登记、通过了自己的 kill criterion，切换没有使用 2026-09-22 之后的任何数据来挑参数。
+- **切换后的规格**：24 个 sleeve = 2 个 book × 12 个 sleeve，等权 1/24。
+  - book A = 冠军（`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`）。
+  - book B = 冠军 + Top20 宽度共闸：breadth(D) = 当日 point-in-time Top20 中收盘价高于自身 50D SMA 的占比，breadth(D) ≥ 0.50 才 risk-on（无 confirm）；不满足时 book B 的 sleeve 全部转现金。
+  - 在**目标层面**做 50/50 混合，生产引擎在每次目标事件向 50/50 再平衡并按该次运行的成本计费；其余规则（信号收盘生成、T+1、2bps 基准成本、长仓现货无杠杆、gross ≤ 1.0）不变。
+- **协议口径（20bps、+3h、较差缺 K 线）的头条结果**（`reports/phase_momentum_candidate_eval/`）：
+
+| 指标 | B（切换前） | **H3（切换后）** |
+| --- | ---: | ---: |
+| 总收益 | 19.56x | **19.90x** |
+| Sharpe | 1.370 | **1.466** |
+| 最大回撤 | -45.7% | **-37.7%** |
+| DSR | 0.679 | **0.758** |
+
+- **+1h 实盘目标口径**（若 CMC 发布时间探针证明 00:30 UTC 前可拿到 D-1 收盘）：H3 **23.44x** / Sharpe 1.534 / MDD **-33.4%** / DSR 0.808；B 21.22x / 1.398 / -46.6% / 0.703。H3 在 +1h 口径下同时站上 20x。
+- **仍然失败 / 未证明的门槛**（与 §00.1 相同，只是数字换成 H3；任何一条都不因切换而解除）：
+  - **DSR**：协议口径 **0.758**（+1h 0.808）< 0.95 → **失败**。
+  - **PBO**：尚未对 H3 计算（B 为 0.526）→ **未证明**，按 AGENTS.md 不得当作通过。
+  - **参数窄峰**：收益对宽度阈值敏感（+1h 下 0.45/0.50/0.55 → 22.87x/23.44x/18.62x，0.50 是峰值，0.45 只低 2.4%）；该阈值来自 §0.8 样本内 5 点网格，属**二次选择**。**回撤优势是单调且稳健的**（-34.6%/-33.4%/-30.2%），这才是采用 H3 的主要理由。
+  - **单资产依赖**：§00.9 的结论（12 个 sleeve 实际是 1–2 币组合）对两个 book 都成立；H3 没有降低对单一币的依赖，只是用宽度闸门把 book B 在风险期转现金。
+- **样本外**：2026-09-22 → 2026-10-07 的 16 天窗口里，宽度共闸从未触发（breadth 始终 ≥ 0.50），因此 H3 与 B 的收益逐位相同（+3h 20bps **1.0883x**，MDD -10.57%）。这段窗口原本是 B 的冻结窗口，对 H3 也是切参前数据，但**不构成 H3 的独立证据**。`reports/phase_momentum_oos_2026/` 现已切换为跟踪 H3（manifest `trial_id=PR2026-10-H3`，report.md 首行标明 tracked specification）；B 的旧快照保留在 git 历史与本文件 §00.5。
+- **实盘信号工具**：`scripts/run_phase_momentum_live_signal.py` 现在默认构造 H3（模块常量 `FROZEN_TRIAL_ID = "PR2026-10-H3"`），`--trial-id champion-defaults` 可回到 B。输出新增 `trial_id` 字段，sleeve 快照新增 `book` 列（0 = book A，1 = book B），多 book 的规则描述列出两个 book 的闸门。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
+  .venv/bin/python scripts/run_phase_momentum_oos.py --trial-id PR2026-10-H3 --end-date 2026-10-07
+  ```
+  明细：`reports/phase_momentum_candidate_eval/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
 
 ---
 

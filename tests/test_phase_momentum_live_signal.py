@@ -114,6 +114,7 @@ def test_latest_signal_uses_latest_target_and_reports_sleeve_state() -> None:
     assert payload["next_check_date"] == "2024-01-17"
     assert payload["sleeves"] == [
         {
+            "book": 0,
             "signal_name": "signal_a",
             "phase_offset": 0,
             "asset": "solana",
@@ -121,6 +122,7 @@ def test_latest_signal_uses_latest_target_and_reports_sleeve_state() -> None:
             "target_date": "2024-01-10",
         },
         {
+            "book": 0,
             "signal_name": "signal_b",
             "phase_offset": 1,
             "asset": "__cash__",
@@ -236,6 +238,9 @@ def _patch_inputs(
 
     monkeypatch.setattr(live, "_load_market", load_market)
     monkeypatch.setattr(live, "_assess_last_day", assess_last_day)
+    # These tests exercise the single-book champion path; pin the frozen spec
+    # to the sentinel so ``main`` uses the monkeypatched builder.
+    monkeypatch.setattr(live, "FROZEN_TRIAL_ID", "champion-defaults")
     monkeypatch.setattr(live, "build_phase_momentum_targets", lambda *args, **kwargs: built)
 
 
@@ -407,3 +412,90 @@ def test_main_records_a_passed_last_day_check(tmp_path, monkeypatch) -> None:
     assert payload["last_day_check"]["date"] == "2024-01-16"
     markdown = (tmp_path / "latest_signal.md").read_text(encoding="utf-8")
     assert "- Last day complete: True" in markdown
+
+def _two_book_build(index: pd.DatetimeIndex) -> tuple[PhaseMomentumBuildResult, tuple]:
+    """A synthetic 2-book build: book A's 6 sleeves then book B's 6."""
+    book_a = PhaseMomentumSpec(btc_ma_window=2, btc_confirm_days=1)
+    book_b = PhaseMomentumSpec(
+        btc_ma_window=2,
+        btc_confirm_days=1,
+        breadth_threshold=0.50,
+        breadth_ma_window=50,
+    )
+    books = ((book_a, 0.5), (book_b, 0.5))
+    sleeves = tuple(
+        _sleeve(name, phase, index, {0: ("ethereum", 0.5)})
+        for name in ("signal_a", "signal_b")
+        for phase in (0, 1, 2)
+    ) * 2
+    built = PhaseMomentumBuildResult(
+        targets={index[0]: pd.Series({"ethereum": 0.5})},
+        exposures={index[0]: 0.5},
+        selection_history=pd.DataFrame(),
+        sleeve_targets=sleeves,
+    )
+    return built, books
+
+
+def test_book_labels_split_multi_book_sleeves_in_build_order() -> None:
+    index = pd.date_range("2024-01-01", periods=16, freq="D")
+    built, books = _two_book_build(index)
+
+    labels = live._book_labels(built, books)
+
+    assert labels == [0] * 6 + [1] * 6
+
+
+def test_multi_book_payload_names_the_h3_books_and_labels_every_sleeve() -> None:
+    index = pd.date_range("2024-01-01", periods=16, freq="D")
+    market = _market(_price(index))
+    built, books = _two_book_build(index)
+    book_a = books[0][0]
+    result = _production_result(
+        load_config("config/base.yaml"), market, built, index, cost_bps=20.0
+    )
+
+    payload = _latest_signal_payload(
+        market,
+        built,
+        book_a,
+        index,
+        engine_weights=result.weights,
+        cost_bps=20.0,
+        as_of=index[-1],
+        books=books,
+        trial_id="PR2026-10-H3",
+    )
+
+    assert payload["trial_id"] == "PR2026-10-H3"
+    assert payload["target_spec"]["construction"].startswith("build_parameter_ensemble_targets")
+    assert [book["weight"] for book in payload["target_spec"]["books"]] == [0.5, 0.5]
+    assert "2 books at [0.50, 0.50]" in payload["rule"]
+    assert "book B: hold while in Top2" in payload["rule"]
+    assert "Top20 breadth >= 0.50 above own 50D SMA" in payload["rule"]
+    assert {sleeve["book"] for sleeve in payload["sleeves"]} == {0, 1}
+    assert len(payload["sleeves"]) == 12
+
+def test_frozen_spec_is_the_h3_breadth_cogate_blend() -> None:
+    # The live signal must default to the adopted frozen spec, not the
+    # pre-switch single-book champion.
+    assert live.FROZEN_TRIAL_ID == "PR2026-10-H3"
+
+
+def test_main_defaults_to_the_frozen_trial_id(tmp_path, monkeypatch) -> None:
+    index = pd.date_range("2024-01-01", periods=16, freq="D")
+    _patch_inputs(monkeypatch, index)
+    monkeypatch.setattr(live, "FROZEN_TRIAL_ID", "PR2026-10-H3")
+
+    def fake_resolve(market, universe, idx, trial_id):
+        built = _built(idx)
+        spec = PhaseMomentumSpec(btc_ma_window=2, btc_confirm_days=1)
+        assert trial_id is None
+        return ((spec, 1.0),), spec, built, "PR2026-10-H3"
+
+    monkeypatch.setattr(live, "_resolve_build", fake_resolve)
+
+    live.main(["--output-dir", str(tmp_path), "--allow-stale"])
+
+    payload = json.loads((tmp_path / "latest_signal.json").read_text(encoding="utf-8"))
+    assert payload["trial_id"] == "PR2026-10-H3"

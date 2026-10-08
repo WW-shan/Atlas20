@@ -37,6 +37,11 @@ from atlas20.strategies.phase_momentum import (  # noqa: E402
 
 from scripts.run_phase_momentum import _load_market, _production_result  # noqa: E402
 
+# The frozen specification this tool emits signals for.  ``champion-defaults``
+# is the pre-2026-10-08 single-book champion; ``PR2026-10-H3`` is the adopted
+# Top20-breadth co-gate blend.  Override per run with ``--trial-id``.
+FROZEN_TRIAL_ID = "PR2026-10-H3"
+
 
 def _utc_now(now: datetime | None = None) -> datetime:
     """``now`` as an aware UTC datetime; a naive value is taken to be UTC."""
@@ -110,12 +115,44 @@ def _resolve_as_of(index: pd.DatetimeIndex, as_of: pd.Timestamp | str | None) ->
     return pd.Timestamp(eligible[-1]).normalize()
 
 
+def _book_labels(
+    built: PhaseMomentumBuildResult,
+    books: tuple[tuple[PhaseMomentumSpec, float], ...],
+) -> list[int]:
+    """Which book each sleeve belongs to, in build order.
+
+    ``build_parameter_ensemble_targets`` appends sleeves book by book (spec by
+    spec, then signal, then phase), so the first ``signals x phases`` sleeves
+    are book 0 and so on.  ``build_phase_momentum_targets`` is the one-book
+    case.  A synthetic build whose sleeve count does not match its spec falls
+    back to equal contiguous blocks (display-only; the aggregate targets and
+    engine book do not depend on this label).
+    """
+    n_books = len(books)
+    n_sleeves = len(built.sleeve_targets)
+    if n_books <= 1:
+        return [0] * n_sleeves
+    signal_count = len(_signal_names(built))
+    expected = [signal_count * len(spec.phase_offsets) for spec, _ in books]
+    if sum(expected) == n_sleeves:
+        labels: list[int] = []
+        for index, count in enumerate(expected):
+            labels.extend([index] * count)
+        return labels
+    per_book = n_sleeves // n_books
+    if per_book * n_books != n_sleeves:
+        return [0] * n_sleeves
+    return [index // per_book for index in range(n_sleeves)]
+
+
 def _sleeve_snapshot(
     built: PhaseMomentumBuildResult,
     as_of: pd.Timestamp,
+    books: tuple[tuple[PhaseMomentumSpec, float], ...],
 ) -> list[dict[str, object]]:
+    labels = _book_labels(built, books)
     rows: list[dict[str, object]] = []
-    for sleeve in built.sleeve_targets:
+    for book, sleeve in zip(labels, built.sleeve_targets):
         history = sleeve.assets.loc[:as_of].dropna()
         if history.empty:
             continue
@@ -124,6 +161,7 @@ def _sleeve_snapshot(
         weight = 0.0 if asset == "__cash__" else float(sleeve.weights.loc[target_date])
         rows.append(
             {
+                "book": int(book),
                 "signal_name": sleeve.signal_name,
                 "phase_offset": int(sleeve.phase_offset),
                 "asset": asset,
@@ -161,6 +199,74 @@ def _rule_text(spec: PhaseMomentumSpec, signal_names: list[str]) -> str:
         parts.append(f"asset above its {spec.asset_ma_window}D MA")
     parts.extend(["long-only spot, no leverage", "T+1"])
     return "; ".join(parts)
+
+
+def _book_summary(spec: PhaseMomentumSpec) -> str:
+    """One book's rule knobs, for the multi-book rule text."""
+    bits = [f"hold while in Top{spec.hold_rank}"]
+    if spec.use_btc_gate:
+        if spec.btc_ma_windows is not None:
+            windows = "/".join(f"MA{window}" for window in spec.btc_ma_windows)
+            bits.append(f"BTC gate ensemble {windows} + confirm{spec.btc_confirm_days}")
+        else:
+            bits.append(f"BTC {spec.btc_ma_window}D MA + confirm{spec.btc_confirm_days}")
+    else:
+        bits.append("no BTC gate")
+    if spec.breadth_threshold is not None:
+        bits.append(
+            f"Top20 breadth >= {spec.breadth_threshold:.2f} above own "
+            f"{spec.breadth_ma_window}D SMA"
+        )
+    if spec.holdings_per_sleeve > 1:
+        bits.append(f"{spec.holdings_per_sleeve} coins per sleeve")
+    if spec.use_volatility_target:
+        bits.append(f"{spec.vol_window}D volatility target at {spec.target_volatility * 100:g}%")
+    else:
+        bits.append("no volatility target")
+    if spec.stop_loss_kind != "none":
+        bits.append(f"{spec.stop_loss_kind} stop at {spec.stop_loss_pct * 100:g}%")
+    if spec.use_asset_trend_filter:
+        bits.append(f"asset above its {spec.asset_ma_window}D MA")
+    return ", ".join(bits)
+
+
+def _multi_book_rule_text(
+    books: tuple[tuple[PhaseMomentumSpec, float], ...],
+    signal_names: list[str],
+) -> str:
+    """Describe a multi-book (registered ensemble) target build."""
+    first = books[0][0]
+    sleeve_count = sum(len(spec.phase_offsets) for spec, _ in books) * len(signal_names)
+    weights = ", ".join(f"{weight:.2f}" for _, weight in books)
+    parts = [
+        "Strict point-in-time Top20",
+        f"{sleeve_count} sleeves = {len(books)} books at [{weights}] x "
+        f"{len(signal_names)} trailing-return signals ({', '.join(signal_names)}) x "
+        f"{len(first.phase_offsets)} calendar phases of a {first.rebalance_days}D rebalance cycle",
+    ]
+    for index, (spec, _weight) in enumerate(books):
+        parts.append(f"book {chr(ord('A') + index)}: {_book_summary(spec)}")
+    parts.extend(["long-only spot, no leverage", "T+1"])
+    return "; ".join(parts)
+
+
+def _target_spec(
+    books: tuple[tuple[PhaseMomentumSpec, float], ...],
+) -> dict[str, object]:
+    """The spec(s) behind the targets: one spec, or the registered book mix."""
+    if len(books) == 1:
+        spec = books[0][0]
+        return {**asdict(spec), "phase_offsets": list(spec.phase_offsets)}
+    return {
+        "construction": "build_parameter_ensemble_targets (equal book weights)",
+        "books": [
+            {
+                "weight": float(weight),
+                "spec": {**asdict(spec), "phase_offsets": list(spec.phase_offsets)},
+            }
+            for spec, weight in books
+        ],
+    }
 
 
 def _current_weights(engine_weights: pd.DataFrame, as_of: pd.Timestamp) -> pd.Series:
@@ -230,14 +336,19 @@ def _latest_signal_payload(
     engine_weights: pd.DataFrame,
     cost_bps: float,
     as_of: pd.Timestamp | str | None = None,
+    books: tuple[tuple[PhaseMomentumSpec, float], ...] | None = None,
+    trial_id: str = "champion-defaults",
 ) -> dict[str, object]:
     """Latest target snapshot for the evaluated ``index`` (the backtest range).
 
     ``phase_offset`` labels count days from ``index[0]``, so the payload
     records the evaluated range next to the panel's own last date.
     ``engine_weights`` is the production engine's ``BacktestResult.weights``
-    for the same build, run at ``cost_bps``.
+    for the same build, run at ``cost_bps``.  ``books`` is the registered
+    book mix behind the build (one book for the champion, two for H3); ``spec``
+    is the first book's spec and drives the BTC gate reading.
     """
+    books = books if books is not None else ((spec, 1.0),)
     resolved_as_of = _resolve_as_of(index, as_of)
     eligible_dates = sorted(
         pd.Timestamp(target_date)
@@ -256,6 +367,11 @@ def _latest_signal_payload(
         ma_window=spec.btc_ma_window,
         confirm_days=spec.btc_confirm_days,
     )
+    rule = (
+        _rule_text(spec, signal_names)
+        if len(books) == 1
+        else _multi_book_rule_text(books, signal_names)
+    )
     return {
         "as_of": resolved_as_of.date().isoformat(),
         "start_date": pd.Timestamp(index.min()).date().isoformat(),
@@ -272,10 +388,11 @@ def _latest_signal_payload(
         "current_gross_exposure": float(current.sum()),
         "cost_bps": float(cost_bps),
         "next_check_date": (resolved_as_of + pd.Timedelta(days=1)).date().isoformat(),
-        "rule": _rule_text(spec, signal_names),
+        "trial_id": trial_id,
+        "rule": rule,
         "signal_names": signal_names,
-        "target_spec": {**asdict(spec), "phase_offsets": list(spec.phase_offsets)},
-        "sleeves": _sleeve_snapshot(built, resolved_as_of),
+        "target_spec": _target_spec(books),
+        "sleeves": _sleeve_snapshot(built, resolved_as_of, books),
     }
 
 
@@ -292,13 +409,15 @@ def _weight_lines(weights: object) -> list[str]:
 
 def _write_markdown(path: Path, payload: dict[str, object]) -> None:
     sleeve_lines = [
-        "| Signal | Phase | Asset | Weight | Target date |",
-        "| --- | ---: | --- | ---: | --- |",
+        "| Book | Signal | Phase | Asset | Weight | Target date |",
+        "| ---: | --- | ---: | --- | ---: | --- |",
     ]
     for sleeve in payload["sleeves"]:
         assert isinstance(sleeve, dict)
         sleeve_lines.append(
-            "| {signal_name} | {phase_offset} | {asset} | {weight:.6f} | {target_date} |".format(
+            "| {book} | {signal_name} | {phase_offset} | {asset} | {weight:.6f} | "
+            "{target_date} |".format(
+                book=sleeve["book"],
                 signal_name=sleeve["signal_name"],
                 phase_offset=sleeve["phase_offset"],
                 asset=sleeve["asset"],
@@ -316,6 +435,7 @@ def _write_markdown(path: Path, payload: dict[str, object]) -> None:
                 f"- Evaluated range: {payload['start_date']} .. {payload['end_date']} "
                 f"(phase offsets count from {payload['start_date']})",
                 f"- Panel last date: {payload['panel_last_date']}",
+                f"- Trial: {payload['trial_id']}",
                 f"- Latest target date: {payload['latest_target_date']}",
                 f"- Trade required: {payload['trade_required']}",
                 _last_day_line(payload.get("last_day_check")),
@@ -350,6 +470,38 @@ def _write_markdown(path: Path, payload: dict[str, object]) -> None:
     )
 
 
+CHAMPION_TRIAL_ID = "champion-defaults"
+
+
+def _resolve_build(
+    market,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    trial_id: str | None,
+) -> tuple[tuple[tuple[PhaseMomentumSpec, float], ...], PhaseMomentumSpec,
+           PhaseMomentumBuildResult, str]:
+    """Build the sleeve targets for the frozen spec or a registered trial.
+
+    ``trial_id`` selects a pre-registered trial from
+    ``scripts.run_phase_momentum_hypotheses`` (the runner refuses an
+    unregistered or drifted spec).  ``None`` resolves to ``FROZEN_TRIAL_ID``;
+    the sentinel ``champion-defaults`` builds the pre-switch single-book
+    champion's ``PhaseMomentumSpec`` defaults directly.  Returns the book mix,
+    the first book's spec (drives the BTC gate reading), the build, and the
+    recorded trial id.
+    """
+    resolved = trial_id or FROZEN_TRIAL_ID
+    if resolved == CHAMPION_TRIAL_ID:
+        spec = PhaseMomentumSpec()
+        built = build_phase_momentum_targets(market, universe, index, spec=spec)
+        return ((spec, 1.0),), spec, built, CHAMPION_TRIAL_ID
+    from scripts.run_phase_momentum_hypotheses import build_trial, trial_by_id
+
+    trial = trial_by_id(resolved)
+    built = build_trial(trial, market, universe, index)
+    return trial.books, trial.books[0][0], built, resolved
+
+
 def main(argv: list[str] | None = None, *, now: datetime | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config/base.yaml")
@@ -360,6 +512,15 @@ def main(argv: list[str] | None = None, *, now: datetime | None = None) -> None:
         help="last evaluated date (default: the latest completed UTC day)",
     )
     parser.add_argument("--as-of", default=None)
+    parser.add_argument(
+        "--trial-id",
+        default=None,
+        help=(
+            "registered trial to build (default: the frozen spec, "
+            f"{FROZEN_TRIAL_ID!r}). Pass 'champion-defaults' for the pre-switch "
+            "single-book champion."
+        ),
+    )
     parser.add_argument(
         "--cost-bps",
         type=float,
@@ -406,8 +567,7 @@ def main(argv: list[str] | None = None, *, now: datetime | None = None) -> None:
         last_day = _assess_last_day(config, index.max())
         if not args.allow_partial_day:
             _check_last_day(last_day)
-    spec = PhaseMomentumSpec()
-    built = build_phase_momentum_targets(market, universe, index, spec=spec)
+    books, spec, built, trial_id = _resolve_build(market, universe, index, args.trial_id)
     result = _production_result(config, market, built, index, cost_bps=args.cost_bps)
     payload = _latest_signal_payload(
         market,
@@ -417,6 +577,8 @@ def main(argv: list[str] | None = None, *, now: datetime | None = None) -> None:
         engine_weights=result.weights,
         cost_bps=args.cost_bps,
         as_of=args.as_of,
+        books=books,
+        trial_id=trial_id,
     )
     payload["last_day_check"] = _last_day_payload(last_day)
     output_dir = ensure_dir(args.output_dir)

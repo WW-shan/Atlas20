@@ -76,7 +76,8 @@
     "world-liberty-financial",
     "zcash"
   ],
-  "strategy": "frozen phase momentum champion (PhaseMomentumSpec defaults, PRIMARY_SIGNAL_SPECS)",
+  "trial_id": "PR2026-10-H3",
+  "strategy": "registered trial PR2026-10-H3",
   "spec": {
     "rebalance_days": 3,
     "phase_offsets": [

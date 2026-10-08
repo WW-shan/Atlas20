@@ -376,6 +376,9 @@ def main() -> None:
         [
             "# Phase-Momentum Frozen-Spec Out-of-Sample Tracking",
             "",
+            f"Tracked specification: `{manifest['trial_id']}` "
+            f"({manifest['strategy']}).",
+            "",
             f"Research sample: `{args.research_start_date}` .. `{args.research_end_date}`. ",
             f"Out-of-sample window: `{oos_index.min().date()}` .. `{oos_index.max().date()}` "
             f"({len(oos_index)} daily observations).",
