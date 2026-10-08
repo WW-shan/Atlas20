@@ -123,6 +123,28 @@ def counterfactual_multiple(
     return float((1.0 + adjusted).prod())
 
 
+def cash_yield_multiple(
+    returns: pd.Series,
+    gross_exposure: pd.Series,
+    *,
+    annual_yield: float,
+    days_per_year: int = 365,
+) -> float:
+    """Terminal multiple if the idle cash earned ``annual_yield``.
+
+    The engine credits cash 0%, so the headline is conservative: the champion
+    holds about 64% cash on average. This pays the day's cash share, using the
+    engine's end-of-day weights as that day's cash weight - an approximation,
+    stated so nobody reads it as an engine feature. It is a measurement
+    sensitivity, not alpha: it changes no rule and does not fix the DSR/PBO
+    gates.
+    """
+    index = returns.index
+    cash_weight = (1.0 - gross_exposure.reindex(index).fillna(0.0)).clip(lower=0.0)
+    daily = cash_weight * annual_yield / days_per_year
+    return float((1.0 + returns.fillna(0.0) + daily).prod())
+
+
 def summarise(contributions: pd.Series) -> pd.DataFrame:
     """Contribution, share of the total and cumulative share, largest first."""
     gross = float(contributions.sum())
@@ -169,6 +191,8 @@ def main() -> None:
     summaries: dict[str, pd.DataFrame] = {}
     multiples: dict[str, float] = {}
     counterfactuals: dict[str, dict[str, float]] = {}
+    gross_exposure: dict[str, pd.Series] = {}
+    scenario_returns: dict[str, pd.Series] = {}
     for fill, policy in HOUR_FILLS.items():
         pre_fill = pre_fill_returns(
             daily, hourly, fill_hours=FILL_HOURS, missing_fill=policy, reference_close=closes
@@ -183,6 +207,8 @@ def main() -> None:
         frame.to_csv(output_dir / f"per_coin_{fill}.csv")
         summaries[fill] = frame
         multiples[fill] = _terminal_multiple(result.daily_returns)
+        gross_exposure[fill] = result.weights.sum(axis=1)
+        scenario_returns[fill] = result.daily_returns
         counterfactuals[fill] = {
             "drop_top1": counterfactual_multiple(result.daily_returns, matrix, (frame.index[0],)),
             "drop_top3": counterfactual_multiple(result.daily_returns, matrix, tuple(frame.index[:3])),
@@ -193,6 +219,7 @@ def main() -> None:
     worse = min(multiples, key=lambda key: multiples[key])
     frame = summaries[worse]
     cf = counterfactuals[worse]
+    result_returns = scenario_returns[worse]
     lines = [
         "# Phase-momentum champion: per-coin attribution",
         "",
@@ -224,6 +251,19 @@ def main() -> None:
         f"- Without the top-1 contributor ({frame.index[0]}): **{cf['drop_top1']:.4f}x**.",
         f"- Without the top-3 contributors: **{cf['drop_top3']:.4f}x**.",
         f"- Without the top-5 contributors: **{cf['drop_top5']:.4f}x**.",
+        "",
+        "Cash-yield sensitivity (measurement only; the engine credits cash 0%, and the",
+        f"book's average gross exposure is {float(gross_exposure[worse].mean()):.1%}):",
+        "",
+        "| annual cash yield | terminal multiple |",
+        "| ---: | ---: |",
+        *[
+            f"| {rate:.1%} | {cash_yield_multiple(result_returns, gross_exposure[worse], annual_yield=rate):.4f}x |"
+            for rate in (0.0, 0.02, 0.04, 0.05)
+        ],
+        "",
+        "This is not a strategy result: it prices idle cash, changes no rule, and does",
+        "not move the Deflated Sharpe, PBO or parameter-neighbourhood gates.",
     ]
     (output_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {output_dir}")

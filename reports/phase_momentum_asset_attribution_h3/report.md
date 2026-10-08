@@ -118,3 +118,16 @@ Attribution counterfactuals (remove that coin's daily contribution, keep every p
 - Without the top-1 contributor (solana): **7.4261x**.
 - Without the top-3 contributors: **2.2974x**.
 - Without the top-5 contributors: **1.0838x**.
+
+Cash-yield sensitivity (measurement only; the engine credits cash 0%, and the
+book's average gross exposure is 29.9%):
+
+| annual cash yield | terminal multiple |
+| ---: | ---: |
+| 0.0% | 19.9004x |
+| 2.0% | 21.2634x |
+| 4.0% | 22.7196x |
+| 5.0% | 23.4847x |
+
+This is not a strategy result: it prices idle cash, changes no rule, and does
+not move the Deflated Sharpe, PBO or parameter-neighbourhood gates.

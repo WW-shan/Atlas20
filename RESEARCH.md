@@ -150,6 +150,7 @@
 去掉前 3 后只剩 2.07x（BTC 买入持有为 1.87x），去掉前 5 后直接亏损。**必须同时说明：这不是一个可交易策略**——事前不知道哪 5 个币会赢——它只回答「收益从哪来」，是集中度度量。
 - **判定**：这**直接触发 AGENTS.md 的「不能依赖单一资产」条款**，是冠军必须保持 **provisional** 的又一条独立理由，且这条在样本内无法修复：唯一被预注册过的分散化方案 H4 已被证伪（3.15x）。H3（宽度共闸）也解决不了它——前 5 份额 84.1%，去掉前 5 后 1.08x，只是略好于冠军。
 - **对后续的含义**：① 样本外跟踪必须同时报告这个集中度（同样的 5 个币是否还在贡献收益）；② 任何「提高稳健性」的尝试都要面对「收益就是来自少数币的大行情」这一事实，不能指望用分散化同时保住 20x。
+- **现金计息敏感性（计量口径，默认不计入 headline）**：引擎给现金 0% 利息，而组合平均 gross exposure 只有 **36.0%**（64% 现金）。把闲置现金按固定年化利率计息后，冠军 20bps +3h 口径为：0% → 19.5575x；**2% → 20.7772x**；4% → 22.0729x；5% → 22.7507x。这是一个**保守假设的敏感性**，不是 alpha：它不改任何规则，也不改善 DSR/PBO/窄峰三关；是否把它计入 headline 需要项目负责人明确决定（未经决定前 §00.1/§00.5 的数字保持不变）。H3 同样口径为 19.9004x / 21.2634x / 22.7196x / 23.4847x。
 - **已接入样本外跟踪**：`scripts/run_phase_momentum_oos.py` 现在同时输出 `oos_coin_attribution.csv` 与 `oos_concentration.csv`，report.md 增加「OOS per-coin concentration」小节（每个成本取较差缺 K 线口径），并给出同样的 drop-top1/drop-top5 反事实。当前 16 天窗口只有 `near` 一个贡献币（份额 122%，窗口太短、不构成证据）。
 - **复现**：`.venv/bin/python scripts/attribute_phase_momentum_assets.py`（冠军）与 `... --trial-id PR2026-10-H3 --output-dir reports/phase_momentum_asset_attribution_h3`；报告在 `reports/phase_momentum_asset_attribution/` 与 `reports/phase_momentum_asset_attribution_h3/`。
 

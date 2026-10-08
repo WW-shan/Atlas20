@@ -60,3 +60,24 @@ def test_summarise_shares_sum_to_one_and_sort_descending() -> None:
     assert list(frame.index) == ["a", "b", "c"]  # descending by contribution
     assert frame["contribution"].tolist() == pytest.approx([3.0, 1.0, -2.0])
     assert frame["share"].sum() == pytest.approx(1.0)
+
+
+def test_cash_yield_multiple_pays_only_the_idle_share() -> None:
+    index = pd.date_range("2022-01-01", periods=2, freq="D")
+    returns = pd.Series([0.0, 0.0], index=index)
+    gross = pd.Series([1.0, 0.0], index=index)  # fully invested on day 1, all cash on day 2
+    # 365 days of 100% cash at 36.5%/yr would double; here only one day is idle
+    assert attribution.cash_yield_multiple(returns, gross, annual_yield=0.0) == pytest.approx(1.0)
+    assert attribution.cash_yield_multiple(returns, gross, annual_yield=0.365) == pytest.approx(1.001)
+    # a fully invested book earns nothing extra at any rate
+    assert attribution.cash_yield_multiple(
+        pd.Series([0.10, -0.05], index=index), pd.Series([1.0, 1.0], index=index), annual_yield=1.0
+    ) == pytest.approx(1.045)
+
+
+def test_cash_yield_multiple_handles_a_missing_gross_row() -> None:
+    index = pd.date_range("2022-01-01", periods=2, freq="D")
+    returns = pd.Series([0.0, 0.0], index=index)
+    gross = pd.Series([0.0], index=index[:1])
+    # the missing row is treated as cash, never as negative exposure
+    assert attribution.cash_yield_multiple(returns, gross, annual_yield=0.365) == pytest.approx(1.002)
