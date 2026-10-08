@@ -57,11 +57,11 @@ probability above 0.95 passes.
 | index | candidate | scope | trial_count | trial_sharpe_std_annualized | observed_sharpe | expected_max_sharpe | deflated_sharpe_probability |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | primary | family | 30.0000 | 0.1711 | 1.4325 | 0.3548 | 0.9952 |
-| 1 | primary | top20_2022_trials | 6,126.0000 | 0.3134 | 1.4325 | 1.1718 | 0.7345 |
-| 2 | primary | all_trials | 14,120.0000 | 0.3134 | 1.4325 | 1.2360 | 0.6816 |
+| 1 | primary | top20_2022_trials | 6,132.0000 | 0.3144 | 1.4325 | 1.1757 | 0.7314 |
+| 2 | primary | all_trials | 14,126.0000 | 0.3144 | 1.4325 | 1.2401 | 0.6780 |
 | 3 | rebalance_1d | family | 30.0000 | 0.1711 | 1.4663 | 0.3548 | 0.9964 |
-| 4 | rebalance_1d | top20_2022_trials | 6,126.0000 | 0.3134 | 1.4663 | 1.1718 | 0.7620 |
-| 5 | rebalance_1d | all_trials | 14,120.0000 | 0.3134 | 1.4663 | 1.2360 | 0.7113 |
+| 4 | rebalance_1d | top20_2022_trials | 6,132.0000 | 0.3144 | 1.4663 | 1.1757 | 0.7591 |
+| 5 | rebalance_1d | all_trials | 14,126.0000 | 0.3144 | 1.4663 | 1.2401 | 0.7079 |
 
 ## White Reality Check
 

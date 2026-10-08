@@ -43,12 +43,16 @@ of the failed gates below. See `reports/phase_momentum_oos_2026/`.
 
 It is **provisional, not validated**. It clears 20x at the baseline cost even with realistic
 fills, but two AGENTS.md gates fail: the Deflated Sharpe against the project's real trial
-count is **0.735** (6,126 Top20 trials since 2022; PBO 0.526), and the result sits on
+count is **0.731** (6,132 Top20 trials since 2022; PBO 0.526), and the result sits on
 narrow parameter peaks (BTC gate MA50/MA150 give 9.50x/11.61x, hold rank 1/3 give
 14.55x/9.49x at 20bps). Neither can be fixed on the same sample; the frozen champion is
 tracked out of sample instead, and a small pre-registered round (H2-H4 in
 `docs/research/literature_review_2026-09.md`) is logged in
-`reports/research_trial_inventory/preregistered_trials.csv`.
+`reports/research_trial_inventory/preregistered_trials.csv`. H2 and H3 passed as tier-2
+risk variants (8.79x / 19.90x at 20bps) and H4 was rejected; the pre-declared neighbourhood
+round run afterwards (6 new trials on 2026-10-08) showed H2 keeps its criterion only when
+MA200 is dropped and H3 only at the 0.55 threshold, so neither is a robust replacement for
+the frozen champion (see `RESEARCH.md` section 00.6).
 
 See `RESEARCH.md` section 0.3 for the reproduction commands in dependency order and
 `reports/phase_momentum_*` for the reports. This is research, not a guarantee of future
@@ -557,10 +561,11 @@ Validation after the 2026-09-25 audit (details and the superseded numbers in
   21.22x/19.56x/20.78x/21.57x at 20bps; filling at the next close gives
   12.01x. Hourly candles come from Binance and, for coins Binance does not
   list, Gate.io (`scripts/download_hourly_prices.py --venue gate`).
-- Multiple testing: Deflated Sharpe **0.735** against the 6,126 Top20 trials
+- Multiple testing: Deflated Sharpe **0.731** against the 6,132 Top20 trials
   since 2022 (fail; the old 0.9945 counted only 32 candidates). White Reality
   Check within the 30-variant family: p=0.019 against zero, p=0.025 against
-  BTC. PBO **0.526** (fail), so no best-parameter selection is used.
+  BTC. PBO **0.526** (fail), so no best-parameter selection is used. The six
+  pre-registered H2/H3 neighbourhood trials are counted in this denominator.
 - Parameter neighbourhood: narrow peaks at the BTC MA100 gate and the Top2
   hold band (see above) - a robustness failure under AGENTS.md.
 - 365D/90D walk-forward from 2023 over the 25 pre-specified variants,

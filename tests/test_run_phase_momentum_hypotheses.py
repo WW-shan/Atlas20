@@ -17,6 +17,7 @@ from scripts.run_phase_momentum_hypotheses import (
     decision_table,
     entrant_classes,
     evaluate_kill_criteria,
+    evaluate_neighbourhood,
     ledger_registration_row,
     outcome_tier,
     read_ledger,
@@ -47,7 +48,17 @@ def test_registration_writes_one_row_per_trial_and_is_idempotent(tmp_path: Path)
     assert (rows["status"] == "registered").sum() == len(TRIALS)
     assert set(rows["registered_at_utc"]) == {"2026-09-25T00:00:00Z"}
     counted = rows[rows["counts_as_trial"].astype(str) == "True"]["trial_id"].tolist()
-    assert sorted(counted) == ["PR2026-10-H2", "PR2026-10-H3", "PR2026-10-H4"]
+    assert sorted(counted) == [
+        "PR2026-10-H2",
+        "PR2026-10-H2-LOO100",
+        "PR2026-10-H2-LOO150",
+        "PR2026-10-H2-LOO200",
+        "PR2026-10-H2-LOO50",
+        "PR2026-10-H3",
+        "PR2026-10-H3-T45",
+        "PR2026-10-H3-T55",
+        "PR2026-10-H4",
+    ]
 
 
 def test_runner_refuses_a_trial_that_is_not_in_the_ledger(tmp_path: Path) -> None:
@@ -201,6 +212,51 @@ def test_kill_criteria_h3_and_h4_need_every_endpoint_and_the_same_verdict_at_2_a
     row = evaluate_kill_criteria(flip).set_index("hypothesis").loc["H3"]
     assert bool(row["pass_20bps"]) and not bool(row["pass_50bps"])
     assert not bool(row["verdict_pass"]) and not bool(row["direction_consistent"])
+
+
+def test_neighbourhood_trials_drop_or_move_exactly_the_declared_parameter() -> None:
+    loo = trial_by_id("PR2026-10-H2-LOO150")
+    assert loo.role == "neighbourhood" and loo.counts_as_trial
+    assert loo.books[0][0].btc_ma_windows == (50, 100, 200)
+    assert "MA150 left out" in loo.rule
+
+    t045 = trial_by_id("PR2026-10-H3-T45")
+    assert t045.books[0][0].breadth_threshold is None  # book A stays the champion
+    assert t045.books[1][0].breadth_threshold == 0.45
+    assert t045.books[1][1] == 0.5
+    t055 = trial_by_id("PR2026-10-H3-T55")
+    assert t055.books[1][0].breadth_threshold == 0.55
+
+
+def test_neighbourhood_ensembles_are_judged_by_their_parents_criterion() -> None:
+    base = {
+        "PR2026-10-B": (23.0, 12.0, 19.5, 19.9, 1.37, -0.45),
+        "PR2026-10-H2-D50": (9.5, 5.0, 8.0, 8.2, 1.0, -0.5),
+        "PR2026-10-H2-D100": (23.0, 12.0, 19.5, 19.9, 1.37, -0.45),
+        "PR2026-10-H2-D150": (11.6, 6.0, 10.0, 10.1, 1.1, -0.5),
+        "PR2026-10-H2-D200": (10.0, 5.0, 9.0, 9.2, 1.0, -0.5),
+        # LOO50/LOO100/LOO150: 12.0 > the 9.5 median and MDD -0.46 >= -0.47 -> criterion kept.
+        "PR2026-10-H2-LOO50": (14.0, 8.0, 12.0, 12.5, 1.3, -0.46),
+        "PR2026-10-H2-LOO100": (14.0, 8.0, 12.0, 12.5, 1.3, -0.46),
+        "PR2026-10-H2-LOO150": (14.0, 8.0, 12.0, 12.5, 1.3, -0.46),
+        # LOO200: MDD -0.4701 breaks the 2-point tolerance -> criterion not kept.
+        "PR2026-10-H2-LOO200": (14.0, 8.0, 12.0, 12.5, 1.3, -0.4701),
+        # T045: 5.5-point drawdown improvement, higher Sharpe, higher rolling worst.
+        "PR2026-10-H3-T45": (18.0, 10.0, 15.0, 15.5, 1.5, -0.395),
+        # T055: same drawdown but Sharpe below B's -> criterion not kept.
+        "PR2026-10-H3-T55": (18.0, 10.0, 15.0, 15.5, 1.2, -0.395),
+    }
+    runs = _full_runs(base)
+    runs.loc[runs["trial_id"].str.startswith("PR2026-10-H3-T"), "rolling_1y_worst_multiple"] = 0.8
+
+    table = evaluate_neighbourhood(runs).set_index("trial_id")
+
+    assert bool(table.loc["PR2026-10-H2-LOO150", "verdict_pass"])
+    assert not bool(table.loc["PR2026-10-H2-LOO200", "verdict_pass"])
+    assert bool(table.loc["PR2026-10-H3-T45", "verdict_pass"])
+    assert not bool(table.loc["PR2026-10-H3-T55", "verdict_pass"])
+    assert "criterion kept" in table.loc["PR2026-10-H2-LOO150", "tier"]
+    assert "NOT kept" in table.loc["PR2026-10-H2-LOO200", "tier"]
 
 
 def test_outcome_tiers() -> None:

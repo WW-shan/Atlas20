@@ -19,6 +19,10 @@ Trials (all strict point-in-time Top20, long-only spot, gross <= 1):
 * H4  - top-quintile sleeves: 4 coins per sleeve, top-8 hold band.
 * H2 diagnostics - the four single-window gates (MA50/100/150/200) at +3h;
         never promotable.
+* H2/H3 neighbourhoods - the four leave-one-window-out ensembles and the
+        adjacent breadth thresholds 0.45/0.55, run as new ledger trials only
+        after the parent passed its kill criterion (review section 4).
+
 
 Common protocol (review section 4.0): 2022-01-01 to 2026-09-21; 2, 20, 50 and
 100 bps; fills at lag 0, lag 1 day and +3 hours after the signal close under
@@ -227,6 +231,80 @@ def _single_window(window: int) -> Trial:
     )
 
 
+H2_GATE_WINDOWS = (50, 100, 150, 200)
+H3_NEIGHBOURHOOD_THRESHOLDS = (0.45, 0.55)
+
+
+def _h2_leave_one_out(dropped: int) -> Trial:
+    """One pre-declared H2 neighbourhood ensemble: drop one gate window."""
+    windows = tuple(window for window in H2_GATE_WINDOWS if window != dropped)
+    kept = "/".join(f"MA{window}" for window in windows)
+    return Trial(
+        trial_id=f"PR2026-10-H2-LOO{dropped}",
+        hypothesis="H2 neighbourhood",
+        role="neighbourhood",
+        counts_as_trial=True,
+        books=((PhaseMomentumSpec(btc_ma_windows=windows), 1.0),),
+        rule=(
+            f"H2 pre-declared neighbourhood, run after H2 passed its kill criterion: the H2 gate ensemble with "
+            f"MA{dropped} left out, i.e. the equal-weight average of the gates {kept} (2-day confirmation, "
+            "fail-closed after warm-up, g(D) = gates on / 3, risk-off reset and selection exactly as H2). "
+            f"Spec: PhaseMomentumSpec(btc_ma_windows={windows!r})."
+        ),
+        kill_criterion=(
+            "Pre-declared robustness reading (the H2 kill criterion re-applied to the ensemble): at 20 bps with "
+            "+3h fills under the worse missing-candle policy, M >= the median of the four single-window "
+            "MA50/100/150/200 variants (each at its own worse policy) and MDD no worse than MDD(B) - 0.02; the "
+            "same verdict is required at 2 and 50 bps. H2 is read as robust to dropping a single window only if "
+            "all four leave-one-out ensembles keep the criterion."
+        ),
+        parameters_sources=(
+            "Review section 4 H2: 'Pre-declared neighbourhood if it passes: the four leave-one-window-out "
+            "ensembles.' The window set stays inside the H2 set {50, 100, 150, 200}; no window is added."
+        ),
+        deviation_notes="none; pre-declared before running, after H2 passed its kill criterion",
+        fills=MAIN_FILLS,
+        stress=True,
+    )
+
+
+def _h3_threshold(threshold: float) -> Trial:
+    """One pre-declared H3 neighbourhood blend: an adjacent breadth threshold."""
+    label = f"{round(threshold * 100):02d}"
+    return Trial(
+        trial_id=f"PR2026-10-H3-T{label}",
+        hypothesis="H3 neighbourhood",
+        role="neighbourhood",
+        counts_as_trial=True,
+        books=(
+            (PhaseMomentumSpec(), 0.5),
+            (PhaseMomentumSpec(breadth_threshold=threshold, breadth_ma_window=50), 0.5),
+        ),
+        rule=(
+            f"H3 pre-declared neighbourhood, run after H3 passed its kill criterion: the H3 50/50 target-level "
+            f"blend with the breadth co-gate threshold moved to {threshold:.2f} (adjacent section 0.8 grid point); "
+            "breadth(D) = share of the point-in-time Top20 on D above its own 50-day SMA, no confirmation; when "
+            "the condition fails book B's sleeves go to cash with the risk-off reset; 24 sleeves at 1/24 each, "
+            "executed by the production engine. Spec: PhaseMomentumSpec(breadth_threshold="
+            f"{threshold:.2f}, breadth_ma_window=50) in book B."
+        ),
+        kill_criterion=(
+            "Pre-declared robustness reading (the H3 kill criterion re-applied): at 20 bps with +3h fills under "
+            "the worse missing-candle policy, MDD improves on B by >= 5 points, Sharpe is above B's and the "
+            "one-year rolling worst multiple is above B's; the same verdict is required at 2 and 50 bps. H3 is "
+            "read as robust to its threshold only if both adjacent thresholds keep the criterion."
+        ),
+        parameters_sources=(
+            "Review section 4 H3: 'Pre-declared neighbourhood if it passes: thresholds 0.45 and 0.55 (the "
+            "adjacent section 0.8 grid points).' 50-day average and 50/50 mix unchanged from the section 0.8 "
+            "ablation."
+        ),
+        deviation_notes="none; pre-declared before running, after H3 passed its kill criterion",
+        fills=MAIN_FILLS,
+        stress=True,
+    )
+
+
 TRIALS: tuple[Trial, ...] = (
     Trial(
         trial_id="PR2026-10-B",
@@ -345,11 +423,18 @@ TRIALS: tuple[Trial, ...] = (
         fills=MAIN_FILLS,
         stress=True,
     ),
-    *(_single_window(window) for window in (50, 100, 150, 200)),
+    *(_single_window(window) for window in H2_GATE_WINDOWS),
+    *(_h2_leave_one_out(window) for window in H2_GATE_WINDOWS),
+    *(_h3_threshold(threshold) for threshold in H3_NEIGHBOURHOOD_THRESHOLDS),
 )
 PRIMARY_IDS = {"H2": "PR2026-10-H2", "H3": "PR2026-10-H3", "H4": "PR2026-10-H4"}
 BASELINE_ID = "PR2026-10-B"
-H2_DIAGNOSTIC_IDS = tuple(f"PR2026-10-H2-D{window}" for window in (50, 100, 150, 200))
+H2_DIAGNOSTIC_IDS = tuple(f"PR2026-10-H2-D{window}" for window in H2_GATE_WINDOWS)
+H2_NEIGHBOURHOOD_IDS = tuple(f"PR2026-10-H2-LOO{window}" for window in H2_GATE_WINDOWS)
+H3_NEIGHBOURHOOD_IDS = tuple(
+    f"PR2026-10-H3-T{round(threshold * 100):02d}" for threshold in H3_NEIGHBOURHOOD_THRESHOLDS
+)
+NEIGHBOURHOOD_IDS: dict[str, tuple[str, ...]] = {"H2": H2_NEIGHBOURHOOD_IDS, "H3": H3_NEIGHBOURHOOD_IDS}
 
 
 def trial_by_id(trial_id: str) -> Trial:
@@ -690,20 +775,34 @@ def decision_table(runs: pd.DataFrame, trial_ids: list[str], cost: float) -> pd.
     return pd.DataFrame(rows)
 
 
-def _criteria(hypothesis: str, runs: pd.DataFrame, cost: float) -> tuple[bool, list[str]]:
+def _criteria(
+    family: str,
+    runs: pd.DataFrame,
+    cost: float,
+    trial_id: str | None = None,
+) -> tuple[bool, list[str]]:
+    """One family's kill criterion, re-read for a named trial.
+
+    ``family`` selects the criterion ("H2", "H3" or "H4"); ``trial_id`` lets a
+    pre-declared neighbourhood ensemble be judged by its parent's criterion.
+    """
+    tested = trial_id or PRIMARY_IDS[family]
     table = decision_table(
         runs,
-        [BASELINE_ID, PRIMARY_IDS[hypothesis]]
-        + (list(H2_DIAGNOSTIC_IDS) if hypothesis == "H2" else []),
+        [BASELINE_ID, tested]
+        + (list(H2_DIAGNOSTIC_IDS) if family == "H2" else []),
         cost,
     ).set_index("trial_id")
     base = table.loc[BASELINE_ID]
-    hyp = table.loc[PRIMARY_IDS[hypothesis]]
+    hyp = table.loc[tested]
     checks: list[tuple[str, bool]] = []
-    if hypothesis == "H2":
+    if family == "H2":
         median = float(np.median([float(table.loc[trial, "multiple"]) for trial in H2_DIAGNOSTIC_IDS]))
         checks.append(
-            (f"M(H2)={hyp['multiple']:.4f} >= median single-window M={median:.4f}", float(hyp["multiple"]) >= median)
+            (
+                f"M({tested})={hyp['multiple']:.4f} >= median single-window M={median:.4f}",
+                float(hyp["multiple"]) >= median,
+            )
         )
         floor = float(base["max_drawdown"]) - MDD_TOLERANCE
         checks.append(
@@ -721,7 +820,7 @@ def _criteria(hypothesis: str, runs: pd.DataFrame, cost: float) -> tuple[bool, l
                 improvement >= MDD_IMPROVEMENT - 1e-12,
             )
         )
-        if hypothesis == "H3":
+        if family == "H3":
             checks.append(
                 (f"Sharpe {hyp['sharpe']:.4f} > B {base['sharpe']:.4f}", float(hyp["sharpe"]) > float(base["sharpe"]))
             )
@@ -758,6 +857,35 @@ def evaluate_kill_criteria(runs: pd.DataFrame) -> pd.DataFrame:
         row["direction_consistent"] = len(set(decisive)) == 1
         row["verdict_pass"] = all(decisive)
         rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def evaluate_neighbourhood(runs: pd.DataFrame) -> pd.DataFrame:
+    """The pre-declared H2/H3 neighbourhood, judged by its parent's criterion.
+
+    Same shape as ``evaluate_kill_criteria`` so the ledger result rows and the
+    report can read it the same way; ``tier`` is a criterion-kept reading
+    instead of an outcome tier.
+    """
+    rows: list[dict[str, object]] = []
+    for family, trial_ids in NEIGHBOURHOOD_IDS.items():
+        for trial_id in trial_ids:
+            row: dict[str, object] = {"hypothesis": f"{family} neighbourhood", "trial_id": trial_id}
+            verdicts: dict[float, bool] = {}
+            for cost in (DECISION_COST, *DIRECTION_COSTS, 100.0):
+                passed, details = _criteria(family, runs, cost, trial_id)
+                verdicts[cost] = passed
+                row[f"pass_{cost:g}bps"] = passed
+                row[f"criteria_{cost:g}bps"] = "; ".join(details)
+            decisive = [verdicts[DECISION_COST], *(verdicts[cost] for cost in DIRECTION_COSTS)]
+            row["direction_consistent"] = len(set(decisive)) == 1
+            row["verdict_pass"] = all(decisive)
+            row["tier"] = (
+                f"pre-declared neighbourhood: {family} criterion kept"
+                if row["verdict_pass"]
+                else f"pre-declared neighbourhood: {family} criterion NOT kept"
+            )
+            rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -974,7 +1102,8 @@ def evaluate(
     trial_summary: Path,
     bull: pd.Series,
 ) -> dict[str, object]:
-    trial_ids = [BASELINE_ID, *PRIMARY_IDS.values()]
+    neighbourhood_ids = [tid for ids in NEIGHBOURHOOD_IDS.values() for tid in ids]
+    trial_ids = [BASELINE_ID, *PRIMARY_IDS.values(), *neighbourhood_ids]
     decision = pd.concat(
         [decision_table(runs, trial_ids, cost) for cost in COSTS],
         ignore_index=True,
@@ -983,8 +1112,9 @@ def evaluate(
         [decision_table(runs, list(H2_DIAGNOSTIC_IDS), cost) for cost in COSTS], ignore_index=True
     )
     kill = evaluate_kill_criteria(runs)
+    neighbourhood = evaluate_neighbourhood(runs)
 
-    universe_ids = [BASELINE_ID, *PRIMARY_IDS.values(), *H2_DIAGNOSTIC_IDS]
+    universe_ids = [BASELINE_ID, *PRIMARY_IDS.values(), *H2_DIAGNOSTIC_IDS, *neighbourhood_ids]
     decision_returns = pd.concat([_decision_returns(runs, returns, trial) for trial in universe_ids], axis=1)
     decision_returns = _require_common_sample(decision_returns)
     btc = returns["BTC"].reindex(decision_returns.index)
@@ -1085,10 +1215,16 @@ def evaluate(
         outcome_tier(verdict_pass=bool(row.verdict_pass), multiple=row.multiple_20bps_3h_worse, dsr=row.dsr_top20_2022)
         for row in kill.itertuples()
     ]
+    neighbourhood = neighbourhood.copy()
+    neighbourhood["multiple_20bps_3h_worse"] = [
+        float(at_decision.loc[trial, "multiple"]) for trial in neighbourhood["trial_id"]
+    ]
+    neighbourhood["dsr_top20_2022"] = [float(top_dsr.loc[trial]) for trial in neighbourhood["trial_id"]]
     return {
         "decision": decision,
         "diagnostics": diagnostics,
         "kill": kill,
+        "neighbourhood": neighbourhood,
         "dsr": dsr,
         "reality": reality,
         "bootstrap": bootstrap,
@@ -1103,6 +1239,26 @@ def evaluate(
         },
         "scopes": scopes,
     }
+
+
+def _neighbourhood_reading(frame: pd.DataFrame) -> str:
+    """One sentence per parent: how its pre-declared neighbourhood read back."""
+    parts: list[str] = []
+    for family in ("H2", "H3"):
+        rows = frame[frame["hypothesis"] == f"{family} neighbourhood"]
+        if rows.empty:
+            continue
+        kept = int(rows["verdict_pass"].sum())
+        names = ", ".join(str(trial) for trial in rows["trial_id"])
+        reading = (
+            "the pre-declared robustness reading holds"
+            if kept == len(rows)
+            else "the pre-declared robustness reading does NOT hold"
+        )
+        parts.append(
+            f"**{family}**: kept its criterion in {kept}/{len(rows)} neighbourhood trials ({names}); {reading}."
+        )
+    return " ".join(parts)
 
 
 def _fmt_table(frame: pd.DataFrame, columns: list[str]) -> str:
@@ -1122,7 +1278,7 @@ def write_outputs(
     runs.to_csv(output_dir / "runs.csv", index=False)
     returns.to_csv(output_dir / "returns_20bps.csv", index_label="date", float_format="%.12g")
     attribution.to_csv(output_dir / "entrant_attribution.csv", index=False)
-    for name in ("decision", "diagnostics", "kill", "dsr", "reality", "bootstrap", "regime", "beats"):
+    for name in ("decision", "diagnostics", "kill", "neighbourhood", "dsr", "reality", "bootstrap", "regime", "beats"):
         frame = evaluation[name]
         assert isinstance(frame, pd.DataFrame)
         frame.to_csv(output_dir / f"{name}.csv", index=False)
@@ -1150,7 +1306,9 @@ def write_report(
     beats = evaluation["beats"]
     yearly = evaluation["yearly"]
     diagnostics = evaluation["diagnostics"]
+    neighbourhood = evaluation["neighbourhood"]
     assert isinstance(decision, pd.DataFrame) and isinstance(kill, pd.DataFrame)
+    assert isinstance(neighbourhood, pd.DataFrame)
     assert isinstance(dsr, pd.DataFrame) and isinstance(reality, pd.DataFrame)
     assert isinstance(bootstrap, pd.DataFrame) and isinstance(regime, pd.DataFrame)
     assert isinstance(beats, pd.DataFrame) and isinstance(yearly, pd.DataFrame)
@@ -1220,6 +1378,25 @@ def write_report(
             ["trial_id", "cost_bps", "worse_policy", "multiple", "sharpe", "max_drawdown", "rolling_1y_worst_multiple"],
         ),
         "",
+        "## Pre-declared neighbourhoods (run after the H2/H3 passes)",
+        "",
+        "Review section 4 pre-declares these follow-ups for a hypothesis that passes its kill criterion:",
+        "H2 - the four leave-one-window-out ensembles; H3 - the adjacent thresholds 0.45 and 0.55. They are",
+        "new ledger trials, registered before running, and are judged by the same criterion as their parent",
+        "at 20 bps (+3h fills, worse missing-candle policy), repeated at 2 and 50 bps. (The registered",
+        "H2/H3 kill-criterion text says 'not run in this round'; this section is that pre-declared follow-up.)",
+        "",
+        _fmt_table(
+            neighbourhood,
+            ["trial_id", "pass_20bps", "pass_2bps", "pass_50bps", "pass_100bps", "direction_consistent",
+             "verdict_pass", "multiple_20bps_3h_worse", "max_drawdown", "sharpe", "rolling_1y_worst_multiple",
+             "dsr_top20_2022", "tier"],
+        ),
+        "",
+        *[f"- **{row.trial_id}**: {row.criteria_20bps}" for row in neighbourhood.itertuples()],
+        "",
+        _neighbourhood_reading(neighbourhood),
+        "",
         "## Multiple testing",
         "",
         "Deflated Sharpe (probability the true Sharpe exceeds the expected maximum of the scope's trials;",
@@ -1233,7 +1410,8 @@ def write_report(
         ),
         "",
         "White Reality Check (stationary bootstrap, 1000 draws, block 20, seed 20260923) over every return",
-        "series of this round (B, H2-H4 and the four single-window gates; identical series counted once).",
+        "series of this round (B, H2-H4, the four single-window gates and the pre-declared neighbourhoods;",
+        "identical series counted once).",
         "`single_step_p_value` compares each trial's mean with the bootstrap maximum over the round;",
         "`round_best_p_value` is `_reality_check` for the best trial.",
         "",
@@ -1329,11 +1507,12 @@ def _ledger_result_rows(
     decision = evaluation["decision"]
     diagnostics = evaluation["diagnostics"]
     kill = evaluation["kill"]
+    neighbourhood = evaluation["neighbourhood"]
     assert isinstance(decision, pd.DataFrame) and isinstance(diagnostics, pd.DataFrame)
-    assert isinstance(kill, pd.DataFrame)
+    assert isinstance(kill, pd.DataFrame) and isinstance(neighbourhood, pd.DataFrame)
     table = pd.concat([decision, diagnostics], ignore_index=True)
     table = table[table["cost_bps"] == DECISION_COST].drop_duplicates("trial_id").set_index("trial_id")
-    kill_rows = kill.set_index("trial_id")
+    kill_rows = pd.concat([kill, neighbourhood], ignore_index=True).set_index("trial_id")
     now = _utc_now()
     rows: list[dict[str, str]] = []
     for trial in trials:
@@ -1478,6 +1657,13 @@ def main() -> None:
     kill = evaluation["kill"]
     assert isinstance(kill, pd.DataFrame)
     print(kill[["hypothesis", "pass_20bps", "pass_2bps", "pass_50bps", "verdict_pass", "tier"]].to_string(index=False))
+    neighbourhood = evaluation["neighbourhood"]
+    assert isinstance(neighbourhood, pd.DataFrame)
+    print(
+        neighbourhood[
+            ["trial_id", "pass_20bps", "pass_2bps", "pass_50bps", "verdict_pass", "tier"]
+        ].to_string(index=False)
+    )
     print(f"Wrote pre-registered hypothesis results to {output_dir}")
 
 

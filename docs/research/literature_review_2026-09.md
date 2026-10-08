@@ -403,6 +403,12 @@ Each decision gets the project rule, the in-project evidence, what the literatur
 
 Four hypotheses, fixed before any backtest. Three target fragility or drawdown, one targets execution latency; none is designed to add return. Each primary run counts as one trial. The diagnostic runs listed under each hypothesis are declared here and logged, but they are attribution runs and may not be promoted to candidates.
 
+> **2026-10-08 addendum.** The pre-declared neighbourhoods were run this day, after H2 and H3 passed their
+> kill criteria: six new ledger trials (H2 leave-one-window-out x4; H3 thresholds 0.45/0.55), registered
+> before running. Results and the updated multiple-testing count are in `RESEARCH.md` section 00.6. The panel
+> also grew from the 101 coins recorded above to 102 at the CMC refresh; the frozen research window and the
+> point-in-time membership rule are unchanged.
+
 ### 4.0 Common protocol
 
 - **Data.** The champion's panel (`data/processed/panel_daily.csv`, 101 coins, 2020-10-03 to 2026-09-21) and Binance 1h candles (`data/raw/binance_1h`, 57 symbols, earliest candles 2021-12-25) through `atlas20.backtest.intraday`. Point-in-time CMC Top20 membership as in production; no universe changes.
