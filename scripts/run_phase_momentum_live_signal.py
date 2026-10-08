@@ -38,9 +38,10 @@ from atlas20.strategies.phase_momentum import (  # noqa: E402
 from scripts.run_phase_momentum import _load_market, _production_result  # noqa: E402
 
 # The frozen specification this tool emits signals for.  ``champion-defaults``
-# is the pre-2026-10-08 single-book champion; ``PR2026-10-H3`` is the adopted
-# Top20-breadth co-gate blend.  Override per run with ``--trial-id``.
-FROZEN_TRIAL_ID = "PR2026-10-H3"
+# is the pre-2026-10-08 single-book champion; ``PR2026-10-H5`` is the adopted
+# H3 breadth co-gate blend scaled by the cross-sectional dispersion overlay.
+# Override per run with ``--trial-id``.
+FROZEN_TRIAL_ID = "PR2026-10-H5"
 
 
 def _utc_now(now: datetime | None = None) -> datetime:
@@ -197,6 +198,12 @@ def _rule_text(spec: PhaseMomentumSpec, signal_names: list[str]) -> str:
         parts.append(f"{spec.stop_loss_kind} stop at {spec.stop_loss_pct * 100:g}%")
     if spec.use_asset_trend_filter:
         parts.append(f"asset above its {spec.asset_ma_window}D MA")
+    if spec.dispersion_target_percentile is not None:
+        parts.append(
+            f"dispersion overlay: scale by min(1, rolling {spec.dispersion_lookback}D "
+            f"P{spec.dispersion_target_percentile * 100:g} of {spec.dispersion_window}D "
+            "Top20 dispersion / current)"
+        )
     parts.extend(["long-only spot, no leverage", "T+1"])
     return "; ".join(parts)
 
@@ -227,6 +234,11 @@ def _book_summary(spec: PhaseMomentumSpec) -> str:
         bits.append(f"{spec.stop_loss_kind} stop at {spec.stop_loss_pct * 100:g}%")
     if spec.use_asset_trend_filter:
         bits.append(f"asset above its {spec.asset_ma_window}D MA")
+    if spec.dispersion_target_percentile is not None:
+        bits.append(
+            f"dispersion overlay P{spec.dispersion_target_percentile * 100:g} "
+            f"({spec.dispersion_window}D dispersion, {spec.dispersion_lookback}D lookback)"
+        )
     return ", ".join(bits)
 
 
@@ -345,7 +357,7 @@ def _latest_signal_payload(
     records the evaluated range next to the panel's own last date.
     ``engine_weights`` is the production engine's ``BacktestResult.weights``
     for the same build, run at ``cost_bps``.  ``books`` is the registered
-    book mix behind the build (one book for the champion, two for H3); ``spec``
+    book mix behind the build (one book for the champion, two for H5); ``spec``
     is the first book's spec and drives the BTC gate reading.
     """
     books = books if books is not None else ((spec, 1.0),)

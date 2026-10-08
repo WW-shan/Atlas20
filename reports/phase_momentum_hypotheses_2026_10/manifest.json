@@ -595,6 +595,489 @@
         "2026-09-21"
       ]
     },
+    "PR2026-10-H5": {
+      "construction": "build_parameter_ensemble_targets (equal book weights, 1/24 per sleeve)",
+      "books": [
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.75
+          }
+        },
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": 0.5,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.75
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H5-T60": {
+      "construction": "build_parameter_ensemble_targets (equal book weights, 1/24 per sleeve)",
+      "books": [
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.6
+          }
+        },
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": 0.5,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.6
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
+    "PR2026-10-H5-T90": {
+      "construction": "build_parameter_ensemble_targets (equal book weights, 1/24 per sleeve)",
+      "books": [
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": null,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.9
+          }
+        },
+        {
+          "weight": 0.5,
+          "spec": {
+            "rebalance_days": 3,
+            "phase_offsets": [
+              0,
+              1,
+              2
+            ],
+            "hold_rank": 2,
+            "btc_ma_window": 100,
+            "btc_confirm_days": 2,
+            "target_volatility": 0.8,
+            "vol_window": 60,
+            "weight_tolerance": 0.05,
+            "use_btc_gate": true,
+            "use_volatility_target": true,
+            "stop_loss_kind": "none",
+            "stop_loss_pct": 0.3,
+            "use_asset_trend_filter": false,
+            "asset_ma_window": 100,
+            "btc_ma_windows": null,
+            "holdings_per_sleeve": 1,
+            "breadth_threshold": 0.5,
+            "breadth_ma_window": 50,
+            "dispersion_target_percentile": 0.9
+          }
+        }
+      ],
+      "signals": [
+        {
+          "name": "weighted_multi_horizon",
+          "window_weights": [
+            [
+              7,
+              0.1
+            ],
+            [
+              14,
+              0.15
+            ],
+            [
+              21,
+              0.2
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              42,
+              0.15
+            ],
+            [
+              60,
+              0.15
+            ]
+          ]
+        },
+        {
+          "name": "ret21",
+          "window_weights": [
+            [
+              21,
+              1.0
+            ]
+          ]
+        },
+        {
+          "name": "equal_7_14_28_60",
+          "window_weights": [
+            [
+              7,
+              0.25
+            ],
+            [
+              14,
+              0.25
+            ],
+            [
+              28,
+              0.25
+            ],
+            [
+              60,
+              0.25
+            ]
+          ]
+        },
+        {
+          "name": "equal_14_21_28",
+          "window_weights": [
+            [
+              14,
+              0.3333333333333333
+            ],
+            [
+              21,
+              0.3333333333333333
+            ],
+            [
+              28,
+              0.3333333333333333
+            ]
+          ]
+        }
+      ],
+      "include_btc": true,
+      "universe": "strict point-in-time CMC Top20",
+      "fills": [
+        "lag0",
+        "lag1",
+        "h3_day_close",
+        "h3_prior_close"
+      ],
+      "costs_bps": [
+        2.0,
+        20.0,
+        50.0,
+        100.0
+      ],
+      "stress_window": [
+        "2020-10-03",
+        "2021-12-31"
+      ],
+      "main_window": [
+        "2022-01-01",
+        "2026-09-21"
+      ]
+    },
     "PR2026-10-H2-D50": {
       "construction": "build_phase_momentum_targets",
       "books": [
@@ -2054,6 +2537,24 @@
         "sleeves": 12,
         "risk_on_share_of_sleeve_days": 0.4979710144927536
       },
+      "PR2026-10-H5": {
+        "target_events": 542,
+        "sleeves": 24,
+        "breadth_below_threshold_share_of_days": 0.5820289855072464,
+        "risk_on_share_of_sleeve_days": 0.41884057971014493
+      },
+      "PR2026-10-H5-T60": {
+        "target_events": 560,
+        "sleeves": 24,
+        "breadth_below_threshold_share_of_days": 0.5820289855072464,
+        "risk_on_share_of_sleeve_days": 0.41884057971014493
+      },
+      "PR2026-10-H5-T90": {
+        "target_events": 511,
+        "sleeves": 24,
+        "breadth_below_threshold_share_of_days": 0.5820289855072464,
+        "risk_on_share_of_sleeve_days": 0.41884057971014493
+      },
       "PR2026-10-H2-D50": {
         "target_events": 444,
         "sleeves": 12,
@@ -2138,21 +2639,21 @@
     "main_days": 1725,
     "stress_days": 455
   },
-  "ran_at_utc": "2026-10-08T02:55:40Z",
+  "ran_at_utc": "2026-10-08T16:33:47Z",
   "ledger": "reports/research_trial_inventory/preregistered_trials.csv",
-  "ledger_sha256_at_evaluation": "4fd7023a9c3991785f8ed53e4ba232547f98320c92331623ee599d03fbe4a220",
+  "ledger_sha256_at_evaluation": "25faddb5a009757d29e1f93c1b61c54b234b5ce7c91bb6adf6bfa247fb6495dd",
   "trial_summary": "reports/research_trial_inventory/summary.json",
-  "trial_summary_sha256": "cbe96dfdfda48b8e51db426732613b7e84f63839c1d93d2f0241c0a962cd48a1",
+  "trial_summary_sha256": "b3cd05630469cb500500d8bc40837f8f3bc6bf15874329270e4c36a75b0a7868",
   "trial_scopes": [
     {
       "scope": "top20_2022_trials",
-      "trial_count": 6132,
-      "trial_sharpe_std_per_period": 0.01645699730597245
+      "trial_count": 6135,
+      "trial_sharpe_std_per_period": 0.016512046537814594
     },
     {
       "scope": "all_trials",
-      "trial_count": 14126,
-      "trial_sharpe_std_per_period": 0.01645699730597245
+      "trial_count": 14129,
+      "trial_sharpe_std_per_period": 0.016512046537814594
     }
   ],
   "decision_sample": {
@@ -2163,5 +2664,5 @@
   "identical_return_series": {
     "PR2026-10-H2-D100": "PR2026-10-B"
   },
-  "evaluated_at_utc": "2026-10-08T02:57:35Z"
+  "evaluated_at_utc": "2026-10-08T17:15:24Z"
 }

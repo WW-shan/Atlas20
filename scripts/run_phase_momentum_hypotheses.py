@@ -1,4 +1,4 @@
-"""Pre-registered 2026-10 hypotheses H2-H4 for the phase-momentum champion.
+"""Pre-registered 2026-10 hypotheses H2-H5 for the phase-momentum champion.
 
 The rules, parameters, kill criteria and outcome tiers are fixed in
 ``docs/research/literature_review_2026-09.md`` section 4 (H1 is not run: it
@@ -17,11 +17,15 @@ Trials (all strict point-in-time Top20, long-only spot, gross <= 1):
         co-gate (breadth >= 0.50), formed at the target level: 24 sleeves
         at 1/24 each, executed and charged by the production engine.
 * H4  - top-quintile sleeves: 4 coins per sleeve, top-8 hold band.
+* H5  - the H3 blend with the cross-sectional dispersion overlay: every
+        sleeve weight is scaled by min(1, rolling 252D P75 of the Top20
+        21D dispersion / current dispersion), so the overlay only de-risks.
 * H2 diagnostics - the four single-window gates (MA50/100/150/200) at +3h;
         never promotable.
-* H2/H3 neighbourhoods - the four leave-one-window-out ensembles and the
-        adjacent breadth thresholds 0.45/0.55, run as new ledger trials only
-        after the parent passed its kill criterion (review section 4).
+* H2/H3/H5 neighbourhoods - the four leave-one-window-out ensembles, the
+        adjacent breadth thresholds 0.45/0.55 and the adjacent dispersion
+        percentiles 0.60/0.90, run as new ledger trials only after the parent
+        passed its kill criterion (review section 4).
 
 
 Common protocol (review section 4.0): 2022-01-01 to 2026-09-21; 2, 20, 50 and
@@ -233,6 +237,7 @@ def _single_window(window: int) -> Trial:
 
 H2_GATE_WINDOWS = (50, 100, 150, 200)
 H3_NEIGHBOURHOOD_THRESHOLDS = (0.45, 0.55)
+H5_NEIGHBOURHOOD_PERCENTILES = (0.60, 0.90)
 
 
 def _h2_leave_one_out(dropped: int) -> Trial:
@@ -300,6 +305,47 @@ def _h3_threshold(threshold: float) -> Trial:
             "ablation."
         ),
         deviation_notes="none; pre-declared before running, after H3 passed its kill criterion",
+        fills=MAIN_FILLS,
+        stress=True,
+    )
+
+
+def _h5_threshold(percentile: float) -> Trial:
+    """One pre-declared H5 neighbourhood: an adjacent dispersion-target percentile."""
+    label = f"{round(percentile * 100):02d}"
+    return Trial(
+        trial_id=f"PR2026-10-H5-T{label}",
+        hypothesis="H5 neighbourhood",
+        role="neighbourhood",
+        counts_as_trial=True,
+        books=(
+            (PhaseMomentumSpec(dispersion_target_percentile=percentile), 0.5),
+            (
+                PhaseMomentumSpec(
+                    breadth_threshold=0.50,
+                    breadth_ma_window=50,
+                    dispersion_target_percentile=percentile,
+                ),
+                0.5,
+            ),
+        ),
+        rule=(
+            f"H5 pre-declared neighbourhood, run after H5 passed its kill criterion: the frozen H3 book with "
+            f"the dispersion-target percentile moved to {percentile:.2f} (adjacent point of the section 00.12 "
+            "screening). dispersion(D) and the min(1, rolling-Pxx/dispersion) factor are otherwise unchanged, as "
+            "is the 50/50 book blend, the H3 breadth co-gate and every champion rule."
+        ),
+        kill_criterion=(
+            "The H5 kill criterion re-applied at this percentile: at 20 bps with +3h fills (worse policy), "
+            "MDD >= MDD(B) - 0.05 in absolute terms, Sharpe > Sharpe(H3), one-year rolling worst multiple > "
+            "H3's; the same verdict is required at 2 and 50 bps. H5 is read as robust to the percentile only if "
+            "both neighbourhoods keep the criterion."
+        ),
+        parameters_sources=(
+            "Pre-declared in the H5 registration ('Neighbourhood if it passes: the dispersion-target "
+            "percentiles 0.60 and 0.90'), before H5 was run. No new external parameter is introduced."
+        ),
+        deviation_notes="none; pre-declared before running, after H5 passed its kill criterion",
         fills=MAIN_FILLS,
         stress=True,
     )
@@ -423,18 +469,80 @@ TRIALS: tuple[Trial, ...] = (
         fills=MAIN_FILLS,
         stress=True,
     ),
+    Trial(
+        trial_id="PR2026-10-H5",
+        hypothesis="H5",
+        role="primary",
+        counts_as_trial=True,
+        books=(
+            (PhaseMomentumSpec(dispersion_target_percentile=0.75), 0.5),
+            (
+                PhaseMomentumSpec(
+                    breadth_threshold=0.50,
+                    breadth_ma_window=50,
+                    dispersion_target_percentile=0.75,
+                ),
+                0.5,
+            ),
+        ),
+        rule=(
+            "H5 cross-sectional dispersion overlay on the frozen H3 book. Book A = the champion, book B = "
+            "the champion with the H3 breadth co-gate (breadth(D) >= 0.50 above own 50D SMA); both books are "
+            "scaled by the same point-in-time dispersion factor. dispersion(D) = cross-sectional standard "
+            "deviation (ddof=1) of the point-in-time Top20's trailing 21-day returns (fewer than five usable "
+            "members -> no reading); factor(D) = min(1, rolling 252-day 75th percentile of dispersion / "
+            "dispersion(D)), a missing reading leaves the factor at 1. Every sleeve weight (vol-scaled, "
+            "breadth-gated) is multiplied by factor(D); gross exposure stays <= 1. 50/50 target-level blend "
+            "of the two books, executed and charged by the production engine."
+        ),
+        kill_criterion=(
+            "Reject unless, at 20 bps with +3h fills (worse policy), all hold: MDD(H5) - MDD(B) >= 0.05, "
+            "Sharpe(H5) > Sharpe(H3), one-year rolling worst multiple(H5) > H3's. Same verdict required at 2 "
+            "and 50 bps. A pass below 20x is a recorded risk variant. Neighbourhood if it passes: the "
+            "dispersion-target percentiles 0.60 and 0.90 (not run in this round)."
+        ),
+        parameters_sources=(
+            "Mechanism: Makgolo and Zhang (2026), 'Cross-Sectional Dispersion and the State Dependence of "
+            "Cryptocurrency Momentum', SSRN 6648082 - dispersion predicts momentum breakdowns better than BTC "
+            "volatility, and a dispersion-scaled book cut max drawdown from -42.5% to -17.1%. Construction: "
+            "volatility-targeting form (scale by target/realised, cap 1), the same shape the champion already "
+            "uses for volatility. 21-day window = the project's shortest documented momentum horizon; 252-day "
+            "lookback and 0.75 target are in-project choices fixed before running, on the screening in "
+            "RESEARCH.md section 00.12."
+        ),
+        deviation_notes=(
+            "The external paper's exact scaling function was not readable (SSRN blocked the full text); the "
+            "min(1, rolling-percentile/current) form is the in-project analogue of volatility targeting. The "
+            "screening in RESEARCH.md section 00.12 did not charge the overlay's turnover; this run does."
+        ),
+        fills=MAIN_FILLS,
+        stress=True,
+    ),
+    *(_h5_threshold(percentile) for percentile in H5_NEIGHBOURHOOD_PERCENTILES),
     *(_single_window(window) for window in H2_GATE_WINDOWS),
     *(_h2_leave_one_out(window) for window in H2_GATE_WINDOWS),
     *(_h3_threshold(threshold) for threshold in H3_NEIGHBOURHOOD_THRESHOLDS),
 )
-PRIMARY_IDS = {"H2": "PR2026-10-H2", "H3": "PR2026-10-H3", "H4": "PR2026-10-H4"}
+PRIMARY_IDS = {
+    "H2": "PR2026-10-H2",
+    "H3": "PR2026-10-H3",
+    "H4": "PR2026-10-H4",
+    "H5": "PR2026-10-H5",
+}
 BASELINE_ID = "PR2026-10-B"
 H2_DIAGNOSTIC_IDS = tuple(f"PR2026-10-H2-D{window}" for window in H2_GATE_WINDOWS)
 H2_NEIGHBOURHOOD_IDS = tuple(f"PR2026-10-H2-LOO{window}" for window in H2_GATE_WINDOWS)
 H3_NEIGHBOURHOOD_IDS = tuple(
     f"PR2026-10-H3-T{round(threshold * 100):02d}" for threshold in H3_NEIGHBOURHOOD_THRESHOLDS
 )
-NEIGHBOURHOOD_IDS: dict[str, tuple[str, ...]] = {"H2": H2_NEIGHBOURHOOD_IDS, "H3": H3_NEIGHBOURHOOD_IDS}
+H5_NEIGHBOURHOOD_IDS = tuple(
+    f"PR2026-10-H5-T{round(percentile * 100):02d}" for percentile in H5_NEIGHBOURHOOD_PERCENTILES
+)
+NEIGHBOURHOOD_IDS: dict[str, tuple[str, ...]] = {
+    "H2": H2_NEIGHBOURHOOD_IDS,
+    "H3": H3_NEIGHBOURHOOD_IDS,
+    "H5": H5_NEIGHBOURHOOD_IDS,
+}
 
 
 def trial_by_id(trial_id: str) -> Trial:
@@ -459,6 +567,25 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+# Strategy fields added after the first pre-registration round.  They are
+# omitted from the canonical spec while they sit at their defaults so the
+# registered hashes of earlier trials (which never set them) stay valid: an
+# additive field that defaults to "off" does not change those rules.
+_ADDITIVE_SPEC_FIELDS: dict[str, object] = {
+    "dispersion_target_percentile": None,
+    "dispersion_window": 21,
+    "dispersion_lookback": 252,
+}
+
+
+def _spec_as_dict(spec: PhaseMomentumSpec) -> dict[str, object]:
+    payload = asdict(spec)
+    for field, default in _ADDITIVE_SPEC_FIELDS.items():
+        if payload.get(field, default) == default:
+            payload.pop(field, None)
+    return payload
+
+
 def trial_spec(trial: Trial) -> dict[str, object]:
     """The exact construction a trial runs, as JSON-ready data."""
     return {
@@ -466,7 +593,7 @@ def trial_spec(trial: Trial) -> dict[str, object]:
         if len(trial.books) == 1
         else "build_parameter_ensemble_targets (equal book weights, 1/24 per sleeve)",
         "books": [
-            {"weight": float(weight), "spec": json.loads(json.dumps(asdict(spec)))}
+            {"weight": float(weight), "spec": json.loads(json.dumps(_spec_as_dict(spec)))}
             for spec, weight in trial.books
         ],
         "signals": [
@@ -783,16 +910,18 @@ def _criteria(
 ) -> tuple[bool, list[str]]:
     """One family's kill criterion, re-read for a named trial.
 
-    ``family`` selects the criterion ("H2", "H3" or "H4"); ``trial_id`` lets a
-    pre-declared neighbourhood ensemble be judged by its parent's criterion.
+    ``family`` selects the criterion ("H2", "H3", "H4" or "H5"); ``trial_id``
+    lets a pre-declared neighbourhood ensemble be judged by its parent's
+    criterion.  H5 is the only family whose Sharpe / rolling-worst reference is
+    H3 rather than B, so it needs H3's row in the comparison table.
     """
     tested = trial_id or PRIMARY_IDS[family]
-    table = decision_table(
-        runs,
-        [BASELINE_ID, tested]
-        + (list(H2_DIAGNOSTIC_IDS) if family == "H2" else []),
-        cost,
-    ).set_index("trial_id")
+    extra_ids: list[str] = []
+    if family == "H2":
+        extra_ids = list(H2_DIAGNOSTIC_IDS)
+    elif family == "H5":
+        extra_ids = [PRIMARY_IDS["H3"]]
+    table = decision_table(runs, [BASELINE_ID, tested, *extra_ids], cost).set_index("trial_id")
     base = table.loc[BASELINE_ID]
     hyp = table.loc[tested]
     checks: list[tuple[str, bool]] = []
@@ -831,6 +960,23 @@ def _criteria(
                     float(hyp["rolling_1y_worst_multiple"]) > float(base["rolling_1y_worst_multiple"]),
                 )
             )
+        elif family == "H5":
+            # The registered H5 criterion: MDD improvement over B, but Sharpe
+            # and rolling-1y worst measured against H3, the spec it would replace.
+            h3 = table.loc[PRIMARY_IDS["H3"]]
+            checks.append(
+                (
+                    f"Sharpe {hyp['sharpe']:.4f} > H3 {h3['sharpe']:.4f}",
+                    float(hyp["sharpe"]) > float(h3["sharpe"]),
+                )
+            )
+            checks.append(
+                (
+                    f"rolling 1y worst {hyp['rolling_1y_worst_multiple']:.4f} > H3 "
+                    f"{h3['rolling_1y_worst_multiple']:.4f}",
+                    float(hyp["rolling_1y_worst_multiple"]) > float(h3["rolling_1y_worst_multiple"]),
+                )
+            )
         else:
             threshold = max(CHAMPION_D1D, float(base["d1d"]))
             checks.append(
@@ -845,7 +991,7 @@ def _criteria(
 def evaluate_kill_criteria(runs: pd.DataFrame) -> pd.DataFrame:
     """Mechanical kill criteria at 20 bps, with the 2/50 bps direction check."""
     rows: list[dict[str, object]] = []
-    for hypothesis in ("H2", "H3", "H4"):
+    for hypothesis in ("H2", "H3", "H4", "H5"):
         row: dict[str, object] = {"hypothesis": hypothesis, "trial_id": PRIMARY_IDS[hypothesis]}
         verdicts = {}
         for cost in (DECISION_COST, *DIRECTION_COSTS, 100.0):
@@ -861,7 +1007,7 @@ def evaluate_kill_criteria(runs: pd.DataFrame) -> pd.DataFrame:
 
 
 def evaluate_neighbourhood(runs: pd.DataFrame) -> pd.DataFrame:
-    """The pre-declared H2/H3 neighbourhood, judged by its parent's criterion.
+    """The pre-declared H2/H3/H5 neighbourhood, judged by its parent's criterion.
 
     Same shape as ``evaluate_kill_criteria`` so the ledger result rows and the
     report can read it the same way; ``tier`` is a criterion-kept reading
@@ -1322,7 +1468,7 @@ def write_report(
         "multiple_lag0", "multiple_lag1", "d3h", "d1d",
     ]
     lines = [
-        "# Pre-Registered Hypotheses H2-H4 (2026-10 round)",
+        "# Pre-Registered Hypotheses H2-H5 (2026-10 round)",
         "",
         f"Rules, parameters, kill criteria and tiers: `{REVIEW}` section 4 (H1 not run; it needs the",
         "owner's sign-off on the signals-at-the-close rule). Every trial below was registered in",
@@ -1378,13 +1524,14 @@ def write_report(
             ["trial_id", "cost_bps", "worse_policy", "multiple", "sharpe", "max_drawdown", "rolling_1y_worst_multiple"],
         ),
         "",
-        "## Pre-declared neighbourhoods (run after the H2/H3 passes)",
+        "## Pre-declared neighbourhoods (run after the H2/H3/H5 passes)",
         "",
         "Review section 4 pre-declares these follow-ups for a hypothesis that passes its kill criterion:",
-        "H2 - the four leave-one-window-out ensembles; H3 - the adjacent thresholds 0.45 and 0.55. They are",
+        "H2 - the four leave-one-window-out ensembles; H3 - the adjacent thresholds 0.45 and 0.55; H5 - the",
+        "adjacent dispersion percentiles 0.60 and 0.90. They are",
         "new ledger trials, registered before running, and are judged by the same criterion as their parent",
         "at 20 bps (+3h fills, worse missing-candle policy), repeated at 2 and 50 bps. (The registered",
-        "H2/H3 kill-criterion text says 'not run in this round'; this section is that pre-declared follow-up.)",
+        "H2/H3/H5 kill-criterion text says 'not run in this round'; this section is that pre-declared follow-up.)",
         "",
         _fmt_table(
             neighbourhood,
@@ -1410,7 +1557,7 @@ def write_report(
         ),
         "",
         "White Reality Check (stationary bootstrap, 1000 draws, block 20, seed 20260923) over every return",
-        "series of this round (B, H2-H4, the four single-window gates and the pre-declared neighbourhoods;",
+        "series of this round (B, H2-H5, the four single-window gates and the pre-declared neighbourhoods;",
         "identical series counted once).",
         "`single_step_p_value` compares each trial's mean with the bootstrap maximum over the round;",
         "`round_best_p_value` is `_reality_check` for the best trial.",

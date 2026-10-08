@@ -1,11 +1,12 @@
 """Compare the champion against the pre-registered variants at the live fill.
 
-The frozen champion (BTC MA100 gate), H2 (gate-window ensemble), H3 (Top20
-breadth co-gate) and H3's pre-declared neighbourhood (thresholds 0.45/0.55) were
-all registered and run under the 2026-10 protocol. This tool puts them side by
-side on the same harness - every cost, every fill timing, both missing-candle
-policies - so the choice between them is made on one table instead of on
-different reports.
+The champion (BTC MA100 gate), H2 (gate-window ensemble), H3 (Top20 breadth
+co-gate), H5 (the H3 blend with the cross-sectional dispersion overlay) and the
+pre-declared neighbourhoods of H3 (thresholds 0.45/0.55) and H5 (dispersion
+percentiles 0.60/0.90) were all registered and run under the 2026-10 protocol.
+This tool puts them side by side on the same harness - every cost, every fill
+timing, both missing-candle policies - so the choice between them is made on
+one table instead of on different reports.
 
 It runs no new hypothesis: the specs are exactly the registered ones, the
 windows and costs are the protocol's, and the Deflated Sharpe uses the
@@ -58,6 +59,9 @@ DEFAULT_TRIALS = (
     "PR2026-10-H3",
     "PR2026-10-H3-T45",
     "PR2026-10-H3-T55",
+    "PR2026-10-H5",
+    "PR2026-10-H5-T60",
+    "PR2026-10-H5-T90",
 )
 FILL_HOURS = (1, 3)
 DECISION_COST = 20.0

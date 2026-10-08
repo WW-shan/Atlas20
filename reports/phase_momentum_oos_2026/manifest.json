@@ -76,8 +76,8 @@
     "world-liberty-financial",
     "zcash"
   ],
-  "trial_id": "PR2026-10-H3",
-  "strategy": "registered trial PR2026-10-H3",
+  "trial_id": "PR2026-10-H5",
+  "strategy": "registered trial PR2026-10-H5",
   "spec": {
     "rebalance_days": 3,
     "phase_offsets": [
@@ -100,7 +100,10 @@
     "btc_ma_windows": null,
     "holdings_per_sleeve": 1,
     "breadth_threshold": null,
-    "breadth_ma_window": 50
+    "breadth_ma_window": 50,
+    "dispersion_target_percentile": 0.75,
+    "dispersion_window": 21,
+    "dispersion_lookback": 252
   },
   "interpretation": "The specification was frozen before this window. These are tracking returns, not a new parameter search or a validation claim; the window is too short to overturn the DSR/PBO and parameter-neighborhood gates in RESEARCH.md section 00."
 }

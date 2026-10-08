@@ -266,7 +266,7 @@ def main() -> None:
         default=None,
         help=(
             "registered trial to track (default: the frozen champion's PhaseMomentumSpec "
-            "defaults). Pass PR2026-10-H3 to track the breadth co-gate challenger."
+            "defaults). Pass PR2026-10-H5 to track the adopted dispersion-overlay blend."
         ),
     )
     args = parser.parse_args()

@@ -73,6 +73,14 @@ class PhaseMomentumSpec:
     # moving average (see ``top20_breadth``).
     breadth_threshold: float | None = None
     breadth_ma_window: int = 50
+    # H5: cross-sectional dispersion overlay.  When set, every sleeve's weight
+    # is multiplied by min(1, rolling ``dispersion_target_percentile`` of the
+    # Top20 trailing-return dispersion / the current dispersion).  The
+    # mechanism (dispersion predicts momentum breakdowns) is Makgolo and Zhang
+    # (2026, SSRN 6648082); the construction mirrors volatility targeting.
+    dispersion_target_percentile: float | None = None
+    dispersion_window: int = 21
+    dispersion_lookback: int = 252
 
     def __post_init__(self) -> None:
         if self.rebalance_days < 1:
@@ -122,6 +130,14 @@ class PhaseMomentumSpec:
             raise ValueError("breadth_threshold must be in (0, 1]")
         if self.breadth_ma_window < 2:
             raise ValueError("breadth_ma_window must be at least 2")
+        if self.dispersion_target_percentile is not None and not (
+            0.0 < self.dispersion_target_percentile <= 1.0
+        ):
+            raise ValueError("dispersion_target_percentile must be in (0, 1]")
+        if self.dispersion_window < 2:
+            raise ValueError("dispersion_window must be at least 2")
+        if self.dispersion_lookback < 2:
+            raise ValueError("dispersion_lookback must be at least 2")
 
 
 CORE_PARAMETER_SPECS: tuple[PhaseMomentumSpec, ...] = (
@@ -296,6 +312,67 @@ def top20_breadth(
     return pd.Series(values, dtype=float).sort_index()
 
 
+def top20_dispersion(
+    market: MarketDataBundle,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    *,
+    window: int = 21,
+) -> pd.Series:
+    """Cross-sectional std of the point-in-time Top20's trailing ``window``-day returns.
+
+    The dispersion of crypto returns across coins predicts momentum
+    breakdowns (Makgolo and Zhang, 2026, SSRN 6648082); this is the series the
+    H5 overlay scales exposure by.  A day with fewer than five usable members
+    has no dispersion reading.
+    """
+    if window < 2:
+        raise ValueError("window must be at least 2")
+    trailing = market.price / market.price.shift(window) - 1.0
+    by_date = {pd.Timestamp(date): group for date, group in universe.groupby("rebalance_date")}
+    values: dict[pd.Timestamp, float] = {}
+    for date in index:
+        snapshot = by_date.get(pd.Timestamp(date))
+        if snapshot is None or snapshot.empty:
+            values[pd.Timestamp(date)] = float("nan")
+            continue
+        coin_ids = snapshot["coin_id"].astype(str).tolist()
+        row = (
+            pd.to_numeric(trailing.loc[pd.Timestamp(date), coin_ids], errors="coerce")
+            .replace([np.inf, -np.inf], np.nan)
+            .dropna()
+        )
+        values[pd.Timestamp(date)] = float(row.std(ddof=1)) if len(row) >= 5 else float("nan")
+    return pd.Series(values, dtype=float).sort_index()
+
+
+def dispersion_exposure(
+    dispersion: pd.Series,
+    *,
+    percentile: float = 0.75,
+    lookback: int = 252,
+    min_periods: int | None = None,
+) -> pd.Series:
+    """Exposure multiplier ``min(1, rolling Pxx(dispersion) / dispersion(D))``.
+
+    Analogous to volatility targeting: scale the book down when dispersion is
+    above its recent ``percentile`` and leave it at 1 otherwise (gross exposure
+    is capped at 1, so the overlay can only de-risk).  A missing or non-positive
+    reading leaves the multiplier at 1 (no overlay) rather than forcing cash.
+    """
+    if not 0.0 < percentile <= 1.0:
+        raise ValueError("percentile must be in (0, 1]")
+    if lookback < 2:
+        raise ValueError("lookback must be at least 2")
+    if min_periods is None:
+        min_periods = max(2, lookback // 2)
+    series = pd.to_numeric(dispersion, errors="coerce").replace([np.inf, -np.inf], np.nan)
+    target = series.rolling(lookback, min_periods=min_periods).quantile(percentile)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        multiplier = target / series.where(series > 0.0)
+    return multiplier.clip(upper=1.0).fillna(1.0)
+
+
 def _risk_gate(
     market: MarketDataBundle,
     index: pd.DatetimeIndex,
@@ -349,6 +426,7 @@ def _build_multi_asset_sleeve_targets(
     gate_exposure: pd.Series | None,
     breadth: pd.Series | None,
     volatility: pd.DataFrame | None,
+    dispersion_multiplier: pd.Series | None = None,
 ) -> SleeveTargets:
     """H4: hold the top ``holdings_per_sleeve`` coins of one signal and phase.
 
@@ -397,6 +475,9 @@ def _build_multi_asset_sleeve_targets(
                     held.append(asset)
 
         scale = 1.0 if gate_exposure is None else float(gate_exposure.get(signal_date, 0.0))
+        if dispersion_multiplier is not None:
+            factor = float(dispersion_multiplier.get(signal_date, 1.0))
+            scale *= factor if np.isfinite(factor) else 1.0
         desired: dict[str, float] = {}
         for asset in held:
             if not spec.use_volatility_target:
@@ -435,6 +516,8 @@ def _build_multi_asset_sleeve_targets(
             row["gate_exposure"] = float(gate_exposure.get(signal_date, 0.0))
         if breadth is not None and spec.breadth_threshold is not None:
             row["breadth"] = float(pd.to_numeric(breadth, errors="coerce").get(signal_date, np.nan))
+        if dispersion_multiplier is not None:
+            row["dispersion_multiplier"] = float(dispersion_multiplier.get(signal_date, 1.0))
         history.append(row)
 
     holdings = pd.Series(
@@ -461,11 +544,14 @@ def build_sleeve_targets(
     signal_name: str,
     phase_offset: int,
     breadth: pd.Series | None = None,
+    dispersion_multiplier: pd.Series | None = None,
 ) -> SleeveTargets:
     """Build sparse target events for one signal and one phase offset.
 
     ``breadth`` (from ``top20_breadth``) is required when the spec sets
-    ``breadth_threshold`` and ignored otherwise.
+    ``breadth_threshold`` and ignored otherwise.  ``dispersion_multiplier``
+    (from ``dispersion_exposure``) scales every sleeve weight when the spec
+    sets ``dispersion_target_percentile`` and is ignored otherwise.
     """
     if phase_offset not in spec.phase_offsets:
         raise ValueError("phase_offset must be present in spec.phase_offsets")
@@ -493,6 +579,7 @@ def build_sleeve_targets(
             gate_exposure=gate_exposure,
             breadth=breadth,
             volatility=volatility,
+            dispersion_multiplier=dispersion_multiplier,
         )
     if spec.use_asset_trend_filter:
         asset_ma = market.price.rolling(
@@ -627,6 +714,10 @@ def build_sleeve_targets(
         if gate_exposure is not None:
             # H2: the sleeve holds g(D) of its volatility-scaled weight.
             desired_weight *= float(gate_exposure.get(signal_date, 0.0))
+        if dispersion_multiplier is not None:
+            # H5: scale by the point-in-time dispersion-targeting factor.
+            factor = float(dispersion_multiplier.get(signal_date, 1.0))
+            desired_weight *= factor if np.isfinite(factor) else 1.0
         event = selected != previous_asset or abs(desired_weight - previous_weight) > spec.weight_tolerance
         if event:
             assets.loc[signal_date] = selected if selected is not None else "__cash__"
@@ -656,6 +747,8 @@ def build_sleeve_targets(
             row["gate_exposure"] = float(gate_exposure.get(signal_date, 0.0))
         if breadth is not None and spec.breadth_threshold is not None:
             row["breadth"] = float(pd.to_numeric(breadth, errors="coerce").get(signal_date, np.nan))
+        if dispersion_multiplier is not None:
+            row["dispersion_multiplier"] = float(dispersion_multiplier.get(signal_date, 1.0))
         history.append(row)
 
     return SleeveTargets(
@@ -745,6 +838,15 @@ def build_phase_momentum_targets(
         if spec.breadth_threshold is not None
         else None
     )
+    dispersion_multiplier = (
+        dispersion_exposure(
+            top20_dispersion(market, universe, index, window=spec.dispersion_window),
+            percentile=spec.dispersion_target_percentile,
+            lookback=spec.dispersion_lookback,
+        )
+        if spec.dispersion_target_percentile is not None
+        else None
+    )
     sleeve_targets: list[SleeveTargets] = []
     for signal_spec in signal_specs:
         panel = build_signal_panel(market, universe, signal_spec, include_btc=include_btc)
@@ -758,6 +860,7 @@ def build_phase_momentum_targets(
                     signal_name=signal_spec.name,
                     phase_offset=offset,
                     breadth=breadth,
+                    dispersion_multiplier=dispersion_multiplier,
                 )
             )
 
@@ -826,8 +929,22 @@ def build_parameter_ensemble_targets(
         for spec in parameter_specs
         if spec.breadth_threshold is not None
     }
+    dispersion_cache: dict[tuple[int, float, int], pd.Series] = {}
+    dispersion_by_spec: dict[int, pd.Series | None] = {}
+    for position, spec in enumerate(parameter_specs):
+        if spec.dispersion_target_percentile is None:
+            dispersion_by_spec[position] = None
+            continue
+        key = (spec.dispersion_window, spec.dispersion_target_percentile, spec.dispersion_lookback)
+        if key not in dispersion_cache:
+            dispersion_cache[key] = dispersion_exposure(
+                top20_dispersion(market, universe, index, window=spec.dispersion_window),
+                percentile=spec.dispersion_target_percentile,
+                lookback=spec.dispersion_lookback,
+            )
+        dispersion_by_spec[position] = dispersion_cache[key]
     sleeve_targets: list[SleeveTargets] = []
-    for spec in parameter_specs:
+    for position, spec in enumerate(parameter_specs):
         for signal_spec in signal_specs:
             panel = signal_panels[signal_spec.name]
             for offset in spec.phase_offsets:
@@ -842,6 +959,7 @@ def build_parameter_ensemble_targets(
                         breadth=breadth_by_window.get(spec.breadth_ma_window)
                         if spec.breadth_threshold is not None
                         else None,
+                        dispersion_multiplier=dispersion_by_spec[position],
                     )
                 )
 

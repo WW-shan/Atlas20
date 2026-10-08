@@ -12,7 +12,9 @@ from atlas20.strategies.phase_momentum import (
     build_parameter_ensemble_targets,
     build_signal_panel,
     build_sleeve_targets,
+    dispersion_exposure,
     parameter_ensemble_sleeve_weights,
+    top20_dispersion,
 )
 from atlas20.universe.builder import MarketDataBundle
 
@@ -457,3 +459,128 @@ def test_parameter_ensemble_combines_pre_specified_specs() -> None:
     assert len(built.sleeve_targets) == 12
     assert built.targets
     assert all(exposure <= 1.0 + 1e-12 for exposure in built.exposures.values())
+
+
+def _five_coin_panel() -> tuple[pd.DataFrame, pd.DatetimeIndex]:
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0, 100.0, 110.0, 110.0, 121.0],
+            "b": [100.0, 100.0, 100.0, 100.0, 100.0],
+            "c": [100.0, 100.0, 90.0, 90.0, 81.0],
+            "d": [100.0, 100.0, 105.0, 105.0, 110.25],
+            "e": [100.0, 100.0, 95.0, 95.0, 90.25],
+        },
+        index=dates,
+    )
+    return price, dates
+
+
+def test_top20_dispersion_is_cross_sectional_std_of_trailing_returns() -> None:
+    price, dates = _five_coin_panel()
+    market = _market(price)
+    universe = _universe([(date, coin) for date in dates for coin in price.columns])
+
+    dispersion = top20_dispersion(market, universe, dates, window=2)
+
+    # Trailing 2D returns on the last day: [0.10, 0.00, -0.10, 0.05, -0.05];
+    # sample std (ddof=1) = sqrt(0.025 / 4).
+    assert dispersion.loc[dates[-1]] == pytest.approx(0.0790569, rel=1e-4)
+
+
+def test_top20_dispersion_needs_at_least_five_usable_members() -> None:
+    price, dates = _five_coin_panel()
+    market = _market(price)
+    universe = _universe(
+        [(date, coin) for date in dates for coin in ("a", "b", "c", "d")]
+    )
+
+    dispersion = top20_dispersion(market, universe, dates, window=2)
+
+    assert pd.isna(dispersion.loc[dates[-1]])
+
+
+def test_top20_dispersion_rejects_a_window_below_two() -> None:
+    price, dates = _five_coin_panel()
+    market = _market(price)
+    universe = _universe([(date, coin) for date in dates for coin in price.columns])
+
+    with pytest.raises(ValueError):
+        top20_dispersion(market, universe, dates, window=1)
+
+
+def test_dispersion_exposure_scales_down_only_above_the_rolling_target() -> None:
+    series = pd.Series([0.1] * 10 + [0.2])
+
+    multiplier = dispersion_exposure(series, percentile=0.75, lookback=5, min_periods=2)
+
+    # A flat stretch has target == current, so the overlay is a no-op.
+    assert multiplier.iloc[:10].eq(1.0).all()
+    # The spike sits above its own 75th percentile, so it is scaled to 0.1/0.2.
+    assert multiplier.iloc[-1] == pytest.approx(0.5)
+
+
+def test_dispersion_exposure_defaults_to_one_when_flat_or_missing() -> None:
+    flat = dispersion_exposure(pd.Series([0.1] * 20), percentile=0.75, lookback=10)
+    assert flat.eq(1.0).all()
+
+    sparse = dispersion_exposure(
+        pd.Series([float("nan"), float("nan"), 0.1]),
+        percentile=0.75,
+        lookback=2,
+        min_periods=1,
+    )
+    assert sparse.iloc[0] == pytest.approx(1.0)
+    assert sparse.iloc[-1] == pytest.approx(1.0)
+
+
+def test_dispersion_exposure_rejects_bad_parameters() -> None:
+    series = pd.Series([0.1, 0.2])
+
+    with pytest.raises(ValueError):
+        dispersion_exposure(series, percentile=0.0)
+    with pytest.raises(ValueError):
+        dispersion_exposure(series, percentile=1.5)
+    with pytest.raises(ValueError):
+        dispersion_exposure(series, lookback=1)
+
+
+def test_sleeve_weight_is_scaled_by_the_dispersion_multiplier() -> None:
+    dates = pd.date_range("2024-01-01", periods=12, freq="D")
+    price = pd.DataFrame(
+        {
+            "a": [100.0 + index for index in range(12)],
+            "b": [100.0 - index for index in range(12)],
+            "bitcoin": [100.0] * 12,
+        },
+        index=dates,
+    )
+    market = _market(price)
+    universe = _universe([(date, "a") for date in dates] + [(date, "b") for date in dates])
+    signal_spec = MomentumSignalSpec(name="one_day", window_weights=((1, 1.0),))
+    signal_panel = build_signal_panel(market, universe, signal_spec, include_btc=False)
+    spec = PhaseMomentumSpec(
+        rebalance_days=2,
+        phase_offsets=(0,),
+        hold_rank=1,
+        btc_ma_window=2,
+        btc_confirm_days=1,
+        target_volatility=10.0,
+        vol_window=2,
+    )
+
+    baseline = build_sleeve_targets(
+        market, signal_panel, dates, spec, signal_name=signal_spec.name, phase_offset=0
+    )
+    scaled = build_sleeve_targets(
+        market,
+        signal_panel,
+        dates,
+        spec,
+        signal_name=signal_spec.name,
+        phase_offset=0,
+        dispersion_multiplier=pd.Series(0.5, index=dates),
+    )
+
+    first = baseline.weights[baseline.weights > 0.0].index[0]
+    assert scaled.weights.loc[first] == pytest.approx(0.5 * baseline.weights.loc[first])

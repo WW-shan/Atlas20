@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-08（§00.5 冻结规格样本外跟踪；§00.6 H2/H3 预注册邻域；§00.7 入场者归因；§00.8 逐币归因；§00.9 实际持仓币数；§00.10 候选同口径横评与 DSR 口径修正；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-08（§00.10 候选同口径横评与 DSR 口径修正；§00.11 采用 H3；§00.12 横截面离散度筛查；§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -219,6 +219,8 @@
 
 ### 00.11 2026-10-08 采用 H3 作为冻结规格（仍为 provisional；取代 §00.1/§00.5 的规格指定）
 
+> **规格已被 §00.13 取代（2026-10-08）**：冻结规格现在是 **H5**（`PR2026-10-H5`，H3 的 50/50 结构 + 横截面离散度叠加）。本节记录 H3 的采用过程，数字仍然有效（H3 依旧是 H5 的对照规格）。
+
 - **决定**：按 §00.10 的同口径横评，本轮把冻结规格从 **B（单 book 冠军）** 切换为 **H3（Top20 宽度共闸 50/50 混合，注册号 `PR2026-10-H3`）**。这是一次**规格指定**的切换，不是新的参数搜索：H3 在运行前已登记、通过了自己的 kill criterion，切换没有使用 2026-09-22 之后的任何数据来挑参数。
 - **切换后的规格**：24 个 sleeve = 2 个 book × 12 个 sleeve，等权 1/24。
   - book A = 冠军（`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`）。
@@ -254,6 +256,8 @@
   明细：`reports/phase_momentum_candidate_eval/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`、`reports/phase_momentum_multiple_testing_h3/`。
 
 ### 00.12 2026-10-08 新方向：横截面离散度（dispersion）风险叠加（仅筛查，未预注册、未过生产引擎）
+
+> **状态已被 §00.13 取代（2026-10-08）**：本节当时的「仅筛查、未预注册、未过生产引擎」已推进——离散度叠加已正式预注册为 **H5**、用生产引擎（按目标事件计费）重跑并通过自己的 kill criterion，且是本项目第一个通过 PBO 的规格。下方筛查数字保留为设计依据。
 
 > 背景：§00.11 的结论是 H3 仍过不了 DSR/PBO，而唯一干净的修复（等样本外积累）太慢。本轮回到外部文献，找 **§5「已否决」清单之外**的新机制。**本节全部是筛查，不是候选，也没有改变冻结规格。**
 
@@ -291,6 +295,66 @@
   .venv/bin/python scripts/backtest_dispersion_overlay.py
   ```
   明细：`reports/phase_momentum_dispersion_diagnostic/`、`reports/phase_momentum_dispersion_overlay/`。
+
+### 00.13 2026-10-08 采用 H5 作为冻结规格（横截面离散度叠加；仍为 provisional；取代 §00.11 的规格指定与 §00.12 的「仅筛查」状态）
+
+- **决定**：本轮把冻结规格从 **H3** 切换为 **H5**（注册号 `PR2026-10-H5`）。§00.12 的横截面离散度叠加已正式预注册、用生产引擎（按目标事件计费）重跑、并通过自己的 kill criterion；它同时是**本项目第一个通过 PBO 门槛的规格**。这是一次**规格指定**的切换：H5 在运行前登记（`scripts/run_phase_momentum_hypotheses.py` 的 `TRIALS`；台账 `reports/research_trial_inventory/preregistered_trials.csv`），切换没有使用 2026-09-22 之后的任何数据。
+- **切换后的规格**：在 §00.11 的 H3 结构（2 个 book × 12 个 sleeve，目标层 50/50 混合）之上，给**两个 book 都**加同一个离散度缩放（`PhaseMomentumSpec.dispersion_target_percentile = 0.75`）：
+  - `dispersion(D)` = 当日 point-in-time Top20 的**近 21 日收益横截面标准差（ddof=1）**；可用成员 < 5 → 无读数（`top20_dispersion`）。
+  - `factor(D)` = `min(1, 过去 252 日离散度的 75 分位 / dispersion(D))`；无读数时 factor = 1（不做叠加，而不是强制转现金）（`dispersion_exposure`）。
+  - 每个 sleeve 的（已波动率缩放、已宽度共闸的）目标权重乘以 `factor(D)`；gross ≤ 1.0 不变，因此叠加**只降风险、不抬杠杆**。其余规则（信号收盘生成、T+1、2bps 基准成本、长仓现货无杠杆）不变。
+- **协议口径（20bps、+3h、较差缺 K 线）的头条结果**（`reports/phase_momentum_candidate_eval_h5/`）：
+
+| 指标 | B（原始基线） | H3（被取代） | **H5（冻结）** |
+| --- | ---: | ---: | ---: |
+| 总收益 | 19.56x | 19.90x | 19.53x |
+| Sharpe | 1.370 | 1.466 | **1.623** |
+| 最大回撤 | -45.7% | -37.7% | **-37.0%** |
+| 1 年滚动最差 | 0.711 | 0.733 | **0.806** |
+| 去掉最好一年 | 4.34x | 5.90x | **6.51x** |
+| 年化换手 | 26.09 | 24.65 | 24.84 |
+| 平均 gross | 36.0% | 29.9% | **26.1%** |
+
+- **+1h 实盘目标口径**：H5 **22.80x** / Sharpe 1.704 / MDD -33.3%（H3 23.44x / 1.534 / -33.4%；B 21.22x / 1.398 / -46.6%）。
+- **kill criterion（预注册并已实装进评估器，20bps +3h 较差缺 K 线）**：`MDD improvement 8.71pp >= 5pp`（MDD -0.3697 vs B -0.4567）✔；`Sharpe 1.6231 > H3 1.4658` ✔；`1 年滚动最差 0.8063 > H3 0.7325` ✔。2bps（+9.02pp / 1.7223 > 1.5504 / 0.8130 > 0.7507）与 50bps（+8.21pp / 1.4570 > 1.3240 / 0.7517 > 0.6728）同判 → **通过**（`reports/phase_momentum_hypotheses_2026_10/kill.csv`）。H5 是本项目**第一个既通过 kill criterion、又通过 PBO 的规格**。
+- **仍然失败 / 未证明的门槛**（任何一条都不因切换而解除；H5 仍为 **provisional**，tier 2「risk variant recorded」）：
+  - **DSR**：协议口径 **0.860**（+1h 0.901，收盘 0.892）< 0.95 → **失败**（H3 0.755、B 0.675，同一口径）。DSR 用 `top20_2022_trials` 的 **N=6,135**（本轮把 3 个 H5 试验并入台账后重建的 `reports/research_trial_inventory/summary.json`，N 6,132→6,135）与家庭内 N=36 两个口径；家庭内 DSR 0.999 只是说明「在本家族里它是最强的」，不解除项目级门槛。
+  - **PBO**：**通过**。把 H5 三档（0.60/0.75/0.90）与 H3 三档一起并入原 30 个单规格变体（去重后 **36 个候选**）重跑 CSCV（`scripts/build_phase_momentum_extended_candidates.py` + `scripts/run_phase_momentum_multiple_testing.py`；`reports/phase_momentum_multiple_testing_overlays/`）：**PBO = 0.192 < 0.5 → 通过**（H3 0.558、B 0.526，两者都是 fail）。H5(0.75) 是该族里被选中最多的候选（623/924），且全样本收盘 Sharpe 最高（1.6836）。White Reality Check：对零 p=0.019，对 BTC p=0.025。
+  - **参数邻域**：**稳健**。预注册邻域 0.60/0.90 在 2/20/50bps 下都**保持** H5 的 kill criterion（H5-T60 协议口径 13.63x / Sharpe 1.540 / MDD -36.3%；H5-T90 21.68x / 1.555 / -37.0%）。收益对分位敏感（0.60 明显更低，18.16x@2bps vs 26.51x），但**风险指标（MDD、1 年滚动最差）对三档单调且稳健**——这正是采用 H5 的理由，不是收益。
+  - **单资产依赖**：§00.9 的结论（12 个 sleeve 实际是 1–2 币组合）对 H5 同样成立；H5 没有降低对单一币的依赖。
+  - **收益天花板**：叠加只做 de-risk（factor ≤ 1），**不抬收益上限**；协议口径下 H5 总收益（19.53x）略低于 H3（19.90x），属预注册里写明的「pass below 20x 记为 risk variant」情形。H5 在 2bps 与 +1h 口径下都 ≥ 20x，但头条（20bps +3h）低于 20x。
+- **压力窗口 2020-10-03 .. 2021-12-31（20bps，收盘）**：H5 **5.177x** / Sharpe 2.553 / MDD -20.6%；H3 5.372x / 2.493 / -21.0%；B 5.129x / 2.456 / -18.9%；BTC 4.390x。
+- **市场状态**（`reports/phase_momentum_regime_overlays/`，无前视标签）：H5 在 bull 20.05x / Sharpe 2.483 / MDD -37.7%，**非 bull 1.071x / Sharpe 0.255 / MDD -19.7%**，是三者里最好的非 bull（B 0.910x / -0.083 / -29.0%；H3 1.022x / 0.136 / -23.2%）。离散度叠加主要在风险期降暴露，与 §00.12 的机制一致。
+- **样本外**：2026-09-22 → 2026-10-07 的 16 天里，离散度叠加**确实触发**（不像 H3 的宽度共闸从未触发）：20bps +3h 下 H5 **1.0576x** / MDD -6.39%，H3 1.0883x / -10.57%，BTC 0.9616x——H5 少赚约 2.9%，回撤小约 4.2pp。这段窗口对 H5 仍是切参前数据，**不构成独立证据**。`reports/phase_momentum_oos_2026/` 现已切换为跟踪 H5（manifest `trial_id=PR2026-10-H5`）。
+- **实盘信号工具**：`scripts/run_phase_momentum_live_signal.py` 现在默认构造 H5（模块常量 `FROZEN_TRIAL_ID = "PR2026-10-H5"`），`--trial-id champion-defaults` 回到 B、`--trial-id PR2026-10-H3` 回到 H3。规则文本与 sleeve 快照现在也列出离散度叠加；`reports/phase_momentum_live/latest_signal.md` 的 Trial 字段为 `PR2026-10-H5`。
+- **本轮同时修掉的两个评估器缺陷**（都会让 H5 的判定失真，记录在此以免误读）：
+  1. `NEIGHBOURHOOD_IDS` 原来只有 H2/H3，H5 的 0.60/0.90 邻域虽在 `TRIALS` 里、却不在评估器的 trial 列表里，写台账时直接 `KeyError`；已补上。
+  2. `_criteria` 原来只有 H2/H3/H4 三套判据，H5 会被**误用 H4 判据**评估；已实装 H5 判据（MDD 对 B、Sharpe 与 1 年滚动最差对 H3）。修正后 H5 与两个邻域都在 2/20/50bps 下通过。
+- **复现**：
+  ```bash
+  # 1) 全量重跑预注册试验，重算判据 / DSR / Reality Check / 压力窗口
+  .venv/bin/python scripts/run_phase_momentum_hypotheses.py
+  # 2) 重建试验台账（把 3 个 H5 试验计入 DSR 分母 N=6,135）
+  .venv/bin/python scripts/build_trial_inventory.py
+  # 3) H5 与 B/H3 及各自邻域的同口径横评（含 DSR）
+  .venv/bin/python scripts/evaluate_phase_momentum_candidates.py \
+      --trial-ids PR2026-10-B,PR2026-10-H3,PR2026-10-H5,PR2026-10-H5-T60,PR2026-10-H5-T90 \
+      --output-dir reports/phase_momentum_candidate_eval_h5
+  # 4) 把 H3+H5 六档并入原候选族后重算 PBO / DSR / Reality Check
+  .venv/bin/python scripts/build_phase_momentum_extended_candidates.py
+  .venv/bin/python scripts/run_phase_momentum_multiple_testing.py \
+      --candidate-returns reports/phase_momentum_multiple_testing_overlays/candidate_returns.csv \
+      --primary h5_disp_p75 --output-dir reports/phase_momentum_multiple_testing_overlays
+  # 5) 市场状态拆分
+  .venv/bin/python scripts/run_phase_momentum_regime_breakdown.py \
+      --returns-file reports/phase_momentum_multiple_testing_overlays/candidate_returns.csv \
+      --candidates primary,h3_breadth_050,h5_disp_p75 \
+      --output-dir reports/phase_momentum_regime_overlays
+  # 6) 实盘信号与样本外跟踪
+  .venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live
+  .venv/bin/python scripts/run_phase_momentum_oos.py --trial-id PR2026-10-H5 --end-date 2026-10-07
+  ```
+  明细：`reports/phase_momentum_candidate_eval_h5/`、`reports/phase_momentum_multiple_testing_overlays/`、`reports/phase_momentum_regime_overlays/`、`reports/phase_momentum_hypotheses_2026_10/`、`reports/phase_momentum_oos_2026/`、`reports/phase_momentum_live/`。
 
 ---
 

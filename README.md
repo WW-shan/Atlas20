@@ -23,54 +23,54 @@ and a React/Vite console for reviewing results.
 
 ## Current Research Conclusion
 
-The authoritative conclusion is in `RESEARCH.md` (sections 00 and 00.11, 2026-10-08). The current
-frozen specification is **H3** (`PR2026-10-H3`): a strict point-in-time Top20, no-leverage
+The authoritative conclusion is in `RESEARCH.md` (sections 00 and 00.13, 2026-10-08). The current
+frozen specification is **H5** (`PR2026-10-H5`): a strict point-in-time Top20, no-leverage
 phase-staggered multi-horizon momentum ensemble, **blended 50/50 at the target level with a
-Top20 breadth co-gate**. Book A is the phase-staggered champion: four transparent
-trailing-return signals, three calendar phases each, a Top2 hold band, a BTC 100D MA +
-confirm2 regime gate, and 60D volatility targeting. Book B adds the risk-on condition
-`breadth(D) >= 0.50`, where breadth is the share of the day's point-in-time Top20 above its own
-50D SMA; when it fails, book B goes to cash. The research sample is 2022-01-01 .. 2026-09-21;
-later data is tracked as a genuine out-of-sample period for the frozen specification; the latest verified tracking snapshot covers 2026-09-22 .. 2026-10-07.
+Top20 breadth co-gate**, with **both books scaled by a cross-sectional dispersion overlay**.
+Book A is the phase-staggered champion: four transparent trailing-return signals, three calendar
+phases each, a Top2 hold band, a BTC 100D MA + confirm2 regime gate, and 60D volatility targeting.
+Book B adds the risk-on condition `breadth(D) >= 0.50`, where breadth is the share of the day's
+point-in-time Top20 above its own 50D SMA; when it fails, book B goes to cash. Every sleeve weight
+is then multiplied by `min(1, 252D-P75(Top20 21D dispersion) / current dispersion)`, so the overlay
+only de-risks and never levers up. The research sample is 2022-01-01 .. 2026-09-21; later data is
+tracked as a genuine out-of-sample period for the frozen specification; the latest verified
+tracking snapshot covers 2026-09-22 .. 2026-10-07.
 
-| 2022-01-01 .. 2026-09-21 (H3) | 2bps (baseline) | 20bps | 50bps | 100bps | BTC |
+| 2022-01-01 .. 2026-09-21 (H5) | 2bps (baseline) | 20bps | 50bps | 100bps | BTC |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Fill at the signal close | 27.77x | 22.53x | 15.90x | 8.88x | 1.87x |
-| Fill 3h after the close (live timing, worse missing-candle case) | **24.55x** | 19.90x | 14.02x | 7.82x | |
+| Fill at the signal close | 26.51x | 21.47x | 15.10x | 8.39x | 1.87x |
+| Fill 3h after the close (live timing, worse missing-candle case) | **24.12x** | 19.53x | 13.72x | 7.61x | |
 
-H3 was adopted on 2026-10-08 over the pre-switch single-book champion (B) on a like-for-like
-table (`reports/phase_momentum_candidate_eval/`): at the live +1h fill and 20bps it wins return,
-Sharpe, drawdown, one-year rolling worst, best-year-removed, turnover, average exposure and DSR
-(23.44x / 1.534 / -33.4% vs B's 21.22x / 1.398 / -46.6%). Its **drawdown advantage is monotone**
-across the breadth threshold (-34.6%/-33.4%/-30.2% at 0.45/0.50/0.55); its return edge is
-smaller and rests on the 0.50 grid point chosen in an earlier in-sample sweep, so it is not
-treated as a robust return advantage.
+H5 was adopted on 2026-10-08 over the H3 breadth co-gate on a like-for-like table
+(`reports/phase_momentum_candidate_eval_h5/`). At the protocol fill (20bps, +3h, worse
+missing-candle policy) it improves Sharpe 1.466 -> 1.623, max drawdown -37.7% -> -37.0%, one-year
+rolling worst 0.733 -> 0.806 and best-year-removed 5.90x -> 6.51x, while average gross exposure
+falls 29.9% -> 26.1%. Its pre-registered kill criterion passes at 2/20/50bps, and so do its
+pre-declared 0.60/0.90 percentile neighbourhoods. It is the **first specification in this project
+to pass the PBO gate: 0.192** over the extended 36-candidate family (H3 0.558 and B 0.526 both
+fail). It does not raise the return ceiling - the overlay only de-risks - so the headline
+20bps/+3h return (19.53x) is marginally below H3's and below 20x: the "pass below 20x is a recorded
+risk variant" case written into the registration. At 2bps and at the live +1h fill H5 is above 20x
+(24.12x / 22.80x).
 
 The frozen specification has been tracked out of sample from 2026-09-22 through the latest
-verified day, 2026-10-07 (16 daily observations). The breadth co-gate never triggered in this
-window, so H3 and B are identical here: with realistic +3h fills it returns 1.0902x at 2bps and
-1.0883x at 20bps, with -10.50% / -10.57% maximum drawdowns; BTC returns 0.9616x. That is a
-positive start, but 16 days are far too short to validate the strategy or clear any of the
-failed gates below. See `reports/phase_momentum_oos_2026/`.
+verified day, 2026-10-07 (16 daily observations). Unlike H3's breadth gate, the dispersion overlay
+does fire in this window: with realistic +3h fills it returns 1.0576x at 20bps with a -6.39%
+maximum drawdown, versus 1.0883x / -10.57% for H3 and 0.9616x for BTC. That is a positive start,
+but 16 days are far too short to validate the strategy or clear the failed gates below. See
+`reports/phase_momentum_oos_2026/`.
 
-It is **provisional, not validated**. It clears 20x at the baseline 2bps cost even with
-realistic fills, but two AGENTS.md gates fail: the Deflated Sharpe against the project's real
-trial count is **0.758** at the protocol fill (+3h, worse missing-candle policy; 6,132 Top20
-trials since 2022), and the result sits on a narrow parameter peak (the 0.50 breadth threshold,
-picked in an earlier in-sample grid; PBO is **0.558** for H3 over the extended candidate family,
-also a fail, versus 0.526 for the pre-switch B). Neither can be fixed on the same sample; the frozen specification is tracked
-out of sample instead, and the pre-registered round (H2-H4 in
-`docs/research/literature_review_2026-09.md`) is logged in
-`reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H3 was adopted as
-the frozen spec and H2 remains a recorded risk variant (see `RESEARCH.md` section 00.6). A
-pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes from
-long-standing Top20 incumbents, not from temporary new entrants (-8% to -9% of total
+It is **provisional, not validated**. It clears 20x at the baseline 2bps cost even with realistic
+fills, but one AGENTS.md gate still fails: the Deflated Sharpe against the project's real trial
+count is **0.860** at the protocol fill (+3h, worse missing-candle policy; 6,135 Top20 trials since
+2022). That cannot be fixed on the same sample; the frozen specification is tracked out of sample
+instead. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
+in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
+recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
+00.13). A pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes
+from long-standing Top20 incumbents, not from temporary new entrants (-8% to -9% of total
 contribution at the live +3h fill), which answers the survivor-momentum critique of the crypto
 momentum literature directly.
-
-See `RESEARCH.md` section 0.3 for the reproduction commands in dependency order and
-`reports/phase_momentum_*` for the reports. This is research, not a guarantee of future
-returns; capacity, execution, exchange, and data-latency risks remain.
 
 ## Why It Stands Out
 
@@ -559,10 +559,11 @@ scratch result. If this section disagrees with it, `RESEARCH.md` wins.
 
 The previous fixed-21-day CTREND-breakout candidate and the earlier 5x-6x
 volatility-target ensemble are historical research branches, not the current
-champion. The current frozen specification is **H3** (`PR2026-10-H3`, adopted
+champion. The current frozen specification is **H5** (`PR2026-10-H5`, adopted
 2026-10-08): a 50/50 target-level blend of the **phase-staggered multi-horizon
 momentum ensemble** (book A) with the same ensemble plus a **Top20 breadth
-co-gate** (book B), inside the strict point-in-time Top20:
+co-gate** (book B), with **both books scaled by a cross-sectional dispersion
+overlay**, inside the strict point-in-time Top20:
 
 > Top20 → four transparent trailing-return signals (7/14/21/28/42/60D,
 > 21D, 7/14/28/60D equal weight, and 14/21/28D equal weight) → three
@@ -574,26 +575,32 @@ co-gate** (book B), inside the strict point-in-time Top20:
 > point-in-time Top20 above its own 50D SMA; when it fails, book B goes to
 > cash. The two books are mixed 50/50 at the target level and rebalanced
 > there by the production engine.
+>
+> Both books then multiply every sleeve weight by the dispersion factor
+> `min(1, 252D-P75(Top20 21D return dispersion) / current dispersion)`, so the
+> overlay only de-risks (a missing reading leaves the factor at 1).
 
-| 2022-01-01 .. 2026-09-21 (H3) | 2bps | 20bps | 50bps | 100bps | BTC |
+| 2022-01-01 .. 2026-09-21 (H5) | 2bps | 20bps | 50bps | 100bps | BTC |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Total return | **27.77x** | **22.53x** | 15.90x | 8.88x | 1.87x |
-| Sharpe | 1.609 | 1.524 | 1.382 | 1.143 | 0.515 |
-| Max drawdown | -35.6% | -37.9% | -41.4% | -48.3% | -66.9% |
+| Total return | **26.51x** | **21.47x** | 15.10x | 8.39x | 1.87x |
+| Sharpe | 1.784 | 1.684 | 1.516 | 1.235 | 0.515 |
+| Max drawdown | -35.5% | -37.7% | -41.3% | -46.8% | -66.9% |
 
 The validation below is the 2026-09-25 audit of the pre-switch single-book
-champion B; H3's own gate status (DSR 0.758, PBO 0.558, threshold narrow
-peak) is in `RESEARCH.md` section 00.11. B's audit record:
+champion B; H5's own gate status (DSR 0.860, PBO **0.192 - the first pass in
+this project**, neighbourhood 0.60/0.90 both keep the kill criterion) is in
+`RESEARCH.md` section 00.13, and H3's superseded status in section 00.11. B's
+audit record:
 
 - Execution timing: filling 1/3/6/12 hours after the close gives
   21.22x/19.56x/20.78x/21.57x at 20bps; filling at the next close gives
   12.01x. Hourly candles come from Binance and, for coins Binance does not
   list, Gate.io (`scripts/download_hourly_prices.py --venue gate`).
-- Multiple testing: Deflated Sharpe **0.731** against the 6,132 Top20 trials
+- Multiple testing: Deflated Sharpe **0.731** against the 6,135 Top20 trials
   since 2022 (fail; the old 0.9945 counted only 32 candidates). White Reality
   Check within the 30-variant family: p=0.019 against zero, p=0.025 against
-  BTC. PBO **0.526** (fail), so no best-parameter selection is used. The six
-  pre-registered H2/H3 neighbourhood trials are counted in this denominator.
+  BTC. PBO **0.526** (fail), so no best-parameter selection is used. The eight
+  pre-registered H2/H3/H5 neighbourhood trials are counted in this denominator.
 - Parameter neighbourhood: narrow peaks at the BTC MA100 gate and the Top2
   hold band (see above) - a robustness failure under AGENTS.md.
 - 365D/90D walk-forward from 2023 over the 25 pre-specified variants,
@@ -613,10 +620,11 @@ The latest target snapshot is generated by:
 .venv/bin/python scripts/run_phase_momentum_live_signal.py
 ```
 
-It builds the frozen spec (H3, `PR2026-10-H3`) by default and evaluates up to
+It builds the frozen spec (H5, `PR2026-10-H5`) by default and evaluates up to
 the latest completed UTC day, writing `reports/phase_momentum_live/latest_signal.json`
 and `.md`; it does not place orders. Pass `--trial-id champion-defaults` for the
-pre-switch single-book champion. It refuses a panel more than `--max-staleness-days`
+pre-switch single-book champion, or `--trial-id PR2026-10-H3` for the superseded
+breadth co-gate blend. It refuses a panel more than `--max-staleness-days`
 (default 1) behind the latest completed UTC day (`--allow-stale` for deliberate
 backfills) and a last day whose volumes look unfinished (`--allow-partial-day` to
 override; the check is recorded in `last_day_check`). The payload records the
@@ -625,7 +633,7 @@ shows both the target and the engine's current drifted book (`current_weights`),
 and lists the sleeve snapshot with a `book` column (0 = book A, 1 = book B).
 
 Reproduce the current frozen spec with the commands in `RESEARCH.md` section
-0.3 (dependency order) and `RESEARCH.md` section 00.11.
+0.3 (dependency order) and `RESEARCH.md` section 00.13.
 
 Legacy volatility-target and daily-event reports remain in `reports/` for
 audit history, but they are not the current champion.

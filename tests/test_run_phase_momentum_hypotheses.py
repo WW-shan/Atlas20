@@ -58,6 +58,9 @@ def test_registration_writes_one_row_per_trial_and_is_idempotent(tmp_path: Path)
         "PR2026-10-H3-T45",
         "PR2026-10-H3-T55",
         "PR2026-10-H4",
+        "PR2026-10-H5",
+        "PR2026-10-H5-T60",
+        "PR2026-10-H5-T90",
     ]
 
 
@@ -164,6 +167,8 @@ def test_kill_criteria_h2_uses_the_single_window_median_and_drawdown_tolerance()
         "PR2026-10-H2-D200": (10.0, 5.0, 9.0, 9.2, 1.0, -0.5),
         "PR2026-10-H3": (18.0, 10.0, 15.0, 15.5, 1.5, -0.38),
         "PR2026-10-H4": (12.0, 9.0, 11.0, 11.5, 1.2, -0.39),
+        # H5 only has to be present for the H5 family to be evaluable here.
+        "PR2026-10-H5": (18.0, 10.0, 15.0, 15.5, 1.6, -0.38),
     }
     # H2: median of diagnostics at +3h worse = median(8.0, 19.5, 10.0, 9.0) = 9.5.
     passing = _full_runs({**base, "PR2026-10-H2": (14.0, 8.0, 12.0, 12.5, 1.3, -0.465)})
@@ -192,6 +197,8 @@ def test_kill_criteria_h3_and_h4_need_every_endpoint_and_the_same_verdict_at_2_a
         "PR2026-10-H3": (18.0, 10.0, 15.0, 15.5, 1.5, -0.395),
         # H4: drawdown 6 points better and D1d = 9 / 12 = 0.75 > 0.52.
         "PR2026-10-H4": (12.0, 9.0, 11.0, 11.5, 1.2, -0.39),
+        # H5: drawdown 8 points better than B, Sharpe and rolling worst above H3's.
+        "PR2026-10-H5": (18.0, 10.0, 15.0, 15.5, 1.6, -0.37),
     }
     runs = _full_runs(values)
     runs.loc[(runs["trial_id"] == "PR2026-10-H3"), "rolling_1y_worst_multiple"] = 0.8
@@ -245,9 +252,19 @@ def test_neighbourhood_ensembles_are_judged_by_their_parents_criterion() -> None
         "PR2026-10-H3-T45": (18.0, 10.0, 15.0, 15.5, 1.5, -0.395),
         # T055: same drawdown but Sharpe below B's -> criterion not kept.
         "PR2026-10-H3-T55": (18.0, 10.0, 15.0, 15.5, 1.2, -0.395),
+        # H3 is the reference the H5 family is measured against.
+        "PR2026-10-H3": (18.0, 10.0, 15.0, 15.5, 1.5, -0.395),
+        # H5 is the reference H3 is measured against for the H5 family.
+        "PR2026-10-H5": (18.0, 10.0, 15.0, 15.5, 1.6, -0.37),
+        # H5-T60: 6-point drawdown improvement over B, Sharpe and rolling worst above H3.
+        "PR2026-10-H5-T60": (18.0, 10.0, 15.0, 15.5, 1.55, -0.39),
+        # H5-T90: drawdown still passes but Sharpe drops below H3's -> not kept.
+        "PR2026-10-H5-T90": (18.0, 10.0, 15.0, 15.5, 1.45, -0.40),
     }
     runs = _full_runs(base)
     runs.loc[runs["trial_id"].str.startswith("PR2026-10-H3-T"), "rolling_1y_worst_multiple"] = 0.8
+    runs.loc[runs["trial_id"].str.startswith("PR2026-10-H5"), "rolling_1y_worst_multiple"] = 0.85
+    runs.loc[runs["trial_id"] == "PR2026-10-H3", "rolling_1y_worst_multiple"] = 0.8
 
     table = evaluate_neighbourhood(runs).set_index("trial_id")
 
@@ -255,6 +272,8 @@ def test_neighbourhood_ensembles_are_judged_by_their_parents_criterion() -> None
     assert not bool(table.loc["PR2026-10-H2-LOO200", "verdict_pass"])
     assert bool(table.loc["PR2026-10-H3-T45", "verdict_pass"])
     assert not bool(table.loc["PR2026-10-H3-T55", "verdict_pass"])
+    assert bool(table.loc["PR2026-10-H5-T60", "verdict_pass"])
+    assert not bool(table.loc["PR2026-10-H5-T90", "verdict_pass"])
     assert "criterion kept" in table.loc["PR2026-10-H2-LOO150", "tier"]
     assert "NOT kept" in table.loc["PR2026-10-H2-LOO200", "tier"]
 

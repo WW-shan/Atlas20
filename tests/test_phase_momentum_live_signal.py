@@ -415,12 +415,15 @@ def test_main_records_a_passed_last_day_check(tmp_path, monkeypatch) -> None:
 
 def _two_book_build(index: pd.DatetimeIndex) -> tuple[PhaseMomentumBuildResult, tuple]:
     """A synthetic 2-book build: book A's 6 sleeves then book B's 6."""
-    book_a = PhaseMomentumSpec(btc_ma_window=2, btc_confirm_days=1)
+    book_a = PhaseMomentumSpec(
+        btc_ma_window=2, btc_confirm_days=1, dispersion_target_percentile=0.75
+    )
     book_b = PhaseMomentumSpec(
         btc_ma_window=2,
         btc_confirm_days=1,
         breadth_threshold=0.50,
         breadth_ma_window=50,
+        dispersion_target_percentile=0.75,
     )
     books = ((book_a, 0.5), (book_b, 0.5))
     sleeves = tuple(
@@ -446,7 +449,7 @@ def test_book_labels_split_multi_book_sleeves_in_build_order() -> None:
     assert labels == [0] * 6 + [1] * 6
 
 
-def test_multi_book_payload_names_the_h3_books_and_labels_every_sleeve() -> None:
+def test_multi_book_payload_names_the_h5_books_and_labels_every_sleeve() -> None:
     index = pd.date_range("2024-01-01", periods=16, freq="D")
     market = _market(_price(index))
     built, books = _two_book_build(index)
@@ -464,38 +467,41 @@ def test_multi_book_payload_names_the_h3_books_and_labels_every_sleeve() -> None
         cost_bps=20.0,
         as_of=index[-1],
         books=books,
-        trial_id="PR2026-10-H3",
+        trial_id="PR2026-10-H5",
     )
 
-    assert payload["trial_id"] == "PR2026-10-H3"
+    assert payload["trial_id"] == "PR2026-10-H5"
     assert payload["target_spec"]["construction"].startswith("build_parameter_ensemble_targets")
     assert [book["weight"] for book in payload["target_spec"]["books"]] == [0.5, 0.5]
     assert "2 books at [0.50, 0.50]" in payload["rule"]
     assert "book B: hold while in Top2" in payload["rule"]
     assert "Top20 breadth >= 0.50 above own 50D SMA" in payload["rule"]
+    # Both books carry the dispersion overlay and the rule text must say so.
+    assert "dispersion overlay P75 (21D dispersion, 252D lookback)" in payload["rule"]
     assert {sleeve["book"] for sleeve in payload["sleeves"]} == {0, 1}
     assert len(payload["sleeves"]) == 12
 
-def test_frozen_spec_is_the_h3_breadth_cogate_blend() -> None:
+
+def test_frozen_spec_is_the_h5_dispersion_overlay_blend() -> None:
     # The live signal must default to the adopted frozen spec, not the
-    # pre-switch single-book champion.
-    assert live.FROZEN_TRIAL_ID == "PR2026-10-H3"
+    # pre-switch single-book champion or the H3 co-gate blend.
+    assert live.FROZEN_TRIAL_ID == "PR2026-10-H5"
 
 
 def test_main_defaults_to_the_frozen_trial_id(tmp_path, monkeypatch) -> None:
     index = pd.date_range("2024-01-01", periods=16, freq="D")
     _patch_inputs(monkeypatch, index)
-    monkeypatch.setattr(live, "FROZEN_TRIAL_ID", "PR2026-10-H3")
+    monkeypatch.setattr(live, "FROZEN_TRIAL_ID", "PR2026-10-H5")
 
     def fake_resolve(market, universe, idx, trial_id):
         built = _built(idx)
         spec = PhaseMomentumSpec(btc_ma_window=2, btc_confirm_days=1)
         assert trial_id is None
-        return ((spec, 1.0),), spec, built, "PR2026-10-H3"
+        return ((spec, 1.0),), spec, built, "PR2026-10-H5"
 
     monkeypatch.setattr(live, "_resolve_build", fake_resolve)
 
     live.main(["--output-dir", str(tmp_path), "--allow-stale"])
 
     payload = json.loads((tmp_path / "latest_signal.json").read_text(encoding="utf-8"))
-    assert payload["trial_id"] == "PR2026-10-H3"
+    assert payload["trial_id"] == "PR2026-10-H5"
