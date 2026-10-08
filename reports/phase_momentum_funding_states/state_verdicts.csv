@@ -1,0 +1,5 @@
+state_variable,spearman,abs_spearman,ic_bar,separation_bar,passes_ic_bar,tercile_monotone,diff_over_rest_std,passes_separation_bar,promote_to_h6
+funding_level,0.16236712470832254,0.16236712470832254,0.38,0.5,False,True,1.1191802575767154,True,False
+funding_pct,0.08822047098424766,0.08822047098424766,0.38,0.5,False,False,0.5057369780717204,True,False
+funding_positive_share,0.16762275166800514,0.16762275166800514,0.38,0.5,False,False,0.7614436201423759,True,False
+funding_disp_ratio,0.06684405741009514,0.06684405741009514,0.38,0.5,False,False,-0.1242629482814772,False,False

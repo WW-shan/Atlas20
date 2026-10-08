@@ -643,6 +643,9 @@ Local evidence lives in `/tmp/smart-search-evidence/atlas20-research/` (JSON fro
 | S46 | OpenAlex `.../10.2139/ssrn.1262194` | metadata (realised semivariance, 2008) |
 | S47 | arXiv API `https://export.arxiv.org/api/query?id_list=2108.10984` | abstract (Crypto Wash Trading) |
 | S48 | arXiv API `https://export.arxiv.org/api/query?id_list=2109.12142` | abstract (Periodicity in Cryptocurrency Volatility and Liquidity) |
+| S49 | OpenAlex `.../10.1287/mnsc.2024.05069` | abstract (Crypto Carry, Management Science) |
+| S50 | OpenAlex `.../10.51505/ijebmr.2026.10315` | abstract (leverage indicators and crash prediction) |
+| S51 | OpenAlex `.../10.1145/3442381.3450059` | abstract (crypto derivatives case study) |
 
 Addendum (2026-10-09) discovery pattern: the xAI main-search provider returned HTTP 502 for
 every `smart-search search` call and `smart-search exa-search` is unconfigured, so discovery
@@ -800,4 +803,64 @@ bar, but it still misses the separation requirement (-0.33 against a 0.50 bar) a
 family-wise information bar, so it is not promoted. Nothing else is close: realized
 volatility, the classic crash conditioner, ranks next-month excess return at +0.04.
 Recorded as a rejected hypothesis in `reports/phase_momentum_hourly_states/`.
+
+---
+
+## 9. Addendum 2026-10-09 (third): perpetual funding-rate screen for H6 (rejected)
+
+### 9.1 Why this screen, and what data it needs
+
+Sections 7 and 8 closed the spot panel and the hourly candles. The one information set the
+project had never touched is derivatives positioning. `data.binance.vision` publishes the
+complete funding history of every Binance USDT perpetual as one monthly archive per symbol
+(`data/futures/um/monthly/fundingRate/<SYMBOL>/<SYMBOL>-fundingRate-<YYYY-MM>.zip`);
+`scripts/download_funding_rates.py` caches it under `data/raw/binance_funding` (52 of the 57
+coins, `fapi.binance.com` being unreachable from this network). This is hypothesis generation
+only: no rule change, no new trial.
+
+### 9.2 Sources read and verified
+
+| ID | Source | Verified content | Design decision it speaks to |
+|---|---|---|---|
+| S49 | "Crypto Carry", *Management Science* (2026), doi:10.1287/mnsc.2024.05069 (abstract; SSRN working paper 4268371) | Carry (futures minus spot) "can reach exceptionally high levels, sometimes exceeding 40% per annum"; it reflects "a substantial and volatile inconvenience yield", traced to "(i) demand from smaller, trend-chasing investors seeking leveraged exposure and (ii) the limited deployment of arbitrage capital" | Funding is a direct read on crowded leverage demand, so its level and percentile are candidate states |
+| S50 | "Systemic Risk from Financial Leverage in Digital Asset Markets: Evidence From Perpetual Futures" (2026), doi:10.51505/ijebmr.2026.10315 (abstract) | Binance perpetual panel, 2.65m 8-hour observations, 10 coins, 2023-2024: "leverage-related indicators, particularly realized volatility, open interest changes, and cumulative funding rates, significantly predict extreme price crashes (>= 5% decline within 8 hours)", out-of-sample AUROC 0.76 | Funding extremes as a crash precursor rather than a return predictor |
+| S51 | "Towards Understanding Cryptocurrency Derivatives: A Case Study of BitMEX", *WWW* 2021, doi:10.1145/3442381.3450059 (abstract) | The crypto derivatives ecosystem lets users take leveraged long/short exposure; the paper studies liquidation behaviour on a major perpetual venue | Background: why leverage positioning can amplify reversals |
+
+### 9.3 Screen design (fixed before the numbers were seen)
+
+Four states, read at the close before the month, over point-in-time Top20 members with funding
+data (minimum five members a day): `funding_level` (seven-day mean of the cross-sectional mean
+daily funding paid by longs, in basis points per day), `funding_pct` (that series ranked inside
+its own trailing 252-day window), `funding_positive_share` (seven-day mean share of members
+paying positive funding) and `funding_disp_ratio` (cross-sectional dispersion of member funding
+over its own trailing median).
+
+This is the third screen over the same sample, so the information bar is the family-wise one for
+twenty candidate states: `|Spearman(state, next-month H5 - BTC)| >= 0.38`, monotone terciles and
+`|crash - rest| >= 0.5` rest-standard-deviations.
+
+### 9.4 Result: all four states rejected, but funding is the best crash separator so far
+
+| state | Spearman vs excess | crash - rest (σ) | monotone terciles | promoted |
+|---|---:|---:|---|:--:|
+| `funding_level` | +0.162 | **+1.12** (Welch t = 1.99) | yes | no |
+| `funding_positive_share` | +0.168 | **+0.76** (Welch t = 3.57) | no | no |
+| `funding_pct` | +0.088 | +0.51 | no | no |
+| `funding_disp_ratio` | +0.067 | -0.12 | no | no |
+
+`funding_level` is the strongest crash separator of all twenty candidates screened so far:
+crash months start with longs paying 3.19 basis points a day against 0.70 elsewhere, and its
+terciles are monotone. But the direction is the problem, and it is a substantive finding rather
+than a technicality. The same high-funding tercile also carries the *best* average months
+(mean H5 return +12.7% against +3.1% in the low tercile, mean excess +6.3% against +1.6%), so
+de-risking when funding is high - the rule the crash separation suggests - would cut the best
+months. The states are also largely redundant with what the frozen spec already sees:
+`funding_level` correlates 0.66 with breadth, 0.65 with the BTC gate and 0.61 with gross
+exposure. Crowded leverage is a volatility/regime amplifier, not a directional filter, and the
+excess-return rank correlation (+0.162) is far below the bar.
+
+Recorded as a rejected hypothesis in `reports/phase_momentum_funding_states/`. Deployment note
+for any future work: Binance publishes funding archives monthly rather than daily and
+`fapi.binance.com` is unreachable from this network, so a funding state could be backtested here
+but not driven live without another data route.
 

@@ -75,6 +75,7 @@ phase_momentum_candidate_eval,reports/ (no new configuration),reports/phase_mome
 phase_momentum_crash_states,reports/ (no new configuration),reports/phase_momentum_crash_states/,crash-month state diagnostic of the frozen trial (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_flow_states,reports/ (no new configuration),reports/phase_momentum_flow_states/,volume/turnover state screening of the frozen trial (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_hourly_states,reports/ (no new configuration),reports/phase_momentum_hourly_states/,intraday state screening of the frozen trial (no configuration),0,0,0,0,,,,,,False,False,
+phase_momentum_funding_states,reports/ (no new configuration),reports/phase_momentum_funding_states/,funding-rate state screening of the frozen trial (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_candidate_eval_h5,reports/ (no new configuration),reports/phase_momentum_candidate_eval_h5/,side-by-side re-listing of registered trials (counted via the ledger),0,0,0,0,,,,,,False,False,
 phase_momentum_dispersion_diagnostic,reports/ (no new configuration),reports/phase_momentum_dispersion_diagnostic/,diagnostic screening of the dispersion mechanism (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_dsr_gap,reports/ (no new configuration),reports/phase_momentum_dsr_gap/,prices the Deflated Sharpe gap of a saved return series (no configuration),0,0,0,0,,,,,,False,False,

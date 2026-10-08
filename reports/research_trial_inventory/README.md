@@ -5,7 +5,7 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `a2e56d3`; every source file is committed.
+Built at commit `84b5ba7`; every source file is committed.
 
 ## Totals
 

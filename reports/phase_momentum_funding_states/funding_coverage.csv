@@ -1,0 +1,8 @@
+metric,value
+coins with funding history,52.0
+distinct point-in-time members,53.0
+members without funding history,5.0
+member-days with funding,33043.0
+member-days total,34500.0
+member-day coverage,0.9577681159420289
+days below the five-member floor,0.0

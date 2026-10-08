@@ -112,7 +112,19 @@ first screen's unadjusted 0.25 bar but misses the 0.50σ separation test (-0.33)
 as a rejected hypothesis; realized volatility, the textbook crash conditioner, ranks next-month
 excess return at +0.036. Every information source the project holds - daily price, dollar volume
 and market cap, plus hourly candles - has now been screened, and none of the states they can
-express closes the Deflated-Sharpe gap. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
+express closes the Deflated-Sharpe gap. `RESEARCH.md` section 00.17 then goes outside the spot
+panel to derivatives positioning: `scripts/download_funding_rates.py` caches the complete Binance
+USDT-perpetual funding history from the public monthly archives (52 of 57 coins; `fapi.binance.com`
+is unreachable here), and four funding states were screened against the family-wise bar for twenty
+candidates (|Spearman| >= 0.38, monotone terciles, |crash - rest| >= 0.5σ). **All four were
+rejected**, but `funding_level` is the best crash separator of everything tested: crash months start
+with longs paying **3.19 bps a day** against **0.70** elsewhere (+1.12σ, Welch t = 1.99) and its
+terciles are monotone. The direction is the finding: the same high-funding tercile carries the
+*best* average months (H5 +12.7% against +3.1%), so de-risking on it would cut the best months, and
+it is 0.61-0.66 correlated with the breadth, gate and gross exposure the spec already sees. Crowded
+leverage is a volatility/regime amplifier, not a directional filter. Deployment note: funding
+archives are monthly, not daily, so a funding state could be backtested here but not yet driven live.
+The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
 00.13). A pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes

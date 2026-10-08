@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 日频量能/换手筛查全部被拒 + §00.14 勘误；§00.16 小时线日内状态筛查全部被拒；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 日频量能筛查被拒 + §00.14 勘误；§00.16 小时线筛查被拒；§00.17 资金费率筛查被拒（崩溃月区分度最强但仍不可用）；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -361,6 +361,10 @@
       --output-dir reports/phase_momentum_regime_overlays
   # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
   .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
+  # 6e) 永续资金费率筛查（§00.17，全部被拒）
+  .venv/bin/python scripts/download_funding_rates.py --start-month 2020-09 --end-month 2026-09
+  .venv/bin/python scripts/analyze_momentum_funding_states.py --output-dir reports/phase_momentum_funding_states
+
   # 6d) 小时线日内状态筛查（§00.16，全部被拒）
   .venv/bin/python scripts/analyze_momentum_hourly_states.py --output-dir reports/phase_momentum_hourly_states
 
@@ -510,6 +514,41 @@
   .venv/bin/python scripts/analyze_momentum_hourly_states.py --output-dir reports/phase_momentum_hourly_states
   ```
   明细：`reports/phase_momentum_hourly_states/{monthly_state.csv,daily_hourly_state.csv,hourly_coverage.csv,state_separation.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
+
+---
+
+### 00.17 2026-10-09 诊断：永续合约资金费率筛查 —— 被拒，但它是目前最强的崩溃月区分变量（否定性结果）
+
+> 背景：§00.15（日频现货量能）与 §00.16（小时线）都在**现货**信息里，且都被拒。项目从未用过的最后一块信息是**衍生品持仓**：多头为持有仓位支付的资金费率。`data.binance.vision` 按月归档每个 Binance USDT 永续的完整资金费率历史，`scripts/download_funding_rates.py` 已把 57 个币中的 **52 个**落到 `data/raw/binance_funding/`（`fapi.binance.com` 在本网络不可达，故走公开归档）。本节同样是**只筛查、不预注册、不新增试验**。外部证据见 `docs/research/literature_review_2026-09.md` §9（S49–S51）。
+
+**外部机制**：*Management Science* (2026) 的 "Crypto Carry" 证明期货-现货 carry 可达年化 40%+，来源是「**追趋势的小投资者加杠杆的需求** + 套利资本受限」——资金费率因此是"杠杆拥挤度"的直接读数；另一篇 2026 年 Binance 永续面板研究显示「累计资金费率」显著预测 8 小时内 ≥5% 的暴跌（样本外 AUROC 0.76）。
+
+**4 个候选状态**（月初前一收盘读数，截面只取有资金费率的 PIT Top20 成员，单日不足 5 个记缺失）：`funding_level`（成员日均资金费率的 7 日均值，单位 bps/日）、`funding_pct`（该序列在自身 252 日窗口内的分位）、`funding_positive_share`（正费率成员占比的 7 日均值）、`funding_disp_ratio`（截面离散度 ÷ 自身 252 日中位数）。
+
+**覆盖度**：53 个 PIT 成员中 5 个没有资金费率历史（4 个 Gate 专属 + bitget-token），成员-日覆盖 **33,043 / 34,500 = 95.78%**，**没有任何一天低于 5 成员下限**。
+
+**预设门槛**（同一样本上的第三个筛查，20 个候选族错误率校正）：`|Spearman(状态, 次月 H5−BTC)| ≥ 0.38` + 三分位单调 + `|崩溃−其余| ≥ 0.50σ`。
+
+**结果：4 个状态全部未通过 —— 但 `funding_level` 是目前全部 20 个候选里崩溃月区分度最强的**
+
+| 状态变量 | Spearman（对超额） | 崩溃−其余（σ） | Welch t | 三分位单调 | 升级 H6 |
+| --- | ---: | ---: | ---: | :--: | :--: |
+| `funding_level` | +0.162 | **+1.12** | 1.99 | 是 | 否 |
+| `funding_positive_share` | +0.168 | **+0.76** | **3.57** | 否 | 否 |
+| `funding_pct` | +0.088 | +0.51 | 1.52 | 否 | 否 |
+| `funding_disp_ratio` | +0.067 | -0.12 | -0.27 | 否 | 否 |
+
+- **崩溃月之前的多头杠杆明显更贵**：崩溃月月初的日均资金费率 **3.19 bps**，其余月份只有 **0.70 bps**（差 1.12σ，t≈2.0），方向与「杠杆拥挤 → 崩塌」机制一致。这是三次筛查里唯一超过 1σ 的区分度。
+- **但它不是方向性过滤器**：同样是这个高费率三分位，也是**平均最好的月份**（H5 均值 **+12.7%** vs 低三分位 +3.1%；超额 +6.3% vs +1.6%）。按崩溃月区分度去「高费率就减仓」，会砍掉最好的月份 —— 这正是它的超额秩相关只有 +0.162（远低于 0.38 门槛）的原因。
+- **而且它并不新**：`funding_level` 与规格已看到的状态高度重合 —— 与 breadth 相关 0.66、与 BTC 闸门 0.65、与 gross 0.61、与 mkt_vol −0.40。也就是说，拥挤杠杆主要是**波动率/风险偏好放大器**，而 H5 已经通过 gross 和 breadth 看到其中大部分。
+- **结论**：资金费率族**不升级为 H6**，登记为被拒假设。三次筛查（日频量能、小时线、资金费率，共 20 个候选）合起来说明：**在项目可低成本获得的信息里，找不到能补 DSR 缺口的定向信号**。
+- **落地限制（必须记录）**：Binance 只按月归档资金费率（没有日档），且 `fapi.binance.com` 在本网络不可达 —— 因此即便将来某个资金费率状态被预注册并验证，也**无法直接驱动实盘**，需要另找数据通道。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/download_funding_rates.py --start-month 2020-09 --end-month 2026-09
+  .venv/bin/python scripts/analyze_momentum_funding_states.py --output-dir reports/phase_momentum_funding_states
+  ```
+  明细：`reports/phase_momentum_funding_states/{monthly_state.csv,daily_funding_state.csv,funding_coverage.csv,state_separation.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
 
 ---
 
@@ -1248,6 +1287,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_crash_states/` | 崩溃月与可观测状态变量的对照（否定性结果：无变量区分度 > 0.4σ） | ✅ 当前权威 |
 | `reports/phase_momentum_flow_states/` | 量能/换手/集中度状态筛查（9 个变量全部被拒）；含 §00.14 表格的全样本勘误 | ✅ 当前权威 |
 | `reports/phase_momentum_hourly_states/` | 小时线日内状态筛查（已实现方差/半方差/小时成交集中度/场所占比/日内自相关/时段效应；7 个变量全部被拒） | ✅ 当前权威 |
+| `reports/phase_momentum_funding_states/` | 永续资金费率状态筛查（4 个变量全部被拒；`funding_level` 崩溃月区分度 +1.12σ 为三次筛查最强，但方向与冗余度决定不可用） | ✅ 当前权威 |
 | `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
 | `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
 | `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |
