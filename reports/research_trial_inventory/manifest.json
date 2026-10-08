@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "9d7bee01ceb6d0d15bd38b8238cfe0dc8749b79a",
+  "repository_head": "a2e56d34c5787ced78e869050a5a31c23b324023",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "c766eeb59abb73e9769eb7307283f829c349a5cc6450fdc3af0005efa126e346",
+  "research_md_sha256": "fa26752e386807d8f1ac2f4f2cd2f688ebf492baedaf033ce9910779c54725e6",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,

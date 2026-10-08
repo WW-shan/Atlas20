@@ -96,7 +96,23 @@ because `disp_ratio` needs 126 usable readings; recomputed state by state, the c
 Read at the close *before* the month, the frozen spec is not defensive going into its worst months
 (BTC gate open 0.90 vs 0.45, breadth 0.69 vs 0.37, gross 0.45 vs 0.23) - it is fully risk-on, and
 those states are on through the bull market too, so they cannot be a de-risking filter without
-giving up most of the return. No new trial was registered and the trial count is unchanged. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
+giving up most of the return. No new trial was registered and the trial count is unchanged.
+
+`RESEARCH.md` section 00.16 then screens the last information source already in the repository:
+the Binance hourly candles, until now used only for the +1h/+3h fill protocol. 42 of the 43
+point-in-time Top20 members traded over the window have hourly data (`bitget-token` does not) and
+member-day coverage is 99.7%. Seven intraday states - 24-hour realized variance over its own
+median, a Parkinson range ratio, the downside share of realized variance, the largest hour's share
+of the day's dollar volume, Binance's share of reported member volume, the 30-day lag-one
+autocorrelation of hourly returns, and the 00:00-08:00 UTC minus 08:00-24:00 UTC return - were
+screened against the family-wise bar for eighteen candidates (|Spearman| >= 0.38 against
+next-month excess return, monotone terciles, |crash - rest| >= 0.5σ). **All seven failed.** The
+strongest, single-hour volume concentration (+0.262, monotone terciles), would have cleared the
+first screen's unadjusted 0.25 bar but misses the 0.50σ separation test (-0.33), so it is recorded
+as a rejected hypothesis; realized volatility, the textbook crash conditioner, ranks next-month
+excess return at +0.036. Every information source the project holds - daily price, dollar volume
+and market cap, plus hourly candles - has now been screened, and none of the states they can
+express closes the Deflated-Sharpe gap. The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
 00.13). A pre-declared entrant attribution check (`RESEARCH.md` section 00.7) shows the return comes

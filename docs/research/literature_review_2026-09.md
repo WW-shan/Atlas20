@@ -638,6 +638,11 @@ Local evidence lives in `/tmp/smart-search-evidence/atlas20-research/` (JSON fro
 | S41 | OpenAlex `.../10.1016/j.frl.2021.102031` | abstract (liquidity volatility, 2021) |
 | S42 | OpenAlex `.../10.1016/j.irfa.2021.101908` | abstract (Zaremba et al., 2022) |
 | S43 | `smart-search fetch https://link.springer.com/article/10.1007/s11408-025-00474-9` | full text (open access, 2025) |
+| S44 | OpenAlex `.../10.1111/1468-0262.00418` | abstract (Andersen, Bollerslev, Diebold & Labys, 2003) |
+| S45 | OpenAlex `.../10.1086/296071` | record (Parkinson, 1980) |
+| S46 | OpenAlex `.../10.2139/ssrn.1262194` | metadata (realised semivariance, 2008) |
+| S47 | arXiv API `https://export.arxiv.org/api/query?id_list=2108.10984` | abstract (Crypto Wash Trading) |
+| S48 | arXiv API `https://export.arxiv.org/api/query?id_list=2109.12142` | abstract (Periodicity in Cryptocurrency Volatility and Liquidity) |
 
 Addendum (2026-10-09) discovery pattern: the xAI main-search provider returned HTTP 502 for
 every `smart-search search` call and `smart-search exa-search` is unconfigured, so discovery
@@ -738,3 +743,61 @@ statement of Section 00.14's negative result: the frozen spec is *not* defensive
 its worst months, it is fully risk-on, and the states that "predict" those months are the
 same states that are on through the bull market, so they cannot be used as a de-risking
 filter without giving up most of the return.
+
+---
+
+## 8. Addendum 2026-10-09 (second): hourly intraday state screen for H6 (rejected)
+
+### 8.1 Why this screen
+
+Section 7 closed the daily volume / turnover side of the panel. The only information the
+repository holds that the strategy's daily panel does not is the Binance hourly candle set
+(`data/raw/binance_1h`, 56 pairs, 2021-12-25 onwards), already used by the +1h/+3h fill
+protocol. 42 of the 43 point-in-time Top20 members traded over the evaluated window have
+hourly data; `bitget-token` does not, and member-day coverage averages 99.7% (minimum 95%).
+Screening it is hypothesis generation only: no rule change, no new trial.
+
+### 8.2 Sources read and verified
+
+| ID | Source | Verified content | Design decision it speaks to |
+|---|---|---|---|
+| S44 | Andersen, Bollerslev, Diebold & Labys (2003), *Econometrica* 71(2), doi:10.1111/1468-0262.00418 (abstract) | Intraday realized variance "reduces the noise in the volatility estimate considerably compared to other volatility measures such as squared absolute returns"; provides a framework for integrating high-frequency data into daily volatility measurement | `rv_ratio`: 24-hour realized variance over its own trailing median |
+| S45 | Parkinson (1980), *Journal of Business* 53(1), doi:10.1086/296071 (record) | The extreme-value (high-low range) estimator of daily variance | `range_ratio`: range-based volatility, robust to which close the provider stamps |
+| S46 | Barndorff-Nielsen, Kinnebrock & Shephard (2008), "Measuring Downside Risk - Realised Semivariance", SSRN 1262194 (metadata) | Decomposition of realized variance into upside and downside semivariance | `rvs_down_share`: "bad" volatility share of the day |
+| S47 | Cong, Li, Tang & Yang, "Crypto Wash Trading", arXiv:2108.10984 (abstract fetched) | "rampant manipulations ... on unregulated exchanges"; wash trading "averaged over 70% of the reported volume"; fabricated volume "temporarily distort[s] prices" | `hour_share_ratio`: concentration of the day's dollar volume in one hour as a manipulation signature |
+| S48 | Hansen, Kim & Kimbrough, "Periodicity in Cryptocurrency Volatility and Liquidity", arXiv:2109.12142 (abstract fetched) | "systematic patterns in both volatility and volume across day-of-the-week, hour-of-the-day, and within the hour"; price formation mainly on centralized exchanges | `night_minus_day` (00:00-08:00 vs 08:00-24:00 UTC) and the hour-of-day structure generally |
+
+### 8.3 Screen design (fixed before the numbers were seen)
+
+Seven states, each read at the close before the month, over point-in-time Top20 members
+(minimum five usable members a day, days built from fewer than 20 hourly bars dropped):
+`rv_ratio`, `range_ratio`, `rvs_down_share`, `hour_share_ratio` (largest hour's share of
+the day's dollar volume, over its own median), `venue_share_ratio` (Binance dollar volume
+over the members' reported CMC dollar volume, over its own median), `hourly_autocorr`
+(cross-sectional median 30-day lag-one autocorrelation of hourly returns) and
+`night_minus_day` (trailing seven-day 00:00-08:00 minus 08:00-24:00 UTC return).
+
+Because this is the second screen over the same sample, the pre-declared information bar is
+the family-wise one for eighteen candidate states rather than Section 7's unadjusted 0.25:
+`|Spearman(state, next-month H5 - BTC)| >= 0.38`, monotone terciles, and
+`|crash - rest| >= 0.5` rest-standard-deviations.
+
+### 8.4 Result: all seven states rejected
+
+| state | Spearman vs excess | crash - rest (σ) | monotone terciles | promoted |
+|---|---:|---:|---|:--:|
+| `rv_ratio` | +0.036 | +0.25 | no | no |
+| `range_ratio` | +0.081 | +0.23 | yes | no |
+| `rvs_down_share` | -0.183 | -0.35 | no | no |
+| `hour_share_ratio` | +0.262 | -0.33 | yes | no |
+| `venue_share_ratio` | -0.177 | -0.04 | yes | no |
+| `hourly_autocorr` | -0.043 | -0.03 | yes | no |
+| `night_minus_day` | +0.123 | +0.23 | yes | no |
+
+`hour_share_ratio` is the closest of all sixteen daily and hourly candidates: it is monotone
+in the terciles and its rank correlation (+0.262) would have cleared Section 7's unadjusted
+bar, but it still misses the separation requirement (-0.33 against a 0.50 bar) and the
+family-wise information bar, so it is not promoted. Nothing else is close: realized
+volatility, the classic crash conditioner, ranks next-month excess return at +0.04.
+Recorded as a rejected hypothesis in `reports/phase_momentum_hourly_states/`.
+

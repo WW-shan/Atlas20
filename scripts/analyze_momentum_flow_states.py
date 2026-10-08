@@ -385,6 +385,9 @@ def _verdicts(
     information: pd.DataFrame,
     terciles: pd.DataFrame,
     columns,
+    *,
+    ic_bar: float = IC_BAR,
+    separation_bar: float = SEPARATION_BAR,
 ) -> pd.DataFrame:
     rows = {}
     for column in columns:
@@ -402,11 +405,13 @@ def _verdicts(
                 or (bucket_means[0] > bucket_means[1] > bucket_means[2])
             )
         )
-        passes_ic = abs(rho) >= IC_BAR
-        passes_separation = abs(separation_ratio) >= SEPARATION_BAR
+        passes_ic = abs(rho) >= ic_bar
+        passes_separation = abs(separation_ratio) >= separation_bar
         rows[column] = {
             "spearman": rho,
             "abs_spearman": abs(rho),
+            "ic_bar": ic_bar,
+            "separation_bar": separation_bar,
             "passes_ic_bar": bool(passes_ic),
             "tercile_monotone": bool(monotone),
             "diff_over_rest_std": separation_ratio,

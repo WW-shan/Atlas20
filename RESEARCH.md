@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 量能/换手状态筛查全部被拒 + §00.14 勘误；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 日频量能/换手筛查全部被拒 + §00.14 勘误；§00.16 小时线日内状态筛查全部被拒；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -361,6 +361,9 @@
       --output-dir reports/phase_momentum_regime_overlays
   # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
   .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
+  # 6d) 小时线日内状态筛查（§00.16，全部被拒）
+  .venv/bin/python scripts/analyze_momentum_hourly_states.py --output-dir reports/phase_momentum_hourly_states
+
   # 6c) 量能/换手/集中度状态筛查（§00.15，全部被拒）
   .venv/bin/python scripts/analyze_momentum_flow_states.py --output-dir reports/phase_momentum_flow_states
 
@@ -464,6 +467,49 @@
   .venv/bin/python scripts/analyze_momentum_flow_states.py --output-dir reports/phase_momentum_flow_states
   ```
   明细：`reports/phase_momentum_flow_states/{monthly_state.csv,daily_flow_state.csv,state_separation.csv,state_separation_legacy_corrected.csv,state_separation_legacy_actionable.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
+
+---
+
+### 00.16 2026-10-09 诊断：小时线（日内）状态变量筛查 —— 同样全部被拒（否定性结果）
+
+> 背景：§00.15 关闭了面板里的**日频**量能/换手/集中度信息。仓库里还剩最后一块策略看不到的信息：**Binance 小时线**（`data/raw/binance_1h`，56 个交易对，2021-12-25 起；它本来只被用于 +1h/+3h 成交协议）。本节对它做同样的「只筛查、不预注册、不新增试验」诊断；门槛在跑之前写死。外部证据见 `docs/research/literature_review_2026-09.md` §8（S44–S48）。
+
+**覆盖度**：评价窗口内出现过的 **53 个 PIT Top20 成员**中，只有 `bitget-token` 没有小时线；成员-日覆盖 **34,381 / 34,500 = 99.66%**（最低单日 95%）。
+
+**7 个候选状态**（全部按「月初前一收盘」读数，截面只取 PIT Top20 成员，单日不足 5 个成员记缺失，小时数不足 20 的残日整日丢弃）：
+
+| 状态变量 | 机制与来源 |
+| --- | --- |
+| `rv_ratio` | 24 小时已实现方差（小时对数收益平方和）7 日均值 ÷ 自身 252 日中位数；Andersen–Bollerslev–Diebold–Labys (2003) 证明已实现方差比日频平方收益噪声小得多 |
+| `range_ratio` | 日均 (high−low)/close 的 7 日均值 ÷ 自身中位数；Parkinson (1980) 极值波动率估计 |
+| `rvs_down_share` | 下行半方差占已实现方差的比例（「坏波动」）；Barndorff-Nielsen–Kinnebrock–Shephard（已实现半方差） |
+| `hour_share_ratio` | 单小时最大成交额占当日比重 ÷ 自身中位数；Cong–Li–Tang–Yang「Crypto Wash Trading」：不受监管交易所的刷量平均占报告量 **70%+** |
+| `venue_share_ratio` | Binance 成交额 ÷ 成员 CMC 报告成交额（7 日均值）÷ 自身中位数：报告量中可被单一场所验证的比例 |
+| `hourly_autocorr` | 各成员小时收益 30 日一阶自相关的截面中位数：日内趋势 vs 日内反转 |
+| `night_minus_day` | 等权 Top20 组合 00:00–08:00 UTC 收益减 08:00–24:00 UTC 收益的 7 日和；Hansen–Kim–Kimbrough 记录加密波动与成交量的**小时效应** |
+
+**预设门槛（比 §00.15 更严）**：这是同一样本上的**第二个**筛查，因此信息门槛按 18 个候选做族错误率校正：`|Spearman(状态, 次月 H5−BTC)| ≥ 0.38`（n≈57 时双侧 5% 除以 18），加三分位单调，加 `|崩溃−其余| / 其余σ ≥ 0.50`。
+
+**结果：7 个状态全部未通过**
+
+| 状态变量 | Spearman（对超额） | 崩溃−其余（σ） | 三分位单调 | 升级 H6 |
+| --- | ---: | ---: | :--: | :--: |
+| `rv_ratio` | +0.036 | +0.25 | 否 | 否 |
+| `range_ratio` | +0.081 | +0.23 | 是 | 否 |
+| `rvs_down_share` | -0.183 | -0.35 | 否 | 否 |
+| `hour_share_ratio` | **+0.262** | -0.33 | 是 | 否 |
+| `venue_share_ratio` | -0.177 | -0.04 | 是 | 否 |
+| `hourly_autocorr` | -0.043 | -0.03 | 是 | 否 |
+| `night_minus_day` | +0.123 | +0.23 | 是 | 否 |
+
+- `hour_share_ratio` 是**日频+小时线共 16 个候选里最强的**：三分位单调，秩相关 +0.262 甚至能过 §00.15 的未校正门槛 0.25 —— 但它连 0.50σ 的区分度门槛都没到（-0.33），因此**不升级**，只登记为被拒假设。
+- **已实现波动率（教科书式的崩溃条件变量）对次月超额收益的秩相关只有 +0.036**。这与 §00.14 的结论一致：H5 的问题不在「波动率状态」里。
+- **结论**：项目现有的**全部信息源**（日频价格/成交量/市值 + 小时线）都已被筛过；在三类面板内派生状态里都找不到能补 DSR 缺口的新信息。要么接受 H5 为「冻结但未过 DSR」的当前最优，要么等 **2026-09-22 起的真实样本外** 累积，要么引入**面板之外**的数据（需要先解决获取，且必须重新走预注册流程）。**冻结规格与试验计数不变。**
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/analyze_momentum_hourly_states.py --output-dir reports/phase_momentum_hourly_states
+  ```
+  明细：`reports/phase_momentum_hourly_states/{monthly_state.csv,daily_hourly_state.csv,hourly_coverage.csv,state_separation.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
 
 ---
 
@@ -1201,6 +1247,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
 | `reports/phase_momentum_crash_states/` | 崩溃月与可观测状态变量的对照（否定性结果：无变量区分度 > 0.4σ） | ✅ 当前权威 |
 | `reports/phase_momentum_flow_states/` | 量能/换手/集中度状态筛查（9 个变量全部被拒）；含 §00.14 表格的全样本勘误 | ✅ 当前权威 |
+| `reports/phase_momentum_hourly_states/` | 小时线日内状态筛查（已实现方差/半方差/小时成交集中度/场所占比/日内自相关/时段效应；7 个变量全部被拒） | ✅ 当前权威 |
 | `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
 | `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
 | `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |

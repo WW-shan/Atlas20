@@ -1,0 +1,7 @@
+metric,value
+hourly pairs loaded,56.0
+distinct point-in-time members,53.0
+members without hourly data,1.0
+member-days observed,34381.0
+member-days total,34500.0
+member-day coverage,0.9965507246376811

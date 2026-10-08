@@ -1,0 +1,25 @@
+{
+  "script": "scripts/analyze_momentum_hourly_states.py",
+  "trial_id": "PR2026-10-H5",
+  "returns_file": "reports/phase_momentum_hypotheses_2026_10/returns_20bps.csv",
+  "column": "PR2026-10-H5|h3_day_close|20",
+  "hourly_dir": "data/raw/binance_1h",
+  "start_date": "2022-01-01",
+  "end_date": "2026-09-21",
+  "cost_bps": 20.0,
+  "crash_threshold": -0.08,
+  "ic_bar": 0.38,
+  "separation_bar": 0.5,
+  "state_columns": [
+    "rv_ratio",
+    "range_ratio",
+    "rvs_down_share",
+    "hour_share_ratio",
+    "venue_share_ratio",
+    "hourly_autocorr",
+    "night_minus_day"
+  ],
+  "monthly_observations": 57,
+  "crash_months": 10,
+  "promoted": []
+}
