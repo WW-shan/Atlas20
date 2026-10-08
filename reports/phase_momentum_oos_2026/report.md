@@ -32,6 +32,24 @@ weight with a usable hourly fill; 1.0 means every traded target is observed.
 Sharpe and CAGR are annualized diagnostics over a very short window and are not
 used as validation evidence.
 
+## OOS per-coin concentration
+
+RESEARCH.md section 00.8 shows the in-sample return is concentrated in a few
+coins; this tracks the same measure after the research cutoff. The +3h rows use
+the worse missing-candle policy at each cost. A short window makes these shares
+noisy - they are recorded, not interpreted as validation.
+
+| index | cost_bps | fill_policy | multiple | top1_coin | top1_share | top3_share | top5_share | contribution_hhi | drop_top1_multiple | drop_top5_multiple |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 2.0000 | h3_day_close | 1.0902 | near | 1.2240 | 1.2240 | 1.2240 | 1.5483 | 0.9758 | 0.9758 |
+| 1 | 20.0000 | h3_day_close | 1.0883 | near | 1.2240 | 1.2240 | 1.2240 | 1.5483 | 0.9742 | 0.9742 |
+| 2 | 50.0000 | h3_day_close | 1.0853 | near | 1.2240 | 1.2240 | 1.2240 | 1.5483 | 0.9715 | 0.9715 |
+| 3 | 100.0000 | h3_day_close | 1.0803 | near | 1.2240 | 1.2240 | 1.2240 | 1.5483 | 0.9670 | 0.9670 |
+
+`drop_top5_multiple` is the attribution counterfactual "the five largest
+contributors earned nothing, every position unchanged"; it is a concentration
+measure, not a tradable strategy.
+
 ## BTC benchmark
 
 | index | fill_policy | cost_bps | start | end | days | observed_weight_share | turnover | multiple | cagr | sharpe | max_drawdown |

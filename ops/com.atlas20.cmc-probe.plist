@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.cmc-probe</string>
+	<!--
+	  Measures when CoinMarketCap has finished publishing day D-1.
+
+	  Why this exists: the champion is filled about three hours after the
+	  00:00 UTC close because the daily refresh runs at 02:30 UTC. The
+	  literature review records a compliant alternative - keep the signal at
+	  the close, shorten the data pipeline, fill about one hour after it - which
+	  the hourly-fill backtest prices at 21.22x against 19.56x at 20 bps. The
+	  gate is a provider fact nobody has measured: when does CMC have >=90% of
+	  assets finished for D-1? This job answers that, and nothing else depends
+	  on it until the answer exists.
+
+	  The schedule fires every 15 minutes from 08:05 to 11:50 local time, which
+	  is 00:05 to 03:50 UTC on this Asia/Shanghai workstation - the window in
+	  which the answer can move. launchd reads StartCalendarInterval in LOCAL
+	  time, not UTC: converting for another zone is mandatory, or the probes
+	  fire outside the publication window. tests/test_launchd_probe_schedule.py
+	  pins the conversion.
+
+	  Cost: 16 runs/day x a 10 asset sample = 160 CoinMarketCap requests/day,
+	  about 1.5x a normal daily refresh. Raise the sample size argument for a
+	  sharper coverage estimate and lower it if the provider rate-limits.
+
+	  Output is appended to reports/provider_publication/cmc_publication_probe.csv
+	  inside the repository, so the measurement is committed with the research
+	  record instead of living in a log file.
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>-lc</string>
+		<string>cd /Users/ww/Project/Atlas20 &amp;&amp; .venv/bin/python scripts/probe_cmc_publication.py --sample-size 10 --output reports/provider_publication/cmc_publication_probe.csv</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>5</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>20</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>35</integer></dict>
+		<dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>50</integer></dict>
+		<dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>5</integer></dict>
+		<dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>20</integer></dict>
+		<dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>35</integer></dict>
+		<dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>50</integer></dict>
+		<dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>5</integer></dict>
+		<dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>20</integer></dict>
+		<dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>35</integer></dict>
+		<dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>50</integer></dict>
+		<dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>5</integer></dict>
+		<dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>20</integer></dict>
+		<dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>35</integer></dict>
+		<dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>50</integer></dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-cmc-probe.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-cmc-probe.log</string>
+</dict>
+</plist>

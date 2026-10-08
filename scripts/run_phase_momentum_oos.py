@@ -43,6 +43,11 @@ from atlas20.strategies.phase_momentum import (  # noqa: E402
 )
 from atlas20.universe.builder import MarketDataBundle  # noqa: E402
 
+from scripts.attribute_phase_momentum_assets import (  # noqa: E402
+    coin_contribution_matrix,
+    counterfactual_multiple,
+    summarise,
+)
 from scripts.run_phase_momentum import (  # noqa: E402
     _load_market,
     _parse_floats,
@@ -119,9 +124,53 @@ def _scenario_returns(
     costs: tuple[float, ...],
     fill_hours: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """OOS summary rows and a wide daily-return matrix for every scenario."""
+    """OOS summary rows, a wide daily-return matrix, and per-coin attribution.
+
+    The attribution reuses the project's per-coin accounting (the engine's actual
+    book, split at the fill on target days) restricted to the OOS window, so the
+    coin concentration RESEARCH.md section 00.8 measures in sample is tracked
+    after the research cutoff too.
+    """
     summary_rows: list[dict[str, object]] = []
     return_columns: dict[str, pd.Series] = {}
+    attribution_rows: list[dict[str, object]] = []
+    concentration_rows: list[dict[str, object]] = []
+
+    def _record_attribution(
+        policy: str,
+        cost: float,
+        returns: pd.Series,
+        matrix: pd.DataFrame,
+    ) -> None:
+        oos_matrix = matrix.loc[matrix.index.intersection(oos_index)]
+        frame = summarise(oos_matrix.sum(axis=0))
+        for rank, (coin, row) in enumerate(frame.iterrows(), start=1):
+            attribution_rows.append(
+                {
+                    "fill_policy": policy,
+                    "cost_bps": float(cost),
+                    "rank": rank,
+                    "coin_id": coin,
+                    "contribution": float(row["contribution"]),
+                    "share": float(row["share"]),
+                    "cumulative_share": float(row["cumulative_share"]),
+                }
+            )
+        top = frame.index
+        concentration_rows.append(
+            {
+                "fill_policy": policy,
+                "cost_bps": float(cost),
+                "multiple": float((1.0 + returns.fillna(0.0)).prod()),
+                "top1_coin": top[0],
+                "top1_share": float(frame["share"].iloc[0]),
+                "top3_share": float(frame["share"].iloc[:3].sum()),
+                "top5_share": float(frame["share"].iloc[:5].sum()),
+                "contribution_hhi": float((frame["share"] ** 2).sum()),
+                "drop_top1_multiple": counterfactual_multiple(returns, oos_matrix, (top[0],)),
+                "drop_top5_multiple": counterfactual_multiple(returns, oos_matrix, tuple(top[:5])),
+            }
+        )
 
     for cost in costs:
         close_result = _production_result(config, market, built, index, cost_bps=cost)
@@ -136,6 +185,12 @@ def _scenario_returns(
                 observed_weight_share=1.0,
                 turnover=float(close_result.turnover.loc[oos_index].sum()),
             )
+        )
+        _record_attribution(
+            "close",
+            cost,
+            close_returns,
+            coin_contribution_matrix(close_result, market.returns.loc[index]),
         )
 
         observed = observed_fill_mask(
@@ -172,8 +227,20 @@ def _scenario_returns(
                     turnover=float(result.turnover.loc[oos_index].sum()),
                 )
             )
+            fill_split = pre_fill.where(pre_fill.notna(), market.returns.loc[index])
+            _record_attribution(
+                f"h{fill_hours}_{policy}",
+                cost,
+                returns,
+                coin_contribution_matrix(result, market.returns.loc[index], fill_split=fill_split),
+            )
 
-    return pd.DataFrame(summary_rows), pd.DataFrame(return_columns)
+    return (
+        pd.DataFrame(summary_rows),
+        pd.DataFrame(return_columns),
+        pd.DataFrame(attribution_rows),
+        pd.DataFrame(concentration_rows),
+    )
 
 
 def main() -> None:
@@ -209,7 +276,7 @@ def main() -> None:
     spec = PhaseMomentumSpec()
     built = build_phase_momentum_targets(market, universe, index, spec=spec)
     hourly = load_hourly_bars(args.hourly_dir)
-    summary, daily_returns = _scenario_returns(
+    summary, daily_returns, coin_attribution, concentration = _scenario_returns(
         config,
         market,
         built,
@@ -235,6 +302,8 @@ def main() -> None:
     summary.to_csv(output_dir / "oos_summary.csv", index=False)
     benchmark.to_csv(output_dir / "benchmark.csv", index=False)
     daily_returns.to_csv(output_dir / "daily_returns.csv", index_label="date")
+    coin_attribution.to_csv(output_dir / "oos_coin_attribution.csv", index=False)
+    concentration.to_csv(output_dir / "oos_concentration.csv", index=False)
     manifest = {
         "config": args.config,
         "research_start_date": args.research_start_date,
@@ -257,6 +326,32 @@ def main() -> None:
         ),
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    hourly_concentration = concentration[
+        concentration["fill_policy"].str.startswith(f"h{args.fill_hours}_")
+    ]
+    worst_policy_rows = (
+        hourly_concentration.sort_values("multiple")
+        .groupby("cost_bps", as_index=False)
+        .first()
+        .loc[
+            :,
+            [
+                "cost_bps",
+                "fill_policy",
+                "multiple",
+                "top1_coin",
+                "top1_share",
+                "top3_share",
+                "top5_share",
+                "contribution_hhi",
+                "drop_top1_multiple",
+                "drop_top5_multiple",
+            ],
+        ]
+        .sort_values("cost_bps")
+        .reset_index(drop=True)
+    )
 
     report = "\n".join(
         [
@@ -281,6 +376,19 @@ def main() -> None:
             "weight with a usable hourly fill; 1.0 means every traded target is observed.",
             "Sharpe and CAGR are annualized diagnostics over a very short window and are not",
             "used as validation evidence.",
+            "",
+            "## OOS per-coin concentration",
+            "",
+            "RESEARCH.md section 00.8 shows the in-sample return is concentrated in a few",
+            "coins; this tracks the same measure after the research cutoff. The +3h rows use",
+            "the worse missing-candle policy at each cost. A short window makes these shares",
+            "noisy - they are recorded, not interpreted as validation.",
+            "",
+            dataframe_to_markdown(worst_policy_rows),
+            "",
+            "`drop_top5_multiple` is the attribution counterfactual \"the five largest",
+            "contributors earned nothing, every position unchanged\"; it is a concentration",
+            "measure, not a tradable strategy.",
             "",
             "## BTC benchmark",
             "",

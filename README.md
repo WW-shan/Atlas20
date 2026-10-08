@@ -337,6 +337,12 @@ time zone, not UTC. The checked-in hours (10 and 14) are 02:30/06:30 UTC for
 this workstation's Asia/Shanghai zone; convert them for any other zone, or the
 job fires before CoinMarketCap has published the close.
 
+`ops/com.atlas20.cmc-probe.plist` is a second launchd job (installed here as
+well) that measures when CoinMarketCap finishes publishing day D-1, so the fill
+can move from +3h to +1h. It runs every 15 minutes through the 00:05-03:50 UTC
+window and appends to `reports/provider_publication/cmc_publication_probe.csv`;
+see `docs/operations/execution_latency.md` for the decision rule.
+
 Verify the result by checking the panel's last date, which is the number that
 actually matters for a backtest:
 

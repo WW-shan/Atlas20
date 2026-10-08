@@ -65,7 +65,7 @@
 
 1. **冻结**当前主规格（`PhaseMomentumSpec` 默认值 + `PRIMARY_SIGNAL_SPECS`），以 2026-09-22 起的数据做真正样本外记录，不再调参。
 2. **预先登记的新一轮假设**（依据 `docs/research/literature_review_2026-09.md` 第 4 节，参数全部来自文献或已有消融，不做网格）：H2 BTC 闸门窗口集成、H3 Top20 市场宽度共同闸门、H4 每个 sleeve 持有前五分之一（4 个币）。结果写入 `reports/phase_momentum_hypotheses_2026_10/`，每次运行先登记再执行，计入试验总数。
-3. **H1（23:00 UTC 提前一小时决策、收盘成交）需要项目负责人决定**：它与“信号在收盘生成”的规则冲突，未经确认不运行。符合现行规则的替代方案是缩短数据链路：+1h 成交在 20bps 下为 21.22x（+3h 为 19.56x）。该替代方案的落地清单见 `docs/operations/execution_latency.md`（含必须先做的 CMC 发布时间测量：在 00:05–03:00 UTC 每 10–15 分钟跑 `scripts/probe_cmc_publication.py`，用 T90 决定刷新时点与成交时点）。
+3. **H1（23:00 UTC 提前一小时决策、收盘成交）需要项目负责人决定**：它与“信号在收盘生成”的规则冲突，未经确认不运行。符合现行规则的替代方案是缩短数据链路：+1h 成交在 20bps 下为 21.22x（+3h 为 19.56x）。该替代方案的落地清单见 `docs/operations/execution_latency.md`。**测量已于 2026-10-08 启动**：`ops/com.atlas20.cmc-probe.plist` 已安装为 launchd 作业，在 00:05–03:50 UTC 每 15 分钟跑一次 `scripts/probe_cmc_publication.py`（每次 10 个币、160 请求/天，约为一次正常刷新的 1.5 倍），结果追加写入 `reports/provider_publication/cmc_publication_probe.csv`；首次冒烟运行成功（2026-10-07 覆盖 10/10）。用 T90（≥90% 样本拿到 D-1 的最早 UTC 时刻）决定刷新时点与成交时点。
 
 ### 00.5 2026-10-08 冻结规格样本外跟踪（16 天，仍为 provisional）
 
@@ -150,6 +150,7 @@
 去掉前 3 后只剩 2.07x（BTC 买入持有为 1.87x），去掉前 5 后直接亏损。**必须同时说明：这不是一个可交易策略**——事前不知道哪 5 个币会赢——它只回答「收益从哪来」，是集中度度量。
 - **判定**：这**直接触发 AGENTS.md 的「不能依赖单一资产」条款**，是冠军必须保持 **provisional** 的又一条独立理由，且这条在样本内无法修复：唯一被预注册过的分散化方案 H4 已被证伪（3.15x）。H3（宽度共闸）也解决不了它——前 5 份额 84.1%，去掉前 5 后 1.08x，只是略好于冠军。
 - **对后续的含义**：① 样本外跟踪必须同时报告这个集中度（同样的 5 个币是否还在贡献收益）；② 任何「提高稳健性」的尝试都要面对「收益就是来自少数币的大行情」这一事实，不能指望用分散化同时保住 20x。
+- **已接入样本外跟踪**：`scripts/run_phase_momentum_oos.py` 现在同时输出 `oos_coin_attribution.csv` 与 `oos_concentration.csv`，report.md 增加「OOS per-coin concentration」小节（每个成本取较差缺 K 线口径），并给出同样的 drop-top1/drop-top5 反事实。当前 16 天窗口只有 `near` 一个贡献币（份额 122%，窗口太短、不构成证据）。
 - **复现**：`.venv/bin/python scripts/attribute_phase_momentum_assets.py`（冠军）与 `... --trial-id PR2026-10-H3 --output-dir reports/phase_momentum_asset_attribution_h3`；报告在 `reports/phase_momentum_asset_attribution/` 与 `reports/phase_momentum_asset_attribution_h3/`。
 
 ---

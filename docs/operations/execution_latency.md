@@ -50,9 +50,9 @@ runs" at 02:00. Until that curve is measured we cannot claim +1h is reachable.
 
 ## Step 0 - Measure the publication curve (gate; do this first)
 
-Run `scripts/probe_cmc_publication.py` every 10-15 minutes from about 00:05 UTC
-to 03:00 UTC for 7-10 days. Each run spends one CMC request per sampled asset
-(default 20, the largest cached candidates) and appends one row.
+Run `scripts/probe_cmc_publication.py` every 15 minutes from about 00:05 UTC to
+03:50 UTC for 7-10 days. Each run spends one CMC request per sampled asset (the
+launchd job samples 10, the script default is 20) and appends one row.
 
 ```bash
 .venv/bin/python scripts/probe_cmc_publication.py \
@@ -62,11 +62,32 @@ to 03:00 UTC for 7-10 days. Each run spends one CMC request per sampled asset
 `--from-cache` reads the cache instead of spending requests; use it only as a
 sanity check, because a cache read reflects the last refresh, not the provider.
 
-Example crontab entry (probe at :05, :20, :35, :50 every hour):
+`ops/com.atlas20.cmc-probe.plist` is the launchd job that runs this grid. It is
+installed on this workstation and fires every 15 minutes from 08:05 to 11:50
+local (00:05 to 03:50 UTC at UTC+8), appending to
+`reports/provider_publication/cmc_publication_probe.csv` with logs in
+`~/Library/Logs/atlas20-cmc-probe.log`. Verify or install it the same way as the
+daily refresh:
+
+```bash
+launchctl print gui/$(id -u)/com.atlas20.cmc-probe | head
+cp ops/com.atlas20.cmc-probe.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.cmc-probe.plist
+launchctl kickstart -k gui/$(id -u)/com.atlas20.cmc-probe   # one-off smoke run
+```
+
+launchd reads `StartCalendarInterval` in **local** time; the checked-in hours
+are UTC+8 and must be converted on any other host
+(`tests/test_launchd_probe_schedule.py` pins the conversion). On a Linux host,
+the equivalent crontab entry is:
 
 ```cron
-5,20,35,50 0-3 * * * cd /path/to/Atlas20 && .venv/bin/python scripts/probe_cmc_publication.py >> reports/provider_publication/probe.log 2>&1
+5,20,35,50 0-3 * * * cd /path/to/Atlas20 && .venv/bin/python scripts/probe_cmc_publication.py --sample-size 10 --output reports/provider_publication/cmc_publication_probe.csv >> reports/provider_publication/probe.log 2>&1
 ```
+
+Cost: 16 runs/day at the default 10-asset sample is 160 CoinMarketCap requests
+per day, about 1.5x a normal daily refresh. Raise the sample for a sharper
+coverage estimate; lower it if the provider rate-limits.
 
 **Decision rule.** Let `T90` be the earliest UTC time by which >=90% of the
 sample carries D-1 on >=90% of days (the P90 across days):
