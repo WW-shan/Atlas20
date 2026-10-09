@@ -22,7 +22,7 @@ account, does not reconcile actual holdings, and never places an order.
    ```
 
    Use the `message.chat.id` value from the response. A negative id is valid for
-   a group.
+   a group. Separate multiple recipients with commas.
 
 4. Store the credentials outside the repository:
 
@@ -30,7 +30,7 @@ account, does not reconcile actual holdings, and never places an order.
    mkdir -p ~/.config/atlas20
    cat > ~/.config/atlas20/telegram.env <<'ENV'
    ATLAS20_TELEGRAM_BOT_TOKEN=123456:replace-me
-   ATLAS20_TELEGRAM_CHAT_ID=123456789
+   ATLAS20_TELEGRAM_CHAT_ID=123456789,987654321
    ENV
    chmod 600 ~/.config/atlas20/telegram.env
    ```

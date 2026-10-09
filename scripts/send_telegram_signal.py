@@ -157,14 +157,34 @@ def _read_state(path: Path) -> dict[str, Any]:
     return state if isinstance(state, dict) else {}
 
 
-def _write_state(path: Path, payload: Mapping[str, Any]) -> None:
+def _chat_ids(raw: str | None) -> list[str]:
+    """Parse one or more comma-separated Telegram chat ids."""
+    if not raw:
+        return []
+    seen: set[str] = set()
+    chat_ids: list[str] = []
+    for value in raw.split(","):
+        chat_id = value.strip()
+        if chat_id and chat_id not in seen:
+            seen.add(chat_id)
+            chat_ids.append(chat_id)
+    return chat_ids
+
+
+def _mark_sent(path: Path, chat_id: str, payload: Mapping[str, Any]) -> None:
+    """Record one successful recipient without losing other recipients."""
+    key = _state_key(payload)
+    state = _read_state(path)
+    sent_keys = state.get("sent_keys")
+    if not isinstance(sent_keys, dict):
+        sent_keys = {}
+    sent_keys[str(chat_id)] = key
+    state["sent_keys"] = sent_keys
+    state["last_sent_key"] = key
+    state["trial_id"] = payload.get("trial_id")
+    state["as_of"] = payload.get("as_of")
+    state["sent_at"] = datetime.now(timezone.utc).isoformat()
     path.parent.mkdir(parents=True, exist_ok=True)
-    state = {
-        "last_sent_key": _state_key(payload),
-        "trial_id": payload.get("trial_id"),
-        "as_of": payload.get("as_of"),
-        "sent_at": datetime.now(timezone.utc).isoformat(),
-    }
     path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
 
 
@@ -255,10 +275,7 @@ def main(argv: list[str] | None = None) -> None:
 
     payload = _load_signal(args.signal_file)
     key = _state_key(payload)
-    state = _read_state(args.state_file)
-    if not args.force and state.get("last_sent_key") == key:
-        print(f"Already sent {key}; skipping")
-        return
+    chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
 
     raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
     try:
@@ -271,22 +288,32 @@ def main(argv: list[str] | None = None) -> None:
     if args.dry_run:
         print(message)
         return
-
-    token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("ATLAS20_TELEGRAM_CHAT_ID")
-    if not token:
-        raise SystemExit("ATLAS20_TELEGRAM_BOT_TOKEN is not set")
-    if not chat_id:
+    if not chat_ids:
         raise SystemExit("ATLAS20_TELEGRAM_CHAT_ID is not set")
 
-    send_telegram_message(
-        message,
-        token=token,
-        chat_id=chat_id,
-        api_base=os.environ.get("ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org"),
-    )
-    _write_state(args.state_file, payload)
-    print(f"Sent Telegram signal for {key}")
+    state = _read_state(args.state_file)
+    sent_keys = state.get("sent_keys")
+    if not isinstance(sent_keys, dict):
+        sent_keys = {}
+    pending = chat_ids if args.force else [chat_id for chat_id in chat_ids if sent_keys.get(chat_id) != key]
+    if not pending:
+        print(f"Already sent {key} to all configured chat ids; skipping")
+        return
+
+    token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")
+    if not token:
+        raise SystemExit("ATLAS20_TELEGRAM_BOT_TOKEN is not set")
+
+    api_base = os.environ.get("ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org")
+    for chat_id in pending:
+        send_telegram_message(
+            message,
+            token=token,
+            chat_id=chat_id,
+            api_base=api_base,
+        )
+        _mark_sent(args.state_file, chat_id, payload)
+        print(f"Sent Telegram signal for {key} to {chat_id}")
 
 
 if __name__ == "__main__":

@@ -153,15 +153,18 @@ def test_main_skips_already_sent_same_as_of(tmp_path: Path, monkeypatch: pytest.
     state_path = tmp_path / "state.json"
     _write_signal(signal_path)
     state_path.write_text(
-        json.dumps({"last_sent_key": "PR2026-10-H5|2026-10-08"}),
+        json.dumps(
+            {"sent_keys": {"12345": "PR2026-10-H5|2026-10-08"}}
+        ),
         encoding="utf-8",
     )
     calls: list[str] = []
 
     def fake_send(message: str, **kwargs: object) -> None:
-        calls.append(message)
+        calls.append(str(kwargs["chat_id"]))
 
     monkeypatch.setattr(sender, "send_telegram_message", fake_send)
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "12345")
 
     sender.main(["--signal-file", str(signal_path), "--state-file", str(state_path)])
 
@@ -193,6 +196,55 @@ def test_main_dry_run_does_not_require_credentials_or_write_state(
 
     assert "Atlas20 H5 每日信号" in capsys.readouterr().out
     assert not state_path.exists()
+
+
+def test_main_sends_to_each_chat_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import scripts.send_telegram_signal as sender
+
+    signal_path = tmp_path / "latest_signal.json"
+    state_path = tmp_path / "state.json"
+    _write_signal(signal_path)
+    calls: list[str] = []
+
+    def fake_send(message: str, **kwargs: object) -> None:
+        calls.append(str(kwargs["chat_id"]))
+
+    monkeypatch.setattr(sender, "send_telegram_message", fake_send)
+    monkeypatch.setenv("ATLAS20_TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "12345, 67890")
+
+    sender.main(["--signal-file", str(signal_path), "--state-file", str(state_path)])
+
+    assert calls == ["12345", "67890"]
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["sent_keys"] == {
+        "12345": "PR2026-10-H5|2026-10-08",
+        "67890": "PR2026-10-H5|2026-10-08",
+    }
+
+
+def test_main_resends_only_missing_chat_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import scripts.send_telegram_signal as sender
+
+    signal_path = tmp_path / "latest_signal.json"
+    state_path = tmp_path / "state.json"
+    _write_signal(signal_path)
+    state_path.write_text(
+        json.dumps({"sent_keys": {"12345": "PR2026-10-H5|2026-10-08"}}),
+        encoding="utf-8",
+    )
+    calls: list[str] = []
+
+    def fake_send(message: str, **kwargs: object) -> None:
+        calls.append(str(kwargs["chat_id"]))
+
+    monkeypatch.setattr(sender, "send_telegram_message", fake_send)
+    monkeypatch.setenv("ATLAS20_TELEGRAM_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "12345,67890")
+
+    sender.main(["--signal-file", str(signal_path), "--state-file", str(state_path)])
+
+    assert calls == ["67890"]
 
 
 def test_main_force_sends_again_and_updates_state(
@@ -229,7 +281,7 @@ def test_main_force_sends_again_and_updates_state(
 
     assert len(calls) == 1
     state = json.loads(state_path.read_text(encoding="utf-8"))
-    assert state["last_sent_key"] == "PR2026-10-H5|2026-10-08"
+    assert state["sent_keys"]["12345"] == "PR2026-10-H5|2026-10-08"
 
 
 def test_main_requires_telegram_credentials(
@@ -242,7 +294,7 @@ def test_main_requires_telegram_credentials(
     state_path = tmp_path / "state.json"
     _write_signal(signal_path)
     monkeypatch.delenv("ATLAS20_TELEGRAM_BOT_TOKEN", raising=False)
-    monkeypatch.delenv("ATLAS20_TELEGRAM_CHAT_ID", raising=False)
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "12345")
 
     with pytest.raises(SystemExit, match="ATLAS20_TELEGRAM_BOT_TOKEN"):
         sender.main(["--signal-file", str(signal_path), "--state-file", str(state_path)])

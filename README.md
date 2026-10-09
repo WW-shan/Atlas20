@@ -720,7 +720,8 @@ holdings, and the percentage-point change. The amounts default to a 1000 USDT
 model capital and can be changed with
 `ATLAS20_TELEGRAM_CAPITAL` or `--capital`. It is notification-only and never
 places an order. Credentials are read from `ATLAS20_TELEGRAM_BOT_TOKEN` and
-`ATLAS20_TELEGRAM_CHAT_ID`; see `docs/operations/telegram_signal.md`. Ubuntu
+`ATLAS20_TELEGRAM_CHAT_ID`; multiple comma-separated chat ids are supported.
+See `docs/operations/telegram_signal.md`. Ubuntu
 deployments use the checked-in `ops/systemd/atlas20-telegram-signal.{service,timer}`
 units, with no macOS launchd dependency.
 
