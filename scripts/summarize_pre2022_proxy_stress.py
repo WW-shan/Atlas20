@@ -77,6 +77,13 @@ def main() -> None:
     first_bitget = _first_bitget_mark(args.bitget_dir, pd.read_csv(args.proxy_dir / "symbol_map.csv"))
     base_legs = legs.loc[legs["leverage"] == legs["leverage"].min()].copy()
     base_legs["price_source"] = _classify(base_legs, first_bitget)
+    synthetic = set(manifest.loc[manifest["synthetic_symbol"].astype(bool), "coin_id"])
+    base_legs["bitget_listed"] = ~base_legs["asset"].isin(synthetic)
+    by_tradability = base_legs.groupby("bitget_listed").agg(
+        legs=("asset", "size"),
+        worst_mae=("max_adverse_excursion", "min"),
+        median_mae=("max_adverse_excursion", "median"),
+    ).reset_index()
     by_source = base_legs.groupby("price_source").agg(
         legs=("asset", "size"),
         worst_mae=("max_adverse_excursion", "min"),
@@ -84,6 +91,7 @@ def main() -> None:
     ).reset_index()
 
     counts = manifest["source"].value_counts().to_dict()
+    loaded_series = int(matrix["available_mark_assets"].max())
     seams = manifest.loc[manifest["seam_basis"].notna(), "seam_basis"].abs()
     baseline = pd.read_csv(args.baseline_matrix) if args.baseline_matrix.exists() else pd.DataFrame()
 
@@ -117,7 +125,11 @@ def main() -> None:
         "worst_leg_mae": float(summary["worst_leg_mae"].min()),
         "liquidation_distance": -0.510101,
         "liquidations_total": int(matrix["liquidation_count"].sum()),
+        "loaded_mark_series": loaded_series,
         "legs_by_source": by_source.to_dict("records"),
+        "synthetic_symbol_coins": sorted(synthetic),
+        "legs_on_unlisted_coins": int((~base_legs["bitget_listed"]).sum()),
+        "legs_by_tradability": by_tradability.to_dict("records"),
     }
     output = ensure_dir(args.output_dir)
     (output / "summary.json").write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
@@ -132,9 +144,11 @@ def main() -> None:
         "",
         "## Coverage upgrade",
         "",
-        f"- coins with a usable path: **{payload['proxy_assets_total']}** "
-        f"(bitget-only {payload['coins_bitget_only']}, spliced {payload['coins_spliced']}, "
-        f"proxy-only {payload['coins_proxy_only']}); still no data: {payload['coins_no_data']}",
+        f"- coins with a usable path: **{payload['proxy_assets_total']}**, loaded as "
+        f"{payload['loaded_mark_series']} series (matic-network and polygon-ecosystem-token share "
+        f"the POLUSDT file): bitget-only {payload['coins_bitget_only']}, "
+        f"spliced {payload['coins_spliced']}, proxy-only {payload['coins_proxy_only']}; "
+        f"still no data: {payload['coins_no_data']}",
         f"- splice seams: {payload['seams']}, median |basis| "
         f"{100 * payload['seam_median_abs_basis']:.3f}%, worst {100 * payload['seam_worst_abs_basis']:.3f}%",
         f"- carried marks: {payload['mark_carries']} hourly bars, max carry {payload['max_mark_carry_hours']:.0f}h "
@@ -147,6 +161,10 @@ def main() -> None:
         "## Per-leg adverse excursion vs the -51.01% liquidation distance",
         "",
         dataframe_to_markdown(by_source),
+        "",
+        "By Bitget tradability (synthetic-symbol coins were never listed on Bitget):",
+        "",
+        dataframe_to_markdown(by_tradability),
         "",
         "Worst legs:",
         "",
@@ -168,15 +186,18 @@ def main() -> None:
     lines += [
         "## Reading",
         "",
-        f"- Zero liquidations across all leverage levels on {payload['proxy_assets_total']} assets; "
+        f"- Zero liquidations across all leverage levels on {payload['loaded_mark_series']} series; "
         f"worst leg MAE {100 * payload['worst_leg_mae']:.2f}% vs liquidation distance "
         f"{100 * payload['liquidation_distance']:.2f}% — headroom "
         f"{100 * (payload['worst_leg_mae'] - payload['liquidation_distance']):.2f}pp.",
         "- The worst legs (DOGE Jan/Feb 2021) are proxy-priced; their drawdown is a real Binance",
         "  path, but the venue that would have liquidated is Bitget, so this remains a modelled",
         "  stress, not a measured Bitget mark event.",
-        "- Residual limits: 41 coins simply did not exist in the window; funding is zero; proxy is a",
-        "  competitor's spot tape.  The gate stays *partial-with-bounding* rather than fully closed.",
+        f"- {payload['legs_on_unlisted_coins']} of {len(base_legs)} legs sit on coins Bitget never listed",
+        "  (synthetic symbols): the realizable book would have been in cash there, so the proxy run",
+        "  deliberately overstates participation to bound liquidation risk.",
+        "- Residual limits: coins that did not exist in the window cannot appear; funding is zero;",
+        "  the proxy is a competitor's spot tape.  The gate stays *partial-with-bounding*.",
         "",
     ]
     (output / "report.md").write_text("\n".join(lines), encoding="utf-8")

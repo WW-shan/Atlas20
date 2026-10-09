@@ -1,7 +1,7 @@
 {
   "coins_bitget_only": 14,
-  "coins_no_data": 41,
-  "coins_proxy_only": 29,
+  "coins_no_data": 39,
+  "coins_proxy_only": 31,
   "coins_spliced": 18,
   "legs_by_source": [
     {
@@ -11,8 +11,8 @@
       "worst_mae": -0.2649543354816099
     },
     {
-      "legs": 19,
-      "median_mae": -0.2136185805598413,
+      "legs": 28,
+      "median_mae": -0.1942872451520007,
       "price_source": "proxy",
       "worst_mae": -0.4435465476229268
     },
@@ -23,13 +23,45 @@
       "worst_mae": -0.3655980271270037
     }
   ],
+  "legs_by_tradability": [
+    {
+      "bitget_listed": false,
+      "legs": 3,
+      "median_mae": -0.1347081423322282,
+      "worst_mae": -0.2817479846269216
+    },
+    {
+      "bitget_listed": true,
+      "legs": 42,
+      "median_mae": -0.17870266150158845,
+      "worst_mae": -0.4435465476229268
+    }
+  ],
+  "legs_on_unlisted_coins": 3,
   "liquidation_distance": -0.510101,
   "liquidations_total": 0,
-  "mark_carries": 62,
+  "loaded_mark_series": 64,
+  "mark_carries": 65,
   "max_mark_carry_hours": 3.0,
-  "proxy_assets_total": 61,
+  "proxy_assets_total": 63,
   "seam_median_abs_basis": 0.005021900423848091,
   "seam_worst_abs_basis": 0.020403248960388254,
   "seams": 18,
+  "synthetic_symbol_coins": [
+    "eos",
+    "flow",
+    "ftx-token",
+    "helium",
+    "htx-dao",
+    "huobi-token",
+    "kucoin-shares",
+    "leo-token",
+    "maker",
+    "mantle",
+    "okb",
+    "osmosis",
+    "waves",
+    "yearn-finance"
+  ],
   "worst_leg_mae": -0.4435465476229268
 }

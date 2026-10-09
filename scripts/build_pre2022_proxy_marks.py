@@ -11,8 +11,10 @@ first Bitget mark hour, or used alone when Bitget has no row at all.  The
 seam basis (last proxy close before the seam vs first Bitget mark open) is
 recorded so a splice artefact cannot silently masquerade as a drawdown.
 
-The output tree exists to re-check the kill criterion ("no liquidation in
-2020-10 → 2021-12") on a wider asset set.  It must never be used for
+Proxy prices come from Binance first; coins Binance no longer serves are
+taken from Gate.io (``data/raw/gate_1h_pre2022/``).  The output tree exists to
+re-check the kill criterion ("no liquidation in 2020-10 → 2021-12") on a
+wider asset set.  It must never be used for
 headline performance: the price source is a competitor's spot tape, not the
 venue that would have liquidated the position.
 """
@@ -65,6 +67,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--bitget-dir", type=Path, default=Path("data/raw/bitget_derivatives/merged_pre2022_20261009"))
     parser.add_argument("--proxy-dir", type=Path, default=Path("data/raw/binance_1h_pre2022"))
+    parser.add_argument("--gate-dir", type=Path, default=Path("data/raw/gate_1h_pre2022"))
     parser.add_argument("--output-dir", type=Path, default=Path("data/raw/bitget_derivatives/merged_pre2022_proxy_20261009"))
     parser.add_argument("--start", default="2020-10-01")
     args = parser.parse_args()
@@ -73,6 +76,8 @@ def main() -> None:
     symbol_map = pd.read_csv(args.bitget_dir / "symbol_map.csv")
     coverage_path = args.proxy_dir / "coverage.json"
     coverage = json.loads(coverage_path.read_text()) if coverage_path.exists() else {}
+    gate_path = args.gate_dir / "coverage.json"
+    gate_coverage = json.loads(gate_path.read_text()) if gate_path.exists() else {}
 
     output = ensure_dir(args.output_dir)
     candles_dir = ensure_dir(output / "candles")
@@ -84,19 +89,41 @@ def main() -> None:
     start = pd.Timestamp(args.start, tz="UTC")
     manifest: list[dict[str, object]] = []
     counts = {"bitget_only": 0, "proxy_only": 0, "spliced": 0, "no_data": 0}
+    synthetic_symbols: dict[str, str] = {}
     for record in symbol_map.to_dict("records"):
         coin = str(record["coin_id"])
-        symbol = str(record["bitget_symbol"])
+        raw_symbol = record.get("bitget_symbol")
+        synthetic = raw_symbol is None or (isinstance(raw_symbol, float) and str(raw_symbol) == "nan")
+        if not synthetic and isinstance(raw_symbol, str) and raw_symbol.strip().lower() in {"", "nan"}:
+            synthetic = True
+        if synthetic:
+            # Coins Bitget never listed (contract_status=missing) have no symbol; give the
+            # proxy tree a synthetic one so the loader can find the price path.
+            panel = record.get("panel_symbol")
+            if panel is None or (isinstance(panel, float) and str(panel) == "nan"):
+                panel = record.get("base_coin") or coin
+            symbol = f"{str(panel).upper()}USDT"
+            synthetic_symbols[coin] = symbol
+        else:
+            symbol = str(raw_symbol)
         bitget = _read_candles(args.bitget_dir / "candles" / f"{symbol}_mark.csv")
         if bitget is not None:
             bitget = bitget.loc[bitget["open_time"] >= start]
         proxy_info = coverage.get(coin) or {}
         proxy = None
+        proxy_source = None
         if proxy_info.get("available"):
             pair = str(proxy_info.get("pair"))
             proxy = _read_candles(args.proxy_dir / f"{pair}.csv")
-            if proxy is not None:
-                proxy = proxy.loc[proxy["open_time"] >= start]
+            proxy_source = f"binance:{pair}"
+        else:
+            gate_info = gate_coverage.get(coin) or {}
+            if gate_info.get("available"):
+                file_name = str(gate_info.get("file") or f"gate_{gate_info.get('pair')}.csv")
+                proxy = _read_candles(args.gate_dir / file_name)
+                proxy_source = f"gate:{gate_info.get('pair')}"
+        if proxy is not None:
+            proxy = proxy.loc[proxy["open_time"] >= start]
 
         merged: pd.DataFrame | None = None
         source = "no_data"
@@ -124,6 +151,8 @@ def main() -> None:
             "coin_id": coin,
             "bitget_symbol": symbol,
             "source": source,
+            "proxy_source": proxy_source,
+            "synthetic_symbol": coin in synthetic_symbols,
             "bitget_rows": 0 if bitget is None else int(len(bitget)),
             "proxy_rows": 0 if proxy is None else int(len(proxy)),
             "rows": 0 if merged is None else int(len(merged)),
@@ -139,6 +168,12 @@ def main() -> None:
         out.to_csv(candles_dir / f"{symbol}_mark.csv", index=False)
 
     (output / "proxy_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    if synthetic_symbols:
+        updated = pd.read_csv(args.bitget_dir / "symbol_map.csv")
+        for coin, symbol in synthetic_symbols.items():
+            updated.loc[updated["coin_id"] == coin, "bitget_symbol"] = symbol
+        updated.to_csv(output / "symbol_map.csv", index=False)
+        LOGGER.info("synthetic symbols for coins Bitget never listed: %s", synthetic_symbols)
     seam_frame = pd.DataFrame(
         [row for row in manifest if row["seam_basis"] is not None]
     )
