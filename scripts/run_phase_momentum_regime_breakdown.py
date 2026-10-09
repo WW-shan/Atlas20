@@ -131,6 +131,9 @@ def main() -> None:
 
     configure_logging("ERROR")
     returns_frame = pd.read_csv(args.returns_file, parse_dates=["date"]).set_index("date").sort_index()
+    if returns_frame.index.tz is not None:
+        # the derivatives track records UTC-aware stamps; the regime frame is naive UTC
+        returns_frame.index = returns_frame.index.tz_convert("UTC").tz_localize(None)
     candidates = [item.strip() for item in args.candidates.split(",") if item.strip()]
     missing = [candidate for candidate in candidates if candidate not in returns_frame.columns]
     if missing:
