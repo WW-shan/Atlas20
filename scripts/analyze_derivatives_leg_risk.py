@@ -68,6 +68,38 @@ def _leg_intervals(trades: pd.DataFrame) -> list[dict[str, object]]:
     return intervals
 
 
+def _asset_pnl(trades: pd.DataFrame) -> pd.DataFrame:
+    """Realised P&L per asset from the trade ledger (average cost, fees included)."""
+
+    state: dict[str, dict[str, float]] = {}
+    pnl: dict[str, float] = {}
+    for row in trades.sort_values("timestamp").to_dict("records"):
+        asset = str(row["asset"])
+        side = 1.0 if str(row["side"]) == "long" else -1.0
+        quantity = float(row["quantity"])
+        price = float(row["price"])
+        fee = float(row["fee"])
+        book = state.setdefault(asset, {"quantity": 0.0, "cost": 0.0})
+        pnl.setdefault(asset, 0.0)
+        action = str(row["action"])
+        if action in {"open", "increase"}:
+            book["cost"] += quantity * price
+            book["quantity"] += quantity
+        else:
+            average = book["cost"] / book["quantity"] if book["quantity"] else price
+            closed = min(quantity, book["quantity"])
+            pnl[asset] += side * closed * (price - average)
+            book["cost"] -= closed * average
+            book["quantity"] -= closed
+        pnl[asset] -= fee
+    frame = pd.DataFrame(
+        [{"asset": asset, "realised_pnl": value} for asset, value in pnl.items()]
+    ).sort_values("realised_pnl", ascending=False)
+    total = float(frame["realised_pnl"].sum())
+    frame["share_of_total"] = frame["realised_pnl"] / total if total else 0.0
+    return frame
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
@@ -171,9 +203,11 @@ def main() -> None:
 
     legs = pd.DataFrame(leg_rows)
     summary = pd.DataFrame(summary_rows)
+    pnl = _asset_pnl(result.trades)
     output_dir = ensure_dir(args.output_dir)
     legs.to_csv(output_dir / "leg_adverse_excursions.csv", index=False)
     summary.to_csv(output_dir / "summary.csv", index=False)
+    pnl.to_csv(output_dir / "asset_pnl.csv", index=False)
     (output_dir / "summary.json").write_text(
         json.dumps(summary_rows, indent=2, sort_keys=True, default=str), encoding="utf-8"
     )
@@ -193,9 +227,14 @@ def main() -> None:
         "",
         dataframe_to_markdown(worst),
         "",
+        "## Realised P&L by asset (last leverage run)",
+        "",
+        dataframe_to_markdown(pnl.head(15)),
+        "",
     ]
     (output_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
     print(summary.to_string(index=False))
+    print(pnl.head(10).to_string(index=False))
     print(f"Wrote leg risk diagnostics to {output_dir}")
 
 
