@@ -1,0 +1,38 @@
+{
+  "engine_trades": 1185,
+  "final_multiple_engine": 44.12529343989696,
+  "matched_orders": 1185,
+  "mismatched_orders": 0,
+  "mismatches": [],
+  "quantization": {
+    "abs_error_pct_max": 49.83634478943155,
+    "abs_error_pct_mean": 1.2905101293438899,
+    "abs_error_pct_p95": 6.157435187150319,
+    "orders_below_minimum": 73,
+    "orders_compared": 1185,
+    "reference_equity": 1000.0,
+    "worst": {
+      "asset": "solana",
+      "error_pct": -49.83634478943155,
+      "ideal_notional": 36.5329837370763,
+      "note": "",
+      "planned_notional": 18.32628,
+      "timestamp": "2024-05-21 03:00:00+00:00"
+    }
+  },
+  "rebalances": 534,
+  "stateful_plan": {
+    "final_engine_multiple": 42.55591784153038,
+    "final_plan_multiple": 42.720618669538794,
+    "first_liquidation": null,
+    "liquidation_events": 0,
+    "margin_ratio": 0.515,
+    "open_legs": 2,
+    "reference_equity": 1000.0,
+    "relative_drag_pct": 0.38702214959087655
+  },
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

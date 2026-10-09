@@ -70,6 +70,15 @@ derivatives-oos: $(VENV_STAMP)
 derivatives-signal: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py --dry-run
 
+# Live execution planning sized from the real balance (manual, dry by default).
+# EQUITY=500 make execution-plan        -> plan from a manual equity number
+# make execution-plan-live              -> read the Bitget UTA account, notify
+execution-plan: $(VENV_STAMP)
+	$(PYTHON) scripts/plan_live_execution.py --equity $(or $(EQUITY),1000)
+
+execution-plan-live: $(VENV_STAMP)
+	$(PYTHON) scripts/plan_live_execution.py --live --notify
+
 derivatives-notify: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py
 

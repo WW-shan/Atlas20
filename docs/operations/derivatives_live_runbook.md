@@ -62,6 +62,38 @@ make derivatives-notify     # 发送当日 Telegram 播报（同日幂等，重�
 3. 播报若带「该执行时点已过去…请勿追单」，就**当天不做**，等次日信号；
 4. 播报里的「参考缩放系数」按你的实际权益换算（模型账本以 1000 USDT 权益计）。
 
+### 2.1 按真实余额计算订单与保证金（推荐；账号接入后全自动）
+
+上面的播报以 1000 USDT 参考权益计价，实际下单还要自己换算。接入账号后可改为**按余额
+动态计算**，直接给出「买/卖多少枚、名义多少 USDT、保证金加/减多少」：
+
+```bash
+# A. 手动填余额（不接 API，最快）
+make execution-plan EQUITY=500
+
+# B. 用导出的账户快照（JSON schema 见脚本 docstring）
+.venv/bin/python scripts/plan_live_execution.py --account-file account.json --notify
+
+# C. 直连 Bitget UTA API（推荐；只读账户，下单仍然手动）
+export ATLAS20_BITGET_API_KEY=...      # UTA 只读+划转权限即可
+export ATLAS20_BITGET_SECRET_KEY=...
+export ATLAS20_BITGET_PASSPHRASE=...
+export ATLAS20_BITGET_DEMO=1           # 演示盘（paptrading: 1），先在练习账户验证
+make execution-plan-live               # 内部带 --notify，同日幂等
+```
+
+计划脚本每天重新读取交易所的 `usdtEquity` / `positionBalance`，因此**不依赖前一天的缓存**，
+下单误差最多持续一天就会在次日计划里自我修正（replay 实测 4.7 年累计偏差 +0.39%，见
+`reports/derivatives_track_live_replay/`）。
+
+**51.5% 保证金怎么落地**（Bitget 只能按杠杆整数倍自动划保证金）：
+
+1. 先把该 symbol 设为 **逐仓 + 2x**（`set-leverage`，自动保证金 ≈ 名义 50%，强平距离 -49.49%）；
+2. 成交后按计划里的「保证金调整 · 追加」用 `set-margin(operation=add)` 补到名义的 **51.5%**
+   （强平距离 -51.01%，= 模型口径）；
+3. 减仓日会自动算出「撤出」金额（`operation=remove`），同样来自交易所的真实
+   `positionBalance`，不是估算值。
+
 ---
 
 ## 3. 监控清单（每周 5 分钟）
@@ -99,6 +131,15 @@ make derivatives-notify     # 发送当日 Telegram 播报（同日幂等，重�
 ---
 
 ## 6. 复现与审计
+
+- **执行逻辑实测（live-fire replay）**：`scripts/replay_live_execution.py` 把引擎 2022-01-01 →
+  2026-09-21 的 534 次调仓 / 1185 笔订单逐笔喂给实盘计划器（`build_execution_plan`）：
+  1185/1185 全部匹配、0 不匹配；再让账户完全按计划器自己的（含真实 Bitget 合约步长与
+  最小下单量的）订单演化 4.7 年，最终 42.7206x vs 引擎 42.5559x（**+0.387%**），逐小时强平
+  检查 **0 次**。报告：`reports/derivatives_track_live_replay/`。
+- **合约量化代价**：1185 笔中 73 笔（6.2%）低于交易所最小下单量（多为零头再平衡，次日自我
+  修正），其余订单名义误差均值 1.29%、p95 6.16%、最大 49.8%（全部是向下取整，不会超仓）。
+
 
 ```bash
 make derivatives-oos-data derivatives-oos   # 刷新账本

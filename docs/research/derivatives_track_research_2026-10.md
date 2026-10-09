@@ -1231,3 +1231,46 @@ Bitget 只有 90 天历史，无法证明 1.59x 这个溢价在 2022–2025 是�
 **本轮新修 1 个真 bug**：`run_derivatives_oos.py` 对缺失的 mark 目录会抛出原始 traceback（其他闸门都是可读的 SystemExit）。改为 `load_symbol_map()` 显式检查 `symbol_map.csv` 并给出下载指引，新增 2 个回归测试。
 
 **回归状态**：`pytest -q` 1359 passed / 1 skipped；`make lint`、`make typecheck`、`check_repo_health.py` 全绿（本轮仅 scripts/ 与 tests/ 改动，未触碰冻结策略参数）。
+
+#### 12.8.22 实盘执行层与 live-fire 回放（2026-10-10）
+
+用户要求"实战全链路、要有逻辑测试"，并且"程序每天按余额动态计算"。为此把执行层从"研究账本"
+推进到"可直接对账户下发的计划"，并用引擎 4.7 年的真实成交账本做逐笔回放验证。
+
+**新增模块**
+
+- `atlas20.derivatives.account` — Bitget **UTA v3** 私有客户端（签名、重试、`paptrading` 演示盘头）。
+  端点用线上 API 逐一验证存在性（鉴权错误 40006 = 存在；404 = 不存在）：
+  `GET /api/v3/account/assets`、`GET /api/v3/position/current-position`、
+  `POST /api/v3/trade/place-order`、`POST /api/v3/account/set-leverage`、
+  `POST /api/v3/account/set-margin`、`POST /api/v3/account/set-hold-mode`。
+  **重要修正**：流传的 `POST /api/v2/mix/position/adjust-position-margin` **不存在（404）**；
+  逐仓保证金调整的真实端点是 v3 `set-margin`（`operation=add|remove`，`amount` 为保证金币种）。
+- `atlas20.derivatives.execution` — 实盘订单规划器：从**真实权益**出发算目标名义，逐仓保证金按
+  51.5% 计算差额，先减后加（与引擎同序），按合约 `quantityMultiplier`/`minOrderQty`/
+  `minOrderAmount` 向下取整，可用保证金不足时缩减而不是硬下（镜像引擎口径）。
+- `scripts/plan_live_execution.py` / `make execution-plan[-live]` — 每日执行计划：支持
+  `--live`（UTA API）、`--account-file`（JSON 快照）、`--equity`（手填），输出"买/卖多少枚、
+  名义多少、保证金加/减多少"，`--notify` 可发 Telegram（同日幂等）。
+- `scripts/replay_live_execution.py` — live-fire 回放（下述）。
+
+**一等证据：逐笔回放（2022-01-01 → 2026-09-21，L125、20 bps）**
+
+| 检查 | 结果 |
+|---|---|
+| 引擎调仓次数 / 订单数 | 534 / 1185 |
+| 实盘规划器复现引擎订单 | **1185/1185 匹配，0 不匹配** |
+| 账户完全按规划器自己的订单演化（含真实合约步长/最小下单量） | 42.7206x vs 引擎 42.5559x（同一时点）→ **+0.387%** |
+| 逐小时强平检查（plan-driven 账户） | **0 次** |
+| 低于交易所最小下单量的订单 | 73 / 1185 = 6.2%（多为零头再平衡；次日计划从真实持仓重算，自我修正） |
+| 其余订单名义误差（真实合约量化） | 均值 1.29% / p95 6.16% / max 49.8%（全部向下取整，不会超仓） |
+
+报告：`reports/derivatives_track_live_replay/`。
+
+**合约细节（公开 API 实测）**：USDT-M 的 `qty` 是**币数量**（如 NEAR 步长 1 枚、min 名义 5 USDT、
+taker 6 bps）。逐仓保证金由杠杆自动划入（2x ≈ 50%），要达到模型的 51.5% 需成交后
+`set-margin(add)` 补 1.5pp；减仓日按交易所真实 `positionBalance` 算"撤出"。计划器每日重读账户，
+不依赖缓存，误差最多持续一天。
+
+**尚未闭合**：① 真实账户/真实下单未测试（没有 API key；演示盘 key 建好后可全链路跑通）；
+② funding 精确历史仍为 proxy；③ 12 个月样本外继续计时。
