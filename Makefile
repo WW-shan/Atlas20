@@ -52,5 +52,16 @@ openapi: $(VENV_STAMP)
 load-test: $(VENV_STAMP)
 	$(PYTHON) scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200
 
+# Derivatives track daily routine (Ubuntu-friendly: plain make, no launchd).
+# Requires the frozen spec; never used to select parameters.
+derivatives-oos-data: $(VENV_STAMP)
+	$(PYTHON) scripts/download_bitget_derivatives_data.py \
+		--output-dir data/raw/bitget_derivatives/merged_oos_20261009 \
+		--start 2026-09-21 --end $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=1)).date())") \
+		--types mark
+
+derivatives-oos: $(VENV_STAMP)
+	$(PYTHON) scripts/run_derivatives_oos.py
+
 clean:
 	rm -rf .pytest_cache .mypy_cache apps/web/node_modules apps/web/dist
