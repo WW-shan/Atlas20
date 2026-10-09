@@ -333,7 +333,8 @@ Ruff, plus Python and frontend dependency audits.
 | Security | API key/JWT hooks, prod settings gates, report path validation, log redaction |
 
 See `docs/operations/` for backup, storage, logging, worker, security, and load
-testing notes.
+testing notes. The strategy's go-live checklist, the Deflated-Sharpe horizon analysis and the
+staged-capital plan are in [`docs/operations/go_live_plan.md`](docs/operations/go_live_plan.md).
 
 ## Repository Layout
 

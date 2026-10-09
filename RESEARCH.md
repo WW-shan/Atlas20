@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**（10-08 单日回吐），并记录追高进场的前瞻收益衰减；§00.19 资金费率 overlay（H6）经生产引擎验证后**被拒**——降回撤但更伤收益与 Sharpe；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -654,6 +654,62 @@
   .venv/bin/python scripts/run_phase_momentum_hypotheses.py
   ```
   明细：`reports/phase_momentum_hypotheses_2026_10/{runs.csv,decision.csv,kill.csv,neighbourhood.csv,dsr.csv,yearly.csv,returns_20bps.csv,report.md}`。
+
+---
+
+### 00.20 2026-10-09 上线路线：DSR 在当前试验数下结构性不可达，必须先做规则决策
+
+**一、问题被量化了**
+
+`AGENTS.md` 要求多重检验/选择偏差门槛。H5 唯一没过的就是它（DSR 0.858 < 0.95）。
+新增工具 `scripts/analyze_dsr_horizon.py`（`reports/phase_momentum_dsr_horizon/`）回答
+「还需要多少新数据」：保持 H5 日收益的波动/偏度/峰度不变、只改新数据均值，
+以项目真实试验数 N=6,138（期望最大年化 Sharpe 1.184）重算合并样本 DSR。
+
+| 假设的新样本外年化 Sharpe | 达到 DSR 0.95 所需新数据 |
+| ---: | ---: |
+| 1.40 | > 10,000 天（≈27 年，实质不可达） |
+| **1.623（＝样本内水平）** | **2,340 天（6.4 年）** |
+| 1.80 | 1,232 天（3.4 年） |
+| 2.00 | 776 天（2.1 年） |
+
+**结论：DSR 把「从 6,138 个候选里挑出最好的」这个选择惩罚再收一次费，且收在整个样本上。
+只要新数据 Sharpe 不超过样本内水平，合并 Sharpe 会被拉低，DSR 上升极慢。**
+这不是「差一点」，是**在当前 N 下的结构性不可达**。
+
+**二、对比：只用样本外的检验便宜约 6 倍**
+
+样本外窗口没有参与选规格，其 Sharpe 是无偏估计，不需要再付选择惩罚。假设 Sharpe≈1.6：
+单侧 t 检验 95% 需要 **386 天（1.06 年）**，99% 需要 **772 天（2.11 年）**。
+
+**三、这必须先由项目负责人决策，不能自行改规则**
+
+`AGENTS.md` 原文允许「an equivalent documented method」和「genuinely out-of-sample splits」，
+但也明确「Never weaken, reinterpret, or remove a constraint after seeing a backtest result」。
+因此这里**不能由我自行把 DSR 换成 t 检验**。两条路：
+
+- **A. 维持 DSR ≥ 0.95 为硬门槛** → H5 在本项目试验数下实际上**永远无法上线**，
+  只能长期保持 provisional 的样本外记录。
+- **B. 负责人现在（在样本外仍无信息量时）批准一套预声明的样本外验收协议** →
+  DSR 继续报告但不再作为唯一门槛，用 12–18 个月的真实样本外按事先写死的判据决定。
+
+**我的建议是 B**，但**必须由负责人批准，且必须现在批准**；等样本外攒到能看出结论再定规则
+就是事后挑口径，规则本身不允许。
+
+**四、上线路线图**
+
+完整方案写入 `docs/operations/go_live_plan.md`：预声明样本外验收协议（§3）、
++1h 执行杠杆（§4，20bps 下 19.53x → **22.80x**、Sharpe 1.623 → 1.704、MDD -37.0% → -33.3%，
+纯运营、不改规则、不抬高 N）、运营就绪清单（§5）、资金分层（§6）、gate 表（§7）、
+时间线（§8）。**最早可上线 ≈ 2027 年 9 月之后**（样本外满 365 天 + 影子/小额期）。
+
+**五、复现**
+
+```bash
+.venv/bin/python scripts/analyze_dsr_horizon.py --output-dir reports/phase_momentum_dsr_horizon
+```
+
+明细：`reports/phase_momentum_dsr_horizon/{dsr_by_horizon.csv,required_oos_sharpe.csv,required_oos_days.csv,oos_only_significance.csv,report.md,manifest.json}`。
 
 ---
 
@@ -1389,6 +1445,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_multiple_testing_overlays/` | 36 候选族的 CSCV/PBO（H5 = 0.192，首个通过）、DSR、Reality Check | ✅ 当前权威 |
 | `reports/phase_momentum_regime_overlays/` | B / H3 / H5 的 bull 与 non-bull 拆分 | ✅ 当前权威 |
 | `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
+| `reports/phase_momentum_dsr_horizon/` | DSR 的时间维度定价：保持样本内 Sharpe 需 6.4 年新数据；只用样本外的 t 检验需 1.06 年（§00.20） | ✅ 当前权威 |
 | `reports/phase_momentum_crash_states/` | 崩溃月与可观测状态变量的对照（否定性结果：无变量区分度 > 0.4σ） | ✅ 当前权威 |
 | `reports/phase_momentum_flow_states/` | 量能/换手/集中度状态筛查（9 个变量全部被拒）；含 §00.14 表格的全样本勘误 | ✅ 当前权威 |
 | `reports/phase_momentum_hourly_states/` | 小时线日内状态筛查（已实现方差/半方差/小时成交集中度/场所占比/日内自相关/时段效应；7 个变量全部被拒） | ✅ 当前权威 |

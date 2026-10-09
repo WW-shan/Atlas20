@@ -1,0 +1,36 @@
+{
+  "script": "scripts/analyze_dsr_horizon.py",
+  "generated_at_utc": "2026-10-09T02:34:20Z",
+  "returns": "reports/phase_momentum_hypotheses_2026_10/returns_20bps.csv",
+  "column": "PR2026-10-H5|h3_day_close|20",
+  "trial_summary": "reports/research_trial_inventory/summary.json",
+  "scope": "top20_2022_trials",
+  "trial_count": 6138,
+  "sharpe_std_per_period": 0.01656525609587107,
+  "expected_max_sharpe_annualized": 1.183509659663751,
+  "in_sample_days": 1725,
+  "in_sample_annualized_sharpe": 1.62314979555921,
+  "in_sample_dsr": 0.8579701065083318,
+  "target_dsr": 0.95,
+  "horizons_days": [
+    30,
+    90,
+    180,
+    365,
+    730,
+    1095
+  ],
+  "assumed_oos_sharpes": [
+    0.8,
+    1.0,
+    1.2,
+    1.4,
+    1.6,
+    1.8,
+    2.0
+  ],
+  "oos_only_test_levels": {
+    "95%": 1.6449,
+    "99%": 2.3263
+  }
+}

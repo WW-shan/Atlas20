@@ -80,6 +80,7 @@ phase_momentum_chase_risk,reports/ (no new configuration),reports/phase_momentum
 phase_momentum_candidate_eval_h5,reports/ (no new configuration),reports/phase_momentum_candidate_eval_h5/,side-by-side re-listing of registered trials (counted via the ledger),0,0,0,0,,,,,,False,False,
 phase_momentum_dispersion_diagnostic,reports/ (no new configuration),reports/phase_momentum_dispersion_diagnostic/,diagnostic screening of the dispersion mechanism (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_dsr_gap,reports/ (no new configuration),reports/phase_momentum_dsr_gap/,prices the Deflated Sharpe gap of a saved return series (no configuration),0,0,0,0,,,,,,False,False,
+phase_momentum_dsr_horizon,reports/ (no new configuration),reports/phase_momentum_dsr_horizon/,prices how much out-of-sample data closes the Deflated Sharpe gap (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_dispersion_overlay,reports/ (no new configuration),reports/phase_momentum_dispersion_overlay/,diagnostic screening of the dispersion overlay (no charged configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_multiple_testing_h3,reports/ (no new configuration),reports/phase_momentum_multiple_testing_h3/,CSCV/PBO over the fixed candidate family,0,0,0,0,,,,,,False,False,
 phase_momentum_multiple_testing_overlays,reports/ (no new configuration),reports/phase_momentum_multiple_testing_overlays/,CSCV/PBO over the fixed candidate family,0,0,0,0,,,,,,False,False,
