@@ -1,24 +1,24 @@
 {
-  "as_of": "2026-10-07",
+  "as_of": "2026-10-08",
   "btc_gate_open": true,
   "cost_bps": 20.0,
-  "current_gross_exposure": 0.5048398574060055,
+  "current_gross_exposure": 0.4604863074560891,
   "current_weights": {
-    "near": 0.5048398574060055
+    "near": 0.4604863074560891
   },
-  "end_date": "2026-10-07",
-  "gross_exposure": 0.5056913407173202,
+  "end_date": "2026-10-08",
+  "gross_exposure": 0.6214277858309032,
   "last_day_check": {
     "complete": true,
-    "date": "2026-10-07",
+    "date": "2026-10-08",
     "market_cap_coverage": 1.0,
-    "median_volume_ratio": 1.138378371832379,
+    "median_volume_ratio": 1.3383479515412255,
     "reasons": [],
     "volume_floor": 0.6
   },
-  "latest_target_date": "2026-10-07",
-  "next_check_date": "2026-10-08",
-  "panel_last_date": "2026-10-07",
+  "latest_target_date": "2026-10-08",
+  "next_check_date": "2026-10-09",
+  "panel_last_date": "2026-10-08",
   "rule": "Strict point-in-time Top20; 24 sleeves = 2 books at [0.50, 0.50] x 4 trailing-return signals (weighted_multi_horizon, ret21, equal_7_14_28_60, equal_14_21_28) x 3 calendar phases of a 3D rebalance cycle; book A: hold while in Top2, BTC 100D MA + confirm2, 60D volatility target at 80%, dispersion overlay P75 (21D dispersion, 252D lookback); book B: hold while in Top2, BTC 100D MA + confirm2, Top20 breadth >= 0.50 above own 50D SMA, 60D volatility target at 80%, dispersion overlay P75 (21D dispersion, 252D lookback); long-only spot, no leverage; T+1",
   "signal_names": [
     "weighted_multi_horizon",
@@ -32,192 +32,192 @@
       "book": 0,
       "phase_offset": 0,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 1,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 2,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-03",
-      "weight": 0.5079308992945245
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 0,
       "signal_name": "ret21",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 1,
       "signal_name": "ret21",
-      "target_date": "2026-09-29",
-      "weight": 0.5004391100910226
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 2,
       "signal_name": "ret21",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 0,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 1,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 2,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-03",
-      "weight": 0.5079308992945245
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 0,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 1,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 0,
       "phase_offset": 2,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 0,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 1,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 2,
       "signal_name": "weighted_multi_horizon",
-      "target_date": "2026-10-03",
-      "weight": 0.5079308992945245
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 0,
       "signal_name": "ret21",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 1,
       "signal_name": "ret21",
-      "target_date": "2026-09-29",
-      "weight": 0.5004391100910226
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 2,
       "signal_name": "ret21",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 0,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 1,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 2,
       "signal_name": "equal_7_14_28_60",
-      "target_date": "2026-10-03",
-      "weight": 0.5079308992945245
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 0,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 1,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-09-28",
-      "weight": 0.4979869634748918
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     },
     {
       "asset": "near",
       "book": 1,
       "phase_offset": 2,
       "signal_name": "equal_14_21_28",
-      "target_date": "2026-10-07",
-      "weight": 0.5120094652056407
+      "target_date": "2026-10-08",
+      "weight": 0.6214277858309032
     }
   ],
   "start_date": "2022-01-01",
@@ -287,7 +287,7 @@
     "construction": "build_parameter_ensemble_targets (equal book weights)"
   },
   "targets": {
-    "near": 0.5056913407173202
+    "near": 0.6214277858309032
   },
   "trade_required": true,
   "trial_id": "PR2026-10-H5"
