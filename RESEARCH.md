@@ -1511,6 +1511,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 - Phase 1 审计报告：`reports/derivatives_track_data_audit/report.md`
 - 下载器：`scripts/download_bitget_derivatives_data.py`
 - 并行下载分片合并器：`scripts/merge_bitget_derivatives_shards.py`
+- Bitget mark V2 矩阵运行器：`scripts/run_bitget_mark_matrix.py`
 - 审计器：`scripts/audit_bitget_derivatives_data.py`
 - 客户端与映射：`src/atlas20/derivatives/`
 

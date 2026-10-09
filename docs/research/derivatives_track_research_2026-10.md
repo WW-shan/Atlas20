@@ -805,6 +805,11 @@ L125-V2 的成本压力与 **H5 同成本 +3h 现货基准**如下（`scripts/co
     --shard data/raw/bitget_derivatives/parallel_<stamp>/chunk_1 \
     --output-dir data/raw/bitget_derivatives/merged
 
+# Bitget mark 上的 V2 long-only 矩阵：1.25/1.5/2.0x × zero/Binance funding 压力
+.venv/bin/python scripts/run_bitget_mark_matrix.py \
+    --raw-dir data/raw/bitget_derivatives/merged \
+    --output-dir reports/derivatives_track_bitget_mark
+
 # 30% buffer 的否定校验（修正窗口）与 50% buffer 的 V2 校验
 .venv/bin/python scripts/validate_derivatives_engine.py \
     --long-buffer 0.30 --output-dir reports/derivatives_track_engine_validation
