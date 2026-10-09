@@ -1,0 +1,13 @@
+{
+  "script": "scripts/analyze_momentum_chase_risk.py",
+  "trial_id": "PR2026-10-H5",
+  "start_date": "2022-01-01",
+  "end_date": "2026-10-07",
+  "cost_bps": 20.0,
+  "trailing_window": 21,
+  "invested_days": 874,
+  "extreme_threshold": 0.8727092819374048,
+  "current_coin": "near",
+  "current_trailing_21d": 1.042685782129753,
+  "current_percentile": 0.868421052631579
+}

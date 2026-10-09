@@ -646,6 +646,7 @@ Local evidence lives in `/tmp/smart-search-evidence/atlas20-research/` (JSON fro
 | S49 | OpenAlex `.../10.1287/mnsc.2024.05069` | abstract (Crypto Carry, Management Science) |
 | S50 | OpenAlex `.../10.51505/ijebmr.2026.10315` | abstract (leverage indicators and crash prediction) |
 | S51 | OpenAlex `.../10.1145/3442381.3450059` | abstract (crypto derivatives case study) |
+| S52 | OpenAlex `.../10.1016/j.jfineco.2010.08.014` | abstract (MAX effect, Bali et al. 2011) |
 
 Addendum (2026-10-09) discovery pattern: the xAI main-search provider returned HTTP 502 for
 every `smart-search search` call and `smart-search exa-search` is unconfigured, so discovery
@@ -863,4 +864,29 @@ Recorded as a rejected hypothesis in `reports/phase_momentum_funding_states/`. D
 for any future work: Binance publishes funding archives monthly rather than daily and
 `fapi.binance.com` is unreachable from this network, so a funding state could be backtested here
 but not driven live without another data route.
+
+---
+
+## 10. Addendum 2026-10-09 (fourth): the MAX-effect conflict, tested in project
+
+Section 00.18 of `RESEARCH.md` measures what happens after the frozen spec's largest holding has
+already run: in the top quintile of trailing 21-day returns (>= +87%) the strategy's own next-21-day
+return is +1.78% against +7.74% elsewhere (t = -4.99), and +6.55% against +14.86% per unit of gross
+exposure (t = -2.83). The live book sat in that bucket on 2026-10-07 (NEAR, trailing 21-day +104%).
+
+Two external results point in opposite directions and both are recorded:
+
+| ID | Source | Verified content | Relation to the finding |
+|---|---|---|---|
+| S52 | Bali, Cakici & Whitelaw (2011), "Maxing out: Stocks as lotteries and the cross-section of expected returns", *Journal of Financial Economics* 99(2), doi:10.1016/j.jfineco.2010.08.014 (NBER w14804 abstract) | "a negative and significant relation between the maximum daily return over the past one month (MAX) and expected stock returns" | Equity prior: extreme recent gains predict lower returns, which matches the direction of the project's 21-day-run result |
+| S6 | Li, Urquhart, Wang & Zhang (2021), *International Review of Financial Analysis* 77, 101829, doi:10.1016/j.irfa.2021.101829 (already in this review) | In crypto, "coins with higher maximum daily returns earn higher future returns" (MAX momentum), the opposite of the equity result | Conflicts with S52, so the project tested the same construct directly |
+
+The in-project test of the MAX construct (the largest single-day return of the largest holding over
+the past 21 days, bucketed identically) shows **no significant effect** on the strategy's forward
+returns: 21-day raw difference -1.59pp (t = -1.17) and +1.24pp per unit of gross (t = +0.37). The
+two external results therefore neither confirm nor refute the project's cumulative-run finding: the
+constructs differ (single-day MAX versus a 21-day cumulative run), and the project's evidence is
+in-sample and conditional on the strategy's own selection. Recorded, not acted on - a "do not buy
+after a run" rule would be a new pre-registered trial, and the Deflated-Sharpe gate already fails
+because the trial count is too large.
 

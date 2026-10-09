@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**（离散度叠加，首个通过 PBO 的规格）并定价 DSR 差距；§00.14 崩溃月诊断；§00.15 日频量能筛查被拒 + §00.14 勘误；§00.16 小时线筛查被拒；§00.17 资金费率筛查被拒（崩溃月区分度最强但仍不可用）；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / gross 0.505，全样本 22.68x @20bps，样本外 2026-09-22 起 +5.61% vs BTC -3.84%，并记录追高进场的前瞻收益衰减；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -361,6 +361,9 @@
       --output-dir reports/phase_momentum_regime_overlays
   # 6) DSR 差距定价（达到 0.95 所需的年化 Sharpe）
   .venv/bin/python scripts/analyze_dsr_gap.py --output-dir reports/phase_momentum_dsr_gap
+  # 6f) 追高进场诊断（§00.18）
+  .venv/bin/python scripts/analyze_momentum_chase_risk.py --output-dir reports/phase_momentum_chase_risk
+
   # 6e) 永续资金费率筛查（§00.17，全部被拒）
   .venv/bin/python scripts/download_funding_rates.py --start-month 2020-09 --end-month 2026-09
   .venv/bin/python scripts/analyze_momentum_funding_states.py --output-dir reports/phase_momentum_funding_states
@@ -549,6 +552,62 @@
   .venv/bin/python scripts/analyze_momentum_funding_states.py --output-dir reports/phase_momentum_funding_states
   ```
   明细：`reports/phase_momentum_funding_states/{monthly_state.csv,daily_funding_state.csv,funding_coverage.csv,state_separation.csv,state_information.csv,state_terciles.csv,state_redundancy.csv,state_verdicts.csv,report.md,manifest.json}`。
+
+---
+
+### 00.18 2026-10-09 现状与诊断：当前信号、样本外进度，以及「追高进场」的历史表现
+
+**一、当前信号（数据截至 2026-10-07，UTC 日已收完）**
+
+| 项目 | 值 |
+| --- | --- |
+| 目标 | **100% `near`**，gross **0.505**（其余为现金） |
+| 当前持仓 | `near` 0.5048 |
+| BTC 闸门 | 开 |
+| 需要交易 | 是（目标 0.5057 vs 当前 0.5048，仅漂移补仓） |
+| 建仓过程 | 2026-09-18 之前是 100% `zcash`；09-19 起 `near`+`zcash`；**10-04 起 100% `near`** |
+
+单币集中不是异常：本规格由 **24 个单币 sleeve**（2 本账 × 4 信号 × 3 相位）叠加而成，历史上有 26.9% 的持仓日为单一币种、最大持仓占比中位数 75.3%（`reports/phase_momentum_book_concentration/`）。真正约束风险的是**波动率目标**：`near` 60 日已实现波动 **120% 年化**，因此目标仓位只给到 50.5%，其余留现金。
+
+**二、业绩（20bps、引擎收盘成交口径）**
+
+| 区间 | 策略 | BTC |
+| --- | ---: | ---: |
+| 全样本 2022-01-01 .. 2026-10-07 | **22.68x** | 2026 YTD -6% |
+| 2022 | -16.34% | — |
+| 2023 | +215.81% | — |
+| 2024 | +90.17% | — |
+| 2025 | +102.13% | — |
+| 2026 YTD（至 10-07） | **+123.26%** | **-6%** |
+| 样本外 2026-09-22 .. 2026-10-07（16 天） | **+5.61%**（+3h 口径 +5.76%） | **-3.84%** |
+| 样本外回撤 | -6.5% | -3.8% |
+
+- 研究截止（2026-09-21）时的注册结论是 **19.53x**；样本外这两周把它推到 **22.68x**，同期 BTC 下跌。样本外窗口太短，**不构成验证**，只记录。
+- 2026 年的收益高度依赖 `zcash`（YTD +153%）与 `near`（9 月以来 +183%）两段行情 —— 这正是动量设计要抓的东西，但也意味着**当前这仓是本轮行情后段进场**。
+- 换手随行情下降：2023 年累计成交 42.5x gross，2026 年至今只有 9.6x（长期持有领涨币）。
+
+**三、新诊断：追高进场之后会怎样（`scripts/analyze_momentum_chase_risk.py`）**
+
+对每个持仓日，取**最大持仓币的过去 21 日涨幅**（动量 sleeve 正在追的东西），再看策略自己随后的 5/10/21 日收益：
+
+| 分位（按追涨幅度） | 天数 | 中位涨幅 | 21 日前瞻均值 | 21 日胜率 | 21 日最差回撤 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1（最低） | 175 | +4.9% | +5.33% | 56.0% | -21.8% |
+| 2 | 175 | +22.3% | +6.70% | 46.9% | -21.0% |
+| 3 | 174 | +40.8% | +8.33% | 51.7% | -20.1% |
+| 4 | 175 | +67.9% | **+10.71%** | **61.7%** | -19.3% |
+| 5（最极端） | 175 | **+113.7%** | **+1.78%** | **42.9%** | -19.4% |
+
+- **最强的一档（前 20%，门槛 21 日 +87%）之后，21 日前瞻收益只有 +1.78%，约为第 4 档（+10.71%）的 1/6**；5 日/10 日差异较小，说明是**约三周尺度**的边际衰减，不是立刻崩。
+- **不是波动率目标造成的假象**：按前瞻期平均 gross 归一后，极端档 **+6.55%** vs 其余 **+14.86%**（Welch t **-2.83**）；原始口径差 -5.97pp（t **-4.99**）。极端档 gross 确实更低（0.36 vs 0.49），但归一后差距仍在。
+- **当前这仓正好落在这一档**：`near` 过去 21 日 **+104.3%**（第 **87** 分位）。
+- **外部证据存在冲突，已如实记录**：股票 MAX 效应（Bali–Cakici–Whitelaw 2011）说极端涨幅后收益更低；加密 MAX 动量研究（Li–Urquhart 等 2021，本综述 S6）结论相反。本项目用**最大单日涨幅**复现该构造时，对策略前瞻收益**没有显著影响**（21 日 t=-1.17，按 gross 归一 t=+0.37），因此两者都不能直接支持或否定本节的「21 日累计涨幅」结果。
+- **结论与边界**：极端追涨档**仍然是正收益**（+1.78% / 21 日），所以这不是「不能买」的信号，而是「边际更薄、胜率更低」的状态；且本结果是**样本内、且以策略自己选择持有为条件**。**不改规则**：任何「追涨就减仓/不买」的改动都属于新的预注册试验，在当前 DSR 已因试验数过多而失败的前提下，加试验只会让门槛更高。本节只做记录与风险披露。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/analyze_momentum_chase_risk.py --output-dir reports/phase_momentum_chase_risk
+  ```
+  明细：`reports/phase_momentum_chase_risk/{daily_chase.csv,chase_buckets.csv,chase_extreme_vs_rest.csv,max_daily_buckets.csv,max_daily_extreme_vs_rest.csv,report.md,manifest.json}`。
 
 ---
 
@@ -1288,6 +1347,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_flow_states/` | 量能/换手/集中度状态筛查（9 个变量全部被拒）；含 §00.14 表格的全样本勘误 | ✅ 当前权威 |
 | `reports/phase_momentum_hourly_states/` | 小时线日内状态筛查（已实现方差/半方差/小时成交集中度/场所占比/日内自相关/时段效应；7 个变量全部被拒） | ✅ 当前权威 |
 | `reports/phase_momentum_funding_states/` | 永续资金费率状态筛查（4 个变量全部被拒；`funding_level` 崩溃月区分度 +1.12σ 为三次筛查最强，但方向与冗余度决定不可用） | ✅ 当前权威 |
+| `reports/phase_momentum_chase_risk/` | 追高进场诊断：极端 21 日涨幅后策略前瞻收益衰减（21 日 +1.78% vs +7.74%，按 gross 归一 t=-2.83）；含 MAX 构造的对照 | ✅ 当前权威 |
 | `reports/phase_momentum_dispersion_diagnostic/` | 离散度机制的项目内诊断（五档前瞻 + Spearman） | ✅ 筛查证据 |
 | `reports/phase_momentum_dispersion_overlay/` | 离散度叠加的日频筛查（**未计**额外换手，收益偏高） | ⚠️ 仅筛查，非候选 |
 | `reports/phase_momentum_live/` | 冻结规格（H5）的最新目标快照；信号工具，不下单 | ✅ 当前 |

@@ -124,6 +124,19 @@ terciles are monotone. The direction is the finding: the same high-funding terci
 it is 0.61-0.66 correlated with the breadth, gate and gross exposure the spec already sees. Crowded
 leverage is a volatility/regime amplifier, not a directional filter. Deployment note: funding
 archives are monthly, not daily, so a funding state could be backtested here but not yet driven live.
+
+The live target on 2026-10-07 is **100% NEAR** at **0.505 gross** (NEAR's 60-day realized volatility is
+120% annualized, so the volatility target halves the book), entered from 2026-09-19 and solo since
+2026-10-04. Single-coin days are normal for this design - 24 one-coin sleeves, 26.9% of invested days
+historically - and the frozen spec is now at **22.68x at 20 bps** from 2022-01-01 to 2026-10-07
+(2023 +215.8%, 2024 +90.2%, 2025 +102.1%, 2026 YTD +123.3% against BTC -6%). The two out-of-sample
+weeks since 2026-09-22 returned **+5.61%** against BTC **-3.84%**; that window is far too short to
+validate anything. `RESEARCH.md` section 00.18 also measures what happens after the book has chased
+a coin: in the top quintile of trailing 21-day returns (>= +87%) the next 21 days return **+1.78%**
+against **+7.74%** elsewhere (t = -4.99), or **+6.55%** against **+14.86%** per unit of gross
+(t = -2.83) - the current NEAR entry sits in that bucket at +104%. The effect is a thinner edge, not
+a loss, and it is recorded rather than traded: changing the entry rule would be a new pre-registered
+trial, and the Deflated-Sharpe gate already fails on the trial count.
 The pre-registered round (H2-H5 in `docs/research/literature_review_2026-09.md`) is logged
 in `reports/research_trial_inventory/preregistered_trials.csv`. H4 was rejected; H2 and H3 remain
 recorded risk variants and H5 was adopted as the frozen spec (see `RESEARCH.md` sections 00.6 and
