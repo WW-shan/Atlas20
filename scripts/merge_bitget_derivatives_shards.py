@@ -79,7 +79,12 @@ def _copy_files(source: Path, destination: Path) -> int:
     return count
 
 
-def merge_shards(shard_dirs: list[Path], output_dir: Path) -> dict[str, object]:
+def merge_shards(
+    shard_dirs: list[Path],
+    output_dir: Path,
+    *,
+    allow_errors: bool = False,
+) -> dict[str, object]:
     if not shard_dirs:
         raise ValueError("at least one shard is required")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +100,17 @@ def merge_shards(shard_dirs: list[Path], output_dir: Path) -> dict[str, object]:
         _copy_files(shard / "funding", funding_dir)
 
     state = _merge_state(shard_dirs)
+    error_windows = [
+        f"{series_key}:{window_key}"
+        for series_key, windows in state.items()
+        for window_key, status in windows.items()
+        if isinstance(status, dict) and status.get("status") == "error"
+    ]
+    if error_windows and not allow_errors:
+        raise ValueError(
+            f"{len(error_windows)} failed download window(s) remain; rerun the downloader or pass "
+            "--allow-errors for a deliberately partial merge"
+        )
     (output_dir / "state.json").write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
 
     symbol_map = _merge_frame([shard / "symbol_map.csv" for shard in shard_dirs], ["coin_id"])
@@ -137,6 +153,8 @@ def merge_shards(shard_dirs: list[Path], output_dir: Path) -> dict[str, object]:
         "funding_files": len(list(funding_dir.glob("*.csv"))),
         "symbol_map_rows": int(len(symbol_map)),
         "coverage_rows": int(len(coverage)),
+        "error_windows": error_windows,
+        "allow_errors": bool(allow_errors),
     }
     (output_dir / "merge_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
@@ -148,8 +166,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--shard", type=Path, action="append", required=True, help="shard directory; repeatable")
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--allow-errors", action="store_true")
     args = parser.parse_args()
-    manifest = merge_shards(args.shard, args.output_dir)
+    manifest = merge_shards(args.shard, args.output_dir, allow_errors=args.allow_errors)
     print(json.dumps(manifest, indent=2, sort_keys=True))
 
 

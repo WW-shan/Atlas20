@@ -1,0 +1,2 @@
+scenario,mark_source,funding_source,funding_stress,funding_multiplier,leverage,long_buffer,cost_bps,missing_mark_policy,funding_missing_policy,available_mark_assets,available_funding_assets,dropped_target_rows,liquidation_count,max_gross_exposure,fees_total,funding_total,multiple,cagr,sharpe,max_drawdown
+zero,bitget_mark,zero,none,0.0,1.25,0.5,20.0,error,error,88,88,104,0,1.2812742828284303,1.7032620431705945,0.0,44.12529343989681,1.230541547554418,1.7691218378860554,-0.40719816931838426

@@ -1,0 +1,2 @@
+scenario,mark_source,funding_source,funding_stress,funding_multiplier,restrict_to_funding,leverage,long_buffer,cost_bps,missing_mark_policy,funding_missing_policy,available_mark_assets,available_funding_assets,dropped_target_rows,liquidation_count,max_gross_exposure,fees_total,funding_total,multiple,cagr,sharpe,max_drawdown
+binance-long-adverse-3x,bitget_mark,binance-proxy,long-adverse,3.0,True,1.25,0.5,11.0,carry,skip,88,49,146,0,1.2810628565316124,0.6520337180315866,-1.951256343003977,28.099872841550646,1.0271844277523643,1.6073257639581144,-0.41415873008626747

@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 15,
+  "duplicates": {},
+  "expected_max_sharpe": 0.007928218967673104,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 0.5108256237659907,
+    "most_selected_candidate": "L200-zero",
+    "most_selected_count": 332,
+    "pbo": 0.24242424242424243,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.003941699124241642,
+    "reality_check_p_value": 0.004995004995004995
+  },
+  "trial_count": 22
+}

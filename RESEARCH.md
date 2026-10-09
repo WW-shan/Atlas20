@@ -5,10 +5,10 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品：§9.8 Bitget **真实 mark** 重跑，L125 44.125x（零 funding 上界）/ 25.140x（3x adverse funding），DSR/RC/PBO 三门槛在真实 mark 候选族上同时通过，但仍缺真实 funding 与 pre-2022/成交价/OOS 门槛，保持 provisional） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
-> | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
+> | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。衍生品轨（§9，独立风险预算，Bitget isolated margin）在单独设计文档 `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` 下研究，不得与现货轨的口径混用 |
 > | 执行 | 信号收盘生成、T+1 执行；**实盘口径为收盘后约 3 小时成交**（02:30 UTC 刷新之后），用 Binance/Gate 1 小时 K 线模拟；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
 > | 成本口径 | 基准 **2bps**（AGENTS.md），20/50/100bps 为压力测试 |
 > | 主回测起点 | **2022-01-01**，剔除 2021 泡沫行情 |
@@ -1605,3 +1605,14 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 - 结果：Deflated Sharpe（N=11 的预注册 scope 记账，7 个可用候选的波动率）约 0.99997；White Reality Check p≈0.00699；**PBO/CSCV≈0.960**，最常被选中为 SWEAK50（309/924）。
 - 这 **不能** 宣布 multiple-testing 通过：design 稿要求候选矩阵覆盖 11 个 trial，目前 stop20 变体仍未实现/未跑，成本档位也不是独立策略候选；7 个高度相关的 long/short 变体给出的 PBO≈0.96 是明确的选参不稳定警告。DSR 的高值不能覆盖 PBO 失败。
 - 该报告仍标注为 **proxy diagnostic**；正式 gate 必须在 Bitget mark、真实 funding、完整候选矩阵和 12 个月 OOS 上重跑。固定规格与试验计数不变。
+
+### 9.8 2026-10-09 Bitget 真实 mark 重跑：数字取代 9.4–9.7 的代理结果
+
+- **数据**：`data/raw/bitget_derivatives/merged_20261009/`，88 个映射合约（MATIC/POL 共用 `POLUSDT`），0 error window；审计 `reports/derivatives_track_data_audit_full/`（88/102 coin 有合约；mark 窗口覆盖 78%，新币晚上市属设计内；最大 gap 2h）。区间严格 2022-01-01 00:00 UTC → 2026-09-21 00:00 UTC（mark 最后 2026-09-20 23:00 开盘、09-21 00:00 收盘），OOS 2026-09-22+ 未进入任何结果。
+- **零 funding 上界（真实 mark，20 bps，+3h）**：L125 **44.125x** / Sharpe 1.769 / MDD -40.72%；L150 **80.084x** / 1.768 / -46.88%；L200 **210.175x** / 1.770 / -53.95%；全部 0 次强平，实际最大 gross 1.281x / 1.575x / 1.759x。
+- **funding 缺口未闭合**：Bitget 精确 funding 历史只回溯约 90 天，2022 起无公开精确源（`funding_overlap.csv` 0/88）。因此只能用 Binance funding proxy（覆盖 49/88 资产）并把结果标为压力带。
+- **funding 压力（真实 mark）**：proxy 1x → 2x → 3x 对多头不利放大：L125 34.874x → 28.921x → **25.140x**（Sharpe 1.694 → 1.618 → 1.562，MDD -40.65% → -41.91% → -42.49%）；L150 60.843x → 48.625x → **41.113x**；L200 149.251x → 111.488x → **89.643x**。强平全 0。限制到 49 资产 funding 池的零 funding 上界为 38.260x / 67.977x / 172.267x。
+- **成本压力（L125，真实 mark）**：零 funding 下 6/8/11/20/50/100 bps = 52.782x / 51.449x / 49.512x / 44.125x / 30.036x / 15.784x；3x adverse funding 下 = 29.891x / 29.162x / 28.100x / 25.140x / 17.336x / 9.310x。对同成本 +3h 现货 H5（23.016x → 7.614x）的比值在所有档位 ≥1.22，最保守组合（100 bps + 3x adverse）仍为 9.310x > H5 100 bps 的 7.614x。方向一致、无强平。
+- **multiple-testing（真实 mark，取代 9.7 作为该口径的判定）**：`reports/derivatives_track_bitget_mark_multiple_testing/`，15 个真实 mark 候选、严格同日期 1724 天、记账 N=22：Deflated Sharpe 0.99974–0.99997（门槛 0.95），White Reality Check p=0.0050（门槛 0.05），**PBO/CSCV=0.242**（门槛 ≤0.50，最常选中 L200-zero 332/924）。三项同时通过。
+- **不等于 9.7 被推翻**：9.7 的 PBO≈0.960 度量的是“含已被拒绝的空头 overlay 的结构族”，9.8 的 0.242 度量的是“结构已定 long-only、只在杠杆与 funding 假设间选择”的族。两者回答不同问题；**任何重新引入结构变化（空头/止损/新规则）都必须重算 PBO**，不得引用 0.242 覆盖历史 0.960。
+- **仍未闭合（本轨道保持 provisional）**：(1) 无 2022 起真实 funding；(2) 2020-10..2021-12 无强平压力窗口的 Bitget mark 正在补下载；(3) 全部用 mark 结算，尚未做 market/last 执行价敏感性；(4) long buffer × leverage 校准需在真实 mark 上复跑；(5) 年度/滚动/最优年剔除未在真实 mark 上跑；(6) 12 个月真 OOS 不足；(7) funding 缺口目前 `skip`（对多头偏乐观），需补 `carry_last` 压力口径。

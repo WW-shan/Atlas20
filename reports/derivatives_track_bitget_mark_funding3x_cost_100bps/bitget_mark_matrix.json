@@ -1,0 +1,26 @@
+[
+  {
+    "available_funding_assets": 49,
+    "available_mark_assets": 88,
+    "cagr": 0.604211965401551,
+    "cost_bps": 100.0,
+    "dropped_target_rows": 146,
+    "fees_total": 2.689370554479203,
+    "funding_missing_policy": "skip",
+    "funding_multiplier": 3.0,
+    "funding_source": "binance-proxy",
+    "funding_stress": "long-adverse",
+    "funding_total": -0.9330066617037134,
+    "leverage": 1.25,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "mark_source": "bitget_mark",
+    "max_drawdown": -0.5225130453154273,
+    "max_gross_exposure": 1.297827534144854,
+    "missing_mark_policy": "carry",
+    "multiple": 9.309962643335712,
+    "restrict_to_funding": true,
+    "scenario": "binance-long-adverse-3x",
+    "sharpe": 1.1564103944099302
+  }
+]

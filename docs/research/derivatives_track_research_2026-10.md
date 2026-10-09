@@ -841,3 +841,77 @@ done
 .venv/bin/python scripts/compare_derivatives_proxy_costs.py \
     --output-dir reports/derivatives_track_proxy_cost_comparison
 ```
+
+### 12.8 Bitget 真实 mark 结果（2026-10-09，全量 mark，取代 §12.2–12.6 中的代理 mark 数字）
+
+§12.2–12.6 的结论全部建立在 Binance/Gate 1h mark **代理**上。本节用**真实 Bitget USDT-M mark 价格**重跑，是截至目前唯一可用于“Bitget mark 口径”的正式数字。代理数字不再作为该口径的证据，但作为数据源交叉验证保留。
+
+数据与区间：
+
+- mark 来源 `data/raw/bitget_derivatives/merged_20261009/`（88 个映射合约，MATIC/POL 共用 `POLUSDT`），下载 0 个 error window；审计见 `reports/derivatives_track_data_audit_full/`（88/102 coin 有合约，窗口覆盖 78%，含新币晚上市属设计内，最大 gap 2h）。
+- 回测窗口严格 **2022-01-01 00:00 UTC → 2026-09-21 00:00 UTC**（mark 最后一根为 2026-09-20 23:00 开盘，收盘即 09-21 00:00），与现货主样本右端一致；OOS 2026-09-22+ 仍未进入任何结果。
+- 执行口径：信号 UTC 日收盘、T+1 +3h 成交、isolated margin、逐小时 mark 强平检查、funding 在每次小时检查前结算、成本 20 bps 为判定档，另跑 6/8/11/50/100 bps。
+- `dropped_target_rows=104`/1724 天：目标资产当日无该资产 mark（新上市或退市边缘），引擎按无 mark 不建仓处理，未静默补价。
+
+#### 12.8.1 零 funding 上界（真实 mark）
+
+| trial | leverage | 实际最大 gross | 强平 | 终值 | Sharpe | MDD |
+|---|---:|---:|---:|---:|---:|---:|
+| L125 | 1.25x | 1.281x | 0 | **44.125x** | 1.769 | -40.72% |
+| L150 | 1.50x | 1.575x | 0 | **80.084x** | 1.768 | -46.88% |
+| L200 | 2.00x | 1.759x | 0 | **210.175x** | 1.770 | -53.95% |
+
+与代理 mark 相比，Bitget mark 的 Sharpe 更高（1.63 → 1.77），MDD 更差（-32.10% → -40.72%）。零 funding 是**上界**，不是可上线假设。
+
+#### 12.8.2 funding 口径：Bitget 精确历史不存在
+
+- Bitget 官方 funding 历史只回溯约 90 天（`reports/derivatives_track_data_audit_full/funding_overlap.csv`：0/88 通过 2022 起的重叠门槛）；2022 起的精确 funding 在公开源上未找到。
+- 因此 funding 只能用 **Binance funding proxy**（覆盖 88 个合约中的 49 个），并把结果标为压力带，不能标为“真实 funding 已计”。
+- 限制到这 49 个资产后，零 funding 上界：L125 38.260x / Sharpe 1.730 / MDD -40.72%；L150 67.977x / 1.730 / -46.88%；L200 172.267x / 1.734 / -53.95%。
+
+#### 12.8.3 Binance funding 压力（真实 mark + 49 资产 funding 池）
+
+`--funding-stress long-adverse` 只保留对多头不利的正 funding（负 funding 置零）再放大，是保守方向的上界：
+
+| trial | proxy 1x | 2x adverse | 3x adverse |
+|---|---:|---:|---:|
+| L125 | 34.874x / 1.694 / -40.65% | 28.921x / 1.618 / -41.91% | **25.140x / 1.562 / -42.49%** |
+| L150 | 60.843x / 1.693 / -46.81% | 48.625x / 1.617 / -48.16% | **41.113x / 1.561 / -48.79%** |
+| L200 | 149.251x / 1.696 / -53.87% | 111.488x / 1.620 / -55.33% | **89.643x / 1.563 / -56.01%** |
+
+（每格：终值 / Sharpe / MDD；强平全部为 0。）累计 funding 在 3x adverse 下约吃掉 L125 的 1.81 个 NAV 单位（1.0 起点），即单币集中多头在永续上的真实成本量级。
+
+#### 12.8.4 成本压力（L125，真实 mark）
+
+| 成本 | 零 funding | 3x adverse funding | H5 +3h 同成本 | 零 funding / H5 | 3x adverse / H5 |
+|---:|---:|---:|---:|---:|---:|
+| 6 bps | 52.782x | 29.891x | 23.016x | 2.29 | 1.30 |
+| 8 bps | 51.449x | 29.162x | 22.482x | 2.29 | 1.30 |
+| 11 bps | 49.512x | 28.100x | 21.703x | 2.28 | 1.29 |
+| 20 bps | 44.125x | 25.140x | 19.525x | 2.26 | 1.29 |
+| 50 bps | 30.036x | 17.336x | 13.721x | 2.19 | 1.26 |
+| 100 bps | 15.784x | 9.310x | 7.614x | 2.07 | 1.22 |
+
+最保守的 (100 bps, 3x adverse) 组合仍有 9.310x，优于现货 H5 在 20 bps 的 19.525x 之外还优于其 100 bps 的 7.614x。方向在全部成本档一致，无强平。
+
+#### 12.8.5 multiple-testing（Bitget mark 候选族，取代代理 PBO）
+
+`reports/derivatives_track_bitget_mark_multiple_testing/`：15 个真实 mark 候选（3 杠杆 × {零 funding、49 资产限制、Binance proxy、2x、3x adverse}），严格同日期 1724 天，记账 N=22（`preregistered_trials.csv` 中全部 `PR2026-10-D-*`）：
+
+| 指标 | 结果 | 门槛 | 判定 |
+|---|---:|---|---|
+| Deflated Sharpe | 0.99974–0.99997（全候选） | ≥0.95 | 通过 |
+| White Reality Check p | 0.0050 | ≤0.05 | 通过 |
+| PBO / CSCV | **0.242**（最常选中 L200-zero，332/924） | ≤0.50 | 通过 |
+
+§12.6/§9.7 的代理 PBO≈0.960 来自一个把**已被拒绝的空头 overlay**计入的候选族；真实 mark 上这些空头不是候选，候选族是上线时真正要在其中做选择的杠杆 × funding 处理族。两次 PBO 度量的是不同问题，**不能**用 0.242 覆盖 0.960 的历史，只能记录为：在“已定 long-only 结构、只在杠杆与 funding 假设间选择”的决策上，选参不稳定警告消失；只要重新引入结构变化（空头/止损/其他规则），PBO 必须重算。
+
+#### 12.8.6 仍未闭合的 gate（按 AGENTS.md，本轨道保持 provisional）
+
+1. **真实 funding 缺失**：只有 Binance proxy + 放大压力带，没有 2022 起的 Bitget 精确历史。
+2. **pre-2022 压力窗口**：kill criterion 要求 2020-10..2021-12 无强平，Bitget mark 该区间正在补下载（`data/raw/bitget_derivatives/parallel_pre2022_20261009/`）。
+3. **成交价口径**：全部用 mark 结算，尚未用 Bitget market（last）K 线做执行价敏感性；market 数据下载未完成。
+4. **参数邻域**：long buffer 0.40/0.50/0.60/0.75 与杠杆 1.0/1.25 的校准是在代理 mark 上做的，需要在真实 mark 上复跑。
+5. **年度/滚动/最优年剔除**：尚未在真实 mark 上跑。
+6. **12 个月真 OOS**：2026-09-22 起才起算，目前不足。
+7. **funding 缺口的 fail-closed 语义**：`--funding-missing-policy` 目前 `skip`（把缺失结算当作 0）对多头偏乐观，需要显式 `carry_last` 压力口径再复跑一次。

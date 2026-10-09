@@ -1,0 +1,26 @@
+[
+  {
+    "available_funding_assets": 88,
+    "available_mark_assets": 88,
+    "cagr": 0.7940200245193345,
+    "cost_bps": 100.0,
+    "dropped_target_rows": 104,
+    "fees_total": 3.957990347378824,
+    "funding_missing_policy": "error",
+    "funding_multiplier": 0.0,
+    "funding_source": "zero",
+    "funding_stress": "none",
+    "funding_total": 0.0,
+    "leverage": 1.25,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "mark_source": "bitget_mark",
+    "max_drawdown": -0.5024755985562168,
+    "max_gross_exposure": 1.2945812263873724,
+    "missing_mark_policy": "error",
+    "multiple": 15.783520350004283,
+    "restrict_to_funding": false,
+    "scenario": "zero",
+    "sharpe": 1.3571391562333084
+  }
+]

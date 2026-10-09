@@ -69,6 +69,32 @@ def test_long_funding_is_deducted_from_isolated_margin() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(999.0)
 
 
+def test_funding_timestamp_jitter_is_normalised_to_the_settlement_hour() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001]},
+        index=pd.DatetimeIndex(["2026-01-02T04:00:00.006Z"]),
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    assert result.funding.iloc[0]["timestamp"] == pd.Timestamp("2026-01-02T04:00:00Z")
+    assert result.equity_curve.iloc[-1] == pytest.approx(999.0)
+
+
 def test_long_position_liquidates_on_hourly_low_using_mark_price() -> None:
     index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
     candles = {"BTC": _flat_frame(index)}

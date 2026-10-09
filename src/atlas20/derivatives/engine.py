@@ -15,6 +15,7 @@ daily close.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -151,6 +152,18 @@ def _as_utc(timestamp: object) -> pd.Timestamp:
     return value.tz_convert("UTC")
 
 
+def _normalise_funding_index(values: Iterable[object]) -> pd.DatetimeIndex:
+    """Map exchange timestamp jitter (milliseconds) to the settlement hour."""
+    stamps: list[pd.Timestamp] = []
+    for value in values:
+        stamp = _as_utc(value)
+        rounded = stamp.round("h")
+        if abs(stamp - rounded) > pd.Timedelta(minutes=5):
+            raise ValueError(f"funding timestamp is not close to an hourly settlement: {stamp}")
+        stamps.append(pd.Timestamp(rounded))
+    return pd.DatetimeIndex(stamps)
+
+
 def _validate_candles(mark_candles: Mapping[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     if not mark_candles:
         raise ValueError("mark_candles must contain at least one asset")
@@ -271,7 +284,7 @@ def run_derivative_backtest(
         funding = pd.DataFrame()
     else:
         funding = funding_rates.copy()
-        funding.index = pd.DatetimeIndex([_as_utc(value) for value in funding.index])
+        funding.index = _normalise_funding_index(funding.index)
         funding = funding[~funding.index.duplicated(keep="last")].sort_index()
         funding.columns = funding.columns.astype(str)
         funding = funding.apply(pd.to_numeric, errors="coerce")

@@ -37,10 +37,11 @@ from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
 from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E402
 
 SCENARIOS = {
-    "zero": (None, "none", 0.0),
-    "binance-proxy": ("binance-proxy", "none", 1.0),
-    "binance-long-adverse-2x": ("binance-proxy", "long-adverse", 2.0),
-    "binance-long-adverse-3x": ("binance-proxy", "long-adverse", 3.0),
+    "zero": (None, "none", 0.0, False),
+    "zero-funding-universe": (None, "none", 0.0, True),
+    "binance-proxy": ("binance-proxy", "none", 1.0, True),
+    "binance-long-adverse-2x": ("binance-proxy", "long-adverse", 2.0, True),
+    "binance-long-adverse-3x": ("binance-proxy", "long-adverse", 3.0, True),
 }
 
 
@@ -70,6 +71,12 @@ def main() -> None:
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--leverage", type=_leverages, default=_leverages("1.25,1.5,2.0"))
     parser.add_argument("--long-buffer", type=float, default=0.50)
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        choices=tuple(SCENARIOS),
+        help="scenario to run; repeatable (default: all scenarios)",
+    )
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
     parser.add_argument(
@@ -78,6 +85,12 @@ def main() -> None:
         default="carry",
     )
     parser.add_argument("--missing-mark-max-carry-hours", type=int, default=3)
+    parser.add_argument(
+        "--min-mark-assets",
+        type=int,
+        default=50,
+        help="refuse to run the matrix on an obviously partial merged data tree",
+    )
     parser.add_argument(
         "--funding-missing-policy",
         choices=("error", "skip"),
@@ -96,14 +109,21 @@ def main() -> None:
     long_targets = _long_targets_from_build(built, index)
     symbol_map = pd.read_csv(args.raw_dir / "symbol_map.csv")
     mark_candles = load_mark_candles(args.raw_dir, symbol_map)
+    if len(mark_candles) < args.min_mark_assets:
+        raise SystemExit(
+            f"only {len(mark_candles)} mark series found in {args.raw_dir}; "
+            f"expected at least {args.min_mark_assets} (override with --min-mark-assets)"
+        )
     available_marks = set(mark_candles)
     intervals = _funding_intervals(symbol_map)
     proxy_funding = load_binance_funding(args.binance_funding_dir, coins=set(market.price.columns))
 
     rows: list[dict[str, object]] = []
     return_columns: dict[str, pd.Series] = {}
+    scenarios = args.scenario or list(SCENARIOS)
     for leverage in args.leverage:
-        for scenario, (funding_source, funding_stress, multiplier) in SCENARIOS.items():
+        for scenario in scenarios:
+            funding_source, funding_stress, multiplier, restrict_to_funding = SCENARIOS[scenario]
             if funding_source is None:
                 funding = pd.DataFrame()
             else:
@@ -115,12 +135,18 @@ def main() -> None:
                 if multiplier != 1.0:
                     funding = funding * multiplier
                 funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
-            available = (
-                available_marks
-                & set(funding.columns)
-                if not funding.empty
-                else available_marks
-            )
+                if funding.empty:
+                    raise SystemExit(
+                        f"scenario {scenario} has no usable funding columns in {args.binance_funding_dir}"
+                    )
+            available = available_marks
+            if restrict_to_funding:
+                if proxy_funding.empty:
+                    raise SystemExit(
+                        f"scenario {scenario} requires Binance funding columns in "
+                        f"{args.binance_funding_dir}"
+                    )
+                available = available_marks & set(proxy_funding.columns)
             restricted, dropped = _restrict_targets(long_targets, available, mark_candles)
             scaled = scale_long_targets(restricted, leverage=leverage, max_gross=leverage)
             result = run_derivative_backtest(
@@ -156,6 +182,7 @@ def main() -> None:
                     "funding_source": funding_source or "zero",
                     "funding_stress": funding_stress,
                     "funding_multiplier": multiplier,
+                    "restrict_to_funding": restrict_to_funding,
                     "leverage": leverage,
                     "long_buffer": float(args.long_buffer),
                     "cost_bps": float(args.cost_bps),
