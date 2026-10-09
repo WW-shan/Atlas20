@@ -12,7 +12,7 @@ def test_format_signal_message_labels_utc_close_and_t_plus_one_execution() -> No
     message = format_signal_message(_payload())
 
     assert "信号日期（UTC日线）: 2026-10-08" in message
-    assert "数据收盘: 北京时间 2026-10-09 08:00" in message
+    assert "数据收盘: 2026-10-08 23:59 UTC / 北京时间 2026-10-09 08:00" in message
     assert "执行日期: 2026-10-09（T+1）" in message
 
 

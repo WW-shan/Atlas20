@@ -92,7 +92,7 @@ def _date_lines(payload: Mapping[str, Any]) -> list[str]:
     execution_date = as_of_date + timedelta(days=1)
     return [
         f"信号日期（UTC日线）: {signal_date}",
-        f"数据收盘: 北京时间 {execution_date.isoformat()} 08:00",
+        f"数据收盘: {as_of_date.isoformat()} 23:59 UTC / 北京时间 {execution_date.isoformat()} 08:00",
         f"执行日期: {execution_date.isoformat()}（T+1）",
     ]
 
