@@ -1,0 +1,74 @@
+[
+  {
+    "cost_bps": 6.0,
+    "derivative_max_drawdown": -0.299862678246561,
+    "derivative_multiple": 31.39513359155811,
+    "derivative_sharpe": 1.693093948469912,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.35216213953766773,
+    "h5_spot_multiple": 23.015862748762466,
+    "h5_spot_sharpe": 1.7003004218652304,
+    "multiple_ratio": 1.3640650335059106,
+    "sharpe_ratio": 0.9957616469991738
+  },
+  {
+    "cost_bps": 8.0,
+    "derivative_max_drawdown": -0.3029135009332596,
+    "derivative_multiple": 30.69069885662998,
+    "derivative_sharpe": 1.683520369369249,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.35468948596318894,
+    "h5_spot_multiple": 22.481514749503265,
+    "h5_spot_sharpe": 1.6892942578373145,
+    "multiple_ratio": 1.3651526242157725,
+    "sharpe_ratio": 0.9965820706242989
+  },
+  {
+    "cost_bps": 11.0,
+    "derivative_max_drawdown": -0.3074662141155182,
+    "derivative_multiple": 29.6633583907237,
+    "derivative_sharpe": 1.6691534664730083,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.3584625176778472,
+    "h5_spot_multiple": 21.703082214445867,
+    "h5_spot_sharpe": 1.672775255969797,
+    "multiple_ratio": 1.3667809068602876,
+    "sharpe_ratio": 0.9978348618657149
+  },
+  {
+    "cost_bps": 20.0,
+    "derivative_max_drawdown": -0.3209565322066089,
+    "derivative_multiple": 26.781710119413084,
+    "derivative_sharpe": 1.6260068669264585,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.3696532131106399,
+    "h5_spot_multiple": 19.52528057983335,
+    "h5_spot_sharpe": 1.6231497955597605,
+    "multiple_ratio": 1.3716427792118144,
+    "sharpe_ratio": 1.0017602019077436
+  },
+  {
+    "cost_bps": 50.0,
+    "derivative_max_drawdown": -0.3641548860070484,
+    "derivative_multiple": 19.03928974779707,
+    "derivative_sharpe": 1.481727407358455,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.4056000103598191,
+    "h5_spot_multiple": 13.721139175641762,
+    "h5_spot_sharpe": 1.4570487009041007,
+    "multiple_ratio": 1.387588122536959,
+    "sharpe_ratio": 1.0169374616229652
+  },
+  {
+    "cost_bps": 100.0,
+    "derivative_max_drawdown": -0.435324780079706,
+    "derivative_multiple": 10.760050744903896,
+    "derivative_sharpe": 1.2399971320818894,
+    "fill": "+3h day_close",
+    "h5_spot_max_drawdown": -0.462399239576163,
+    "h5_spot_multiple": 7.6139515037446595,
+    "h5_spot_sharpe": 1.1783123021617603,
+    "multiple_ratio": 1.41320190174733,
+    "sharpe_ratio": 1.052350153526328
+  }
+]

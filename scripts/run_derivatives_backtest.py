@@ -232,6 +232,8 @@ def main() -> None:
         derivative_targets,
         funding_rates=funding if not funding.empty else None,
         config=cfg,
+        start_time=pd.Timestamp(args.start_date, tz="UTC"),
+        end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
     )
     metrics = _metrics_from_returns(result.daily_returns)
     summary = {

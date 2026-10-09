@@ -99,8 +99,10 @@ def main() -> None:
                     max_margin_utilization=0.85,
                     funding_missing_policy="skip",
                     missing_mark_policy="carry",
-            missing_mark_max_carry_hours=3,
+                    missing_mark_max_carry_hours=3,
                 ),
+                start_time=pd.Timestamp(args.start_date, tz="UTC"),
+                end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
             )
             metrics = _metrics_from_returns(result.daily_returns)
             rows.append(

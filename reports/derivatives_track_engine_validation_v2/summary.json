@@ -52,15 +52,15 @@
   ],
   "cost_bps": 20.0,
   "derivatives": {
-    "cagr": 0.7863407783356091,
-    "max_drawdown": -0.26195715567074074,
-    "multiple": 15.491730389513423,
-    "sharpe": 1.6312472605561028
+    "cagr": 0.7825718702388631,
+    "max_drawdown": -0.26195715567074107,
+    "multiple": 15.337953998375172,
+    "sharpe": 1.6267046452357807
   },
   "end_date": "2026-09-21",
   "fill": "+3h day_close",
-  "liquidation_count": 4,
-  "long_buffer": 0.3,
+  "liquidation_count": 0,
+  "long_buffer": 0.5,
   "mark_source": "binance_or_gate_1h_proxy",
   "restricted_spot_h5": {
     "cagr": 0.7815730166996084,
@@ -75,8 +75,8 @@
     "sharpe": 1.6231497955597605
   },
   "start_date": "2022-01-01",
-  "terminal_ratio_derivatives_over_restricted_spot": 1.012703366959215,
-  "terminal_ratio_derivatives_over_spot": 0.7934190920418336,
+  "terminal_ratio_derivatives_over_restricted_spot": 1.0026509154157797,
+  "terminal_ratio_derivatives_over_spot": 0.7855433337135728,
   "trial_id": "PR2026-10-H5",
   "warning": "diagnostic only; not a Bitget mark-price result"
 }

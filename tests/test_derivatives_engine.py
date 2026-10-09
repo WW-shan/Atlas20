@@ -254,6 +254,40 @@ def test_rebalance_increases_existing_position_without_full_close() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0)
 
 
+def test_evaluation_window_excludes_prestart_marks_and_postend_targets() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-10T00:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0}),
+        pd.Timestamp("2026-01-05T00:00:00Z"): pd.Series({"BTC": 0.5}),
+        pd.Timestamp("2026-01-07T00:00:00Z"): pd.Series({"BTC": 0.0}),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+        start_time=pd.Timestamp("2026-01-02T00:00:00Z"),
+        end_time=pd.Timestamp("2026-01-08T00:00:00Z"),
+    )
+
+    assert result.equity_curve.index.min() == pd.Timestamp("2026-01-02T00:00:00Z")
+    assert result.equity_curve.index.max() == pd.Timestamp("2026-01-07T23:00:00Z")
+    assert result.daily_returns.index.min() == pd.Timestamp("2026-01-02T00:00:00Z")
+    assert result.daily_returns.index.max() == pd.Timestamp("2026-01-07T00:00:00Z")
+    assert result.trades["timestamp"].tolist() == [
+        pd.Timestamp("2026-01-02T03:00:00Z"),
+        pd.Timestamp("2026-01-06T03:00:00Z"),
+    ]
+
+
 def test_missing_mark_carry_uses_last_close_within_limit() -> None:
     btc_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T03:00:00Z", freq="1h", tz="UTC")
     eth_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T04:00:00Z", freq="1h", tz="UTC")

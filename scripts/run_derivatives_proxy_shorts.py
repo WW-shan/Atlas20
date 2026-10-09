@@ -92,6 +92,7 @@ def main() -> None:
     }
 
     rows: list[dict[str, object]] = []
+    return_columns: dict[str, pd.Series] = {}
     for trial_id, (short_asset, short_weight) in TRIALS.items():
         targets = build_derivative_targets(
             restricted,
@@ -123,10 +124,13 @@ def main() -> None:
                 max_gross_exposure=1.25 + short_weight,
                 funding_missing_policy="skip",
                 missing_mark_policy="carry",
-            missing_mark_max_carry_hours=3,
+                missing_mark_max_carry_hours=3,
             ),
+            start_time=pd.Timestamp(args.start_date, tz="UTC"),
+            end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
         )
         metrics = _metrics_from_returns(result.daily_returns)
+        return_columns[trial_id] = result.daily_returns
         rows.append(
             {
                 "trial_id": trial_id,
@@ -146,6 +150,7 @@ def main() -> None:
         print(rows[-1])
     output_dir = ensure_dir(args.output_dir)
     pd.DataFrame(rows).to_csv(output_dir / "proxy_shorts.csv", index=False)
+    pd.DataFrame(return_columns).to_csv(output_dir / "daily_returns.csv", index_label="date")
     (output_dir / "proxy_shorts.json").write_text(json.dumps(rows, indent=2, sort_keys=True), encoding="utf-8")
     print(f"Wrote proxy short diagnostics to {output_dir}")
 

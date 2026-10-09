@@ -1,0 +1,18 @@
+{
+  "candidates": [
+    "PR2026-10-D-L125-V2",
+    "PR2026-10-D-L150-V2",
+    "PR2026-10-D-L200-V2",
+    "PR2026-10-D-SBTC25",
+    "PR2026-10-D-SBTC50",
+    "PR2026-10-D-SWEAK25",
+    "PR2026-10-D-SWEAK50"
+  ],
+  "end": "2026-09-21T00:00:00+00:00",
+  "inputs": [
+    "reports/derivatives_track_proxy_trials_20bps/daily_returns.csv",
+    "reports/derivatives_track_proxy_shorts/daily_returns.csv"
+  ],
+  "rows": 1725,
+  "start": "2022-01-01T00:00:00+00:00"
+}

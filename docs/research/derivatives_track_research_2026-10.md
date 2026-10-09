@@ -691,7 +691,7 @@ Bitget 当前 USDT-M 基础费率：
 
 ## 12. Phase 2 项目内更新（2026-10-09）
 
-### 12.1 引擎
+### 12.1 引擎与首个口径修正
 
 已实现并测试：
 
@@ -700,61 +700,131 @@ Bitget 当前 USDT-M 基础费率：
 - `src/atlas20/derivatives/signals.py`：H5 long 缩放、BTC 200D MA + 30D return 熊市确认、funding filter、weakest-Top20 short；
 - `src/atlas20/derivatives/data.py`：Bitget mark/funding 与 Binance funding proxy 加载。
 
-### 12.2 1.0x 校验的否定结果
+初版 Phase 2 报告直接对 mark/funding 数据源的全量时间轴做回测，产生了两类污染：
 
-使用 Binance/Gate 1h mark 代理做 Phase 2 诊断（不是 Bitget 结果）：
+1. 主样本开始前的预热/零收益被计入 Sharpe 和 CAGR；
+2. mark 数据源在 2026-09-21 之后仍有最新批次，持仓被静默持续到数据末尾，导致 2026-09-22 起的真样本外路径进入主样本结果。
 
-- H5 全池现货 @20bps：21.47x，Sharpe 1.684，MDD -37.75%；
-- 限制到代理有 mark 的同一资产池：18.22x，Sharpe 1.723，MDD -25.31%；
-- 原设计 30% long buffer 的 isolated-margin 1.0x：15.67x，Sharpe 1.623，MDD -26.20%，**4 次强平**。
+引擎现已加入可选 `start_time`/`end_time`，区间为左闭右开；窗口外的 target 不执行，窗口外的小时 mark 不进入 equity path。所有 Phase 2 结果已按 **2022-01-01 00:00 UTC 至 2026-09-21 23:00 UTC** 重跑。以下数字替代本文件此前记录的所有 Phase 2 结果。
+
+### 12.2 1.0x 校验的否定结果（修正窗口、+3h 对 +3h）
+
+使用 Binance/Gate 1h mark 代理做 Phase 2 诊断（不是 Bitget 结果）；现货基准也改为同成本、同 +3h 成交的 H5，不再拿 close-fill 的 21.47x 与 +3h 衍生品路径比较：
+
+- H5 全池现货 @20bps、+3h：19.5253x，Sharpe 1.6231，MDD -36.97%；
+- 限制到代理有 mark 的同一资产池、@20bps、+3h：15.2974x，Sharpe 1.6258，MDD -26.29%；
+- 原设计 30% long buffer 的 isolated-margin 1.0x：15.4917x，Sharpe 1.6312，MDD -26.20%，**4 次强平**；
+- V2 50% long buffer 的 isolated-margin 1.0x：15.3380x，Sharpe 1.6267，MDD -26.20%，**0 次强平**。
 
 强平事件说明原设计公式 `long_margin_ratio = 0.30 + MMR + fee_buffer` 在 H5 的 1–2 币集中持仓上不足；这不是收益略低，而是直接违反“1.0x 不得强平”的引擎验收。该规则被否决。
 
-### 12.3 保证金校准
+### 12.3 保证金校准（修正窗口）
 
 预注册 8 个 calibration trials：long buffer 0.40/0.50/0.60/0.75 × leverage 1.0x/1.25x。结果显示：
+
+| 规则 | leverage | 实际最大 gross | 强平 | 终值 | Sharpe | MDD |
+|---|---:|---:|---:|---:|---:|---:|
+| MB40 | 1.00x | 1.002x | 1 | 15.062x | 1.617 | -26.20% |
+| MB50 | 1.00x | 1.002x | 0 | 15.338x | 1.627 | -26.20% |
+| MB60 | 1.00x | 1.002x | 0 | 15.338x | 1.627 | -26.20% |
+| MB75 | 1.00x | 1.002x | 0 | 15.338x | 1.627 | -26.20% |
+| MB40 | 1.25x | 1.281x | 1 | 26.171x | 1.616 | -32.10% |
+| MB50 | 1.25x | 1.281x | 0 | 26.782x | 1.626 | -32.10% |
+| MB60 | 1.25x | 1.281x | 0 | 26.782x | 1.626 | -32.10% |
+| MB75 | 1.25x | 1.124x | 0 | 26.582x | 1.636 | -30.80% |
 
 - 40% buffer：1.0x 和 1.25x 各有 1 次强平；
 - 50% buffer：两档均 0 次强平，是当前最小零强平点；
 - 60% buffer：与 50% 结果相同；
-- 75% buffer：1.25x 下受 85% 最大保证金占用约束，实际 gross 降到 1.124x，收益略低、MDD 略好。
+- 75% buffer 在 1.25x 下受 85% 最大保证金占用约束，实际 gross 降到 1.124x，收益略低、MDD 略好。
 
-因此 V2 默认 long buffer 修正为 50%；原 30% 的 11 个 trial 标记为 superseded，最终验收必须重新预注册 V2 并在 Bitget mark 数据上重跑。
+因此 V2 默认 long buffer 修正为 50%；原 30% 的 trial 标记为 superseded，最终验收必须重新预注册 V2 并在 Bitget mark 数据上重跑。
 
-### 12.4 V2 long-only 代理诊断（非最终结果）
+### 12.4 V2 long-only 代理诊断（修正窗口，非最终结果）
 
-50% long buffer、零 funding、20 bps、代理 mark：
+50% long buffer、零 funding、20 bps、+3h、代理 mark：
 
 | trial | leverage | 实际最大 gross | 强平 | 终值 | Sharpe | MDD |
 |---|---:|---:|---:|---:|---:|---:|
-| L125-V2 | 1.25x | 1.281x | 0 | 27.16x | 1.618 | -32.10% |
-| L150-V2 | 1.50x | 1.574x | 0 | 45.43x | 1.617 | -37.70% |
-| L200-V2 | 2.00x | 1.758x | 0 | 107.38x | 1.627 | -45.03% |
+| L125-V2 | 1.25x | 1.281x | 0 | 26.782x | 1.626 | -32.10% |
+| L150-V2 | 1.50x | 1.574x | 0 | 44.674x | 1.625 | -37.70% |
+| L200-V2 | 2.00x | 1.758x | 0 | 105.010x | 1.634 | -45.03% |
 
-L125-V2 的成本压力（代理 mark、零 funding）如下：
+L125-V2 的成本压力与 **H5 同成本 +3h 现货基准**如下（`scripts/compare_derivatives_proxy_costs.py`）：
 
-| 成本 | 终值 | Sharpe | MDD | H5 同成本终值 | 终值比 | Sharpe 比 |
-|---:|---:|---:|---:|---:|---:|---:|
-| 6 bps | 31.84x | 1.685 | -29.99% | 25.30x | 1.258 | 0.956 |
-| 8 bps | 31.12x | 1.675 | -30.29% | 24.71x | 1.259 | 0.957 |
-| 11 bps | 30.08x | 1.661 | -30.75% | 23.86x | 1.261 | 0.958 |
-| 20 bps | 27.16x | 1.618 | -32.10% | 21.47x | 1.265 | 0.961 |
-| 50 bps | 19.30x | 1.475 | -36.42% | 15.10x | 1.278 | 0.973 |
-| 100 bps | 10.91x | 1.236 | -43.53% | 8.39x | 1.300 | 1.001 |
+| 成本 | 终值 | Sharpe | MDD | H5 +3h 终值 | H5 Sharpe | H5 MDD | 终值比 | Sharpe 比 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 6 bps | 31.395x | 1.693 | -29.99% | 23.016x | 1.700 | -35.22% | 1.364 | 0.996 |
+| 8 bps | 30.691x | 1.684 | -30.29% | 22.482x | 1.689 | -35.47% | 1.365 | 0.997 |
+| 11 bps | 29.663x | 1.669 | -30.75% | 21.703x | 1.673 | -35.85% | 1.367 | 0.998 |
+| 20 bps | 26.782x | 1.626 | -32.10% | 19.525x | 1.623 | -36.97% | 1.372 | 1.002 |
+| 50 bps | 19.039x | 1.482 | -36.42% | 13.721x | 1.457 | -40.56% | 1.388 | 1.017 |
+| 100 bps | 10.760x | 1.240 | -43.53% | 7.614x | 1.178 | -46.24% | 1.413 | 1.052 |
 
-代理诊断下，L125-V2 全部成本无强平，MDD < 50%，终值 >= 1.20 × H5，Sharpe >= 0.90 × H5；但这不是 Bitget 结果，不能用于上线。
+在修正窗口、代理 mark、零 funding、+3h 的诊断下，L125-V2 全部成本无强平，MDD < 50%，终值 >= 1.36 × H5，Sharpe 与 H5 基本持平或更高。这个改善仍不能用于上线：mark 是代理、funding 为零、Bitget 合约可用性尚未全量审计、完整 multiple-testing 和 12 个月 OOS 均未完成。
 
-这些数字仅证明保证金规则修正方向；它们使用代理 mark、零 funding、尚未做 Bitget mark、真实 funding、short overlay、multiple-testing 和 OOS。任何上线结论都不成立。
+### 12.5 空头 overlay 代理诊断：仍被拒，拒绝理由修正
 
-### 12.5 空头 overlay 代理诊断：被拒
-
-在 V2 50% long buffer 之上，使用代理 mark 和 Binance funding proxy 跑 SBTC25/SBTC50/SWEAK25/SWEAK50，20 bps：
+在 V2 50% long buffer 之上，使用代理 mark 和 Binance funding proxy 跑 SBTC25/SBTC50/SWEAK25/SWEAK50，20 bps、+3h、修正窗口：
 
 | trial | 终值 | Sharpe | MDD | 强平 |
 |---|---:|---:|---:|---:|
-| SBTC25 | 27.14x | 1.430 | -32.10% | 0 |
-| SBTC50 | 29.00x | 1.442 | -32.10% | 0 |
-| SWEAK25 | 27.58x | 1.429 | -32.10% | 0 |
-| SWEAK50 | 30.16x | 1.434 | -32.94% | 0 |
+| SBTC25 | 26.793x | 1.624 | -32.10% | 0 |
+| SBTC50 | 28.626x | 1.638 | -32.10% | 0 |
+| SWEAK25 | 27.225x | 1.623 | -32.10% | 0 |
+| SWEAK50 | 29.778x | 1.629 | -32.94% | 0 |
 
-对比 L125-V2 基准（27.16x、Sharpe 1.618、MDD -32.10%），四个空头 overlay 都显著降低 Sharpe，且没有达到“MDD 改善至少 5 个百分点”的门槛。因此 Phase 3 空头 overlay 在当前代理诊断下被拒绝。由于 funding 代理未通过 Phase 1 重叠门槛，这一结论仍只是实现层诊断，不能替代未来 Bitget 精确 funding 的独立预注册试验。
+对比 L125-V2 基准（26.782x、Sharpe 1.626、MDD -32.10%），修正后空头 overlay **并没有 Sharpe 大幅下降**；SBTC50 和 SWEAK50 的 Sharpe 略高。真正的失败点是 **MDD 完全没有改善**，SWEAK50 还略差；预注册 kill criterion 要求 MDD 至少改善 5 个百分点且 Sharpe 不低于 long-only，因此四个空头仍全部被拒。
+
+由于 funding 代理未通过 Phase 1 重叠门槛，这一结论仍只是实现层诊断，不能替代未来 Bitget 精确 funding 的独立预注册试验。
+
+### 12.6 multiple-testing 代理诊断与尚未闭合的缺口
+
+已新增：
+
+- `scripts/build_derivatives_candidate_returns.py`：严格要求所有候选覆盖完全一致的日期，禁止静默内连接掉不同样本；
+- `scripts/evaluate_derivatives_candidates.py`：Deflated Sharpe、White Reality Check、CSCV/PBO；
+- `reports/derivatives_track_proxy_multiple_testing/`。
+
+当前 20 bps、+3h、2022-01-01 至 2026-09-21 的 7 个可用候选矩阵：
+
+- Deflated Sharpe（记账 N=11）：约 0.99997；
+- White Reality Check p≈0.00699；
+- PBO/CSCV≈0.960，最常被选中的代理候选为 SWEAK50（309/924）。
+
+**不能据此宣布 multiple-testing 通过。** design 稿要求 PBO 矩阵覆盖 11 个预注册 trial；目前 stop20 变体仍未实现/未跑，成本档位也不是独立策略候选。7 个高度相关的 long/short 变体给出的 PBO≈0.96 是明确的选参不稳定警告，不能用 DSR 的高值覆盖。正式 gate 必须在 Bitget mark、真实 funding、完整候选矩阵和 12 个月 OOS 上重跑。
+
+### 12.7 复现命令
+
+```bash
+# 30% buffer 的否定校验（修正窗口）与 50% buffer 的 V2 校验
+.venv/bin/python scripts/validate_derivatives_engine.py \
+    --long-buffer 0.30 --output-dir reports/derivatives_track_engine_validation
+.venv/bin/python scripts/validate_derivatives_engine.py \
+    --long-buffer 0.50 --output-dir reports/derivatives_track_engine_validation_v2
+
+# 8 个保证金校准 trial
+.venv/bin/python scripts/calibrate_derivatives_margin.py \
+    --output-dir reports/derivatives_track_margin_calibration
+
+# 6/8/11/20/50/100 bps 的 V2 成本压力
+for cost in 6 8 11 20 50 100; do
+  .venv/bin/python scripts/run_derivatives_proxy_trials.py --cost-bps "$cost" \
+      --output-dir "reports/derivatives_track_proxy_trials_${cost}bps"
+done
+
+# 空头 overlay 与长期收益矩阵
+.venv/bin/python scripts/run_derivatives_proxy_shorts.py \
+    --output-dir reports/derivatives_track_proxy_shorts
+.venv/bin/python scripts/build_derivatives_candidate_returns.py \
+    --input reports/derivatives_track_proxy_trials_20bps/daily_returns.csv \
+    --input reports/derivatives_track_proxy_shorts/daily_returns.csv \
+    --output reports/derivatives_track_proxy_multiple_testing/candidate_returns.csv
+.venv/bin/python scripts/evaluate_derivatives_candidates.py \
+    --returns reports/derivatives_track_proxy_multiple_testing/candidate_returns.csv \
+    --trial-count 11 --output-dir reports/derivatives_track_proxy_multiple_testing
+
+# 与 H5 +3h 同成本对比
+.venv/bin/python scripts/compare_derivatives_proxy_costs.py \
+    --output-dir reports/derivatives_track_proxy_cost_comparison
+```

@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 7,
+  "duplicates": {},
+  "expected_max_sharpe": 0.0004824755983755889,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": -1.9459101490553135,
+    "most_selected_candidate": "PR2026-10-D-SWEAK50",
+    "most_selected_count": 309,
+    "pbo": 0.95995670995671,
+    "rows_used": 1725
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.0034510705912926096,
+    "reality_check_p_value": 0.006993006993006993
+  },
+  "trial_count": 11
+}

@@ -26,6 +26,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.engine import DerivativeBacktestConfig, run_derivative_backtest  # noqa: E402
+from atlas20.backtest.intraday import load_hourly_bars, pre_fill_returns  # noqa: E402
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 
 from scripts.run_phase_momentum import _load_market, _production_result  # noqa: E402
@@ -79,6 +80,7 @@ def main() -> None:
     parser.add_argument("--start-date", default="2022-01-01")
     parser.add_argument("--end-date", default="2026-09-21")
     parser.add_argument("--cost-bps", type=float, default=20.0)
+    parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--hourly-root", type=Path, default=Path("data/raw/binance_1h"))
     parser.add_argument("--output-dir", type=Path, default=Path("reports/derivatives_track_engine_validation"))
     args = parser.parse_args()
@@ -93,6 +95,7 @@ def main() -> None:
     targets = _long_targets(built, index)
     marks = _load_hourly_proxy(args.hourly_root, args.hourly_root / "coverage.json")
     available = set(marks)
+
     def has_execution_mark(asset: str, date: pd.Timestamp) -> bool:
         frame = marks.get(asset)
         if frame is None:
@@ -125,12 +128,23 @@ def main() -> None:
             for date, weights in restricted.items()
         },
     )
+    hourly = load_hourly_bars(args.hourly_root)
+    daily = market.returns.loc[index]
+    reference_close = market.raw_price.reindex(index=index, columns=daily.columns)
+    pre_fill = pre_fill_returns(
+        daily,
+        hourly,
+        fill_hours=3,
+        missing_fill="day_close",
+        reference_close=reference_close,
+    )
     restricted_spot = _production_result(
         config,
         market,
         restricted_built,
         index,
         cost_bps=float(args.cost_bps),
+        pre_fill=pre_fill.loc[index],
     )
     result = run_derivative_backtest(
         marks,
@@ -141,13 +155,23 @@ def main() -> None:
             taker_fee_bps=float(args.cost_bps),
             slippage_bps=0.0,
             liquidation_slippage_bps=5.0,
+            long_buffer=float(args.long_buffer),
             max_gross_exposure=1.0,
             funding_missing_policy="skip",
             missing_mark_policy="carry",
             missing_mark_max_carry_hours=3,
         ),
+        start_time=pd.Timestamp(args.start_date, tz="UTC"),
+        end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
     )
-    spot = _production_result(config, market, built, index, cost_bps=float(args.cost_bps))
+    spot = _production_result(
+        config,
+        market,
+        built,
+        index,
+        cost_bps=float(args.cost_bps),
+        pre_fill=pre_fill.loc[index],
+    )
     metrics = _metrics_from_returns(result.daily_returns)
     spot_metrics = _metrics_from_returns(spot.daily_returns)
     restricted_spot_metrics = _metrics_from_returns(restricted_spot.daily_returns)
@@ -158,6 +182,8 @@ def main() -> None:
         "start_date": args.start_date,
         "end_date": args.end_date,
         "cost_bps": float(args.cost_bps),
+        "fill": "+3h day_close",
+        "long_buffer": float(args.long_buffer),
         "available_mark_assets": sorted(available),
         "derivatives": metrics,
         "spot_h5": spot_metrics,

@@ -246,6 +246,8 @@ def run_derivative_backtest(
     *,
     funding_rates: pd.DataFrame | None = None,
     config: DerivativeBacktestConfig | None = None,
+    start_time: object | None = None,
+    end_time: object | None = None,
 ) -> DerivativeBacktestResult:
     """Run one isolated-margin derivatives path.
 
@@ -254,7 +256,9 @@ def run_derivative_backtest(
     are long, negative values are short, and gross exposure is capped by
     ``config.max_gross_exposure``.  ``funding_rates`` is a wide frame indexed by
     settlement timestamps; a NaN rate for a held asset is a hard error by
-    default.
+    default.  ``start_time`` and ``end_time`` optionally bound the evaluation
+    path; the interval is left-closed and right-open, and targets whose
+    execution would fall outside it are ignored.
     """
     cfg = config or DerivativeBacktestConfig()
     candles = _validate_candles(mark_candles)
@@ -268,9 +272,27 @@ def run_derivative_backtest(
         funding.columns = funding.columns.astype(str)
         funding = funding.apply(pd.to_numeric, errors="coerce")
 
-    index = pd.DatetimeIndex(sorted(set().union(*(frame.index for frame in candles.values())) | set(funding.index)))
+    index = pd.DatetimeIndex(
+        sorted(set().union(*(frame.index for frame in candles.values())) | set(funding.index))
+    )
     if index.empty:
         raise ValueError("no hourly mark candles")
+    window_start = _as_utc(start_time) if start_time is not None else None
+    window_end = _as_utc(end_time) if end_time is not None else None
+    if window_start is not None and window_end is not None and window_start >= window_end:
+        raise ValueError("start_time must be earlier than end_time")
+    if window_start is not None:
+        index = index[index >= window_start]
+        target_schedule = {
+            time: target for time, target in target_schedule.items() if time >= window_start
+        }
+    if window_end is not None:
+        index = index[index < window_end]
+        target_schedule = {
+            time: target for time, target in target_schedule.items() if time < window_end
+        }
+    if index.empty:
+        raise ValueError("no hourly mark candles in the requested evaluation window")
     execution_times = {_resolve_time(time, index): target for time, target in target_schedule.items()}
 
     cash = float(cfg.initial_capital)

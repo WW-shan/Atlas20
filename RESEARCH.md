@@ -1529,61 +1529,77 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ### 9.4 2026-10-09 Phase 2：isolated-margin 引擎与 1.0x 校验（**重大设计修正**）
 
-- 已实现独立衍生品引擎 `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、isolated margin、小时级强平、差分调仓（不再每次全平全开）、手续费/滑点分开记录；缺失 mark 默认 fail closed，诊断模式可显式 `exit_last`。
+> **口径修正（同日）**：初版 Phase 2 直接对 mark/funding 全量时间轴做回测，结果被两类污染放大：一是 2022 前的预热/零收益；二是数据源在 2026-09-21 之后的最新批次。前者会人为压低 Sharpe/CAGR，后者会把主样本之后的价格路径计入结果。引擎现已支持左闭右开的 `start_time`/`end_time` 评估窗口，所有下表结果均为 **2022-01-01 00:00 至 2026-09-21 23:00 UTC**；旧数字全部废止。
+
+- 已实现独立衍生品引擎 `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、isolated margin、小时级强平、差分调仓（不再每次全平全开）、手续费/滑点分开记录；缺失 mark 默认 fail closed，诊断模式可显式 `exit_last`/`carry`。
 - 已实现保证金/强平数学 `src/atlas20/derivatives/margin.py`、信号构造 `src/atlas20/derivatives/signals.py`、Bitget/Binance 数据加载 `src/atlas20/derivatives/data.py`，以及 Phase 2 验证/校准/代理试验脚本。
-- 先用 Binance/Gate 1h K 线作为 **mark 代理** 做 1.0x 对 H5 的引擎校验；这不是 Bitget 结果，不能作为上线依据。
-- 2022-01-01 至 2026-09-21、20 bps、代理 mark 的结果：
-  - H5 全池现货：21.47x，Sharpe 1.684，MDD -37.75%；
-  - 同一 H5 选币但仅保留代理中有小时 mark 的资产：18.22x，Sharpe 1.723，MDD -25.31%；
-  - 30% long buffer + isolated margin 的 1.0x 衍生品：15.67x，Sharpe 1.623，MDD -26.20%，**4 次强平**。
-- 强平事件出现在 2022-11-08 DOGE、2023-08-17 SHIB、2024-03-05 SHIB、2024-04-25 HEDERA 等历史回撤段。说明设计稿原来的 `long_margin_ratio = 0.30 + MMR + 0.005` 在 H5 这种集中持仓上**不能通过“1.0x 不得强平”的门槛**；这不是参数微调，而是原设计规则被 Phase 2 校验否决。
+- 先用 Binance/Gate 1h K 线作为 **mark 代理** 做 1.0x 对 H5 的引擎校验；这不是 Bitget 结果，不能作为上线依据。比较基准必须是 **H5 同成本的 +3h 成交**，不能拿 close-fill 的 21.47x 与 +3h 衍生品路径对比。
+- 2022-01-01 至 2026-09-21、20 bps、+3h、代理 mark 的结果：
+  - H5 全池现货：19.5253x，Sharpe 1.6231，MDD -36.97%；
+  - 同一 H5 选币但仅保留代理中有小时 mark 的资产：15.2974x，Sharpe 1.6258，MDD -26.29%；
+  - 30% long buffer + isolated margin 的 1.0x 衍生品：15.4917x，Sharpe 1.6312，MDD -26.20%，**4 次强平**；
+  - 50% long buffer（V2）的 1.0x 衍生品：15.3380x，Sharpe 1.6267，MDD -26.20%，**0 次强平**。
+- 强平事件仍出现在 2022-11-08 DOGE、2023-08-17 SHIB、2024-03-05 SHIB、2024-04-25 HEDERA 等历史回撤段，说明原设计 `long_margin_ratio = 0.30 + MMR + 0.005` 在 H5 这种 1–2 币集中持仓上**不能通过“1.0x 不得强平”的门槛**；这不是参数小修，而是原规则被 Phase 2 校验否决。
 - 30% buffer 的原始 11 个衍生品 trial 因此不能直接进入最终验收；已追加 8 个 margin calibration trials，并把 V2 规则单独记录为 Phase 2 diagnostic。所有结果仍需在 Bitget mark 数据上重跑。
 
 ### 9.5 2026-10-09 保证金校准：50% long buffer 是当前最小可行点
 
-预注册的 calibration grid 为 long buffer 0.40/0.50/0.60/0.75 × leverage 1.0x/1.25x，固定 fee_buffer 0.005、MMR 0.01、最大保证金占用 85%、20 bps、零 funding，使用代理 mark：
+预注册的 calibration grid 为 long buffer 0.40/0.50/0.60/0.75 × leverage 1.0x/1.25x，固定 fee_buffer 0.005、MMR 0.01、最大保证金占用 85%、20 bps、+3h、零 funding，使用代理 mark：
 
 | 规则 | leverage | 实际最大 gross | 强平次数 | 终值 | Sharpe | MDD |
 |---|---:|---:|---:|---:|---:|---:|
-| MB40 | 1.00x | 1.002x | 1 | 15.23x | 1.609 | -26.20% |
-| MB50 | 1.00x | 1.002x | **0** | 15.51x | 1.619 | -26.20% |
-| MB60 | 1.00x | 1.002x | **0** | 15.51x | 1.619 | -26.20% |
-| MB75 | 1.00x | 1.002x | **0** | 15.51x | 1.619 | -26.20% |
-| MB40 | 1.25x | 1.281x | 1 | 26.54x | 1.609 | -32.10% |
-| MB50 | 1.25x | 1.281x | **0** | 27.16x | 1.618 | -32.10% |
-| MB60 | 1.25x | 1.281x | **0** | 27.16x | 1.618 | -32.10% |
-| MB75 | 1.25x | 1.124x | **0** | 26.96x | 1.628 | -30.80% |
+| MB40 | 1.00x | 1.002x | 1 | 15.062x | 1.617 | -26.20% |
+| MB50 | 1.00x | 1.002x | **0** | 15.338x | 1.627 | -26.20% |
+| MB60 | 1.00x | 1.002x | **0** | 15.338x | 1.627 | -26.20% |
+| MB75 | 1.00x | 1.002x | **0** | 15.338x | 1.627 | -26.20% |
+| MB40 | 1.25x | 1.281x | 1 | 26.171x | 1.616 | -32.10% |
+| MB50 | 1.25x | 1.281x | **0** | 26.782x | 1.626 | -32.10% |
+| MB60 | 1.25x | 1.281x | **0** | 26.782x | 1.626 | -32.10% |
+| MB75 | 1.25x | 1.124x | **0** | 26.582x | 1.636 | -30.80% |
 
 - 40% buffer 仍各有 1 次强平；50% buffer 是两个 leverage 档位下最小的零强平点。
 - 75% buffer 在 1.25x 下因为 85% 最大保证金占用而把实际 gross 压到 1.124x，收益略低、MDD 略好；当前不优先。
-- 因此，**Provisional V2 默认改为 long buffer 50%**；short buffer 仍保持 50% 或更高，具体由后续空头试验决定。该修正必须先写入设计稿，再作为 V2 trial 重跑。
-- V2 long-only 代理诊断（50% buffer、零 funding、20 bps）：
-  - L125-V2：27.16x，Sharpe 1.618，MDD -32.10%，0 次强平；
-  - L150-V2：45.43x，Sharpe 1.617，MDD -37.70%，0 次强平；
-  - L200-V2：107.38x，Sharpe 1.627，MDD -45.03%，0 次强平。
-- L125-V2 成本压力（代理 mark、零 funding）：
-  | 成本 | 衍生品终值 | 衍生品 Sharpe | 衍生品 MDD | H5 同成本终值 | 终值比 | Sharpe 比 |
-  |---:|---:|---:|---:|---:|---:|---:|
-  | 6 bps | 31.84x | 1.685 | -29.99% | 25.30x | 1.258 | 0.956 |
-  | 8 bps | 31.12x | 1.675 | -30.29% | 24.71x | 1.259 | 0.957 |
-  | 11 bps | 30.08x | 1.661 | -30.75% | 23.86x | 1.261 | 0.958 |
-  | 20 bps | 27.16x | 1.618 | -32.10% | 21.47x | 1.265 | 0.961 |
-  | 50 bps | 19.30x | 1.475 | -36.42% | 15.10x | 1.278 | 0.973 |
-  | 100 bps | 10.91x | 1.236 | -43.53% | 8.39x | 1.300 | 1.001 |
-- 在代理 mark、零 funding 的诊断下，L125-V2 同时满足：全部成本无强平、MDD < 50%、终值 >= 1.20 × H5、Sharpe >= 0.90 × H5。但它仍**不是** Bitget 候选结果，因为 mark、funding、Bitget 合约可用性、short overlay、multiple-testing 和 OOS 都未完成。
-- 这些数字只用于证明保证金规则修正的方向；**Bitget mark、真实 funding、短仓、multiple-testing、12 个月 OOS 全部未完成**，不能作为上线或最终收益结论。
+- 因此，**Provisional V2 默认改为 long buffer 50%**；short buffer 仍保持 50% 或更高，具体由后续空头试验决定。
+- V2 long-only 代理诊断（50% buffer、零 funding、20 bps、+3h）：
 
-### 9.6 2026-10-09 空头 overlay 代理诊断：全部被拒
+  | trial | leverage | 实际最大 gross | 强平 | 终值 | Sharpe | MDD |
+  |---|---:|---:|---:|---:|---:|---:|
+  | L125-V2 | 1.25x | 1.281x | 0 | 26.782x | 1.626 | -32.10% |
+  | L150-V2 | 1.50x | 1.574x | 0 | 44.674x | 1.625 | -37.70% |
+  | L200-V2 | 2.00x | 1.758x | 0 | 105.010x | 1.634 | -45.03% |
 
-在 V2 50% long buffer 之上，使用代理 mark 和 **未通过 Phase 1 重叠门槛的 Binance funding proxy** 跑 4 个空头 overlay（20 bps）：
+- L125-V2 的成本压力（代理 mark、零 funding、+3h）与 **H5 同成本 +3h 基准**比较：
+
+  | 成本 | 衍生品终值 | 衍生品 Sharpe | 衍生品 MDD | H5 +3h 终值 | H5 Sharpe | H5 MDD | 终值比 | Sharpe 比 |
+  |---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | 6 bps | 31.395x | 1.693 | -29.99% | 23.016x | 1.700 | -35.22% | 1.364 | 0.996 |
+  | 8 bps | 30.691x | 1.684 | -30.29% | 22.482x | 1.689 | -35.47% | 1.365 | 0.997 |
+  | 11 bps | 29.663x | 1.669 | -30.75% | 21.703x | 1.673 | -35.85% | 1.367 | 0.998 |
+  | 20 bps | 26.782x | 1.626 | -32.10% | 19.525x | 1.623 | -36.97% | 1.372 | 1.002 |
+  | 50 bps | 19.039x | 1.482 | -36.42% | 13.721x | 1.457 | -40.56% | 1.388 | 1.017 |
+  | 100 bps | 10.760x | 1.240 | -43.53% | 7.614x | 1.178 | -46.24% | 1.413 | 1.052 |
+
+- 在代理 mark、零 funding、+3h 的诊断下，L125-V2 全部成本无强平、MDD < 50%、终值 >= 1.36 × H5、Sharpe 与 H5 基本持平或更高；这比旧口径看起来更强，但仍是 **proxy diagnostic**，不能用于上线。
+- 这些数字只证明保证金规则修正和窗口修正方向；**Bitget mark、真实 funding、Bitget 合约可用性、完整 multiple-testing、12 个月 OOS 全部未完成**，不能作为上线或最终收益结论。
+
+### 9.6 2026-10-09 空头 overlay 代理诊断：仍被拒，但拒绝理由修正
+
+在 V2 50% long buffer 之上，使用代理 mark 和 **未通过 Phase 1 重叠门槛的 Binance funding proxy** 跑 4 个空头 overlay（20 bps、+3h、已修正窗口）：
 
 | trial | 终值 | Sharpe | MDD | 强平 | 相对 L125-V2 |
 |---|---:|---:|---:|---:|---|
-| SBTC25 | 27.14x | 1.430 | -32.10% | 0 | 收益持平，Sharpe 大幅下降，MDD 不改善 |
-| SBTC50 | 29.00x | 1.442 | -32.10% | 0 | 收益略高，Sharpe 大幅下降，MDD 不改善 |
-| SWEAK25 | 27.58x | 1.429 | -32.10% | 0 | 收益持平，Sharpe 大幅下降，MDD 不改善 |
-| SWEAK50 | 30.16x | 1.434 | -32.94% | 0 | 收益略高，Sharpe 大幅下降，MDD 反而变差 |
+| SBTC25 | 26.793x | 1.624 | -32.10% | 0 | 收益基本持平；Sharpe 略低；MDD 不改善 |
+| SBTC50 | 28.626x | 1.638 | -32.10% | 0 | 收益略高；Sharpe 略高；MDD 不改善 |
+| SWEAK25 | 27.225x | 1.623 | -32.10% | 0 | 收益略高；Sharpe 略低；MDD 不改善 |
+| SWEAK50 | 29.778x | 1.629 | -32.94% | 0 | 收益略高；Sharpe 略高；MDD 反而变差 |
 
-- L125-V2 基准：27.16x，Sharpe 1.618，MDD -32.10%，0 次强平。
-- 4 个空头 overlay 都没有通过预注册 kill criterion（MDD 改善至少 5 个百分点且 Sharpe 不低于 long-only）。因此 **Phase 3 空头不进入候选**。
+- L125-V2 基准：26.782x，Sharpe 1.626，MDD -32.10%，0 次强平。
+- 修正窗口后，空头 overlay 并没有“Sharpe 大幅下降”；真正的未通过点是 **MDD 完全没有改善**，SWEAK50 还略差。预注册 kill criterion 要求 MDD 至少改善 5 个百分点且 Sharpe 不低于 long-only 基准，因此 4 个空头仍全部被拒。
 - 该结论是代理诊断，且 funding 代理本身未通过 Phase 1 重叠门槛；即使未来 Bitget 精确 funding 改变结果，也必须重新预注册并重新跑完整门槛，不能把本次结论当作最终上线依据。
+
+### 9.7 2026-10-09 multiple-testing 代理诊断（仍需补全正式 scope）
+
+- `reports/derivatives_track_proxy_multiple_testing/` 已加入长期收益矩阵、DSR、White Reality Check 和 PBO/CSCV；输入是当前已跑出的 7 个 20 bps、+3h 代理候选（3 个 long-only leverage + 4 个 short overlay），日期严格为 2022-01-01 至 2026-09-21。
+- 结果：Deflated Sharpe（N=11 的预注册 scope 记账，7 个可用候选的波动率）约 0.99997；White Reality Check p≈0.00699；**PBO/CSCV≈0.960**，最常被选中为 SWEAK50（309/924）。
+- 这 **不能** 宣布 multiple-testing 通过：design 稿要求候选矩阵覆盖 11 个 trial，目前 stop20 变体仍未实现/未跑，成本档位也不是独立策略候选；7 个高度相关的 long/short 变体给出的 PBO≈0.96 是明确的选参不稳定警告。DSR 的高值不能覆盖 PBO 失败。
+- 该报告仍标注为 **proxy diagnostic**；正式 gate 必须在 Bitget mark、真实 funding、完整候选矩阵和 12 个月 OOS 上重跑。固定规格与试验计数不变。
