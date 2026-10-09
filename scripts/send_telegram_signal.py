@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import math
 import os
@@ -77,14 +77,34 @@ def _yes_no(value: object) -> str:
     return "YES" if bool(value) else "NO"
 
 
+def _date_lines(payload: Mapping[str, Any]) -> list[str]:
+    """Explain the UTC signal date and the local T+1 execution date."""
+    raw_as_of = payload.get("as_of", "unknown")
+    signal_date = str(raw_as_of)
+    try:
+        as_of_date = date.fromisoformat(signal_date)
+    except ValueError:
+        return [
+            f"信号日期（UTC日线）: {signal_date}",
+            "数据收盘: unknown",
+            "执行日期: unknown",
+        ]
+    execution_date = as_of_date + timedelta(days=1)
+    return [
+        f"信号日期（UTC日线）: {signal_date}",
+        f"数据收盘: 北京时间 {execution_date.isoformat()} 08:00",
+        f"执行日期: {execution_date.isoformat()}（T+1）",
+    ]
+
+
 def format_signal_message(payload: Mapping[str, Any]) -> str:
     """Format one Telegram message from a live-signal payload."""
     target = _weight_map(payload.get("targets", {}))
     current = _weight_map(payload.get("current_weights", {}))
     lines = [
         "Atlas20 H5 每日信号",
-        f"As of: {payload.get('as_of', 'unknown')}",
-        f"Target date: {payload.get('latest_target_date', 'unknown')}",
+        *_date_lines(payload),
+        f"目标生成日: {payload.get('latest_target_date', 'unknown')}",
         f"Trade required: {_yes_no(payload.get('trade_required'))}",
         f"BTC gate: {'OPEN' if bool(payload.get('btc_gate_open')) else 'CLOSED'}",
         f"Gross target: {float(payload.get('gross_exposure', sum(target.values()))) * 100:.2f}%",

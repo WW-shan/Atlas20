@@ -6,6 +6,16 @@ from pathlib import Path
 import pytest
 
 
+def test_format_signal_message_labels_utc_close_and_t_plus_one_execution() -> None:
+    from scripts.send_telegram_signal import format_signal_message
+
+    message = format_signal_message(_payload())
+
+    assert "信号日期（UTC日线）: 2026-10-08" in message
+    assert "数据收盘: 北京时间 2026-10-09 08:00" in message
+    assert "执行日期: 2026-10-09（T+1）" in message
+
+
 def test_format_signal_message_reports_target_current_and_rebalance() -> None:
     from scripts.send_telegram_signal import format_signal_message
 
@@ -24,7 +34,7 @@ def test_format_signal_message_reports_target_current_and_rebalance() -> None:
     message = format_signal_message(payload)
 
     assert "Atlas20 H5 每日信号" in message
-    assert "As of: 2026-10-08" in message
+    assert "信号日期（UTC日线）: 2026-10-08" in message
     assert "Trade required: YES" in message
     assert "今日目标持仓:" in message
     assert "  NEAR 62.00%" in message
@@ -331,7 +341,8 @@ def test_systemd_timer_runs_daily_in_utc() -> None:
         encoding="utf-8"
     )
 
-    assert "OnCalendar=*-*-* 07:30:00 UTC" in timer
+    assert "OnCalendar=*-*-* 03:00:00 UTC" in timer
+    assert "OnCalendar=*-*-* 07:00:00 UTC" in timer
     assert "Persistent=true" in timer
     assert "Unit=atlas20-telegram-signal.service" in timer
     assert "scripts/run_phase_momentum_live_signal.py" in service

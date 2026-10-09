@@ -76,10 +76,14 @@ systemctl list-timers atlas20-telegram-signal.timer
 journalctl -u atlas20-telegram-signal.service -n 100 --no-pager
 ```
 
-The timer fires at 07:30 UTC. It assumes the data refresh has already completed;
-adjust `OnCalendar` to a time that is after the Ubuntu data-refresh job. The
-service regenerates the signal first, so a stale or partial panel makes the run
-fail instead of sending a stale message.
+The timer makes two attempts per day: 03:00 UTC (11:00 Beijing) and 07:00 UTC
+(15:00 Beijing). The first attempt targets the strategy's assumed +3h execution
+window; the second is a catch-up for days when the primary data refresh is late.
+The same-day idempotency state means only the first successful attempt sends a
+message. Both attempts assume the Ubuntu data-refresh job has completed; adjust
+`OnCalendar` if that job runs at a different time. The service regenerates the
+signal first, so a stale or partial panel makes the attempt fail instead of
+sending a stale message.
 
 ## Idempotency
 
