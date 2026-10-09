@@ -1627,6 +1627,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 - **资产集中度（`reports/derivatives_track_bitget_mark_leg_risk/asset_pnl.csv`）**：L200 口径下 `zcash` 占已实现盈亏 59.6%、`hyperliquid` 15.4%；去掉 `zcash` 后 L125 由 44.125x 降到 **20.295x**，再去掉 `hyperliquid` 降到 **12.429x**（Sharpe 1.769 → 1.511 → 1.333），MDD 完全不变。这与现货轨 §00.8（前 5 币贡献 90.31%、去掉前 3 只剩 2.07x）是同一事实，**同样触发 AGENTS.md 的“不能依赖单一资产”条款**，是本轨道保持 provisional 的独立理由；上线规划应按“去 ZEC 约 20x / 去 ZEC+HYPE 约 12x”而非 44x 来设预期。
 - **风险尺度（L125，真实 mark）**：最大回撤 -40.72%（零 funding）/ -42.49%（3x adverse），最差 7/30/90/365 天为 -18.8%/-22.4%/-38.6%/-26.7%（3x adverse 略差）。按用户计划的 3% 总资金折算，最深一段亏损约 **占总资金 -1.27%**，隔离保证金下的理论上限是 -3%；同期 BTC 买入持有 MDD -67.38%（3% 仓位对应 -2.0%）。
 - **funding proxy 水平校准（`reports/derivatives_track_funding_calibration/`）**：用 Bitget 公开 funding 的 90 天重叠窗口（2026-07-11 → 10-10，48 个资产）测代理偏差——**总 funding 之比中位数 1.590、均值 1.631**（单次费率比 1.449；BTC 约 0.97x，山寨币 1.3x–5.6x）。按实测水平（proxy × 1.59）在真实 mark 上重跑：L125 **30.078x**/Sharpe 1.634/MDD -41.66%、L150 50.963x、L200 118.435x，全部 0 强平；相对同成本现货 H5（19.525x/1.623/-36.97%）仍高 54%。结合 4.3x 盈亏平衡，资金费还有约 2.7 倍安全边际。该门槛记为**部分闭合**（90 天水平校准，不能保证 2022–2025 水平不变）。
+- **成交价口径已闭合（`reports/derivatives_track_fill_price_comparison*/`）**：87 个合约的 market(last) K 线（2022-01-01 → 2026-09-21 23:00）下载完成后，引擎用 mark 估值/强平/funding、market 成交。9 个（funding × leverage）组合下 market 成交终值比 mark 成交高 **0.14%–0.29%**，Sharpe 略升、MDD 不变或微好，**0 次 downgrade**；零 funding L125 44.125x → 44.197x，3x adverse L125 24.290x → 24.327x。该门槛记为**通过**。
 - **仍未闭合（本轨道保持 provisional）**：(1) 无 2022 起真实 funding；(2) 2020-10..2021-12 无强平压力窗口的 Bitget mark 补下载中（该区间只有当时已上市资产有 mark）；(3) 全部用 mark 结算，market/last 执行价敏感性下载中；(4) 年度/滚动/最优年剔除未在真实 mark 上跑；(5) 12 个月真 OOS 不足。
 
 ### 9.9 2026-10-09 衍生品轨上线路线（状态表）
@@ -1642,7 +1643,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 5 | 单一资产依赖 | **失败**（ZEC 占 L200 实现盈亏 59.6%） |
 | 6 | 参数/年度/滚动/状态 | 通过（除 #5） |
 | 7 | 真实 funding | 部分闭合（90 天水平校准 1.59x；L125 30.078x；4.3x 盈亏平衡） |
-| 8 | 成交价口径（market） | 进行中（引擎已就绪，数据下载中） |
+| 8 | 成交价口径（market） | **通过**（9 组合差 0.14%–0.29%，0 次 downgrade） |
 | 9 | pre-2022 压力窗口 | partial（覆盖率限制） |
 | 10 | 12 个月样本外 | 进行中（17/365 天，0.9598x） |
 
