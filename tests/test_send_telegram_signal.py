@@ -36,12 +36,10 @@ def test_format_signal_message_reports_target_current_and_rebalance() -> None:
     assert "Atlas20 H5 每日信号" in message
     assert "信号日期（UTC日线）: 2026-10-08" in message
     assert "Trade required: YES" in message
-    assert "今日目标持仓:" in message
+    assert "目标持仓（调仓后）:" in message
     assert "  NEAR 62.00%" in message
     assert "  CASH 38.00%" in message
-    assert "模型当前持仓:" in message
-    assert "  NEAR 46.00%" in message
-    assert "  CASH 54.00%" in message
+    assert "模型当前持仓:" not in message
     assert "今日操作（按总资金 1000.00 USDT）:" in message
     assert "  BUY NEAR 160.00 USDT (+16.00pp)" in message
     assert "信号仅供参考，请手动执行。" in message
@@ -77,8 +75,7 @@ def test_format_signal_message_reports_usdt_operations_and_holdings() -> None:
     assert "  BUY NEAR 160.00 USDT (+16.00pp)" in message
     assert "  NEAR 62.00% / 620.00 USDT" in message
     assert "  CASH 38.00% / 380.00 USDT" in message
-    assert "  NEAR 46.00% / 460.00 USDT" in message
-    assert "  CASH 54.00% / 540.00 USDT" in message
+    assert "模型当前持仓:" not in message
 
 
 def test_format_signal_message_reports_sell_amount() -> None:

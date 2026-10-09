@@ -4,8 +4,7 @@ The daily Telegram push sends one message per day from the frozen H5 signal
 snapshot. It reports:
 
 - today's `BUY`/`SELL` instructions in USDT, based on a configurable capital;
-- the target model holdings by coin, weight, and USDT amount, including cash;
-- the current model book after drift by coin, weight, and USDT amount, including cash;
+- the post-trade target holdings by coin, weight, and USDT amount, including cash;
 - the as-of date, BTC gate, gross exposure, trial id, and cost assumption.
 
 This is a notification-only path. It does not know about a real brokerage

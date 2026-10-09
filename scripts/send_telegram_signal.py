@@ -1,9 +1,10 @@
 """Send the daily Atlas20 phase-momentum signal to Telegram.
 
 This is a notification-only tool.  It reads the signal snapshot written by
-``scripts/run_phase_momentum_live_signal.py``, formats the model's target and
-current books, and posts one message through the Telegram Bot API.  It never
-places an order and it does not know about any real brokerage account.
+``scripts/run_phase_momentum_live_signal.py``, formats the model's order
+instructions and target book, and posts one message through the Telegram Bot
+API.  It never places an order and it does not know about any real brokerage
+account.
 """
 
 from __future__ import annotations
@@ -127,11 +128,8 @@ def format_signal_message(
             capital=capital,
         ),
         "",
-        "今日目标持仓:",
+        "目标持仓（调仓后）:",
         *_holding_lines(target, capital),
-        "",
-        "模型当前持仓:",
-        *_holding_lines(current, capital),
         "",
         f"Trial: {payload.get('trial_id', 'unknown')}",
         f"Cost: {float(payload.get('cost_bps', 0.0)):g} bps",
