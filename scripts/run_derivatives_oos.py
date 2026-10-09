@@ -44,6 +44,41 @@ TRACKED_SPEC = "PR2026-10-D-L125-V2"
 OOS_START = "2026-09-22"
 
 
+def resolve_signal_window(
+    last_mark: pd.Timestamp,
+    *,
+    now: pd.Timestamp | None = None,
+    requested_end: str | None = None,
+    max_staleness_hours: float = 30.0,
+    allow_stale: bool = False,
+) -> tuple[pd.Timestamp, float]:
+    """Latest signal day the frozen book may use, plus the mark staleness.
+
+    The signal day is capped at the newest *completed* UTC day: a still-forming
+    daily bar must never enter the target book.  The data itself must be newer
+    than ``max_staleness_hours`` or the run fails closed, because a frozen mark
+    tree would silently stop the out-of-sample clock.
+    """
+
+    reference = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if reference.tzinfo is None:
+        reference = reference.tz_localize("UTC")
+    last = pd.Timestamp(last_mark)
+    if last.tzinfo is None:
+        last = last.tz_localize("UTC")
+    staleness_hours = float((reference - last).total_seconds() / 3600.0)
+    if not allow_stale and staleness_hours > float(max_staleness_hours):
+        raise ValueError(
+            f"mark data is stale: last candle {last} is {staleness_hours:.1f}h old "
+            f"(limit {max_staleness_hours:g}h)"
+        )
+    completed_day = reference.normalize() - pd.Timedelta(days=1)
+    signal_end_day = min(last.normalize(), completed_day)
+    if requested_end is not None:
+        signal_end_day = min(signal_end_day, pd.Timestamp(requested_end, tz="UTC").normalize())
+    return signal_end_day, staleness_hours
+
+
 def _weights_table(targets: dict[pd.Timestamp, pd.Series], capital: float) -> pd.DataFrame:
     """Per-signal target book with the delta against the previous signal."""
 
@@ -100,7 +135,14 @@ def main() -> None:
         default="2021-01-01",
         help="panel start for signal warm-up; the evaluation still starts at --start-date",
     )
-    parser.add_argument("--end-date", default=None)
+    parser.add_argument("--end-date", default=None, help="latest signal date (default: last completed UTC day in the marks)")
+    parser.add_argument(
+        "--max-staleness-hours",
+        type=float,
+        default=30.0,
+        help="refuse to write a tracker whose newest mark is older than this (default 30h)",
+    )
+    parser.add_argument("--allow-stale", action="store_true", help="bypass the staleness guard")
     parser.add_argument("--leverage", type=float, default=1.25)
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--cost-bps", type=float, default=20.0)
@@ -115,7 +157,19 @@ def main() -> None:
     if not marks:
         raise SystemExit(f"no market candles found in {args.mark_dir}/candles")
     last_mark = max(frame.index.max() for frame in marks.values())
-    end_date = args.end_date or str(pd.Timestamp(last_mark).normalize().date())
+    try:
+        signal_end_day, staleness_hours = resolve_signal_window(
+            last_mark,
+            requested_end=args.end_date,
+            max_staleness_hours=float(args.max_staleness_hours),
+            allow_stale=bool(args.allow_stale),
+        )
+    except ValueError as exc:
+        raise SystemExit(
+            f"{exc}. Refresh the OOS marks (make derivatives-oos-data) or pass "
+            "--allow-stale for a deliberate backfill."
+        ) from exc
+    end_date = str(signal_end_day.date())
     first_mark = min(frame.index.min() for frame in marks.values())
     engine_start = max(start - pd.Timedelta(days=max(args.carry_days, 0)), pd.Timestamp(first_mark))
     config, market, universe, index = _load_market(
@@ -193,6 +247,10 @@ def main() -> None:
                 "carry_days": int(args.carry_days),
                 "end": str(end),
                 "days": int(len(daily)),
+                "last_mark": str(last_mark),
+                "signal_end_date": end_date,
+                "staleness_hours": staleness_hours,
+                "max_staleness_hours": float(args.max_staleness_hours),
                 "mark_dir": str(args.mark_dir),
                 "dropped_target_rows": int(len(dropped_window)),
                 "liquidations": int(len(result.liquidations)),

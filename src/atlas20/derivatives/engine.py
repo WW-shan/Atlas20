@@ -343,7 +343,17 @@ def run_derivative_backtest(
         }
     if index.empty:
         raise ValueError("no hourly mark candles in the requested evaluation window")
-    execution_times = {_resolve_time(time, index): target for time, target in target_schedule.items()}
+    execution_times: dict[pd.Timestamp, pd.Series] = {}
+    for time, target in target_schedule.items():
+        resolved = _resolve_time(time, index)
+        if resolved in execution_times:
+            # Two signals sliding onto the same hourly bar would silently drop
+            # one rebalance, so this is a hard error rather than last-wins.
+            raise ValueError(
+                f"two signals resolve to the same execution time {resolved}; "
+                "the mark index has an hour-long hole at a fill time"
+            )
+        execution_times[resolved] = target
 
     cash = float(cfg.initial_capital)
     positions: dict[str, _Position] = {}

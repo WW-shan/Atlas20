@@ -3,19 +3,23 @@
   "cost_bps": 20.0,
   "days": 17,
   "dropped_target_rows": 0,
-  "end": "2026-10-09 10:00:00+00:00",
+  "end": "2026-10-09 16:00:00+00:00",
   "engine_start": "2026-09-21 00:00:00+00:00",
   "funding": "zero (upper bound; no exact Bitget history)",
+  "last_mark": "2026-10-09 15:00:00+00:00",
   "leverage": 1.25,
   "liquidations": 0,
   "long_buffer": 0.5,
   "mark_dir": "data/raw/bitget_derivatives/merged_oos_20261009",
+  "max_staleness_hours": 30.0,
   "metrics": {
     "cagr": -0.6081052902356492,
     "max_drawdown": -0.10811574135181312,
     "multiple": 0.9597681415420852,
     "sharpe": -0.8581568553987411
   },
+  "signal_end_date": "2026-10-08",
+  "staleness_hours": 1.0855970102777779,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-10-D-L125-V2"
 }

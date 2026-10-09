@@ -94,7 +94,8 @@ and sends one message per signal day with:
 
 - today's `BUY`/`SELL` in **notional USDT** plus the weight change in pp;
 - the post-trade book: notional, weight, and the **reference isolated margin**
-  (notional x 50%) for every leg;
+  (notional x 51.5% = 50% buffer + 1% maintenance + 0.5% fee buffer, the same ratio the
+  engine posts, giving the -51.01% liquidation distance) for every leg;
 - the total notional vs the 1.25x cap, margin used, and remaining free margin;
 - the UTC signal date, the UTC close (Beijing 08:00 next day), and the modelled
   execution time (T+1 +3h, i.e. 11:00 Beijing);
@@ -111,7 +112,11 @@ make derivatives-oos-data derivatives-oos derivatives-notify
 
 The message is a notification only: it never places an order, does not know any
 real position, and repeated runs on the same signal day are skipped by the
-`(spec, signal_date)` key in `data/derivatives_telegram_state.json`.
+`(spec, signal_date)` key in `data/derivatives_telegram_state.json`. If the
+modelled execution is more than `--max-signal-age-hours` (default 36h) in the
+past, the sender refuses to send and exits non-zero — silence plus a failed
+timer means "the pipeline is stale", never "no trade today". Replay an old
+ledger deliberately with `--allow-stale-signal`.
 
 On Ubuntu, install the matching systemd timer, which mirrors the spot timer:
 

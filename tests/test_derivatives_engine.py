@@ -634,3 +634,32 @@ def test_missing_market_candle_can_downgrade_to_mark_with_an_explicit_policy() -
 
     assert result.trades.iloc[0]["price"] == pytest.approx(100.0)
     assert result.fill_downgrades.iloc[0]["asset"] == "BTC"
+
+
+def test_fill_hour_hole_slides_to_the_next_candle_within_one_hour() -> None:
+    """A missing candle at the fill hour is filled one hour later, explicitly."""
+
+    import pandas as pd
+
+    from atlas20.derivatives.engine import (
+        DerivativeBacktestConfig,
+        run_derivative_backtest,
+    )
+
+    # 03:00 is missing (a provider hole) but 04:00 exists, so the 09-01 fill for
+    # the 08-31 signal must land at 04:00 and be visible in the trade ledger.
+    index = pd.date_range("2026-08-31 00:00", periods=48, freq="1h", tz="UTC").drop(
+        pd.Timestamp("2026-09-01 03:00", tz="UTC")
+    )
+    frame = pd.DataFrame({"open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0}, index=index)
+    targets = {pd.Timestamp("2026-08-31 00:00", tz="UTC"): pd.Series({"a": 1.0})}
+
+    result = run_derivative_backtest(
+        {"a": frame},
+        targets,
+        config=DerivativeBacktestConfig(missing_mark_policy="carry"),
+    )
+
+    opens = result.trades.loc[result.trades["action"] == "open"]
+    assert len(opens) == 1
+    assert pd.Timestamp(opens["timestamp"].iloc[0]) == pd.Timestamp("2026-09-01 04:00", tz="UTC")

@@ -31,6 +31,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
     _chat_ids,
     _read_state,
@@ -40,6 +41,8 @@ from scripts.send_telegram_signal import (  # noqa: E402
 TRACKED_SPEC = "PR2026-10-D-L125-V2"
 LEVERAGE = 1.25
 LONG_BUFFER = 0.50
+MAINTENANCE_MARGIN_RATE = 0.01
+FEE_BUFFER = 0.005
 DEFAULT_TARGETS_FILE = Path("reports/derivatives_track_oos_2026/oos_targets.csv")
 DEFAULT_STATE_FILE = Path("data/derivatives_telegram_state.json")
 CAPITAL_SCALE = 1000.0
@@ -99,15 +102,25 @@ def format_derivatives_message(
     if capital <= 0.0:
         raise ValueError("capital must be positive")
     scale = capital / CAPITAL_SCALE
+    # The engine assigns margin = notional x (buffer + maintenance + fee buffer),
+    # i.e. 51.5% for the frozen 50% long buffer - not exactly 50%.  Posting only
+    # 50% would move the liquidation distance from -51.01% to -49.49%.
+    margin_ratio = initial_margin_ratio(
+        "long",
+        maintenance_margin_rate=MAINTENANCE_MARGIN_RATE,
+        fee_buffer=FEE_BUFFER,
+        long_buffer=long_buffer,
+    )
     book = book.copy()
     book["target_notional"] = pd.to_numeric(book["target_weight"], errors="coerce").fillna(0.0) * capital
     book["change_notional"] = pd.to_numeric(book["change_weight"], errors="coerce").fillna(0.0) * capital
-    book["target_margin"] = book["target_notional"] * long_buffer
+    book["target_margin"] = book["target_notional"] * margin_ratio
 
     lines = [
         f"Atlas20 合约信号 · {spec}",
         *_close_and_execution_lines(pd.Timestamp(signal_date), pd.Timestamp(execution_hint)),
-        f"模式: Bitget 合约 · 名义上限 {leverage:g}x · 隔离保证金缓冲 {long_buffer * 100:.0f}% · 手动下单",
+        f"模式: Bitget 合约 · 名义上限 {leverage:g}x · 每腿隔离保证金 = 名义 × "
+        f"{margin_ratio * 100:.1f}% · 手动下单",
         "",
         f"今日调仓（按权益 {capital:.2f} USDT）:",
     ]
@@ -180,6 +193,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--force", action="store_true", help="send even if this signal date was already sent")
     parser.add_argument("--dry-run", action="store_true", help="print the message without sending")
     parser.add_argument(
+        "--max-signal-age-hours",
+        type=float,
+        default=36.0,
+        help="refuse to send when the modelled execution is older than this (default 36h)",
+    )
+    parser.add_argument(
+        "--allow-stale-signal",
+        action="store_true",
+        help="send even when the modelled execution is long past (ledger replay)",
+    )
+    parser.add_argument(
         "--capital",
         type=float,
         default=None,
@@ -207,6 +231,17 @@ def main(argv: list[str] | None = None) -> None:
     if args.dry_run:
         print(message)
         return
+
+    age_hours = float(
+        (pd.Timestamp.now(tz="UTC") - pd.Timestamp(execution_hint)).total_seconds() / 3600.0
+    )
+    if not args.allow_stale_signal and age_hours > float(args.max_signal_age_hours):
+        raise SystemExit(
+            f"signal {signal_date.date()} was meant to execute at {execution_hint} "
+            f"({age_hours:.1f}h ago, limit {args.max_signal_age_hours:g}h); refusing to send a "
+            "stale instruction. Refresh the pipeline (make derivatives-oos-data derivatives-oos) "
+            "or pass --allow-stale-signal to replay the ledger."
+        )
 
     chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
     if not chat_ids:
