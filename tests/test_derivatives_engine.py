@@ -252,3 +252,54 @@ def test_rebalance_increases_existing_position_without_full_close() -> None:
     assert result.trades["action"].tolist() == ["open", "increase"]
     assert result.positions.iloc[0]["notional"] == pytest.approx(500.0)
     assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0)
+
+
+def test_missing_mark_carry_uses_last_close_within_limit() -> None:
+    btc_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T03:00:00Z", freq="1h", tz="UTC")
+    eth_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T04:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(btc_index), "ETH": _flat_frame(eth_index)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            missing_mark_policy="carry",
+            missing_mark_max_carry_hours=1,
+        ),
+    )
+
+    assert result.trades["action"].tolist() == ["open"]
+    assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0)
+
+
+def test_missing_mark_carry_exits_after_limit() -> None:
+    btc_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T03:00:00Z", freq="1h", tz="UTC")
+    eth_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T06:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(btc_index), "ETH": _flat_frame(eth_index)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            missing_mark_policy="carry",
+            missing_mark_max_carry_hours=1,
+        ),
+    )
+
+    exits = result.trades[result.trades["reason"] == "missing_mark_exit"]
+    assert len(exits) == 1
+    assert exits.iloc[0]["timestamp"] == pd.Timestamp("2026-01-02T05:00:00Z")

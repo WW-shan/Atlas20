@@ -143,7 +143,8 @@ def main() -> None:
             liquidation_slippage_bps=5.0,
             max_gross_exposure=1.0,
             funding_missing_policy="skip",
-            missing_mark_policy="exit_last",
+            missing_mark_policy="carry",
+            missing_mark_max_carry_hours=3,
         ),
     )
     spot = _production_result(config, market, built, index, cost_bps=float(args.cost_bps))
@@ -170,6 +171,7 @@ def main() -> None:
     result.equity_curve.to_csv(output_dir / "equity_curve.csv", header=True)
     result.trades.to_csv(output_dir / "trades.csv", index=False)
     result.liquidations.to_csv(output_dir / "liquidations.csv", index=False)
+    result.mark_carries.to_csv(output_dir / "mark_carries.csv", index=False)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps(summary, indent=2, sort_keys=True))
     print(f"Wrote engine validation to {output_dir}")

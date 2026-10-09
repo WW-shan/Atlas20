@@ -98,7 +98,8 @@ def main() -> None:
                     maintenance_margin_rate=0.01,
                     max_margin_utilization=0.85,
                     funding_missing_policy="skip",
-                    missing_mark_policy="exit_last",
+                    missing_mark_policy="carry",
+            missing_mark_max_carry_hours=3,
                 ),
             )
             metrics = _metrics_from_returns(result.daily_returns)

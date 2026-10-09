@@ -68,17 +68,44 @@ def _long_targets_from_build(built, index: pd.DatetimeIndex) -> dict[pd.Timestam
     return targets
 
 
+def _has_execution_mark(
+    mark_candles: dict[str, pd.DataFrame],
+    asset: str,
+    date: pd.Timestamp,
+) -> bool:
+    frame = mark_candles.get(asset)
+    if frame is None:
+        return False
+    execution_time = pd.Timestamp(date)
+    if execution_time.tzinfo is None:
+        execution_time = execution_time.tz_localize("UTC")
+    else:
+        execution_time = execution_time.tz_convert("UTC")
+    execution_time = execution_time.normalize() + pd.Timedelta(days=1, hours=3)
+    if execution_time in frame.index:
+        return True
+    later = frame.index[frame.index >= execution_time]
+    return bool(len(later) and later[0] - execution_time <= pd.Timedelta(hours=1))
+
+
 def _restrict_targets(
     targets: dict[pd.Timestamp, pd.Series],
     available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.Series]:
     """Drop unavailable Bitget assets to cash without renormalizing the book."""
     restricted: dict[pd.Timestamp, pd.Series] = {}
     dropped_rows: list[dict[str, object]] = []
     for date, weights in targets.items():
         weights = pd.to_numeric(weights, errors="coerce").fillna(0.0)
-        keep = weights[weights.index.isin(available)]
-        dropped = weights[~weights.index.isin(available)]
+        keep_mask = weights.index.isin(available) & pd.Index(
+            [
+                _has_execution_mark(mark_candles, str(asset), pd.Timestamp(date))
+                for asset in weights.index
+            ]
+        )
+        keep = weights[keep_mask]
+        dropped = weights[~keep_mask]
         if not dropped.empty:
             dropped_rows.extend(
                 {
@@ -117,6 +144,15 @@ def main() -> None:
     parser.add_argument("--end-date", default="2026-09-21")
     parser.add_argument("--trial-id", default="PR2026-10-D-L125")
     parser.add_argument("--cost-bps", type=float, default=20.0)
+    parser.add_argument("--long-buffer", type=float, default=0.50)
+    parser.add_argument("--short-buffer", type=float, default=0.50)
+    parser.add_argument(
+        "--missing-mark-policy",
+        choices=("error", "carry", "exit_last"),
+        default="error",
+        help="error is the production default; carry/exit_last are diagnostics only",
+    )
+    parser.add_argument("--missing-mark-max-carry-hours", type=int, default=3)
     parser.add_argument(
         "--funding-source",
         choices=("zero", "binance-proxy", "bitget-exact"),
@@ -160,7 +196,7 @@ def main() -> None:
         coins=set(market.price.columns),
     )
     available = available_marks & (set(funding.columns) if not funding.empty else available_marks)
-    restricted, dropped = _restrict_targets(long_targets, available)
+    restricted, dropped = _restrict_targets(long_targets, available, mark_candles)
     short_asset = rule["short_asset"]
     short_weight = float(rule["short_weight"])
     leverage = float(rule["leverage"])
@@ -184,8 +220,12 @@ def main() -> None:
         taker_fee_bps=float(args.cost_bps),
         slippage_bps=0.0,
         liquidation_slippage_bps=5.0,
+        long_buffer=float(args.long_buffer),
+        short_buffer=float(args.short_buffer),
         max_gross_exposure=max_gross,
         funding_missing_policy="error",
+        missing_mark_policy=args.missing_mark_policy,
+        missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
     )
     result = run_derivative_backtest(
         mark_candles,

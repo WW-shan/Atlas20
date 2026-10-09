@@ -745,3 +745,16 @@ L125-V2 的成本压力（代理 mark、零 funding）如下：
 代理诊断下，L125-V2 全部成本无强平，MDD < 50%，终值 >= 1.20 × H5，Sharpe >= 0.90 × H5；但这不是 Bitget 结果，不能用于上线。
 
 这些数字仅证明保证金规则修正方向；它们使用代理 mark、零 funding、尚未做 Bitget mark、真实 funding、short overlay、multiple-testing 和 OOS。任何上线结论都不成立。
+
+### 12.5 空头 overlay 代理诊断：被拒
+
+在 V2 50% long buffer 之上，使用代理 mark 和 Binance funding proxy 跑 SBTC25/SBTC50/SWEAK25/SWEAK50，20 bps：
+
+| trial | 终值 | Sharpe | MDD | 强平 |
+|---|---:|---:|---:|---:|
+| SBTC25 | 27.14x | 1.430 | -32.10% | 0 |
+| SBTC50 | 29.00x | 1.442 | -32.10% | 0 |
+| SWEAK25 | 27.58x | 1.429 | -32.10% | 0 |
+| SWEAK50 | 30.16x | 1.434 | -32.94% | 0 |
+
+对比 L125-V2 基准（27.16x、Sharpe 1.618、MDD -32.10%），四个空头 overlay 都显著降低 Sharpe，且没有达到“MDD 改善至少 5 个百分点”的门槛。因此 Phase 3 空头 overlay 在当前代理诊断下被拒绝。由于 funding 代理未通过 Phase 1 重叠门槛，这一结论仍只是实现层诊断，不能替代未来 Bitget 精确 funding 的独立预注册试验。

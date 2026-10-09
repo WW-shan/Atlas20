@@ -159,6 +159,7 @@ def build_derivative_targets(
     short_asset: str | None = None,
     short_weight: float = 0.0,
     eligible: Set[str] | None = None,
+    btc_asset: str = "BTC",
     btc_funding_threshold: float = -0.0001,
     short_funding_threshold: float = -0.0002,
 ) -> dict[pd.Timestamp, pd.Series]:
@@ -185,7 +186,7 @@ def build_derivative_targets(
             if chosen is not None:
                 btc_ok = funding_filter(
                     funding_rates,
-                    "BTC",
+                    btc_asset,
                     as_of=date,
                     threshold=btc_funding_threshold,
                 )

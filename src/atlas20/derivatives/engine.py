@@ -42,6 +42,7 @@ class DerivativeBacktestConfig:
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
     missing_mark_policy: str = "error"
+    missing_mark_max_carry_hours: int = 1
 
     def __post_init__(self) -> None:
         if self.initial_capital <= 0.0:
@@ -70,8 +71,10 @@ class DerivativeBacktestConfig:
             raise ValueError("execution_lag_days must be non-negative")
         if self.funding_missing_policy not in {"error", "skip"}:
             raise ValueError("funding_missing_policy must be 'error' or 'skip'")
-        if self.missing_mark_policy not in {"error", "exit_last"}:
-            raise ValueError("missing_mark_policy must be 'error' or 'exit_last'")
+        if self.missing_mark_policy not in {"error", "exit_last", "carry"}:
+            raise ValueError("missing_mark_policy must be 'error', 'exit_last', or 'carry'")
+        if self.missing_mark_max_carry_hours < 0:
+            raise ValueError("missing_mark_max_carry_hours must be non-negative")
 
 
 @dataclass
@@ -100,6 +103,7 @@ class DerivativeBacktestResult:
     funding: pd.DataFrame
     liquidations: pd.DataFrame
     positions: pd.DataFrame
+    mark_carries: pd.DataFrame
 
 
 _TRADE_COLUMNS = [
@@ -126,6 +130,7 @@ _LIQUIDATION_COLUMNS = [
     "margin_before",
     "bad_debt",
 ]
+_MARK_CARRY_COLUMNS = ["timestamp", "asset", "last_mark_time", "hours", "price"]
 _POSITION_COLUMNS = [
     "timestamp",
     "asset",
@@ -274,6 +279,7 @@ def run_derivative_backtest(
     trades: list[dict[str, object]] = []
     funding_events: list[dict[str, object]] = []
     liquidation_events: list[dict[str, object]] = []
+    mark_carries: list[dict[str, object]] = []
     position_entries: list[dict[str, object]] = []
     equity_values: list[float] = []
     cash_values: list[float] = []
@@ -281,11 +287,30 @@ def run_derivative_backtest(
     fee_rate = (cfg.taker_fee_bps + cfg.slippage_bps) / 10_000.0
     liquidation_fee_rate = (cfg.taker_fee_bps + cfg.liquidation_slippage_bps) / 10_000.0
 
+    def _last_mark(asset: str, timestamp: pd.Timestamp) -> tuple[pd.Timestamp, float] | None:
+        frame = candles.get(asset)
+        if frame is None:
+            return None
+        prior = frame.index[frame.index <= timestamp]
+        if prior.empty:
+            return None
+        last_time = pd.Timestamp(prior[-1])
+        return last_time, float(frame.at[last_time, "close"])
+
     def bar(asset: str, timestamp: pd.Timestamp) -> pd.Series:
         frame = candles.get(asset)
-        if frame is None or timestamp not in frame.index:
-            raise ValueError(f"missing mark candle for held asset {asset} at {timestamp}")
-        return frame.loc[timestamp]
+        if frame is not None and timestamp in frame.index:
+            return frame.loc[timestamp]
+        if cfg.missing_mark_policy == "carry":
+            carried = _last_mark(asset, timestamp)
+            if carried is not None:
+                last_time, price = carried
+                hours = (timestamp - last_time).total_seconds() / 3600.0
+                if hours <= cfg.missing_mark_max_carry_hours:
+                    return pd.Series(
+                        {"open": price, "high": price, "low": price, "close": price}
+                    )
+        raise ValueError(f"missing mark candle for held asset {asset} at {timestamp}")
 
     def mark(asset: str, timestamp: pd.Timestamp, column: str = "close") -> float:
         return float(bar(asset, timestamp)[column])
@@ -601,10 +626,10 @@ def run_derivative_backtest(
     for timestamp in index:
         timestamp = pd.Timestamp(timestamp)
 
-        # A provider gap after a delisting cannot be carried at a stale mark
-        # indefinitely.  The explicit diagnostic policy closes at the last
-        # available close; the production default remains a hard error.
-        if cfg.missing_mark_policy == "exit_last":
+        # A provider gap after a delisting cannot be carried indefinitely.
+        # ``exit_last`` closes on the first gap; ``carry`` is an explicit
+        # diagnostic policy with a hard hour limit; ``error`` is production.
+        if cfg.missing_mark_policy in {"exit_last", "carry"}:
             for asset in list(positions):
                 frame = candles.get(asset)
                 if frame is None:
@@ -614,12 +639,24 @@ def run_derivative_backtest(
                     if prior.empty:
                         raise ValueError(f"no prior mark for held asset {asset} at {timestamp}")
                     last_time = pd.Timestamp(prior[-1])
-                    close_position(
-                        asset,
-                        timestamp,
-                        float(frame.at[last_time, "close"]),
-                        reason="missing_mark_exit",
-                    )
+                    hours = (timestamp - last_time).total_seconds() / 3600.0
+                    if cfg.missing_mark_policy == "exit_last" or hours > cfg.missing_mark_max_carry_hours:
+                        close_position(
+                            asset,
+                            timestamp,
+                            float(frame.at[last_time, "close"]),
+                            reason="missing_mark_exit",
+                        )
+                    else:
+                        mark_carries.append(
+                            {
+                                "timestamp": timestamp,
+                                "asset": asset,
+                                "last_mark_time": last_time,
+                                "hours": hours,
+                                "price": float(frame.at[last_time, "close"]),
+                            }
+                        )
 
         # Funding is settled before the hourly liquidation check.
         if timestamp in funding.index:
@@ -682,6 +719,7 @@ def run_derivative_backtest(
         funding=pd.DataFrame(funding_events, columns=_FUNDING_COLUMNS),
         liquidations=pd.DataFrame(liquidation_events, columns=_LIQUIDATION_COLUMNS),
         positions=pd.DataFrame(position_entries, columns=_POSITION_COLUMNS),
+        mark_carries=pd.DataFrame(mark_carries, columns=_MARK_CARRY_COLUMNS),
     )
 
 

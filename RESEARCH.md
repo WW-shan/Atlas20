@@ -1572,3 +1572,18 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
   | 100 bps | 10.91x | 1.236 | -43.53% | 8.39x | 1.300 | 1.001 |
 - 在代理 mark、零 funding 的诊断下，L125-V2 同时满足：全部成本无强平、MDD < 50%、终值 >= 1.20 × H5、Sharpe >= 0.90 × H5。但它仍**不是** Bitget 候选结果，因为 mark、funding、Bitget 合约可用性、short overlay、multiple-testing 和 OOS 都未完成。
 - 这些数字只用于证明保证金规则修正的方向；**Bitget mark、真实 funding、短仓、multiple-testing、12 个月 OOS 全部未完成**，不能作为上线或最终收益结论。
+
+### 9.6 2026-10-09 空头 overlay 代理诊断：全部被拒
+
+在 V2 50% long buffer 之上，使用代理 mark 和 **未通过 Phase 1 重叠门槛的 Binance funding proxy** 跑 4 个空头 overlay（20 bps）：
+
+| trial | 终值 | Sharpe | MDD | 强平 | 相对 L125-V2 |
+|---|---:|---:|---:|---:|---|
+| SBTC25 | 27.14x | 1.430 | -32.10% | 0 | 收益持平，Sharpe 大幅下降，MDD 不改善 |
+| SBTC50 | 29.00x | 1.442 | -32.10% | 0 | 收益略高，Sharpe 大幅下降，MDD 不改善 |
+| SWEAK25 | 27.58x | 1.429 | -32.10% | 0 | 收益持平，Sharpe 大幅下降，MDD 不改善 |
+| SWEAK50 | 30.16x | 1.434 | -32.94% | 0 | 收益略高，Sharpe 大幅下降，MDD 反而变差 |
+
+- L125-V2 基准：27.16x，Sharpe 1.618，MDD -32.10%，0 次强平。
+- 4 个空头 overlay 都没有通过预注册 kill criterion（MDD 改善至少 5 个百分点且 Sharpe 不低于 long-only）。因此 **Phase 3 空头不进入候选**。
+- 该结论是代理诊断，且 funding 代理本身未通过 Phase 1 重叠门槛；即使未来 Bitget 精确 funding 改变结果，也必须重新预注册并重新跑完整门槛，不能把本次结论当作最终上线依据。
