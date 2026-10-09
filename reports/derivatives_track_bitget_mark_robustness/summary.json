@@ -1,0 +1,23 @@
+{
+  "candidates": [
+    "L125-zero",
+    "L150-zero",
+    "L200-zero",
+    "L125-zero-funding-universe",
+    "L150-zero-funding-universe",
+    "L200-zero-funding-universe",
+    "L125-binance-proxy",
+    "L125-binance-long-adverse-2x",
+    "L125-binance-long-adverse-3x",
+    "L150-binance-proxy",
+    "L150-binance-long-adverse-2x",
+    "L150-binance-long-adverse-3x",
+    "L200-binance-proxy",
+    "L200-binance-long-adverse-2x",
+    "L200-binance-long-adverse-3x"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "window_days": 365
+}
