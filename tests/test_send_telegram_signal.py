@@ -42,8 +42,8 @@ def test_format_signal_message_reports_target_current_and_rebalance() -> None:
     assert "模型当前持仓:" in message
     assert "  NEAR 46.00%" in message
     assert "  CASH 54.00%" in message
-    assert "模型调仓:" in message
-    assert "  BUY NEAR +16.00pp" in message
+    assert "今日操作（按总资金 1000.00 USDT）:" in message
+    assert "  BUY NEAR 160.00 USDT (+16.00pp)" in message
     assert "信号仅供参考，请手动执行。" in message
 
 
@@ -68,6 +68,30 @@ def _write_signal(path: Path, payload: dict[str, object] | None = None) -> None:
     path.write_text(json.dumps(payload or _payload()), encoding="utf-8")
 
 
+def test_format_signal_message_reports_usdt_operations_and_holdings() -> None:
+    from scripts.send_telegram_signal import format_signal_message
+
+    message = format_signal_message(_payload(), capital=1000.0)
+
+    assert "今日操作（按总资金 1000.00 USDT）:" in message
+    assert "  BUY NEAR 160.00 USDT (+16.00pp)" in message
+    assert "  NEAR 62.00% / 620.00 USDT" in message
+    assert "  CASH 38.00% / 380.00 USDT" in message
+    assert "  NEAR 46.00% / 460.00 USDT" in message
+    assert "  CASH 54.00% / 540.00 USDT" in message
+
+
+def test_format_signal_message_reports_sell_amount() -> None:
+    from scripts.send_telegram_signal import format_signal_message
+
+    message = format_signal_message(
+        _payload(targets={"near": 0.20}, current_weights={"near": 0.60}),
+        capital=1000.0,
+    )
+
+    assert "  SELL NEAR 400.00 USDT (-40.00pp)" in message
+
+
 def test_format_signal_message_says_no_rebalance_when_weights_match() -> None:
     from scripts.send_telegram_signal import format_signal_message
 
@@ -80,14 +104,15 @@ def test_format_signal_message_says_no_rebalance_when_weights_match() -> None:
     assert "SELL NEAR" not in message
 
 
-def test_format_signal_message_marks_unchanged_coin_as_hold() -> None:
+def test_format_signal_message_omits_unchanged_coin_from_operations() -> None:
     from scripts.send_telegram_signal import format_signal_message
 
     message = format_signal_message(
         _payload(targets={"near": 0.62}, current_weights={"near": 0.62})
     )
 
-    assert "  HOLD NEAR +0.00pp" in message
+    assert "今日无需调仓" in message
+    assert "HOLD NEAR" not in message
 
 
 def test_format_signal_message_does_not_rebalance_on_non_trade_days() -> None:

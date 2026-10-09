@@ -41,34 +41,38 @@ def _cash_weight(weights: Mapping[str, float]) -> float:
     return max(0.0, 1.0 - sum(weights.values()))
 
 
-def _holding_lines(weights: Mapping[str, float]) -> list[str]:
+def _holding_lines(weights: Mapping[str, float], capital: float) -> list[str]:
     lines: list[str] = []
     for asset, weight in sorted(weights.items(), key=lambda item: (-item[1], item[0])):
-        lines.append(f"  {asset.upper()} {weight * 100:.2f}%")
-    lines.append(f"  CASH {_cash_weight(weights) * 100:.2f}%")
+        lines.append(
+            f"  {asset.upper()} {weight * 100:.2f}% / {weight * capital:.2f} USDT"
+        )
+    cash = _cash_weight(weights)
+    lines.append(f"  CASH {cash * 100:.2f}% / {cash * capital:.2f} USDT")
     return lines
 
 
-def _rebalance_lines(
+def _operation_lines(
     target: Mapping[str, float],
     current: Mapping[str, float],
     *,
     trade_required: bool,
+    capital: float,
 ) -> list[str]:
     if not trade_required:
         return ["  今日无需调仓"]
     assets = sorted(set(target) | set(current))
     lines: list[str] = []
-    changed = False
     for asset in assets:
         delta = target.get(asset, 0.0) - current.get(asset, 0.0)
         if abs(delta) < 5e-7:
-            action = "HOLD"
-        else:
-            action = "BUY" if delta > 0.0 else "SELL"
-            changed = True
-        lines.append(f"  {action} {asset.upper()} {delta * 100:+.2f}pp")
-    if not changed:
+            continue
+        action = "BUY" if delta > 0.0 else "SELL"
+        lines.append(
+            f"  {action} {asset.upper()} {abs(delta) * capital:.2f} USDT "
+            f"({delta * 100:+.2f}pp)"
+        )
+    if not lines:
         lines.append("  今日无需调仓")
     return lines
 
@@ -97,8 +101,14 @@ def _date_lines(payload: Mapping[str, Any]) -> list[str]:
     ]
 
 
-def format_signal_message(payload: Mapping[str, Any]) -> str:
+def format_signal_message(
+    payload: Mapping[str, Any],
+    *,
+    capital: float = 1000.0,
+) -> str:
     """Format one Telegram message from a live-signal payload."""
+    if capital <= 0.0:
+        raise ValueError("capital must be positive")
     target = _weight_map(payload.get("targets", {}))
     current = _weight_map(payload.get("current_weights", {}))
     lines = [
@@ -109,18 +119,19 @@ def format_signal_message(payload: Mapping[str, Any]) -> str:
         f"BTC gate: {'OPEN' if bool(payload.get('btc_gate_open')) else 'CLOSED'}",
         f"Gross target: {float(payload.get('gross_exposure', sum(target.values()))) * 100:.2f}%",
         "",
-        "今日目标持仓:",
-        *_holding_lines(target),
-        "",
-        "模型当前持仓:",
-        *_holding_lines(current),
-        "",
-        "模型调仓:",
-        *_rebalance_lines(
+        f"今日操作（按总资金 {capital:.2f} USDT）:",
+        *_operation_lines(
             target,
             current,
             trade_required=bool(payload.get("trade_required")),
+            capital=capital,
         ),
+        "",
+        "今日目标持仓:",
+        *_holding_lines(target, capital),
+        "",
+        "模型当前持仓:",
+        *_holding_lines(current, capital),
         "",
         f"Trial: {payload.get('trial_id', 'unknown')}",
         f"Cost: {float(payload.get('cost_bps', 0.0)):g} bps",
@@ -236,6 +247,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--force", action="store_true", help="send even if this as-of date was already sent")
     parser.add_argument("--dry-run", action="store_true", help="print the message without sending")
+    parser.add_argument(
+        "--capital",
+        type=float,
+        default=None,
+        help="total model capital in USDT for amount instructions (default: 1000 or ATLAS20_TELEGRAM_CAPITAL)",
+    )
     args = parser.parse_args(argv)
 
     payload = _load_signal(args.signal_file)
@@ -245,7 +262,14 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Already sent {key}; skipping")
         return
 
-    message = format_signal_message(payload)
+    raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
+    try:
+        capital = float(raw_capital)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit("ATLAS20_TELEGRAM_CAPITAL/--capital must be a number") from exc
+    if capital <= 0.0:
+        raise SystemExit("ATLAS20_TELEGRAM_CAPITAL/--capital must be positive")
+    message = format_signal_message(payload, capital=capital)
     if args.dry_run:
         print(message)
         return

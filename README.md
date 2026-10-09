@@ -715,9 +715,11 @@ A daily Telegram push can be enabled after the snapshot is generated:
 .venv/bin/python scripts/send_telegram_signal.py --force
 ```
 
-It reports the target holdings, the current model holdings, and the model
-rebalance in percentage points. It is notification-only and never places an
-order. Credentials are read from `ATLAS20_TELEGRAM_BOT_TOKEN` and
+It reports today's buy/sell instructions in USDT, the target holdings, the
+current model holdings, and the model rebalance in percentage points. The
+amounts default to a 1000 USDT model capital and can be changed with
+`ATLAS20_TELEGRAM_CAPITAL` or `--capital`. It is notification-only and never
+places an order. Credentials are read from `ATLAS20_TELEGRAM_BOT_TOKEN` and
 `ATLAS20_TELEGRAM_CHAT_ID`; see `docs/operations/telegram_signal.md`. Ubuntu
 deployments use the checked-in `ops/systemd/atlas20-telegram-signal.{service,timer}`
 units, with no macOS launchd dependency.
