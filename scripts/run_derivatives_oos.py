@@ -34,7 +34,6 @@ from atlas20.derivatives.signals import scale_long_targets  # noqa: E402
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 
-from scripts.run_bitget_mark_matrix import _funding_intervals  # noqa: E402
 from scripts.run_derivatives_backtest import _long_targets_from_build, _restrict_targets  # noqa: E402
 from scripts.run_phase_momentum import _load_market  # noqa: E402
 from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
@@ -77,6 +76,18 @@ def resolve_signal_window(
     if requested_end is not None:
         signal_end_day = min(signal_end_day, pd.Timestamp(requested_end, tz="UTC").normalize())
     return signal_end_day, staleness_hours
+
+
+def load_symbol_map(mark_dir: Path) -> pd.DataFrame:
+    """Symbol map for a mark tree, with an actionable error when it is missing."""
+
+    path = Path(mark_dir) / "symbol_map.csv"
+    if not path.is_file():
+        raise SystemExit(
+            f"mark directory {mark_dir} has no symbol_map.csv; "
+            "download the OOS marks first (make derivatives-oos-data)"
+        )
+    return pd.read_csv(path)
 
 
 def _weights_table(targets: dict[pd.Timestamp, pd.Series], capital: float) -> pd.DataFrame:
@@ -152,7 +163,7 @@ def main() -> None:
 
     start = pd.Timestamp(args.start_date, tz="UTC")
     signal_start = args.warmup_start
-    symbol_map = pd.read_csv(args.mark_dir / "symbol_map.csv")
+    symbol_map = load_symbol_map(args.mark_dir)
     marks = load_mark_candles(args.mark_dir, symbol_map)
     if not marks:
         raise SystemExit(f"no market candles found in {args.mark_dir}/candles")
@@ -184,7 +195,6 @@ def main() -> None:
         dropped_window = dropped.loc[dropped_dates > engine_start]
     else:
         dropped_window = dropped
-    intervals = _funding_intervals(symbol_map)
     scaled = scale_long_targets(restricted, leverage=args.leverage, max_gross=args.leverage)
 
     end = pd.Timestamp(last_mark) + pd.Timedelta(hours=1)

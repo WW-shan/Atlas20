@@ -56,3 +56,22 @@ def test_stale_marks_fail_closed_unless_explicitly_allowed() -> None:
     )
     assert signal_day == pd.Timestamp("2026-10-07", tz="UTC")
     assert staleness == pytest.approx(55.08, abs=0.05)
+
+
+def test_missing_mark_dir_fails_with_actionable_message(tmp_path) -> None:
+    from scripts.run_derivatives_oos import load_symbol_map
+
+    with pytest.raises(SystemExit, match="has no symbol_map.csv"):
+        load_symbol_map(tmp_path / "missing-marks")
+
+
+def test_symbol_map_loads_from_the_mark_dir(tmp_path) -> None:
+    from scripts.run_derivatives_oos import load_symbol_map
+
+    (tmp_path / "symbol_map.csv").write_text(
+        "asset,symbol\nnear,NEARUSDT\n", encoding="utf-8"
+    )
+
+    frame = load_symbol_map(tmp_path)
+
+    assert list(frame["asset"]) == ["near"]

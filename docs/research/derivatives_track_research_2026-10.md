@@ -1204,3 +1204,30 @@ Bitget 只有 90 天历史，无法证明 1.59x 这个溢价在 2022–2025 是�
 - 但这也给出了**上界的使用方式**：即便假设 Bitget 历史溢价达到本次观测到的跨所最大离散度（≈2x Binance），对应终值 28.266x，仍高于同成本现货 H5 的 19.525x；距离 4.3x 盈亏平衡还有约 2.15 倍。
 - 因此 funding 门槛的口径定为：**中心情形 = 实测 Bitget 水平（proxy × 1.59，30.078x）；上界情形 = 跨所最大离散度（×2，28.266x）；压力情形 = ×3（24.290x）；break-even = ×4.3**。仍不能声称"精确资金费已计"，但"代理偏多少"已经从未知变成有实测、有上界、有安全边际。
 - 顺带一个重要观察：2026 年 Bybit 的 funding 显著低于 Binance（0.67x），说明**当前是 funding 偏高的阶段**（§12.8.16 的 90 天窗口是高位），把它当作长期水平反而偏保守。
+
+#### 12.8.21 全链路实测与负路径审计（2026-10-09/10）
+
+用户要求"信号、代码全链路实测一遍"，因此对上线路径做了一次逐段演练，并把**失败路径**也当作被测对象。全部证据如下（本机 macOS，UTC 时钟）：
+
+**正向链路（全部通过）**
+
+1. 面板刷新 `scripts/download_data.py`：PIT CMC Top20 面板更新到 2026-10-08，97 个完整行，无缺失填充。
+2. OOS 追踪 `make derivatives-oos`：17 天，最新 mark 2026-10-09 15:00 UTC，staleness 1.46h（< 30h 闸门），0 次强平，dropped_target_rows=0，signal day 自动停在 2026-10-08（未收盘的 UTC 日不进信号）。
+3. 信号 dry-run 与**独立重算**对拍：账本重算出 NEAR 名义 776.78 / 变化 +144.67 / 隔离保证金 400.04（=776.78×51.5%），与 `send_derivatives_signal.py --dry-run` 逐字一致。
+4. 真实 Telegram 发送：`getMe` 正常，两个 chat id（1231093599、5582320122）都收到 2026-10-08 信号；随后再跑一次 `derivatives-notify` 命中幂等（"Already sent … skipping"，exit 0，未重复发送）。
+5. 冻结结果复现（审计后重跑，与已提交证据**逐位一致**）：zero funding L125 = 44.12529343989681x（daily_returns 序列 bit-identical）；实测 funding（proxy×1.59、stress_median）= 30.07751281087659x，Sharpe 1.6338534307862165，MDD −41.66%，0 强平，funding_total −1.1982。
+
+**负路径（fail loudly，全部 exit≠0 且带可操作提示）**
+
+| 场景 | 结果 |
+|---|---|
+| 缺 bot token | exit 1，`ATLAS20_TELEGRAM_BOT_TOKEN is not set` |
+| 信号超过 36h | exit 1，拒绝发送并提示刷新 pipeline / `--allow-stale-signal` |
+| targets 文件不存在 | exit 1，`targets file not found: …` |
+| 缺 chat id | exit 1，`ATLAS20_TELEGRAM_CHAT_ID is not set` |
+| mark 数据过期（>30h） | exit 1，提示 `make derivatives-oos-data` 或 `--allow-stale` |
+| mark 目录不存在 | 修复前是 `FileNotFoundError` 堆栈；现为 exit 1 + 可操作提示 |
+
+**本轮新修 1 个真 bug**：`run_derivatives_oos.py` 对缺失的 mark 目录会抛出原始 traceback（其他闸门都是可读的 SystemExit）。改为 `load_symbol_map()` 显式检查 `symbol_map.csv` 并给出下载指引，新增 2 个回归测试。
+
+**回归状态**：`pytest -q` 1359 passed / 1 skipped；`make lint`、`make typecheck`、`check_repo_health.py` 全绿（本轮仅 scripts/ 与 tests/ 改动，未触碰冻结策略参数）。
