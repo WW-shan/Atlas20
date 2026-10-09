@@ -208,6 +208,7 @@ def main() -> None:
     parser.add_argument("--max-symbols", type=int, default=0)
     parser.add_argument("--sample-windows", type=int, default=0, help="0 downloads the full range")
     parser.add_argument("--max-requests", type=int, default=0, help="0 means unlimited")
+    parser.add_argument("--rate-limit-seconds", type=float, default=0.05)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--funding-only", action="store_true")
     parser.add_argument("--skip-funding", action="store_true")
@@ -225,7 +226,7 @@ def main() -> None:
     state = _load_state(state_path)
 
     panel = _read_panel(args.panel)
-    client = BitgetClient()
+    client = BitgetClient(rate_limit_seconds=args.rate_limit_seconds)
     contracts = client.fetch_contracts()
     symbol_map = build_symbol_map(panel, contracts)
     symbol_map.to_csv(output_dir / "symbol_map.csv", index=False)

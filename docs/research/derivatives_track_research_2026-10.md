@@ -688,3 +688,60 @@ Bitget 当前 USDT-M 基础费率：
 8. long-only 通过后再跑 BTC short overlay；
 9. 最后才考虑 weakest-Top20 short；
 10. 通过 Phase 5 的 shadow/micro-live/scale 阶梯后才考虑真实资金。
+
+## 12. Phase 2 项目内更新（2026-10-09）
+
+### 12.1 引擎
+
+已实现并测试：
+
+- `src/atlas20/derivatives/margin.py`：isolated-margin 强平价、强平距离、初始保证金率；
+- `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、小时级强平、差分调仓、手续费/滑点/强平事件台账；
+- `src/atlas20/derivatives/signals.py`：H5 long 缩放、BTC 200D MA + 30D return 熊市确认、funding filter、weakest-Top20 short；
+- `src/atlas20/derivatives/data.py`：Bitget mark/funding 与 Binance funding proxy 加载。
+
+### 12.2 1.0x 校验的否定结果
+
+使用 Binance/Gate 1h mark 代理做 Phase 2 诊断（不是 Bitget 结果）：
+
+- H5 全池现货 @20bps：21.47x，Sharpe 1.684，MDD -37.75%；
+- 限制到代理有 mark 的同一资产池：18.22x，Sharpe 1.723，MDD -25.31%；
+- 原设计 30% long buffer 的 isolated-margin 1.0x：15.67x，Sharpe 1.623，MDD -26.20%，**4 次强平**。
+
+强平事件说明原设计公式 `long_margin_ratio = 0.30 + MMR + fee_buffer` 在 H5 的 1–2 币集中持仓上不足；这不是收益略低，而是直接违反“1.0x 不得强平”的引擎验收。该规则被否决。
+
+### 12.3 保证金校准
+
+预注册 8 个 calibration trials：long buffer 0.40/0.50/0.60/0.75 × leverage 1.0x/1.25x。结果显示：
+
+- 40% buffer：1.0x 和 1.25x 各有 1 次强平；
+- 50% buffer：两档均 0 次强平，是当前最小零强平点；
+- 60% buffer：与 50% 结果相同；
+- 75% buffer：1.25x 下受 85% 最大保证金占用约束，实际 gross 降到 1.124x，收益略低、MDD 略好。
+
+因此 V2 默认 long buffer 修正为 50%；原 30% 的 11 个 trial 标记为 superseded，最终验收必须重新预注册 V2 并在 Bitget mark 数据上重跑。
+
+### 12.4 V2 long-only 代理诊断（非最终结果）
+
+50% long buffer、零 funding、20 bps、代理 mark：
+
+| trial | leverage | 实际最大 gross | 强平 | 终值 | Sharpe | MDD |
+|---|---:|---:|---:|---:|---:|---:|
+| L125-V2 | 1.25x | 1.281x | 0 | 27.16x | 1.618 | -32.10% |
+| L150-V2 | 1.50x | 1.574x | 0 | 45.43x | 1.617 | -37.70% |
+| L200-V2 | 2.00x | 1.758x | 0 | 107.38x | 1.627 | -45.03% |
+
+L125-V2 的成本压力（代理 mark、零 funding）如下：
+
+| 成本 | 终值 | Sharpe | MDD | H5 同成本终值 | 终值比 | Sharpe 比 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 6 bps | 31.84x | 1.685 | -29.99% | 25.30x | 1.258 | 0.956 |
+| 8 bps | 31.12x | 1.675 | -30.29% | 24.71x | 1.259 | 0.957 |
+| 11 bps | 30.08x | 1.661 | -30.75% | 23.86x | 1.261 | 0.958 |
+| 20 bps | 27.16x | 1.618 | -32.10% | 21.47x | 1.265 | 0.961 |
+| 50 bps | 19.30x | 1.475 | -36.42% | 15.10x | 1.278 | 0.973 |
+| 100 bps | 10.91x | 1.236 | -43.53% | 8.39x | 1.300 | 1.001 |
+
+代理诊断下，L125-V2 全部成本无强平，MDD < 50%，终值 >= 1.20 × H5，Sharpe >= 0.90 × H5；但这不是 Bitget 结果，不能用于上线。
+
+这些数字仅证明保证金规则修正方向；它们使用代理 mark、零 funding、尚未做 Bitget mark、真实 funding、short overlay、multiple-testing 和 OOS。任何上线结论都不成立。

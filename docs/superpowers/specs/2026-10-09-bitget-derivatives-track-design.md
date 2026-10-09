@@ -212,15 +212,15 @@ Delayed Marks、Funding Memory 和 Forecasting Liquidation-Tail Risk 指出：�
 |---|---|---:|
 | 账户 gross | `Σ|notional_i| / account_equity` | long 1.25x；压力 1.5x/2.0x |
 | 仓位杠杆 | `|notional_i| / isolated_margin_i` | 由强平距离反推，不直接固定 |
-| 强平距离 | 价格从入场到强平价的不利变动 | long ≥30%；short ≥50% |
+| 强平距离 | 价格从入场到强平价的不利变动 | long ≥50%；short ≥50%（Phase 2 修正，见下） |
 
 不能用“账户 gross = 1.5x”推断“每个仓位 1.5x”。例如：1.25x gross 的 long book，如果每个 long 仓位的 `margin / notional = 30% + MMR + fee_buffer`，总初始保证金约为 `1.25 × 0.31 ≈ 38.8%` equity；再叠加 0.5x short 的 50% 保证金，总保证金约 `38.8% + 25% = 63.8%`，仍保留约 36% 的未占用现金作为缓冲。这个结构才是 isolated margin 下可执行的。
 
 仓位保证金规则：
 
 ```text
-margin_ratio_long  = max(0.30 + MMR_i + fee_buffer, min_margin_ratio)
-margin_ratio_short = max(0.50 + MMR_i + fee_buffer, min_margin_ratio)
+margin_ratio_long  = max(0.50 + MMR_i + fee_buffer, 0.50)  # Phase 2 revision
+margin_ratio_short = max(0.50 + MMR_i + fee_buffer, 0.50)
 isolated_margin_i  = margin_ratio_i × |notional_i|
 ```
 
@@ -400,7 +400,9 @@ long:  P_liq = P0 × (1 - r_margin) / (1 - m)
 short: P_liq = P0 × (1 + r_margin) / (1 + m)
 ```
 
-如果 `r_margin = 31%`、`m = 1%`，long 的强平距离约 `1 - 0.69/0.99 ≈ 30.3%`；如果 `r_margin = 51%`、`m = 1%`，short 的强平距离约 `1.51/1.01 - 1 ≈ 49.5%`。这与 4.4 的 30%/50% 目标一致。
+Phase 2 校准后，long 使用 `r_margin ≈ 51%`（50% buffer + 1% MMR + 0.5% fee buffer），强平距离约 `1 - 0.49/0.99 ≈ 50.5%`；short 使用 `r_margin ≈ 51%` 以上，强平距离约 `1.51/1.01 - 1 ≈ 49.5%`。这与 4.4 的 50%/50% 目标一致。
+
+**2026-10-09 Phase 2 修正**：原先的 30% long buffer 在 1.0x H5 校验中触发了 4 次强平，未通过“1.0x 不得强平”的引擎验收，因此被否决。8 个预注册 margin calibration trials 显示 40% 仍有强平，50% 是当前最小零强平点；因此 V2 默认 long buffer 改为 50%。原始使用 30% 的 11 个 trial 仍保留在台账中，但状态视为 superseded，最终验收必须使用 V2 规则重新预注册并在 Bitget mark 数据上重跑。
 
 路径规则：
 
@@ -631,7 +633,7 @@ Derivatives Track 的 DSR 门槛仍为 0.95。若 11 个 trials 的 DSR < 0.95�
 - 默认 gross <= 1.25x；1.5x/2.0x 仅压力；
 - 空头 gross <= 0.5x；
 - 单币空头 <= 0.25x；
-- 入场时 long 到强平距离 >= 30%；
+- 入场时 long 到强平距离 >= 50%（Phase 2 修正）；
 - 入场时 short 到强平距离 >= 50%；
 - 24h 预期资金费 > 0.5% equity 时降仓；
 - 资金费连续 3 个结算点逆风时复核；
@@ -729,7 +731,7 @@ Micro-live 是运营验证，不是“策略已通过验证”的声明；它不
 
 - [ ] 接受 `Spot Track` 不变，`Derivatives Track` 独立预注册、独立验收；
 - [ ] 接受 1.25x 为默认候选上限，1.5x 仅压力，2.0x 仅研究；
-- [ ] 接受空头 gross ≤0.5x、单币 short ≤0.25x、long/short 强平距离 ≥30%/≥50%；
+- [ ] 接受空头 gross ≤0.5x、单币 short ≤0.25x、long/short 强平距离 ≥50%/≥50%（Phase 2 修正）；
 - [ ] 接受主账户 60% 返佣不计入量化账户 NAV；
 - [ ] 接受 11 个预注册 trials 和独立 multiple-testing scope；
 - [ ] 接受 Phase 0–5 的实施顺序和 12 个月真样本外门槛；

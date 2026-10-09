@@ -1,0 +1,44 @@
+[
+  {
+    "cagr": 0.6478790912200145,
+    "cost_bps": 100.0,
+    "fees_total": 2.9567080261475565,
+    "leverage": 1.25,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "mark_source": "binance_or_gate_1h_proxy",
+    "max_drawdown": -0.435324780079706,
+    "max_gross_exposure": 1.2939568701888886,
+    "multiple": 10.906257615004051,
+    "sharpe": 1.2356938924717498,
+    "trial_id": "PR2026-10-D-L125-V2"
+  },
+  {
+    "cagr": 0.7677288375190021,
+    "cost_bps": 100.0,
+    "fees_total": 4.069361387134909,
+    "leverage": 1.5,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "mark_source": "binance_or_gate_1h_proxy",
+    "max_drawdown": -0.4997643950621169,
+    "max_gross_exposure": 1.590046519138355,
+    "multiple": 15.259067632351096,
+    "sharpe": 1.2340279683602284,
+    "trial_id": "PR2026-10-D-L150-V2"
+  },
+  {
+    "cagr": 0.9859704022044895,
+    "cost_bps": 100.0,
+    "fees_total": 6.805962972917538,
+    "leverage": 2.0,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "mark_source": "binance_or_gate_1h_proxy",
+    "max_drawdown": -0.5704823986865606,
+    "max_gross_exposure": 1.7775472745206187,
+    "multiple": 26.6299972585513,
+    "sharpe": 1.2469266920941426,
+    "trial_id": "PR2026-10-D-L200-V2"
+  }
+]
