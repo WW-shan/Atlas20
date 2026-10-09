@@ -1,4 +1,4 @@
-"""Pre-registered 2026-10 hypotheses H2-H5 for the phase-momentum champion.
+"""Pre-registered 2026-10 hypotheses H2-H6 for the phase-momentum champion.
 
 The rules, parameters, kill criteria and outcome tiers are fixed in
 ``docs/research/literature_review_2026-09.md`` section 4 (H1 is not run: it
@@ -20,6 +20,10 @@ Trials (all strict point-in-time Top20, long-only spot, gross <= 1):
 * H5  - the H3 blend with the cross-sectional dispersion overlay: every
         sleeve weight is scaled by min(1, rolling 252D P75 of the Top20
         21D dispersion / current dispersion), so the overlay only de-risks.
+* H6  - the frozen H5 book with a point-in-time funding-state overlay: every
+        sleeve weight is scaled by min(1, rolling 252D P80 of the 7D-smoothed
+        Top20 mean perpetual funding level / current level), floored at 0.25
+        and lagged one day; the overlay only de-risks.
 * H2 diagnostics - the four single-window gates (MA50/100/150/200) at +3h;
         never promotable.
 * H2/H3/H5 neighbourhoods - the four leave-one-window-out ensembles, the
@@ -75,6 +79,7 @@ from atlas20.strategies.phase_momentum import (  # noqa: E402
     PhaseMomentumSpec,
     build_parameter_ensemble_targets,
     build_phase_momentum_targets,
+    exposure_multiplier,
     parameter_ensemble_sleeve_weights,
 )
 from atlas20.universe.builder import MarketDataBundle, build_rebalance_universe  # noqa: E402
@@ -105,6 +110,7 @@ from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E
 REVIEW = "docs/research/literature_review_2026-09.md"
 DEFAULT_LEDGER = Path("reports/research_trial_inventory/preregistered_trials.csv")
 DEFAULT_OUTPUT = Path("reports/phase_momentum_hypotheses_2026_10")
+DEFAULT_FUNDING_DIR = Path("data/raw/binance_funding")
 MAIN_WINDOW = ("2022-01-01", "2026-09-21")
 STRESS_WINDOW = ("2020-10-03", "2021-12-31")
 COSTS = (2.0, 20.0, 50.0, 100.0)
@@ -125,6 +131,33 @@ MDD_TOLERANCE = 0.02
 CHAMPION_D1D = 0.52
 TARGET_MULTIPLE = 20.0
 DSR_PASS = 0.95
+# H6 funding-state overlay (pre-declared): de-risk the book while the
+# point-in-time Top20 cross-sectional mean daily perpetual funding rate, 7-day
+# smoothed, sits above its own trailing 252-day percentile.  The exact
+# construction is registered as a string in the trial spec so a change is
+# caught by the ledger hash.  ``FUNDING_OVERLAY_RULE`` is the primary (P80);
+# the pre-declared neighbourhoods are P70 and P90.
+FUNDING_OVERLAY_PERCENTILE = 0.80
+FUNDING_OVERLAY_FLOOR = 0.25
+FUNDING_OVERLAY_RULE = "funding_level_p80_252_lag1_floor0.25"
+
+
+def funding_overlay_rule(percentile: float) -> str:
+    """Canonical overlay rule string for a funding percentile."""
+    return f"funding_level_p{round(percentile * 100):02d}_252_lag1_floor{FUNDING_OVERLAY_FLOOR:.2f}"
+
+
+def parse_funding_overlay_rule(rule: str) -> tuple[float, int, float, int]:
+    """Return (percentile, lookback, floor, lag) for a canonical overlay rule."""
+    import re
+
+    match = re.fullmatch(
+        r"funding_level_p(\d{2})_(\d{3})_lag(\d+)_floor(\d+\.\d+)", rule
+    )
+    if not match:
+        raise ValueError(f"unknown exposure multiplier {rule!r}")
+    percentile, lookback, lag, floor = match.groups()
+    return int(percentile) / 100.0, int(lookback), float(floor), int(lag)
 
 LEDGER_COLUMNS = [
     "trial_id",
@@ -201,6 +234,11 @@ class Trial:
     deviation_notes: str
     fills: tuple[str, ...]
     stress: bool
+    # Optional book-level de-risking overlay.  ``None`` reproduces the spec
+    # exactly (the additive-field convention: earlier registrations never set
+    # it and their spec hashes stay valid).  ``"funding_level_p80_252_lag1_floor0.25"``
+    # is the pre-registered H6 funding-state overlay.
+    exposure_multiplier: str | None = None
 
 
 CHAMPION_RULE = (
@@ -238,6 +276,7 @@ def _single_window(window: int) -> Trial:
 H2_GATE_WINDOWS = (50, 100, 150, 200)
 H3_NEIGHBOURHOOD_THRESHOLDS = (0.45, 0.55)
 H5_NEIGHBOURHOOD_PERCENTILES = (0.60, 0.90)
+H6_NEIGHBOURHOOD_PERCENTILES = (0.70, 0.90)
 
 
 def _h2_leave_one_out(dropped: int) -> Trial:
@@ -348,6 +387,48 @@ def _h5_threshold(percentile: float) -> Trial:
         deviation_notes="none; pre-declared before running, after H5 passed its kill criterion",
         fills=MAIN_FILLS,
         stress=True,
+    )
+
+
+def _h6_percentile(percentile: float) -> Trial:
+    """One pre-declared H6 neighbourhood: an adjacent funding-state percentile."""
+    label = f"{round(percentile * 100):02d}"
+    return Trial(
+        trial_id=f"PR2026-10-H6-T{label}",
+        hypothesis="H6 neighbourhood",
+        role="neighbourhood",
+        counts_as_trial=True,
+        books=(
+            (PhaseMomentumSpec(dispersion_target_percentile=0.75), 0.5),
+            (
+                PhaseMomentumSpec(
+                    breadth_threshold=0.50,
+                    breadth_ma_window=50,
+                    dispersion_target_percentile=0.75,
+                ),
+                0.5,
+            ),
+        ),
+        rule=(
+            f"H6 pre-declared neighbourhood, run after H6 passed its kill criterion: the frozen H5 book with "
+            f"the funding-state percentile moved to {percentile:.2f} (the pre-declared adjacent points of the "
+            "00.17 screen). The 7-day smoothing, 252-day lookback, one-day lag and 0.25 floor are unchanged, as "
+            "is the H5 dispersion overlay, the H3 breadth co-gate and every champion rule."
+        ),
+        kill_criterion=(
+            "The H6 kill criterion re-applied at this percentile: at 20 bps with +3h fills (worse policy), "
+            "MDD >= MDD(H5) - 0.05 in absolute terms, Sharpe > Sharpe(H5), one-year rolling worst multiple > "
+            "H5's and the terminal multiple >= 0.85 x H5's; the same verdict is required at 2 and 50 bps. H6 is "
+            "read as robust to the percentile only if both neighbourhoods keep the criterion."
+        ),
+        parameters_sources=(
+            "Pre-declared in the H6 registration ('Neighbourhood if it passes: the funding-state percentiles "
+            "0.70 and 0.90'), before H6 was run. No new external parameter is introduced."
+        ),
+        deviation_notes="none; pre-declared before running, after H6 passed its kill criterion",
+        fills=MAIN_FILLS,
+        stress=True,
+        exposure_multiplier=funding_overlay_rule(percentile),
     )
 
 
@@ -518,7 +599,62 @@ TRIALS: tuple[Trial, ...] = (
         fills=MAIN_FILLS,
         stress=True,
     ),
+    Trial(
+        trial_id="PR2026-10-H6",
+        hypothesis="H6",
+        role="primary",
+        counts_as_trial=True,
+        books=(
+            (PhaseMomentumSpec(dispersion_target_percentile=0.75), 0.5),
+            (
+                PhaseMomentumSpec(
+                    breadth_threshold=0.50,
+                    breadth_ma_window=50,
+                    dispersion_target_percentile=0.75,
+                ),
+                0.5,
+            ),
+        ),
+        rule=(
+            "H6 funding-state overlay on the frozen H5 book. The H5 50/50 dispersion-scaled book (book A = "
+            "the champion, book B = the champion with the H3 breadth co-gate) is additionally scaled by a "
+            "point-in-time crowding factor f(D). State(D) = the 7-day mean of the cross-sectional mean daily "
+            "perpetual funding rate paid by longs over the point-in-time Top20 members with a Binance USDT "
+            "perpetual (fewer than five members -> no reading), in bps per day. f(D) = min(1, rolling 252-day "
+            "80th percentile of the state / the state), floored at 0.25, evaluated one day before the signal "
+            "close; a missing, zero or negative reading leaves f(D) = 1. Every sleeve weight (vol-scaled, "
+            "breadth-gated, dispersion-scaled) is multiplied by f(D); gross exposure stays <= 1. 50/50 "
+            "target-level blend, executed and charged by the production engine."
+        ),
+        kill_criterion=(
+            "Reject unless, at 20 bps with +3h fills (worse policy), all hold: MDD(H6) >= MDD(H5) - 0.05 in "
+            "absolute terms, Sharpe(H6) > Sharpe(H5), one-year rolling worst multiple(H6) > H5's, and the "
+            "terminal multiple stays above 0.85 x H5's. Same verdict required at 2 and 50 bps. A pass below "
+            "20x is a recorded risk variant. Neighbourhood if it passes: the funding-state percentiles 0.70 "
+            "and 0.90 (not run in this round)."
+        ),
+        parameters_sources=(
+            "Mechanism: perpetual funding is the price of leveraged crowding, and crowded longs precede "
+            "crypto drawdowns; the project's own RESEARCH.md section 00.17 finds the point-in-time Top20 "
+            "mean funding level is the strongest crash-month separator of the 20 candidate states screened "
+            "(+1.12 rest-standard-deviations, crash mean 3.19 bps/day vs 0.70). Construction: the H5 "
+            "dispersion-targeting form (min(1, rolling-percentile/current), only de-risks), applied to the "
+            "funding level instead of dispersion. 252-day lookback, 0.80 target, 7-day smoothing and the "
+            "one-day lag are in-project choices fixed before running; the 0.25 floor bounds the de-risking."
+        ),
+        deviation_notes=(
+            "The project has no live daily funding feed: data/raw/binance_funding is built from Binance's "
+            "monthly funding archives, so H6 is backtestable but not yet deployable in live execution. It is "
+            "run to decide whether the strongest crash-state screen survives as a rule; deployment would "
+            "need a live funding source. The overlay is applied to every book uniformly (both H5 books share "
+            "one crowding state), which is the natural reading of a market-level risk factor."
+        ),
+        fills=MAIN_FILLS,
+        stress=True,
+        exposure_multiplier=FUNDING_OVERLAY_RULE,
+    ),
     *(_h5_threshold(percentile) for percentile in H5_NEIGHBOURHOOD_PERCENTILES),
+    *(_h6_percentile(percentile) for percentile in H6_NEIGHBOURHOOD_PERCENTILES),
     *(_single_window(window) for window in H2_GATE_WINDOWS),
     *(_h2_leave_one_out(window) for window in H2_GATE_WINDOWS),
     *(_h3_threshold(threshold) for threshold in H3_NEIGHBOURHOOD_THRESHOLDS),
@@ -528,6 +664,7 @@ PRIMARY_IDS = {
     "H3": "PR2026-10-H3",
     "H4": "PR2026-10-H4",
     "H5": "PR2026-10-H5",
+    "H6": "PR2026-10-H6",
 }
 BASELINE_ID = "PR2026-10-B"
 H2_DIAGNOSTIC_IDS = tuple(f"PR2026-10-H2-D{window}" for window in H2_GATE_WINDOWS)
@@ -538,10 +675,14 @@ H3_NEIGHBOURHOOD_IDS = tuple(
 H5_NEIGHBOURHOOD_IDS = tuple(
     f"PR2026-10-H5-T{round(percentile * 100):02d}" for percentile in H5_NEIGHBOURHOOD_PERCENTILES
 )
+H6_NEIGHBOURHOOD_IDS = tuple(
+    f"PR2026-10-H6-T{round(percentile * 100):02d}" for percentile in H6_NEIGHBOURHOOD_PERCENTILES
+)
 NEIGHBOURHOOD_IDS: dict[str, tuple[str, ...]] = {
     "H2": H2_NEIGHBOURHOOD_IDS,
     "H3": H3_NEIGHBOURHOOD_IDS,
     "H5": H5_NEIGHBOURHOOD_IDS,
+    "H6": H6_NEIGHBOURHOOD_IDS,
 }
 
 
@@ -602,6 +743,7 @@ def trial_spec(trial: Trial) -> dict[str, object]:
         ],
         "include_btc": True,
         "universe": "strict point-in-time CMC Top20",
+        **({"exposure_multiplier": trial.exposure_multiplier} if trial.exposure_multiplier else {}),
         "fills": list(trial.fills),
         "costs_bps": list(COSTS),
         "stress_window": list(STRESS_WINDOW) if trial.stress else None,
@@ -706,6 +848,42 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_FUNDING_CACHE: dict[tuple[str, int, int, str], pd.Series] = {}
+
+
+def funding_overlay(
+    funding_dir: Path,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    *,
+    rule: str = FUNDING_OVERLAY_RULE,
+) -> pd.Series:
+    """Pre-registered H6 factor: the funding-state de-risking multiplier.
+
+    Reads the point-in-time Top20 cross-sectional mean daily funding level
+    (``funding_level`` from the 00.17 screen), then applies the H5-shaped
+    overlay ``min(1, rolling 252-day percentile / state)`` lagged one day and
+    floored at 0.25.  Missing readings leave the factor at 1.
+    """
+    percentile, lookback, floor, lag = parse_funding_overlay_rule(rule)
+    key = (str(funding_dir), int(index[0].value), int(index[-1].value), rule)
+    cached = _FUNDING_CACHE.get(key)
+    if cached is not None:
+        return cached
+    # Lazy import: analyze_momentum_funding_states imports this module, so a
+    # module-level import would be circular.
+    from scripts.analyze_momentum_funding_states import funding_state_frame, load_funding
+
+    funding = load_funding(funding_dir)
+    states, _members = funding_state_frame(universe, index, funding)
+    level = states["funding_level"]
+    factor = exposure_multiplier(
+        level, percentile=percentile, lookback=lookback, floor=floor, lag=lag
+    )
+    _FUNDING_CACHE[key] = factor
+    return factor
+
+
 # --------------------------------------------------------------------------- building and running
 
 
@@ -714,9 +892,18 @@ def build_trial(
     market: MarketDataBundle,
     universe: pd.DataFrame,
     index: pd.DatetimeIndex,
+    *,
+    funding_dir: Path = DEFAULT_FUNDING_DIR,
 ) -> PhaseMomentumBuildResult:
+    multiplier: pd.Series | None = None
+    if trial.exposure_multiplier is not None:
+        multiplier = funding_overlay(
+            funding_dir, universe, index, rule=trial.exposure_multiplier
+        )
     if len(trial.books) == 1:
-        return build_phase_momentum_targets(market, universe, index, spec=trial.books[0][0])
+        return build_phase_momentum_targets(
+            market, universe, index, spec=trial.books[0][0], exposure_multiplier=multiplier
+        )
     weights = {float(weight) for _, weight in trial.books}
     if len(weights) != 1 or abs(sum(weight for _, weight in trial.books) - 1.0) > 1e-12:
         raise ValueError(f"{trial.trial_id}: multi-book trials must have equal book weights summing to 1")
@@ -724,7 +911,9 @@ def build_trial(
     sleeve_weights = parameter_ensemble_sleeve_weights(specs, signal_count=len(PRIMARY_SIGNAL_SPECS))
     if len(set(sleeve_weights)) != 1:
         raise ValueError(f"{trial.trial_id}: every sleeve must carry the same weight")
-    return build_parameter_ensemble_targets(market, universe, index, parameter_specs=specs)
+    return build_parameter_ensemble_targets(
+        market, universe, index, parameter_specs=specs, exposure_multiplier=multiplier
+    )
 
 
 def entrant_classes(member: pd.DataFrame, *, window_days: int = ENTRANT_DAYS) -> pd.DataFrame:
@@ -921,6 +1110,8 @@ def _criteria(
         extra_ids = list(H2_DIAGNOSTIC_IDS)
     elif family == "H5":
         extra_ids = [PRIMARY_IDS["H3"]]
+    elif family == "H6":
+        extra_ids = [PRIMARY_IDS["H5"]]
     table = decision_table(runs, [BASELINE_ID, tested, *extra_ids], cost).set_index("trial_id")
     base = table.loc[BASELINE_ID]
     hyp = table.loc[tested]
@@ -977,6 +1168,31 @@ def _criteria(
                     float(hyp["rolling_1y_worst_multiple"]) > float(h3["rolling_1y_worst_multiple"]),
                 )
             )
+        elif family == "H6":
+            # The registered H6 criterion: the overlay must not just trim risk,
+            # it must improve risk-adjusted return against H5 and keep most of
+            # H5's terminal wealth.
+            h5 = table.loc[PRIMARY_IDS["H5"]]
+            checks.append(
+                (
+                    f"Sharpe {hyp['sharpe']:.4f} > H5 {h5['sharpe']:.4f}",
+                    float(hyp["sharpe"]) > float(h5["sharpe"]),
+                )
+            )
+            checks.append(
+                (
+                    f"rolling 1y worst {hyp['rolling_1y_worst_multiple']:.4f} > H5 "
+                    f"{h5['rolling_1y_worst_multiple']:.4f}",
+                    float(hyp["rolling_1y_worst_multiple"]) > float(h5["rolling_1y_worst_multiple"]),
+                )
+            )
+            floor = 0.85 * float(h5["multiple"])
+            checks.append(
+                (
+                    f"multiple {hyp['multiple']:.4f} >= 0.85 x H5 {float(h5['multiple']):.4f} = {floor:.4f}",
+                    float(hyp["multiple"]) >= floor,
+                )
+            )
         else:
             threshold = max(CHAMPION_D1D, float(base["d1d"]))
             checks.append(
@@ -991,7 +1207,7 @@ def _criteria(
 def evaluate_kill_criteria(runs: pd.DataFrame) -> pd.DataFrame:
     """Mechanical kill criteria at 20 bps, with the 2/50 bps direction check."""
     rows: list[dict[str, object]] = []
-    for hypothesis in ("H2", "H3", "H4", "H5"):
+    for hypothesis in ("H2", "H3", "H4", "H5", "H6"):
         row: dict[str, object] = {"hypothesis": hypothesis, "trial_id": PRIMARY_IDS[hypothesis]}
         verdicts = {}
         for cost in (DECISION_COST, *DIRECTION_COSTS, 100.0):
@@ -1135,10 +1351,21 @@ def run_trials(
     attribution: list[dict[str, object]] = []
     facts: dict[str, object] = {"hourly_coins": sorted(hourly), "builds": {}}
     builds: dict[str, PhaseMomentumBuildResult] = {}
+    funding_dir = Path(getattr(args, "funding_dir", DEFAULT_FUNDING_DIR))
     for trial in trials:
-        key = _sha256(_canonical(trial_spec(trial)["books"]))
+        # The build key includes the optional exposure overlay: H5 and H6 share
+        # the same books but H6 multiplies every sleeve by the funding factor,
+        # so keying on the books alone would silently reuse H5's build.
+        key = _sha256(
+            _canonical(
+                {
+                    "books": trial_spec(trial)["books"],
+                    "exposure_multiplier": trial.exposure_multiplier,
+                }
+            )
+        )
         if key not in builds:
-            builds[key] = build_trial(trial, market, universe, index)
+            builds[key] = build_trial(trial, market, universe, index, funding_dir=funding_dir)
         built = builds[key]
         facts["builds"][trial.trial_id] = {  # type: ignore[index]
             "target_events": len(built.targets),
@@ -1189,7 +1416,9 @@ def run_trials(
     for trial in trials:
         if not trial.stress:
             continue
-        built = build_trial(trial, stress_market, stress_universe, stress_index)
+        built = build_trial(
+            trial, stress_market, stress_universe, stress_index, funding_dir=funding_dir
+        )
         for fill, lag in LAG_FILLS.items():
             for cost in COSTS:
                 result = _production_result(
@@ -1468,7 +1697,7 @@ def write_report(
         "multiple_lag0", "multiple_lag1", "d3h", "d1d",
     ]
     lines = [
-        "# Pre-Registered Hypotheses H2-H5 (2026-10 round)",
+        "# Pre-Registered Hypotheses H2-H6 (2026-10 round)",
         "",
         f"Rules, parameters, kill criteria and tiers: `{REVIEW}` section 4 (H1 not run; it needs the",
         "owner's sign-off on the signals-at-the-close rule). Every trial below was registered in",
@@ -1557,7 +1786,7 @@ def write_report(
         ),
         "",
         "White Reality Check (stationary bootstrap, 1000 draws, block 20, seed 20260923) over every return",
-        "series of this round (B, H2-H5, the four single-window gates and the pre-declared neighbourhoods;",
+        "series of this round (B, H2-H6, the four single-window gates and the pre-declared neighbourhoods;",
         "identical series counted once).",
         "`single_step_p_value` compares each trial's mean with the bootstrap maximum over the round;",
         "`round_best_p_value` is `_reality_check` for the best trial.",
@@ -1692,6 +1921,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--hourly-dir", type=Path, default=Path("data/raw/binance_1h"))
+    parser.add_argument("--funding-dir", type=Path, default=DEFAULT_FUNDING_DIR)
     parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
     parser.add_argument("--trial-summary", type=Path, default=Path("reports/research_trial_inventory/summary.json"))
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)

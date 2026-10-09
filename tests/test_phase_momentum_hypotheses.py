@@ -24,6 +24,7 @@ from atlas20.strategies.phase_momentum import (
     build_parameter_ensemble_targets,
     build_phase_momentum_targets,
     build_sleeve_targets,
+    exposure_multiplier,
     parameter_ensemble_sleeve_weights,
 )
 from atlas20.universe.builder import MarketDataBundle
@@ -584,3 +585,28 @@ def test_breadth_blend_aggregate_matches_the_two_books() -> None:
     for date, target in targets.items():
         pd.testing.assert_series_equal(target, blend.targets[date])
     assert exposures == blend.exposures
+
+
+def test_exposure_multiplier_only_derisks_and_lags() -> None:
+    # 60 flat days at 1.0, then a spike to 4.0 followed by a flat day.
+    level = pd.Series([1.0] * 60 + [4.0, 1.0], index=pd.date_range("2024-01-01", periods=62, freq="D"))
+    factor = exposure_multiplier(level, percentile=0.80, lookback=60, floor=0.25, lag=1)
+
+    # A reading at/below its own percentile leaves the book at full size.
+    assert factor.iloc[0] == 1.0
+    assert factor.iloc[59] == 1.0
+    # The spike is scaled by P80 / level and only acts one day later.
+    assert factor.iloc[60] == 1.0
+    assert factor.iloc[61] == pytest.approx(0.25)  # 1.0 / 4.0 floored at 0.25
+    assert float(factor.max()) <= 1.0 and float(factor.min()) >= 0.25
+
+
+def test_exposure_multiplier_leaves_missing_and_nonpositive_readings_at_one() -> None:
+    level = pd.Series(
+        [1.0] * 40 + [np.nan, 0.0, -1.0],
+        index=pd.date_range("2024-01-01", periods=43, freq="D"),
+    )
+    factor = exposure_multiplier(level, percentile=0.80, lookback=30, floor=0.25, lag=0)
+
+    assert factor.iloc[-3:].tolist() == [1.0, 1.0, 1.0]
+    assert float(factor.max()) <= 1.0

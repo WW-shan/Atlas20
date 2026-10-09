@@ -401,7 +401,7 @@ Each decision gets the project rule, the in-project evidence, what the literatur
 
 ## 4. Pre-registered hypotheses for the next round
 
-Four hypotheses, fixed before any backtest. Three target fragility or drawdown, one targets execution latency; none is designed to add return. H5 was added on 2026-10-08 in a second, separately pre-registered round (mechanism and full rule below; registered in `reports/research_trial_inventory/preregistered_trials.csv` before it ran).
+Six hypotheses, fixed before any backtest. H1 targets execution latency; the rest target fragility or drawdown; none is designed to add return. H5 was added on 2026-10-08 and H6 on 2026-10-09, each in a separate, separately pre-registered round (mechanism and full rule below; registered in `reports/research_trial_inventory/preregistered_trials.csv` before it ran).
 
 Each primary run counts as one trial. The diagnostic runs listed under each hypothesis are declared here and logged, but they are attribution runs and may not be promoted to candidates.
 
@@ -552,6 +552,60 @@ without charging its extra turnover; this run charges everything through the pro
 event. The screening also only ever saw the blend, so "overlay on both books" is an in-project choice
 disclosed here rather than a screened result.
 
+### H6. Perpetual funding-state overlay
+
+**Question.** Perpetual funding is the price leveraged longs pay to hold; when the point-in-time Top20's mean
+funding sits above its own recent quantile, is the book crowded enough that de-risking it cuts drawdown and
+lifts Sharpe, without giving up the 20x return?
+
+**Rule.** Keep every H5 rule and multiply each sleeve's target weight by
+`funding_factor(D) = min(1, rolling 252-day P80 of state / state)`, floored at 0.25 and evaluated one day
+before the signal close, where `state(D)` is the 7-day mean of the cross-sectional mean daily perpetual
+funding rate paid by longs over the point-in-time Top20 members that have a Binance USDT perpetual (fewer
+than five members -> no reading; a missing, zero or negative reading leaves the factor at 1). The overlay is
+applied to both H5 books uniformly, because crowding is a market-level state. Gross exposure still caps at 1:
+the overlay can only de-risk.
+
+**Parameters and their sources.** Mechanism: perpetual funding is the observable price of leveraged
+crowding, and crowded longs precede crypto drawdowns; the project's own `RESEARCH.md` section 00.17 finds the
+point-in-time Top20 mean funding level is the strongest crash-month separator of the twenty candidate states
+screened there (+1.12 rest-standard-deviations; crash mean 3.19 bps/day vs 0.70). Construction: the H5
+dispersion-targeting form (min(1, rolling-percentile / current), only de-risks) applied to the funding level
+instead of dispersion. The 252-day lookback, 0.80 target, 7-day smoothing and one-day lag are in-project
+choices fixed before running; the 0.25 floor bounds the de-risking. Data: Binance's public monthly funding
+archives, cached by `scripts/download_funding_rates.py`.
+
+**Rationale.** H5 already reacts to return dispersion and volatility, but the 00.17 screen found the funding
+level carries independent crash information (it correlates 0.61-0.66 with the gate/breadth/gross states, so
+it is not redundant). A screening-only result is not a rule; this run prices the rule through the production
+engine, including the overlay's own turnover.
+
+**Expected direction.** Lower maximum drawdown and a higher Sharpe, at or below the H5 return.
+
+**Test.** 2/20/50/100 bps; +3h fills under both missing-candle policies; lag 0 and lag 1 day; turnover;
+entrant attribution; the 2020-10 to 2021-12 stress window (funding coverage starts 2022-01, so the stress
+window is unchanged from H5 there); the bull/non-bull split.
+
+**Kill criterion.** Reject unless, at 20 bps with +3h fills (worse policy), all hold: MDD(H6) >= MDD(H5) -
+0.05 in absolute terms, Sharpe(H6) > Sharpe(H5), the one-year rolling worst multiple is above H5's, and the
+terminal multiple stays above 0.85 x H5's. The same verdict is required at 2 and 50 bps. A pass below 20x is
+recorded as a risk variant. Pre-declared neighbourhood if it passes: the funding-state percentiles 0.70 and
+0.90.
+
+**Deviation stated before running.** The project has no live daily funding feed (the archives are monthly), so
+H6 is backtestable but not yet deployable in live execution; a pass would still need a live funding source
+before it could replace H5. Applying the overlay to both books uniformly is an in-project choice disclosed
+here rather than a screened result.
+
+> **2026-10-09 addendum (H6).** H6 was registered in the ledger, run through the production engine, and it
+> **failed** its kill criterion at 2/20/50 bps. The funding overlay did what the screen promised on risk
+> (max drawdown -36.97% -> -27.58%, 18.1 pp better than B), but it also cut the terminal multiple from
+> 19.53x to 12.02x and Sharpe from 1.623 to 1.537, and it left the one-year rolling worst multiple unchanged
+> at 0.806. Both pre-declared neighbourhoods (P70, P90) failed the same way. The frozen specification is
+> unchanged: **H5**. Because H6 and its two neighbourhoods are now counted, the Top20/2022 trial count rose
+> from 6,135 to 6,138 and H5's Deflated Sharpe moved from 0.860 to **0.858**. Full record: `RESEARCH.md`
+> section 00.19.
+
 ### 4.5 Trial budget
 
 | Item | Runs | Counted as |
@@ -560,7 +614,8 @@ disclosed here rather than a screened result.
 | H5 primary run (added 2026-10-08, registered before running) | 1 | new trial (N 6,132 -> 6,133; H5's own neighbourhood adds 2 more after its pass) |
 | Cost and fill-policy repeats (2/20/50/100 bps x 2 policies, lag 0 and lag 1d) | per hypothesis | the same trial at different stress settings |
 | Declared diagnostic runs: H1 (i) and the four H2 single-window reruns at +3h. H1 (ii) and (iii) are statistics of the H1 run, not extra runs | 5 | logged, never promotable |
-| Pre-declared neighbourhoods (only after a pass) | at most 4 (H2) + 2 (H3) + 2 (H4) + 2 (H5) | new trials, logged before running |
+| H6 primary run (added 2026-10-09, registered before running) | 1 | new trial |
+| Pre-declared neighbourhoods (only after a pass) | at most 4 (H2) + 2 (H3) + 2 (H4) + 2 (H5) + 2 (H6) | new trials, logged before running |
 
 ---
 

@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "d7351add0f2deaea0b5b299ca132b5e83d3c83a9",
+  "repository_head": "54398766dfc059ab37304fb897c9cf92ffbf62a7",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "e10dc3625c3188d03fb3614838bc2307d0fa1d089322ddedcba6fd86bedb7fe0",
+  "research_md_sha256": "dd2283106f1bdbc28f4e71e2db96e96de2acac9b7e1a40629971e2edb9e57490",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -146,8 +146,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20396,
-  "rows_at_primary_cost": 17858,
+  "rows_read": 20399,
+  "rows_at_primary_cost": 17861,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -562,8 +562,8 @@
       "sha256": "f5ceb23221f3c2f6bbb8c9b01392c1e686d2d80a266c34269c7e56ed8e6c24f6"
     },
     "reports/phase_momentum_hypotheses_2026_10/runs.csv": {
-      "origin": "working tree (committed)",
-      "sha256": "b557589513df971d0ffe8d149989ce0c45adb55a2ae7601854f8fdf4b8e2b6e7"
+      "origin": "working tree (modified)",
+      "sha256": "82d313d68edf236f6c6a5c67d7d3f29cd5106b065ce0a4aca75cd29ed7287e56"
     },
     "reports/phase_momentum_leave_one_out_2022/summary.csv": {
       "origin": "working tree (committed)",
@@ -590,8 +590,8 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (committed)",
-      "sha256": "a60c2716226b21547849b1d3ee8af2cb8499eff9ad85a69677e5df84d3c3a414"
+      "origin": "working tree (modified)",
+      "sha256": "46f1f4ce5bb4411816f1d81de50451e68c64f43965f7f7cd1daf4c6df6d6fde8"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

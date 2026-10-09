@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / gross 0.505，全样本 22.68x @20bps，样本外 2026-09-22 起 +5.61% vs BTC -3.84%，并记录追高进场的前瞻收益衰减；样本内结论仍以 2026-09-25 审计为准） |
+> | 最后更新 | 2026-10-09（§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / gross 0.505，全样本 22.68x @20bps，样本外 2026-09-22 起 +5.61% vs BTC -3.84%，并记录追高进场的前瞻收益衰减；§00.19 资金费率 overlay（H6）经生产引擎验证后**被拒**——降回撤但更伤收益与 Sharpe；样本内结论仍以 2026-09-25 审计为准） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | **全部无杠杆**：引擎默认并强制 gross exposure ≤ 1.0（>1 直接报错），不做空 |
@@ -608,6 +608,51 @@
   .venv/bin/python scripts/analyze_momentum_chase_risk.py --output-dir reports/phase_momentum_chase_risk
   ```
   明细：`reports/phase_momentum_chase_risk/{daily_chase.csv,chase_buckets.csv,chase_extreme_vs_rest.csv,max_daily_buckets.csv,max_daily_extreme_vs_rest.csv,report.md,manifest.json}`。
+
+---
+
+### 00.19 2026-10-09 预注册试验 H6：永续资金费率 overlay —— **被拒**（负结果）
+
+**一、为什么做 H6**
+
+`§00.17` 的资金费率筛查发现：point-in-time Top20 成员日均永续资金费率的 7 日均值（`funding_level`）是全部 20 个候选状态里**最强的崩溃月区分变量**（崩溃月 3.19 bps/日 vs 其余 0.70，差 +1.12 个 rest-std），只是**月频 Spearman 不达标**（+0.162 < 0.38 门槛）。筛查本身不构成规则，因此把它升级为一个**预注册**（`PR2026-10-H6`，登记在 `reports/research_trial_inventory/preregistered_trials.csv` 后才运行）的生产引擎试验：机制沿用 H5 的「反向分位缩放」形式，把分散度换成资金费率水平。
+
+**二、规则（登记原文）**
+
+在冻结的 **H5** 账本（champion + H3 breadth 共闸，50/50 目标层混合，已含 dispersion overlay）之上，再乘一个 point-in-time 拥挤因子：
+
+- `state(D)` = point-in-time Top20 中有 Binance USDT 永续的成员，其**当日资金费率截面均值**的 **7 日均值**（bps/日；可用成员 < 5 → 无读数）。
+- `f(D) = min(1, 过去 252 日的 P80(state) / state)`，**下限 0.25**，取**信号收盘前一日**的值；缺失/非正读数 → `f(D)=1`。
+- 两个账本统一乘 `f(D)`（拥挤是市场级状态）；gross 仍 ≤ 1，overlay 只能减仓。
+
+预注册的 kill criterion（20bps、+3h、更差缺失K线策略，且 2/50bps 同向）：`MDD(H6) >= MDD(H5)-0.05`、`Sharpe(H6) > Sharpe(H5)`、`rolling 1y worst(H6) > H5`、且 `M(H6) >= 0.85 x M(H5)`；否则拒绝。
+
+**三、结果：被拒（2022-01-01 .. 2026-09-21，20bps，+3h 更差策略）**
+
+| 指标 | H5（冻结） | **H6** | 判定 |
+| --- | ---: | ---: | --- |
+| 总收益 | **19.53x** | **12.02x** | `12.02 < 0.85×19.53=16.60` → **FAIL** |
+| Sharpe | **1.623** | **1.537** | 未提升 → **FAIL** |
+| 最大回撤 | -36.97% | **-27.58%** | 改善 9.4pp（达标） |
+| rolling 1y worst | 0.806 | 0.806 | 未提升 → **FAIL** |
+| 年均 gross | 0.261 | 0.226 | 减仓确实发生 |
+| 年换手 | 24.84 | 22.47 | — |
+
+- 三个成本档方向一致：2bps 24.12x→14.55x、20bps 19.53x→12.02x、50bps 13.72x→8.74x、100bps 7.61x→5.13x；Sharpe 全部下降（1.72→1.64 / 1.62→1.54 / 1.46→1.36 / 1.18→1.08）。
+- 预注册邻域同样不达标：P70 → 10.09x / Sharpe 1.518 / MDD -27.1%；P90 → 14.18x / Sharpe 1.556 / MDD -35.3%。三档 P80/P70/P90 都是「降回撤、更降收益」。
+- 分年看，损失集中在趋势最强的年份：2023 1.998→1.307、2024 0.949→0.678、2026 1.064→0.949；2022 熊市两者完全相同（2022-01 起才有资金费率覆盖，且当时组合基本空仓）。也就是说，**高资金费率状态同时包含「崩溃前」和「动量最强」两类时段**，减仓把两者一起削掉。
+
+**四、结论与不变量**
+
+- **H6 被拒，冻结规格仍为 H5。** 资金费率的崩溃区分度真实存在，但作为**减仓规则**它净损失收益与 Sharpe，达不到任何一条提升要求；这解释了为什么 `§00.17` 的筛查结论不能直接变成规则。
+- **H5 的 DSR 因新试验数上升而进一步变差**：把 H6 与其预注册邻域（P70/P90）计入后，Top20/2022 试验数由 6,135 升至 **6,138**，H5 的 Deflated Sharpe 由 0.860 微降到 **0.858**（`reports/phase_momentum_hypotheses_2026_10/dsr.csv`，`top20_2022_trials` scope）。这是选择偏差的诚实记账，**不通过放宽门槛来掩盖**。
+- **部署约束（登记时已声明）**：项目目前没有日频资金费率实时源（`data/raw/binance_funding` 来自 Binance 月度归档），即使 H6 通过也只能回测、不能上实盘；这一点写进了 `docs/research/literature_review_2026-09.md` §H6 的 deviation。
+- **复现**：
+  ```bash
+  .venv/bin/python scripts/run_phase_momentum_hypotheses.py --register
+  .venv/bin/python scripts/run_phase_momentum_hypotheses.py
+  ```
+  明细：`reports/phase_momentum_hypotheses_2026_10/{runs.csv,decision.csv,kill.csv,neighbourhood.csv,dsr.csv,yearly.csv,returns_20bps.csv,report.md}`。
 
 ---
 

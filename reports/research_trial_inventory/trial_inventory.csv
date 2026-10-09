@@ -38,7 +38,7 @@ phase_momentum_walk_forward_2022,reports/,reports/phase_momentum_walk_forward_20
 phase_momentum_leave_one_out_2022,reports/,reports/phase_momentum_leave_one_out_2022/summary.csv,drop one signal or one phase,7,7,7,7,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
 phase_momentum_parameter_leave_one_out_2022,reports/,reports/phase_momentum_parameter_leave_one_out_2022/summary.csv,drop one of the 13 ensemble specs,13,13,13,13,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
 phase_momentum_execution_lag_2022,reports/,reports/phase_momentum_execution_lag_2022/summary.csv,extra execution lag of 0/1/2 days,3,3,2,2,2022-01-01,2026-09-21,20.0,2;20;50;100,Top20,True,True,
-phase_momentum_hypotheses_2026_10,reports/,reports/phase_momentum_hypotheses_2026_10/runs.csv,,12,12,12,12,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
+phase_momentum_hypotheses_2026_10,reports/,reports/phase_momentum_hypotheses_2026_10/runs.csv,,15,15,15,15,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
 convex_validation_2022_top50,reports/,reports/convex_validation_2022_top50/candidate_summary.csv,"2218 recipes: ctrend_lite 1440, leader_momentum 576, sector_lead 180, champion_ablation 22",2218,2218,2218,0,2022-01-01,2026-09-22,20.0,20,Top50,True,False,
 ctrend_focus_2022_top50,reports/,reports/ctrend_focus_2022_top50/candidate_summary.csv,liquidity x 14/21D x 3 scores x BTC x MA 75-150 x confirm,192,192,168,0,2022-01-01,2026-09-22,20.0,20,Top50,True,False,window end inferred
 ensemble_ctrend_2022_top50,reports/,reports/ensemble_ctrend_2022_top50/summary.csv,2/3/5/10-component equal-weight CTREND ensembles,5,5,5,0,2022-01-01,2026-09-21,20.0,20,Top50,True,False,cost not recorded (assumed 20 bps)

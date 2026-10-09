@@ -373,6 +373,43 @@ def dispersion_exposure(
     return multiplier.clip(upper=1.0).fillna(1.0)
 
 
+def exposure_multiplier(
+    level: pd.Series,
+    *,
+    percentile: float = 0.80,
+    lookback: int = 252,
+    floor: float = 0.0,
+    lag: int = 1,
+) -> pd.Series:
+    """De-risking overlay from an external crowding/positioning state.
+
+    ``min(1, rolling Pxx(level) / level)`` scales the book down when ``level``
+    is above its own recent ``percentile`` and leaves it at 1 otherwise.  It
+    mirrors ``dispersion_exposure`` (the H5 construction) so the same
+    mechanism - a point-in-time risk state above its recent quantile - can be
+    applied to a derivatives-positioning series such as the point-in-time
+    Top20 cross-sectional mean perpetual funding rate.  The series is lagged by
+    ``lag`` days because the overlay can only act on information known at the
+    signal close; a missing, zero or negative reading leaves the multiplier at
+    1 (no overlay) rather than forcing cash.  ``floor`` optionally bounds the
+    de-risking from below (0 = no floor).
+    """
+    if not 0.0 < percentile <= 1.0:
+        raise ValueError("percentile must be in (0, 1]")
+    if lookback < 2:
+        raise ValueError("lookback must be at least 2")
+    if not 0.0 <= floor < 1.0:
+        raise ValueError("floor must be in [0, 1)")
+    if lag < 0:
+        raise ValueError("lag must be non-negative")
+    series = pd.to_numeric(level, errors="coerce").replace([np.inf, -np.inf], np.nan)
+    target = series.rolling(lookback, min_periods=max(2, lookback // 2)).quantile(percentile)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        multiplier = target / series.where(series > 0.0)
+    multiplier = multiplier.clip(lower=floor, upper=1.0)
+    return multiplier.shift(lag).fillna(1.0)
+
+
 def _risk_gate(
     market: MarketDataBundle,
     index: pd.DatetimeIndex,
@@ -427,6 +464,7 @@ def _build_multi_asset_sleeve_targets(
     breadth: pd.Series | None,
     volatility: pd.DataFrame | None,
     dispersion_multiplier: pd.Series | None = None,
+    exposure_multiplier: pd.Series | None = None,
 ) -> SleeveTargets:
     """H4: hold the top ``holdings_per_sleeve`` coins of one signal and phase.
 
@@ -478,6 +516,9 @@ def _build_multi_asset_sleeve_targets(
         if dispersion_multiplier is not None:
             factor = float(dispersion_multiplier.get(signal_date, 1.0))
             scale *= factor if np.isfinite(factor) else 1.0
+        if exposure_multiplier is not None:
+            factor = float(exposure_multiplier.get(signal_date, 1.0))
+            scale *= factor if np.isfinite(factor) else 1.0
         desired: dict[str, float] = {}
         for asset in held:
             if not spec.use_volatility_target:
@@ -518,6 +559,8 @@ def _build_multi_asset_sleeve_targets(
             row["breadth"] = float(pd.to_numeric(breadth, errors="coerce").get(signal_date, np.nan))
         if dispersion_multiplier is not None:
             row["dispersion_multiplier"] = float(dispersion_multiplier.get(signal_date, 1.0))
+        if exposure_multiplier is not None:
+            row["exposure_multiplier"] = float(exposure_multiplier.get(signal_date, 1.0))
         history.append(row)
 
     holdings = pd.Series(
@@ -545,6 +588,7 @@ def build_sleeve_targets(
     phase_offset: int,
     breadth: pd.Series | None = None,
     dispersion_multiplier: pd.Series | None = None,
+    exposure_multiplier: pd.Series | None = None,
 ) -> SleeveTargets:
     """Build sparse target events for one signal and one phase offset.
 
@@ -552,6 +596,9 @@ def build_sleeve_targets(
     ``breadth_threshold`` and ignored otherwise.  ``dispersion_multiplier``
     (from ``dispersion_exposure``) scales every sleeve weight when the spec
     sets ``dispersion_target_percentile`` and is ignored otherwise.
+    ``exposure_multiplier`` is an independent book-level de-risking overlay
+    (e.g. from ``exposure_multiplier``) that is multiplied on top of the
+    dispersion factor and ignored when ``None``.
     """
     if phase_offset not in spec.phase_offsets:
         raise ValueError("phase_offset must be present in spec.phase_offsets")
@@ -580,6 +627,7 @@ def build_sleeve_targets(
             breadth=breadth,
             volatility=volatility,
             dispersion_multiplier=dispersion_multiplier,
+            exposure_multiplier=exposure_multiplier,
         )
     if spec.use_asset_trend_filter:
         asset_ma = market.price.rolling(
@@ -718,6 +766,10 @@ def build_sleeve_targets(
             # H5: scale by the point-in-time dispersion-targeting factor.
             factor = float(dispersion_multiplier.get(signal_date, 1.0))
             desired_weight *= factor if np.isfinite(factor) else 1.0
+        if exposure_multiplier is not None:
+            # Book-level de-risking overlay (e.g. H6 funding state).
+            factor = float(exposure_multiplier.get(signal_date, 1.0))
+            desired_weight *= factor if np.isfinite(factor) else 1.0
         event = selected != previous_asset or abs(desired_weight - previous_weight) > spec.weight_tolerance
         if event:
             assets.loc[signal_date] = selected if selected is not None else "__cash__"
@@ -749,6 +801,8 @@ def build_sleeve_targets(
             row["breadth"] = float(pd.to_numeric(breadth, errors="coerce").get(signal_date, np.nan))
         if dispersion_multiplier is not None:
             row["dispersion_multiplier"] = float(dispersion_multiplier.get(signal_date, 1.0))
+        if exposure_multiplier is not None:
+            row["exposure_multiplier"] = float(exposure_multiplier.get(signal_date, 1.0))
         history.append(row)
 
     return SleeveTargets(
@@ -830,8 +884,14 @@ def build_phase_momentum_targets(
     signal_specs: tuple[MomentumSignalSpec, ...] = PRIMARY_SIGNAL_SPECS,
     spec: PhaseMomentumSpec | None = None,
     include_btc: bool = True,
+    exposure_multiplier: pd.Series | None = None,
 ) -> PhaseMomentumBuildResult:
-    """Build all signal/phase sleeves and aggregate them into one portfolio."""
+    """Build all signal/phase sleeves and aggregate them into one portfolio.
+
+    ``exposure_multiplier`` is an optional point-in-time book-level de-risking
+    factor (already lagged to the signal close) applied to every sleeve on top
+    of the spec's own overlays; ``None`` reproduces the spec exactly.
+    """
     spec = spec or PhaseMomentumSpec()
     breadth = (
         top20_breadth(market, universe, index, ma_window=spec.breadth_ma_window)
@@ -861,6 +921,7 @@ def build_phase_momentum_targets(
                     phase_offset=offset,
                     breadth=breadth,
                     dispersion_multiplier=dispersion_multiplier,
+                    exposure_multiplier=exposure_multiplier,
                 )
             )
 
@@ -902,6 +963,7 @@ def build_parameter_ensemble_targets(
     parameter_specs: tuple[PhaseMomentumSpec, ...] = CORE_PARAMETER_SPECS,
     signal_specs: tuple[MomentumSignalSpec, ...] = PRIMARY_SIGNAL_SPECS,
     include_btc: bool = True,
+    exposure_multiplier: pd.Series | None = None,
 ) -> PhaseMomentumBuildResult:
     """Equal-weight a fixed parameter grid, each set run as its own ensemble.
 
@@ -960,6 +1022,7 @@ def build_parameter_ensemble_targets(
                         if spec.breadth_threshold is not None
                         else None,
                         dispersion_multiplier=dispersion_by_spec[position],
+                        exposure_multiplier=exposure_multiplier,
                     )
                 )
 
