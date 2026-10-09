@@ -125,6 +125,11 @@ def main() -> None:
     long_targets = _long_targets_from_build(built, index)
     available = set(marks)
     restricted, dropped = _restrict_targets(long_targets, available, marks)
+    if len(dropped):
+        dropped_dates = pd.to_datetime(dropped["date"], utc=True, format="mixed")
+        dropped_window = dropped.loc[dropped_dates > engine_start]
+    else:
+        dropped_window = dropped
     intervals = _funding_intervals(symbol_map)
     scaled = scale_long_targets(restricted, leverage=args.leverage, max_gross=args.leverage)
 
@@ -189,7 +194,7 @@ def main() -> None:
                 "end": str(end),
                 "days": int(len(daily)),
                 "mark_dir": str(args.mark_dir),
-                "dropped_target_rows": int(len(dropped)),
+                "dropped_target_rows": int(len(dropped_window)),
                 "liquidations": int(len(result.liquidations)),
                 "metrics": metrics,
             },

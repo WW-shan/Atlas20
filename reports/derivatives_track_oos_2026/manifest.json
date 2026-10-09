@@ -2,7 +2,7 @@
   "carry_days": 3,
   "cost_bps": 20.0,
   "days": 17,
-  "dropped_target_rows": 1434,
+  "dropped_target_rows": 0,
   "end": "2026-10-09 10:00:00+00:00",
   "engine_start": "2026-09-21 00:00:00+00:00",
   "funding": "zero (upper bound; no exact Bitget history)",
