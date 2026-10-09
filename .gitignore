@@ -68,3 +68,6 @@ output/full-functional/
 
 # CCG task artifacts (local only, not uploaded)
 .ccg/
+
+# Local idempotency state for the daily Telegram signal push.
+data/telegram_signal_state.json

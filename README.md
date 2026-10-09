@@ -708,6 +708,20 @@ override; the check is recorded in `last_day_check`). The payload records the
 shows both the target and the engine's current drifted book (`current_weights`),
 and lists the sleeve snapshot with a `book` column (0 = book A, 1 = book B).
 
+A daily Telegram push can be enabled after the snapshot is generated:
+
+```bash
+.venv/bin/python scripts/send_telegram_signal.py --dry-run
+.venv/bin/python scripts/send_telegram_signal.py --force
+```
+
+It reports the target holdings, the current model holdings, and the model
+rebalance in percentage points. It is notification-only and never places an
+order. Credentials are read from `ATLAS20_TELEGRAM_BOT_TOKEN` and
+`ATLAS20_TELEGRAM_CHAT_ID`; see `docs/operations/telegram_signal.md`. Ubuntu
+deployments use the checked-in `ops/systemd/atlas20-telegram-signal.{service,timer}`
+units, with no macOS launchd dependency.
+
 Reproduce the current frozen spec with the commands in `RESEARCH.md` section
 0.3 (dependency order) and `RESEARCH.md` section 00.13.
 

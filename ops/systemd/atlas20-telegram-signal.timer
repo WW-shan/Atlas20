@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Atlas20 H5 Telegram signal once per day
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=atlas20-telegram-signal.service
+
+[Install]
+WantedBy=timers.target

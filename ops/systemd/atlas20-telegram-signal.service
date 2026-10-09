@@ -1,0 +1,12 @@
+[Unit]
+Description=Atlas20 H5 daily Telegram signal
+Documentation=file:/opt/atlas20/docs/operations/telegram_signal.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/atlas20
+EnvironmentFile=-/etc/atlas20/telegram.env
+ExecStart=/opt/atlas20/.venv/bin/python scripts/run_phase_momentum_live_signal.py --config config/base.yaml --trial-id PR2026-10-H5
+ExecStart=/opt/atlas20/.venv/bin/python scripts/send_telegram_signal.py --signal-file reports/phase_momentum_live/latest_signal.json --state-file data/telegram_signal_state.json
