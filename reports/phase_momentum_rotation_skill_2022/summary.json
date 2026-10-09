@@ -1,0 +1,11 @@
+{
+  "annualised_excess": 1.2529199116283816,
+  "days": 520,
+  "hit_rate_excess_positive": 0.47307692307692306,
+  "leader_in_top_quintile_rate": 0.33076923076923076,
+  "mean_basket_return_daily": 0.002167955419766984,
+  "mean_book_return_daily": 0.0056006127118995355,
+  "mean_excess_daily": 0.003432657292132552,
+  "median_excess_daily": -0.0012577429595231494,
+  "newey_west_t": 1.8057491571112279
+}
