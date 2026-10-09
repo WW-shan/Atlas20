@@ -1,0 +1,11 @@
+[Unit]
+Description=Atlas20 derivatives (L125-V2) daily Telegram signal
+Documentation=file:/opt/atlas20/docs/operations/telegram_signal.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/atlas20
+EnvironmentFile=-/etc/atlas20/telegram.env
+ExecStart=/usr/bin/make derivatives-oos-data derivatives-oos derivatives-notify

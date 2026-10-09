@@ -85,9 +85,52 @@ message. Both attempts assume the Ubuntu data-refresh job has completed; adjust
 signal first, so a stale or partial panel makes the attempt fail instead of
 sending a stale message.
 
+## Derivatives track (frozen spec `PR2026-10-D-L125-V2`)
+
+The derivatives broadcast is the one that matches the go-live vehicle (Bitget
+USDT-M perpetuals, 1.25x notional, isolated margin, 50% long buffer, T+1 +3h
+fills). It reads the target book written by `scripts/run_derivatives_oos.py`
+and sends one message per signal day with:
+
+- today's `BUY`/`SELL` in **notional USDT** plus the weight change in pp;
+- the post-trade book: notional, weight, and the **reference isolated margin**
+  (notional x 50%) for every leg;
+- the total notional vs the 1.25x cap, margin used, and remaining free margin;
+- the UTC signal date, the UTC close (Beijing 08:00 next day), and the modelled
+  execution time (T+1 +3h, i.e. 11:00 Beijing);
+- a warning line when the execution time has already passed, so a late run
+  cannot be mistaken for a live order instruction.
+
+```bash
+# preview the message for the latest signal day (no credentials needed)
+make derivatives-signal
+
+# refresh the out-of-sample ledger, then send one message per chat id
+make derivatives-oos-data derivatives-oos derivatives-notify
+```
+
+The message is a notification only: it never places an order, does not know any
+real position, and repeated runs on the same signal day are skipped by the
+`(spec, signal_date)` key in `data/derivatives_telegram_state.json`.
+
+On Ubuntu, install the matching systemd timer, which mirrors the spot timer:
+
+```bash
+sudo cp ops/systemd/atlas20-derivatives-signal.service /etc/systemd/system/
+sudo cp ops/systemd/atlas20-derivatives-signal.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now atlas20-derivatives-signal.timer
+```
+
+It fires at 02:00 UTC (10:00 Beijing, one hour before the modelled fill) and
+03:00 UTC (11:00 Beijing, the modelled fill itself) as a catch-up. Both attempts
+run the data refresh first, so a stale or partial panel fails the run instead of
+sending a stale message.
+
 ## Idempotency
 
-The sender records the last successful `(trial_id, as_of)` pair in
-`data/telegram_signal_state.json`. A repeated timer or manual run for the same
-day is skipped. The state is written only after Telegram confirms `ok: true`, so
-a failed send can be retried safely.
+The spot sender records the last successful `(trial_id, as_of)` pair in
+`data/telegram_signal_state.json`; the derivatives sender records
+`(spec, signal_date)` per chat id in `data/derivatives_telegram_state.json`.
+A repeated timer or manual run for the same day is skipped. State is written only
+after Telegram confirms `ok: true`, so a failed send can be retried safely.

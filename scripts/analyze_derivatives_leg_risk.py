@@ -34,7 +34,6 @@ from atlas20.derivatives.signals import scale_long_targets  # noqa: E402
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 
-from scripts.run_bitget_mark_matrix import _funding_intervals  # noqa: E402
 from scripts.run_derivatives_backtest import _long_targets_from_build, _restrict_targets  # noqa: E402
 from scripts.run_phase_momentum import _load_market  # noqa: E402
 from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
@@ -122,7 +121,6 @@ def main() -> None:
     symbol_map = pd.read_csv(args.raw_dir / "symbol_map.csv")
     mark_candles = load_mark_candles(args.raw_dir, symbol_map)
     available_marks = set(mark_candles)
-    intervals = _funding_intervals(symbol_map)
     restricted, _ = _restrict_targets(long_targets, available_marks, mark_candles)
 
     leg_rows: list[dict[str, object]] = []

@@ -63,5 +63,11 @@ derivatives-oos-data: $(VENV_STAMP)
 derivatives-oos: $(VENV_STAMP)
 	$(PYTHON) scripts/run_derivatives_oos.py
 
+derivatives-signal: $(VENV_STAMP)
+	$(PYTHON) scripts/send_derivatives_signal.py --dry-run
+
+derivatives-notify: $(VENV_STAMP)
+	$(PYTHON) scripts/send_derivatives_signal.py
+
 clean:
 	rm -rf .pytest_cache .mypy_cache apps/web/node_modules apps/web/dist

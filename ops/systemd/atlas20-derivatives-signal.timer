@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Atlas20 derivatives Telegram signal once per day
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=atlas20-derivatives-signal.service
+
+[Install]
+WantedBy=timers.target
