@@ -237,20 +237,21 @@ isolated_margin_i  = margin_ratio_i × |notional_i|
 - Binance 1h K 线：现有执行延迟和小时路径；
 - Bitget `/api/v3/market/history-candles` 的 `type=mark` 1H K 线：强平路径主数据；
 - Bitget `/api/v3/market/history-candles` 的 `type=market` 和 `type=index` 1H K 线：成交和标记校验；
-- Bitget 最近 90 天精确 funding：与 Binance 历史 funding 代理做重叠校验。
+- Bitget `/api/v2/mix/market/history-fund-rate` 的最近约 90 天精确 funding：与 Binance 历史 funding 代理做重叠校验。
 
-已核验：Bitget 历史 K 线接口可返回 2022 年 BTCUSDT 和 NEARUSDT 的 1H mark candle，因此强平路径不必完全依赖 Binance mark price。仍需对所有 PIT Top20 成员逐币做覆盖审计，因为新上市、下架、迁移和 rebrand 会造成缺口。
+已核验：Bitget 历史 K 线接口可返回 2022 年 BTCUSDT 和 NEARUSDT 的 1H mark candle；单次 `limit<=100`、单窗口<=90 天，且返回 `endTime` 之前最近 100 条，因此必须从 `endTime` 向前分页。仍需对所有 PIT Top20 成员逐币做全量覆盖审计，因为新上市、下架、迁移和 rebrand 会造成缺口。
 
 限制：
 
-- Bitget 历史 funding 接口只覆盖最近 90 天，2022–2026 的资金费历史仍使用 Binance funding 代理并做重叠误差报告；
+- Bitget v2 历史 funding 接口只覆盖最近约 90 天，2022–2026 的资金费历史仍使用 Binance funding 代理并做重叠误差报告；
 - Bitget 历史 mark candle 是交易所事后提供的 K 线，仍可能缺少极端秒级插针、部分下架合约和部分新币早期数据；
 - 真样本外阶段必须切换到 Bitget 实时 mark price 和实际成交记录；
 - 所有缺口必须显式报告，不能静默回填。
 
 ### 5.2 资金费
 
-- Bitget `/api/v3/market/history-fund-rate`：精确最近 90 天，8 小时间隔；
+- Bitget `/api/v2/mix/market/history-fund-rate`：精确最近约 90 天，8 小时间隔；`pageNo` 分页有效；
+- Bitget `/api/v3/market/history-fund-rate`：忽略 `pageNo`，只返回最近 20 条，不能用于历史下载；
 - Binance `data.binance.vision` fundingRate 月度归档：2022 起历史代理；
 - 每个币按实际结算时间计费，不能假设所有币都是 8 小时；
 - 正资金费：long 支付 short；负资金费：short 支付 long；
@@ -281,6 +282,27 @@ Bitget 公开历史 funding 只有最近约 90 天，因此 2022–2026 的主�
 任何空头候选必须通过 2x/3x 压力后才允许进入下一阶段。
 
 
+### 5.2.2 Phase 1 funding 重叠审计结果
+
+2026-10-09 用 Bitget v2 最近 245 个 settlement 与 Binance 归档代理做重叠验证，BTC/NEAR/SOL 的结果如下：
+
+| 币 | overlap | 符号一致率 | Pearson | 中位绝对误差 | 95 分位绝对误差 | 累计差 | 7 日最大绝对差 | 判定 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| BTC | 245 | 0.853 | 0.250 | 0.274 bps | 0.947 bps | -19.7 bps | 11.7 bps | 失败 |
+| NEAR | 245 | 0.829 | 0.273 | 0.050 bps | 1.421 bps | +55.0 bps | 12.6 bps | 失败 |
+| SOL | 245 | 0.694 | 0.505 | 0.378 bps | 1.121 bps | +36.2 bps | 12.6 bps | 失败 |
+
+失败原因是**符号一致率和相关性**不达 §5.2.1 的预注册阈值，而不是误差量级：中位/95 分位误差都很小，但符号一致率只有 0.69–0.85，Pearson 只有 0.25–0.51。累计差在 245 个 settlement（约 82 天）为 -19.7 bps 到 +55.0 bps，年化约 -88 bps 到 +245 bps，足以影响年 funding drag 约 150 bps 的策略。
+
+结论：
+
+- Binance funding **不能**被称为 Bitget 精确历史；
+- 预注册门槛不因本次结果放宽；
+- 如果 2022–2026 回测依赖精确 funding，当前数据质量门不通过；
+- 可选的合规路径只有：寻找更好的 Bitget 历史 funding 来源；或把 2022–2026 funding 明确降级为 proxy/uncertain 压力带；或只用最近 90 天 Bitget 精确 funding + 未来 OOS；
+- Phase 2 引擎可以继续实现，但 funding attribution 必须带 `funding_source=proxy` 标签，且在找到更好来源前不能作为上线依据。
+
+
 ### 5.3 手续费与返佣
 
 - Taker：6 bps/边；
@@ -305,11 +327,13 @@ Bitget 公开历史 funding 只有最近约 90 天，因此 2022–2026 的主�
 - liquidation fee；
 - 是否发生过 rebrand/delist。
 
-当前已知缺口：
+当前已知缺口（2026-10-09 Phase 1 审计）：102 个 PIT Top20 coin id 中 88 个有 Bitget USDT-M 合约，14 个缺失：
 
-- MNT、MATIC、OKB 当前没有 Bitget USDT-M 永续；
-- MATIC 已迁移到 POL；
-- `bitget-token` 在 Binance funding 数据中缺失，但 Bitget 有 BGBUSDT。
+```text
+EOS, FLOW, FTT, HNT, HTX, HT, KCS, LEO, MKR, MNT, OKB, OSMO, WAVES, YFI
+```
+
+MATIC 已迁移到 POL，映射为 POLUSDT；`bitget-token` 映射为 BGBUSDT。缺失合约不得用排名更低的币替代。
 
 主规则：若 H5 选中的币没有可用 Bitget 永续，该 sleeve 进入现金。不得自动用排名更低的币替代。替代规则只能作为单独的预注册变体。
 
@@ -535,6 +559,8 @@ Derivatives Track 的 multiple-testing scope 以这 11 个为初始 N。任何�
 - 用 Top20 之外资产替代缺失合约；
 - 强平只用日收盘；
 - 返佣被静默计入量化账户 NAV；
+- 把 Binance funding 称为 Bitget 精确历史；
+- 在 funding 代理未通过重叠门槛时仍把它用于精确 funding attribution；
 - 只报告 best parameter，不报告全部 trial。
 
 ### 8.4 决策树
@@ -649,12 +675,13 @@ Derivatives Track 的 DSR 门槛仍为 0.95。若 11 个 trials 的 DSR < 0.95�
 - 只有在负责人批准后，才修改 `AGENTS.md` 增加独立的 `Derivatives Research Track` 章节。
 
 
-### Phase 1：数据和仪器
+### Phase 1：数据和仪器（数据层已实现，审计未全通过）
 
-- 下载 Bitget 90 天精确 funding、2022+ 历史 mark/index/market 1H candles、contract specs；
-- 建立 Bitget symbol 映射和逐币覆盖审计；
-- 建立 Binance funding 月度归档代理；
-- 对 Binance/Bitget funding 重叠窗口做误差报告。
+- 已实现 Bitget 合约、mark/index/market K 线、funding history 客户端；
+- 已实现 PIT Top20 → Bitget symbol 映射、可恢复下载器和覆盖审计脚本；
+- 已下载 BTC/NEAR/SOL 的 90 天 Bitget funding，并完成与 Binance 的重叠验证；
+- **审计结论：funding 代理未通过 §5.2.1 的预注册门槛**；
+- 仍需全量下载 88 个映射合约 × `mark/index/market`，并解决 historical funding 数据源问题。
 
 ### Phase 2：引擎
 
@@ -693,6 +720,7 @@ Micro-live 是运营验证，不是“策略已通过验证”的声明；它不
 - 不决定 BTC short 还是 weakest short 最终上线；
 - 不决定是否把返佣划回量化账户；
 - 不决定是否购买 Bitget 历史数据供应商；
+- 不决定是否接受 funding-uncertain 的 proxy/压力带回测口径；
 - 不决定是否使用 cross margin。
 
 这些都必须由 Phase 1–3 的结果决定，不能在看结果前写死。

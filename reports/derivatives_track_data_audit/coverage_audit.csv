@@ -1,0 +1,4 @@
+coin_id,bitget_symbol,candle_type,rows,first,last,complete_windows,missing_windows,window_coverage,max_gap_hours
+bitcoin,BTCUSDT,mark,334,2022-01-01 00:00:00+00:00,2026-09-20 23:00:00+00:00,2,0,1.0,2.0
+near,NEARUSDT,mark,334,2022-01-01 00:00:00+00:00,2026-09-20 23:00:00+00:00,2,0,1.0,2.0
+solana,SOLUSDT,mark,334,2022-01-01 00:00:00+00:00,2026-09-20 23:00:00+00:00,2,0,1.0,2.0

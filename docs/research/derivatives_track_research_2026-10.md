@@ -489,6 +489,73 @@ H5 在 20bps 下：
 - **在完整 isolated margin + mark price + funding + 强平引擎跑完之前，任何空头结论都只能是 provisional**。
 
 
+### 5.6 Phase 1 数据审计（2026-10-09）
+
+本轮已经实现并跑通 Phase 1 的最小数据层：
+
+- Bitget 公共 USDT-M 客户端：合约、历史 mark/index/market K 线、funding history；
+- PIT Top20 coin id → Bitget 合约映射；
+- 可恢复下载器：`scripts/download_bitget_derivatives_data.py`；
+- 覆盖与 funding 重叠审计：`scripts/audit_bitget_derivatives_data.py`；
+- 单元测试：`tests/test_bitget_derivatives.py`。
+
+#### 5.6.1 合约映射
+
+当前 PIT Top20 历史池共 102 个 coin id，其中 **88 个映射到 Bitget USDT-M**，**14 个没有 Bitget 合约**：
+
+```text
+EOS, FLOW, FTT, HNT, HTX, HT, KCS, LEO, MKR, MNT, OKB, OSMO, WAVES, YFI
+```
+
+MATIC → POL 的 rebrand 映射有效；BGB、SHIB、PEPE、LUNC 等直接映射有效。缺失合约必须按设计中的 `CASH / unavailable` 处理，不能用排名更低的币替代。
+
+#### 5.6.2 API 事实修正
+
+这轮实测修正了此前设计稿中的两个 API 细节：
+
+| 端点 | 实测行为 | 设计含义 |
+|---|---|---|
+| `/api/v2/mix/market/history-fund-rate` | `pageNo` 有效，约 90 天历史；BTC 约 270 条 8h 记录 | **历史 funding 主端点** |
+| `/api/v3/market/history-fund-rate` | 忽略 `pageNo`，每次只返回最近 20 条 | 不能用于历史 funding 下载 |
+| `/api/v3/market/history-candles` | `type=mark/index/market` 可用；单次 `limit<=100`；窗口<=90 天；返回 `endTime` 之前最近 100 条 | 必须从 `endTime` 向前分页，再按 `[start, end)` 过滤 |
+| `/api/v2/mix/market/contracts?productType=USDT-FUTURES` | 返回 816 个合约 | 合约规格主端点 |
+
+#### 5.6.3 K 线覆盖抽样
+
+本轮对 BTC、NEAR、SOL 的 `mark` 1H 数据做了两个抽样窗口（2022-01-01 附近和 2026-09-14 附近）：
+
+- 6/6 抽样窗口完整；
+- 每个币 334 行；
+- 窗口内最大 gap 2 小时。
+
+这证明 Bitget 历史 mark K 线可以覆盖 2022 和 2026，但**不是全量覆盖审计**。全量下载仍需要遍历 88 个映射合约 × `mark/index/market`，下载器已按 89 天窗口和断点状态设计。
+
+#### 5.6.4 Funding 重叠验证：严格门槛失败
+
+Bitget v2 funding 与 Binance funding 在最近 245 个 settlement 上重叠：
+
+| 币 | overlap | 符号一致率 | Pearson | 中位绝对误差 | 95 分位绝对误差 | 累计差 | 7 日最大绝对差 | 判定 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| BTC | 245 | 0.853 | 0.250 | 0.274 bps | 0.947 bps | -19.7 bps | 11.7 bps | 失败 |
+| NEAR | 245 | 0.829 | 0.273 | 0.050 bps | 1.421 bps | +55.0 bps | 12.6 bps | 失败 |
+| SOL | 245 | 0.694 | 0.505 | 0.378 bps | 1.121 bps | +36.2 bps | 12.6 bps | 失败 |
+
+失败原因不是量级，而是**结算点符号一致率和相关性**：中位误差和 95 分位误差都低于设计阈值，但符号一致率只有 0.69–0.85，Pearson 只有 0.25–0.51，远低于 0.95。按设计稿 §5.2.1 的预注册阈值，Binance funding **不能作为 Bitget funding 的精确历史代理**。
+
+累计误差在 245 个结算点（约 82 天）为 -19.7 bps 到 +55.0 bps，年化约 -88 bps 到 +245 bps。这个量级足以影响一个年 funding drag 约 150 bps 的策略，不能被当成零。
+
+#### 5.6.5 结论与处理
+
+1. **不要把 Binance funding 称为 Bitget 精确历史。** 它只能作为不确定性/压力带。
+2. **严格数据质量门槛不因为本次结果放宽。** 预注册阈值仍为符号一致率 ≥0.95、Pearson ≥0.95、中位误差 ≤1bp、95 分位 ≤5bp。
+3. **历史衍生品回测如果依赖精确 funding，当前不能通过。** 三个可选项：
+   - 找到更好的 Bitget 历史 funding 数据源（交易所数据、付费供应商或数据请求）；
+   - 明确把 2022–2026 的 funding 结果标为“proxy/uncertain”，用 0x/1x/2x/3x 压力带而不是精确值；
+   - 只用最近 90 天 Bitget 精确 funding + 未来 OOS，历史段只做不含 funding 的价格/强平研究。
+4. **Phase 2 引擎可以继续实现，但 funding attribution 必须带 `funding_source=proxy` 标签**，且在找到更好来源前不能作为上线依据。
+5. **全量 K 线下载尚未完成。** 本轮只抽样验证了 BTC/NEAR/SOL 的 mark 数据；88 个合约 × 3 种类型仍需后台跑完。
+
+
 ## 6. Bitget 官方机制
 
 ### 6.1 Funding
@@ -588,7 +655,7 @@ Bitget 当前 USDT-M 基础费率：
 
 | 缺口 | 影响 | 当前处理 |
 |---|---|---|
-| Bitget 历史 funding 只有 90 天 | 2022–2026 funding 不精确 | Binance funding 代理 + 重叠误差 |
+| Bitget 历史 funding 只有约 90 天 | 2022–2026 funding 不精确 | v2 funding 取精确 90 天；Binance 代理未通过重叠验证（§5.6.4），只能作压力带 |
 | Bitget mark candle 需要逐币覆盖审计 | 新币/下架/迁移可能缺口 | Phase 1 逐币审计 |
 | 秒级 mark 和 liquidation tape 不易获得 | 小时级可能低估 cascade | 强平滑点压力 + 5/10bps |
 | 历史 position tier 可能变化 | maintenance margin 不精确 | 当前 tier + 保守 buffer |
@@ -614,9 +681,9 @@ Bitget 当前 USDT-M 基础费率：
 1. 负责人审阅设计稿和本研究报告；
 2. 把 11 个 pre-registered trials 写入 trial ledger；
 3. 增加独立 `Derivatives Track` AGENTS 章节（仅在负责人批准后）；
-4. 下载 Bitget 2022+ mark/index/market 1H candles 并做覆盖审计；
-5. 下载 Bitget 90 天 funding 并与 Binance 重叠校验；
-6. 实现 isolated margin + funding + liquidation 引擎；
+4. 全量下载 Bitget 2022+ mark/index/market 1H candles 并做覆盖审计；
+5. 解决 historical funding 数据源：继续寻找更可靠的 Bitget 历史 funding，或把 proxy 明确降级为压力带；
+6. 实现 isolated margin + funding + liquidation 引擎，funding attribution 必须标注来源；
 7. 先跑 1.25x long-only，1.5x/2.0x 只做压力；
 8. long-only 通过后再跑 BTC short overlay；
 9. 最后才考虑 weakest-Top20 short；

@@ -1479,6 +1479,9 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/vol_target_frontier_2022/` | 目标波动 80%–200% 收益/回撤边界 | ✅ 边界研究 |
 | `reports/vol_target_cost_rolling_2022/` | 领先候选 2–100bps 成本压力 + 1 年滚动窗口 | ✅ 当前最关键稳健性报告 |
 | `docs/research/strategy_evidence_audit.md` | 逐决策点外部证据矩阵和未验证假设 | ✅ 权威审计 |
+| `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` | Bitget 衍生品独立轨道设计稿（long/short、杠杆、保证金、funding、强平、预注册 trials） | ⚠️ 设计稿，待负责人审阅 |
+| `docs/research/derivatives_track_research_2026-10.md` | 衍生品外部研究、项目内诊断、Bitget API 事实和 Phase 1 数据审计 | ⚠️ 研究输入，不构成上线批准 |
+| `reports/derivatives_track_data_audit/` | Phase 1 合约映射、K 线抽样覆盖和 funding 重叠审计 | ⚠️ funding 代理未通过预注册门槛 |
 | `reports/ctrend_champion_top20_2022/` | 旧冠军（固定21D，无每日自身趋势止损） | ⚠️ 已被新冠军取代 |
 | `reports/convex_validation_2022_top20/` | 2218 组 Top20 2022 起点全量筛选 | ✅ 权威研究 |
 | `reports/convex_validation_2022_top50/` | Top50 灵敏度全量筛选 | ⚠️ 只做灵敏度，不是生产规则 |
@@ -1491,3 +1494,32 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/latest/` | 主流水线 32 个策略（含 BTC/ETH 基准） | ✅ 仍可用于基准对比 |
 
 **数据更新方案**：`ops/com.atlas20.daily-refresh.plist` 已安装到用户 `launchd`，每日 02:30/06:30 UTC 执行；CoinGecko 独立校验缓存有 3 小时 TTL，避免 Gate 不上市资产长期使用旧缓存后被错误排除。
+
+---
+
+## 9. Derivatives Track（独立研究轨道）
+
+> 本节不修改 H5 Spot Track 的任何结论，也不构成衍生品上线批准。它只记录 Bitget USDT-M 独立轨道的研究、设计和 Phase 1 数据审计状态。
+
+### 9.1 文档与数据
+
+- 设计稿：`docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md`
+- 外部研究：`docs/research/derivatives_track_research_2026-10.md`
+- Phase 1 审计报告：`reports/derivatives_track_data_audit/report.md`
+- 下载器：`scripts/download_bitget_derivatives_data.py`
+- 审计器：`scripts/audit_bitget_derivatives_data.py`
+- 客户端与映射：`src/atlas20/derivatives/`
+
+### 9.2 2026-10-09 Phase 1 结论
+
+- PIT Top20 历史池 102 个 coin id，其中 **88 个映射到 Bitget USDT-M**，14 个缺失：EOS、FLOW、FTT、HNT、HTX、HT、KCS、LEO、MKR、MNT、OKB、OSMO、WAVES、YFI。
+- Bitget 历史 funding 主端点是 `/api/v2/mix/market/history-fund-rate`，`pageNo` 有效，覆盖最近约 90 天；v3 端点忽略 `pageNo`，每次只返回最近 20 条。
+- BTC/NEAR/SOL 的 Bitget vs Binance funding 重叠验证均**未通过**设计稿 §5.2.1 的预注册门槛：符号一致率 0.694–0.853，Pearson 0.250–0.505；中位误差 0.050–0.378 bps、95 分位 0.947–1.421 bps。
+- Binance funding 只能作为 **proxy/uncertain 压力带**，不能称为 Bitget 精确历史；在找到更好的 Bitget 历史 funding 来源前，依赖精确 funding 的 2022–2026 衍生品回测不能作为上线依据。
+- Bitget 历史 mark K 线 API 可用，但单次 `limit<=100`、窗口<=90 天，且返回 `endTime` 之前最近 100 条；下载器必须从 `endTime` 向前分页。BTC/NEAR/SOL 的抽样 mark 覆盖为 6/6 窗口完整，但全量 88 合约 × 3 类型下载尚未完成。
+
+### 9.3 当前判定
+
+- **H5 Spot Track 不变，仍为 provisional；DSR/PBO/窄峰门槛不因衍生品轨道放宽。**
+- **Derivatives Track 仍为 provisional，Phase 1 数据质量门未全通过。**
+- 在 full candle coverage、historical funding 数据源、isolated margin/强平引擎、multiple-testing 和 12 个月 OOS 全部通过前，不启用杠杆、不做空、不接实盘。
