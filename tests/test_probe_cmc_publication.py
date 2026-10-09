@@ -48,3 +48,18 @@ def test_coverage_of_target_normalises_timezone_aware_dates() -> None:
 def test_last_row_date_is_none_for_empty_input() -> None:
     assert probe._last_row_date(None) is None
     assert probe._last_row_date(pd.DataFrame()) is None
+
+
+def test_resolve_probe_cache_dir_is_isolated_from_the_production_cache(tmp_path) -> None:
+    from atlas20.config import load_config
+
+    config = load_config("config/base.yaml")
+
+    # The default is a dedicated directory under data/raw, not the shared cache.
+    resolved = probe.resolve_probe_cache_dir(config, probe.DEFAULT_CACHE_DIR)
+    assert resolved != config.resolve_path(config.paths.raw_dir)
+    assert "cmc_publication_probe" in str(resolved)
+
+    # Pointing the probe at the production raw cache is refused outright.
+    with pytest.raises(ValueError, match="production raw cache"):
+        probe.resolve_probe_cache_dir(config, config.paths.raw_dir)

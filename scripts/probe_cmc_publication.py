@@ -22,6 +22,15 @@ never changes the strategy, and adds no trial. Run it from cron every 10-15
 minutes from about 00:05 UTC to 03:00 UTC for a week; the earliest time at which
 >=90% of a fixed sample carries the target date, across days, sets the refresh
 time (see ``docs/operations/execution_latency.md``).
+
+Its CMC fetches are cached **outside** the production raw cache
+(``data/raw/cmc_publication_probe`` by default). Writing them into
+``data/raw/coinmarketcap/history`` used to poison the shared cache: the probe
+advances the probed coins to the newest CMC print, but it does not refresh the
+Binance/Gate venue windows, so the next ``build_processed_datasets`` run finds
+CMC one day ahead of every venue and excludes the affected assets as
+unverified. Those are exactly the largest coins, so the panel silently lost its
+top of book. ``--cache-dir`` exists to keep the two caches separate.
 """
 
 # ruff: noqa: E402
@@ -52,6 +61,8 @@ from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 
 CANDIDATE_ASSETS_FILE = "candidate_assets.json"
 DEFAULT_OUTPUT = "reports/provider_publication/cmc_publication_probe.csv"
+# Deliberately not the production ``data/raw`` cache: see the module docstring.
+DEFAULT_CACHE_DIR = "data/raw/cmc_publication_probe"
 
 
 def select_sample_ids(candidates: list[dict], sample_size: int) -> list[int]:
@@ -106,6 +117,26 @@ def coverage_of_target(
     return reached, len(histories)
 
 
+def resolve_probe_cache_dir(config: ResearchConfig, cache_dir: str | Path) -> Path:
+    """The probe's isolated CMC cache directory, never the production one.
+
+    The probe advances CMC history without refreshing the Binance/Gate venue
+    windows. Sharing the production cache therefore leaves CMC one day ahead of
+    every venue, and the next panel build excludes the probed assets - the
+    largest coins - as unverified. Refuse that path instead of poisoning it.
+    """
+    raw_dir = config.resolve_path(config.paths.raw_dir)
+    candidate = Path(cache_dir)
+    if not candidate.is_absolute():
+        candidate = config.resolve_path(candidate)
+    if candidate.resolve() == raw_dir.resolve():
+        raise ValueError(
+            "the probe cache must not be the production raw cache; the probe would poison "
+            "the shared CMC history and make the next panel build drop every probed asset"
+        )
+    return candidate
+
+
 def load_candidates(config: ResearchConfig) -> list[dict]:
     path = config.resolve_path(config.paths.raw_dir) / "coingecko" / CANDIDATE_ASSETS_FILE
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -120,6 +151,11 @@ def main() -> None:
     parser.add_argument("--sample-size", type=int, default=20, help="assets probed per run")
     parser.add_argument("--lookback-days", type=int, default=3, help="days of tail requested per asset")
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="summary CSV, appended to")
+    parser.add_argument(
+        "--cache-dir",
+        default=DEFAULT_CACHE_DIR,
+        help="isolated CMC cache for the probe (never the production data/raw cache)",
+    )
     parser.add_argument("--now", default=None, help="ISO timestamp; defaults to the wall clock")
     parser.add_argument(
         "--from-cache",
@@ -142,8 +178,8 @@ def main() -> None:
     if not sample:
         raise ValueError("no cached candidate carried a cmc_id")
 
-    raw_dir = config.resolve_path(config.paths.raw_dir)
-    client = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
+    probe_raw_dir = resolve_probe_cache_dir(config, args.cache_dir)
+    client = CoinMarketCapClient(config.providers.coinmarketcap, probe_raw_dir)
     start = (target - pd.Timedelta(days=args.lookback_days)).date()
 
     histories: dict[int, pd.DataFrame] = {}

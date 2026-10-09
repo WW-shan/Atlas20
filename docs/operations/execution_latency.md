@@ -62,6 +62,14 @@ launchd job samples 10, the script default is 20) and appends one row.
 `--from-cache` reads the cache instead of spending requests; use it only as a
 sanity check, because a cache read reflects the last refresh, not the provider.
 
+The probe caches its CMC fetches under `data/raw/cmc_publication_probe`
+(`--cache-dir`), **never** in the production `data/raw/coinmarketcap/history`.
+Writing them into the shared cache advances the sampled coins' CMC history
+without refreshing their Binance/Gate windows, so the next
+`build_datasets.py` sees CMC one day ahead of every venue and excludes the
+sampled assets - which are the largest coins - as unverified. Keep the two
+caches separate.
+
 `ops/com.atlas20.cmc-probe.plist` is the launchd job that runs this grid. It is
 installed on this workstation and fires every 15 minutes from 08:05 to 11:50
 local (00:05 to 03:50 UTC at UTC+8), appending to
