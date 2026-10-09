@@ -1,3 +1,0 @@
-probed_at_utc,target_date,sample_size,assets_with_target,coverage_ratio,source
-2026-10-08T11:56:02.458451+00:00,2026-10-07,10,10,1.0,fetch
-2026-10-09T00:05:05.487653+00:00,2026-10-08,10,0,0.0,fetch

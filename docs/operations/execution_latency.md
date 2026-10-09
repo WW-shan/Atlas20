@@ -74,7 +74,9 @@ caches separate.
 installed on this workstation and fires every 15 minutes from 08:05 to 11:50
 local (00:05 to 03:50 UTC at UTC+8), appending to
 `reports/provider_publication/cmc_publication_probe.csv` with logs in
-`~/Library/Logs/atlas20-cmc-probe.log`. Verify or install it the same way as the
+`~/Library/Logs/atlas20-cmc-probe.log`. That CSV is a local, untracked
+operational log (`reports/provider_publication/*` is gitignored, the directory
+is held by `.gitkeep`), so the 15-minute job never dirties the working tree. Verify or install it the same way as the
 daily refresh:
 
 ```bash

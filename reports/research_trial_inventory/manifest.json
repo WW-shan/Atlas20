@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "54398766dfc059ab37304fb897c9cf92ffbf62a7",
+  "repository_head": "7c033f51d08d6774a2889ec57d2210db7cdf800d",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "dd2283106f1bdbc28f4e71e2db96e96de2acac9b7e1a40629971e2edb9e57490",
+  "research_md_sha256": "66ac4990f532982cd79e79dcd2fbf2cc088e7c733e636c19a595931b140e21a4",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -562,8 +562,8 @@
       "sha256": "f5ceb23221f3c2f6bbb8c9b01392c1e686d2d80a266c34269c7e56ed8e6c24f6"
     },
     "reports/phase_momentum_hypotheses_2026_10/runs.csv": {
-      "origin": "working tree (modified)",
-      "sha256": "82d313d68edf236f6c6a5c67d7d3f29cd5106b065ce0a4aca75cd29ed7287e56"
+      "origin": "working tree (committed)",
+      "sha256": "d05c3f4fa6e7afcbe980761536ddeae9221bf4d57c225f22da222903a25a67fc"
     },
     "reports/phase_momentum_leave_one_out_2022/summary.csv": {
       "origin": "working tree (committed)",
@@ -590,8 +590,8 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (modified)",
-      "sha256": "46f1f4ce5bb4411816f1d81de50451e68c64f43965f7f7cd1daf4c6df6d6fde8"
+      "origin": "working tree (committed)",
+      "sha256": "b8b77030de478bfb7f290597f4b6d2aaf27d0ad8bbfe3b335b4f2ef6a94d19b8"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

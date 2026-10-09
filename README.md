@@ -424,7 +424,9 @@ job fires before CoinMarketCap has published the close.
 `ops/com.atlas20.cmc-probe.plist` is a second launchd job (installed here as
 well) that measures when CoinMarketCap finishes publishing day D-1, so the fill
 can move from +3h to +1h. It runs every 15 minutes through the 00:05-03:50 UTC
-window and appends to `reports/provider_publication/cmc_publication_probe.csv`;
+window and appends to `reports/provider_publication/cmc_publication_probe.csv`
+(a local, untracked operational log; `reports/provider_publication/*` is
+gitignored so the job never dirties the working tree);
 see `docs/operations/execution_latency.md` for the decision rule.
 
 Verify the result by checking the panel's last date, which is the number that

@@ -30,6 +30,12 @@ reports/app_runs/*
 !reports/app_runs/.gitkeep
 reports/latest.txt
 
+# CMC publication probe: an append-only operational log that a launchd job
+# writes every 15 minutes, so tracking it dirties the working tree on every
+# run. Keep the directory, ignore its output.
+reports/provider_publication/*
+!reports/provider_publication/.gitkeep
+
 # Bulky regenerable scan output; the summary/stability/yearly CSVs are kept
 reports/bull_offense_scan/bull_offense_equity_curves.csv
 
