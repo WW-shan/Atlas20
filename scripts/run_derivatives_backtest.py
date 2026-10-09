@@ -159,6 +159,19 @@ def main() -> None:
         default="zero",
         help="zero is only for engine validation; binance-proxy is not exact Bitget history",
     )
+    parser.add_argument(
+        "--funding-stress",
+        choices=("none", "long-adverse", "short-adverse"),
+        default="none",
+        help="keep only the funding sign that hurts the stated side; use only as a stress band",
+    )
+    parser.add_argument("--funding-multiplier", type=float, default=1.0)
+    parser.add_argument(
+        "--funding-missing-policy",
+        choices=("error", "skip"),
+        default="error",
+        help="error is the production default; skip is only for an explicitly labelled proxy stress run",
+    )
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw/bitget_derivatives"))
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
     parser.add_argument("--output-dir", type=Path, default=Path("reports/derivatives_track_backtest"))
@@ -187,6 +200,8 @@ def main() -> None:
         rule = TRIAL_RULES.get(args.trial_id)
     if rule is None:
         raise SystemExit(f"unknown or unimplemented trial id: {args.trial_id}")
+    if args.funding_multiplier < 0.0:
+        raise SystemExit("--funding-multiplier must be non-negative")
 
     funding = _funding_for_source(
         args.funding_source,
@@ -195,6 +210,20 @@ def main() -> None:
         symbol_map=symbol_map,
         coins=set(market.price.columns),
     )
+    if not funding.empty:
+        if args.funding_stress == "long-adverse":
+            funding = funding.clip(lower=0.0)
+        elif args.funding_stress == "short-adverse":
+            funding = funding.clip(upper=0.0)
+        if args.funding_multiplier != 1.0:
+            funding = funding * float(args.funding_multiplier)
+        funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
+    funding_intervals: dict[str, float] = {}
+    if "fund_interval" in symbol_map.columns:
+        for record in symbol_map.to_dict("records"):
+            interval = pd.to_numeric(record.get("fund_interval"), errors="coerce")
+            if pd.notna(interval) and float(interval) > 0.0:
+                funding_intervals[str(record["coin_id"])] = float(interval)
     available = available_marks & (set(funding.columns) if not funding.empty else available_marks)
     restricted, dropped = _restrict_targets(long_targets, available, mark_candles)
     short_asset = rule["short_asset"]
@@ -223,7 +252,7 @@ def main() -> None:
         long_buffer=float(args.long_buffer),
         short_buffer=float(args.short_buffer),
         max_gross_exposure=max_gross,
-        funding_missing_policy="error",
+        funding_missing_policy=args.funding_missing_policy,
         missing_mark_policy=args.missing_mark_policy,
         missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
     )
@@ -231,6 +260,7 @@ def main() -> None:
         mark_candles,
         derivative_targets,
         funding_rates=funding if not funding.empty else None,
+        funding_intervals_hours=funding_intervals if not funding.empty else None,
         config=cfg,
         start_time=pd.Timestamp(args.start_date, tz="UTC"),
         end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
@@ -242,6 +272,9 @@ def main() -> None:
         "end_date": args.end_date,
         "cost_bps": float(args.cost_bps),
         "funding_source": args.funding_source,
+        "funding_stress": args.funding_stress,
+        "funding_multiplier": float(args.funding_multiplier),
+        "funding_missing_policy": args.funding_missing_policy,
         "leverage": leverage,
         "short_asset": short_asset,
         "short_weight": short_weight,
@@ -272,6 +305,7 @@ def main() -> None:
                 f"- Window: {args.start_date} to {args.end_date}",
                 f"- Cost: {args.cost_bps:g} bps",
                 f"- Funding source: `{args.funding_source}`",
+                f"- Funding stress: `{args.funding_stress}` x {args.funding_multiplier:g}",
                 f"- Terminal multiple: {metrics['multiple']:.4f}x",
                 f"- Sharpe: {metrics['sharpe']:.4f}",
                 f"- Max drawdown: {metrics['max_drawdown']:.4%}",

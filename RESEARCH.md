@@ -1510,6 +1510,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 - 外部研究：`docs/research/derivatives_track_research_2026-10.md`
 - Phase 1 审计报告：`reports/derivatives_track_data_audit/report.md`
 - 下载器：`scripts/download_bitget_derivatives_data.py`
+- 并行下载分片合并器：`scripts/merge_bitget_derivatives_shards.py`
 - 审计器：`scripts/audit_bitget_derivatives_data.py`
 - 客户端与映射：`src/atlas20/derivatives/`
 
@@ -1531,7 +1532,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 > **口径修正（同日）**：初版 Phase 2 直接对 mark/funding 全量时间轴做回测，结果被两类污染放大：一是 2022 前的预热/零收益；二是数据源在 2026-09-21 之后的最新批次。前者会人为压低 Sharpe/CAGR，后者会把主样本之后的价格路径计入结果。引擎现已支持左闭右开的 `start_time`/`end_time` 评估窗口，所有下表结果均为 **2022-01-01 00:00 至 2026-09-21 23:00 UTC**；旧数字全部废止。
 
-- 已实现独立衍生品引擎 `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、isolated margin、小时级强平、差分调仓（不再每次全平全开）、手续费/滑点分开记录；缺失 mark 默认 fail closed，诊断模式可显式 `exit_last`/`carry`。
+- 已实现独立衍生品引擎 `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、isolated margin、小时级强平、差分调仓（不再每次全平全开）、手续费/滑点分开记录；缺失 mark 默认 fail closed，诊断模式可显式 `exit_last`/`carry`。传入每币 `funding_intervals_hours` 后，持仓若超过合约 funding 间隔仍没有结算记录会直接报错，不再把缺失 funding 静默当作 0。
 - 已实现保证金/强平数学 `src/atlas20/derivatives/margin.py`、信号构造 `src/atlas20/derivatives/signals.py`、Bitget/Binance 数据加载 `src/atlas20/derivatives/data.py`，以及 Phase 2 验证/校准/代理试验脚本。
 - 先用 Binance/Gate 1h K 线作为 **mark 代理** 做 1.0x 对 H5 的引擎校验；这不是 Bitget 结果，不能作为上线依据。比较基准必须是 **H5 同成本的 +3h 成交**，不能拿 close-fill 的 21.47x 与 +3h 衍生品路径对比。
 - 2022-01-01 至 2026-09-21、20 bps、+3h、代理 mark 的结果：

@@ -209,6 +209,9 @@ def main() -> None:
     parser.add_argument("--sample-windows", type=int, default=0, help="0 downloads the full range")
     parser.add_argument("--max-requests", type=int, default=0, help="0 means unlimited")
     parser.add_argument("--rate-limit-seconds", type=float, default=0.05)
+    parser.add_argument("--timeout-seconds", type=float, default=30.0)
+    parser.add_argument("--client-retries", type=int, default=4)
+    parser.add_argument("--retry-backoff-seconds", type=float, default=1.0)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--funding-only", action="store_true")
     parser.add_argument("--skip-funding", action="store_true")
@@ -219,6 +222,12 @@ def main() -> None:
     end = pd.Timestamp(args.end, tz="UTC")
     if end <= start:
         raise SystemExit("--end must be after --start")
+    if args.timeout_seconds <= 0:
+        raise SystemExit("--timeout-seconds must be positive")
+    if args.client_retries < 1:
+        raise SystemExit("--client-retries must be at least 1")
+    if args.retry_backoff_seconds < 0:
+        raise SystemExit("--retry-backoff-seconds must be non-negative")
     types = [item.strip() for item in args.types.split(",") if item.strip()]
     output_dir = ensure_dir(args.output_dir)
     candle_dir = ensure_dir(output_dir / "candles")
@@ -226,7 +235,12 @@ def main() -> None:
     state = _load_state(state_path)
 
     panel = _read_panel(args.panel)
-    client = BitgetClient(rate_limit_seconds=args.rate_limit_seconds)
+    client = BitgetClient(
+        timeout_seconds=args.timeout_seconds,
+        max_retries=args.client_retries,
+        retry_backoff_seconds=args.retry_backoff_seconds,
+        rate_limit_seconds=args.rate_limit_seconds,
+    )
     contracts = client.fetch_contracts()
     symbol_map = build_symbol_map(panel, contracts)
     symbol_map.to_csv(output_dir / "symbol_map.csv", index=False)

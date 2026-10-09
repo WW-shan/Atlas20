@@ -245,6 +245,7 @@ def run_derivative_backtest(
     targets: Mapping[pd.Timestamp, pd.Series],
     *,
     funding_rates: pd.DataFrame | None = None,
+    funding_intervals_hours: Mapping[str, float] | None = None,
     config: DerivativeBacktestConfig | None = None,
     start_time: object | None = None,
     end_time: object | None = None,
@@ -256,9 +257,12 @@ def run_derivative_backtest(
     are long, negative values are short, and gross exposure is capped by
     ``config.max_gross_exposure``.  ``funding_rates`` is a wide frame indexed by
     settlement timestamps; a NaN rate for a held asset is a hard error by
-    default.  ``start_time`` and ``end_time`` optionally bound the evaluation
-    path; the interval is left-closed and right-open, and targets whose
-    execution would fall outside it are ignored.
+    default.  ``funding_intervals_hours`` optionally declares each asset's
+    expected settlement interval; when supplied with fail-closed funding, a
+    held position whose last known settlement is older than that interval
+    raises instead of silently paying zero.  ``start_time`` and ``end_time``
+    optionally bound the evaluation path; the interval is left-closed and
+    right-open, and targets whose execution would fall outside it are ignored.
     """
     cfg = config or DerivativeBacktestConfig()
     candles = _validate_candles(mark_candles)
@@ -271,6 +275,19 @@ def run_derivative_backtest(
         funding = funding[~funding.index.duplicated(keep="last")].sort_index()
         funding.columns = funding.columns.astype(str)
         funding = funding.apply(pd.to_numeric, errors="coerce")
+    funding_intervals: dict[str, float] = {}
+    if funding_intervals_hours is not None:
+        for asset, hours in funding_intervals_hours.items():
+            interval = float(hours)
+            if interval <= 0.0 or not np.isfinite(interval):
+                raise ValueError("funding intervals must be positive finite hours")
+            funding_intervals[str(asset)] = interval
+    funding_times: dict[str, pd.DatetimeIndex] = {}
+    if not funding.empty:
+        for asset in funding.columns:
+            values = funding[asset].dropna()
+            if not values.empty:
+                funding_times[str(asset)] = pd.DatetimeIndex(values.index)
 
     index = pd.DatetimeIndex(
         sorted(set().union(*(frame.index for frame in candles.values())) | set(funding.index))
@@ -336,6 +353,25 @@ def run_derivative_backtest(
 
     def mark(asset: str, timestamp: pd.Timestamp, column: str = "close") -> float:
         return float(bar(asset, timestamp)[column])
+
+    def check_funding_coverage(asset: str, timestamp: pd.Timestamp) -> None:
+        if cfg.funding_missing_policy != "error" or not funding_intervals:
+            return
+        interval = funding_intervals.get(asset)
+        if interval is None:
+            raise ValueError(f"missing funding interval for held asset {asset}")
+        times = funding_times.get(asset)
+        if times is None or times.empty:
+            raise ValueError(f"funding gap for held asset {asset} at {timestamp}: no settlements")
+        position = times.searchsorted(timestamp, side="right") - 1
+        if position < 0:
+            raise ValueError(f"funding gap for held asset {asset} at {timestamp}: no prior settlement")
+        last_settlement = pd.Timestamp(times[position])
+        if timestamp - last_settlement > pd.Timedelta(hours=interval + 0.25):
+            raise ValueError(
+                f"funding gap for held asset {asset} at {timestamp}: "
+                f"last settlement {last_settlement}"
+            )
 
     def account_equity(timestamp: pd.Timestamp, *, column: str = "close") -> float:
         value = cash
@@ -681,6 +717,8 @@ def run_derivative_backtest(
                         )
 
         # Funding is settled before the hourly liquidation check.
+        for asset in positions:
+            check_funding_coverage(asset, timestamp)
         if timestamp in funding.index:
             for asset, position in list(positions.items()):
                 if asset not in funding.columns:
@@ -717,6 +755,8 @@ def run_derivative_backtest(
             if not _target_equal(last_target, target):
                 rebalance(timestamp, target)
                 last_target = target.copy()
+                for asset in positions:
+                    check_funding_coverage(asset, timestamp)
 
         equity = account_equity(timestamp)
         gross_notional = sum(position.quantity * mark(asset, timestamp) for asset, position in positions.items())

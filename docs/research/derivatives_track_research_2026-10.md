@@ -696,7 +696,7 @@ Bitget 当前 USDT-M 基础费率：
 已实现并测试：
 
 - `src/atlas20/derivatives/margin.py`：isolated-margin 强平价、强平距离、初始保证金率；
-- `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、小时级强平、差分调仓、手续费/滑点/强平事件台账；
+- `src/atlas20/derivatives/engine.py`：小时 mark OHLC、T+1 +3h 执行、逐结算点 funding、小时级强平、差分调仓、手续费/滑点/强平事件台账；可选 `funding_intervals_hours` 会对“持仓超过合约 funding 间隔但没有结算记录”直接 fail closed，避免缺失 funding 被静默按 0 计；
 - `src/atlas20/derivatives/signals.py`：H5 long 缩放、BTC 200D MA + 30D return 熊市确认、funding filter、weakest-Top20 short；
 - `src/atlas20/derivatives/data.py`：Bitget mark/funding 与 Binance funding proxy 加载。
 
@@ -706,6 +706,8 @@ Bitget 当前 USDT-M 基础费率：
 2. mark 数据源在 2026-09-21 之后仍有最新批次，持仓被静默持续到数据末尾，导致 2026-09-22 起的真样本外路径进入主样本结果。
 
 引擎现已加入可选 `start_time`/`end_time`，区间为左闭右开；窗口外的 target 不执行，窗口外的小时 mark 不进入 equity path。所有 Phase 2 结果已按 **2022-01-01 00:00 UTC 至 2026-09-21 23:00 UTC** 重跑。以下数字替代本文件此前记录的所有 Phase 2 结果。
+
+Bitget 运行器同时加入 funding 压力接口：`--funding-stress long-adverse` 只保留对多头不利的正 funding（把负 funding 置零），`--funding-stress short-adverse` 只保留对空头不利的负 funding；`--funding-multiplier` 可把该不利 funding 放大 2x/3x。它仍是 Binance proxy 压力带，不是 Bitget 精确历史。
 
 ### 12.2 1.0x 校验的否定结果（修正窗口、+3h 对 +3h）
 
@@ -797,6 +799,12 @@ L125-V2 的成本压力与 **H5 同成本 +3h 现货基准**如下（`scripts/co
 ### 12.7 复现命令
 
 ```bash
+# 并行下载完成后，把两个 shard 严格合并为一个回测数据目录
+.venv/bin/python scripts/merge_bitget_derivatives_shards.py \
+    --shard data/raw/bitget_derivatives/parallel_<stamp>/chunk_0 \
+    --shard data/raw/bitget_derivatives/parallel_<stamp>/chunk_1 \
+    --output-dir data/raw/bitget_derivatives/merged
+
 # 30% buffer 的否定校验（修正窗口）与 50% buffer 的 V2 校验
 .venv/bin/python scripts/validate_derivatives_engine.py \
     --long-buffer 0.30 --output-dir reports/derivatives_track_engine_validation

@@ -175,6 +175,54 @@ def test_missing_funding_for_a_held_asset_fails_closed() -> None:
         )
 
 
+def test_funding_gap_for_a_held_asset_fails_closed() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T05:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001]},
+        index=pd.DatetimeIndex(["2026-01-03T00:00:00Z"]),
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    with pytest.raises(ValueError, match="funding gap"):
+        run_derivative_backtest(
+            candles,
+            targets,
+            funding_rates=funding,
+            funding_intervals_hours={"BTC": 8.0},
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+            ),
+        )
+
+
+def test_complete_funding_schedule_for_a_held_asset_passes() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T05:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T00:00:00Z", freq="8h")
+    funding = pd.DataFrame({"BTC": [0.0] * len(funding_index)}, index=funding_index)
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0)
+
+
 def test_missing_mark_exit_last_closes_position_instead_of_carrying_it() -> None:
     btc_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T03:00:00Z", freq="1h", tz="UTC")
     eth_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T04:00:00Z", freq="1h", tz="UTC")
