@@ -141,7 +141,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--start-date", default="2022-01-01")
-    parser.add_argument("--end-date", default="2026-09-21")
+    parser.add_argument(
+        "--end-date",
+        default="2026-09-21",
+        help="exclusive end of the frozen evaluation window (UTC)",
+    )
     parser.add_argument("--trial-id", default="PR2026-10-D-L125")
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
@@ -168,7 +172,7 @@ def main() -> None:
     parser.add_argument("--funding-multiplier", type=float, default=1.0)
     parser.add_argument(
         "--funding-missing-policy",
-        choices=("error", "skip"),
+        choices=("error", "skip", "carry_last", "stress_median"),
         default="error",
         help="error is the production default; skip is only for an explicitly labelled proxy stress run",
     )
@@ -263,7 +267,7 @@ def main() -> None:
         funding_intervals_hours=funding_intervals if not funding.empty else None,
         config=cfg,
         start_time=pd.Timestamp(args.start_date, tz="UTC"),
-        end_time=pd.Timestamp(args.end_date, tz="UTC") + pd.Timedelta(days=1),
+        end_time=pd.Timestamp(args.end_date, tz="UTC"),
     )
     metrics = _metrics_from_returns(result.daily_returns)
     summary = {

@@ -411,3 +411,155 @@ def test_missing_mark_carry_exits_after_limit() -> None:
     exits = result.trades[result.trades["reason"] == "missing_mark_exit"]
     assert len(exits) == 1
     assert exits.iloc[0]["timestamp"] == pd.Timestamp("2026-01-02T05:00:00Z")
+
+
+def test_funding_carry_last_reuses_the_last_settlement_and_flags_the_event() -> None:
+    """A missing settlement must be an explicit carried stress rate, not a zero."""
+
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001, float("nan")], "ETH": [0.0005, 0.0005]},
+        index=pd.DatetimeIndex(["2026-01-02T00:00:00Z", "2026-01-02T08:00:00Z"]),
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_missing_policy="carry_last",
+        ),
+    )
+
+    assert list(result.funding["timestamp"]) == [pd.Timestamp("2026-01-02T08:00:00Z")]
+    assert list(result.funding["carried"]) == [True]
+    assert result.funding["amount"].sum() == pytest.approx(-1.0)
+    assert result.equity_curve.iloc[-1] == pytest.approx(999.0)
+
+
+def test_funding_carry_last_fails_closed_past_the_carry_limit() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001, float("nan")], "ETH": [0.0005, 0.0005]},
+        index=pd.DatetimeIndex(["2026-01-02T00:00:00Z", "2026-01-03T08:00:00Z"]),
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    with pytest.raises(ValueError, match="carry limit"):
+        run_derivative_backtest(
+            candles,
+            targets,
+            funding_rates=funding,
+            funding_intervals_hours={"BTC": 8.0},
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+                fee_buffer=0.0,
+                funding_missing_policy="carry_last",
+                funding_carry_max_hours=12.0,
+            ),
+        )
+
+
+def test_carry_last_does_not_charge_an_asset_that_settles_on_a_slower_clock() -> None:
+    """Union funding timestamps must not double-charge an 8h asset on a 4h cadence."""
+
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding_index = pd.DatetimeIndex(
+        [
+            "2026-01-02T00:00:00Z",
+            "2026-01-02T04:00:00Z",
+            "2026-01-02T08:00:00Z",
+        ]
+    )
+    # BTC only settles every 8h; the 04:00 row belongs to another contract.
+    funding = pd.DataFrame(
+        {"BTC": [0.001, float("nan"), float("nan")], "SOL": [0.0005, 0.0005, 0.0005]},
+        index=funding_index,
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0, "SOL": 4.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_missing_policy="carry_last",
+        ),
+    )
+
+    assert list(result.funding["timestamp"]) == [pd.Timestamp("2026-01-02T08:00:00Z")]
+    assert list(result.funding["carried"]) == [True]
+    assert result.funding["amount"].sum() == pytest.approx(-1.0)
+
+
+def test_stress_median_fills_an_asset_with_no_funding_history_at_all() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding_index = pd.DatetimeIndex(["2026-01-02T00:00:00Z", "2026-01-02T08:00:00Z"])
+    funding = pd.DataFrame({"SOL": [0.004, 0.004]}, index=funding_index)
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0, "SOL": 8.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_missing_policy="stress_median",
+        ),
+    )
+
+    assert list(result.funding["timestamp"]) == [pd.Timestamp("2026-01-02T08:00:00Z")]
+    assert list(result.funding["carried"]) == [True]
+    assert result.funding["rate"].iloc[0] == pytest.approx(0.004)
+    assert result.funding["amount"].sum() == pytest.approx(-4.0)
+
+
+def test_execution_past_the_last_mark_candle_fails_closed() -> None:
+    """A signal the frozen window cannot fill must not be silently evaluated."""
+
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T23:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0}),
+        pd.Timestamp("2026-01-03T00:00:00Z"): pd.Series({"BTC": 0.0}),
+    }
+
+    with pytest.raises(ValueError, match="no mark candle at or within one hour"):
+        run_derivative_backtest(
+            candles,
+            targets,
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+                fee_buffer=0.0,
+            ),
+            start_time=pd.Timestamp("2026-01-01T00:00:00Z"),
+            end_time=pd.Timestamp("2026-01-05T00:00:00Z"),
+        )

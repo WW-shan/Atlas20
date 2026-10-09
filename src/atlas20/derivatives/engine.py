@@ -42,6 +42,7 @@ class DerivativeBacktestConfig:
     execution_hour: int = 3
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
+    funding_carry_max_hours: float = 24.0
     missing_mark_policy: str = "error"
     missing_mark_max_carry_hours: int = 1
 
@@ -70,8 +71,13 @@ class DerivativeBacktestConfig:
             raise ValueError("execution_hour must be in [0, 23]")
         if self.execution_lag_days < 0:
             raise ValueError("execution_lag_days must be non-negative")
-        if self.funding_missing_policy not in {"error", "skip"}:
-            raise ValueError("funding_missing_policy must be 'error' or 'skip'")
+        if self.funding_missing_policy not in {"error", "skip", "carry_last", "stress_median"}:
+            raise ValueError(
+                "funding_missing_policy must be 'error', 'skip', 'carry_last', "
+                "or 'stress_median'"
+            )
+        if self.funding_carry_max_hours < 0.0 or not np.isfinite(self.funding_carry_max_hours):
+            raise ValueError("funding_carry_max_hours must be finite and non-negative")
         if self.missing_mark_policy not in {"error", "exit_last", "carry"}:
             raise ValueError("missing_mark_policy must be 'error', 'exit_last', or 'carry'")
         if self.missing_mark_max_carry_hours < 0:
@@ -119,7 +125,7 @@ _TRADE_COLUMNS = [
     "margin",
     "reason",
 ]
-_FUNDING_COLUMNS = ["timestamp", "asset", "side", "rate", "notional", "amount"]
+_FUNDING_COLUMNS = ["timestamp", "asset", "side", "rate", "notional", "amount", "carried"]
 _LIQUIDATION_COLUMNS = [
     "trigger_timestamp",
     "asset",
@@ -302,6 +308,13 @@ def run_derivative_backtest(
             if not values.empty:
                 funding_times[str(asset)] = pd.DatetimeIndex(values.index)
 
+    adverse_median: pd.Series | None = None
+    if cfg.funding_missing_policy == "stress_median":
+        if funding.empty:
+            raise ValueError("stress_median funding policy requires funding rates")
+        positive_only = funding.where(funding > 0.0)
+        adverse_median = positive_only.median(axis=1, skipna=True).ffill()
+
     index = pd.DatetimeIndex(
         sorted(set().union(*(frame.index for frame in candles.values())) | set(funding.index))
     )
@@ -385,6 +398,57 @@ def run_derivative_backtest(
                 f"funding gap for held asset {asset} at {timestamp}: "
                 f"last settlement {last_settlement}"
             )
+
+    def carried_rate(asset: str, timestamp: pd.Timestamp) -> float:
+        """Last observed settlement rate for an explicitly labelled carry stress."""
+
+        times = funding_times.get(asset)
+        if times is None or times.empty:
+            raise ValueError(f"no prior funding for held asset {asset} at {timestamp}")
+        position_index = times.searchsorted(timestamp, side="right") - 1
+        if position_index < 0:
+            raise ValueError(f"no prior funding for held asset {asset} at {timestamp}")
+        last_settlement = pd.Timestamp(times[position_index])
+        gap_hours = (timestamp - last_settlement).total_seconds() / 3600.0
+        if gap_hours > cfg.funding_carry_max_hours:
+            raise ValueError(
+                f"funding carry limit exceeded for held asset {asset} at {timestamp}: "
+                f"last settlement {last_settlement} is {gap_hours:.1f}h old"
+            )
+        return float(funding.at[last_settlement, asset])
+
+    def settlement_due(asset: str, timestamp: pd.Timestamp) -> bool:
+        """True when the asset's declared schedule says a settlement happened here."""
+
+        interval = funding_intervals.get(asset)
+        if interval is None:
+            raise ValueError(f"missing funding interval for held asset {asset}")
+        times = funding_times.get(asset)
+        if times is None or times.empty:
+            return True
+        position_index = times.searchsorted(timestamp, side="left") - 1
+        if position_index < 0:
+            return True
+        last_settlement = pd.Timestamp(times[position_index])
+        gap_hours = (timestamp - last_settlement).total_seconds() / 3600.0
+        return gap_hours >= interval - 0.25
+
+    def adverse_median_rate(asset: str, timestamp: pd.Timestamp) -> float:
+        """Cross-sectional long-adverse median, an explicit worst-case stress fill."""
+
+        if adverse_median is None or adverse_median.empty:
+            raise ValueError("stress_median funding policy requires funding rates")
+        history = adverse_median.loc[:timestamp].dropna()
+        if history.empty:
+            raise ValueError(f"no adverse funding observation for held asset {asset} at {timestamp}")
+        last_time = pd.Timestamp(history.index[-1])
+        gap_hours = (timestamp - last_time).total_seconds() / 3600.0
+        if gap_hours > cfg.funding_carry_max_hours:
+            raise ValueError(
+                f"funding carry limit exceeded for held asset {asset} at {timestamp}: "
+                f"last adverse median {last_time} is {gap_hours:.1f}h old"
+            )
+        return float(history.iloc[-1])
 
     def account_equity(timestamp: pd.Timestamp, *, column: str = "close") -> float:
         value = cash
@@ -734,16 +798,28 @@ def run_derivative_backtest(
             check_funding_coverage(asset, timestamp)
         if timestamp in funding.index:
             for asset, position in list(positions.items()):
-                if asset not in funding.columns:
+                rate: float | None = None
+                carried = False
+                if asset in funding.columns:
+                    raw_rate = funding.at[timestamp, asset]
+                    if not pd.isna(raw_rate):
+                        rate = float(raw_rate)
+                if rate is None:
                     if cfg.funding_missing_policy == "error":
-                        raise ValueError(f"missing funding column for held asset {asset} at {timestamp}")
-                    continue
-                raw_rate = funding.at[timestamp, asset]
-                if pd.isna(raw_rate):
-                    if cfg.funding_missing_policy == "error":
+                        if asset not in funding.columns:
+                            raise ValueError(
+                                f"missing funding column for held asset {asset} at {timestamp}"
+                            )
                         raise ValueError(f"missing funding for held asset {asset} at {timestamp}")
-                    continue
-                rate = float(raw_rate)
+                    if cfg.funding_missing_policy == "skip":
+                        continue
+                    if not settlement_due(asset, timestamp):
+                        continue
+                    if cfg.funding_missing_policy == "carry_last":
+                        rate = carried_rate(asset, timestamp)
+                    else:
+                        rate = adverse_median_rate(asset, timestamp)
+                    carried = True
                 price = mark(asset, timestamp, "open")
                 notional = position.quantity * price
                 amount = -position.side * rate * notional
@@ -756,6 +832,7 @@ def run_derivative_backtest(
                         "rate": rate,
                         "notional": notional,
                         "amount": amount,
+                        "carried": carried,
                     }
                 )
 
