@@ -1,0 +1,15 @@
+[Unit]
+Description=Atlas20 daily data refresh (CMC PIT panel + Binance cache)
+Documentation=file:/opt/atlas20/docs/operations/derivatives_live_runbook.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/atlas20
+EnvironmentFile=-/etc/atlas20/atlas20.env
+# The derivatives signal reads data/processed/panel_daily.csv; without this
+# refresh the panel freezes at the deployment date and the daily chain keeps
+# recomputing the same signal day (silence, not an error - see the runbook).
+ExecStart=/usr/bin/make refresh-data
+TimeoutStartSec=1800

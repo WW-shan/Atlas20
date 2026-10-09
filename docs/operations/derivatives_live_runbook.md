@@ -10,7 +10,61 @@
 
 ---
 
-## 0. 一句话
+## 0. 部署到 Ubuntu 服务器（一次性；数据不会随 git 带过去）
+
+`data/` 全部在 `.gitignore` 里（唯一例外：`data/derivatives_telegram_state.json`，它随 git 走，
+用来跨机器保持"同一天不重复播报"）。**git clone 只带代码，不带数据**。
+
+| 目录 | 大小（本机实测） | 服务器上要不要 | 说明 |
+|---|---:|---|---|
+| `data/raw/`（除 bitget） | ≈750 MB | **要** | CMC 日线（是 PIT Top20 排名的权威来源）+ Binance/Gate 缓存；空缓存时刷新要全量重拉（慢、可能被限流） |
+| `data/raw/bitget_derivatives/merged_*` | 846 MB | 日常**不用**（只有 `merged_oos_*` 4.6 MB 要带） | 那是回测研究用的全历史 mark；日常链只用 OOS 目录 |
+| `data/processed/` | 24 MB | **要** | `panel_daily.csv` + `metadata.csv` 等；信号重算直接读这里 |
+| `data/*telegram_state*.json` | 几 KB | **要** | 幂等状态；少了会在部署当天重复发一次播报 |
+
+**部署顺序**（一步步来）：
+
+```bash
+# 1) 服务器
+sudo mkdir -p /opt/atlas20 /etc/atlas20
+sudo chown "$USER" /opt/atlas20
+git clone <repo> /opt/atlas20 && cd /opt/atlas20
+make setup                       # 建 .venv 装依赖
+
+# 2) 从 Mac 同步数据（在 Mac 上执行；rsync 一次，之后服务器自己增量刷新）
+rsync -avh --progress data/raw/coinmarketcap data/raw/binance data/raw/binance_1h \
+    data/raw/gateio data/raw/coinpaprika data/raw/coingecko <user>@<host>:/opt/atlas20/data/raw/
+rsync -avh data/processed/ <user>@<host>:/opt/atlas20/data/processed/
+rsync -avh data/raw/bitget_derivatives/merged_oos_20261009/ \
+    <user>@<host>:/opt/atlas20/data/raw/bitget_derivatives/merged_oos_20261009/
+
+# 3) 环境文件（token + chat ids；以后再加 Bitget 只读 key）
+sudo install -m 600 /dev/null /etc/atlas20/atlas20.env
+sudo tee /etc/atlas20/atlas20.env >/dev/null <<'ENV'
+ATLAS20_TELEGRAM_BOT_TOKEN=...
+ATLAS20_TELEGRAM_CHAT_ID=1231093599,5582320122
+ENV
+
+# 4) 先手动验证一遍（dry-run，不发消息）
+make refresh-data            # 面板增量刷新（首次约几分钟）
+make derivatives-oos-data derivatives-oos derivatives-signal
+make execution-plan EQUITY=1000
+
+# 5) 装 timer —— 注意：只装这两个，不要装 atlas20-telegram-signal（现货）；详见 §5
+sudo cp ops/systemd/atlas20-data-refresh.{service,timer} /etc/systemd/system/
+sudo cp ops/systemd/atlas20-derivatives-signal.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
+systemctl list-timers 'atlas20-*'
+```
+
+时间线（UTC）：**02:30 刷面板 → 03:00 合约链（若 02:00 那次已用旧面板，会自动跳过同日旧信号并等这次）**；
+06:30 再刷一次面板作为 CMC 发布晚点的兜底。**面板冻结时会怎样**：播报内容停在旧信号日，
+超过 36h 后发送器开始报错、timer 变红——"没消息 + timer 失败 = 管线坏了"，不会静默。
+
+---
+
+## 0.1 一句话
 
 每天 10:00（北京）左右收到一条 Telegram 播报：**买什么、卖什么、买多少名义、每腿划多少
 隔离保证金、调仓后的目标持仓**。照着下单，5 分钟完成；其余一切自动化。

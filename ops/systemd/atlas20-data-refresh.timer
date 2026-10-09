@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh the Atlas20 PIT panel twice daily
+
+[Timer]
+# 10:30 and 14:30 Beijing.  The first attempt races CoinMarketCap's
+# publication of day D-1 (measured by ops/systemd's cmc probe); the second is
+# the catch-up, and it completes before the 03:00/06:30 UTC consumers.
+OnCalendar=*-*-* 02:30:00 UTC
+OnCalendar=*-*-* 06:30:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=atlas20-data-refresh.service
+
+[Install]
+WantedBy=timers.target

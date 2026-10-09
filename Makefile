@@ -52,6 +52,13 @@ openapi: $(VENV_STAMP)
 load-test: $(VENV_STAMP)
 	$(PYTHON) scripts/load_test_api.py --rps 100 --duration-seconds 60 --p95-ms 200
 
+# Refresh the CMC/Binance cache and rebuild the processed PIT panel.  The
+# derivatives signal reads data/processed/panel_daily.csv, so this must run on
+# every host that serves the daily broadcast (mirrors the macOS launchd job).
+refresh-data: $(VENV_STAMP)
+	$(PYTHON) scripts/download_data.py --config config/base.yaml
+	$(PYTHON) scripts/build_datasets.py --config config/base.yaml
+
 # Derivatives track daily routine (Ubuntu-friendly: plain make, no launchd).
 # Requires the frozen spec; never used to select parameters.
 # The start date has to roll: the downloader caches per window start, so a

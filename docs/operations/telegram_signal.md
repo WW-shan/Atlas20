@@ -123,8 +123,12 @@ On Ubuntu, install the matching systemd timer, which mirrors the spot timer:
 ```bash
 sudo cp ops/systemd/atlas20-derivatives-signal.service /etc/systemd/system/
 sudo cp ops/systemd/atlas20-derivatives-signal.timer /etc/systemd/system/
+# The signal rebuilds from data/processed/panel_daily.csv, so the host also
+# needs the panel refresh timer; see the deployment section of the runbook.
+sudo cp ops/systemd/atlas20-data-refresh.service /etc/systemd/system/
+sudo cp ops/systemd/atlas20-data-refresh.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-derivatives-signal.timer
+sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
 ```
 
 It fires at 02:00 UTC (10:00 Beijing, one hour before the modelled fill) and
