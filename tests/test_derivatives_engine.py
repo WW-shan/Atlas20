@@ -563,3 +563,74 @@ def test_execution_past_the_last_mark_candle_fails_closed() -> None:
             start_time=pd.Timestamp("2026-01-01T00:00:00Z"),
             end_time=pd.Timestamp("2026-01-05T00:00:00Z"),
         )
+
+
+def test_market_candles_drive_the_fill_price_while_mark_drives_liquidation() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    marks = {"BTC": _flat_frame(index)}
+    market = {"BTC": _flat_frame(index, value=101.0)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        market_candles=market,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    assert result.trades.iloc[0]["price"] == pytest.approx(101.0)
+    # the mark path still values the book, so paying 101 for a 100 mark costs 1%
+    assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0 * 100.0 / 101.0)
+
+
+def test_missing_market_candle_for_a_fill_fails_closed_by_default() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    marks = {"BTC": _flat_frame(index)}
+    market_index = index[index < pd.Timestamp("2026-01-02T03:00:00Z")]
+    market = {"BTC": _flat_frame(market_index, value=101.0)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    with pytest.raises(ValueError, match="missing market candle for fill"):
+        run_derivative_backtest(
+            marks,
+            targets,
+            market_candles=market,
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+                fee_buffer=0.0,
+            ),
+        )
+
+
+def test_missing_market_candle_can_downgrade_to_mark_with_an_explicit_policy() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    marks = {"BTC": _flat_frame(index)}
+    market_index = index[index < pd.Timestamp("2026-01-02T03:00:00Z")]
+    market = {"BTC": _flat_frame(market_index, value=101.0)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        market_candles=market,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            fill_missing_policy="downgrade_to_mark",
+        ),
+    )
+
+    assert result.trades.iloc[0]["price"] == pytest.approx(100.0)
+    assert result.fill_downgrades.iloc[0]["asset"] == "BTC"

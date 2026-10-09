@@ -43,6 +43,7 @@ class DerivativeBacktestConfig:
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
     funding_carry_max_hours: float = 24.0
+    fill_missing_policy: str = "error"
     missing_mark_policy: str = "error"
     missing_mark_max_carry_hours: int = 1
 
@@ -78,6 +79,8 @@ class DerivativeBacktestConfig:
             )
         if self.funding_carry_max_hours < 0.0 or not np.isfinite(self.funding_carry_max_hours):
             raise ValueError("funding_carry_max_hours must be finite and non-negative")
+        if self.fill_missing_policy not in {"error", "downgrade_to_mark"}:
+            raise ValueError("fill_missing_policy must be 'error' or 'downgrade_to_mark'")
         if self.missing_mark_policy not in {"error", "exit_last", "carry"}:
             raise ValueError("missing_mark_policy must be 'error', 'exit_last', or 'carry'")
         if self.missing_mark_max_carry_hours < 0:
@@ -111,6 +114,7 @@ class DerivativeBacktestResult:
     liquidations: pd.DataFrame
     positions: pd.DataFrame
     mark_carries: pd.DataFrame
+    fill_downgrades: pd.DataFrame
 
 
 _TRADE_COLUMNS = [
@@ -138,6 +142,7 @@ _LIQUIDATION_COLUMNS = [
     "bad_debt",
 ]
 _MARK_CARRY_COLUMNS = ["timestamp", "asset", "last_mark_time", "hours", "price"]
+_FILL_DOWNGRADE_COLUMNS = ["timestamp", "asset", "mark_price"]
 _POSITION_COLUMNS = [
     "timestamp",
     "asset",
@@ -265,6 +270,7 @@ def run_derivative_backtest(
     *,
     funding_rates: pd.DataFrame | None = None,
     funding_intervals_hours: Mapping[str, float] | None = None,
+    market_candles: Mapping[str, pd.DataFrame] | None = None,
     config: DerivativeBacktestConfig | None = None,
     start_time: object | None = None,
     end_time: object | None = None,
@@ -285,6 +291,7 @@ def run_derivative_backtest(
     """
     cfg = config or DerivativeBacktestConfig()
     candles = _validate_candles(mark_candles)
+    fills = _validate_candles(market_candles) if market_candles else {}
     target_schedule = _normalise_targets(targets, cfg)
     if funding_rates is None:
         funding = pd.DataFrame()
@@ -345,6 +352,7 @@ def run_derivative_backtest(
     funding_events: list[dict[str, object]] = []
     liquidation_events: list[dict[str, object]] = []
     mark_carries: list[dict[str, object]] = []
+    downgrade_events: list[dict[str, object]] = []
     position_entries: list[dict[str, object]] = []
     equity_values: list[float] = []
     cash_values: list[float] = []
@@ -379,6 +387,33 @@ def run_derivative_backtest(
 
     def mark(asset: str, timestamp: pd.Timestamp, column: str = "close") -> float:
         return float(bar(asset, timestamp)[column])
+
+    def fill_price(asset: str, timestamp: pd.Timestamp) -> float:
+        """Execution price: Bitget market (last) candle when supplied, else mark."""
+
+        if not fills:
+            return mark(asset, timestamp, "open")
+        frame = fills.get(asset)
+        resolved = None
+        if frame is not None:
+            if timestamp in frame.index:
+                resolved = timestamp
+            else:
+                later = frame.index[frame.index >= timestamp]
+                if not later.empty and later[0] - timestamp <= pd.Timedelta(hours=1):
+                    resolved = later[0]
+        if resolved is None:
+            if cfg.fill_missing_policy == "error":
+                raise ValueError(f"missing market candle for fill of {asset} at {timestamp}")
+            downgrade_events.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": asset,
+                    "mark_price": mark(asset, timestamp, "open"),
+                }
+            )
+            return mark(asset, timestamp, "open")
+        return float(frame.at[resolved, "open"])
 
     def check_funding_coverage(asset: str, timestamp: pd.Timestamp) -> None:
         if cfg.funding_missing_policy != "error" or not funding_intervals:
@@ -727,7 +762,7 @@ def run_derivative_backtest(
 
         # Reduce or close first so the released cash can fund increases.
         for asset in list(positions):
-            price = mark(asset, timestamp, "open")
+            price = fill_price(asset, timestamp)
             current = positions[asset]
             target_entry = desired.get(asset)
             if target_entry is None or target_entry[0] != current.side:
@@ -744,7 +779,7 @@ def run_derivative_backtest(
 
         # Open or increase only after reductions have settled.
         for asset, (side, notional) in desired.items():
-            price = mark(asset, timestamp, "open")
+            price = fill_price(asset, timestamp)
             current = positions.get(asset)
             if current is None:
                 open_position(asset, timestamp, side, notional, price)
@@ -872,6 +907,7 @@ def run_derivative_backtest(
         liquidations=pd.DataFrame(liquidation_events, columns=_LIQUIDATION_COLUMNS),
         positions=pd.DataFrame(position_entries, columns=_POSITION_COLUMNS),
         mark_carries=pd.DataFrame(mark_carries, columns=_MARK_CARRY_COLUMNS),
+        fill_downgrades=pd.DataFrame(downgrade_events, columns=_FILL_DOWNGRADE_COLUMNS),
     )
 
 

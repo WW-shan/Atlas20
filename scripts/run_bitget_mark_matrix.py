@@ -87,6 +87,23 @@ def main() -> None:
         help="scenario to run; repeatable (default: all scenarios)",
     )
     parser.add_argument("--raw-dir", type=Path, required=True)
+    parser.add_argument(
+        "--fill-price-source",
+        choices=("mark", "market"),
+        default="mark",
+        help="mark settles the book by design; market uses Bitget last-price candles for fills",
+    )
+    parser.add_argument(
+        "--fill-price-dir",
+        type=Path,
+        default=None,
+        help="directory holding <symbol>_market.csv candles (required for market fills)",
+    )
+    parser.add_argument(
+        "--fill-missing-policy",
+        choices=("error", "downgrade_to_mark"),
+        default="error",
+    )
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
     parser.add_argument(
         "--missing-mark-policy",
@@ -124,6 +141,20 @@ def main() -> None:
             f"expected at least {args.min_mark_assets} (override with --min-mark-assets)"
         )
     available_marks = set(mark_candles)
+    fill_candles: dict[str, pd.DataFrame] = {}
+    if args.fill_price_source == "market":
+        if args.fill_price_dir is None:
+            raise SystemExit("--fill-price-source market requires --fill-price-dir")
+        fill_candles = load_mark_candles(args.fill_price_dir, symbol_map, candle_type="market")
+        if not fill_candles:
+            raise SystemExit(f"no market candles found in {args.fill_price_dir}/candles")
+        missing_fills = sorted(available_marks - set(fill_candles))
+        if missing_fills and args.fill_missing_policy == "error":
+            raise SystemExit(
+                f"{len(missing_fills)} mark assets have no market candle series "
+                f"(e.g. {missing_fills[:5]}); pass --fill-missing-policy "
+                "downgrade_to_mark only for a labelled sensitivity run"
+            )
     intervals = _funding_intervals(symbol_map)
     proxy_funding = load_binance_funding(args.binance_funding_dir, coins=set(market.price.columns))
 
@@ -162,6 +193,7 @@ def main() -> None:
               result = run_derivative_backtest(
                   mark_candles,
                   scaled,
+                  market_candles=fill_candles or None,
                   funding_rates=funding if not funding.empty else None,
                   funding_intervals_hours=intervals if not funding.empty else None,
                   config=DerivativeBacktestConfig(
@@ -178,6 +210,7 @@ def main() -> None:
                       funding_missing_policy=args.funding_missing_policy,
                       missing_mark_policy=args.missing_mark_policy,
                       missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
+                      fill_missing_policy=args.fill_missing_policy,
                   ),
                   start_time=pd.Timestamp(args.start_date, tz="UTC"),
                   end_time=pd.Timestamp(args.end_date, tz="UTC"),
@@ -197,6 +230,8 @@ def main() -> None:
                       "long_buffer": float(long_buffer),
                       "cost_bps": float(args.cost_bps),
                       "missing_mark_policy": args.missing_mark_policy,
+                      "fill_price_source": args.fill_price_source,
+                      "fill_downgrades": int(len(result.fill_downgrades)),
                       "funding_missing_policy": args.funding_missing_policy,
                       "available_mark_assets": len(available_marks),
                       "available_funding_assets": len(available),

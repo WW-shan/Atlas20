@@ -39,12 +39,14 @@ def load_mark_candles(
     symbol_map: pd.DataFrame,
     *,
     coins: Iterable[str] | None = None,
+    candle_type: str = "mark",
 ) -> dict[str, pd.DataFrame]:
-    """Load ``<symbol>_mark.csv`` files keyed by point-in-time coin id.
+    """Load ``<symbol>_<candle_type>.csv`` files keyed by point-in-time coin id.
 
-    A contract without a downloaded mark file is omitted rather than replaced
-    with another asset.  Callers can compare the returned keys with the
-    symbol map to report unavailable weights.
+    A contract without a downloaded file is omitted rather than replaced with
+    another asset.  Callers can compare the returned keys with the symbol map
+    to report unavailable weights.  ``candle_type="market"`` loads the
+    last-price candles used for execution-price sensitivity.
     """
     raw_dir = Path(raw_dir)
     selected = _selected_map(symbol_map, coins)
@@ -52,7 +54,7 @@ def load_mark_candles(
     for record in selected.to_dict("records"):
         coin_id = str(record["coin_id"])
         symbol = str(record["bitget_symbol"])
-        path = raw_dir / "candles" / f"{symbol}_mark.csv"
+        path = raw_dir / "candles" / f"{symbol}_{candle_type}.csv"
         if not path.exists():
             continue
         frame = pd.read_csv(path)
