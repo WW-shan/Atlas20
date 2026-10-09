@@ -1,0 +1,13 @@
+{
+  "bybit_median_ratio_by_year": {
+    "2022": 0.8965316064316382,
+    "2023": 1.1293333648625832,
+    "2024": 1.0199325279679718,
+    "2025": 0.9886039406213861,
+    "2026": 0.6727479547995073
+  },
+  "coins_binance_and_bybit": 49,
+  "recent_bitget_over_binance_median": 1.5901091352323253,
+  "recent_bybit_over_binance_median": 0.7605571276335947,
+  "recent_window_days": 91
+}
