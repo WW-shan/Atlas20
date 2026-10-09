@@ -1,0 +1,4 @@
+scenario,mark_source,funding_source,funding_stress,funding_multiplier,restrict_to_funding,leverage,long_buffer,cost_bps,missing_mark_policy,fill_price_source,fill_downgrades,funding_missing_policy,available_mark_assets,available_funding_assets,dropped_target_rows,liquidation_count,max_gross_exposure,fees_total,funding_total,multiple,cagr,sharpe,max_drawdown
+zero,bitget_mark,zero,none,0.0,False,1.25,0.5,20.0,carry,mark,0,carry_last,55,55,52,0,0.953232874944653,0.0683373296601654,0.0,2.811749943766589,1.2959447870011052,1.682410683865117,-0.27539778639630896
+zero,bitget_mark,zero,none,0.0,False,1.5,0.5,20.0,carry,mark,0,carry_last,55,55,52,0,1.1371851870197769,0.08850356079583896,0.0,3.215279853894728,1.5573255817608516,1.6640592329450137,-0.3263500508900071
+zero,bitget_mark,zero,none,0.0,False,2.0,0.5,20.0,carry,mark,0,carry_last,55,55,52,0,1.5230107276276117,0.1351667873245441,0.0,3.9543889790846607,2.020165795849825,1.6275472089525187,-0.4271927892611759

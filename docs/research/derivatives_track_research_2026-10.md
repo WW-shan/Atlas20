@@ -934,7 +934,7 @@ done
 #### 12.8.7 仍未闭合的 gate（按 AGENTS.md，本轨道保持 provisional）
 
 1. **真实 funding 缺失**：只有 Binance proxy + 放大压力带（`skip` 上界 / `stress_median` 保守），没有 2022 起的 Bitget 精确历史。
-2. **pre-2022 压力窗口**：kill criterion 要求 2020-10..2021-12 无强平；Bitget mark 该区间正在补下载（`data/raw/bitget_derivatives/parallel_pre2022_20261009/`），已完成的 shard 显示 2020-10..2021-12 只有当时已上市的资产（BTC/ETH/ADA/DOT/ATOM/FIL/ETC/BCH 等 6/6 完整），新币天然无数据。
+2. **pre-2022 压力窗口（已用代理 mark 扩展到 61 条路径，仍有残留）**：kill criterion 要求 2020-10..2021-12 无强平；Bitget mark 该区间只有 32 个合约，因此另用 Binance 1h 代理 mark 补齐（§12.8.9 更新）：61 条价格路径、0 次强平、最坏单腿 MAE -44.35% vs 强平距离 -51.01%。但代理是竞对现货盘、剩余 41 个币在该窗口根本不存在，门槛保持 partial-with-bounding。
 3. **成交价口径**：全部用 mark 结算，尚未用 Bitget market（last）K 线做执行价敏感性；market 数据下载进行中（`data/raw/bitget_derivatives/market_20261009/`）。
 4. **年度/滚动/最优年剔除**：尚未在真实 mark 上跑。
 5. **12 个月真 OOS**：2026-09-22 起才起算，目前不足。
@@ -971,7 +971,18 @@ kill criterion 要求 2020-10..2021-12 无强平。Bitget mark 该区间的下�
 
 - **通过的部分**：在能被交易的资产上，整段牛市里 gross 从未超过 1.21x，没有任何强平，最大回撤 -20.6% ~ -32.5%（对应 2021-05 与 2021-11 之后的熊段）。
 - **不通过的部分（诚实标注）**：`dropped_target_rows=199`，即策略当年想持有的很多 Top20 币（LUNA、MANA、SAND、GALA、CRV、EGLD、ICP 等）在 Bitget 上没有该区间的 mark，被强制降为现金。所以“没有强平”是**在受限资产池上的结论**，不能外推成“策略在该区间的最坏情况没有强平风险”。该门槛记为 **partial**，不是 pass。
-- 若要真正闭合，需要在 pre-2022 用代理 mark（Binance/Gate 1h，目前 `data/raw/binance_1h` 只到 2021-12-25）补齐，或接受该门槛永久标注 partial。
+**2026-10-09 更新：用代理 mark 把覆盖率从 32 扩到 61 条路径（`reports/derivatives_track_pre2022_proxy_stress/`）**
+
+Binance 1h 预 2022 数据（`data/raw/binance_1h_pre2022/`，61 个币，2020-10-01 → 2021-12-31）下载完成后，`scripts/build_pre2022_proxy_marks.py` 构建了一棵**带标注的代理树**：Bitget mark 行永不被覆盖，代理行只接在合约首个 Bitget mark 之前（或在该币 Bitget 完全没有数据时单独使用）。18 个拼接缝的 |基差| 中位 0.502%、最差 2.040%（NEAR -2.04%），不足以制造假强平；缺失小时用引擎 `carry` 策略（上限 3h），共 62 根小时线被 carry。
+
+| 口径 | 可用资产 | dropped rows | 强平 | L125 终值 | L125 MDD | 最坏单腿 MAE |
+|---|---:|---:|---:|---:|---:|---:|
+| Bitget-only（上表） | 32 | 199 | 0 | 0.969x | -20.62% | — |
+| + 代理 mark | **61**（14 纯 Bitget / 18 拼接 / 29 纯代理） | **52** | **0**（L125/L150/L200） | 2.812x | -27.54% | **-44.35%** |
+
+- 单腿按价格来源分类：纯 Bitget 15 腿（最坏 MAE -26.50%）、拼接 2 腿（-36.56%）、纯代理 19 腿（最坏 **-44.35%**）。最坏腿是 DOGE 2021-01-30 → 2021-03-03（代理价），距 -51.01% 强平线还有 **6.66pp**——比 2022–2026 主样本最坏腿（XRP -41.14%）更紧，但依然未击穿。
+- 该窗口的盈亏集中在 SHIB（44.5%）与 DOGE（37.7%），即 2021 年牛市的 meme 行情；L125/L150/L200 全部零强平。
+- **诚实边界**：代理是 Binance 现货 tape，不是 Bitget mark；真正会强平的是 Bitget。41 个币在该窗口尚未存在（天然无数据），funding 按零计。因此这条门槛记为 **partial-with-bounding**（在可用路径上 0 强平、最坏余量 6.66pp），而不是完全 pass。
 
 #### 12.8.10 逐 legs 的强平余量（`reports/derivatives_track_bitget_mark_leg_risk/`）
 
@@ -1073,7 +1084,7 @@ kill criterion 要求 2020-10..2021-12 无强平。Bitget mark 该区间的下�
 | 6 | 参数邻域 / 年度 / 滚动 / 状态 | **通过（除 #5）** | buffer 0.40 强平、0.50 起零强平；去最优年仍有 11.648x；最差滚动年 0.733x；non_bull 1.111x vs BTC 0.573x | — |
 | 7 | 真实 funding | **部分闭合** | 90 天重叠窗口实测 Bitget/Binance 总 funding 比 1.59x（§12.8.16）；按实测水平 L125 = 30.078x；压力 24.290x（3x）；盈亏平衡约 4.3x | 需要 Bitget 2022 起 funding 归档才能完全闭合，否则永久标注 proxy 水平校准 |
 | 8 | 成交价口径（market vs mark） | **通过** | 87 合约 market K 线；9 个组合下 market 成交与 mark 成交差 0.14%–0.29%，MDD 不变，0 次 downgrade（§12.8.17） | — |
-| 9 | pre-2022 压力窗口 | **partial** | 32 个合约有数据，零强平但 199 行目标被降为现金 | 需要 pre-2022 代理 mark 或接受 partial |
+| 9 | pre-2022 压力窗口 | **partial-with-bounding** | Bitget-only：32 合约/199 行降现金；代理 mark 扩展后 61 条路径、dropped 52、0 强平、最坏腿 MAE -44.35%（余量 6.66pp，§12.8.9） | 代理为竞对现货 tape；41 币当时不存在；funding=0 |
 | 10 | 12 个月真样本外 | **进行中（17/365 天）** | 2026-09-22 → 10-08：0.9598x，MDD -10.81%，日波动为现货的 1.20–1.32 倍 | 继续按日追加约 11 个月 |
 
 **上线前的最小可执行动作**：

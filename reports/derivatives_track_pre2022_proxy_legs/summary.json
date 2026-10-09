@@ -1,0 +1,38 @@
+[
+  {
+    "cagr": 1.2959447870011052,
+    "legs": 36,
+    "leverage": 1.25,
+    "liquidations": 0,
+    "mark_carries": 62,
+    "max_drawdown": -0.27539778639630896,
+    "max_mark_carry_hours": 3.0,
+    "multiple": 2.811749943766589,
+    "sharpe": 1.682410683865117,
+    "worst_leg_mae": -0.4435465476229268
+  },
+  {
+    "cagr": 1.5573255817608516,
+    "legs": 36,
+    "leverage": 1.5,
+    "liquidations": 0,
+    "mark_carries": 62,
+    "max_drawdown": -0.3263500508900071,
+    "max_mark_carry_hours": 3.0,
+    "multiple": 3.215279853894728,
+    "sharpe": 1.6640592329450137,
+    "worst_leg_mae": -0.4435465476229268
+  },
+  {
+    "cagr": 2.020165795849825,
+    "legs": 36,
+    "leverage": 2.0,
+    "liquidations": 0,
+    "mark_carries": 62,
+    "max_drawdown": -0.4271927892611759,
+    "max_mark_carry_hours": 3.0,
+    "multiple": 3.9543889790846607,
+    "sharpe": 1.6275472089525187,
+    "worst_leg_mae": -0.4435465476229268
+  }
+]

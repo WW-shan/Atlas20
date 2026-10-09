@@ -109,6 +109,7 @@ def main() -> None:
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--leverage", type=float, action="append", default=None)
     parser.add_argument("--long-buffer", type=float, default=0.50)
+    parser.add_argument("--missing-mark-max-carry-hours", type=int, default=1)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -146,6 +147,7 @@ def main() -> None:
                 max_gross_exposure=leverage,
                 funding_missing_policy="error",
                 missing_mark_policy="carry",
+                missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
             ),
             start_time=pd.Timestamp(args.start_date, tz="UTC"),
             end_time=pd.Timestamp(args.end_date, tz="UTC"),
@@ -196,6 +198,10 @@ def main() -> None:
                 "leverage": leverage,
                 "legs": int(sum(1 for row in leg_rows if row["leverage"] == leverage)),
                 "liquidations": int(len(result.liquidations)),
+                "mark_carries": int(len(result.mark_carries)),
+                "max_mark_carry_hours": (
+                    float(result.mark_carries["hours"].max()) if len(result.mark_carries) else 0.0
+                ),
                 "worst_leg_mae": worst_mae,
                 **metrics,
             }

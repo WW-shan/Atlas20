@@ -1,0 +1,35 @@
+{
+  "coins_bitget_only": 14,
+  "coins_no_data": 41,
+  "coins_proxy_only": 29,
+  "coins_spliced": 18,
+  "legs_by_source": [
+    {
+      "legs": 15,
+      "median_mae": -0.128397547359751,
+      "price_source": "bitget",
+      "worst_mae": -0.2649543354816099
+    },
+    {
+      "legs": 19,
+      "median_mae": -0.2136185805598413,
+      "price_source": "proxy",
+      "worst_mae": -0.4435465476229268
+    },
+    {
+      "legs": 2,
+      "median_mae": -0.25816899882466193,
+      "price_source": "spliced",
+      "worst_mae": -0.3655980271270037
+    }
+  ],
+  "liquidation_distance": -0.510101,
+  "liquidations_total": 0,
+  "mark_carries": 62,
+  "max_mark_carry_hours": 3.0,
+  "proxy_assets_total": 61,
+  "seam_median_abs_basis": 0.005021900423848091,
+  "seam_worst_abs_basis": 0.020403248960388254,
+  "seams": 18,
+  "worst_leg_mae": -0.4435465476229268
+}
