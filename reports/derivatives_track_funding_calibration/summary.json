@@ -1,0 +1,10 @@
+{
+  "assets": 48,
+  "binance_median_settlements": 246,
+  "bitget_median_settlements": 270,
+  "end": "2026-10-10 00:00:00+00:00",
+  "mean_sum_ratio": 1.6307287710723035,
+  "median_mean_rate_ratio": 1.4487661009894521,
+  "median_sum_ratio": 1.5901091352323253,
+  "start": "2026-07-11 00:00:00+00:00"
+}
