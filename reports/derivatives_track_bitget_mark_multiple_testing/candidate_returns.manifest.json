@@ -20,7 +20,7 @@
   "inputs": [
     "reports/derivatives_track_bitget_mark_zero/daily_returns.csv",
     "reports/derivatives_track_bitget_mark_zero_funding_universe/daily_returns.csv",
-    "reports/derivatives_track_bitget_mark_funding_stress/daily_returns.csv"
+    "reports/derivatives_track_bitget_mark_funding_stress_median/daily_returns.csv"
   ],
   "rows": 1724,
   "start": "2022-01-01T00:00:00+00:00"
