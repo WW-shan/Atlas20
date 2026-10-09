@@ -1087,7 +1087,7 @@ Binance 1h 预 2022 数据（`data/raw/binance_1h_pre2022/`，62 个币）加上
 | 9 | pre-2022 压力窗口 | **partial-with-bounding** | Bitget-only：32 合约/199 行降现金；代理 mark 扩展后 64 序列、dropped 归零、0 强平、最坏腿 MAE -44.35%（余量 6.66pp，§12.8.9） | 代理为竞对现货 tape；3 腿落在 Bitget 未上架币；39 币当时不存在；funding=0 |
 | 10 | 12 个月真样本外 | **进行中（17/365 天）** | 2026-09-22 → 10-08：0.9598x，MDD -10.81%，日波动为现货的 1.20–1.32 倍 | 继续按日追加约 11 个月 |
 
-**上线前的最小可执行动作**：
+**上线前的最小可执行动作**（执行细节见 `docs/operations/derivatives_live_runbook.md`）：
 
 1. 等 market K 线下载完成 → 跑 `--fill-price-source market`，确认成交价口径不改变结论（或量化差异）。
 2. （已完成）成交价敏感性已闭合；用同一个冻结规格继续每日样本外记录（`scripts/run_derivatives_oos.py`），并在 Telegram 日报里同时报“目标持仓 + 调仓 + 去 ZEC/HYPE 的集中度提示”。

@@ -1651,4 +1651,4 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 9 | pre-2022 压力窗口 | partial-with-bounding（代理 mark 64 序列、dropped 归零、0 强平、最坏余量 6.66pp） |
 | 10 | 12 个月样本外 | 进行中（17/365 天，0.9598x） |
 
-最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。
+最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。**每日播报已上线**（`scripts/send_derivatives_signal.py`，systemd timer，含「执行时点已过请勿追单」保护）；实盘执行、监控与 kill criteria 见 `docs/operations/derivatives_live_runbook.md`。
