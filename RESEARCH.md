@@ -1670,6 +1670,18 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 36h 信号上限、权益下限、同日幂等。首次真钱自动执行 = 买入 14 NEAR（75.03 USDT，均价 5.3593，费 0.045），
 播报里的持仓/占比全部来自交易所回读。详见 research §12.8.23 第 4 节。
 
+2026-10-11 负责人决定**暂不部署 Ubuntu，自动调仓改为本机 macOS launchd 运行**：新增
+`ops/com.atlas20.derivatives-execute.plist` + `ops/run_derivatives_daily.sh`（launchd 不读 shell rc，
+包装脚本自己 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`，缺文件退出 1），每天
+**11:05 北京 = 03:05 UTC**（T+1 成交点 +5 分钟、面板刷新之后）跑
+`make derivatives-oos-data derivatives-oos execute-plan-live`；调度换算由
+`tests/test_launchd_derivatives_schedule.py` 钉住。加载后已用 `launchctl kickstart` 触发一次真实全链路：
+mark 下载 → 账本重建（评估日 2026-10-09、0 不一致）→ 执行器正确以"同日已执行"幂等跳过（当日 key
+`…|2026-10-08|2026-10-10`，下一次运行日 2026-10-11 会正常执行）。注意：前一条"36h 信号上限"的表述
+已过期，执行器实际以 **mark 树 ≤30h + 账本评估日 = 数据最新日** 作新鲜度闸门。本机同时存在
+`com.atlas20.daily-refresh`（10:30/14:30 北京，面板）与 `com.atlas20.cmc-probe`（08:05–11:50 每 15 分钟，
+研究采样）两个旧任务；无 crontab、无常驻 Atlas20 进程。
+
 2026-10-10 首次真钱全链路实测（100 USDT）：读账户 → 计划器按真实权益出单 → 下单成交 → 回读持仓 → 平仓，全部跑通（一个来回成本 0.0866 USDT ≈ 5.81 bps/边）；但**逐仓在跟单 key 下不可得**（`25200 fixedMargin not support`、`set-margin` `40731`），执行层因此新增 `close_position()`（按 `holdMode` 自动选 hedge/单边写法）与 key 前置自检，见 runbook §1.1。**换普通 API key 复测逐仓之前，实盘不得开启。**
 
 最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。**每日播报已上线**（`scripts/send_derivatives_signal.py`，systemd timer，含「执行时点已过请勿追单」保护）；实盘执行、监控与 kill criteria 见 `docs/operations/derivatives_live_runbook.md`。

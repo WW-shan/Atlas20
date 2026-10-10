@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.derivatives-execute</string>
+	<!--
+	  Runs the live derivatives chain once a day on this Mac:
+
+	    Panel refresh (CMC Top20) -> Bitget mark refresh -> frozen target book
+	    -> real account order placement -> journal -> Telegram report.
+
+	  Why one job instead of a separate refresh timer: the executor fails closed
+	  when the mark tree is stale or the book was not evaluated through the
+	  newest completed day, so the pipeline steps must run in the same job in
+	  this order. ops/run_derivatives_daily.sh sources the credentials outside
+	  the repo, because launchd does not read shell rc files.
+
+	  Schedule: 11:05 Beijing = 03:05 UTC, five minutes after the model's T+1
+	  03:00 UTC fill point and after the 02:30 UTC daily refresh has
+	  written the panel. launchd reads StartCalendarInterval in the machine's
+	  LOCAL time zone (Asia/Shanghai here), so Hour 11 is the Beijing time, not
+	  UTC: on a machine in another zone convert the hour again, or the trade
+	  will fire before the close exists. tests/test_launchd_derivatives_schedule.py
+	  pins this conversion.
+
+	  ThrottleInterval (300s) keeps two copies from racing if a manual kickstart
+	  overlaps the calendar fire. The executor itself is idempotent per run day,
+	  so a re-run after a completed day is a no-op report.
+
+	  Logs: ~/Library/Logs/atlas20-derivatives-execute.log (stdout and stderr).
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>/Users/ww/Project/Atlas20/ops/run_derivatives_daily.sh</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>11</integer>
+		<key>Minute</key>
+		<integer>5</integer>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>300</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-derivatives-execute.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-derivatives-execute.log</string>
+</dict>
+</plist>

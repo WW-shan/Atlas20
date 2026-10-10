@@ -10,7 +10,51 @@
 
 ---
 
-## 0. 部署到 Ubuntu 服务器（一次性；数据不会随 git 带过去）
+## 0. 当前部署：本机 macOS（launchd，2026-10-11 起生效）
+
+负责人决定**暂不部署 Ubuntu**：自动调仓就跑在这台 Mac 上，用 launchd（系统自带）做定时。
+三个 launchd 任务各管一件事，互不重叠：
+
+| launchd 任务 | 本机时间（北京） | 干什么 | 日志 |
+|---|---|---|---|
+| `com.atlas20.daily-refresh` | 每天 10:30、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（02:30 / 06:30 UTC；后一次是 CMC 发布晚点的兜底） | `~/Library/Logs/atlas20-daily-refresh.log` |
+| `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
+| `com.atlas20.derivatives-execute` | 每天 **11:05** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+
+主任务的实现：`ops/com.atlas20.derivatives-execute.plist` 调用
+`ops/run_derivatives_daily.sh`，脚本里 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`
+（launchd **不读** shell rc 文件，凭证必须由脚本自己加载；缺文件直接退出 1，不会盲目下单），
+然后执行 `make derivatives-oos-data derivatives-oos execute-plan-live`。调度时点由
+`tests/test_launchd_derivatives_schedule.py` 钉住：11:05 北京 = 03:05 UTC，在模型 T+1
+03:00 UTC 成交点之后 5 分钟，且在面板刷新之后。
+
+安装 / 检查 / 手动补跑：
+
+```bash
+# 安装（一次）
+cp ops/com.atlas20.derivatives-execute.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.derivatives-execute.plist
+launchctl list | grep atlas20
+
+# 查看
+launchctl print gui/$(id -u)/com.atlas20.derivatives-execute | head -30
+tail -50 ~/Library/Logs/atlas20-derivatives-execute.log
+
+# 手动补跑（幂等：同一天成功后重跑直接跳过；真需要重发/重启交易用 --force，慎用）
+launchctl kickstart -k gui/$(id -u)/com.atlas20.derivatives-execute
+ops/run_derivatives_daily.sh
+```
+
+> **macOS 睡眠**：launchd 的日历任务在机器唤醒后会补跑（若错过）。所以 11:05 合上盖子也没关系，
+> 醒来会补做；但**别让这台 Mac 在这件事上长期离线**。真停用自动交易时优先放 kill switch：
+> `touch data/derivatives_execution.KILL`（删除文件即恢复），比卸载任务安全。
+>
+> **Ubuntu 路线**（`ops/systemd/*`）仍然保留、随时可用，见下一节；两条路线只装一条，
+> 别在同一个账户上同时跑两套定时器。
+
+---
+
+## 0b. 部署到 Ubuntu 服务器（一次性；数据不会随 git 带过去）
 
 `data/` 全部在 `.gitignore` 里（唯一例外：`data/derivatives_telegram_state.json`，它随 git 走，
 用来跨机器保持"同一天不重复播报"）。**git clone 只带代码，不带数据**。
@@ -65,7 +109,7 @@ systemctl list-timers 'atlas20-*'
 
 时间线（UTC）：**02:30 刷面板 → 03:00 合约链（若 02:00 那次已用旧面板，会自动跳过同日旧信号并等这次）**；
 06:30 再刷一次面板作为 CMC 发布晚点的兜底。**面板冻结时会怎样**：播报内容停在旧信号日，
-超过 36h 后发送器开始报错、timer 变红——"没消息 + timer 失败 = 管线坏了"，不会静默。
+mark 树超过 30h 后执行器拒单、任务退出码变非 0——"没消息 + 任务失败 = 管线坏了"，不会静默。
 
 ---
 
@@ -148,7 +192,7 @@ make execute-plan-live                      # = scripts/execute_live_plan.py --l
 | 闸门 | 行为 |
 |---|---|
 | `data/derivatives_execution.KILL` 存在 | 立刻拒绝交易（删文件即恢复） |
-| 信号日期超过 36h（`--max-signal-age-hours`） | 拒绝执行，提示先刷数据管线；确需补跑加 `--allow-stale-signal` |
+| mark 树超过 30h（`--max-mark-staleness-hours`），或账本没评估到最新数据日 | 拒绝执行，提示先跑 `make derivatives-oos-data derivatives-oos`；确需补跑加 `--allow-stale-signal` |
 | 账户权益 < `--equity-floor`（默认 20 USDT） | 拒绝交易 |
 | 同一信号日已成功执行 | 直接跳过（`--force` 才能重跑），避免一天重复调仓 |
 | 单笔失败 | 记录进播报并等下一次（次日计划从真实持仓重算，自我修正），exit 1 让 timer 变红 |
@@ -205,8 +249,9 @@ make derivatives-notify     # 只发模型播报（同日幂等，重跑不会�
 手动（只在需要人肉复核时，或者 `derivatives-signal` 路线下）：
 
 1. 对照播报里的「今日调仓」，在 Bitget 下限价/市价单，把每腿名义调到目标值；
-   （如果当天**没有收到**播报，先看 timer 是否失败：发送器在模型成交时点过去 36h 后会
-   拒绝发送并报错——「没消息」不等于「今天不用调仓」。）
+   （如果当天**没有收到**播报：先看 `launchctl list | grep atlas20` 的退出码和
+   `~/Library/Logs/atlas20-derivatives-execute.log` 的尾部，再跑 `make audit-live`。
+   「没消息」不等于「今天不用调仓」。）
 2. 每腿划入 `名义 × 51.5%` 的隔离保证金（≈ 1.94x）；
 3. 播报若带「该执行时点已过去…请勿追单」，就**当天不做**，等次日信号；
 4. 播报里的「参考缩放系数」按你的实际权益换算（模型账本以 1000 USDT 权益计）。
