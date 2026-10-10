@@ -157,6 +157,7 @@ def test_market_order_omits_price_and_formats_qty() -> None:
     assert body["side"] == "sell"
     assert body["reduceOnly"] == "yes"
     assert "price" not in body
+    assert "marginMode" not in body
 
 
 def test_limit_order_requires_a_price() -> None:
@@ -213,3 +214,107 @@ def test_credentials_from_env_reports_missing_names() -> None:
         }
     )
     assert credentials.demo is True
+
+
+def test_hedge_mode_leverage_uses_per_side_fields() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.set_leverage("NEARUSDT", 2, long_leverage=2, short_leverage=2)
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["longLeverage"] == "2"
+    assert body["shortLeverage"] == "2"
+    assert "posSide" not in body
+
+
+def test_order_can_opt_into_an_explicit_margin_mode() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.place_order(symbol="NEARUSDT", qty=1.0, side="buy", margin_mode="isolated")
+
+    assert json.loads(session.calls[0]["data"])["marginMode"] == "isolated"
+
+
+def test_place_order_can_omit_pos_side_for_one_way_accounts() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.place_order(symbol="NEARUSDT", qty=1.0, side="buy", pos_side=None)
+
+    body = json.loads(session.calls[0]["data"])
+    assert "posSide" not in body
+    assert body["side"] == "buy"
+
+
+def test_hold_mode_reads_the_settings_endpoint() -> None:
+    session = _FakeSession(
+        [_FakeResponse({"code": "00000", "data": {"accountLevel": "basic", "holdMode": "hedge_mode"}})]
+    )
+    client = _client(session)
+
+    assert client.hold_mode() == "hedge_mode"
+    assert session.calls[0]["url"].endswith("/api/v3/account/settings")
+
+
+def test_close_position_matches_the_hedge_mode_convention() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.close_position(symbol="NEARUSDT", qty=2.0, hold_mode="hedge_mode")
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["side"] == "sell"
+    assert body["posSide"] == "long"
+    assert "reduceOnly" not in body
+
+
+def test_close_position_uses_reduce_only_in_one_way_mode() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.close_position(symbol="NEARUSDT", qty=2.0, hold_mode="one_way_mode")
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["side"] == "sell"
+    assert body["reduceOnly"] == "yes"
+    assert "posSide" not in body
+
+
+def test_close_position_flattens_a_short_with_a_buy() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.close_position(symbol="NEARUSDT", qty=2.0, pos_side="short", hold_mode="hedge_mode")
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["side"] == "buy"
+    assert body["posSide"] == "short"
+
+
+def test_hold_mode_is_looked_up_once_when_closing() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse({"code": "00000", "data": {"holdMode": "one_way_mode"}}),
+            _FakeResponse({"code": "00000", "data": {}}),
+        ]
+    )
+    client = _client(session)
+
+    client.close_position(symbol="NEARUSDT", qty=1.0)
+
+    assert session.calls[0]["url"].endswith("/api/v3/account/settings")
+    assert json.loads(session.calls[1]["data"])["reduceOnly"] == "yes"
+
+
+def test_set_margin_can_omit_pos_side() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": "success"})])
+    client = _client(session)
+
+    client.set_margin("NEARUSDT", 1.25, pos_side=None, operation="remove")
+
+    body = json.loads(session.calls[0]["data"])
+    assert "posSide" not in body
+    assert body["operation"] == "remove"
+    assert body["amount"] == "1.25"

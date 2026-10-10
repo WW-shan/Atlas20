@@ -85,6 +85,36 @@ systemctl list-timers 'atlas20-*'
 **不要做的事**：不要用全仓、**每腿保证金不要低于名义的 51.5%**、不要上 >1.25x、不要开空、
 不要手动换币、不要「补仓摊平」。
 
+### 1.1 API key 与账户前置条件（2026-10-10 真钱实测，必读）
+
+> 教训：第一次真钱 drill（100 USDT）在"下单"这一步走得通，但**逐仓**根本开不出来 ——
+> 卡点不在代码，在 key 的类型。上实盘前先跑下面的自检，30 秒，别等下单才发现。
+
+**必须用「普通 API key」，不要用「精英交易 / 跟单 API key」**（Bitget 个人中心 → API 管理里是
+两个不同的入口）。官方《Elite Trading API Guide》写明该 key 类型**不支持**：现货、非精英交易对、
+**逐仓保证金**、**单边持仓**、**账户模式切换**。用错 key 的实测症状：
+
+| 症状 | 错误码 | 真实含义 |
+|---|---|---|
+| 下单带 `marginMode=isolated` | `25200 fixedMargin not support` | 该 key 账户不能持逐仓（**与 symbol 无关**） |
+| 不带 `marginMode` 下单 | 成交，但 `marginMode=crossed`、`liquidationPrice=0` | 只能全仓 |
+| `set-margin(add)` | `40731` | 补 51.5% 保证金这步做不了 |
+| `set-hold-mode` / `adjust-account-mode` / `pre-set-leverage` | `40731 This product does not support copy trading` | key 被跟单产品锁死（持仓模式在 Web 端也是灰的） |
+| 现货单 | `40020 Parameter symbol not support copy trading` | key 只服务跟单组合 |
+
+**上实盘前的 4 项自检**（任何一项不过就不要上）：
+
+1. `GET /api/v3/account/settings` → `holdMode` 能改（不是 40731）；
+2. 设 `set-leverage(symbol, 2, marginMode="isolated", pos_side="long")` 后**下一张单**回读
+   `marginMode == "isolated"`（只有配置项变成 isolated 不算数）；
+3. `set-margin(add)` 能补到「名义 × 51.5%」，且 `liquidationPrice` 给出 ≈ −51% 口径的强平价；
+4. 权限里**不应**出现 `copy_futures_order` / `copy_futures_position`（那是跟单 key 的标志）。
+
+**持仓模式差异已被代码吸收**：hedge 账户下 `posSide` 必填、`posSide`+`reduceOnly` 同用报 `25238`；
+单边账户反过来。`close_position()` 会读账户 `holdMode` 自动选正确的写法，平仓请用它，不要手搓。
+
+**账户若有活跃的精英交易组合**：本账户下单可能镜像给跟随者，上实盘前先确认组合状态。
+
 ---
 
 ## 2. 每日流程（自动 + 手动各一步）

@@ -248,48 +248,91 @@ class BitgetPrivateClient:
         symbol: str,
         leverage: int | float,
         *,
-        pos_side: str = "long",
+        pos_side: str | None = "long",
         margin_mode: str = "isolated",
         category: str = UTA_CATEGORY,
+        long_leverage: int | float | None = None,
+        short_leverage: int | float | None = None,
     ) -> Any:
-        return self._request(
-            "POST",
-            "/api/v3/account/set-leverage",
-            body={
-                "category": category,
-                "symbol": symbol,
-                "leverage": str(leverage),
-                "posSide": pos_side,
-                "marginMode": margin_mode,
-            },
-        )
+        """Set leverage for one symbol.
+
+        Two live facts shape this call (verified against the real venue on
+        2026-10-10):
+
+        * Hedge ("double-side hold") accounts reject the plain ``leverage``
+          field for isolated futures - the API answers ``25200
+          DOUBLE_SIDE_HOLD ... validation error``.  Pass ``long_leverage`` /
+          ``short_leverage`` (or both) and the per-side fields are sent
+          instead.
+        * The docs mark ``posSide`` as required for isolated margin, hence the
+          default; pass ``pos_side=None`` to send neither ``posSide`` nor a
+          per-side leverage.
+
+        Setting the isolated config is necessary but **not sufficient**: the
+        symbol config exists while orders still open crossed whenever the key
+        or the account cannot hold isolated futures.  See
+        :meth:`place_order`.
+        """
+
+        body: dict[str, Any] = {
+            "category": category,
+            "symbol": symbol,
+            "leverage": str(leverage),
+            "marginMode": margin_mode,
+        }
+        if long_leverage is None and short_leverage is None:
+            if pos_side is not None:
+                body["posSide"] = pos_side
+        else:
+            body["longLeverage"] = str(
+                leverage if long_leverage is None else long_leverage
+            )
+            body["shortLeverage"] = str(
+                leverage if short_leverage is None else short_leverage
+            )
+        return self._request("POST", "/api/v3/account/set-leverage", body=body)
 
     def set_margin(
         self,
         symbol: str,
         amount: float,
         *,
-        pos_side: str = "long",
+        pos_side: str | None = "long",
         operation: str = "add",
         category: str = UTA_CATEGORY,
     ) -> Any:
-        """Add or remove isolated margin. ``operation`` is ``add`` or ``remove``."""
+        """Add or remove isolated margin. ``operation`` is ``add`` or ``remove``.
+
+        Only meaningful for an *isolated* leg: called against a crossed
+        position the venue answers ``40731`` (live, 2026-10-10).
+        """
 
         if operation not in {"add", "remove"}:
             raise ValueError("operation must be 'add' or 'remove'")
         if amount <= 0.0:
             raise ValueError("amount must be positive")
-        return self._request(
-            "POST",
-            "/api/v3/account/set-margin",
-            body={
-                "category": category,
-                "symbol": symbol,
-                "posSide": pos_side,
-                "operation": operation,
-                "amount": f"{amount:.8f}".rstrip("0").rstrip("."),
-            },
-        )
+        body: dict[str, Any] = {
+            "category": category,
+            "symbol": symbol,
+            "operation": operation,
+            "amount": f"{amount:.8f}".rstrip("0").rstrip("."),
+        }
+        if pos_side is not None:
+            body["posSide"] = pos_side
+        return self._request("POST", "/api/v3/account/set-margin", body=body)
+
+    # -- orders ---------------------------------------------------------
+
+    def account_settings(self) -> dict[str, Any]:
+        """Account-level settings: ``accountLevel``, ``holdMode``, symbol configs."""
+
+        data = self._request("GET", "/api/v3/account/settings")
+        return dict(data) if isinstance(data, dict) else {}
+
+    def hold_mode(self) -> str:
+        """``hedge_mode`` or ``one_way_mode`` as reported by the venue."""
+
+        return str(self.account_settings().get("holdMode") or "")
 
     # -- orders ---------------------------------------------------------
 
@@ -300,14 +343,28 @@ class BitgetPrivateClient:
         qty: float,
         side: str,
         order_type: str = "market",
-        pos_side: str = "long",
+        pos_side: str | None = "long",
         reduce_only: bool = False,
         client_oid: str | None = None,
-        margin_mode: str = "isolated",
+        margin_mode: str | None = None,
         price: float | None = None,
         category: str = UTA_CATEGORY,
     ) -> dict[str, Any]:
-        """Place one futures order.  Market orders omit ``price``."""
+        """Place one futures order.  Market orders omit ``price``.
+
+        Three facts were verified against the live venue on 2026-10-10:
+
+        * ``marginMode`` **is** part of the UTA v3 order body (``crossed`` or
+          ``isolated``; "if not provided, defaults to cross margin").  It is
+          omitted by default here because ``isolated`` is refused with ``25200
+          fixedMargin not support`` on keys/accounts that cannot hold isolated
+          futures - the same request without the field fills in *crossed*.
+        * Hedge ("double-side hold") accounts require ``posSide`` for futures
+          orders; pass ``pos_side=None`` for one-way accounts, which reject it.
+        * Hedge accounts reject ``posSide`` and ``reduceOnly`` together
+          (``25238``), so closing a leg is a plain opposite-side order there.
+          Use :meth:`close_position` instead of hand-rolling it.
+        """
 
         if side not in {"buy", "sell"}:
             raise ValueError("side must be 'buy' or 'sell'")
@@ -321,9 +378,11 @@ class BitgetPrivateClient:
             "qty": f"{qty:.12f}".rstrip("0").rstrip("."),
             "side": side,
             "orderType": order_type,
-            "posSide": pos_side,
-            "marginMode": margin_mode,
         }
+        if pos_side is not None:
+            body["posSide"] = pos_side
+        if margin_mode is not None:
+            body["marginMode"] = margin_mode
         if order_type == "limit":
             if price is None or price <= 0.0:
                 raise ValueError("limit orders require a positive price")
@@ -336,6 +395,41 @@ class BitgetPrivateClient:
         if isinstance(data, dict):
             return dict(data)
         return {"raw": data}
+
+    def close_position(
+        self,
+        *,
+        symbol: str,
+        qty: float,
+        pos_side: str = "long",
+        hold_mode: str | None = None,
+        order_type: str = "market",
+        price: float | None = None,
+        client_oid: str | None = None,
+        category: str = UTA_CATEGORY,
+    ) -> dict[str, Any]:
+        """Flatten (or reduce) one leg the way the account's hold mode expects.
+
+        ``hold_mode`` is read from the venue when it is not supplied.  Hedge
+        accounts close with ``posSide`` and no ``reduceOnly`` (the combination
+        is rejected with ``25238``); one-way accounts close with
+        ``reduceOnly=yes`` and no ``posSide``.
+        """
+
+        mode = self.hold_mode() if hold_mode is None else str(hold_mode)
+        hedging = mode.lower() == "hedge_mode"
+        side = "buy" if str(pos_side).lower() == "short" else "sell"
+        return self.place_order(
+            symbol=symbol,
+            qty=qty,
+            side=side,
+            pos_side=pos_side if hedging else None,
+            reduce_only=not hedging,
+            order_type=order_type,
+            price=price,
+            client_oid=client_oid,
+            category=category,
+        )
 
 
 __all__ = [

@@ -1274,3 +1274,65 @@ taker 6 bps）。逐仓保证金由杠杆自动划入（2x ≈ 50%），要达�
 
 **尚未闭合**：① 真实账户/真实下单未测试（没有 API key；演示盘 key 建好后可全链路跑通）；
 ② funding 精确历史仍为 proxy；③ 12 个月样本外继续计时。
+
+#### 12.8.23 真实账户实测（2026-10-10，100 USDT 真钱）：key 类型是硬门槛
+
+用户提供了一个真实 Bitget 账户（UID 8886176695，100 USDT）用于实战全链路测试。结论先行：
+**这条 key 是「精英交易 / 跟单」专用 API key，结构上不支持冻结规格所需的逐仓保证金**，因此
+本账户不能直接上线 L125，必须换普通 key（或换账户）。代码侧本轮修掉了 3 个真实适配问题。
+
+**1. 全链路实测（真钱、真下单、已平）**
+
+| 环节 | 实测 |
+|---|---|
+| 读账户 | `usdtEquity` 100.0036 → 计划器按真实权益算目标名义 74.5332（14 NEAR @ 5.3238） |
+| 下单 | market buy 14 NEAR 成交，avgPrice 5.3239（名义 74.5346） |
+| 持仓回读 | `marginMode=crossed`、`leverage=20`、`positionBalance=3.7714`（= 名义 5.06% = 1/20）、`liquidationPrice=0` |
+| 保证金调整 | `set-margin(add 1.118)` → **40731 拒绝**（这是规格要求的「补到名义 51.5%」那一步） |
+| 平仓 | `close_position`（hedge 模式：只带 `posSide`，不带 `reduceOnly`）→ 成交，持仓归零 |
+| 成本 | 权益 100.003608 → 99.916965，一个来回 **0.0866 USDT ≈ 5.81 bps/边**（venue taker 6 bps，74 USDT 规模无可测滑点） |
+
+**2. 为什么逐仓不可用：官方文档 + 线上错误码三方对齐**
+
+Bitget 官方《Elite Trading API Guide》明确列出该 key 类型**不支持**：现货、非精英交易对、
+**Isolated margin mode（逐仓）**、**One-way position mode（单边持仓）**、**Account mode switching（账户模式切换）**。
+线上实测与之一一对应（2026-10-10 20:15–20:35 UTC）：
+
+| 调用 | 结果 |
+|---|---|
+| `place-order` + `marginMode=isolated`（NEARUSDT 市价 / 限价，及 BTCUSDT） | **25200 fixedMargin not support**（账户级，与 symbol 无关） |
+| `place-order` 不带 `marginMode` | 成交，但落到 **crossed**；`marginMode` 文档默认值即 crossed |
+| `set-margin(add)`（对 cross 持仓） | **40731** |
+| `set-hold-mode(hedge_mode)`（连"设成当前值"） | **40731** |
+| `adjust-account-mode`（basic / advanced / isolated） | **40731** |
+| `GET pre-set-leverage` | **40731** |
+| 现货限价单 | **40020 Parameter symbol not support copy trading** |
+| `set-leverage(marginMode=isolated)` | **成功**（settings 里出现 isolated 配置），但订单仍旧走 crossed —— 配置存在 ≠ 账户能持逐仓 |
+
+外部佐证：freqtrade issue #13576 记录 Bitget 对跟单账户的同类封锁（`40731 This product does not
+support copy trading`，且 Web 端持仓模式开关变灰、强制 hedge）。**注意**：key 权限里出现
+`copy_futures_order`/`copy_futures_position` 是该 key 类型的标志，和普通 `uta_trade`/`uta_mgt` 不是一个东西。
+
+**3. 本轮修掉的真 bug（全部有回归测试）**
+
+1. **hedge 模式设杠杆**：只带 `leverage` 会被拒（`25200 DOUBLE_SIDE_HOLD ... afterShortLeverage and
+   afterLongLeverage none`）；需改发 `longLeverage`/`shortLeverage` 逐边字段。`set_leverage` 已支持。
+2. **平仓写法随持仓模式而变**：hedge 模式下 `posSide` + `reduceOnly` 同时出现报 `25238`；单边模式
+   反过来（要 `reduceOnly`、不要 `posSide`）。新增 `close_position()` 自动按账户 `holdMode` 适配，
+   已在真实账户验证。
+3. **`marginMode` 不是"v3 已删除"**：它仍在文档里（crossed/isolated，缺省 crossed）。此前的注释
+   写错了，已改为"字段存在、但账户不支持逐仓时会被 25200 拒绝，故默认不发"。
+4. 顺带补齐：`account_settings()` / `hold_mode()`（读 `accountLevel`/`holdMode`）、`pos_side` 可省略
+   （单边账户）。
+
+**4. 对上线路径的影响**
+
+- **首选**：在**普通**（非精英/跟单）API key 下重跑同一套 drill，确认 `marginMode=isolated` 被接受、
+  `set-margin` 可补到 51.5%、`liquidationPrice` 给出 −51.01% 口径的强平价；这三项过了，执行层才算真闭合。
+- **备选（需用户显式签字，且必须写进 RESEARCH.md）**：留在该账户用全仓（cross）。此时
+  1.25x 名义下"整个 sleeve 被强平"需要账面 −78% 级别（远于逐仓的 −51%），理论最坏损失仍是
+  sleeve 全损（3% 总资金）；但 **`set-margin` 补保证金这一步不存在**，`liquidationPrice` 也不上报
+  （实测 = 0），runbook 的"逐腿强平距离"监控必须改成账户级 `mgnRatio`。规格未改，等用户决定。
+- 另需用户自查：该账户若挂着**活跃的精英交易组合**，本账户下的手动单可能被镜像给跟随者（本次
+  drill 的 2 笔开平也在内），上实盘前应先确认组合状态。
+

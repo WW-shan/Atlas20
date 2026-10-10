@@ -1650,5 +1650,8 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 8 | 成交价口径（market） | **通过**（9 组合差 0.14%–0.29%，0 次 downgrade） |
 | 9 | pre-2022 压力窗口 | partial-with-bounding（代理 mark 64 序列、dropped 归零、0 强平、最坏余量 6.66pp） |
 | 10 | 12 个月样本外 | 进行中（17/365 天，0.9598x） |
+| 11 | 实盘执行前置（普通 API key / 逐仓可得） | **阻塞**（2026-10-10 真钱实测：跟单/精英 API key 不支持逐仓、`set-margin`、持仓模式与账户模式切换；详见 `docs/research/derivatives_track_research_2026-10.md` §12.8.23） |
+
+2026-10-10 首次真钱全链路实测（100 USDT）：读账户 → 计划器按真实权益出单 → 下单成交 → 回读持仓 → 平仓，全部跑通（一个来回成本 0.0866 USDT ≈ 5.81 bps/边）；但**逐仓在跟单 key 下不可得**（`25200 fixedMargin not support`、`set-margin` `40731`），执行层因此新增 `close_position()`（按 `holdMode` 自动选 hedge/单边写法）与 key 前置自检，见 runbook §1.1。**换普通 API key 复测逐仓之前，实盘不得开启。**
 
 最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。**每日播报已上线**（`scripts/send_derivatives_signal.py`，systemd timer，含「执行时点已过请勿追单」保护）；实盘执行、监控与 kill criteria 见 `docs/operations/derivatives_live_runbook.md`。
