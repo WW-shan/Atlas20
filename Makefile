@@ -100,6 +100,11 @@ execute-plan-live: $(VENV_STAMP)
 audit-live: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_live_track.py
 
+# Prove the live target book is the same computation as the reviewed
+# backtest (rebuild both, compare every overlapping target event).
+audit-signal: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_signal_equivalence.py
+
 derivatives-notify: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py
 

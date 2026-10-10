@@ -52,6 +52,7 @@ from scripts.plan_live_execution import (  # noqa: E402
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 
 DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
+DEFAULT_MANIFEST_FILE = Path("reports/derivatives_track_oos_2026/manifest.json")
 DEFAULT_JSON_OUT = Path("reports/derivatives_track_live/audit.json")
 SPEC_MAX_GROSS = 1.25
 
@@ -78,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--targets-file", type=Path, default=DEFAULT_TARGETS_FILE)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--history-days", type=int, default=7)
+    parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     args = parser.parse_args(argv)
 
@@ -259,11 +261,33 @@ def main(argv: list[str] | None = None) -> int:
         f"gross {gross:.2f} / equity {equity:.2f} = {gross / equity:.3f}x" if equity else "equity 0",
     )
 
-    age_hours = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(signal_date)).total_seconds() / 3600.0
+    # The book is an *event* series: a row dated several days ago is normal.
+    # What must be current is the data the book was built from, so the hard
+    # checks are about the pipeline, not about the last event's age.
+    event_age_days = (
+        pd.Timestamp.now(tz="UTC").normalize() - pd.Timestamp(signal_date).normalize()
+    ).days
+    if args.manifest_file.exists():
+        manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+        staleness = float(manifest.get("staleness_hours") or 0.0)
+        index_end = str(manifest.get("index_end_date") or "")
+        signal_end = str(manifest.get("signal_end_date") or "")
+        check(
+            "mark 数据新鲜（<= 30h）",
+            staleness <= 30.0,
+            f"最新 mark {manifest.get('last_mark')}（{staleness:.1f}h 前）",
+        )
+        check(
+            "账本已评估到最新可判定日（无跳过）",
+            bool(index_end) and index_end == signal_end,
+            f"账本评估到 {index_end or '?'} / 数据到 {signal_end or '?'}",
+        )
+    else:
+        check("样本外 manifest 存在", False, f"{args.manifest_file} 不存在")
     check(
-        "信号新鲜度（<= 36h，硬门槛为执行时）",
-        age_hours <= 36.0,
-        f"信号日 {pd.Timestamp(signal_date).date()}（{age_hours:.1f}h 前）",
+        "信号事件距今（事件驱动，非每日变化）",
+        True,
+        f"最近一次仓位变化 {pd.Timestamp(signal_date).date()}（{event_age_days} 天前；无变化＝继续持有）",
         hard=False,
     )
     if last is not None:

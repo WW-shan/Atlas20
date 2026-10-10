@@ -336,3 +336,33 @@ def test_report_flags_an_orphan_position() -> None:
     )
 
     assert "计划外持仓: ZEC" in message
+
+
+def test_signal_line_says_how_old_the_last_change_is() -> None:
+    report = ExecutionReport(
+        signal_date="2026-10-08",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {"asset": "near", "symbol": "NEARUSDT", "total": "14", "markPrice": "5.0"}
+        ],
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-10-08",
+        spec="SPEC",
+        targets={"near": 0.75},
+        event_age_days=3,
+    )
+
+    assert "信号 2026-10-08（3 天前的最近变化）" in message
+
+    today = format_execution_report(
+        report,
+        signal_date="2026-10-08",
+        spec="SPEC",
+        targets={"near": 0.75},
+        event_age_days=0,
+    )
+    assert "（今天的变化）" in today

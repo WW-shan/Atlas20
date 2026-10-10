@@ -72,6 +72,7 @@ from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_m
 
 DEFAULT_STATE_FILE = Path("data/derivatives_execution_state.json")
 DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
+DEFAULT_MANIFEST_FILE = Path("reports/derivatives_track_oos_2026/manifest.json")
 DEFAULT_KILL_SWITCH = Path("data/derivatives_execution.KILL")
 DEFAULT_JSON_OUT = Path("reports/derivatives_track_execution/latest.json")
 
@@ -87,7 +88,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--notify", action="store_true", help="send the report to Telegram")
     parser.add_argument("--force", action="store_true", help="ignore same-day idempotency")
     parser.add_argument("--allow-stale-signal", action="store_true")
-    parser.add_argument("--max-signal-age-hours", type=float, default=36.0)
+    parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
+    parser.add_argument(
+        "--max-mark-staleness-hours",
+        type=float,
+        default=30.0,
+        help="refuse to trade when the frozen mark tree is older than this",
+    )
+    parser.add_argument(
+        "--max-event-age-days",
+        type=float,
+        default=7.0,
+        help="warn (do not block) when the newest book change is older than this",
+    )
     parser.add_argument("--equity-floor", type=float, default=20.0)
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
@@ -227,12 +240,47 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     signal_date, execution_hint, book = load_latest_targets(args.targets_file)
-    age_hours = (pd.Timestamp.now(tz="UTC") - signal_date).total_seconds() / 3600.0
-    if age_hours > args.max_signal_age_hours and not args.allow_stale_signal:
+    event_age_days = (
+        pd.Timestamp.now(tz="UTC").normalize() - pd.Timestamp(signal_date).normalize()
+    ).days
+
+    # The frozen book is an *event* series: it only gets a new row when a
+    # sleeve changes its pick.  A book dated days ago is therefore normal -
+    # what must be current is the data behind it.  Guard that instead.
+    freshness_note: str | None = None
+    if args.manifest_file.exists():
+        manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+        staleness = float(manifest.get("staleness_hours") or 0.0)
+        index_end = str(manifest.get("index_end_date") or "")
+        signal_end = str(manifest.get("signal_end_date") or "")
+        if not args.allow_stale_signal:
+            if staleness > args.max_mark_staleness_hours:
+                raise SystemExit(
+                    f"mark tree is {staleness:.1f}h old "
+                    f"(> {args.max_mark_staleness_hours:g}h); "
+                    "run make derivatives-oos-data first"
+                )
+            if index_end and signal_end and index_end < signal_end:
+                raise SystemExit(
+                    f"target book was only evaluated through {index_end} while data "
+                    f"reaches {signal_end}; run make derivatives-oos first"
+                )
+        freshness_note = (
+            f"数据管线: mark 最新 {manifest.get('last_mark')}（{staleness:.1f}h 前）、"
+            f"账本评估到 {index_end}、信号事件 {signal_date.date()}（{event_age_days} 天前）"
+        )
+    elif not args.allow_stale_signal and event_age_days > 1:
         raise SystemExit(
-            f"signal date {signal_date.date()} is {age_hours:.1f}h old "
-            f"(> {args.max_signal_age_hours:g}h); refresh the pipeline "
+            f"no manifest at {args.manifest_file} and the newest book row is "
+            f"{event_age_days} days old; refresh the pipeline "
             "(make derivatives-oos-data derivatives-oos) or pass --allow-stale-signal"
+        )
+
+    warnings: list[str] = []
+    if event_age_days > args.max_event_age_days:
+        warnings.append(
+            f"最新信号事件在 {event_age_days} 天前（事件驱动策略，无变化＝继续持有；"
+            "若与回测不一致请跑 make audit-live）"
         )
 
     targets = {
@@ -286,10 +334,15 @@ def main(argv: list[str] | None = None) -> int:
         min_rebalance_usdt=float(args.min_rebalance_usdt),
     )
 
-    key = f"{args.spec}|{signal_date.date()}"
+    # Idempotency is per *run day*, not per signal date: the book only changes
+    # when a sleeve changes its pick, so keying on the signal date alone would
+    # silently skip every day in between - no rebalance check, no daily
+    # report, no ledger row.  A second run on the same day still skips.
+    run_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    key = f"{args.spec}|{signal_date.date()}|{run_day}"
     state = _read_state(args.state_file)
     already = state.get("last_key") == key and state.get("last_status") == "ok"
-    if already and not args.force:
+    if already and not args.force and args.live:
         print(f"already executed {key} (status ok); nothing to do")
         return 0
 
@@ -298,7 +351,10 @@ def main(argv: list[str] | None = None) -> int:
         for asset, spec in specs.items()
         if asset in prices_by_asset
     }
-    warnings = list(plan.warnings)
+    warnings = [*plan.warnings, *warnings]
+    notes = list(warnings)
+    if freshness_note:
+        notes.append(freshness_note)
     run_at = datetime.now(timezone.utc)
     journal = load_journal(args.journal_file)
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
@@ -367,6 +423,7 @@ def main(argv: list[str] | None = None) -> int:
         prev_equity=prev_equity,
         prev_day_pnl=prev_day_pnl,
         run_at=run_at,
+        event_age_days=event_age_days,
     )
     print(message)
 
@@ -394,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
             signal_date=str(signal_date.date()),
             run_at=run_at,
             prev_equity=prev_equity,
-            warnings=warnings,
+            warnings=notes,
         )
         upsert_entry(args.journal_file, entry)
         print(f"journal updated: {args.journal_file} ({entry.date})")

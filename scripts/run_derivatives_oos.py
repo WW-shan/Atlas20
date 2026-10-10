@@ -259,6 +259,11 @@ def main() -> None:
                 "days": int(len(daily)),
                 "last_mark": str(last_mark),
                 "signal_end_date": end_date,
+                # The calendar the book was actually evaluated on: equal to
+                # signal_end_date means "no day was skipped", which is what
+                # the live executor checks before trading.
+                "index_start_date": str(index[0].date()) if len(index) else "",
+                "index_end_date": str(index[-1].date()) if len(index) else "",
                 "staleness_hours": staleness_hours,
                 "max_staleness_hours": float(args.max_staleness_hours),
                 "mark_dir": str(args.mark_dir),

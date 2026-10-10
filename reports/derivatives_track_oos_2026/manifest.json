@@ -6,6 +6,8 @@
   "end": "2026-10-10 20:00:00+00:00",
   "engine_start": "2026-09-21 00:00:00+00:00",
   "funding": "zero (upper bound; no exact Bitget history)",
+  "index_end_date": "2026-10-09",
+  "index_start_date": "2021-01-01",
   "last_mark": "2026-10-10 19:00:00+00:00",
   "leverage": 1.25,
   "liquidations": 0,
@@ -19,7 +21,7 @@
     "sharpe": 0.9223943139596548
   },
   "signal_end_date": "2026-10-09",
-  "staleness_hours": 1.5541368394444446,
+  "staleness_hours": 2.028167632777778,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-10-D-L125-V2"
 }

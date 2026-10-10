@@ -1,13 +1,13 @@
 {
   "execution_hint": "2026-10-09 03:00:00+00:00",
   "plan": {
-    "equity": 100.00914716,
-    "expected_gross_notional": 75.1324,
-    "expected_margin": 38.693186000000004,
+    "equity": 99.97274716,
+    "expected_gross_notional": 75.1268,
+    "expected_margin": 38.690302,
     "leverage": 2.0,
     "margin_intents": [
       {
-        "amount": 34.891486560000004,
+        "amount": 34.88888592,
         "asset": "near",
         "operation": "add",
         "pos_side": "long",
@@ -18,15 +18,15 @@
     "orders": [],
     "target_margin_ratio": 0.515,
     "target_notional": {
-      "near": 77.6855786030947
+      "near": 77.6573036388394
     },
     "warnings": []
   },
   "report": {
-    "available_after": 99.99514715,
+    "available_after": 99.97414715,
     "balance_after": 99.87194716,
-    "equity_after": 99.99514716,
-    "equity_before": 100.00634716,
+    "equity_after": 99.97414716,
+    "equity_before": 99.97274716,
     "failures": [],
     "fills": [],
     "margin_mode": "crossed",
@@ -50,17 +50,17 @@
         "liquidationPrice": "0",
         "marginCoin": "USDT",
         "marginMode": "crossed",
-        "markPrice": "5.3689",
+        "markPrice": "5.3665",
         "mmr": "0.0066",
         "openFeeTotal": "-0.04501812",
         "posSide": "long",
-        "positionBalance": "3.80332876",
+        "positionBalance": "3.8016286",
         "positionStatus": "normal",
-        "profitRate": "0.0353374658045601",
+        "profitRate": "0.0265149520392391",
         "symbol": "NEARUSDT",
         "total": "14",
         "totalFunding": "0",
-        "unrealisedPnl": "0.1344",
+        "unrealisedPnl": "0.1008",
         "updatedTime": "1791664589693"
       }
     ],

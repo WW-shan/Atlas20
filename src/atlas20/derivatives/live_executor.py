@@ -431,6 +431,7 @@ def format_execution_report(
     prev_equity: float | None = None,
     prev_day_pnl: float | None = None,
     run_at: datetime | None = None,
+    event_age_days: int | None = None,
 ) -> str:
     """Render the daily Telegram message: short, and all venue numbers.
 
@@ -527,7 +528,12 @@ def format_execution_report(
         orphans = sorted(held - {asset.upper() for asset in targets})
         if orphans:
             checks.append(f"⚠️ 计划外持仓: {', '.join(orphans)}")
-        lines += ["", f"信号 {signal_date} · " + " · ".join(checks)]
+        age = (
+            ""
+            if event_age_days is None
+            else ("（今天的变化）" if event_age_days <= 0 else f"（{event_age_days} 天前的最近变化）")
+        )
+        lines += ["", f"信号 {signal_date}{age} · " + " · ".join(checks)]
 
     if report.failures:
         lines += ["", "⚠️ 未完成:"]

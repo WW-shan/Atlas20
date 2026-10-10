@@ -1,4 +1,8 @@
-# Telegram Daily Signal
+# Telegram Daily Signal（现货轨 · 已退役）
+
+> **状态（2026-10-11，负责人决定）**：实盘只跑衍生品轨，**现货信号不参与实盘**。
+> 本文档保留给研究/回放用；部署时不要安装 `atlas20-telegram-signal.timer`。
+> 实盘入口见 `docs/operations/derivatives_live_runbook.md`。
 
 The daily Telegram push sends one message per day from the frozen H5 signal
 snapshot. It reports:
