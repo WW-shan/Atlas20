@@ -40,18 +40,37 @@ def test_derivatives_job_runs_after_the_daily_refresh():
     assert _scheduled_utc_time() > (2, 30)
 
 
+def _wrapper_project_root() -> str:
+    """The deployed path the wrapper itself declares, e.g. /Users/ww/Project/Atlas20.
+
+    The plist hard-codes the path of the machine it is installed on, so a test
+    running in a CI checkout (a different absolute path) must compare against
+    what the checked-in wrapper declares, not against its own checkout root.
+    """
+    script = WRAPPER_PATH.read_text(encoding="utf-8")
+    prefix = 'PROJECT_ROOT="'
+    for line in script.splitlines():
+        if line.startswith(prefix) and line.endswith('"'):
+            return line[len(prefix):-1]
+    raise AssertionError("wrapper does not declare PROJECT_ROOT")
+
+
 def test_plist_runs_the_wrapper_outside_shell_rc_files():
     payload = plistlib.loads(PLIST_PATH.read_bytes())
+    project_root = _wrapper_project_root()
     assert payload["ProgramArguments"] == [
         "/bin/zsh",
-        str(WRAPPER_PATH),
+        f"{project_root}/ops/run_derivatives_daily.sh",
     ]
-    assert payload["WorkingDirectory"] == str(PROJECT_ROOT)
+    assert payload["WorkingDirectory"] == project_root
+    assert Path(payload["ProgramArguments"][1]).name == WRAPPER_PATH.name
     assert payload["RunAtLoad"] is False
     assert payload["ThrottleInterval"] == 300
+    assert payload["StandardOutPath"].startswith("/")
     assert payload["StandardOutPath"].endswith(
         "Library/Logs/atlas20-derivatives-execute.log"
     )
+    assert payload["StandardErrorPath"] == payload["StandardOutPath"]
 
 
 def test_wrapper_sources_credentials_and_runs_the_live_chain():
