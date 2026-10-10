@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.live-monitor</string>
+	<!--
+	  Read-only health check between the daily rebalances.
+
+	  Runs scripts/monitor_live_track.py: the 12-item live audit plus position
+	  drift vs the frozen target, gross-notional cap, and execution freshness.
+	  It never places orders. Telegram is messaged ONLY when something needs
+	  attention (silence = healthy), so the daily 11:05 rebalance report stays
+	  the only routine message.
+
+	  Schedule: 19:00 Beijing = 11:00 UTC, eight hours after the 03:05 UTC
+	  rebalance, so a missing or mis-sized rebalance is visible the same day
+	  instead of waiting for tomorrow. launchd reads StartCalendarInterval in
+	  LOCAL time (Asia/Shanghai here); convert the hour again on another
+	  machine. tests/test_launchd_derivatives_schedule.py pins the conversion.
+
+	  Logs: ~/Library/Logs/atlas20-live-monitor.log
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>/Users/ww/Project/Atlas20/ops/run_live_monitor.sh</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>19</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>300</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-live-monitor.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-live-monitor.log</string>
+</dict>
+</plist>

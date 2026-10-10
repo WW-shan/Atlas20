@@ -20,6 +20,7 @@
 | `com.atlas20.daily-refresh` | 每天 10:30、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（02:30 / 06:30 UTC；后一次是 CMC 发布晚点的兜底） | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
 | `com.atlas20.derivatives-execute` | 每天 **11:05** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.live-monitor` | 每天 **19:00** | **只读巡检**：跑全链路核对 + 仓位偏离 + 名义上限 + 执行新鲜度；**只在异常时发 Telegram**（安静=正常） | `~/Library/Logs/atlas20-live-monitor.log` |
 
 主任务的实现：`ops/com.atlas20.derivatives-execute.plist` 调用
 `ops/run_derivatives_daily.sh`，脚本里 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`
@@ -290,6 +291,33 @@ make execution-plan-live               # 内部带 --notify，同日幂等
    `positionBalance`，不是估算值。
 
 ---
+
+### 2.4 盘中只读巡检（19:00，2026-10-11 起）
+
+`com.atlas20.live-monitor` → `ops/run_live_monitor.sh` →
+`scripts/monitor_live_track.py`。它**只读**（绝不下单、不碰执行器的幂等状态），在每天
+19:00（调仓后 8 小时）检查：
+
+1. `scripts/audit_live_track.py` 的 12 项硬校验（账户恒等式、仓位市值、台账 vs 交易所订单历史、
+   持仓 vs 冻结目标、无计划外持仓、1.25x 名义上限、mark 新鲜度、账本评估日、信号日一致）；
+2. 仓位偏离：实际名义 vs 冻结目标超过执行器 5 USDT 调仓阈值（或目标 2%）即为异常；
+3. 总名义 / 权益 > 1.25x（规格上限）；
+4. 执行新鲜度：当天 06:00 UTC 后还没成功执行，或最近成功执行超过 36h；
+5. 权益低于执行下限 20 USDT。
+
+**通知规则**：正常时**一条消息都不发**（TG 安静 = 健康）；任一异常时发一条简短的
+「🩺 Atlas20 实盘巡检」告警，退出码 1 让 launchd 日志可见。输出快照在
+`reports/derivatives_track_live/health.json`（已被 gitignore）。手动跑：
+
+```bash
+ops/run_live_monitor.sh                 # 带 --notify，异常才发
+.venv/bin/python scripts/monitor_live_track.py            # 只看不 notify
+.venv/bin/python scripts/monitor_live_track.py --always-report --notify  # 强制发一条
+```
+
+**它还补了哪些"非调仓时间"的盲区**：调仓执行器只在 11:05 读一次账户。巡检在 19:00 再读一次，
+能当天发现「调仓没跑」「跑歪了」「持仓被手动平了」「名义超限」「权益跌破下限」这类问题；
+但不能替代执行器本身（它不下单、不修正仓位，只报警）。
 
 ## 3. 监控清单（每周 5 分钟）
 
