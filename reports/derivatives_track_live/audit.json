@@ -1,0 +1,70 @@
+{
+  "checked_at": "2026-10-10T20:46:44.272584+00:00",
+  "checks": [
+    {
+      "check": "账户恒等式 equity = balance + uPnL",
+      "detail": "100.0007 vs 99.8719 + 0.1288 = 100.0007",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "仓位市值 = Σ 数量 × 标记价",
+      "detail": "交易所 75.0891 vs 重算 75.1590（两次请求的标记价差 0.0699）",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账最新一行 = 当前账户（按实时标记价折算）",
+      "detail": "台账 2026-10-10 equity=99.9951；折算后应为 99.9895，交易所 100.0007",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账 PnL 链一致",
+      "detail": "无可校验的相邻行",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账成交都能在交易所订单历史里对上",
+      "detail": "核对 6 笔订单",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "持仓与冻结目标一致（1 个合约步长内）",
+      "detail": "全部吻合",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "无计划外持仓",
+      "detail": "无",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "总名义 <= 1.25x 权益（规格上限）",
+      "detail": "gross 75.16 / equity 100.00 = 0.752x",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "信号新鲜度（<= 36h，硬门槛为执行时）",
+      "detail": "信号日 2026-10-08（68.8h 前）",
+      "hard": false,
+      "ok": false
+    },
+    {
+      "check": "台账信号日 = 冻结账本最新信号日",
+      "detail": "台账 2026-10-08 vs 账本 2026-10-08",
+      "hard": true,
+      "ok": true
+    }
+  ],
+  "equity": 100.00074716,
+  "hard_failures": 0,
+  "position_value": 75.159,
+  "signal_date": "2026-10-08",
+  "spec": "PR2026-10-D-L125-V2"
+}

@@ -27,6 +27,7 @@ Venue quirks this module absorbs (all observed live on 2026-10-10):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 import time
 from typing import Any, Callable, Protocol
 
@@ -105,6 +106,7 @@ class ExecutionReport:
     equity_before: float = 0.0
     equity_after: float = 0.0
     available_after: float = 0.0
+    balance_after: float = 0.0
     fills: list[OrderFill] = field(default_factory=list)
     failures: list[dict[str, str]] = field(default_factory=list)
     margin_notes: list[str] = field(default_factory=list)
@@ -130,6 +132,7 @@ class ExecutionReport:
             "equity_before": self.equity_before,
             "equity_after": self.equity_after,
             "available_after": self.available_after,
+            "balance_after": self.balance_after,
             "fills": [fill.as_dict() for fill in self.fills],
             "failures": list(self.failures),
             "margin_notes": list(self.margin_notes),
@@ -403,6 +406,7 @@ def execute_plan(
         {},
     )
     report.available_after = _to_float(usdt_row.get("available"))
+    report.balance_after = _to_float(usdt_row.get("balance"))
     return report
 
 
@@ -421,131 +425,118 @@ def format_execution_report(
     spec: str,
     execution_hint: str = "",
     targets: dict[str, float] | None = None,
-    equity_reference: float | None = None,
     lot_notional: dict[str, float] | None = None,
     planned_orders: list[Any] | None = None,
     warnings: list[str] | None = None,
+    prev_equity: float | None = None,
+    prev_day_pnl: float | None = None,
+    run_at: datetime | None = None,
 ) -> str:
-    """Render the daily message.  Every number is a venue number."""
+    """Render the daily Telegram message: short, and all venue numbers.
+
+    Total equity, position value, today's PnL (against the previous ledger
+    row), yesterday's PnL, what was traded, what is held.  Anything that went
+    wrong is appended; nothing else.
+    """
+
+    moment = run_at or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    beijing = moment.astimezone(timezone(timedelta(hours=8)))
 
     positions = [
-        row
-        for row in report.positions_after
-        if abs(_to_float(row.get("total"))) > 0.0
+        row for row in report.positions_after if abs(_to_float(row.get("total"))) > 0.0
     ]
     notional_by_symbol: dict[str, float] = {}
-    lines = [
-        f"Atlas20 自动调仓报告 · {spec}",
-        f"信号日 {signal_date}（UTC）" + (f" · 执行点 {execution_hint}" if execution_hint else ""),
-    ]
     for row in positions:
         symbol = str(row.get("symbol") or "")
         notional_by_symbol[symbol] = abs(_to_float(row.get("total"))) * _to_float(
             row.get("markPrice") or row.get("avgPrice")
         )
+    total_notional = sum(notional_by_symbol.values())
+    equity = report.equity_after or report.equity_before
+    day_pnl = None if prev_equity is None else equity - float(prev_equity)
 
-    lines += [
-        "",
-        f"账户权益 {_money(report.equity_after)} USDT"
-        f"（执行前 {_money(report.equity_before)}，"
-        f"权益变动 {report.equity_after - report.equity_before:+.2f}）",
-        f"可用保证金 {_money(report.available_after)} USDT",
-        "",
-        "今日成交:",
-    ]
+    lines = [f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
+    lines.append(f"总权益 {_money(equity)} USDT")
+    share = f"（{total_notional / equity:.1%} 权益）" if equity > 0 else ""
+    lines.append(f"仓位价值 {_money(total_notional)} USDT{share}")
+    if day_pnl is None or not prev_equity:
+        lines.append("今日盈亏 —（首个记录日）")
+    else:
+        lines.append(f"今日盈亏 {day_pnl:+.2f} USDT（{day_pnl / float(prev_equity):+.2%}）")
+    if prev_day_pnl is None:
+        lines.append("昨日盈亏 —")
+    else:
+        lines.append(f"昨日盈亏 {float(prev_day_pnl):+.2f} USDT")
+
+    lines += ["", "今日成交:"]
     if not report.fills:
-        lines.append("  无（已与目标一致或无信号变化）")
+        lines.append("  无")
     for fill in report.fills:
         verb = "买入" if fill.side == "buy" else "卖出"
         note = "" if fill.status == _FILLED else f"（{fill.status}）"
         lines.append(
-            f"  {verb} {fill.asset.upper()} {_qty(fill.filled_size)} 枚"
-            f" @ 均价 {fill.avg_price:.8g} → {_money(fill.notional)} USDT"
-            f" · 手续费 {fill.fee:.4f} {fill.fee_coin or 'USDT'}{note}"
+            f"  {verb} {fill.asset.upper()} {_qty(fill.filled_size)} 枚 @ {fill.avg_price:.8g}"
+            f" · {_money(fill.notional)} USDT · 费 {fill.fee:.4f}{note}"
         )
-    if report.fee_total:
-        lines.append(f"  手续费合计 {report.fee_total:.4f} USDT")
-    if planned_orders:
-        lines.append("  [未执行] 今日计划:")
-        for order in planned_orders:
-            verb = {
-                "OPEN": "开仓",
-                "INCREASE": "加仓",
-                "REDUCE": "减仓",
-                "CLOSE": "平仓",
-            }.get(str(order.action), str(order.action))
-            lines.append(
-                f"    {verb} {str(order.asset).upper()} {order.side} {order.size:.8g} 枚"
-                f"（名义 {_money(order.notional)} USDT）"
-            )
+    for order in planned_orders or []:
+        verb = {
+            "OPEN": "开仓",
+            "INCREASE": "加仓",
+            "REDUCE": "减仓",
+            "CLOSE": "平仓",
+        }.get(str(order.action), str(order.action))
+        lines.append(
+            f"  [未执行] {verb} {str(order.asset).upper()} {order.side} {order.size:.8g} 枚"
+            f" · {_money(order.notional)} USDT"
+        )
 
-    lines += ["", "当前真实持仓:"]
+    lines += ["", "当前持仓:"]
     if not positions:
-        lines.append("  空仓（现金 100%）")
-    total_notional = sum(notional_by_symbol.values())
-    equity = report.equity_after if report.equity_after > 0 else (equity_reference or 0.0)
+        lines.append("  空仓")
     for row in positions:
         symbol = str(row.get("symbol") or "")
         size = abs(_to_float(row.get("total")))
         entry = _to_float(row.get("avgPrice"))
         mark = _to_float(row.get("markPrice") or row.get("avgPrice"))
-        share = (notional_by_symbol[symbol] / equity) if equity > 0 else 0.0
-        pnl = (mark - entry) * size
-        side = str(row.get("posSide") or "long")
+        upnl = _to_float(row.get("unrealisedPnl"))
+        if not upnl:
+            upnl = (mark - entry) * size
+        weight = notional_by_symbol[symbol] / equity if equity > 0 else 0.0
         lines.append(
-            f"  {symbol}（{side}）{_qty(size)} 枚 · 名义 {_money(notional_by_symbol[symbol])} USDT"
-            f" · 占权益 {share:.2%} · 浮盈 {pnl:+.2f}"
+            f"  {str(row.get('asset') or symbol).upper()} {_qty(size)} 枚 · "
+            f"{_money(notional_by_symbol[symbol])} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
         )
-    if equity > 0:
-        lines.append(f"  合约名义合计 {_money(total_notional)} USDT（{total_notional / equity:.2%} 权益）")
-        if positions:
-            lines.append(
-                f"  可用保证金 {_money(report.available_after)} USDT（交易所口径）"
-            )
-        else:
-            lines.append(
-                f"  现金/可用 {_money(report.available_after)} USDT"
-                f"（{report.available_after / equity:.2%} 权益）"
-            )
 
     if targets:
-        lines += ["", "目标 vs 实际（名义 USDT）:"]
-        for asset in sorted(set(targets) | {str(r.get("symbol", "")).rstrip("USDT").lower() for r in positions}):
+        checks = []
+        for asset in sorted(targets):
             target_weight = float(targets.get(asset, 0.0))
-            target_notional = target_weight * equity if equity > 0 else 0.0
+            target_notional = target_weight * equity
             symbol = f"{asset.upper()}USDT"
             actual = notional_by_symbol.get(symbol, 0.0)
             gap = actual - target_notional
             lot = float((lot_notional or {}).get(asset, 0.0))
             tolerance = max(1.0, 0.01 * target_notional, 1.5 * lot)
-            flag = "✓" if abs(gap) <= tolerance else "⚠️"
-            if abs(gap) <= tolerance and abs(gap) > max(1.0, 0.01 * target_notional):
-                flag = "✓（受合约最小下单量/步长限制）"
-            lines.append(
-                f"  {asset.upper()}: 目标 {_money(target_notional)} / 实际 {_money(actual)}"
-                f"（差 {gap:+.2f}）{flag}"
+            flag = "" if abs(gap) <= tolerance else " ⚠️"
+            checks.append(
+                f"{asset.upper()} 目标 {_money(target_notional)} / 实际 {_money(actual)}{flag}"
             )
-
-    mode_label = {
-        "isolated": "逐仓（isolated）",
-        "crossed": "全仓（crossed）",
-    }.get(report.margin_mode, report.margin_mode or "未知")
-    lines += ["", f"保证金模式: {mode_label}"]
-    if report.margin_mode and report.margin_mode != "isolated":
-        lines.append("  ⚠️ 规格要求逐仓；本账户/key 当前只能全仓，逐腿 -51% 强平线不适用。")
+        held = {str(row.get("symbol", "")).upper().replace("USDT", "") for row in positions}
+        orphans = sorted(held - {asset.upper() for asset in targets})
+        if orphans:
+            checks.append(f"⚠️ 计划外持仓: {', '.join(orphans)}")
+        lines += ["", f"信号 {signal_date} · " + " · ".join(checks)]
 
     if report.failures:
-        lines += ["", "未完成:"]
+        lines += ["", "⚠️ 未完成:"]
         for failure in report.failures:
             lines.append(
-                f"  ⚠️ {failure['symbol']} {failure['action']} {failure['side']}"
-                f" {failure['size']}: {failure['error'][:120]}"
+                f"  {failure['symbol']} {failure['action']} {failure['side']}"
+                f" {failure['size']}: {failure['error'][:100]}"
             )
-    if report.margin_notes:
-        lines += ["", "保证金备注:"]
-        lines += [f"  - {note[:160]}" for note in report.margin_notes]
     if warnings:
         lines += ["", "提示:"]
         lines += [f"  - {warning}" for warning in warnings]
-    lines += ["", "本消息由自动执行器发出；成交与持仓均为交易所回读值。"]
     return "\n".join(lines)

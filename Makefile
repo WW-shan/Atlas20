@@ -95,6 +95,11 @@ execute-plan: $(VENV_STAMP)
 execute-plan-live: $(VENV_STAMP)
 	$(PYTHON) scripts/execute_live_plan.py --live --notify
 
+# Read-only end-to-end reconciliation: account identities, ledger vs venue
+# order history, book vs frozen target, gross vs the 1.25x cap.
+audit-live: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_live_track.py
+
 derivatives-notify: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py
 

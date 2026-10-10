@@ -1652,6 +1652,12 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 10 | 12 个月样本外 | 进行中（17/365 天，0.9598x） |
 | 11 | 实盘执行前置（普通 API key / 逐仓可得） | **阻塞**（2026-10-10 真钱实测：跟单/精英 API key 不支持逐仓、`set-margin`、持仓模式与账户模式切换；详见 `docs/research/derivatives_track_research_2026-10.md` §12.8.23） |
 
+2026-10-11 负责人决定实盘**改用全仓**（"全仓和杠杆无所谓，只要仓位价值对"）：实盘仓位约束改为
+**总名义 ≤ 权益 × 1.25** 一条，逐仓 −51% 逐腿强平线在实盘不再存在（模型口径未变，差值落在 −51% 以外
+的尾部）。新增每日台账 `reports/derivatives_track_live/journal.csv`（权益/仓位/盈亏/成交/持仓，同日覆盖）
+与只读全链路对账 `make audit-live`（账户恒等式、仓位市值、台账成交 vs 交易所订单历史、目标一致性、
+名义上限、PnL 链）——首跑 10 项硬校验全过。
+
 2026-10-11 每日自动调仓上线：`make execute-plan-live` / `ops/systemd/atlas20-derivatives-execute.timer`
 （03:05 UTC）会按真实权益下单、回读真实成交与持仓、发一条全真实数据的 Telegram；安全闸含 kill-switch、
 36h 信号上限、权益下限、同日幂等。首次真钱自动执行 = 买入 14 NEAR（75.03 USDT，均价 5.3593，费 0.045），

@@ -1,39 +1,41 @@
 {
   "execution_hint": "2026-10-09 03:00:00+00:00",
   "plan": {
-    "equity": 99.92374716,
-    "expected_gross_notional": 75.0778,
-    "expected_margin": 38.665067,
+    "equity": 100.00914716,
+    "expected_gross_notional": 75.1324,
+    "expected_margin": 38.693186000000004,
     "leverage": 2.0,
     "margin_intents": [
       {
-        "amount": 34.86613032,
+        "amount": 34.891486560000004,
         "asset": "near",
         "operation": "add",
         "pos_side": "long",
-        "reason": "isolated margin to 51.5% of 75.08 USDT notional",
+        "reason": "isolated margin to 51.5% of 75.13 USDT notional",
         "symbol": "NEARUSDT"
       }
     ],
     "orders": [],
     "target_margin_ratio": 0.515,
     "target_notional": {
-      "near": 77.61924118695725
+      "near": 77.6855786030947
     },
     "warnings": []
   },
   "report": {
-    "available_after": 99.93774715,
-    "equity_after": 99.93774716,
-    "equity_before": 99.92234716,
+    "available_after": 99.99514715,
+    "balance_after": 99.87194716,
+    "equity_after": 99.99514716,
+    "equity_before": 100.00634716,
     "failures": [],
     "fills": [],
     "margin_mode": "crossed",
     "margin_notes": [
-      "NEARUSDT: \u4fdd\u8bc1\u91d1add 34.87 USDT \u5931\u8d25\uff08Bitget /api/v3/account/set-margin HTTP 400: {\"code\":\"40731\",\"msg\":\"This product does not support copy trading\",\"requestTime\":1791664636852,\"data\":null}\uff09"
+      "\u6301\u4ed3\u4e3acrossed\uff1a\u8df3\u8fc7 1 \u7b14\u9010\u4ed3\u4fdd\u8bc1\u91d1\u8c03\u6574"
     ],
     "positions_after": [
       {
+        "asset": "near",
         "available": "14",
         "avgPrice": "5.3593",
         "breakEvenPrice": "5.3657",
@@ -48,17 +50,17 @@
         "liquidationPrice": "0",
         "marginCoin": "USDT",
         "marginMode": "crossed",
-        "markPrice": "5.3644",
+        "markPrice": "5.3689",
         "mmr": "0.0066",
         "openFeeTotal": "-0.04501812",
         "posSide": "long",
-        "positionBalance": "3.80014096",
+        "positionBalance": "3.80332876",
         "positionStatus": "normal",
-        "profitRate": "0.0187887767194825",
+        "profitRate": "0.0353374658045601",
         "symbol": "NEARUSDT",
         "total": "14",
         "totalFunding": "0",
-        "unrealisedPnl": "0.0714",
+        "unrealisedPnl": "0.1344",
         "updatedTime": "1791664589693"
       }
     ],

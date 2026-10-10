@@ -1,0 +1,2 @@
+date,run_at_utc,signal_date,equity,position_value,cash,day_pnl,day_return,fees_today,funding_total,unrealised_pnl,positions,trades,notes
+2026-10-10,2026-10-10T20:46:12.383336+00:00,2026-10-08,99.995147,75.1646,99.871947,,,0,0.0,0.1344,"[{""asset"": ""near"", ""avg_price"": 5.3593, ""mark_price"": 5.3689, ""notional"": 75.1646, ""qty"": 14.0, ""side"": ""long"", ""symbol"": ""NEARUSDT"", ""unrealised_pnl"": 0.1344, ""weight"": 0.751682}]",[],"[""持仓为crossed：跳过 1 笔逐仓保证金调整""]"

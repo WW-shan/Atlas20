@@ -49,6 +49,12 @@ from atlas20.derivatives.live_executor import (  # noqa: E402
     execute_plan,
     format_execution_report,
 )
+from atlas20.derivatives.live_journal import (  # noqa: E402
+    JournalEntry,
+    load_journal,
+    previous_row,
+    upsert_entry,
+)
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.plan_live_execution import (  # noqa: E402
@@ -65,6 +71,7 @@ from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
 
 DEFAULT_STATE_FILE = Path("data/derivatives_execution_state.json")
+DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
 DEFAULT_KILL_SWITCH = Path("data/derivatives_execution.KILL")
 DEFAULT_JSON_OUT = Path("reports/derivatives_track_execution/latest.json")
 
@@ -94,11 +101,98 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--require-isolated", action="store_true")
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    parser.add_argument("--journal-file", type=Path, default=DEFAULT_JOURNAL_FILE)
     parser.add_argument("--kill-switch", type=Path, default=DEFAULT_KILL_SWITCH)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--instruments-file", type=Path, default=None)
     parser.add_argument("--prices-file", type=Path, default=None)
     return parser.parse_args(argv)
+
+
+def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[dict]:
+    """Add the model's asset id to each venue position row."""
+
+    by_symbol = {str(symbol).upper(): asset for asset, symbol in symbols_by_asset.items()}
+    stamped: list[dict] = []
+    for row in rows:
+        record = dict(row)
+        symbol = str(record.get("symbol") or "").upper()
+        record.setdefault("asset", by_symbol.get(symbol, symbol.replace("USDT", "")))
+        stamped.append(record)
+    return stamped
+
+
+def _journal_entry(
+    report: ExecutionReport,
+    *,
+    signal_date: str,
+    run_at: datetime,
+    prev_equity: float | None,
+    warnings: list[str],
+) -> JournalEntry:
+    positions: list[dict] = []
+    position_value = 0.0
+    unrealised = 0.0
+    funding = 0.0
+    for row in report.positions_after:
+        size = abs(float(row.get("total") or 0.0))
+        if size <= 0.0:
+            continue
+        mark = float(row.get("markPrice") or row.get("avgPrice") or 0.0)
+        notional = size * mark
+        position_value += notional
+        unrealised += float(row.get("unrealisedPnl") or 0.0)
+        funding += float(row.get("totalFunding") or 0.0)
+        positions.append(
+            {
+                "asset": str(row.get("asset") or "").lower(),
+                "symbol": str(row.get("symbol") or ""),
+                "side": str(row.get("posSide") or "long"),
+                "qty": size,
+                "avg_price": float(row.get("avgPrice") or 0.0),
+                "mark_price": mark,
+                "notional": round(notional, 6),
+                "weight": round(notional / report.equity_after, 6)
+                if report.equity_after > 0
+                else 0.0,
+                "unrealised_pnl": round(float(row.get("unrealisedPnl") or 0.0), 6),
+            }
+        )
+    equity = report.equity_after
+    day_pnl = None if prev_equity is None else round(equity - float(prev_equity), 6)
+    day_return = (
+        None
+        if not prev_equity or day_pnl is None
+        else round(day_pnl / float(prev_equity), 8)
+    )
+    return JournalEntry(
+        date=run_at.strftime("%Y-%m-%d"),
+        run_at_utc=run_at.isoformat(),
+        signal_date=signal_date,
+        equity=round(equity, 6),
+        position_value=round(position_value, 6),
+        cash=round(report.balance_after, 6),
+        day_pnl=day_pnl,
+        day_return=day_return,
+        fees_today=round(report.fee_total, 8),
+        funding_total=round(funding, 8),
+        unrealised_pnl=round(unrealised, 6),
+        positions=positions,
+        trades=[
+            {
+                "order_id": fill.order_id,
+                "symbol": fill.symbol,
+                "side": fill.side,
+                "action": fill.action,
+                "qty": fill.filled_size,
+                "avg_price": fill.avg_price,
+                "notional": round(fill.notional, 6),
+                "fee": round(fill.fee, 8),
+            }
+            for fill in report.fills
+        ],
+        notes=[*report.margin_notes, *warnings],
+    )
 
 
 def _write_state(path: Path, key: str, status: str, report: ExecutionReport) -> None:
@@ -205,6 +299,15 @@ def main(argv: list[str] | None = None) -> int:
         if asset in prices_by_asset
     }
     warnings = list(plan.warnings)
+    run_at = datetime.now(timezone.utc)
+    journal = load_journal(args.journal_file)
+    previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
+    prev_day_pnl = (
+        float(previous["day_pnl"])
+        if previous and previous.get("day_pnl") is not None
+        else None
+    )
 
     if not args.live:
         warnings.append("DRY RUN：本次没有真的下单（加 --live 才会执行）")
@@ -223,6 +326,9 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "",
         )
+        report.positions_after = _stamp_assets(
+            report.positions_after, {**symbols_by_asset, **relevant_symbols}
+        )
         planned_orders = list(plan.orders)
     else:
         hold_mode = client.hold_mode()
@@ -238,6 +344,9 @@ def main(argv: list[str] | None = None) -> int:
             leverage=float(args.leverage),
             margin_mode=requested,
             hold_mode=hold_mode,
+        )
+        report.positions_after = _stamp_assets(
+            report.positions_after, {**symbols_by_asset, **relevant_symbols}
         )
         planned_orders = []
         if args.require_isolated and report.margin_mode != "isolated":
@@ -255,6 +364,9 @@ def main(argv: list[str] | None = None) -> int:
         lot_notional=lot_notional,
         planned_orders=planned_orders,
         warnings=warnings,
+        prev_equity=prev_equity,
+        prev_day_pnl=prev_day_pnl,
+        run_at=run_at,
     )
     print(message)
 
@@ -277,6 +389,15 @@ def main(argv: list[str] | None = None) -> int:
             encoding="utf-8",
         )
         _write_state(args.state_file, key, status, report)
+        entry = _journal_entry(
+            report,
+            signal_date=str(signal_date.date()),
+            run_at=run_at,
+            prev_equity=prev_equity,
+            warnings=warnings,
+        )
+        upsert_entry(args.journal_file, entry)
+        print(f"journal updated: {args.journal_file} ({entry.date})")
 
     if args.notify:
         token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")

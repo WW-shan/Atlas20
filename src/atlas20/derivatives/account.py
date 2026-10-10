@@ -431,6 +431,37 @@ class BitgetPrivateClient:
         )
         return dict(data) if isinstance(data, dict) else {}
 
+    def order_history(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        symbol: str | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Recent orders with fills and fees (30-day windows, 90-day window)."""
+
+        data = self._request(
+            "GET",
+            "/api/v3/trade/history-orders",
+            params={
+                "category": category,
+                "symbol": symbol,
+                "startTime": start_time_ms,
+                "endTime": end_time_ms,
+                "limit": int(limit),
+            },
+        )
+        rows: Any
+        if isinstance(data, dict):
+            rows = data.get("list") or []
+        elif isinstance(data, list):
+            rows = data
+        else:
+            rows = []
+        return [dict(row) for row in rows if isinstance(row, dict)]
+
     def close_position(
         self,
         *,

@@ -274,12 +274,14 @@ def test_report_message_shows_real_positions_and_the_cross_warning() -> None:
         available_after=25.4,
         positions_after=[
             {
+                "asset": "near",
                 "symbol": "NEARUSDT",
                 "posSide": "long",
                 "marginMode": "crossed",
                 "total": "14",
                 "avgPrice": "5.3239",
                 "markPrice": "5.3241",
+                "unrealisedPnl": "0.01",
             }
         ],
         margin_mode="crossed",
@@ -291,64 +293,46 @@ def test_report_message_shows_real_positions_and_the_cross_warning() -> None:
         spec="PR2026-10-D-L125-V2",
         targets={"near": 0.7768},
         lot_notional={"near": 5.32},
+        prev_equity=99.80,
+        prev_day_pnl=0.42,
     )
 
-    assert "自动调仓报告" in message
-    assert "NEARUSDT（long）14 枚" in message
-    assert "占权益" in message
-    assert "全仓（crossed）" in message
-    assert "规格要求逐仓" in message
-    assert "目标 77.61 / 实际 74.54" in message
+    assert "总权益 99.91 USDT" in message
+    assert "仓位价值 74.54 USDT" in message
+    assert "今日盈亏 +0.11 USDT（+0.11%）" in message
+    assert "昨日盈亏 +0.42 USDT" in message
+    assert "NEAR 14 枚 · 74.54 USDT" in message
+    assert "NEAR 目标 77.61 / 实际 74.54" in message
+    # concise: no margin-mode lecture, no filler
+    assert "规格要求逐仓" not in message
+    assert "保证金" not in message
+    assert len(message.splitlines()) <= 14
 
 
-def _crossed_position(size: float = 14.0) -> dict[str, Any]:
-    return {
-        "symbol": "NEARUSDT",
-        "posSide": "long",
-        "marginMode": "crossed",
-        "total": str(size),
-        "avgPrice": "5.0",
-        "markPrice": "5.0",
-        "positionBalance": "3.5",
-    }
+def test_report_marks_the_first_day_and_empty_book() -> None:
+    report = ExecutionReport(signal_date="2026-10-08", equity_before=100.0, equity_after=100.0)
+
+    message = format_execution_report(report, signal_date="2026-10-08", spec="SPEC")
+
+    assert "总权益 100.00 USDT" in message
+    assert "仓位价值 0.00 USDT" in message
+    assert "今日盈亏 —（首个记录日）" in message
+    assert "昨日盈亏 —" in message
+    assert "空仓" in message
 
 
-def test_crossed_legs_skip_the_isolated_margin_top_up() -> None:
-    position = PositionState(
-        asset="near",
-        symbol="NEARUSDT",
-        side="long",
-        size=14.0,
-        entry_price=5.0,
-        mark_price=5.0,
-        margin=3.5,
+def test_report_flags_an_orphan_position() -> None:
+    report = ExecutionReport(
+        signal_date="2026-10-08",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {"asset": "zcash", "symbol": "ZECUSDT", "total": "1", "markPrice": "100"}
+        ],
     )
-    client = _FakeLiveClient(positions=[_crossed_position()])
-    plan = _plan(weight=0.6, position=position)
 
-    report = _run(client, plan)
-
-    assert client.margin_calls == []
-    assert report.margin_mode == "crossed"
-    assert any("跳过" in note and "逐仓" in note for note in report.margin_notes)
-
-
-def test_isolated_legs_do_get_the_margin_top_up() -> None:
-    position = PositionState(
-        asset="near",
-        symbol="NEARUSDT",
-        side="long",
-        size=14.0,
-        entry_price=5.0,
-        mark_price=5.0,
-        margin=3.5,
+    message = format_execution_report(
+        report, signal_date="2026-10-08", spec="SPEC", targets={"near": 0.5}
     )
-    isolated = {**_crossed_position(), "marginMode": "isolated"}
-    client = _FakeLiveClient(positions=[isolated], reject_isolated_orders=False)
-    plan = _plan(weight=0.6, position=position)
 
-    report = _run(client, plan)
-
-    assert len(client.margin_calls) == 1
-    assert report.margin_mode == "isolated"
-    assert report.margin_notes == []
+    assert "计划外持仓: ZEC" in message
