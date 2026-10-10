@@ -1652,6 +1652,11 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | 10 | 12 个月样本外 | 进行中（17/365 天，0.9598x） |
 | 11 | 实盘执行前置（普通 API key / 逐仓可得） | **阻塞**（2026-10-10 真钱实测：跟单/精英 API key 不支持逐仓、`set-margin`、持仓模式与账户模式切换；详见 `docs/research/derivatives_track_research_2026-10.md` §12.8.23） |
 
+2026-10-11 每日自动调仓上线：`make execute-plan-live` / `ops/systemd/atlas20-derivatives-execute.timer`
+（03:05 UTC）会按真实权益下单、回读真实成交与持仓、发一条全真实数据的 Telegram；安全闸含 kill-switch、
+36h 信号上限、权益下限、同日幂等。首次真钱自动执行 = 买入 14 NEAR（75.03 USDT，均价 5.3593，费 0.045），
+播报里的持仓/占比全部来自交易所回读。详见 research §12.8.23 第 4 节。
+
 2026-10-10 首次真钱全链路实测（100 USDT）：读账户 → 计划器按真实权益出单 → 下单成交 → 回读持仓 → 平仓，全部跑通（一个来回成本 0.0866 USDT ≈ 5.81 bps/边）；但**逐仓在跟单 key 下不可得**（`25200 fixedMargin not support`、`set-margin` `40731`），执行层因此新增 `close_position()`（按 `holdMode` 自动选 hedge/单边写法）与 key 前置自检，见 runbook §1.1。**换普通 API key 复测逐仓之前，实盘不得开启。**
 
 最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。**每日播报已上线**（`scripts/send_derivatives_signal.py`，systemd timer，含「执行时点已过请勿追单」保护）；实盘执行、监控与 kill criteria 见 `docs/operations/derivatives_live_runbook.md`。

@@ -1,0 +1,16 @@
+[Unit]
+Description=Atlas20 derivatives (L125-V2) automated daily rebalance
+Documentation=file:/opt/atlas20/docs/operations/derivatives_live_runbook.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/atlas20
+# Telegram token + chat ids, and the Bitget UTA key (trade permission).
+EnvironmentFile=-/etc/atlas20/telegram.env
+EnvironmentFile=-/etc/atlas20/bitget.env
+# Refresh marks + the frozen target book, then trade and report.
+ExecStart=/usr/bin/make derivatives-oos-data derivatives-oos execute-plan-live
+# Never run two rebalances at once.
+TimeoutStartSec=900

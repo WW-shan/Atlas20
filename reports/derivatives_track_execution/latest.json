@@ -1,0 +1,71 @@
+{
+  "execution_hint": "2026-10-09 03:00:00+00:00",
+  "plan": {
+    "equity": 99.92374716,
+    "expected_gross_notional": 75.0778,
+    "expected_margin": 38.665067,
+    "leverage": 2.0,
+    "margin_intents": [
+      {
+        "amount": 34.86613032,
+        "asset": "near",
+        "operation": "add",
+        "pos_side": "long",
+        "reason": "isolated margin to 51.5% of 75.08 USDT notional",
+        "symbol": "NEARUSDT"
+      }
+    ],
+    "orders": [],
+    "target_margin_ratio": 0.515,
+    "target_notional": {
+      "near": 77.61924118695725
+    },
+    "warnings": []
+  },
+  "report": {
+    "available_after": 99.93774715,
+    "equity_after": 99.93774716,
+    "equity_before": 99.92234716,
+    "failures": [],
+    "fills": [],
+    "margin_mode": "crossed",
+    "margin_notes": [
+      "NEARUSDT: \u4fdd\u8bc1\u91d1add 34.87 USDT \u5931\u8d25\uff08Bitget /api/v3/account/set-margin HTTP 400: {\"code\":\"40731\",\"msg\":\"This product does not support copy trading\",\"requestTime\":1791664636852,\"data\":null}\uff09"
+    ],
+    "positions_after": [
+      {
+        "available": "14",
+        "avgPrice": "5.3593",
+        "breakEvenPrice": "5.3657",
+        "cashDividend": "0",
+        "category": "USDT-FUTURES",
+        "closeFeeTotal": "0",
+        "createdTime": "1791664552407",
+        "curRealisedPnl": "0",
+        "frozen": "0",
+        "holdMode": "hedge_mode",
+        "leverage": "20",
+        "liquidationPrice": "0",
+        "marginCoin": "USDT",
+        "marginMode": "crossed",
+        "markPrice": "5.3644",
+        "mmr": "0.0066",
+        "openFeeTotal": "-0.04501812",
+        "posSide": "long",
+        "positionBalance": "3.80014096",
+        "positionStatus": "normal",
+        "profitRate": "0.0187887767194825",
+        "symbol": "NEARUSDT",
+        "total": "14",
+        "totalFunding": "0",
+        "unrealisedPnl": "0.0714",
+        "updatedTime": "1791664589693"
+      }
+    ],
+    "signal_date": "2026-10-08",
+    "traded": false
+  },
+  "signal_date": "2026-10-08",
+  "spec": "PR2026-10-D-L125-V2",
+  "status": "ok"
+}

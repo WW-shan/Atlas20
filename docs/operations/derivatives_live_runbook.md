@@ -50,13 +50,18 @@ make refresh-data            # 面板增量刷新（首次约几分钟）
 make derivatives-oos-data derivatives-oos derivatives-signal
 make execution-plan EQUITY=1000
 
-# 5) 装 timer —— 注意：只装这两个，不要装 atlas20-telegram-signal（现货）；详见 §5
+# 5) 装 timer —— 装「面板刷新 + 自动调仓」两个就够；不要装 atlas20-telegram-signal（现货）
 sudo cp ops/systemd/atlas20-data-refresh.{service,timer} /etc/systemd/system/
-sudo cp ops/systemd/atlas20-derivatives-signal.{service,timer} /etc/systemd/system/
+sudo cp ops/systemd/atlas20-derivatives-execute.{service,timer} /etc/systemd/system/
+# 可选：只想要「模型播报」、不想真下单时，装这个代替 execute
+# sudo cp ops/systemd/atlas20-derivatives-signal.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
+sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execute.timer
 systemctl list-timers 'atlas20-*'
 ```
+
+> **两个 timer 不要同时装**：`derivatives-signal`（模型播报）与 `derivatives-execute`（真单 + 真持仓播报）
+> 各发一条消息。要自动下单就只装 execute；信号内容都在 execute 的消息里。
 
 时间线（UTC）：**02:30 刷面板 → 03:00 合约链（若 02:00 那次已用旧面板，会自动跳过同日旧信号并等这次）**；
 06:30 再刷一次面板作为 CMC 发布晚点的兜底。**面板冻结时会怎样**：播报内容停在旧信号日，
@@ -117,14 +122,44 @@ systemctl list-timers 'atlas20-*'
 
 ---
 
-## 2. 每日流程（自动 + 手动各一步）
+## 2. 每日流程
 
-自动（Ubuntu systemd，`ops/systemd/atlas20-derivatives-signal.{service,timer}`）：
+### 2.0 全自动（默认路线，2026-10-11 起）
+
+`ops/systemd/atlas20-derivatives-execute.{service,timer}` 每天 **03:05 UTC（北京 11:05）** 跑：
+
+```bash
+make derivatives-oos-data derivatives-oos   # 刷 mark + 冻结账本 → 当日目标仓位
+make execute-plan-live                      # = scripts/execute_live_plan.py --live --notify
+```
+
+它做四件事，全部自动：① 按**账户真实权益**把目标仓位换算成"买/卖多少枚"；② 直接市价下单
+（先减后加，和引擎同序）；③ 回读成交均价/手续费/持仓，拼出播报；④ 发 Telegram（同日幂等）。
+
+播报里的每个数字都来自交易所：**今天买了/卖了多少枚、成交均价、手续费、当前每个币的真实持仓
+和占比、可用保证金、目标 vs 实际**。它还会说明「保证金模式」「未完成的单」「被跳过的动作」。
+
+**安全闸**（都在脚本里，出事就停而不是偷偷下单）：
+
+| 闸门 | 行为 |
+|---|---|
+| `data/derivatives_execution.KILL` 存在 | 立刻拒绝交易（删文件即恢复） |
+| 信号日期超过 36h（`--max-signal-age-hours`） | 拒绝执行，提示先刷数据管线；确需补跑加 `--allow-stale-signal` |
+| 账户权益 < `--equity-floor`（默认 20 USDT） | 拒绝交易 |
+| 同一信号日已成功执行 | 直接跳过（`--force` 才能重跑），避免一天重复调仓 |
+| 单笔失败 | 记录进播报并等下一次（次日计划从真实持仓重算，自我修正），exit 1 让 timer 变红 |
+| 逐仓不可用的账户 | 自动退回全仓，并在播报里用 ⚠️ 明写（见 §1.1） |
+
+**只想看不想下单**：`make execute-plan`（dry run，照常读真账户、照常打印播报但不发单、不发消息）。
+
+### 2.1 手动/半自动（备用）
+
+自动路线的组件也可以单独用：
 
 ```bash
 make derivatives-oos-data   # 拉最新 Bitget mark（滚动 3 天窗口，见下），刷新样本外账本
 make derivatives-oos        # 只做记录：信号 → 目标仓位 → 与现货路径对照
-make derivatives-notify     # 发送当日 Telegram 播报（同日幂等，重跑不会重复发）
+make derivatives-notify     # 只发模型播报（同日幂等，重跑不会重复发）
 ```
 
 > **数据新鲜度是硬约束**：下载器按「窗口起点」做增量缓存，所以 Makefile 用**滚动起点**
@@ -137,7 +172,7 @@ make derivatives-notify     # 发送当日 Telegram 播报（同日幂等，重�
 定时器在 **02:00 UTC（北京 10:00）** 与 **03:00 UTC（北京 11:00，模型成交点）** 各跑一次；
 第一次成功即发送，同日重跑自动跳过。
 
-手动（收到消息后）：
+手动（只在需要人肉复核时，或者 `derivatives-signal` 路线下）：
 
 1. 对照播报里的「今日调仓」，在 Bitget 下限价/市价单，把每腿名义调到目标值；
    （如果当天**没有收到**播报，先看 timer 是否失败：发送器在模型成交时点过去 36h 后会
@@ -146,7 +181,7 @@ make derivatives-notify     # 发送当日 Telegram 播报（同日幂等，重�
 3. 播报若带「该执行时点已过去…请勿追单」，就**当天不做**，等次日信号；
 4. 播报里的「参考缩放系数」按你的实际权益换算（模型账本以 1000 USDT 权益计）。
 
-### 2.1 按真实余额计算订单与保证金（推荐；账号接入后全自动）
+### 2.2 按真实余额计算订单与保证金（计划预览 / 排障用）
 
 上面的播报以 1000 USDT 参考权益计价，实际下单还要自己换算。接入账号后可改为**按余额
 动态计算**，直接给出「买/卖多少枚、名义多少 USDT、保证金加/减多少」：
@@ -166,6 +201,7 @@ export ATLAS20_BITGET_DEMO=1           # 演示盘（paptrading: 1），先在�
 make execution-plan-live               # 内部带 --notify，同日幂等
 ```
 
+`make execute-plan-live` 是上一条自动路线的入口；下面这几个是**只看不下单**的排障入口。
 计划脚本每天重新读取交易所的 `usdtEquity` / `positionBalance`，因此**不依赖前一天的缓存**，
 下单误差最多持续一天就会在次日计划里自我修正（replay 实测 4.7 年累计偏差 +0.39%，见
 `reports/derivatives_track_live_replay/`）。

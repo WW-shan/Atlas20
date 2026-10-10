@@ -1,0 +1,36 @@
+{
+  "last_key": "PR2026-10-D-L125-V2|2026-10-08",
+  "last_run_at": "2026-10-10T20:37:17.474828+00:00",
+  "last_status": "ok",
+  "runs": [
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 5.3593,
+          "fee": 0.04501812,
+          "fee_coin": "USDT",
+          "filled_size": 14.0,
+          "notional": 75.0302,
+          "order_id": "1492914826811392000",
+          "requested_size": 14.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-08",
+      "ran_at": "2026-10-10T20:35:53.698736+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-08",
+      "ran_at": "2026-10-10T20:37:17.474828+00:00",
+      "status": "ok"
+    }
+  ]
+}

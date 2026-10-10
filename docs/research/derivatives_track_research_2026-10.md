@@ -1325,7 +1325,28 @@ support copy trading`，且 Web 端持仓模式开关变灰、强制 hedge）。
 4. 顺带补齐：`account_settings()` / `hold_mode()`（读 `accountLevel`/`holdMode`）、`pos_side` 可省略
    （单边账户）。
 
-**4. 对上线路径的影响**
+**4. 每日自动调仓已上线（2026-10-11）
+
+用户要求"不是手动操作，要每天自动帮我调仓，并按真实持仓播报"。执行层因此补齐：
+
+- `src/atlas20/derivatives/live_executor.py` — 下单执行器：按计划顺序（先减后加）逐笔下市价单，
+  轮询 `GET /api/v3/trade/order-info` 直到 filled，**成交数量/均价/手续费全部取交易所回读值**；
+  保证金调整只在持仓确实是 isolated 时尝试（全仓账户直接跳过并说明）；逐仓被拒时自动退回全仓
+  并在报告里 ⚠️ 明写，绝不静默。
+- `scripts/execute_live_plan.py` / `make execute-plan[-live]` — 每日自动化入口：真实权益 → 目标仓位
+  → 真实下单 → 真实持仓播报 → Telegram（同日幂等）。安全闸：kill-switch 文件、信号 36h 上限、
+  权益下限、同日只执行一次、单笔失败记录并 exit 1。
+- `ops/systemd/atlas20-derivatives-execute.{service,timer}` — 03:05 UTC 每日执行；与只播报的
+  `derivatives-signal.timer` 二选一（同时装会每天两条消息）。
+- 顺带修掉一个真 bug：`set_leverage` 把 `2.0` 发成 `"2.0"`，线上直接 `40020 Parameter leverage error`
+  （全仓/逐仓都设不上）；改为整数值去掉小数点，并加回归测试。**这条 bug 只有在真钱账户上才会暴露。**
+
+**真钱首次自动执行（2026-10-10 20:44 UTC，100 USDT 账户）**：目标 NEAR（权重 0.7768）→
+按真实权益 99.92 USDT 计算 → 买入 14 NEAR，成交均价 5.3593，名义 75.03 USDT，手续费 0.045 USDT；
+回读持仓 14 NEAR（占权益 75.15%），目标/实际差 −2.53 USDT（合约步长所致，已在播报里标注）。
+保证金模式报为全仓且跳过逐仓调整（该 key 限制），播报与 Telegram 双通道送达。
+
+**5. 对上线路径的影响**
 
 - **首选**：在**普通**（非精英/跟单）API key 下重跑同一套 drill，确认 `marginMode=isolated` 被接受、
   `set-margin` 可补到 51.5%、`liquidationPrice` 给出 −51.01% 口径的强平价；这三项过了，执行层才算真闭合。

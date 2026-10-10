@@ -1,6 +1,6 @@
 # Derivatives Track OOS Tracker — PR2026-10-D-L125-V2
 
-- window: 2026-09-22 00:00:00+00:00 → 2026-10-09 16:00:00+00:00 (17 daily returns)
+- window: 2026-09-22 00:00:00+00:00 → 2026-10-10 20:00:00+00:00 (18 daily returns)
 - frozen spec: H5 long book × 1.25, isolated margin, long buffer 50%, 20 bps, T+1 +3h fills
 - funding: **zero (upper bound)** — no exact Bitget funding history exists for this period
 
@@ -8,7 +8,7 @@
 
 | index | spec | multiple | cagr | sharpe | max_drawdown |
 | --- | --- | --- | --- | --- | --- |
-| 0 | PR2026-10-D-L125-V2 | 0.9598 | -0.6081 | -0.8582 | -0.1081 |
+| 0 | PR2026-10-D-L125-V2 | 1.0201 | 0.5331 | 0.9224 | -0.1081 |
 
 ## Latest target book
 

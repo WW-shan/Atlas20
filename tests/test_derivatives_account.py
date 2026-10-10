@@ -318,3 +318,24 @@ def test_set_margin_can_omit_pos_side() -> None:
     assert "posSide" not in body
     assert body["operation"] == "remove"
     assert body["amount"] == "1.25"
+
+
+def test_whole_float_leverage_never_goes_out_as_2_dot_0() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.set_leverage("NEARUSDT", 2.0, long_leverage=2.0, short_leverage=2.0)
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["leverage"] == "2"
+    assert body["longLeverage"] == "2"
+    assert body["shortLeverage"] == "2"
+
+
+def test_fractional_leverage_keeps_its_decimals() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.set_leverage("NEARUSDT", 1.25)
+
+    assert json.loads(session.calls[0]["data"])["leverage"] == "1.25"

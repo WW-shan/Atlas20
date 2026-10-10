@@ -86,6 +86,15 @@ execution-plan: $(VENV_STAMP)
 execution-plan-live: $(VENV_STAMP)
 	$(PYTHON) scripts/plan_live_execution.py --live --notify
 
+# Automated daily execution: reads the frozen book, sizes it from the real
+# balance, places the orders, and reports the *venue's* fills/positions.
+# Dry run (no orders) unless --live is passed.
+execute-plan: $(VENV_STAMP)
+	$(PYTHON) scripts/execute_live_plan.py
+
+execute-plan-live: $(VENV_STAMP)
+	$(PYTHON) scripts/execute_live_plan.py --live --notify
+
 derivatives-notify: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py
 

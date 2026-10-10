@@ -16,8 +16,10 @@ official docs on 2026-10-10: ``/api/v2/mix/position/adjust-position-margin``
 does not exist (HTTP 404); isolated-margin adjustment is the UTA v3
 ``/api/v3/account/set-margin`` endpoint with ``operation=add|remove``.
 
-The client never trades on its own.  ``place_order`` is called only by the
-execution script, which defaults to a dry run.
+The client never trades on its own.  ``place_order`` is called by
+``scripts/execute_live_plan.py`` (``make execute-plan-live``, systemd timer),
+which is a dry run unless ``--live`` is passed, and by the one-off drill
+scripts used to validate the venue.
 """
 
 from __future__ import annotations
@@ -38,6 +40,22 @@ import requests
 from atlas20.derivatives.bitget import BITGET_BASE_URL, BitgetAPIError
 
 UTA_CATEGORY = "USDT-FUTURES"
+
+
+def _format_leverage(value: int | float) -> str:
+    """Venue-ready leverage string.
+
+    ``str(2.0)`` is ``"2.0"`` and the live API answers ``40020 Parameter
+    leverage error`` for it, so whole numbers must lose the decimal point.
+    """
+
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if numeric.is_integer():
+        return str(int(numeric))
+    return f"{numeric:g}"
 _SUCCESS_CODES = {"0", "00000"}
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
@@ -277,17 +295,17 @@ class BitgetPrivateClient:
         body: dict[str, Any] = {
             "category": category,
             "symbol": symbol,
-            "leverage": str(leverage),
+            "leverage": _format_leverage(leverage),
             "marginMode": margin_mode,
         }
         if long_leverage is None and short_leverage is None:
             if pos_side is not None:
                 body["posSide"] = pos_side
         else:
-            body["longLeverage"] = str(
+            body["longLeverage"] = _format_leverage(
                 leverage if long_leverage is None else long_leverage
             )
-            body["shortLeverage"] = str(
+            body["shortLeverage"] = _format_leverage(
                 leverage if short_leverage is None else short_leverage
             )
         return self._request("POST", "/api/v3/account/set-leverage", body=body)
@@ -396,6 +414,23 @@ class BitgetPrivateClient:
             return dict(data)
         return {"raw": data}
 
+    def order_info(
+        self,
+        *,
+        order_id: str | None = None,
+        client_oid: str | None = None,
+    ) -> dict[str, Any]:
+        """Order detail: real filled qty, average price, fee and status."""
+
+        if not order_id and not client_oid:
+            raise ValueError("order_id or client_oid is required")
+        data = self._request(
+            "GET",
+            "/api/v3/trade/order-info",
+            params={"orderId": order_id, "clientOid": client_oid},
+        )
+        return dict(data) if isinstance(data, dict) else {}
+
     def close_position(
         self,
         *,
@@ -437,5 +472,6 @@ __all__ = [
     "BitgetCredentialsError",
     "BitgetPrivateClient",
     "UTA_CATEGORY",
+    "_format_leverage",
     "sign_request",
 ]

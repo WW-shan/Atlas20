@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the Atlas20 derivatives rebalance once per day
+
+[Timer]
+# 11:05 Beijing: five minutes after the model's T+1 03:00 UTC fill point, and
+# after the 02:30 UTC panel refresh has landed.
+OnCalendar=*-*-* 03:05:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=atlas20-derivatives-execute.service
+
+[Install]
+WantedBy=timers.target
