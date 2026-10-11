@@ -1,4 +1,5 @@
-import type { FeaturedDigest, ReportEntry } from "../../lib/api";
+import type { FeaturedDigest, ReportFormat, ReportEntry } from "../../lib/api";
+import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Pill } from "../ui/Pill";
 
@@ -8,6 +9,9 @@ type Props = {
   digest: FeaturedDigest;
   activeFilter: ReportTypeFilter;
   onFilterChange: (filter: ReportTypeFilter) => void;
+  onDownload: (format: ReportFormat) => void;
+  downloadBusy?: ReportFormat | null;
+  downloadsDisabled?: boolean;
 };
 
 const FILTER_OPTIONS: { key: ReportTypeFilter; label: string }[] = [
@@ -22,6 +26,9 @@ export function FeaturedDigestHero({
   digest,
   activeFilter,
   onFilterChange,
+  onDownload,
+  downloadBusy,
+  downloadsDisabled,
 }: Props) {
   return (
     <Card variant="hero" ariaLabel="Featured digest hero">
@@ -69,6 +76,33 @@ export function FeaturedDigestHero({
                 </button>
               );
             })}
+          </div>
+          <div
+            role="group"
+            aria-label="Featured digest formats"
+            style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}
+          >
+            {(["markdown", "pdf", "png", "csv"] as const).map((format) => (
+              <Button
+                key={format}
+                variant="outline-violet"
+                size="sm"
+                loading={downloadBusy === format}
+                disabled={downloadsDisabled}
+                onClick={() => onDownload(format)}
+              >
+                {format.toUpperCase()}
+              </Button>
+            ))}
+            <Button
+              variant="gold"
+              size="sm"
+              loading={downloadBusy === "bundle"}
+              disabled={downloadsDisabled}
+              onClick={() => onDownload("bundle")}
+            >
+              DOWNLOAD ALL
+            </Button>
           </div>
           <span className="mono muted" style={{ fontSize: 11 }}>
             Generated {digest.generated_at.slice(0, 10)}

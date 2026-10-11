@@ -12,6 +12,7 @@ vi.mock("../../lib/api", async () => {
     getFeaturedDigest: vi.fn(),
     listReports: vi.fn(),
     downloadReport: vi.fn(),
+    downloadDigest: vi.fn(),
     getOptions: vi.fn(),
     generateReport: vi.fn(),
   };
@@ -28,6 +29,8 @@ beforeEach(() => {
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
   vi.mocked((api as unknown as { downloadReport: (id: string, fmt?: api.ReportFormat) => Promise<void> }).downloadReport)
+    .mockResolvedValue(undefined);
+  vi.mocked((api as unknown as { downloadDigest: (format: api.ReportFormat) => Promise<void> }).downloadDigest)
     .mockResolvedValue(undefined);
   vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
   vi.mocked(api.generateReport).mockResolvedValue({
@@ -66,9 +69,36 @@ describe("ReportsExportsTab", () => {
     });
   });
 
-  it("renders a digest download button for the selected format", async () => {
+  it("renders all featured digest download controls", async () => {
     renderWithQuery(<ReportsExportsTab />);
-    expect(await screen.findByRole("tablist", { name: "Report type filter" })).toBeInTheDocument();
+
+    expect(await screen.findByText(api.fallbackFeaturedDigest.title)).toBeInTheDocument();
+    for (const label of ["MARKDOWN", "PDF", "PNG", "CSV", "DOWNLOAD ALL"]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it("downloads featured digest formats through the API helper", async () => {
+    renderWithQuery(<ReportsExportsTab />);
+    await screen.findByText(api.fallbackFeaturedDigest.title);
+
+    fireEvent.click(screen.getByRole("button", { name: "MARKDOWN" }));
+    await waitFor(() => expect((api as unknown as { downloadDigest: ReturnType<typeof vi.fn> }).downloadDigest).toHaveBeenCalledWith("markdown"));
+
+    fireEvent.click(screen.getByRole("button", { name: "DOWNLOAD ALL" }));
+    await waitFor(() => expect((api as unknown as { downloadDigest: ReturnType<typeof vi.fn> }).downloadDigest).toHaveBeenCalledWith("bundle"));
+  });
+
+  it("surfaces featured digest download failures and re-enables the button", async () => {
+    vi.mocked((api as unknown as { downloadDigest: (format: api.ReportFormat) => Promise<void> }).downloadDigest)
+      .mockRejectedValueOnce(new api.ApiError("digest artifact not found", { status: 404, code: "not_found" }));
+
+    renderWithQuery(<ReportsExportsTab />);
+    const markdown = await screen.findByRole("button", { name: "MARKDOWN" });
+    fireEvent.click(markdown);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to download digest: digest artifact not found");
+    await waitFor(() => expect(markdown).not.toBeDisabled());
   });
 
   it("clicking the Run filter shows only run reports", async () => {

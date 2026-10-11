@@ -16,6 +16,7 @@ import { NewReportModal } from "./NewReportModal";
 
 import {
   describeApiError,
+  downloadDigest,
   downloadReport,
   fallbackOptions,
   generateReport,
@@ -23,7 +24,7 @@ import {
   getOptions,
   listReports,
 } from "../../lib/api";
-import type { GenerateReportRequest, ReportEntry } from "../../lib/api";
+import type { GenerateReportRequest, ReportEntry, ReportFormat } from "../../lib/api";
 import type { ReportSortKey } from "../../components/ui/types";
 import { qk } from "../../lib/qk";
 
@@ -40,6 +41,7 @@ export function ReportsExportsTab() {
   const [sort, setSort] = useState<ReportSortKey>("recent");
   const [typeFilter, setTypeFilter] = useState<ReportTypeFilter>("all");
   const [reportDownloadPendingId, setReportDownloadPendingId] = useState<string | undefined>(undefined);
+  const [digestDownloadPendingFormat, setDigestDownloadPendingFormat] = useState<ReportFormat | undefined>(undefined);
   const [downloadError, setDownloadError] = useState<string | undefined>(undefined);
   const [newReportOpen, setNewReportOpen] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
@@ -83,6 +85,19 @@ export function ReportsExportsTab() {
     return () => window.clearTimeout(timer);
   }, [reportToast]);
 
+  const handleDownloadDigest = async (format: ReportFormat) => {
+    if (digestDownloadPendingFormat) return;
+    setDigestDownloadPendingFormat(format);
+    setDownloadError(undefined);
+    try {
+      await downloadDigest(format);
+    } catch (error) {
+      setDownloadError(describeApiError(error, "Unable to download digest"));
+    } finally {
+      setDigestDownloadPendingFormat(undefined);
+    }
+  };
+
   const handleDownloadOne = async (id: string) => {
     if (reportDownloadPendingId) return;
     setReportDownloadPendingId(id);
@@ -122,6 +137,9 @@ export function ReportsExportsTab() {
           digest={featured.data}
           activeFilter={typeFilter}
           onFilterChange={setTypeFilter}
+          onDownload={handleDownloadDigest}
+          downloadBusy={digestDownloadPendingFormat ?? null}
+          downloadsDisabled={Boolean(digestDownloadPendingFormat)}
         />
       )}
 
