@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/AppShell";
 import { TabSwitcher, type ConsoleTab } from "../components/navigation/TabSwitcher";
 import { OverviewTab } from "../features/overview/OverviewTab";
+import { LiveResearchTab } from "../features/live/LiveResearchTab";
 import { BacktestStudioTab } from "../features/backtest/BacktestStudioTab";
 import { StrategyLabTab } from "../features/strategy-lab/StrategyLabTab";
 import { StrategyCompareTab } from "../features/compare/StrategyCompareTab";
@@ -33,6 +34,7 @@ function navReducer(state: NavState, action: NavAction): NavState {
 
 const tabLabels: Record<ConsoleTab, string> = {
   overview: "Overview",
+  liveResearch: "Live Research",
   backtest: "Backtest Studio",
   strategyLab: "Strategy Lab",
   compare: "Strategy Compare",
@@ -103,6 +105,11 @@ export function ResearchConsolePage() {
           <OverviewTab overview={overviewData} onNavigate={navigate} />
         </ErrorBoundary>
       )}
+      {nav.tab === "liveResearch" && (
+        <ErrorBoundary>
+          <LiveResearchTab />
+        </ErrorBoundary>
+      )}
       {nav.tab === "backtest" && (
         <ErrorBoundary>
           <BacktestStudioTab prefillRunId={nav.prefillRunId} onNavigate={navigate} />
@@ -159,6 +166,7 @@ function PageSkeleton() {
 function getSubtitle(tab: ConsoleTab): string {
   const subs: Record<ConsoleTab, string> = {
     overview: "Champion summary, equity curve, and market regime",
+    liveResearch: "Current frozen signal, OOS tracking, and live monitoring",
     backtest: "Configure, run, and inspect strategy backtests",
     strategyLab: "Parameter matrix and ranked experiment results",
     compare: "Side-by-side performance, risk, and holdings overlap",

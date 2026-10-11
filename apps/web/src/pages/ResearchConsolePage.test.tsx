@@ -12,11 +12,12 @@ vi.mock("../lib/api", async () => {
     ...actual,
     getOverview: vi.fn(),
     getFeaturedDigest: vi.fn(),
+    getLiveResearch: vi.fn(),
     listReports: vi.fn(),
   };
 });
 
-const tabNames = ["Overview", "Backtest", "Strategy Lab", "Compare", "History", "Universe", "Reports"];
+const tabNames = ["Overview", "Live", "Backtest", "Strategy Lab", "Compare", "History", "Universe", "Reports"];
 
 function renderWithQuery(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -30,10 +31,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.getOverview).mockResolvedValue(api.fallbackOverview);
   vi.mocked(api.getFeaturedDigest).mockResolvedValue(api.fallbackFeaturedDigest);
+  vi.mocked(api.getLiveResearch).mockResolvedValue(api.fallbackLiveResearch);
   vi.mocked(api.listReports).mockResolvedValue(api.fallbackReports);
 });
 
-test("renders Atlas20 Research Console with 7 tabs", async () => {
+test("renders Atlas20 Research Console with 8 tabs", async () => {
   renderWithQuery(<ResearchConsolePage />);
 
   expect(screen.getByText("ATLAS20")).toBeInTheDocument();
@@ -52,7 +54,11 @@ test("clicking tab switches content", async () => {
   renderWithQuery(<ResearchConsolePage />);
 
   const overviewTab = screen.getByRole("tab", { name: "Overview" });
+  const liveTab = screen.getByRole("tab", { name: "Live" });
   const reportsTab = screen.getByRole("tab", { name: "Reports" });
+
+  act(() => { liveTab.click(); });
+  expect(await screen.findByRole("region", { name: "Spot research" })).toBeInTheDocument();
 
   act(() => { reportsTab.click(); });
 

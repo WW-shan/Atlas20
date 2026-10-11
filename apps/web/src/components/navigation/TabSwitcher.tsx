@@ -1,5 +1,6 @@
 export type ConsoleTab =
   | "overview"
+  | "liveResearch"
   | "backtest"
   | "strategyLab"
   | "compare"
@@ -9,6 +10,7 @@ export type ConsoleTab =
 
 const tabs: { key: ConsoleTab; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "liveResearch", label: "Live" },
   { key: "backtest", label: "Backtest" },
   { key: "strategyLab", label: "Strategy Lab" },
   { key: "compare", label: "Compare" },
