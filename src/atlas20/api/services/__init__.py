@@ -19,6 +19,7 @@ from atlas20.api._time import today, utc_iso_from_path_mtime, utc_now
 from atlas20.api.config_adapter import to_research_config, validate_preset
 from atlas20.api.data_access._common import _format_display_name
 from atlas20.api.data_access.compare import UnknownCompareIdError, load_compare_from_reports
+from atlas20.api.data_access.live import load_live_research
 from atlas20.api.data_access.options import load_options_from_reports
 from atlas20.api.data_access.overview import load_overview_from_reports
 from atlas20.api.data_access.universe import (
@@ -32,6 +33,7 @@ from atlas20.api.schemas import (
     DataSource,
     DataSourceStatus,
     FeaturedDigest,
+    LiveResearchPayload,
     OptionsPayload,
     OverviewPayload,
     ReportEntry,
@@ -66,6 +68,10 @@ def get_overview() -> OverviewPayload:
     settings = get_settings().model_copy(update={"anchor_date": today()})
     payload, _used_fallback = _load_overview_payload(settings, log_warning=True)
     return OverviewPayload.model_validate(payload)
+
+
+def get_live_research() -> LiveResearchPayload:
+    return LiveResearchPayload.model_validate(load_live_research(get_settings()))
 
 
 def get_options_payload() -> OptionsPayload:

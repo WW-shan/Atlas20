@@ -13,6 +13,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    LiveResearchPayload,
     OptionsPayload,
     OverviewPayload,
     ReportEntry,
@@ -29,6 +30,11 @@ class RealConsoleService:
         from atlas20.api import services
 
         return services.get_overview()
+
+    def get_live_research(self) -> LiveResearchPayload:
+        from atlas20.api import services
+
+        return services.get_live_research()
 
     def get_options_payload(self) -> OptionsPayload:
         from atlas20.api import services

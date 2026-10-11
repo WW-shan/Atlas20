@@ -14,6 +14,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    LiveResearchPayload,
     OptionsPayload,
     OverviewPayload,
     ReportEntry,
@@ -35,6 +36,8 @@ class ConsoleService(Protocol):
     """
 
     def get_overview(self) -> OverviewPayload: ...
+
+    def get_live_research(self) -> LiveResearchPayload: ...
 
     def get_options_payload(self) -> OptionsPayload: ...
 

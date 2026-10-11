@@ -25,6 +25,7 @@ from atlas20.api.middleware.request_id import RequestIdMiddleware
 from atlas20.api.routes.backtests import router as backtests_router
 from atlas20.api.routes.compare import router as compare_router
 from atlas20.api.routes.health import router as health_router
+from atlas20.api.routes.live import router as live_router
 from atlas20.api.routes.options import router as options_router
 from atlas20.api.routes.overview import router as overview_router
 from atlas20.api.routes.reports import router as reports_router
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
     app.add_middleware(AccessLogMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.include_router(overview_router)
+    app.include_router(live_router)
     app.include_router(options_router)
     app.include_router(runs_router)
     app.include_router(backtests_router)

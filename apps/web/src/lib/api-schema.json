@@ -1090,6 +1090,1194 @@
         "title": "HeroKpi",
         "type": "object"
       },
+      "LiveArtifactStatus": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section",
+          "path",
+          "available"
+        ],
+        "title": "LiveArtifactStatus",
+        "type": "object"
+      },
+      "LiveAuditCheck": {
+        "properties": {
+          "check": {
+            "title": "Check",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "hard": {
+            "title": "Hard",
+            "type": "boolean"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "check",
+          "detail",
+          "hard",
+          "ok"
+        ],
+        "title": "LiveAuditCheck",
+        "type": "object"
+      },
+      "LiveDataQuality": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "market_cap_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Cap Coverage"
+          },
+          "median_volume_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Volume Ratio"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "complete"
+        ],
+        "title": "LiveDataQuality",
+        "type": "object"
+      },
+      "LiveDerivativesPayload": {
+        "properties": {
+          "equivalence": {
+            "$ref": "#/components/schemas/LiveEquivalencePayload"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/LiveExecutionPayload"
+          },
+          "health": {
+            "$ref": "#/components/schemas/LiveHealthPayload"
+          },
+          "journal": {
+            "items": {
+              "$ref": "#/components/schemas/LiveJournalRow"
+            },
+            "title": "Journal",
+            "type": "array"
+          }
+        },
+        "required": [
+          "execution",
+          "health",
+          "equivalence"
+        ],
+        "title": "LiveDerivativesPayload",
+        "type": "object"
+      },
+      "LiveEquivalencePayload": {
+        "properties": {
+          "backtest_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backtest End"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "differences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Differences",
+            "type": "array"
+          },
+          "differing_event_days": {
+            "title": "Differing Event Days",
+            "type": "integer"
+          },
+          "events_only_in_backtest": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events Only In Backtest",
+            "type": "array"
+          },
+          "events_only_in_live": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events Only In Live",
+            "type": "array"
+          },
+          "live_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live End"
+          },
+          "overlapping_event_days": {
+            "title": "Overlapping Event Days",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "spec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec"
+          },
+          "trial_id_backtest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Id Backtest"
+          },
+          "trial_id_live": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Id Live"
+          }
+        },
+        "required": [
+          "passed",
+          "differing_event_days",
+          "overlapping_event_days"
+        ],
+        "title": "LiveEquivalencePayload",
+        "type": "object"
+      },
+      "LiveExecutionPayload": {
+        "properties": {
+          "balance_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance After"
+          },
+          "equity_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity After"
+          },
+          "equity_before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity Before"
+          },
+          "execution_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Hint"
+          },
+          "failures": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "margin_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Mode"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "position_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Value"
+          },
+          "signal_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Date"
+          },
+          "spec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "traded": {
+            "title": "Traded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "traded"
+        ],
+        "title": "LiveExecutionPayload",
+        "type": "object"
+      },
+      "LiveFrozenMetrics": {
+        "properties": {
+          "avg_gross_exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Gross Exposure"
+          },
+          "best_year_removed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Year Removed"
+          },
+          "deflated_sharpe_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deflated Sharpe Probability"
+          },
+          "fill_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Hours"
+          },
+          "fill_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Policy"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "multiple": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiple"
+          },
+          "observed_weight_share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed Weight Share"
+          },
+          "rolling_1y_worst": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rolling 1Y Worst"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          },
+          "trial_id": {
+            "title": "Trial Id",
+            "type": "string"
+          },
+          "turnover_annual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover Annual"
+          }
+        },
+        "required": [
+          "trial_id"
+        ],
+        "title": "LiveFrozenMetrics",
+        "type": "object"
+      },
+      "LiveHealthPayload": {
+        "properties": {
+          "audit_exit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audit Exit"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LiveAuditCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "hard_failures": {
+            "title": "Hard Failures",
+            "type": "integer"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "position_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Value"
+          },
+          "signal_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Date"
+          },
+          "spec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spec"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "attention"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "hard_failures"
+        ],
+        "title": "LiveHealthPayload",
+        "type": "object"
+      },
+      "LiveJournalRow": {
+        "properties": {
+          "cash": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "day_pnl": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Pnl"
+          },
+          "day_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Return"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "fees_today": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fees Today"
+          },
+          "funding_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Funding Total"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "position_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Value"
+          },
+          "positions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positions"
+          },
+          "run_at_utc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run At Utc"
+          },
+          "signal_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Date"
+          },
+          "trades": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trades"
+          },
+          "unrealised_pnl": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unrealised Pnl"
+          }
+        },
+        "title": "LiveJournalRow",
+        "type": "object"
+      },
+      "LiveOosPayload": {
+        "properties": {
+          "benchmark_cagr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Cagr"
+          },
+          "benchmark_fill_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Fill Policy"
+          },
+          "benchmark_max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Max Drawdown"
+          },
+          "benchmark_multiple": {
+            "title": "Benchmark Multiple",
+            "type": "number"
+          },
+          "benchmark_sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark Sharpe"
+          },
+          "cagr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cagr"
+          },
+          "cost_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Bps"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "fill_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Policy"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "number"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "stress": {
+            "items": {
+              "$ref": "#/components/schemas/LiveOosStressRow"
+            },
+            "title": "Stress",
+            "type": "array"
+          },
+          "trial_id": {
+            "title": "Trial Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trial_id",
+          "days",
+          "multiple",
+          "benchmark_multiple"
+        ],
+        "title": "LiveOosPayload",
+        "type": "object"
+      },
+      "LiveOosStressRow": {
+        "properties": {
+          "cagr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cagr"
+          },
+          "cost_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Bps"
+          },
+          "fill_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Policy"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "multiple": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiple"
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe"
+          }
+        },
+        "title": "LiveOosStressRow",
+        "type": "object"
+      },
+      "LiveResearchPayload": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/LiveArtifactStatus"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "derivatives": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveDerivativesPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oos": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveOosPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiveSpotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "artifacts"
+        ],
+        "title": "LiveResearchPayload",
+        "type": "object"
+      },
+      "LiveSpotPayload": {
+        "properties": {
+          "btc_gate_open": {
+            "title": "Btc Gate Open",
+            "type": "boolean"
+          },
+          "cost_bps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Bps"
+          },
+          "current_gross_exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Gross Exposure"
+          },
+          "data_quality": {
+            "$ref": "#/components/schemas/LiveDataQuality"
+          },
+          "frozen": {
+            "items": {
+              "$ref": "#/components/schemas/LiveFrozenMetrics"
+            },
+            "title": "Frozen",
+            "type": "array"
+          },
+          "gross_exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Exposure"
+          },
+          "next_check_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Check Date"
+          },
+          "panel_last_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Last Date"
+          },
+          "rule": {
+            "title": "Rule",
+            "type": "string"
+          },
+          "signal_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Date"
+          },
+          "status": {
+            "enum": [
+              "provisional",
+              "validated"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trade_required": {
+            "title": "Trade Required",
+            "type": "boolean"
+          },
+          "trial_id": {
+            "title": "Trial Id",
+            "type": "string"
+          },
+          "weights": {
+            "items": {
+              "$ref": "#/components/schemas/LiveWeight"
+            },
+            "title": "Weights",
+            "type": "array"
+          }
+        },
+        "required": [
+          "trial_id",
+          "status",
+          "btc_gate_open",
+          "trade_required",
+          "rule",
+          "data_quality"
+        ],
+        "title": "LiveSpotPayload",
+        "type": "object"
+      },
+      "LiveWeight": {
+        "properties": {
+          "asset": {
+            "title": "Asset",
+            "type": "string"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "asset"
+        ],
+        "title": "LiveWeight",
+        "type": "object"
+      },
       "OptionsPayload": {
         "properties": {
           "feeBpsRange": {
@@ -2776,6 +3964,27 @@
         "summary": "Get Data Freshness",
         "tags": [
           "universe"
+        ]
+      }
+    },
+    "/api/live/research": {
+      "get": {
+        "operationId": "get_live_research_api_live_research_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveResearchPayload"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Live Research",
+        "tags": [
+          "live"
         ]
       }
     },

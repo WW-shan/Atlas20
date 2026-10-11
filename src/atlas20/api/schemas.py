@@ -148,6 +148,168 @@ class OverviewPayload(ApiModel):
     data_source: DataSourceKind = "real"
 
 
+class LiveWeight(ApiModel):
+    asset: str
+    target: float | None = None
+    current: float | None = None
+
+
+class LiveDataQuality(ApiModel):
+    complete: bool
+    date: str | None = None
+    market_cap_coverage: float | None = None
+    median_volume_ratio: float | None = None
+    reasons: list[str] = Field(default_factory=list)
+
+
+class LiveFrozenMetrics(ApiModel):
+    trial_id: str
+    fill_hours: float | None = None
+    fill_policy: str | None = None
+    multiple: float | None = None
+    sharpe: float | None = None
+    max_drawdown: float | None = None
+    rolling_1y_worst: float | None = None
+    best_year_removed: float | None = None
+    turnover_annual: float | None = None
+    avg_gross_exposure: float | None = None
+    observed_weight_share: float | None = None
+    deflated_sharpe_probability: float | None = None
+
+
+class LiveSpotPayload(ApiModel):
+    trial_id: str
+    status: Literal["provisional", "validated"]
+    signal_date: str | None = None
+    panel_last_date: str | None = None
+    next_check_date: str | None = None
+    gross_exposure: float | None = None
+    current_gross_exposure: float | None = None
+    btc_gate_open: bool
+    trade_required: bool
+    cost_bps: float | None = None
+    rule: str
+    weights: list[LiveWeight] = Field(default_factory=list)
+    data_quality: LiveDataQuality
+    frozen: list[LiveFrozenMetrics] = Field(default_factory=list)
+
+
+class LiveOosStressRow(ApiModel):
+    fill_policy: str | None = None
+    cost_bps: float | None = None
+    multiple: float | None = None
+    cagr: float | None = None
+    sharpe: float | None = None
+    max_drawdown: float | None = None
+
+
+class LiveOosPayload(ApiModel):
+    trial_id: str
+    start: str | None = None
+    end: str | None = None
+    days: int
+    fill_policy: str | None = None
+    cost_bps: float | None = None
+    multiple: float
+    cagr: float | None = None
+    sharpe: float | None = None
+    max_drawdown: float | None = None
+    benchmark_fill_policy: str | None = None
+    benchmark_multiple: float
+    benchmark_cagr: float | None = None
+    benchmark_sharpe: float | None = None
+    benchmark_max_drawdown: float | None = None
+    stress: list[LiveOosStressRow] = Field(default_factory=list)
+
+
+class LiveExecutionPayload(ApiModel):
+    status: str
+    execution_hint: str | None = None
+    signal_date: str | None = None
+    spec: str | None = None
+    equity_before: float | None = None
+    equity_after: float | None = None
+    balance_after: float | None = None
+    position_value: float | None = None
+    traded: bool
+    margin_mode: str | None = None
+    failures: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class LiveAuditCheck(ApiModel):
+    check: str
+    detail: str
+    hard: bool
+    ok: bool
+
+
+class LiveHealthPayload(ApiModel):
+    status: Literal["healthy", "attention"]
+    checked_at: str | None = None
+    audit_exit: int | None = None
+    issues: list[str] = Field(default_factory=list)
+    hard_failures: int
+    equity: float | None = None
+    position_value: float | None = None
+    signal_date: str | None = None
+    spec: str | None = None
+    checks: list[LiveAuditCheck] = Field(default_factory=list)
+
+
+class LiveEquivalencePayload(ApiModel):
+    passed: bool
+    checked_at: str | None = None
+    backtest_end: str | None = None
+    live_end: str | None = None
+    differing_event_days: int
+    differences: list[str] = Field(default_factory=list)
+    events_only_in_backtest: list[str] = Field(default_factory=list)
+    events_only_in_live: list[str] = Field(default_factory=list)
+    overlapping_event_days: int
+    spec: str | None = None
+    trial_id_backtest: str | None = None
+    trial_id_live: str | None = None
+
+
+class LiveJournalRow(ApiModel):
+    date: str | None = None
+    run_at_utc: str | None = None
+    signal_date: str | None = None
+    equity: float | None = None
+    position_value: float | None = None
+    cash: float | None = None
+    day_pnl: float | None = None
+    day_return: float | None = None
+    fees_today: float | None = None
+    funding_total: float | None = None
+    unrealised_pnl: float | None = None
+    positions: int | None = None
+    trades: int | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class LiveDerivativesPayload(ApiModel):
+    execution: LiveExecutionPayload
+    health: LiveHealthPayload
+    equivalence: LiveEquivalencePayload
+    journal: list[LiveJournalRow] = Field(default_factory=list)
+
+
+class LiveArtifactStatus(ApiModel):
+    id: str
+    section: str
+    path: str
+    available: bool
+
+
+class LiveResearchPayload(ApiModel):
+    spot: LiveSpotPayload | None = None
+    oos: LiveOosPayload | None = None
+    derivatives: LiveDerivativesPayload | None = None
+    artifacts: list[LiveArtifactStatus]
+
+
 class RunWindow(ApiModel):
     start: str
     end: str

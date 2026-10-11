@@ -15,6 +15,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    LiveResearchPayload,
     OptionsPayload,
     OverviewPayload,
     ReportEntry,
@@ -29,6 +30,9 @@ from atlas20.api.schemas import (
 class MockConsoleService:
     def get_overview(self) -> OverviewPayload:
         return OverviewPayload.model_validate(deepcopy(mock_data.fallback_overview))
+
+    def get_live_research(self) -> LiveResearchPayload:
+        return LiveResearchPayload.model_validate(deepcopy(mock_data.fallback_live_research))
 
     def get_options_payload(self) -> OptionsPayload:
         return OptionsPayload.model_validate(deepcopy(mock_data.fallback_options))

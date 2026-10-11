@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/live/research": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Live Research */
+        get: operations["get_live_research_api_live_research_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/options": {
         parameters: {
             query?: never;
@@ -765,6 +782,287 @@ export interface components {
             /** Ytdreturn */
             ytdReturn: number;
         };
+        /** LiveArtifactStatus */
+        LiveArtifactStatus: {
+            /** Available */
+            available: boolean;
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+            /** Section */
+            section: string;
+        };
+        /** LiveAuditCheck */
+        LiveAuditCheck: {
+            /** Check */
+            check: string;
+            /** Detail */
+            detail: string;
+            /** Hard */
+            hard: boolean;
+            /** Ok */
+            ok: boolean;
+        };
+        /** LiveDataQuality */
+        LiveDataQuality: {
+            /** Complete */
+            complete: boolean;
+            /** Date */
+            date?: string | null;
+            /** Market Cap Coverage */
+            market_cap_coverage?: number | null;
+            /** Median Volume Ratio */
+            median_volume_ratio?: number | null;
+            /** Reasons */
+            reasons?: string[];
+        };
+        /** LiveDerivativesPayload */
+        LiveDerivativesPayload: {
+            equivalence: components["schemas"]["LiveEquivalencePayload"];
+            execution: components["schemas"]["LiveExecutionPayload"];
+            health: components["schemas"]["LiveHealthPayload"];
+            /** Journal */
+            journal?: components["schemas"]["LiveJournalRow"][];
+        };
+        /** LiveEquivalencePayload */
+        LiveEquivalencePayload: {
+            /** Backtest End */
+            backtest_end?: string | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Differences */
+            differences?: string[];
+            /** Differing Event Days */
+            differing_event_days: number;
+            /** Events Only In Backtest */
+            events_only_in_backtest?: string[];
+            /** Events Only In Live */
+            events_only_in_live?: string[];
+            /** Live End */
+            live_end?: string | null;
+            /** Overlapping Event Days */
+            overlapping_event_days: number;
+            /** Passed */
+            passed: boolean;
+            /** Spec */
+            spec?: string | null;
+            /** Trial Id Backtest */
+            trial_id_backtest?: string | null;
+            /** Trial Id Live */
+            trial_id_live?: string | null;
+        };
+        /** LiveExecutionPayload */
+        LiveExecutionPayload: {
+            /** Balance After */
+            balance_after?: number | null;
+            /** Equity After */
+            equity_after?: number | null;
+            /** Equity Before */
+            equity_before?: number | null;
+            /** Execution Hint */
+            execution_hint?: string | null;
+            /** Failures */
+            failures?: string[];
+            /** Margin Mode */
+            margin_mode?: string | null;
+            /** Notes */
+            notes?: string[];
+            /** Position Value */
+            position_value?: number | null;
+            /** Signal Date */
+            signal_date?: string | null;
+            /** Spec */
+            spec?: string | null;
+            /** Status */
+            status: string;
+            /** Traded */
+            traded: boolean;
+        };
+        /** LiveFrozenMetrics */
+        LiveFrozenMetrics: {
+            /** Avg Gross Exposure */
+            avg_gross_exposure?: number | null;
+            /** Best Year Removed */
+            best_year_removed?: number | null;
+            /** Deflated Sharpe Probability */
+            deflated_sharpe_probability?: number | null;
+            /** Fill Hours */
+            fill_hours?: number | null;
+            /** Fill Policy */
+            fill_policy?: string | null;
+            /** Max Drawdown */
+            max_drawdown?: number | null;
+            /** Multiple */
+            multiple?: number | null;
+            /** Observed Weight Share */
+            observed_weight_share?: number | null;
+            /** Rolling 1Y Worst */
+            rolling_1y_worst?: number | null;
+            /** Sharpe */
+            sharpe?: number | null;
+            /** Trial Id */
+            trial_id: string;
+            /** Turnover Annual */
+            turnover_annual?: number | null;
+        };
+        /** LiveHealthPayload */
+        LiveHealthPayload: {
+            /** Audit Exit */
+            audit_exit?: number | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Checks */
+            checks?: components["schemas"]["LiveAuditCheck"][];
+            /** Equity */
+            equity?: number | null;
+            /** Hard Failures */
+            hard_failures: number;
+            /** Issues */
+            issues?: string[];
+            /** Position Value */
+            position_value?: number | null;
+            /** Signal Date */
+            signal_date?: string | null;
+            /** Spec */
+            spec?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "healthy" | "attention";
+        };
+        /** LiveJournalRow */
+        LiveJournalRow: {
+            /** Cash */
+            cash?: number | null;
+            /** Date */
+            date?: string | null;
+            /** Day Pnl */
+            day_pnl?: number | null;
+            /** Day Return */
+            day_return?: number | null;
+            /** Equity */
+            equity?: number | null;
+            /** Fees Today */
+            fees_today?: number | null;
+            /** Funding Total */
+            funding_total?: number | null;
+            /** Notes */
+            notes?: string[];
+            /** Position Value */
+            position_value?: number | null;
+            /** Positions */
+            positions?: number | null;
+            /** Run At Utc */
+            run_at_utc?: string | null;
+            /** Signal Date */
+            signal_date?: string | null;
+            /** Trades */
+            trades?: number | null;
+            /** Unrealised Pnl */
+            unrealised_pnl?: number | null;
+        };
+        /** LiveOosPayload */
+        LiveOosPayload: {
+            /** Benchmark Cagr */
+            benchmark_cagr?: number | null;
+            /** Benchmark Fill Policy */
+            benchmark_fill_policy?: string | null;
+            /** Benchmark Max Drawdown */
+            benchmark_max_drawdown?: number | null;
+            /** Benchmark Multiple */
+            benchmark_multiple: number;
+            /** Benchmark Sharpe */
+            benchmark_sharpe?: number | null;
+            /** Cagr */
+            cagr?: number | null;
+            /** Cost Bps */
+            cost_bps?: number | null;
+            /** Days */
+            days: number;
+            /** End */
+            end?: string | null;
+            /** Fill Policy */
+            fill_policy?: string | null;
+            /** Max Drawdown */
+            max_drawdown?: number | null;
+            /** Multiple */
+            multiple: number;
+            /** Sharpe */
+            sharpe?: number | null;
+            /** Start */
+            start?: string | null;
+            /** Stress */
+            stress?: components["schemas"]["LiveOosStressRow"][];
+            /** Trial Id */
+            trial_id: string;
+        };
+        /** LiveOosStressRow */
+        LiveOosStressRow: {
+            /** Cagr */
+            cagr?: number | null;
+            /** Cost Bps */
+            cost_bps?: number | null;
+            /** Fill Policy */
+            fill_policy?: string | null;
+            /** Max Drawdown */
+            max_drawdown?: number | null;
+            /** Multiple */
+            multiple?: number | null;
+            /** Sharpe */
+            sharpe?: number | null;
+        };
+        /** LiveResearchPayload */
+        LiveResearchPayload: {
+            /** Artifacts */
+            artifacts: components["schemas"]["LiveArtifactStatus"][];
+            derivatives?: components["schemas"]["LiveDerivativesPayload"] | null;
+            oos?: components["schemas"]["LiveOosPayload"] | null;
+            spot?: components["schemas"]["LiveSpotPayload"] | null;
+        };
+        /** LiveSpotPayload */
+        LiveSpotPayload: {
+            /** Btc Gate Open */
+            btc_gate_open: boolean;
+            /** Cost Bps */
+            cost_bps?: number | null;
+            /** Current Gross Exposure */
+            current_gross_exposure?: number | null;
+            data_quality: components["schemas"]["LiveDataQuality"];
+            /** Frozen */
+            frozen?: components["schemas"]["LiveFrozenMetrics"][];
+            /** Gross Exposure */
+            gross_exposure?: number | null;
+            /** Next Check Date */
+            next_check_date?: string | null;
+            /** Panel Last Date */
+            panel_last_date?: string | null;
+            /** Rule */
+            rule: string;
+            /** Signal Date */
+            signal_date?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "provisional" | "validated";
+            /** Trade Required */
+            trade_required: boolean;
+            /** Trial Id */
+            trial_id: string;
+            /** Weights */
+            weights?: components["schemas"]["LiveWeight"][];
+        };
+        /** LiveWeight */
+        LiveWeight: {
+            /** Asset */
+            asset: string;
+            /** Current */
+            current?: number | null;
+            /** Target */
+            target?: number | null;
+        };
         /** OptionsPayload */
         OptionsPayload: {
             /** Feebpsrange */
@@ -1326,6 +1624,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataFreshness"];
+                };
+            };
+        };
+    };
+    get_live_research_api_live_research_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveResearchPayload"];
                 };
             };
         };

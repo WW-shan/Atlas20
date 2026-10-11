@@ -252,8 +252,10 @@ def _oos_payload(root: Path) -> dict[str, Any] | None:
 
 
 def _execution_payload(raw: dict[str, Any]) -> dict[str, Any]:
-    plan = raw.get("plan") if isinstance(raw.get("plan"), dict) else {}
-    report = raw.get("report") if isinstance(raw.get("report"), dict) else {}
+    plan_value = raw.get("plan")
+    report_value = raw.get("report")
+    plan = plan_value if isinstance(plan_value, dict) else {}
+    report = report_value if isinstance(report_value, dict) else {}
     failures = report.get("failures", [])
     notes = report.get("margin_notes", [])
     return {

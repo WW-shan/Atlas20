@@ -12,6 +12,7 @@ from atlas20.api.schemas import (
     DataAlert,
     DataSource,
     FeaturedDigest,
+    LiveResearchPayload,
     OptionsPayload,
     OverviewPayload,
     ReportEntry,
@@ -79,6 +80,22 @@ def test_options_endpoint_returns_options_payload(client: TestClient):
         for slug in expected_presets
     ]
     assert payload.feeBpsRange == [0.0, 10.0, 50.0]
+
+
+def test_live_research_endpoint_returns_read_only_payload(client: TestClient):
+    response = client.get("/api/live/research")
+
+    assert response.status_code == 200
+    payload = LiveResearchPayload.model_validate(response.json())
+    assert payload.spot is None  # empty test report root must not fabricate a live signal
+    assert payload.artifacts
+    assert any(not artifact.available for artifact in payload.artifacts)
+
+
+def test_live_research_endpoint_rejects_unknown_query_params(client: TestClient):
+    response = client.get("/api/live/research?mutate=true")
+
+    assert response.status_code == 422
 
 
 def test_options_payload_includes_display_names(client: TestClient):
