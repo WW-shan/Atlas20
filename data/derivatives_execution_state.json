@@ -1,6 +1,6 @@
 {
-  "last_key": "PR2026-10-D-L125-V2|2026-10-08|2026-10-10",
-  "last_run_at": "2026-10-10T21:02:08.896010+00:00",
+  "last_key": "PR2026-10-D-L125-V2|2026-10-08|2026-10-11",
+  "last_run_at": "2026-10-11T03:06:22.775368+00:00",
   "last_status": "ok",
   "runs": [
     {
@@ -44,6 +44,28 @@
       "fills": [],
       "key": "PR2026-10-D-L125-V2|2026-10-08|2026-10-10",
       "ran_at": "2026-10-10T21:02:08.896010+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 5.2694,
+          "fee": 0.04426296,
+          "fee_coin": "USDT",
+          "filled_size": 14.0,
+          "notional": 73.7716,
+          "order_id": "1493013096791392256",
+          "requested_size": 14.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-08|2026-10-11",
+      "ran_at": "2026-10-11T03:06:22.775368+00:00",
       "status": "ok"
     }
   ]

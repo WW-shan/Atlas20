@@ -1,71 +1,99 @@
 {
   "execution_hint": "2026-10-09 03:00:00+00:00",
   "plan": {
-    "equity": 99.97274716,
-    "expected_gross_notional": 75.1268,
-    "expected_margin": 38.690302,
+    "equity": 98.91985938,
+    "expected_gross_notional": 73.7604,
+    "expected_margin": 37.986606,
     "leverage": 2.0,
     "margin_intents": [
       {
-        "amount": 34.88888592,
+        "amount": 1.1064059999999998,
         "asset": "near",
         "operation": "add",
         "pos_side": "long",
-        "reason": "isolated margin to 51.5% of 75.13 USDT notional",
+        "reason": "isolated margin to 51.5% of 73.76 USDT notional",
         "symbol": "NEARUSDT"
       }
     ],
-    "orders": [],
+    "orders": [
+      {
+        "action": "OPEN",
+        "asset": "near",
+        "notional": 73.7604,
+        "price": 5.2686,
+        "reason": "rebalance to target",
+        "reduce_only": false,
+        "side": "buy",
+        "size": 14.0,
+        "symbol": "NEARUSDT"
+      }
+    ],
     "target_margin_ratio": 0.515,
     "target_notional": {
-      "near": 77.6573036388394
+      "near": 76.83943648652213
     },
     "warnings": []
   },
   "report": {
-    "available_after": 99.97414715,
-    "balance_after": 99.87194716,
-    "equity_after": 99.97414716,
-    "equity_before": 99.97274716,
+    "available_after": 98.87979641,
+    "balance_after": 98.87559642,
+    "equity_after": 98.87979641,
+    "equity_before": 98.91985938,
     "failures": [],
-    "fills": [],
+    "fills": [
+      {
+        "action": "OPEN",
+        "asset": "near",
+        "avg_price": 5.2694,
+        "fee": 0.04426296,
+        "fee_coin": "USDT",
+        "filled_size": 14.0,
+        "notional": 73.7716,
+        "order_id": "1493013096791392256",
+        "requested_size": 14.0,
+        "side": "buy",
+        "status": "filled",
+        "symbol": "NEARUSDT"
+      }
+    ],
     "margin_mode": "crossed",
     "margin_notes": [
+      "\u9010\u4ed3\u4e0d\u53ef\u7528\uff08venue \u62d2\u7edd 25200 fixedMargin\uff09\u2192 \u5df2\u6309\u5168\u4ed3\u6267\u884c",
       "\u6301\u4ed3\u4e3acrossed\uff1a\u8df3\u8fc7 1 \u7b14\u9010\u4ed3\u4fdd\u8bc1\u91d1\u8c03\u6574"
     ],
     "positions_after": [
       {
         "asset": "near",
         "available": "14",
-        "avgPrice": "5.3593",
-        "breakEvenPrice": "5.3657",
+        "avgPrice": "5.2694",
+        "breakEvenPrice": "5.2757",
         "cashDividend": "0",
         "category": "USDT-FUTURES",
         "closeFeeTotal": "0",
-        "createdTime": "1791664552407",
+        "createdTime": "1791687981796",
         "curRealisedPnl": "0",
         "frozen": "0",
         "holdMode": "hedge_mode",
-        "leverage": "20",
+        "leverage": "2",
         "liquidationPrice": "0",
         "marginCoin": "USDT",
         "marginMode": "crossed",
-        "markPrice": "5.3665",
+        "markPrice": "5.2697",
         "mmr": "0.0066",
-        "openFeeTotal": "-0.04501812",
+        "openFeeTotal": "-0.04426296",
         "posSide": "long",
-        "positionBalance": "3.8016286",
+        "positionBalance": "36.93216548",
         "positionStatus": "normal",
-        "profitRate": "0.0265149520392391",
+        "profitRate": "0.0001137220075079",
         "symbol": "NEARUSDT",
         "total": "14",
         "totalFunding": "0",
-        "unrealisedPnl": "0.1008",
-        "updatedTime": "1791664589693"
+        "unrealisedPnl": "0.0042",
+        "updatedTime": "1791687981796"
       }
     ],
     "signal_date": "2026-10-08",
-    "traded": false
+    "traded": true
   },
   "signal_date": "2026-10-08",
   "spec": "PR2026-10-D-L125-V2",
