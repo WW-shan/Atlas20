@@ -16,7 +16,7 @@ export type OverlayLineChartProps = {
   series: Series;
   lines: OverlayLine[];
   range: ChartRange;
-  yFormat?: "percent" | "absolute" | "compact";
+  yFormat?: "percent" | "multiplier-percent" | "absolute" | "compact";
   annotations?: { ts: string; label: string; tone?: "gold" | "violet" }[];
   height?: number;
   ariaLabel?: string;
@@ -33,6 +33,10 @@ const toneColors: Record<OverlayLineTone, string> = {
 };
 
 function formatY(v: number, fmt: OverlayLineChartProps["yFormat"]): string {
+  if (fmt === "multiplier-percent") {
+    const pct = (v - 1) * 100;
+    return `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`;
+  }
   if (fmt === "percent") return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
   if (fmt === "compact") {
     if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;

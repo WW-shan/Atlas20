@@ -67,6 +67,22 @@ describe("StrategyCompareTab", () => {
     expect(screen.getAllByText("MeanRev").length).toBeGreaterThanOrEqual(1);
   });
 
+  it("renders multiplier equity values as percentage returns", async () => {
+    const base = compareFor(["atlas"]);
+    vi.mocked(api.getCompare).mockResolvedValueOnce({
+      ...base,
+      equity: [
+        { ts: "2026-01-01", values: { atlas: 1 } },
+        { ts: "2026-02-01", values: { atlas: 0.876 } },
+      ],
+    });
+
+    renderWithQuery(<StrategyCompareTab initialSelections={[TEST_SELECTIONS[0]]} />);
+
+    expect(await screen.findByText("-12.4%")).toBeInTheDocument();
+    expect(screen.queryByText("+1.0%")).not.toBeInTheDocument();
+  });
+
   it("renders + ADD STRATEGY dashed chip", () => {
     renderWithQuery(<StrategyCompareTab initialSelections={TEST_SELECTIONS} />);
     expect(screen.getByRole("button", { name: "Add strategy" })).toBeInTheDocument();

@@ -55,6 +55,23 @@ describe("OverlayLineChart", () => {
     expect(container.querySelector("text[fill='var(--gold)']")).toBeTruthy();
   });
 
+  it("converts multiplier equity values to percentage returns", () => {
+    render(
+      <OverlayLineChart
+        series={[
+          { ts: "2026-01-01", values: { atlas: 1 } },
+          { ts: "2026-02-01", values: { atlas: 0.876 } },
+        ]}
+        lines={[{ id: "atlas", label: "ATLAS", tone: "gold" }]}
+        range="YTD"
+        yFormat="multiplier-percent"
+      />,
+    );
+
+    expect(screen.getByText("-12.4%")).toBeInTheDocument();
+    expect(screen.queryByText("+1.0%")).not.toBeInTheDocument();
+  });
+
   it("renders empty state when no series", () => {
     render(
       <OverlayLineChart

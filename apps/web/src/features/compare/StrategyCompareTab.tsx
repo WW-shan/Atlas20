@@ -213,7 +213,7 @@ export function StrategyCompareTab({ initialSelections }: Props = {}) {
             glow: s.tone === "gold",
           }))}
           range={range}
-          yFormat="percent"
+          yFormat="multiplier-percent"
           height={280}
           ariaLabel={`Equity overlay across ${selections.length} strategies, range ${range}`}
         />
