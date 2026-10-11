@@ -16,6 +16,7 @@ import {
   fallbackDataSources,
   fallbackDataAlerts,
   fallbackFeaturedDigest,
+  fallbackLiveResearch,
   fallbackReports,
 } from "./api";
 import { qk } from "./qk";
@@ -142,6 +143,12 @@ describe("qk registry", () => {
     expect(qk.runs.queue()[0]).toBe("runs");
     expect(qk.universe.timeline()[0]).toBe("universe");
     expect(qk.reports.featured()[0]).toBe("reports");
+  });
+
+  it("has a live research namespace and fallback data", () => {
+    expect(qk.liveResearch()).toEqual(["live-research"]);
+    expect(fallbackLiveResearch.spot?.trial_id).toBe("PR2026-10-H5");
+    expect(fallbackLiveResearch.derivatives?.health.status).toBe("healthy");
   });
 });
 
@@ -288,6 +295,17 @@ describe("requestJson API key header", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/strategy-lab/batches");
     expect(JSON.parse(String(init.body))).toMatchObject({ topNs: [20], rebalances: ["Monthly"] });
+  });
+
+  it("getLiveResearch fetches the read-only live payload", async () => {
+    vi.resetModules();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(fallbackLiveResearch))));
+    const api = await import("./api");
+
+    const payload = await api.getLiveResearch();
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/api/live/research");
+    expect(payload).toEqual(fallbackLiveResearch);
   });
 
   it("getStrategyLabBatch fetches a batch by id", async () => {

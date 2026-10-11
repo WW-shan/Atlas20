@@ -390,6 +390,174 @@ export type DataAlert = {
 };
 
 // ============================================================
+// §7.3 — Live research (current frozen spec and live monitoring)
+// ============================================================
+
+export type LiveResearchStatus = "provisional" | "validated";
+
+export type LiveWeight = {
+  asset: string;
+  target?: number | null;
+  current?: number | null;
+};
+
+export type LiveDataQuality = {
+  complete: boolean;
+  date?: string | null;
+  market_cap_coverage?: number | null;
+  median_volume_ratio?: number | null;
+  reasons?: string[];
+};
+
+export type LiveFrozenMetrics = {
+  trial_id: string;
+  fill_hours?: number | null;
+  fill_policy?: string | null;
+  multiple?: number | null;
+  sharpe?: number | null;
+  max_drawdown?: number | null;
+  rolling_1y_worst?: number | null;
+  best_year_removed?: number | null;
+  turnover_annual?: number | null;
+  avg_gross_exposure?: number | null;
+  observed_weight_share?: number | null;
+  deflated_sharpe_probability?: number | null;
+};
+
+export type LiveSpotPayload = {
+  trial_id: string;
+  status: LiveResearchStatus;
+  signal_date?: string | null;
+  panel_last_date?: string | null;
+  next_check_date?: string | null;
+  gross_exposure?: number | null;
+  current_gross_exposure?: number | null;
+  btc_gate_open: boolean;
+  trade_required: boolean;
+  cost_bps?: number | null;
+  rule: string;
+  weights?: LiveWeight[];
+  data_quality: LiveDataQuality;
+  frozen?: LiveFrozenMetrics[];
+};
+
+export type LiveOosStressRow = {
+  fill_policy?: string | null;
+  cost_bps?: number | null;
+  multiple?: number | null;
+  cagr?: number | null;
+  sharpe?: number | null;
+  max_drawdown?: number | null;
+};
+
+export type LiveOosPayload = {
+  trial_id: string;
+  start?: string | null;
+  end?: string | null;
+  days: number;
+  fill_policy?: string | null;
+  cost_bps?: number | null;
+  multiple: number;
+  cagr?: number | null;
+  sharpe?: number | null;
+  max_drawdown?: number | null;
+  benchmark_fill_policy?: string | null;
+  benchmark_multiple: number;
+  benchmark_cagr?: number | null;
+  benchmark_sharpe?: number | null;
+  benchmark_max_drawdown?: number | null;
+  stress?: LiveOosStressRow[];
+};
+
+export type LiveExecutionPayload = {
+  status: string;
+  execution_hint?: string | null;
+  signal_date?: string | null;
+  spec?: string | null;
+  equity_before?: number | null;
+  equity_after?: number | null;
+  balance_after?: number | null;
+  position_value?: number | null;
+  traded: boolean;
+  margin_mode?: string | null;
+  failures?: string[];
+  notes?: string[];
+};
+
+export type LiveAuditCheck = {
+  check: string;
+  detail: string;
+  hard: boolean;
+  ok: boolean;
+};
+
+export type LiveHealthPayload = {
+  status: "healthy" | "attention";
+  checked_at?: string | null;
+  audit_exit?: number | null;
+  issues?: string[];
+  hard_failures: number;
+  equity?: number | null;
+  position_value?: number | null;
+  signal_date?: string | null;
+  spec?: string | null;
+  checks?: LiveAuditCheck[];
+};
+
+export type LiveEquivalencePayload = {
+  passed: boolean;
+  checked_at?: string | null;
+  backtest_end?: string | null;
+  live_end?: string | null;
+  differing_event_days: number;
+  differences?: string[];
+  events_only_in_backtest?: string[];
+  events_only_in_live?: string[];
+  overlapping_event_days: number;
+  spec?: string | null;
+  trial_id_backtest?: string | null;
+  trial_id_live?: string | null;
+};
+
+export type LiveJournalRow = {
+  date?: string | null;
+  run_at_utc?: string | null;
+  signal_date?: string | null;
+  equity?: number | null;
+  position_value?: number | null;
+  cash?: number | null;
+  day_pnl?: number | null;
+  day_return?: number | null;
+  fees_today?: number | null;
+  funding_total?: number | null;
+  unrealised_pnl?: number | null;
+  positions?: number | null;
+  trades?: number | null;
+  notes?: string[];
+};
+
+export type LiveDerivativesPayload = {
+  execution: LiveExecutionPayload;
+  health: LiveHealthPayload;
+  equivalence: LiveEquivalencePayload;
+  journal?: LiveJournalRow[];
+};
+
+export type LiveArtifactStatus = {
+  id: string;
+  section: string;
+  path: string;
+  available: boolean;
+};
+
+export type LiveResearchPayload = {
+  spot?: LiveSpotPayload | null;
+  oos?: LiveOosPayload | null;
+  derivatives?: LiveDerivativesPayload | null;
+  artifacts: LiveArtifactStatus[];
+};
+
+// ============================================================
 // §7.2 — Reports (page6)
 // ============================================================
 
@@ -452,6 +620,128 @@ export type GenerateReportResponse = {
 // ============================================================
 // Fallback data (mock implementations for dev / tests)
 // ============================================================
+
+export const fallbackLiveResearch: LiveResearchPayload = {
+  spot: {
+    trial_id: "PR2026-10-H5",
+    status: "provisional",
+    signal_date: "2026-10-08",
+    panel_last_date: "2026-10-08",
+    next_check_date: "2026-10-09",
+    gross_exposure: 0.6214277858309032,
+    current_gross_exposure: 0.4604863074560891,
+    btc_gate_open: true,
+    trade_required: true,
+    cost_bps: 20,
+    rule: "Strict point-in-time Top20; long-only spot; no leverage; T+1",
+    weights: [
+      { asset: "near", target: 0.6214277858309032, current: 0.4604863074560891 },
+    ],
+    data_quality: {
+      complete: true,
+      date: "2026-10-08",
+      market_cap_coverage: 1,
+      median_volume_ratio: 1.3383479515412255,
+      reasons: [],
+    },
+    frozen: [
+      {
+        trial_id: "PR2026-10-H5",
+        fill_hours: 1,
+        fill_policy: "h1_day_close",
+        multiple: 22.80044301551412,
+        sharpe: 1.7035598002126011,
+        max_drawdown: -0.33266680227836254,
+        rolling_1y_worst: 0.8242392362392225,
+        best_year_removed: 7.113766058106618,
+        turnover_annual: 24.846659936230765,
+        avg_gross_exposure: 0.2612506414168629,
+        observed_weight_share: 0.937756695935414,
+        deflated_sharpe_probability: 0.9006,
+      },
+    ],
+  },
+  oos: {
+    trial_id: "PR2026-10-H5",
+    start: "2026-09-22",
+    end: "2026-10-08",
+    days: 17,
+    fill_policy: "close",
+    cost_bps: 20,
+    multiple: 0.9676519203939368,
+    cagr: -0.5276995031283478,
+    sharpe: -0.9480721579765685,
+    max_drawdown: -0.08830657636149197,
+    benchmark_fill_policy: "btc_close",
+    benchmark_multiple: 0.9431130518839459,
+    benchmark_cagr: -0.7371332445896785,
+    benchmark_sharpe: -5.587128000707178,
+    benchmark_max_drawdown: -0.056886948116054104,
+    stress: [],
+  },
+  derivatives: {
+    execution: {
+      status: "ok",
+      execution_hint: "2026-10-09 03:00:00+00:00",
+      signal_date: "2026-10-08",
+      spec: "PR2026-10-D-L125-V2",
+      equity_before: 99.97274716,
+      equity_after: 99.97414715,
+      balance_after: 99.87194716,
+      position_value: 75.1268,
+      traded: false,
+      margin_mode: "crossed",
+      failures: [],
+      notes: ["持仓为crossed：跳过 1 笔逐仓保证金调整"],
+    },
+    health: {
+      status: "healthy",
+      checked_at: "2026-10-10T21:58:25.303608+00:00",
+      audit_exit: 0,
+      issues: [],
+      hard_failures: 0,
+      equity: 99.95454715,
+      position_value: 75.1128,
+      signal_date: "2026-10-08",
+      spec: "PR2026-10-D-L125-V2",
+      checks: [],
+    },
+    equivalence: {
+      passed: true,
+      checked_at: "2026-10-10T20:58:46.931859+00:00",
+      backtest_end: "2026-09-21",
+      live_end: "2026-10-09",
+      differing_event_days: 0,
+      differences: [],
+      events_only_in_backtest: [],
+      events_only_in_live: ["2026-10-08"],
+      overlapping_event_days: 599,
+      spec: "PR2026-10-D-L125-V2",
+      trial_id_backtest: "PR2026-10-H5",
+      trial_id_live: "PR2026-10-H5",
+    },
+    journal: [
+      {
+        date: "2026-10-10",
+        run_at_utc: "2026-10-10T21:02:07.870252+00:00",
+        signal_date: "2026-10-08",
+        equity: 99.974147,
+        position_value: 75.131,
+        cash: 99.871947,
+        day_pnl: null,
+        day_return: null,
+        fees_today: 0,
+        funding_total: 0,
+        unrealised_pnl: 0.1008,
+        positions: 1,
+        trades: 0,
+        notes: [],
+      },
+    ],
+  },
+  artifacts: [],
+};
+
 
 export const fallbackOverview: OverviewPayload = {
   champion: {
@@ -833,6 +1123,10 @@ export function getOverview() {
 
 export function getOptions() {
   return requestJson<OptionsPayload>("/options");
+}
+
+export function getLiveResearch() {
+  return requestJson<LiveResearchPayload>("/live/research");
 }
 
 export function runBacktest(payload: BacktestConfig) {

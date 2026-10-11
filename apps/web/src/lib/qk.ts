@@ -15,6 +15,7 @@ function canonicalizeFilter(f: HistoryFilter): HistoryFilter {
 export const qk = {
   overview: () => ["overview"] as const,
   options: () => ["options"] as const,
+  liveResearch: () => ["live-research"] as const,
 
   runs: {
     queue:    () => ["runs", "queue"] as const,
