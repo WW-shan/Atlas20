@@ -1067,6 +1067,8 @@ export interface components {
         OptionsPayload: {
             /** Feebpsrange */
             feeBpsRange: number[];
+            /** Latestverifieddate */
+            latestVerifiedDate?: string | null;
             /** Presets */
             presets: components["schemas"]["PresetOption"][];
             /** Rebalances */

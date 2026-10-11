@@ -208,6 +208,7 @@ export type OptionsPayload = {
   feeBpsRange: number[];
   slippageBpsRange: number[];
   sectors: string[];
+  latestVerifiedDate?: string | null;
 };
 
 const fallbackStrategies = [
@@ -220,6 +221,7 @@ const fallbackStrategies = [
 ];
 
 export const fallbackOptions: OptionsPayload = {
+  latestVerifiedDate: null,
   presets: [
     { slug: "base", display_name: "Base Config" },
     { slug: "five_year_2020_2024", display_name: "Five Year 2020 2024" },

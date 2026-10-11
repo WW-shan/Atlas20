@@ -47,6 +47,17 @@ function reducer(state: BacktestConfig, action: Action): BacktestConfig {
 // 50 rows leaves room for daily universe_refresh jobs, which also complete.
 const RECENT_COMPLETED_RUNS: HistoryFilter = { q: "", chips: ["completed"], dateRange: "all", page: 1, pageSize: 50 };
 
+function windowChanged(
+  current: BacktestConfig["window"],
+  next: BacktestConfig["window"],
+): boolean {
+  return (
+    current.start !== next.start ||
+    current.end !== next.end ||
+    current.rebalance !== next.rebalance
+  );
+}
+
 function hydrateFromDetail(detail: RunDetailPayload): BacktestConfig {
   // Re-runs always use the point-in-time Top 20 (AGENTS.md), even when the
   // source run predates that constraint (e.g. a legacy "Top-10" run).
@@ -68,6 +79,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   const [reportPending, setReportPending] = useState(false);
   const [reportToast, setReportToast] = useState<string | undefined>(undefined);
   const [reportError, setReportError] = useState<string | undefined>(undefined);
+  const [windowTouched, setWindowTouched] = useState(false);
   const queryClient = useQueryClient();
   const runMutation = useRunBacktest();
   const queue = useRunQueue();
@@ -100,6 +112,16 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   // zeros downstream, which would surface as ghost "CAGR 0%, Sharpe 0"
   // KPIs as if the strategy had a flat year.
   const latestQueueRunId = queue.data?.find(isBacktestRun)?.run_id;
+  useEffect(() => {
+    if (windowTouched) return;
+    const latestVerifiedDate = optionsQuery.data?.latestVerifiedDate;
+    if (!latestVerifiedDate || config.window.end === latestVerifiedDate) return;
+    dispatch({
+      type: "set",
+      patch: { window: { ...config.window, end: latestVerifiedDate } },
+    });
+  }, [config.window, optionsQuery.data?.latestVerifiedDate, windowTouched]);
+
   const latestHistoryRunId = recentRunsQuery.data?.items
     .find((row) => isBacktestRun(row) && row.status === "completed" && row.return_pct != null)?.run_id;
   const selectedRunId = prefillRunId ?? submittedRunId ?? latestQueueRunId ?? latestHistoryRunId;
@@ -118,6 +140,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
     if (!prefillRunId || hydratedFor.current === prefillRunId) return;
     if (detailQuery.data && detailQuery.data.run_id === prefillRunId) {
       dispatch({ type: "hydrate", config: hydrateFromDetail(detailQuery.data) });
+      setWindowTouched(true);
       hydratedFor.current = prefillRunId;
     }
   }, [prefillRunId, detailQuery.data]);
@@ -189,6 +212,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
             setSubmittedRunId(undefined);
             runMutation.reset();
             setReportError(undefined);
+            setWindowTouched(false);
             dispatch({ type: "reset" });
           }}
         >
@@ -206,7 +230,10 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
           ) : (
             <ParameterSidebar
               value={config}
-              onChange={(next) => dispatch({ type: "set", patch: next })}
+              onChange={(next) => {
+                if (windowChanged(config.window, next.window)) setWindowTouched(true);
+                dispatch({ type: "set", patch: next });
+              }}
               onRun={() => {
                 runMutation.mutate(config, {
                   onSuccess: (run) => {

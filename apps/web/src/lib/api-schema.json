@@ -2287,6 +2287,17 @@
             "title": "Feebpsrange",
             "type": "array"
           },
+          "latestVerifiedDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestverifieddate"
+          },
           "presets": {
             "items": {
               "$ref": "#/components/schemas/PresetOption"

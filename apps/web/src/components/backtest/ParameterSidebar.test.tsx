@@ -32,6 +32,15 @@ describe("ParameterSidebar", () => {
     expect(screen.getByText("N = 20")).toBeInTheDocument();
   });
 
+  it("does not expose the ignored slots control and labels position size correctly", () => {
+    renderSidebar(undefined);
+
+    expect(screen.queryByRole("spinbutton", { name: /Slots/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Slots · strategy-defined")).toBeInTheDocument();
+    expect(screen.getByText("Max coin weight")).toBeInTheDocument();
+    expect(screen.getByText("5.0% per coin")).toBeInTheDocument();
+  });
+
   it("lists the presets returned by /api/options", () => {
     renderSidebar([
       { slug: "base", display_name: "Base Config" },

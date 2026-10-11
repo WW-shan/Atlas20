@@ -10,6 +10,7 @@ vi.mock("../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../lib/api")>("../../lib/api");
   return {
     ...actual,
+    getOptions: vi.fn(),
     getRunDetail: vi.fn(),
     listRuns: vi.fn(),
     listRunsQueue: vi.fn(),
@@ -28,6 +29,7 @@ function renderWithQuery(ui: React.ReactElement) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(api.getOptions).mockResolvedValue(api.fallbackOptions);
   vi.mocked(api.getRunDetail).mockResolvedValue(api.fallbackRunDetail);
   vi.mocked(api.listRuns).mockResolvedValue({
     items: api.fallbackRunsList,
@@ -52,6 +54,20 @@ describe("BacktestStudioTab", () => {
     for (const label of ["STRATEGY", "UNIVERSE", "WINDOW", "ALLOCATION", "COSTS"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+
+  it("defaults the backtest end date to the latest verified panel date", async () => {
+    vi.mocked(api.getOptions).mockResolvedValue({
+      ...api.fallbackOptions,
+      latestVerifiedDate: "2026-10-08",
+    });
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    await waitFor(() => expect(screen.getByLabelText("Window end")).toHaveValue("2026-10-08"));
+    fireEvent.click(await screen.findByRole("button", { name: /RUN BACKTEST/ }));
+    await waitFor(() => expect(api.runBacktest).toHaveBeenCalled());
+    expect(vi.mocked(api.runBacktest).mock.calls[0][0].window.end).toBe("2026-10-08");
   });
 
   it("renders 6 KPI labels in equity workspace ribbon", async () => {

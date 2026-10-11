@@ -505,6 +505,7 @@ fallback_strategy_options = [
 
 
 fallback_options = {
+    "latestVerifiedDate": None,
     "presets": [
         {"slug": "base", "display_name": "Base Config"},
     ],

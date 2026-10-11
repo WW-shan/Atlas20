@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+import json
 from typing import Any
 
 import pandas as pd
@@ -37,7 +39,25 @@ def load_options_from_reports(settings: Settings) -> dict[str, Any]:
         "feeBpsRange": FEE_BPS_RANGE,
         "slippageBpsRange": SLIPPAGE_BPS_RANGE,
         "sectors": _load_latest_sectors(settings),
+        "latestVerifiedDate": _load_latest_verified_date(settings),
     }
+
+
+def _load_latest_verified_date(settings: Settings) -> str | None:
+    path = settings.report_root / "phase_momentum_live" / "latest_signal.json"
+    if not path.is_file():
+        return None
+    try:
+        signal = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(signal, dict):
+        return None
+    value = signal.get("panel_last_date") or signal.get("as_of")
+    try:
+        return date.fromisoformat(str(value)).isoformat()
+    except (TypeError, ValueError):
+        return None
 
 
 def _load_presets(settings: Settings) -> list[str]:

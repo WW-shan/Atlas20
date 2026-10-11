@@ -471,6 +471,7 @@ class OptionsPayload(ApiModel):
     feeBpsRange: list[float]
     slippageBpsRange: list[float]
     sectors: list[str]
+    latestVerifiedDate: str | None = None
 
 
 class StrategyLabMatrixRequest(StrictApiModel):

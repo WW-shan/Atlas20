@@ -122,8 +122,8 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing
       <div>
         <SectionHeader>ALLOCATION</SectionHeader>
         <label style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-          Position size
-          <span className="mono" style={{ color: "var(--text)" }}>{value.allocation.positionPct.toFixed(1)}% per slot</span>
+          Max coin weight
+          <span className="mono" style={{ color: "var(--text)" }}>{value.allocation.positionPct.toFixed(1)}% per coin</span>
         </label>
         <input
           type="range"
@@ -135,17 +135,9 @@ export function ParameterSidebar({ value, onChange, onRun, isRunning, refreshing
           aria-label="Position size percent"
           style={{ width: "100%", accentColor: "var(--violet)" }}
         />
-        <label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
-          Slots
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={value.allocation.slots}
-            onChange={(e) => onChange({ ...value, allocation: { ...value.allocation, slots: clamp(Number(e.target.value), 1, 50) } })}
-            style={{ ...inputStyle, marginTop: 6 }}
-          />
-        </label>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
+          <span>Slots · strategy-defined</span>
+        </div>
       </div>
 
       <div>

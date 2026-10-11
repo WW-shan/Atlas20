@@ -1,3 +1,4 @@
+import json
 import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
@@ -96,6 +97,32 @@ def test_live_research_endpoint_rejects_unknown_query_params(client: TestClient)
     response = client.get("/api/live/research?mutate=true")
 
     assert response.status_code == 422
+
+
+def test_options_payload_includes_latest_verified_date(client: TestClient, tmp_path: Path):
+    latest = tmp_path / "latest"
+    latest.mkdir()
+    (latest / "strategy_summary.csv").write_text(
+        "strategy,sharpe\nPR2026-10-H5,1.7\n",
+        encoding="utf-8",
+    )
+    signal_dir = tmp_path / "phase_momentum_live"
+    signal_dir.mkdir()
+    (signal_dir / "latest_signal.json").write_text(
+        json.dumps({"panel_last_date": "2026-10-08"}),
+        encoding="utf-8",
+    )
+    processed = tmp_path / "processed"
+    processed.mkdir()
+    (processed / "rebalance_universe.csv").write_text(
+        "sector,rebalance_date\nSmart Contract Platform,2026-10-08\n",
+        encoding="utf-8",
+    )
+
+    response = client.get("/api/options")
+
+    assert response.status_code == 200
+    assert response.json()["latestVerifiedDate"] == "2026-10-08"
 
 
 def test_options_payload_includes_display_names(client: TestClient):
