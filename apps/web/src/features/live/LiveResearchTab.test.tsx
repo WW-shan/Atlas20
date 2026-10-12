@@ -44,6 +44,35 @@ describe("LiveResearchTab", () => {
     expect(oos).toHaveTextContent("Short-window tracking; not a validation claim");
   });
 
+  it("renders repeated frozen fill variants without duplicate React keys", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = api.fallbackLiveResearch.spot?.frozen?.[0];
+    expect(first).toBeDefined();
+    if (!first) throw new Error("fallback frozen metrics missing");
+    vi.mocked(api.getLiveResearch).mockResolvedValue({
+      ...api.fallbackLiveResearch,
+      spot: {
+        ...api.fallbackLiveResearch.spot!,
+        frozen: [
+          first,
+          { ...first, trial_id: "PR2026-10-H5-T60", multiple: 16.0 },
+        ],
+      },
+    });
+
+    try {
+      renderWithQuery();
+      const spot = await screen.findByRole("region", { name: "Spot research" });
+      expect(spot).toHaveTextContent("PR2026-10-H5");
+      const duplicateKeyErrors = consoleError.mock.calls.filter((call) =>
+        call.some((argument) => String(argument).includes("same key")),
+      );
+      expect(duplicateKeyErrors).toEqual([]);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("renders derivatives health, equivalence, and journal rows", async () => {
     renderWithQuery();
 

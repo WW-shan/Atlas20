@@ -8,6 +8,8 @@ const viewports = [
 
 const consoleTabs = [
   { tab: "Overview", heading: "Overview" },
+  { tab: "Live", heading: "Live Research" },
+  { tab: "Strategy Lab", heading: "Strategy Lab" },
   { tab: "Backtest", heading: "Backtest Studio" },
   { tab: "Compare", heading: "Strategy Compare" },
   { tab: "History", heading: "Run History" },

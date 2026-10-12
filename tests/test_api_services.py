@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from atlas20.api import mock_data
 from atlas20.api import services
-from atlas20.api.db.models import Run
+from atlas20.api.db.models import ReportFile, Run
 from atlas20.api.repositories import RunsRepo
 from atlas20.api.schemas import BacktestConfig
 from atlas20.api.settings import get_settings
@@ -320,6 +320,47 @@ def test_list_reports_sorts_archive(sort: str, first_id: str, tmp_path: Path, mo
     rows = list_reports(sort)
 
     assert rows[0].id == first_id
+
+
+def test_list_reports_hides_database_rows_with_missing_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: Session,
+    caplog: pytest.LogCaptureFixture,
+):
+    report_root = tmp_path / "reports"
+    run_dir = report_root / "app_runs" / "btk_0142"
+    run_dir.mkdir(parents=True)
+    (run_dir / "digest.md").write_text("# Real report\n", encoding="utf-8")
+    db_session.add(
+        ReportFile(
+            run_id="btk_0142",
+            kind="markdown",
+            path="app_runs/btk_0142/digest.md",
+            size_bytes=14,
+            sha256="a" * 64,
+            generated_at=datetime(2026, 10, 12, tzinfo=timezone.utc),
+        )
+    )
+    db_session.add(
+        ReportFile(
+            run_id="btk_0142",
+            kind="bundle",
+            path="app_runs/btk_0142/missing-bundle.zip",
+            size_bytes=999,
+            sha256="b" * 64,
+            generated_at=datetime(2026, 10, 12, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+    monkeypatch.setenv("ATLAS20_REPORT_ROOT", str(report_root))
+    get_settings.cache_clear()
+
+    reports = list_reports("recent", db_session)
+
+    assert [report.title for report in reports] == ["btk_0142 markdown report"]
+    assert all("missing-bundle" not in report.subtitle for report in reports)
+    assert "missing-bundle.zip" in caplog.text
 
 
 def test_list_reports_discovers_report_files_when_db_empty(

@@ -240,6 +240,29 @@ describe("BacktestStudioTab", () => {
     expect(await screen.findByRole("button", { name: /\+ NEW RUN/ })).toBeInTheDocument();
   });
 
+  it("disables report regeneration until the selected run is completed", async () => {
+    const queuedRun: api.RunRowSummary = {
+      run_id: "btk_0201",
+      strategy: "base",
+      status: "queued",
+      params_summary: "N=20 / Weekly / 2024-2026",
+    };
+    vi.mocked(api.listRunsQueue).mockResolvedValue([queuedRun]);
+    vi.mocked(api.getRunDetail).mockImplementation(async () => ({
+      ...api.fallbackRunDetail,
+      run_id: queuedRun.run_id,
+      status: "queued",
+    }));
+
+    renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+
+    const button = await screen.findByRole("button", { name: "Regenerate this run's report" });
+    await waitFor(() => expect(api.getRunDetail).toHaveBeenCalledWith("btk_0201"));
+    await waitFor(() => expect(screen.getByText("RUN ID:").textContent).toContain("btk_0201"));
+    expect(button).toBeDisabled();
+    expect(api.generateReport).not.toHaveBeenCalled();
+  });
+
   it("regenerates a report for the selected run", async () => {
     renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
     const button = await screen.findByRole("button", { name: "Regenerate this run's report" });

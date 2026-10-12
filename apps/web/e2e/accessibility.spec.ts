@@ -7,8 +7,9 @@ const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
 const consoleTabs = [
   { tab: "Overview", heading: "Overview" },
-  { tab: "Backtest", heading: "Backtest Studio" },
+  { tab: "Live", heading: "Live Research" },
   { tab: "Strategy Lab", heading: "Strategy Lab" },
+  { tab: "Backtest", heading: "Backtest Studio" },
   { tab: "Compare", heading: "Strategy Compare" },
   { tab: "History", heading: "Run History" },
   { tab: "Universe", heading: "Universe & Data Health" },
@@ -68,8 +69,8 @@ test.describe("research console keyboard accessibility", () => {
 
     await overview.focus();
     await page.keyboard.press("ArrowRight");
-    await expect(tablist.getByRole("tab", { name: "Backtest" })).toBeFocused();
-    await expect(page.getByRole("heading", { name: "Backtest Studio" })).toBeVisible();
+    await expect(tablist.getByRole("tab", { name: "Live" })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Live Research" })).toBeVisible();
 
     await page.keyboard.press("End");
     await expect(tablist.getByRole("tab", { name: "Reports" })).toBeFocused();

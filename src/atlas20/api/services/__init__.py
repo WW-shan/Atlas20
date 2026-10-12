@@ -1290,6 +1290,12 @@ def _load_overview_payload(settings: Settings, *, log_warning: bool) -> tuple[di
         return payload, True
 
 
+def _report_artifact_exists(report_root: Path, row: ReportFile) -> bool:
+    path = Path(row.path)
+    candidate = path if path.is_absolute() else report_root / path
+    return candidate.is_file()
+
+
 def _report_file_to_entry(row: ReportFile) -> ReportEntry:
     report_id = str(row.id or row.run_id or row.sha256[:12])
     title_id = row.run_id or report_id
@@ -1388,14 +1394,23 @@ def _sort_report_entries(rows: list[ReportEntry], sort: str) -> list[ReportEntry
 
 
 def list_reports(sort: str = "recent", session: Session | None = None) -> list[ReportEntry]:
+    report_rows: list[ReportFile] = []
     if session is not None:
         report_rows = ReportsRepo(session).list(sort=sort)
-        if report_rows:
-            return [_report_file_to_entry(row) for row in report_rows]
 
-    disk_rows = _discover_report_entries(get_settings().report_root)
+    report_root = get_settings().report_root
+    available_rows = [row for row in report_rows if _report_artifact_exists(report_root, row)]
+    for row in report_rows:
+        if not _report_artifact_exists(report_root, row):
+            logger.warning("Skipping report file %s: artifact is missing", row.path)
+    if available_rows:
+        return [_report_file_to_entry(row) for row in available_rows]
+
+    disk_rows = _discover_report_entries(report_root)
     if disk_rows:
         return _sort_report_entries(disk_rows, sort)
+    if report_rows:
+        return []
 
     rows = list(mock_data.fallback_reports)
     if sort == "oldest":

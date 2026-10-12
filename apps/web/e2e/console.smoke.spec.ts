@@ -5,6 +5,7 @@ import type {
   DataAlert,
   DataSource,
   FeaturedDigest,
+  LiveResearchPayload,
   OptionsPayload,
   OverviewPayload,
   ReportEntry,
@@ -40,14 +41,14 @@ async function apiPostJson<T>(page: Page, path: string, payload: unknown): Promi
 }
 
 async function ensureRunRow(page: Page): Promise<RunRow> {
-  const path = "/api/runs?q=&chips=&dateRange=30d&page=1&pageSize=14";
-  let runs = await apiJson<RunsResponse>(page, path);
+  const completedPath = "/api/runs?q=&chips=completed&dateRange=all&page=1&pageSize=50";
+  let runs = await apiJson<RunsResponse>(page, completedPath);
   if (runs.items.length === 0) {
     await apiPostJson(page, "/api/backtests/run", defaultBacktestConfig);
-    runs = await apiJson<RunsResponse>(page, path);
+    runs = await apiJson<RunsResponse>(page, completedPath);
   }
-  expect(runs.items.length, "expected at least one run row").toBeGreaterThan(0);
-  return runs.items.find((run) => run.status === "completed" && run.return_pct != null) ?? runs.items[0];
+  expect(runs.items.length, "expected at least one completed run row").toBeGreaterThan(0);
+  return runs.items.find((run) => run.strategy !== "universe_refresh" && run.return_pct != null) ?? runs.items[0];
 }
 
 async function openConsoleTab(page: Page, name: string): Promise<void> {
@@ -74,14 +75,34 @@ test.describe("research console smoke", () => {
     await page.goto("/");
     await openConsoleTab(page, "History");
     await expect(page.getByRole("heading", { name: "Run History" })).toBeVisible();
+    const rerunSearch = page.getByRole("searchbox", { name: "Search runs" });
+    await rerunSearch.fill(selectedRun.run_id);
     await expect(page.locator(`[data-run-id="${selectedRun.run_id}"]`)).toBeVisible();
 
     await page.locator(`[data-run-id="${selectedRun.run_id}"]`).click();
     await page.getByRole("button", { name: /RE-RUN SELECTED/i }).click();
 
     await expect(page.getByRole("heading", { name: "Backtest Studio" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Regenerate this run's report/i })).toBeEnabled();
+    const regenerateReport = page.getByRole("button", { name: /Regenerate this run's report/i });
+    if (selectedRun.status === "completed") {
+      await expect(regenerateReport).toBeEnabled();
+    } else {
+      await expect(regenerateReport).toBeDisabled();
+    }
     await expect(page.getByText(selectedRun.run_id).first()).toBeVisible();
+  });
+
+  test("live research renders the read-only live payload", async ({ page }) => {
+    const live = await apiJson<LiveResearchPayload>(page, "/api/live/research");
+
+    await page.goto("/");
+    await openConsoleTab(page, "Live");
+    await expect(page.getByRole("heading", { name: "Live Research" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Spot research" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /REFRESH LIVE DATA/i })).toBeVisible();
+    expect(live.spot?.trial_id, "expected a current spot research trial").toBeTruthy();
+    expect(live.spot?.signal_date, "expected a current signal date").toBeTruthy();
+    expect(live.derivatives?.health.equity, "expected derivatives health equity").toBeTruthy();
   });
 
   test("compare exposes real backend strategies in the add modal", async ({ page }) => {
@@ -100,16 +121,16 @@ test.describe("research console smoke", () => {
     await expect(dialog.getByRole("option", { name: strategyLabel })).toBeVisible();
   });
 
-  test("strategy lab queues a small experiment batch", async ({ page }) => {
+  test("strategy lab exposes only the point-in-time Top 20 experiment controls", async ({ page }) => {
     await page.goto("/");
     await openConsoleTab(page, "Strategy Lab");
     await expect(page.getByRole("heading", { name: "Strategy Lab" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Experiment matrix" })).toBeVisible();
 
-    await page.getByRole("button", { name: /Queue experiment/i }).click();
-
-    await expect(page.getByText(/runs queued/i)).toBeVisible();
-    await expect(page.getByText(/lab_/)).toBeVisible();
+    await expect(page.getByText("Top 20")).toBeVisible();
+    await expect(page.getByText("Top 5")).toHaveCount(0);
+    await expect(page.getByText("Top 10")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Queue experiment/i })).toBeEnabled();
   });
 
   test("run history shows a real run row", async ({ page }) => {
@@ -118,8 +139,10 @@ test.describe("research console smoke", () => {
     await page.goto("/");
     await openConsoleTab(page, "History");
     await expect(page.getByRole("heading", { name: "Run History" })).toBeVisible();
+    const historySearch = page.getByRole("searchbox", { name: "Search runs" });
+    await historySearch.fill(firstRun.run_id);
     await expect(page.locator(`[data-run-id="${firstRun.run_id}"]`)).toBeVisible();
-    await expect(page.getByRole("searchbox", { name: "Search runs" })).toBeVisible();
+    await expect(historySearch).toBeVisible();
   });
 
   test("universe renders live sources and alerts", async ({ page }) => {

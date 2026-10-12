@@ -200,7 +200,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
         <Button
           variant="outline-violet"
           loading={reportPending}
-          disabled={!detailData}
+          disabled={!detailData || detailData.status !== "completed"}
           onClick={handleRegenerateReport}
         >
           Regenerate this run&apos;s report

@@ -157,11 +157,12 @@ function SpotResearch({ spot }: { spot: LiveSpot }) {
         <Metric label="Panel date" value={spot.panel_last_date ?? "—"} />
       </div>
 
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
           Current target weights
         </div>
-        <table aria-label="Current spot target weights" style={tableStyle}>
+        <div style={{ overflowX: "auto", minWidth: 0 }}>
+          <table aria-label="Current spot target weights" style={tableStyle}>
           <thead>
             <tr>
               <th style={thStyle}>Asset</th>
@@ -172,15 +173,17 @@ function SpotResearch({ spot }: { spot: LiveSpot }) {
           <tbody>
             {(spot.weights ?? []).map((weight) => <WeightRow key={weight.asset} weight={weight} />)}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {spot.frozen?.length ? (
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
             Frozen evaluation
           </div>
-          <table aria-label="Frozen evaluation metrics" style={tableStyle}>
+          <div style={{ overflowX: "auto", minWidth: 0 }}>
+            <table aria-label="Frozen evaluation metrics" style={tableStyle}>
             <thead>
               <tr>
                 <th style={thStyle}>Fill</th>
@@ -191,8 +194,8 @@ function SpotResearch({ spot }: { spot: LiveSpot }) {
               </tr>
             </thead>
             <tbody>
-              {spot.frozen.map((row) => (
-                <tr key={`${row.fill_hours}-${row.fill_policy}`}>
+              {spot.frozen.map((row, index) => (
+                <tr key={`${row.trial_id}-${row.fill_hours}-${row.fill_policy}-${index}`}>
                   <td style={tdStyle} className="mono">{row.fill_policy ?? "—"}</td>
                   <td style={tdStyle} className="mono">{formatMultiplier(row.multiple)}</td>
                   <td style={tdStyle} className="mono">{formatNumber(row.sharpe)}</td>
@@ -201,7 +204,8 @@ function SpotResearch({ spot }: { spot: LiveSpot }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       ) : null}
 
@@ -232,7 +236,8 @@ function OosTracking({ oos }: { oos: LiveOos }) {
       </div>
 
       {oos.stress?.length ? (
-        <table aria-label="Out-of-sample cost stress" style={tableStyle}>
+        <div style={{ overflowX: "auto", minWidth: 0 }}>
+          <table aria-label="Out-of-sample cost stress" style={tableStyle}>
           <thead>
             <tr>
               <th style={thStyle}>Cost</th>
@@ -249,7 +254,8 @@ function OosTracking({ oos }: { oos: LiveOos }) {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       ) : null}
 
       <span className="muted" style={{ fontSize: 11 }}>
