@@ -1659,6 +1659,16 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 也是 no-look-ahead 回归。同时把执行器"信号日 >36h 就拒绝"的缺陷改成按**数据管线新鲜度**判定
 （事件驱动策略持仓期间信号日天然会变旧）。
 
+2026-10-16 **macOS 与 Ubuntu 两条部署线对齐**：`ops/systemd/` 之前仍是被修复前的管线，若哪天把
+Ubuntu 那台拉起来就会退回"一天刷两次、刷到什么都照着交易"的老行为。改动：
+`atlas20-data-refresh.timer` 补上 **02:55 UTC 盘前补跑**（02:30 主刷、02:55 盘前、06:30 晚补），
+`atlas20-data-refresh.service` 改走 `scripts/refresh_daily_data.py`（加锁 + 已覆盖最后完整日则跳过），
+`atlas20-derivatives-execute.service` 改走 `ops/run_derivatives_daily.sh`（同样的窗口闸 + 面板自愈），
+用 `ATLAS20_PROJECT_ROOT=/opt/atlas20`、`ATLAS20_CONFIG_DIR=/etc/atlas20` 覆盖默认路径；包装脚本
+改写为 POSIX `sh`（Ubuntu 默认没有 zsh）并支持这两个覆盖，macOS 侧行为不变（plist 仍显式调
+`/bin/zsh`）。systemd 的 `Persistent=true` 本身就是 launchd `RunAtLoad` 的等价物（开机补跑错过的
+timer），补跑同样受 03:05–09:05 UTC 窗口闸约束。回归：`tests/test_systemd_units.py`。
+
 2026-10-16 **执行器在"清仓"信号上崩溃（KeyError: 'near'）**：2026-10-13 11:05 的实盘任务抛
 `KeyError: 'near'` 退出（`scripts/execute_live_plan.py` → `build_execution_plan` → `_spec`），
 **持仓没被平掉**。根因：合约规格（`specs`）只用当日目标集合去解析（

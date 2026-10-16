@@ -112,7 +112,10 @@ ATLAS20_TELEGRAM_CHAT_ID=1231093599,5582320122
 ENV
 
 # 4) 先手动验证一遍（dry-run，不发消息）
-make refresh-data            # 面板增量刷新（首次约几分钟）
+make refresh-data            # 面板增量刷新（首次约几分钟；装了 timer 后日常走上面的加锁脚本）
+# 窗口外想手动补做一次调仓（只跳过窗口闸，其余闸门照旧）：
+#   ATLAS20_PROJECT_ROOT=/opt/atlas20 ATLAS20_CONFIG_DIR=/etc/atlas20 \
+#     /bin/sh ops/run_derivatives_daily.sh --force
 make derivatives-oos-data derivatives-oos derivatives-signal
 make execution-plan EQUITY=1000
 
@@ -129,9 +132,18 @@ systemctl list-timers 'atlas20-*'
 > **两个 timer 不要同时装**：`derivatives-signal`（模型播报）与 `derivatives-execute`（真单 + 真持仓播报）
 > 各发一条消息。要自动下单就只装 execute；信号内容都在 execute 的消息里。
 
-时间线（UTC）：**02:30 刷面板 → 03:00 合约链（若 02:00 那次已用旧面板，会自动跳过同日旧信号并等这次）**；
-06:30 再刷一次面板作为 CMC 发布晚点的兜底。**面板冻结时会怎样**：播报内容停在旧信号日，
-mark 树超过 30h 后执行器拒单、任务退出码变非 0——"没消息 + 任务失败 = 管线坏了"，不会静默。
+时间线（UTC）：**02:30 刷面板 → 02:55 盘前补刷 → 03:05 合约链 → 06:30 晚补刷**。
+02:55 那次是给"主刷被重启打断"兜底的：`scripts/refresh_daily_data.py` 在面板已覆盖最后完整 UTC 日时
+直接跳过，所以正常一天只有 02:30 真下载，另外两次是空转；它全程持锁，不会和慢主刷抢 raw。
+
+和 macOS 一条线同样的三道闸：`derivatives-execute.service` 通过
+`ops/run_derivatives_daily.sh` 进入，先过 **03:05–09:05 UTC 交易窗口 + 当日幂等**，再对面板
+**自愈刷新**，最后才 `make derivatives-oos-data derivatives-oos execute-plan-live`。
+systemd 的 `Persistent=true` 会在开机后补跑错过的 timer —— 这正是 launchd `RunAtLoad` 的等价物，
+补跑同样受窗口闸限制（窗口外静默跳过，19:00 巡检告警）。
+
+**面板冻结时会怎样**：播报内容停在旧信号日，mark 树超过 30h 后执行器拒单、任务退出码变非 0
+——"没消息 + 任务失败 = 管线坏了"，不会静默。
 
 ---
 

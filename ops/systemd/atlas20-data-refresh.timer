@@ -1,11 +1,17 @@
 [Unit]
-Description=Refresh the Atlas20 PIT panel twice daily
+Description=Refresh the Atlas20 PIT panel three times daily
 
 [Timer]
-# 10:30 and 14:30 Beijing.  The first attempt races CoinMarketCap's
-# publication of day D-1 (measured by ops/systemd's cmc probe); the second is
-# the catch-up, and it completes before the 03:00/06:30 UTC consumers.
+# 10:30 / 10:55 / 14:30 Beijing = 02:30 / 02:55 / 06:30 UTC.
+# 02:30 is the primary run after CoinMarketCap finalises day D-1 (measured by
+# ops/systemd's cmc probe); 02:55 is the pre-trade catch-up that repairs a
+# primary run a reboot killed, and it lands ten minutes before the 03:05
+# rebalance; 06:30 is the late catch-up.  scripts/refresh_daily_data.py exits
+# immediately when the panel already carries the last completed UTC day, so
+# only the runs that are actually needed do any work, and it holds a lock so
+# two fires can never write the raw cache at once.
 OnCalendar=*-*-* 02:30:00 UTC
+OnCalendar=*-*-* 02:55:00 UTC
 OnCalendar=*-*-* 06:30:00 UTC
 Persistent=true
 AccuracySec=1min

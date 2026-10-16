@@ -1,5 +1,5 @@
-#!/bin/zsh
-# Atlas20 derivatives daily automation wrapper (macOS / launchd).
+#!/bin/sh
+# Atlas20 derivatives daily automation wrapper.
 #
 # Runs the full live chain in one job, in order, with the credentials that the
 # trade step needs:
@@ -16,30 +16,39 @@
 # the repo on purpose; this script is the single place that loads them, and it
 # fails closed if they are missing.
 #
-# The schedule (ops/com.atlas20.derivatives-execute.plist) fires at 11:05
-# Beijing = 03:05 UTC, five minutes after the model's T+1 03:00 UTC fill point.
-# The plist also carries RunAtLoad, so a reboot after the fill point still
-# catches the day up; scripts/live_chain_preflight.py is what keeps that from
-# turning into a second trade or an out-of-hours one.
+# Written for POSIX sh because the same file is the entry point for both
+# deployments: macOS launchd (ops/com.atlas20.derivatives-execute.plist, which
+# calls /bin/zsh explicitly) and Ubuntu systemd
+# (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
+# checkout and the credentials somewhere else, so both paths are overridable.
 #
-# Do not run two copies at once: the plist carries a start-interval throttle,
-# the refresh step takes its own lock, and the executor is idempotent per run
-# day.
+# The schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after the
+# model's T+1 03:00 UTC fill point. macOS also loads the job at boot
+# (RunAtLoad) and systemd replays a missed timer fire (Persistent=true);
+# scripts/live_chain_preflight.py is what keeps those from turning into a
+# second trade or an out-of-hours one.
+#
+# Do not run two copies at once: launchd carries a start-interval throttle, the
+# refresh step takes its own lock, and the executor is idempotent per run day.
 
 set -eu
 
+# Defaults target this workstation; the deployments below override them.
 PROJECT_ROOT="/Users/ww/Project/Atlas20"
 CONFIG_DIR="$HOME/.config/atlas20"
+PROJECT_ROOT="${ATLAS20_PROJECT_ROOT:-$PROJECT_ROOT}"
+CONFIG_DIR="${ATLAS20_CONFIG_DIR:-$CONFIG_DIR}"
+
 BITGET_ENV="$CONFIG_DIR/bitget.env"
 TELEGRAM_ENV="$CONFIG_DIR/telegram.env"
 
-# launchd starts jobs with a minimal PATH; make, git and the venv python all
-# need to be reachable.
+# launchd starts jobs with a minimal PATH; systemd units start with almost
+# none. make, git and the venv python all need to be reachable.
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 for env_file in "$BITGET_ENV" "$TELEGRAM_ENV"; do
   if [ ! -r "$env_file" ]; then
-    print -u2 "missing credentials file: $env_file"
+    echo "missing credentials file: $env_file" >&2
     exit 1
   fi
 done
@@ -59,19 +68,19 @@ cd "$PROJECT_ROOT"
 # A manual `ops/run_derivatives_daily.sh --force` is the operator's deliberate
 # late catch-up and drops *only* the window gate.  The panel self-heal below
 # and every executor guard still apply, and the executor's per-run-day
-# idempotency still refuses a second trade.  launchd itself never passes an
-# argument, so the scheduled and RunAtLoad fires always obey the window.
-force_args=()
-if [ "${1:-}" = "--force" ]; then
-  force_args=(--force)
-fi
-
+# idempotency still refuses a second trade.  Neither launchd nor systemd ever
+# passes an argument, so the scheduled and boot-replay fires always obey the
+# window.
 window_status=0
-.venv/bin/python scripts/live_chain_preflight.py --check window "${force_args[@]}" || window_status=$?
+if [ "${1:-}" = "--force" ]; then
+  .venv/bin/python scripts/live_chain_preflight.py --check window --force || window_status=$?
+else
+  .venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
+fi
 if [ "$window_status" -eq 3 ]; then
   exit 0
 elif [ "$window_status" -ne 0 ]; then
-  print -u2 "live chain window preflight failed with status $window_status"
+  echo "live chain window preflight failed with status $window_status" >&2
   exit "$window_status"
 fi
 
@@ -85,12 +94,12 @@ fi
 panel_status=0
 .venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
 if [ "$panel_status" -eq 3 ]; then
-  print -u2 "panel lags the last completed UTC day; refreshing before the chain"
+  echo "panel lags the last completed UTC day; refreshing before the chain" >&2
   .venv/bin/python scripts/refresh_daily_data.py \
     --config config/base.yaml \
     --wait-seconds 900
 elif [ "$panel_status" -ne 0 ]; then
-  print -u2 "live chain panel preflight failed with status $panel_status"
+  echo "live chain panel preflight failed with status $panel_status" >&2
   exit "$panel_status"
 fi
 

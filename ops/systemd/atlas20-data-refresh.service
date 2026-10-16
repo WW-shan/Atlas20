@@ -11,5 +11,8 @@ EnvironmentFile=-/etc/atlas20/atlas20.env
 # The derivatives signal reads data/processed/panel_daily.csv; without this
 # refresh the panel freezes at the deployment date and the daily chain keeps
 # recomputing the same signal day (silence, not an error - see the runbook).
-ExecStart=/usr/bin/make refresh-data
+# Go through the locked wrapper rather than the bare Makefile target: it skips
+# a run whose day is already on disk and serialises the 02:55 catch-up against
+# a slow primary run.
+ExecStart=/opt/atlas20/.venv/bin/python scripts/refresh_daily_data.py --config config/base.yaml
 TimeoutStartSec=1800

@@ -151,8 +151,8 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
     payload = plistlib.loads(EXECUTE_PLIST.read_bytes())
 
-    assert '"${1:-}" = "--force"' in script
-    assert "force_args=(--force)" in script
+    assert '[ "${1:-}" = "--force" ]' in script
+    assert "live_chain_preflight.py --check window --force" in script
     # launchd passes the wrapper path and nothing else, so every scheduled or
     # RunAtLoad fire goes through the window.
     assert len(payload["ProgramArguments"]) == 2

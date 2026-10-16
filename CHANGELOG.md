@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-10-16 Ubuntu/systemd route aligned with the macOS one
+
+The systemd units were still the pre-fix pipeline and would have regressed to
+"refresh twice a day, trade on whatever landed" if that host were brought up.
+
+- `atlas20-data-refresh.timer` gains the 02:55 UTC pre-trade catch-up and the
+  service now runs `scripts/refresh_daily_data.py` (locked, skips a day that is
+  already on disk) instead of the bare Makefile target.
+- `atlas20-derivatives-execute.service` runs `ops/run_derivatives_daily.sh`,
+  which applies the same window gate and panel self-heal, with
+  `ATLAS20_PROJECT_ROOT=/opt/atlas20` and `ATLAS20_CONFIG_DIR=/etc/atlas20`.
+- The wrapper is now POSIX `sh` (Ubuntu has no zsh) and honours those two
+  overrides while keeping this workstation's defaults.
+- `Persistent=true` already replays a fire the machine was off for - the
+  systemd equivalent of launchd's `RunAtLoad` - and the window gate bounds it.
+
 ### 2026-10-16 executor crashed on a "go to cash" signal
 
 The 2026-10-13 live run died with `KeyError: 'near'` and left the NEAR leg
