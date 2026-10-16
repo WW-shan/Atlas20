@@ -1496,7 +1496,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/top20_convex_validation/` | 旧面板 2218 筛选 | ❌ 旧面板，仅历史参考 |
 | `reports/latest/` | 主流水线 32 个策略（含 BTC/ETH 基准） | ✅ 仍可用于基准对比 |
 
-**数据更新方案**：`ops/com.atlas20.daily-refresh.plist` 已安装到用户 `launchd`，每日 02:30/06:30 UTC 执行；CoinGecko 独立校验缓存有 3 小时 TTL，避免 Gate 不上市资产长期使用旧缓存后被错误排除。
+**数据更新方案**：`ops/com.atlas20.daily-refresh.plist` 已安装到用户 `launchd`，每日 02:30/02:55/06:30 UTC 执行（2026-10-16 起增加 02:55 盘前补跑；`scripts/refresh_daily_data.py` 在面板已覆盖最后完整 UTC 日时直接跳过，并持文件锁防止两次刷新并发写 raw）；CoinGecko 独立校验缓存有 3 小时 TTL，避免 Gate 不上市资产长期使用旧缓存后被错误排除。
 
 ---
 
@@ -1659,6 +1659,28 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 也是 no-look-ahead 回归。同时把执行器"信号日 >36h 就拒绝"的缺陷改成按**数据管线新鲜度**判定
 （事件驱动策略持仓期间信号日天然会变旧）。
 
+2026-10-16 **重启打断面板刷新、当日调仓被跳过的故障与修复**：当天 10:30 北京的主刷新在 10:34:58
+被系统关机杀死（`last` 记录 shutdown 10:34、`kern.boottime` 10:35:17），死在写
+`data/processed/panel_daily.csv` 之前，面板停在 2026-10-14；11:05 的调仓任务用这份旧面板重建账本
+（manifest `index_end_date=2026-10-14`），而 Bitget mark 已到 10-16 02:00 UTC
+（`signal_end_date=2026-10-15`），执行器"账本评估日 = 数据最新日"的闸门按设计**拒绝下单**
+（exit 2，当日无成交；日志无 traceback，是关机信号而非代码错误）。修复三件事：
+
+1. `ops/com.atlas20.daily-refresh.plist` 增加 **10:55 北京 = 02:55 UTC** 盘前补跑（主跑 10:30、晚补
+   14:30 保留），保证补跑落在 11:05 调仓之前；
+2. 刷新改走 `scripts/refresh_daily_data.py`：面板已覆盖最后完整 UTC 日时**直接跳过**（正常日只跑一次
+   下载，比原来省一次），下载+构建全程持 `filelock`（进程被杀由内核释放，重启不留死锁），避免盘前补跑
+   与慢主跑并发写 raw；
+3. 调仓包装脚本新增 `scripts/live_chain_preflight.py` 两道闸：`--check window` 用
+   `atlas20.derivatives.live_chain.within_run_window` 限定"03:05 UTC 起 6 小时窗口内 **且** 当日 run day
+   尚未成功"（失败状态仍可重试），`--check panel` 落后则先自愈刷新再进链；同时把
+   `ops/com.atlas20.derivatives-execute.plist` 改为 **`RunAtLoad=true`**，使重启后落在窗口内能自动补跑，
+   窗口外或当日已成交则静默退出（exit 3 与真错误区分），窗口外漏跑仍由 19:00 巡检告警。
+
+执行器既有的新鲜度闸门**未放宽**，仍是最后兜底。回归测试：`tests/test_derivatives_live_chain.py`、
+`tests/test_live_chain_preflight.py`、`tests/test_refresh_daily_data.py`、
+`tests/test_launchd_refresh_schedule.py`、`tests/test_launchd_derivatives_schedule.py`。
+
 2026-10-11 负责人决定实盘**改用全仓**（"全仓和杠杆无所谓，只要仓位价值对"）：实盘仓位约束改为
 **总名义 ≤ 权益 × 1.25** 一条，逐仓 −51% 逐腿强平线在实盘不再存在（模型口径未变，差值落在 −51% 以外
 的尾部）。新增每日台账 `reports/derivatives_track_live/journal.csv`（权益/仓位/盈亏/成交/持仓，同日覆盖）
@@ -1679,7 +1701,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 mark 下载 → 账本重建（评估日 2026-10-09、0 不一致）→ 执行器正确以"同日已执行"幂等跳过（当日 key
 `…|2026-10-08|2026-10-10`，下一次运行日 2026-10-11 会正常执行）。注意：前一条"36h 信号上限"的表述
 已过期，执行器实际以 **mark 树 ≤30h + 账本评估日 = 数据最新日** 作新鲜度闸门。本机同时存在
-`com.atlas20.daily-refresh`（10:30/14:30 北京，面板）与 `com.atlas20.cmc-probe`（08:05–11:50 每 15 分钟，
+`com.atlas20.daily-refresh`（10:30/10:55/14:30 北京，面板）与 `com.atlas20.cmc-probe`（08:05–11:50 每 15 分钟，
 研究采样）两个旧任务；无 crontab、无常驻 Atlas20 进程。
 
 2026-10-11 新增**盘中只读巡检**（`com.atlas20.live-monitor`，每天 19:00 北京 = 调仓后 8 小时）：

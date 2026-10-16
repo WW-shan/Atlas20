@@ -24,6 +24,14 @@
 	  will fire before the close exists. tests/test_launchd_derivatives_schedule.py
 	  pins this conversion.
 
+	  RunAtLoad is on so a reboot *after* the fill point still catches the day
+	  up: on 2026-10-16 the machine restarted at 10:35 and the panel refresh it
+	  killed was only repaired by the 14:30 catch-up, four hours after the trade
+	  should have fired. ops/run_derivatives_daily.sh gates every load through
+	  scripts/live_chain_preflight.py, so the job stays quiet before the fill
+	  point, stays quiet when today's run already succeeded, and self-heals the
+	  panel before spending money.
+
 	  ThrottleInterval (300s) keeps two copies from racing if a manual kickstart
 	  overlaps the calendar fire. The executor itself is idempotent per run day,
 	  so a re-run after a completed day is a no-op report.
@@ -45,7 +53,7 @@
 		<integer>5</integer>
 	</dict>
 	<key>RunAtLoad</key>
-	<false/>
+	<true/>
 	<key>ThrottleInterval</key>
 	<integer>300</integer>
 	<key>StandardOutPath</key>

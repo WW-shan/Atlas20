@@ -16,10 +16,10 @@ from atlas20.data.processor import download_and_cache_raw_data
 from atlas20.logging_utils import configure_logging
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Download and cache Atlas20 raw data")
     parser.add_argument("--config", default="config/base.yaml")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     config = load_config(args.config)
     configure_logging(config.logging.level)

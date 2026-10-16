@@ -4,10 +4,11 @@
 # Runs the full live chain in one job, in order, with the credentials that the
 # trade step needs:
 #
-#   1. refresh the point-in-time Top20 panel from CMC          (daily refresh data)
-#   2. refresh Bitget mark candles and rebuild the target book (derivatives-oos-data / -oos)
-#   3. size the book from the real account equity, place the orders, write the
-#      journal, and push the Telegram report                    (execute-plan-live)
+#   1. decide whether this load may trade at all              (preflight window)
+#   2. repair the point-in-time Top20 panel if it lags        (self-heal)
+#   3. refresh Bitget mark candles and rebuild the book       (derivatives-oos)
+#   4. size the book from the real account equity, place the orders, write the
+#      journal, and push the Telegram report                  (execute-plan-live)
 #
 # Why a wrapper instead of a ProgramArguments one-liner: launchd does not read
 # ~/.zshrc or any shell rc file, so export statements living in a shell profile
@@ -16,10 +17,14 @@
 # fails closed if they are missing.
 #
 # The schedule (ops/com.atlas20.derivatives-execute.plist) fires at 11:05
-# Beijing = 03:05 UTC, five minutes after the model's T+1 03:00 UTC fill point
-# and after the 02:30 UTC panel refresh. Do not run two copies at once: the
-# plist also carries a start-interval throttle, and the executor itself is
-# idempotent per run day.
+# Beijing = 03:05 UTC, five minutes after the model's T+1 03:00 UTC fill point.
+# The plist also carries RunAtLoad, so a reboot after the fill point still
+# catches the day up; scripts/live_chain_preflight.py is what keeps that from
+# turning into a second trade or an out-of-hours one.
+#
+# Do not run two copies at once: the plist carries a start-interval throttle,
+# the refresh step takes its own lock, and the executor is idempotent per run
+# day.
 
 set -eu
 
@@ -46,6 +51,39 @@ set +a
 
 cd "$PROJECT_ROOT"
 
-# Refresh the panel and the Bitget mark tree before the book is rebuilt; the
-# executor refuses to trade on a stale mark tree, so this order is mandatory.
+# --- 1. May this load trade? -------------------------------------------------
+# The preflight exits 3 when a documented reason says no (before the fill
+# point, today's run day already succeeded, or past the catch-up budget) and
+# anything else on a real error, which must still abort the job loudly.
+window_status=0
+.venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
+if [ "$window_status" -eq 3 ]; then
+  exit 0
+elif [ "$window_status" -ne 0 ]; then
+  print -u2 "live chain window preflight failed with status $window_status"
+  exit "$window_status"
+fi
+
+# --- 2. Self-heal the panel --------------------------------------------------
+# A shutdown in the middle of the daily refresh leaves the panel a day behind
+# while the Bitget marks keep moving; the executor would then fail closed and
+# silently skip the day. Repair it once here, waiting for a scheduled refresh
+# that is already in flight instead of racing it. If the panel is still stale
+# afterwards the executor's own guard remains the backstop and refuses to
+# trade.
+panel_status=0
+.venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
+if [ "$panel_status" -eq 3 ]; then
+  print -u2 "panel lags the last completed UTC day; refreshing before the chain"
+  .venv/bin/python scripts/refresh_daily_data.py \
+    --config config/base.yaml \
+    --wait-seconds 900
+elif [ "$panel_status" -ne 0 ]; then
+  print -u2 "live chain panel preflight failed with status $panel_status"
+  exit "$panel_status"
+fi
+
+# --- 3/4. The chain itself ---------------------------------------------------
+# Refresh the Bitget mark tree before the book is rebuilt; the executor refuses
+# to trade on a stale mark tree, so this order is mandatory.
 /usr/bin/make derivatives-oos-data derivatives-oos execute-plan-live

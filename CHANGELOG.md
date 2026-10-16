@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-10-16 reboot-safe daily refresh and trade catch-up
+
+The 10:30 Beijing panel refresh was killed by a shutdown at 10:34:58, leaving
+`data/processed/panel_daily.csv` on 2026-10-14 while the Bitget marks reached
+2026-10-15. The 11:05 trade job then failed closed and the day's rebalance was
+skipped. The executor's guard was correct; the pipeline around it was not
+reboot-proof.
+
+- **Pre-trade catch-up refresh.** `ops/com.atlas20.daily-refresh.plist` now
+  fires at 10:30, 10:55 and 14:30 Beijing (02:30, 02:55 and 06:30 UTC), so a
+  primary run killed by a reboot is repaired ten minutes before the trade job
+  reads the panel.
+- **Locked, skip-when-current refresh.** New `scripts/refresh_daily_data.py`
+  runs the download and the build under a `filelock` and exits immediately when
+  the panel already carries the last completed UTC day. A normal day now costs
+  one download instead of two, and the new catch-up cannot race a slow primary
+  run into the same raw cache.
+- **Self-healing trade wrapper.** `ops/run_derivatives_daily.sh` now asks
+  `scripts/live_chain_preflight.py` whether the panel lags, and refreshes it
+  (waiting up to 15 minutes for a scheduled refresh already in flight) before
+  rebuilding the book.
+- **Reboot catch-up without double trading.** `RunAtLoad=true` on
+  `ops/com.atlas20.derivatives-execute.plist` plus a preflight window gate
+  (`atlas20.derivatives.live_chain.within_run_window`, 03:05 UTC + 6h) that
+  also checks the executor's per-run-day idempotency record: a reboot inside
+  the window catches the day up, before the window or after a successful run
+  it exits quietly, and a window that closed is reported by the 19:00 monitor.
+- The executor's own freshness guards are unchanged and remain the backstop.
+
+
 ### 2026-09-25 full audit (details: `RESEARCH.md` section 00)
 
 Every defect below was reproduced with a failing test before it was fixed.

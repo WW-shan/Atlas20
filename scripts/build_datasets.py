@@ -16,10 +16,10 @@ from atlas20.data.processor import build_processed_datasets
 from atlas20.logging_utils import configure_logging
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Build Atlas20 processed datasets from cache")
     parser.add_argument("--config", default="config/base.yaml")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     config = load_config(args.config)
     sector_config = load_sector_config(config.resolve_path("config/sectors.yaml"))

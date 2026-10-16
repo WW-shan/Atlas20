@@ -17,7 +17,7 @@
 
 | launchd 任务 | 本机时间（北京） | 干什么 | 日志 |
 |---|---|---|---|
-| `com.atlas20.daily-refresh` | 每天 10:30、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（02:30 / 06:30 UTC；后一次是 CMC 发布晚点的兜底） | `~/Library/Logs/atlas20-daily-refresh.log` |
+| `com.atlas20.daily-refresh` | 每天 10:30、**10:55**、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（02:30 / **02:55** / 06:30 UTC）。10:55 是**盘前补跑**，必须落在 11:05 主任务之前；面板已覆盖最后完整 UTC 日时 `scripts/refresh_daily_data.py` 直接跳过，下载+构建全程持文件锁 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
 | `com.atlas20.derivatives-execute` | 每天 **11:05** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 每天 **19:00** | **只读巡检**：跑全链路核对 + 仓位偏离 + 名义上限 + 执行新鲜度；**只在异常时发 Telegram**（安静=正常） | `~/Library/Logs/atlas20-live-monitor.log` |
@@ -28,6 +28,19 @@
 然后执行 `make derivatives-oos-data derivatives-oos execute-plan-live`。调度时点由
 `tests/test_launchd_derivatives_schedule.py` 钉住：11:05 北京 = 03:05 UTC，在模型 T+1
 03:00 UTC 成交点之后 5 分钟，且在面板刷新之后。
+
+**重启与自愈（2026-10-16 起）**：plist 的 `RunAtLoad=true`，所以重启/登录时也会跑一次包装脚本；
+包装脚本先用 `scripts/live_chain_preflight.py` 过两道闸：
+
+1. `--check window`：只允许"03:05 UTC 起 **6 小时**内 **且** 当日 run day 尚未成功"时交易。
+   窗口外、或当日已成交 → 静默退出（exit 3，与真错误区分）；当日失败状态仍可重试。
+   这样重启补跑不会重复下单，也不会在信号早已失效时补单；窗口外漏跑由 19:00 巡检告警。
+2. `--check panel`：`panel_daily.csv` 落后于最后完整 UTC 日时，先调用
+   `scripts/refresh_daily_data.py --wait-seconds 900` 自愈（会等已在跑的刷新，不与其抢锁），
+   再进链。自愈后仍落后时，执行器自己的新鲜度闸门照旧拒绝下单。
+
+2026-10-16 实测故障即此路径：机器 10:34 关机、10:35:17 重启，打断了 10:30 的主刷新，面板停在
+10-14，11:05 主任务按设计拒绝下单（当日无成交）。现在同样的重启会被 10:55 补跑或主任务自愈接住。
 
 安装 / 检查 / 手动补跑：
 
@@ -46,9 +59,11 @@ launchctl kickstart -k gui/$(id -u)/com.atlas20.derivatives-execute
 ops/run_derivatives_daily.sh
 ```
 
-> **macOS 睡眠**：launchd 的日历任务在机器唤醒后会补跑（若错过）。所以 11:05 合上盖子也没关系，
-> 醒来会补做；但**别让这台 Mac 在这件事上长期离线**。真停用自动交易时优先放 kill switch：
-> `touch data/derivatives_execution.KILL`（删除文件即恢复），比卸载任务安全。
+> **macOS 睡眠 / 重启**：launchd 的日历任务在机器唤醒后会补跑（若错过），`RunAtLoad=true`
+> 也会在重启后立刻跑一次包装脚本；两种情况都要过上面的窗口闸门——03:05 UTC 起 6 小时内会补做，
+> 更晚则跳过并等 19:00 巡检告警。所以 11:05 合上盖子没关系，但**别让这台 Mac 在这件事上长期离线**。
+> 真停用自动交易时优先放 kill switch：`touch data/derivatives_execution.KILL`（删除文件即恢复），
+> 比卸载任务安全。
 >
 > **Ubuntu 路线**（`ops/systemd/*`）仍然保留、随时可用，见下一节；两条路线只装一条，
 > 别在同一个账户上同时跑两套定时器。

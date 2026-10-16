@@ -64,13 +64,15 @@ def _wrapper_project_root(wrapper_path: Path) -> str:
     raise AssertionError(f"{wrapper_path.name} does not declare PROJECT_ROOT")
 
 
-def _assert_launchd_contract(plist_path: Path, wrapper_path: Path, log_name: str) -> None:
+def _assert_launchd_contract(
+    plist_path: Path, wrapper_path: Path, log_name: str, *, run_at_load: bool
+) -> None:
     payload = plistlib.loads(plist_path.read_bytes())
     project_root = _wrapper_project_root(wrapper_path)
     assert payload["ProgramArguments"] == ["/bin/zsh", f"{project_root}/ops/{wrapper_path.name}"]
     assert payload["WorkingDirectory"] == project_root
     assert Path(payload["ProgramArguments"][1]).name == wrapper_path.name
-    assert payload["RunAtLoad"] is False
+    assert payload["RunAtLoad"] is run_at_load
     assert payload["ThrottleInterval"] == 300
     assert payload["StandardOutPath"].startswith("/")
     assert payload["StandardOutPath"].endswith(f"Library/Logs/{log_name}")
@@ -82,6 +84,7 @@ def test_execute_plist_runs_the_wrapper_outside_shell_rc_files():
         EXECUTE_PLIST,
         PROJECT_ROOT / "ops" / "run_derivatives_daily.sh",
         "atlas20-derivatives-execute.log",
+        run_at_load=True,
     )
 
 
@@ -90,7 +93,25 @@ def test_monitor_plist_runs_the_wrapper_outside_shell_rc_files():
         MONITOR_PLIST,
         PROJECT_ROOT / "ops" / "run_live_monitor.sh",
         "atlas20-live-monitor.log",
+        run_at_load=False,
     )
+
+
+def test_execute_job_catches_a_reboot_up_without_trading_twice():
+    """RunAtLoad must be paired with the wrapper's window gate.
+
+    Loading the job at boot is what catches up a day the machine was off for,
+    but on its own it would also fire before the fill point and on every
+    login, so the gate is part of the contract, not an optional extra.
+    """
+
+    payload = plistlib.loads(EXECUTE_PLIST.read_bytes())
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+
+    assert payload["RunAtLoad"] is True
+    assert "scripts/live_chain_preflight.py --check window" in script
+    assert "scripts/live_chain_preflight.py --check panel" in script
+    assert "scripts/refresh_daily_data.py" in script
 
 
 def test_execute_wrapper_sources_credentials_and_runs_the_live_chain():
