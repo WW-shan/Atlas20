@@ -1,73 +1,30 @@
 {
-  "execution_hint": "2026-10-09 03:00:00+00:00",
+  "execution_hint": "2026-10-16 03:00:00+00:00",
   "plan": {
-    "equity": 107.04615797,
-    "expected_gross_notional": 81.928,
-    "expected_margin": 42.19292,
+    "equity": 99.53580719,
+    "expected_gross_notional": 0.0,
+    "expected_margin": 0.0,
     "leverage": 2.0,
-    "margin_intents": [
-      {
-        "amount": 1.1797632000000036,
-        "asset": "near",
-        "operation": "add",
-        "pos_side": "long",
-        "reason": "isolated margin to 51.5% of 81.93 USDT notional",
-        "symbol": "NEARUSDT"
-      }
-    ],
+    "margin_intents": [],
     "orders": [],
     "target_margin_ratio": 0.515,
-    "target_notional": {
-      "near": 83.15182116125274
-    },
+    "target_notional": {},
     "warnings": []
   },
   "report": {
-    "available_after": 107.04615797,
-    "balance_after": 98.85195798,
-    "equity_after": 107.04615797,
-    "equity_before": 107.04615797,
+    "available_after": 99.53580719,
+    "balance_after": 99.53580719,
+    "equity_after": 99.53580719,
+    "equity_before": 99.53580719,
     "failures": [],
     "fills": [],
-    "margin_mode": "crossed",
-    "margin_notes": [
-      "\u6301\u4ed3\u4e3acrossed\uff1a\u8df3\u8fc7 1 \u7b14\u9010\u4ed3\u4fdd\u8bc1\u91d1\u8c03\u6574"
-    ],
-    "positions_after": [
-      {
-        "asset": "near",
-        "available": "14",
-        "avgPrice": "5.2694",
-        "breakEvenPrice": "5.2774",
-        "cashDividend": "0",
-        "category": "USDT-FUTURES",
-        "closeFeeTotal": "0",
-        "createdTime": "1791687981796",
-        "curRealisedPnl": "0",
-        "frozen": "0",
-        "holdMode": "hedge_mode",
-        "leverage": "2",
-        "liquidationPrice": "0",
-        "marginCoin": "USDT",
-        "marginMode": "crossed",
-        "markPrice": "5.8547",
-        "mmr": "0.0066",
-        "openFeeTotal": "-0.04426296",
-        "posSide": "long",
-        "positionBalance": "41.03207948",
-        "positionStatus": "normal",
-        "profitRate": "0.1997022842577122",
-        "symbol": "NEARUSDT",
-        "total": "14",
-        "totalFunding": "-0.02363844",
-        "unrealisedPnl": "8.1942",
-        "updatedTime": "1791763202655"
-      }
-    ],
-    "signal_date": "2026-10-08",
+    "margin_mode": "",
+    "margin_notes": [],
+    "positions_after": [],
+    "signal_date": "2026-10-15",
     "traded": false
   },
-  "signal_date": "2026-10-08",
+  "signal_date": "2026-10-15",
   "spec": "PR2026-10-D-L125-V2",
   "status": "ok"
 }

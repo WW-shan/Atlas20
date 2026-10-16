@@ -1,27 +1,27 @@
 {
   "carry_days": 3,
   "cost_bps": 20.0,
-  "days": 20,
-  "dropped_target_rows": 0,
-  "end": "2026-10-12 03:00:00+00:00",
+  "days": 24,
+  "dropped_target_rows": 1,
+  "end": "2026-10-16 03:00:00+00:00",
   "engine_start": "2026-09-21 00:00:00+00:00",
   "funding": "zero (upper bound; no exact Bitget history)",
-  "index_end_date": "2026-10-11",
+  "index_end_date": "2026-10-15",
   "index_start_date": "2021-01-01",
-  "last_mark": "2026-10-12 02:00:00+00:00",
+  "last_mark": "2026-10-16 02:00:00+00:00",
   "leverage": 1.25,
   "liquidations": 0,
   "long_buffer": 0.5,
   "mark_dir": "data/raw/bitget_derivatives/merged_oos_20261009",
   "max_staleness_hours": 30.0,
   "metrics": {
-    "cagr": 25.425619582007926,
-    "max_drawdown": -0.10811574135181312,
-    "multiple": 1.1858321713571094,
-    "sharpe": 4.142827735846687
+    "cagr": 2.264731491100921,
+    "max_drawdown": -0.11102217770423695,
+    "multiple": 1.077406098593084,
+    "sharpe": 1.7252152513330754
   },
-  "signal_end_date": "2026-10-11",
-  "staleness_hours": 1.0973262505555557,
+  "signal_end_date": "2026-10-15",
+  "staleness_hours": 6.129696584166667,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-10-D-L125-V2"
 }
