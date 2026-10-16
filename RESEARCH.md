@@ -1659,6 +1659,18 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 也是 no-look-ahead 回归。同时把执行器"信号日 >36h 就拒绝"的缺陷改成按**数据管线新鲜度**判定
 （事件驱动策略持仓期间信号日天然会变旧）。
 
+2026-10-16 **执行器在"清仓"信号上崩溃（KeyError: 'near'）**：2026-10-13 11:05 的实盘任务抛
+`KeyError: 'near'` 退出（`scripts/execute_live_plan.py` → `build_execution_plan` → `_spec`），
+**持仓没被平掉**。根因：合约规格（`specs`）只用当日目标集合去解析（
+`relevant_symbols = {asset: ... for asset in targets}`），而冻结账本是事件驱动、全清仓那天的
+`targets` 恰好是空集（`load_latest_targets` 过滤掉 `target_weight == 0` 的行），于是持仓腿
+拿不到合约规格，`_spec` 抛 `KeyError`。当天 19:00 巡检按设计告警（"今天的调仓还没执行"），
+持仓由人工平掉，所以 10-14 台账出现"仓位归零但成交为空"。修复：新增
+`spec_symbol_universe(symbols_by_asset, targets)`——合约集合按**整张 symbol map** 解析（外加未映射
+目标的 symbol 兜底），执行器、计划器、`audit-live`、巡检四处统一改用；回归测试
+`tests/test_live_spec_universe.py` 同时钉住"空目标集合 + 持仓"必须产出 CLOSE 单，以及旧的
+target-only 写法仍然会 KeyError。
+
 2026-10-16 **重启打断面板刷新、当日调仓被跳过的故障与修复**：当天 10:30 北京的主刷新在 10:34:58
 被系统关机杀死（`last` 记录 shutdown 10:34、`kern.boottime` 10:35:17），死在写
 `data/processed/panel_daily.csv` 之前，面板停在 2026-10-14；11:05 的调仓任务用这份旧面板重建账本

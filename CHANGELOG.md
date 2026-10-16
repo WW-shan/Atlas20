@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 2026-10-16 executor crashed on a "go to cash" signal
+
+The 2026-10-13 live run died with `KeyError: 'near'` and left the NEAR leg
+open: venue specs were resolved from today's target set alone, and a full-exit
+book has no targets at all, so closing the held leg had no contract. The 19:00
+monitor did alert, and the position was closed by hand.
+
+- `spec_symbol_universe` now resolves the contract set from the whole symbol
+  map (plus a symbol fallback for an unmapped target), and all four live
+  scripts - the executor, the planner, the audit and the monitor - use it.
+- Regression: `tests/test_live_spec_universe.py` pins both the crash and the
+  close that must replace it.
+
 ### 2026-10-16 reboot-safe daily refresh and trade catch-up
 
 The 10:30 Beijing panel refresh was killed by a shutdown at 10:34:58, leaving

@@ -57,6 +57,7 @@ from scripts.plan_live_execution import (  # noqa: E402
     fetch_public_instruments,
     fetch_public_prices,
     load_symbol_map,
+    spec_symbol_universe,
     specs_from_instruments,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -166,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     prices = fetch_public_prices(session)
     specs = specs_from_instruments(
         fetch_public_instruments(session),
-        {asset: symbol_map.get(asset, f"{asset.upper()}USDT") for asset in targets},
+        spec_symbol_universe(symbol_map, targets),
     )
 
     issues: list[str] = []

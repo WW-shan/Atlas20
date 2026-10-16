@@ -55,8 +55,19 @@ cd "$PROJECT_ROOT"
 # The preflight exits 3 when a documented reason says no (before the fill
 # point, today's run day already succeeded, or past the catch-up budget) and
 # anything else on a real error, which must still abort the job loudly.
+#
+# A manual `ops/run_derivatives_daily.sh --force` is the operator's deliberate
+# late catch-up and drops *only* the window gate.  The panel self-heal below
+# and every executor guard still apply, and the executor's per-run-day
+# idempotency still refuses a second trade.  launchd itself never passes an
+# argument, so the scheduled and RunAtLoad fires always obey the window.
+force_args=()
+if [ "${1:-}" = "--force" ]; then
+  force_args=(--force)
+fi
+
 window_status=0
-.venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
+.venv/bin/python scripts/live_chain_preflight.py --check window "${force_args[@]}" || window_status=$?
 if [ "$window_status" -eq 3 ]; then
   exit 0
 elif [ "$window_status" -ne 0 ]; then

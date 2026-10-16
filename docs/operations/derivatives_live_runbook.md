@@ -35,6 +35,8 @@
 1. `--check window`：只允许"03:05 UTC 起 **6 小时**内 **且** 当日 run day 尚未成功"时交易。
    窗口外、或当日已成交 → 静默退出（exit 3，与真错误区分）；当日失败状态仍可重试。
    这样重启补跑不会重复下单，也不会在信号早已失效时补单；窗口外漏跑由 19:00 巡检告警。
+   注意 `launchctl kickstart` 不带参数，所以它**永远遵守窗口**；要窗口外补做只能跑
+   `ops/run_derivatives_daily.sh --force`。
 2. `--check panel`：`panel_daily.csv` 落后于最后完整 UTC 日时，先调用
    `scripts/refresh_daily_data.py --wait-seconds 900` 自愈（会等已在跑的刷新，不与其抢锁），
    再进链。自愈后仍落后时，执行器自己的新鲜度闸门照旧拒绝下单。
@@ -54,9 +56,13 @@ launchctl list | grep atlas20
 launchctl print gui/$(id -u)/com.atlas20.derivatives-execute | head -30
 tail -50 ~/Library/Logs/atlas20-derivatives-execute.log
 
-# 手动补跑（幂等：同一天成功后重跑直接跳过；真需要重发/重启交易用 --force，慎用）
+# 手动补跑（幂等：同一天成功后重跑直接跳过）
 launchctl kickstart -k gui/$(id -u)/com.atlas20.derivatives-execute
 ops/run_derivatives_daily.sh
+
+# 窗口外（北京 17:05 之后）仍要补做今天这一次：必须显式 --force。
+# --force 只跳过窗口闸；面板自愈、执行器的所有闸门照旧，当天已成功仍不重复下单。
+ops/run_derivatives_daily.sh --force
 ```
 
 > **macOS 睡眠 / 重启**：launchd 的日历任务在机器唤醒后会补跑（若错过），`RunAtLoad=true`

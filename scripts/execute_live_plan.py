@@ -65,6 +65,7 @@ from scripts.plan_live_execution import (  # noqa: E402
     fetch_public_instruments,
     fetch_public_prices,
     load_symbol_map,
+    spec_symbol_universe,
     specs_from_instruments,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -289,9 +290,10 @@ def main(argv: list[str] | None = None) -> int:
         if abs(float(record["target_weight"])) > 0.0
     }
     symbols_by_asset = load_symbol_map(args.symbol_map)
-    relevant_symbols = {
-        asset: symbols_by_asset.get(asset, f"{asset.upper()}USDT") for asset in targets
-    }
+    # Resolve the venue contract for every asset the account can hold, not just
+    # today's targets: a "go to cash" book has no targets at all and the close
+    # of the held leg still needs its contract.
+    relevant_symbols = spec_symbol_universe(symbols_by_asset, targets)
     session = requests.Session()
     if args.prices_file is not None:
         price_payload = json.loads(Path(args.prices_file).read_text(encoding="utf-8"))

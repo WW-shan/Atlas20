@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
+from typing import Iterable
 
 import pandas as pd
 import requests
@@ -153,6 +154,26 @@ def fetch_public_prices(session: requests.Session) -> dict[str, float]:
     return prices
 
 
+def spec_symbol_universe(
+    symbols_by_asset: dict[str, str], targets: Iterable[str] = ()
+) -> dict[str, str]:
+    """Every asset whose venue contract the planner may need, asset -> symbol.
+
+    Specs used to be resolved from today's target set alone.  A "go to cash"
+    book has no targets at all, so the held leg had no contract and
+    ``build_execution_plan`` raised ``KeyError: 'near'`` on the 2026-10-13 live
+    run - the position stayed open on the one signal where the exit mattered
+    most.  The account can hold any asset in the symbol map, so the contract
+    set has to cover the whole map, plus a symbol fallback for a target the map
+    does not know yet.
+    """
+
+    universe = {str(asset): str(symbol).upper() for asset, symbol in symbols_by_asset.items()}
+    for asset in targets:
+        universe.setdefault(str(asset), f"{str(asset).upper()}USDT")
+    return universe
+
+
 def specs_from_instruments(rows: list[dict], symbols_by_asset: dict[str, str]) -> dict[str, ContractSpec]:
     by_symbol = {str(row.get("symbol", "")).upper(): row for row in rows}
     specs: dict[str, ContractSpec] = {}
@@ -249,9 +270,7 @@ def main() -> None:
         for record in book.to_dict("records")
         if abs(float(record["target_weight"])) > 0.0
     }
-    relevant_symbols = {
-        asset: symbols_by_asset.get(asset, f"{asset.upper()}USDT") for asset in targets
-    }
+    relevant_symbols = spec_symbol_universe(symbols_by_asset, targets)
 
     session = requests.Session()
     if args.prices_file is not None:
