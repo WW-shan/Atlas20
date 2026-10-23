@@ -1,41 +1,41 @@
 {
-  "checked_at": "2026-10-16T08:13:02.725089+00:00",
+  "checked_at": "2026-10-23T08:53:54.963968+00:00",
   "checks": [
     {
       "check": "账户恒等式 equity = balance + uPnL",
-      "detail": "99.5358 vs 99.5358 + 0.0000 = 99.5358",
+      "detail": "100.3570 vs 100.4410 + -0.0840 = 100.3570",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "交易所 0.0000 vs 重算 0.0000（两次请求的标记价差 0.0000）",
+      "detail": "交易所 29.7845 vs 重算 29.8248（两次请求的标记价差 0.0403）",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-10-16 equity=99.5358；折算后应为 99.5358，交易所 99.5358",
+      "detail": "台账 2026-10-23 equity=100.2826；折算后应为 100.3564，交易所 100.3570",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账 PnL 链一致",
-      "detail": "5 个相邻日全部一致",
+      "detail": "12 个相邻日全部一致",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账成交都能在交易所订单历史里对上",
-      "detail": "核对 8 笔订单",
+      "detail": "核对 5 笔订单",
       "hard": true,
       "ok": true
     },
     {
       "check": "持仓与冻结目标一致（1 个合约步长内）",
-      "detail": "全部吻合",
+      "detail": "MONERO 目标 10.45 vs 实际 0.00",
       "hard": true,
-      "ok": true
+      "ok": false
     },
     {
       "check": "无计划外持仓",
@@ -45,38 +45,38 @@
     },
     {
       "check": "总名义 <= 1.25x 权益（规格上限）",
-      "detail": "gross 0.00 / equity 99.54 = 0.000x",
+      "detail": "gross 29.82 / equity 100.36 = 0.297x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-10-16 02:00:00+00:00（6.1h 前）",
+      "detail": "最新 mark 2026-10-23 02:00:00+00:00（6.5h 前）",
       "hard": true,
       "ok": true
     },
     {
       "check": "账本已评估到最新可判定日（无跳过）",
-      "detail": "账本评估到 2026-10-15 / 数据到 2026-10-15",
+      "detail": "账本评估到 2026-10-22 / 数据到 2026-10-22",
       "hard": true,
       "ok": true
     },
     {
       "check": "信号事件距今（事件驱动，非每日变化）",
-      "detail": "最近一次仓位变化 2026-10-15（1 天前；无变化＝继续持有）",
+      "detail": "最近一次仓位变化 2026-10-18（5 天前；无变化＝继续持有）",
       "hard": false,
       "ok": true
     },
     {
       "check": "台账信号日 = 冻结账本最新信号日",
-      "detail": "台账 2026-10-15 vs 账本 2026-10-15",
+      "detail": "台账 2026-10-18 vs 账本 2026-10-18",
       "hard": true,
       "ok": true
     }
   ],
-  "equity": 99.53580719,
-  "hard_failures": 0,
-  "position_value": 0,
-  "signal_date": "2026-10-15",
+  "equity": 100.35703144,
+  "hard_failures": 1,
+  "position_value": 29.824799999999996,
+  "signal_date": "2026-10-18",
   "spec": "PR2026-10-D-L125-V2"
 }

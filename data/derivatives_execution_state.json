@@ -1,7 +1,7 @@
 {
-  "last_key": "PR2026-10-D-L125-V2|2026-10-15|2026-10-16",
-  "last_run_at": "2026-10-16T08:08:17.120005+00:00",
-  "last_status": "ok",
+  "last_key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-23",
+  "last_run_at": "2026-10-23T08:31:41.840807+00:00",
+  "last_status": "partial",
   "runs": [
     {
       "failures": [],
@@ -95,6 +95,162 @@
       "key": "PR2026-10-D-L125-V2|2026-10-15|2026-10-16",
       "ran_at": "2026-10-16T08:08:17.120005+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 5.0521,
+          "fee": 0.02121882,
+          "fee_coin": "USDT",
+          "filled_size": 7.0,
+          "notional": 35.3647,
+          "order_id": "1495187403500011520",
+          "requested_size": 7.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-15|2026-10-17",
+      "ran_at": "2026-10-17T03:06:17.901400+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "CLOSE",
+          "asset": "near",
+          "avg_price": 5.0493,
+          "fee": 0.02120706,
+          "fee_coin": "USDT",
+          "filled_size": 7.0,
+          "notional": 35.3451,
+          "order_id": "1495549817017974784",
+          "requested_size": 7.0,
+          "side": "sell",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-17|2026-10-18",
+      "ran_at": "2026-10-18T03:06:24.045030+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-19",
+      "ran_at": "2026-10-19T03:06:16.045034+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792465583826,\"data\":null}",
+          "side": "buy",
+          "size": "0.01",
+          "symbol": "XMRUSDT"
+        }
+      ],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 4.8312,
+          "fee": 0.01739232,
+          "fee_coin": "USDT",
+          "filled_size": 6.0,
+          "notional": 28.9872,
+          "order_id": "1496274599279706112",
+          "requested_size": 6.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-20",
+      "ran_at": "2026-10-20T03:06:25.653771+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792551979404,\"data\":null}",
+          "side": "buy",
+          "size": "0.01",
+          "symbol": "XMRUSDT"
+        }
+      ],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-21",
+      "ran_at": "2026-10-21T03:06:20.141735+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792638378918,\"data\":null}",
+          "side": "buy",
+          "size": "0.01",
+          "symbol": "XMRUSDT"
+        }
+      ],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-22",
+      "ran_at": "2026-10-22T03:06:19.682631+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792724776566,\"data\":null}",
+          "side": "buy",
+          "size": "0.01",
+          "symbol": "XMRUSDT"
+        }
+      ],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 4.9848,
+          "fee": 0.01794528,
+          "fee_coin": "USDT",
+          "filled_size": 6.0,
+          "notional": 29.9088,
+          "order_id": "1497361732308418560",
+          "requested_size": 6.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-23",
+      "ran_at": "2026-10-23T03:06:18.439207+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792744300933,\"data\":null}",
+          "side": "buy",
+          "size": "0.01",
+          "symbol": "XMRUSDT"
+        }
+      ],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-18|2026-10-23",
+      "ran_at": "2026-10-23T08:31:41.840807+00:00",
+      "status": "partial"
     }
   ]
 }

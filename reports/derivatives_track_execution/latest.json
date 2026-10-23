@@ -1,30 +1,104 @@
 {
-  "execution_hint": "2026-10-16 03:00:00+00:00",
+  "execution_hint": "2026-10-19 03:00:00+00:00",
   "plan": {
-    "equity": 99.53580719,
-    "expected_gross_notional": 0.0,
-    "expected_margin": 0.0,
+    "equity": 100.28083144,
+    "expected_gross_notional": 35.901700000000005,
+    "expected_margin": 18.4893755,
     "leverage": 2.0,
-    "margin_intents": [],
-    "orders": [],
+    "margin_intents": [
+      {
+        "amount": 0.0923775,
+        "asset": "monero",
+        "operation": "add",
+        "pos_side": "long",
+        "reason": "isolated margin to 51.5% of 6.16 USDT notional",
+        "symbol": "XMRUSDT"
+      },
+      {
+        "amount": 0.4283020800000017,
+        "asset": "near",
+        "operation": "add",
+        "pos_side": "long",
+        "reason": "isolated margin to 51.5% of 29.74 USDT notional",
+        "symbol": "NEARUSDT"
+      }
+    ],
+    "orders": [
+      {
+        "action": "OPEN",
+        "asset": "monero",
+        "notional": 6.1585,
+        "price": 615.85,
+        "reason": "rebalance to target",
+        "reduce_only": false,
+        "side": "buy",
+        "size": 0.01,
+        "symbol": "XMRUSDT"
+      }
+    ],
     "target_margin_ratio": 0.515,
-    "target_notional": {},
+    "target_notional": {
+      "monero": 10.445919941666661,
+      "near": 30.018367714751243
+    },
     "warnings": []
   },
   "report": {
-    "available_after": 99.53580719,
-    "balance_after": 99.53580719,
-    "equity_after": 99.53580719,
-    "equity_before": 99.53580719,
-    "failures": [],
+    "available_after": 100.28263144,
+    "balance_after": 100.44103144,
+    "equity_after": 100.28263144,
+    "equity_before": 100.28323144,
+    "failures": [
+      {
+        "action": "OPEN",
+        "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792744300933,\"data\":null}",
+        "side": "buy",
+        "size": "0.01",
+        "symbol": "XMRUSDT"
+      }
+    ],
     "fills": [],
-    "margin_mode": "",
-    "margin_notes": [],
-    "positions_after": [],
-    "signal_date": "2026-10-15",
+    "margin_mode": "crossed",
+    "margin_notes": [
+      "\u9010\u4ed3\u4e0d\u53ef\u7528\uff08venue \u62d2\u7edd 25200 fixedMargin\uff09\u2192 \u5df2\u6309\u5168\u4ed3\u6267\u884c",
+      "XMRUSDT: Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"40020\",\"msg\":\"Parameter symbol not support copy trading error\",\"requestTime\":1792744300933,\"data\":null}",
+      "\u6301\u4ed3\u4e3acrossed\uff1a\u8df3\u8fc7 2 \u7b14\u9010\u4ed3\u4fdd\u8bc1\u91d1\u8c03\u6574"
+    ],
+    "positions_after": [
+      {
+        "asset": "near",
+        "available": "6",
+        "avgPrice": "4.9848",
+        "breakEvenPrice": "4.9909",
+        "cashDividend": "0",
+        "category": "USDT-FUTURES",
+        "closeFeeTotal": "0",
+        "createdTime": "1792724777298",
+        "curRealisedPnl": "0",
+        "frozen": "0",
+        "holdMode": "hedge_mode",
+        "leverage": "2",
+        "liquidationPrice": "0",
+        "marginCoin": "USDT",
+        "marginMode": "crossed",
+        "markPrice": "4.9585",
+        "mmr": "0.0066",
+        "openFeeTotal": "-0.01794528",
+        "posSide": "long",
+        "positionBalance": "14.8933506",
+        "positionStatus": "normal",
+        "profitRate": "-0.0105953323894758",
+        "symbol": "NEARUSDT",
+        "total": "6",
+        "totalFunding": "-0.00100398",
+        "unrealisedPnl": "-0.1578",
+        "updatedTime": "1792742402490"
+      }
+    ],
+    "signal_date": "2026-10-18",
     "traded": false
   },
-  "signal_date": "2026-10-15",
+  "signal_date": "2026-10-18",
   "spec": "PR2026-10-D-L125-V2",
-  "status": "ok"
+  "status": "partial"
 }
