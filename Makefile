@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test clean
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -104,6 +104,12 @@ audit-live: $(VENV_STAMP)
 # backtest (rebuild both, compare every overlapping target event).
 audit-signal: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_signal_equivalence.py
+
+# macOS only: make the launchd logs append-only so cleanup tools cannot delete
+# them. The com.atlas20.protect-live-logs agent reruns this at login and every
+# five minutes; this target is for immediate application and troubleshooting.
+protect-logs:
+	/bin/sh ops/protect_live_logs.sh
 
 derivatives-notify: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py

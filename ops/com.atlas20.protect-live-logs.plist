@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.protect-live-logs</string>
+	<!--
+	  Tencent Lemon deleted Atlas20's operational logs on 2026-10-26. Lemon
+	  exposes no stable, automatable per-path cleanup exclusion, so this job
+	  enforces macOS user append-only flags on the logs themselves. An existing
+	  log can still receive launchd stdout/stderr appends, but cleanup tools
+	  cannot truncate or unlink it. RunAtLoad restores protection after login;
+	  StartInterval recreates and re-protects any log a cleaner removed while
+	  the job was not loaded.
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>/Users/ww/Project/Atlas20/ops/protect_live_logs.sh</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>300</integer>
+	<key>ThrottleInterval</key>
+	<integer>60</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-log-protect.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-log-protect.log</string>
+</dict>
+</plist>

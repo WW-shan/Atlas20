@@ -13,7 +13,7 @@
 ## 0. 当前部署：本机 macOS（launchd，2026-10-11 起生效）
 
 负责人决定**暂不部署 Ubuntu**：自动调仓就跑在这台 Mac 上，用 launchd（系统自带）做定时。
-三个 launchd 任务各管一件事，互不重叠：
+五个 launchd 任务各管一件事，互不重叠：
 
 | launchd 任务 | 本机时间（北京） | 干什么 | 日志 |
 |---|---|---|---|
@@ -21,6 +21,29 @@
 | `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
 | `com.atlas20.derivatives-execute` | 每天 **11:05** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 每天 **19:00** | **只读巡检**：跑全链路核对 + 仓位偏离 + 名义上限 + 执行新鲜度；**只在异常时发 Telegram**（安静=正常） | `~/Library/Logs/atlas20-live-monitor.log` |
+| `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 重建并给上述运营日志加 macOS `uappnd`（append-only）保护；腾讯柠檬等清理工具无法删除或清空，launchd 仍可正常追加 | `~/Library/Logs/atlas20-log-protect.log` |
+
+**日志防清理（2026-10-26 起）**：腾讯柠檬在 18:53 清理时误删了 3 个 Atlas20 运营日志，
+随后主任务卡在 `spawn failed`；用 `launchctl bootout` + `bootstrap` 重新加载后恢复。柠檬没有
+稳定、可自动写入的单路径清理排除配置，因此项目改用文件系统级保护：`ops/protect_live_logs.sh`
+把五个 launchd 日志设为用户 append-only。launchd 追加输出不受影响，但普通写截断和 `rm` 会
+返回 `Operation not permitted`。`RunAtLoad=true` 在登录后立即恢复保护，`StartInterval=300`
+每 5 分钟检查一次；若文件被删或 flag 丢失，会自动重建并重新保护。
+
+```bash
+# 立即应用（日常由 protect-live-logs 任务自动维护）
+make protect-logs
+
+# 安装/更新保护任务
+cp ops/com.atlas20.protect-live-logs.plist ~/Library/LaunchAgents/
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.protect-live-logs.plist 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.protect-live-logs.plist
+launchctl print gui/$(id -u)/com.atlas20.protect-live-logs | head -30
+```
+
+> append-only 是保护，不是日志轮转机制。确需清空/归档时，先卸下
+> `com.atlas20.protect-live-logs`，对目标日志执行 `chflags nouappnd <path>`，完成轮转后再安装任务。
+> 如仍希望在腾讯柠檬 GUI 里给项目目录加白名单，可作为额外防线；自动交易日志已不依赖该设置。
 
 主任务的实现：`ops/com.atlas20.derivatives-execute.plist` 调用
 `ops/run_derivatives_daily.sh`，脚本里 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`
