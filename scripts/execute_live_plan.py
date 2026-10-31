@@ -32,6 +32,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import Any, Callable
 
 import pandas as pd
 import requests
@@ -229,6 +230,31 @@ def _write_state(path: Path, key: str, status: str, report: ExecutionReport) -> 
     state["runs"] = runs[-40:]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _persist_run_result(
+    *,
+    json_out: Path,
+    payload: dict[str, Any],
+    journal_file: Path,
+    entry: JournalEntry,
+    state_file: Path,
+    key: str,
+    status: str,
+    report: ExecutionReport,
+    notify: Callable[[], None] | None = None,
+) -> None:
+    """Persist artifacts in an order that never marks an unwritten run as done."""
+
+    output = ensure_dir(json_out.parent)
+    (output / json_out.name).write_text(
+        json.dumps(payload, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    upsert_entry(journal_file, entry)
+    if notify is not None:
+        notify()
+    _write_state(state_file, key, status, report)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -429,36 +455,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(message)
 
-    if args.live:
-        output = ensure_dir(args.json_out.parent)
-        (output / args.json_out.name).write_text(
-            json.dumps(
-                {
-                    "spec": args.spec,
-                    "signal_date": str(signal_date.date()),
-                    "execution_hint": str(execution_hint),
-                    "plan": plan.as_dict(),
-                    "report": report.as_dict(),
-                    "status": status,
-                },
-                indent=2,
-                sort_keys=True,
-                default=str,
-            ),
-            encoding="utf-8",
-        )
-        _write_state(args.state_file, key, status, report)
-        entry = _journal_entry(
-            report,
-            signal_date=str(signal_date.date()),
-            run_at=run_at,
-            prev_equity=prev_equity,
-            warnings=notes,
-        )
-        upsert_entry(args.journal_file, entry)
-        print(f"journal updated: {args.journal_file} ({entry.date})")
-
-    if args.notify:
+    def notify_report() -> None:
         token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")
         if not token:
             raise SystemExit("ATLAS20_TELEGRAM_BOT_TOKEN is not set")
@@ -469,6 +466,36 @@ def main(argv: list[str] | None = None) -> int:
         for chat_id in chat_ids:
             send_telegram_message(message, token=token, chat_id=chat_id, api_base=api_base)
             print(f"Notified execution report {key} to {chat_id}")
+
+    if args.live:
+        entry = _journal_entry(
+            report,
+            signal_date=str(signal_date.date()),
+            run_at=run_at,
+            prev_equity=prev_equity,
+            warnings=notes,
+        )
+        _persist_run_result(
+            json_out=args.json_out,
+            payload={
+                "spec": args.spec,
+                "signal_date": str(signal_date.date()),
+                "execution_hint": str(execution_hint),
+                "plan": plan.as_dict(),
+                "report": report.as_dict(),
+                "status": status,
+            },
+            journal_file=args.journal_file,
+            entry=entry,
+            state_file=args.state_file,
+            key=key,
+            status=status,
+            report=report,
+            notify=notify_report if args.notify else None,
+        )
+        print(f"journal updated: {args.journal_file} ({entry.date})")
+    elif args.notify:
+        notify_report()
 
     if report.failures:
         print(f"{len(report.failures)} order(s) failed; state written as {status}")

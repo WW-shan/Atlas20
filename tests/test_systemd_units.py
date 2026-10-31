@@ -59,6 +59,16 @@ def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
     assert "print -u2" not in wrapper
 
 
+def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> None:
+    timer = (
+        ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer"
+    ).read_text(encoding="utf-8")
+
+    for clock in ("03:05:00", "03:35:00", "04:35:00", "06:35:00"):
+        assert f"OnCalendar=*-*-* {clock} UTC" in timer
+    assert "OnCalendar=*-*-* 09:05:00 UTC" not in timer
+
+
 def test_makefile_refresh_target_rebuilds_the_panel() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 

@@ -239,7 +239,6 @@ def execute_plan(
     for index, order in enumerate(plan.orders):
         symbol = order.symbol
         if symbol not in leverage_done:
-            leverage_done.add(symbol)
             # Cap leverage in the *crossed* config first: this venue happily
             # accepts an isolated leverage config and then still fills the
             # order crossed, so the fallback path must already be capped.
@@ -252,8 +251,20 @@ def execute_plan(
                     long_leverage=leverage,
                     short_leverage=leverage,
                 )
-            except BitgetAPIError as exc:
+            except (BitgetAPIError, ValueError) as exc:
+                error = f"could not set crossed leverage: {exc}"
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": order.action,
+                        "side": order.side,
+                        "size": f"{order.size:.12g}",
+                        "error": error,
+                    }
+                )
                 report.margin_notes.append(f"{symbol}: 全仓杠杆设置失败（{exc}）")
+                continue
+            leverage_done.add(symbol)
             if isolated_ok:
                 try:
                     client.set_leverage(
@@ -313,17 +324,25 @@ def execute_plan(
             continue
 
         order_id = str(placed.get("orderId") or "")
-        payload = (
-            wait_for_fill(
-                client,
-                order_id=order_id,
-                timeout_seconds=fill_timeout_seconds,
-                poll_interval_seconds=poll_interval_seconds,
-                sleep=sleep,
-                clock=clock,
+        if not order_id:
+            report.traded = True
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": "venue did not return orderId",
+                }
             )
-            if order_id
-            else {}
+            continue
+        payload = wait_for_fill(
+            client,
+            order_id=order_id,
+            timeout_seconds=fill_timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            sleep=sleep,
+            clock=clock,
         )
         filled = _to_float(payload.get("cumExecQty"))
         avg_price = _to_float(payload.get("avgPrice"))
@@ -347,14 +366,20 @@ def execute_plan(
             )
         )
         report.traded = True
-        if status == _CANCELLED:
+        if status != _FILLED:
+            error = (
+                "order cancelled by the venue"
+                if status == _CANCELLED
+                else f"order not filled (status={status or 'unknown'}, "
+                f"filled {filled:.8g}/{order.size:.8g})"
+            )
             report.failures.append(
                 {
                     "symbol": symbol,
                     "action": order.action,
                     "side": order.side,
                     "size": f"{order.size:.12g}",
-                    "error": "order cancelled by the venue",
+                    "error": error,
                 }
             )
 
@@ -518,7 +543,7 @@ def format_execution_report(
             f"{_money(notional)} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
         )
 
-    if targets:
+    if targets is not None:
         checks = []
         for asset in sorted(targets):
             target_weight = float(targets.get(asset, 0.0))
@@ -535,12 +560,17 @@ def format_execution_report(
         if orphans:
             orphan_labels = [ticker_by_asset.get(asset, asset.upper()) for asset in orphans]
             checks.append(f"⚠️ 计划外持仓: {', '.join(orphan_labels)}")
-        age = (
-            ""
-            if event_age_days is None
-            else ("（今天的变化）" if event_age_days <= 0 else f"（{event_age_days} 天前的最近变化）")
-        )
-        lines += ["", f"信号 {signal_date}{age} · " + " · ".join(checks)]
+        if checks:
+            age = (
+                ""
+                if event_age_days is None
+                else (
+                    "（今天的变化）"
+                    if event_age_days <= 0
+                    else f"（{event_age_days} 天前的最近变化）"
+                )
+            )
+            lines += ["", f"信号 {signal_date}{age} · " + " · ".join(checks)]
 
     if report.failures:
         lines += ["", "⚠️ 未完成:"]

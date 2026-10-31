@@ -1,10 +1,15 @@
 [Unit]
-Description=Run the Atlas20 derivatives rebalance once per day
+Description=Run and retry the Atlas20 derivatives rebalance inside the daily window
 
 [Timer]
 # 11:05 Beijing: five minutes after the model's T+1 03:00 UTC fill point, and
-# after the 02:30 UTC panel refresh has landed.
+# after the 02:30 UTC panel refresh has landed. Retries at 11:35, 12:35 and
+# 14:35 Beijing repair transient API/order failures. A successful same-day run
+# makes each retry a quick no-op through the wrapper's state gate.
 OnCalendar=*-*-* 03:05:00 UTC
+OnCalendar=*-*-* 03:35:00 UTC
+OnCalendar=*-*-* 04:35:00 UTC
+OnCalendar=*-*-* 06:35:00 UTC
 Persistent=true
 AccuracySec=1min
 Unit=atlas20-derivatives-execute.service

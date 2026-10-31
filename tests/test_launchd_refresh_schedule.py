@@ -55,10 +55,14 @@ def test_refresh_runs_after_the_utc_close_is_published():
 
 def _trade_utc_time(plist_path: Path) -> tuple[int, int]:
     payload = plistlib.loads(plist_path.read_bytes())
-    entry = payload["StartCalendarInterval"]
-    local = datetime(2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE)
-    utc = local.astimezone(timezone.utc)
-    return (utc.hour, utc.minute)
+    raw = payload["StartCalendarInterval"]
+    entries = raw if isinstance(raw, list) else [raw]
+    times = []
+    for entry in entries:
+        local = datetime(2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE)
+        utc = local.astimezone(timezone.utc)
+        times.append((utc.hour, utc.minute))
+    return min(times)
 
 def test_refresh_job_runs_through_the_locked_wrapper() -> None:
     """Every fire must go through the lock and the freshness skip.

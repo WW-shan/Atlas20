@@ -22,11 +22,12 @@
 # (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
 # checkout and the credentials somewhere else, so both paths are overridable.
 #
-# The schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after the
-# model's T+1 03:00 UTC fill point. macOS also loads the job at boot
-# (RunAtLoad) and systemd replays a missed timer fire (Persistent=true);
-# scripts/live_chain_preflight.py is what keeps those from turning into a
-# second trade or an out-of-hours one.
+# The primary schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after
+# the model's T+1 03:00 UTC fill point. The launchd/systemd timers also retry
+# at 11:35, 12:35 and 14:35 Beijing; a successful same-day run makes those
+# retries no-ops. macOS loads the job at boot (RunAtLoad) and systemd replays a
+# missed timer fire (Persistent=true); scripts/live_chain_preflight.py keeps
+# those from turning into a second trade or an out-of-hours one.
 #
 # Do not run two copies at once: launchd carries a start-interval throttle, the
 # refresh step takes its own lock, and the executor is idempotent per run day.

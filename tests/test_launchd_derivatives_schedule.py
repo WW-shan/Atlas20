@@ -23,20 +23,30 @@ MONITOR_PLIST = PROJECT_ROOT / "ops" / "com.atlas20.live-monitor.plist"
 PLIST_LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 
 
-def _scheduled_utc_time(plist_path: Path) -> tuple[int, int]:
+def _scheduled_utc_times(plist_path: Path) -> list[tuple[int, int]]:
     payload = plistlib.loads(plist_path.read_bytes())
-    entry = payload["StartCalendarInterval"]
-    local = datetime(2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE)
-    utc = local.astimezone(timezone.utc)
-    return (utc.hour, utc.minute)
+    raw = payload["StartCalendarInterval"]
+    entries = raw if isinstance(raw, list) else [raw]
+    times = []
+    for entry in entries:
+        local = datetime(2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE)
+        utc = local.astimezone(timezone.utc)
+        times.append((utc.hour, utc.minute))
+    return times
+
+
+def _scheduled_utc_time(plist_path: Path) -> tuple[int, int]:
+    times = _scheduled_utc_times(plist_path)
+    assert len(times) == 1
+    return times[0]
 
 
 def test_derivatives_job_fires_at_documented_utc_time():
-    assert _scheduled_utc_time(EXECUTE_PLIST) == (3, 5)
+    assert _scheduled_utc_times(EXECUTE_PLIST)[0] == (3, 5)
 
 
 def test_monitor_fires_after_the_daily_rebalance():
-    execute = _scheduled_utc_time(EXECUTE_PLIST)
+    execute = max(_scheduled_utc_times(EXECUTE_PLIST))
     monitor = _scheduled_utc_time(MONITOR_PLIST)
     assert monitor == (11, 0)
     assert monitor > execute, "the read-only check must see a finished rebalance"
@@ -45,7 +55,14 @@ def test_monitor_fires_after_the_daily_rebalance():
 def test_derivatives_job_runs_after_the_daily_refresh():
     # The primary panel refresh fires at 10:30 Beijing (02:30 UTC); the trade
     # must not fire before the panel has for that day.
-    assert _scheduled_utc_time(EXECUTE_PLIST) > (2, 30)
+    assert min(_scheduled_utc_times(EXECUTE_PLIST)) > (2, 30)
+
+
+def test_derivatives_job_retries_failed_runs_inside_the_catchup_window():
+    times = _scheduled_utc_times(EXECUTE_PLIST)
+
+    assert times == [(3, 5), (3, 35), (4, 35), (6, 35)]
+    assert max(times) <= (9, 5)
 
 
 def _wrapper_project_root(wrapper_path: Path) -> str:

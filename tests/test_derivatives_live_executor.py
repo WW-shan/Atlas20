@@ -57,6 +57,7 @@ class _FakeLiveClient:
         order_infos: dict[str, dict[str, Any]] | None = None,
         reject_isolated_orders: bool = True,
         reject_isolated_leverage: bool = False,
+        crossed_leverage_error: str | None = None,
         margin_error: str | None = None,
         place_error: str | None = None,
     ) -> None:
@@ -66,6 +67,7 @@ class _FakeLiveClient:
         self.order_infos = order_infos or {}
         self.reject_isolated_orders = reject_isolated_orders
         self.reject_isolated_leverage = reject_isolated_leverage
+        self.crossed_leverage_error = crossed_leverage_error
         self.margin_error = margin_error
         self.place_error = place_error
         self.placed: list[dict[str, Any]] = []
@@ -85,6 +87,8 @@ class _FakeLiveClient:
 
     def set_leverage(self, symbol: str, leverage: float, **kwargs: Any) -> Any:
         self.leverage_calls.append({"symbol": symbol, "leverage": leverage, **kwargs})
+        if kwargs.get("margin_mode") == "crossed" and self.crossed_leverage_error:
+            raise BitgetAPIError(self.crossed_leverage_error)
         if kwargs.get("margin_mode") == "isolated" and self.reject_isolated_leverage:
             raise BitgetAPIError("Bitget set-leverage HTTP 400: 25200 fixedMargin not support")
         return "success"
@@ -234,6 +238,47 @@ def test_a_rejected_order_is_recorded_and_does_not_stop_the_run() -> None:
     assert "insufficient funds" in report.failures[0]["error"]
 
 
+def test_an_unfilled_order_is_a_failure_and_must_not_mark_the_run_ok() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_infos={"1001": {"orderStatus": "live", "cumExecQty": "0"}},
+    )
+
+    report = _run(client, _plan(), fill_timeout_seconds=0)
+
+    assert report.fills[0].status == "live"
+    assert report.fills[0].filled_size == 0.0
+    assert len(report.failures) == 1
+    assert "not filled" in report.failures[0]["error"]
+
+
+def test_a_missing_order_id_is_a_failure_without_a_fake_fill() -> None:
+    class _MissingOrderId(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            return {}
+
+    client = _MissingOrderId(reject_isolated_orders=False)
+
+    report = _run(client, _plan())
+
+    assert report.fills == []
+    assert len(report.failures) == 1
+    assert "orderId" in report.failures[0]["error"]
+
+
+def test_crossed_leverage_failure_blocks_the_order() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        crossed_leverage_error="Bitget set-leverage HTTP 400: permission denied",
+    )
+
+    report = _run(client, _plan())
+
+    assert client.placed == []
+    assert len(report.failures) == 1
+    assert "leverage" in report.failures[0]["error"].lower()
+
+
 def test_is_isolated_unsupported_matches_the_live_error_shapes() -> None:
     assert is_isolated_unsupported(BitgetAPIError("... 25200 fixedMargin not support ..."))
     assert is_isolated_unsupported(BitgetAPIError("... 40731 This product does not support copy trading"))
@@ -364,6 +409,32 @@ def test_report_matches_aliased_contract_by_stamped_asset() -> None:
 
     assert "TRON 目标 25.00 / 实际 25.00" in message
     assert "计划外持仓" not in message
+
+
+def test_report_flags_a_residual_position_when_the_target_is_cash() -> None:
+    report = ExecutionReport(
+        signal_date="2026-10-30",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {
+                "asset": "tron",
+                "symbol": "TRXUSDT",
+                "total": "10",
+                "avgPrice": "1",
+                "markPrice": "1",
+            }
+        ],
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-10-30",
+        spec="SPEC",
+        targets={},
+    )
+
+    assert "计划外持仓: TRX" in message
 
 
 def test_signal_line_says_how_old_the_last_change_is() -> None:

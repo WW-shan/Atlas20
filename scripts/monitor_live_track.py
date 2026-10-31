@@ -122,7 +122,7 @@ def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dic
 
 
 def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
-    """Fail when the daily run is missing today (after 06:00 UTC) or too old."""
+    """Fail unless the latest daily run is both successful and recent."""
 
     if not state_file.exists():
         return False, "no execution state file; the daily run has never completed"
@@ -130,6 +130,9 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
     last_at = state.get("last_run_at") or ""
     if not last_at:
         return False, "execution state has no last_run_at"
+    status = str(state.get("last_status") or "missing")
+    if status != "ok":
+        return False, f"最近一次调仓未完成（status={status}，最后尝试：{last_at}）"
     last = datetime.fromisoformat(str(last_at))
     if last.tzinfo is None:
         last = last.replace(tzinfo=timezone.utc)
