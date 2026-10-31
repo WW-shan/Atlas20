@@ -8,6 +8,8 @@ import pytest
 from atlas20.derivatives.execution import (
     AccountState,
     ContractSpec,
+    ExecutionPlan,
+    MarginIntent,
     build_execution_plan,
 )
 from scripts.replay_live_execution import (
@@ -187,6 +189,40 @@ def test_plan_cli_loads_account_file_and_formats_message(tmp_path) -> None:
     assert "账户权益 500.00 USDT" in message
     assert "加仓 NEAR" in message
     assert "保证金调整" in message
+
+
+def test_plan_message_uses_resolved_alias_for_margin_contract() -> None:
+    from scripts.plan_live_execution import format_execution_plan
+
+    plan = ExecutionPlan(
+        equity=100.0,
+        leverage=2.0,
+        target_margin_ratio=0.515,
+        orders=[],
+        margin_intents=[
+            MarginIntent(
+                asset="tron",
+                symbol="TRXUSDT",
+                pos_side="long",
+                operation="add",
+                amount=12.88,
+                reason="test",
+            )
+        ],
+        warnings=[],
+        target_notional={"tron": 25.0},
+        expected_gross_notional=25.0,
+        expected_margin=12.88,
+    )
+
+    message = format_execution_plan(
+        plan,
+        signal_date=pd.Timestamp("2026-10-25", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-27 03:00", tz="UTC"),
+    )
+
+    assert "isolated · TRXUSDT" in message
+    assert "TRONUSDT" not in message
 
 
 def test_symbol_map_loader_requires_columns(tmp_path) -> None:

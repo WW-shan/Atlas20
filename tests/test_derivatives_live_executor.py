@@ -338,6 +338,34 @@ def test_report_flags_an_orphan_position() -> None:
     assert "计划外持仓: ZEC" in message
 
 
+def test_report_matches_aliased_contract_by_stamped_asset() -> None:
+    report = ExecutionReport(
+        signal_date="2026-10-25",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {
+                "asset": "tron",
+                "symbol": "TRXUSDT",
+                "total": "0.25",
+                "avgPrice": "100",
+                "markPrice": "100",
+                "unrealisedPnl": "0",
+            }
+        ],
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-10-25",
+        spec="SPEC",
+        targets={"tron": 0.25},
+    )
+
+    assert "TRON 目标 25.00 / 实际 25.00" in message
+    assert "计划外持仓" not in message
+
+
 def test_signal_line_says_how_old_the_last_change_is() -> None:
     report = ExecutionReport(
         signal_date="2026-10-08",

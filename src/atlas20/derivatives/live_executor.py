@@ -448,13 +448,21 @@ def format_execution_report(
     positions = [
         row for row in report.positions_after if abs(_to_float(row.get("total"))) > 0.0
     ]
-    notional_by_symbol: dict[str, float] = {}
+    # Reconcile by the stamped coin-id asset, never by rebuilding a symbol from
+    # that id: CMC's ``tron`` trades as ``TRXUSDT``, not ``TRONUSDT``.
+    notional_by_asset: dict[str, float] = {}
+    ticker_by_asset: dict[str, str] = {}
+    position_notionals: list[tuple[dict[str, Any], str, float]] = []
     for row in positions:
         symbol = str(row.get("symbol") or "")
-        notional_by_symbol[symbol] = abs(_to_float(row.get("total"))) * _to_float(
+        asset = str(row.get("asset") or symbol.upper().removesuffix("USDT")).lower()
+        notional = abs(_to_float(row.get("total"))) * _to_float(
             row.get("markPrice") or row.get("avgPrice")
         )
-    total_notional = sum(notional_by_symbol.values())
+        notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + notional
+        ticker_by_asset[asset] = symbol.upper().removesuffix("USDT") or asset.upper()
+        position_notionals.append((row, asset, notional))
+    total_notional = sum(notional_by_asset.values())
     equity = report.equity_after or report.equity_before
     day_pnl = None if prev_equity is None else equity - float(prev_equity)
 
@@ -496,7 +504,7 @@ def format_execution_report(
     lines += ["", "当前持仓:"]
     if not positions:
         lines.append("  空仓")
-    for row in positions:
+    for row, asset, notional in position_notionals:
         symbol = str(row.get("symbol") or "")
         size = abs(_to_float(row.get("total")))
         entry = _to_float(row.get("avgPrice"))
@@ -504,10 +512,10 @@ def format_execution_report(
         upnl = _to_float(row.get("unrealisedPnl"))
         if not upnl:
             upnl = (mark - entry) * size
-        weight = notional_by_symbol[symbol] / equity if equity > 0 else 0.0
+        weight = notional / equity if equity > 0 else 0.0
         lines.append(
-            f"  {str(row.get('asset') or symbol).upper()} {_qty(size)} 枚 · "
-            f"{_money(notional_by_symbol[symbol])} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
+            f"  {asset.upper()} {_qty(size)} 枚 · "
+            f"{_money(notional)} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
         )
 
     if targets:
@@ -515,8 +523,7 @@ def format_execution_report(
         for asset in sorted(targets):
             target_weight = float(targets.get(asset, 0.0))
             target_notional = target_weight * equity
-            symbol = f"{asset.upper()}USDT"
-            actual = notional_by_symbol.get(symbol, 0.0)
+            actual = notional_by_asset.get(asset.lower(), 0.0)
             gap = actual - target_notional
             lot = float((lot_notional or {}).get(asset, 0.0))
             tolerance = max(1.0, 0.01 * target_notional, 1.5 * lot)
@@ -524,10 +531,10 @@ def format_execution_report(
             checks.append(
                 f"{asset.upper()} 目标 {_money(target_notional)} / 实际 {_money(actual)}{flag}"
             )
-        held = {str(row.get("symbol", "")).upper().replace("USDT", "") for row in positions}
-        orphans = sorted(held - {asset.upper() for asset in targets})
+        orphans = sorted(set(notional_by_asset) - {asset.lower() for asset in targets})
         if orphans:
-            checks.append(f"⚠️ 计划外持仓: {', '.join(orphans)}")
+            orphan_labels = [ticker_by_asset.get(asset, asset.upper()) for asset in orphans]
+            checks.append(f"⚠️ 计划外持仓: {', '.join(orphan_labels)}")
         age = (
             ""
             if event_age_days is None

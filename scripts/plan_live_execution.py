@@ -221,7 +221,7 @@ def format_execution_plan(
         verb = "追加" if intent.operation == "add" else "撤出"
         lines.append(
             f"  {verb} {intent.asset.upper()} {_fmt_money(intent.amount)} USDT"
-            f"（isolated · {intent.asset.upper()}USDT · {intent.pos_side}）"
+            f"（isolated · {intent.symbol} · {intent.pos_side}）"
         )
     if plan.warnings:
         lines += ["", "提示:"]
