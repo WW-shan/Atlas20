@@ -36,6 +36,12 @@ A backtest preset must be a runnable `config/*.yaml` preset (not a shared file s
 
 The worker and web services wait for the backend container to start, not for it to be healthy, because `/readyz` depends on data freshness that only the worker can restore.
 
+## Dependency Audit Policy
+
+CI keeps a strict production gate: `npm audit --omit=dev --audit-level=moderate` must pass. It also runs `npm audit --audit-level=high` across all dependencies, including the build/test toolchain, so every high or critical advisory still fails the workflow.
+
+The frontend production image contains only the built `dist/` output, not the npm dependency tree. Remaining moderate advisories in ESLint/TypeScript-ESLint/OpenAPI tooling are therefore development-only, and some currently have no compatible upstream fix. A blanket `minimatch@11` override is not acceptable because it breaks ESLint at runtime; the policy ignores only dev-only moderate findings while continuing to block high/critical findings everywhere.
+
 ## MVP GET Route Exposure
 
 Most GET routes remain unauthenticated in the MVP API. In production, bind the API to localhost/private networks or place it behind an authenticated reverse proxy before exposing it outside the host.
