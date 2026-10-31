@@ -1,6 +1,6 @@
 {
-  "last_key": "PR2026-10-D-L125-V2|2026-10-25|2026-10-26",
-  "last_run_at": "2026-10-26T03:06:17.205382+00:00",
+  "last_key": "PR2026-10-D-L125-V2|2026-10-30|2026-10-31",
+  "last_run_at": "2026-10-31T03:06:16.975124+00:00",
   "last_status": "ok",
   "runs": [
     {
@@ -286,6 +286,99 @@
       "fills": [],
       "key": "PR2026-10-D-L125-V2|2026-10-25|2026-10-26",
       "ran_at": "2026-10-26T03:06:17.205382+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "avg_price": 4.4316,
+          "fee": 0.01063584,
+          "fee_coin": "USDT",
+          "filled_size": 4.0,
+          "notional": 17.7264,
+          "order_id": "1498811283724681216",
+          "requested_size": 4.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        },
+        {
+          "action": "OPEN",
+          "asset": "tron",
+          "avg_price": 0.32891,
+          "fee": 0.01519564,
+          "fee_coin": "USDT",
+          "filled_size": 77.0,
+          "notional": 25.326,
+          "order_id": "1498811287629578240",
+          "requested_size": 77.0,
+          "side": "buy",
+          "status": "filled",
+          "symbol": "TRXUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-25|2026-10-27",
+      "ran_at": "2026-10-27T03:06:19.269830+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "CLOSE",
+          "asset": "tron",
+          "avg_price": 0.33085,
+          "fee": 0.01528527,
+          "fee_coin": "USDT",
+          "filled_size": 77.0,
+          "notional": 25.4754,
+          "order_id": "1499173651600228352",
+          "requested_size": 77.0,
+          "side": "sell",
+          "status": "filled",
+          "symbol": "TRXUSDT"
+        },
+        {
+          "action": "CLOSE",
+          "asset": "near",
+          "avg_price": 4.7065,
+          "fee": 0.0112956,
+          "fee_coin": "USDT",
+          "filled_size": 4.0,
+          "notional": 18.826,
+          "order_id": "1499173656348180480",
+          "requested_size": 4.0,
+          "side": "sell",
+          "status": "filled",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "key": "PR2026-10-D-L125-V2|2026-10-27|2026-10-28",
+      "ran_at": "2026-10-28T03:06:14.645900+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-28|2026-10-29",
+      "ran_at": "2026-10-29T03:06:15.087812+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-29|2026-10-30",
+      "ran_at": "2026-10-30T03:06:15.991327+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-10-D-L125-V2|2026-10-30|2026-10-31",
+      "ran_at": "2026-10-31T03:06:16.975124+00:00",
       "status": "ok"
     }
   ]

@@ -1,7 +1,7 @@
 {
-  "execution_hint": "2026-10-26 03:00:00+00:00",
+  "execution_hint": "2026-10-31 03:00:00+00:00",
   "plan": {
-    "equity": 98.47733906,
+    "equity": 99.68070768,
     "expected_gross_notional": 0.0,
     "expected_margin": 0.0,
     "leverage": 2.0,
@@ -12,19 +12,19 @@
     "warnings": []
   },
   "report": {
-    "available_after": 98.47733906,
-    "balance_after": 98.47733906,
-    "equity_after": 98.47733906,
-    "equity_before": 98.47733906,
+    "available_after": 99.68070768,
+    "balance_after": 99.68070768,
+    "equity_after": 99.68070768,
+    "equity_before": 99.68070768,
     "failures": [],
     "fills": [],
     "margin_mode": "",
     "margin_notes": [],
     "positions_after": [],
-    "signal_date": "2026-10-25",
+    "signal_date": "2026-10-30",
     "traded": false
   },
-  "signal_date": "2026-10-25",
+  "signal_date": "2026-10-30",
   "spec": "PR2026-10-D-L125-V2",
   "status": "ok"
 }
