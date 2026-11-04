@@ -437,6 +437,25 @@ def test_report_flags_a_residual_position_when_the_target_is_cash() -> None:
     assert "计划外持仓: TRX" in message
 
 
+def test_report_excludes_external_deposit_from_daily_pnl() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-03",
+        equity_before=501.0,
+        equity_after=501.0,
+        balance_after=501.0,
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-11-03",
+        spec="SPEC",
+        prev_equity=100.0,
+        capital_flow=400.0,
+    )
+
+    assert "今日盈亏 +1.00 USDT（+0.20%）" in message
+
+
 def test_signal_line_says_how_old_the_last_change_is() -> None:
     report = ExecutionReport(
         signal_date="2026-10-08",

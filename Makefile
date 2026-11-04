@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -93,7 +93,13 @@ execute-plan: $(VENV_STAMP)
 	$(PYTHON) scripts/execute_live_plan.py
 
 execute-plan-live: $(VENV_STAMP)
-	$(PYTHON) scripts/execute_live_plan.py --live --notify
+	$(PYTHON) scripts/execute_live_plan.py --live --notify $(ARGS)
+
+# Record an external account transfer without polluting strategy PnL.
+# Usage: make record-capital-flow AMOUNT=400 NOTE='deposit'
+record-capital-flow: $(VENV_STAMP)
+	@test -n "$(AMOUNT)" || (echo "AMOUNT is required: use AMOUNT=400 or AMOUNT=-100" >&2; exit 2)
+	$(PYTHON) scripts/record_capital_flow.py --amount="$(AMOUNT)" --note="$(NOTE)"
 
 # Read-only end-to-end reconciliation: account identities, ledger vs venue
 # order history, book vs frozen target, gross vs the 1.25x cap.

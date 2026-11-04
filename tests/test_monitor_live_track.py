@@ -4,7 +4,18 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 
-from scripts.monitor_live_track import _execution_freshness
+from atlas20.derivatives.live_journal import (
+    JournalEntry,
+    append_capital_flow,
+    load_journal,
+    upsert_entry,
+)
+from scripts.monitor_live_track import (
+    _audit_command,
+    _audit_failure_details,
+    _execution_freshness,
+    _ledger_change,
+)
 
 
 def test_execution_freshness_rejects_a_partial_last_run(tmp_path: Path) -> None:
@@ -27,3 +38,64 @@ def test_execution_freshness_rejects_a_partial_last_run(tmp_path: Path) -> None:
 
     assert fresh is False
     assert "partial" in detail
+
+
+def test_ledger_change_excludes_a_deposit_made_after_the_last_row(tmp_path: Path) -> None:
+    journal_path = tmp_path / "journal.csv"
+    flows_path = tmp_path / "capital_flows.csv"
+    upsert_entry(
+        journal_path,
+        JournalEntry(
+            date="2026-11-04",
+            run_at_utc="2026-11-04T03:06:00+00:00",
+            signal_date="2026-11-03",
+            equity=99.68,
+            position_value=0.0,
+            cash=99.68,
+            day_pnl=0.0,
+            day_return=0.0,
+            fees_today=0.0,
+            funding_total=0.0,
+            unrealised_pnl=0.0,
+        ),
+    )
+    append_capital_flow(
+        flows_path,
+        timestamp_utc="2026-11-04T11:15:00+00:00",
+        amount_usdt=400.0,
+        note="deposit",
+    )
+
+    change = _ledger_change(
+        load_journal(journal_path),
+        flows_path,
+        equity=499.68,
+        now=datetime(2026, 11, 4, 11, 30, tzinfo=timezone.utc),
+    )
+
+    assert change == 0.0
+
+
+def test_audit_subprocess_uses_the_configured_capital_flows_file(tmp_path: Path) -> None:
+    json_out = tmp_path / "audit.json"
+    flows = tmp_path / "capital_flows.csv"
+
+    command = _audit_command(json_out, flows)
+
+    assert command[-2:] == ["--capital-flows-file", str(flows)]
+
+
+def test_alert_names_the_failed_audit_check() -> None:
+    detail = _audit_failure_details(
+        {
+            "hard_failures": 1,
+            "checks": [
+                {"check": "台账最新一行 = 当前账户", "ok": False, "hard": True, "detail": "差 400"},
+                {"check": "mark 数据新鲜", "ok": True, "hard": True, "detail": "1.1h"},
+            ],
+        }
+    )
+
+    assert "台账最新一行 = 当前账户" in detail
+    assert "差 400" in detail
+    assert "mark 数据新鲜" not in detail

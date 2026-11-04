@@ -9,7 +9,7 @@ book and the local ledger, then checks
 3. every trade in the ledger exists in the venue's order history with the
    same quantity, average price and fee,
 4. the current book matches the frozen target book (within one contract lot),
-5. the ledger's PnL chain adds up (``Σ day_pnl == equity_end - equity_start``),
+5. the ledger's PnL chain adds up after excluding external capital flows,
 6. nothing is held that the frozen book does not ask for,
 7. the gross notional respects the 1.25x spec cap.
 
@@ -37,7 +37,11 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
-from atlas20.derivatives.live_journal import load_journal  # noqa: E402
+from atlas20.derivatives.live_journal import (  # noqa: E402
+    DEFAULT_CAPITAL_FLOWS_FILE,
+    load_journal,
+    net_capital_flow,
+)
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.plan_live_execution import (  # noqa: E402
@@ -73,16 +77,71 @@ def _fees(row: dict) -> float:
     return total
 
 
+def _ledger_expected_equity(
+    last: dict,
+    *,
+    current_positions: list[dict],
+    capital_flow: float,
+) -> tuple[float, list[str]]:
+    """Roll the latest ledger snapshot forward to the live venue state.
+
+    Mark-to-market changes belong in strategy PnL. Deposits and withdrawals do
+    not, so the latter are added separately from the capital-flow ledger.
+    """
+
+    ledger_positions = json.loads(last.get("positions") or "[]")
+    ledger_by_symbol = {str(item.get("symbol")): item for item in ledger_positions}
+    expected_equity = _num(last.get("equity")) + float(capital_flow)
+    mismatches: list[str] = []
+    for row in current_positions:
+        symbol = str(row.get("symbol") or "")
+        ledger_row = ledger_by_symbol.pop(symbol, None)
+        if ledger_row is None:
+            mismatches.append(f"{symbol} 不在台账里")
+            continue
+        expected_equity += abs(_num(row.get("total"))) * (
+            _num(row.get("markPrice")) - _num(ledger_row.get("mark_price"))
+        )
+    if ledger_by_symbol:
+        mismatches.append(f"台账多了 {', '.join(sorted(ledger_by_symbol))}")
+    return expected_equity, mismatches
+
+
+def _pnl_chain_errors(journal: pd.DataFrame) -> list[str]:
+    """Return every adjacent-row break in the capital-adjusted PnL chain."""
+
+    if len(journal) < 2:
+        return []
+    frame = journal.sort_values("date").reset_index(drop=True)
+    errors: list[str] = []
+    for index in range(1, len(frame)):
+        capital_flow = _num(frame.loc[index, "capital_flow"])
+        expected = (
+            _num(frame.loc[index, "equity"])
+            - _num(frame.loc[index - 1, "equity"])
+            - capital_flow
+        )
+        recorded = frame.loc[index, "day_pnl"]
+        if pd.isna(recorded) or abs(_num(recorded) - expected) > 0.01:
+            errors.append(
+                f"{frame.loc[index, 'date']}: 记录 {_num(recorded):.4f} vs 重算 {expected:.4f}"
+                f"（外部资金流 {capital_flow:+.4f}）"
+            )
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--spec", default=TRACKED_SPEC)
     parser.add_argument("--journal-file", type=Path, default=DEFAULT_JOURNAL_FILE)
+    parser.add_argument("--capital-flows-file", type=Path, default=DEFAULT_CAPITAL_FLOWS_FILE)
     parser.add_argument("--targets-file", type=Path, default=DEFAULT_TARGETS_FILE)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--history-days", type=int, default=7)
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     args = parser.parse_args(argv)
+    checked_at = datetime.now(timezone.utc)
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
     assets = client.account_assets()
@@ -142,51 +201,37 @@ def main(argv: list[str] | None = None) -> int:
         last = None
     else:
         last = journal.sort_values("date").iloc[-1].to_dict()
-        # The row is a snapshot from minutes ago; roll it forward with the
-        # live marks so the comparison tests the ledger, not the clock.
-        ledger_positions = json.loads(last["positions"] or "[]")
-        ledger_by_symbol = {str(item.get("symbol")): item for item in ledger_positions}
-        expected_equity = _num(last["equity"])
-        consistent = True
+        # The row is a snapshot from minutes ago; roll it forward with live
+        # marks and external cash flows so the comparison tests the ledger,
+        # not the clock or a deposit/withdrawal.
+        capital_flow = net_capital_flow(
+            args.capital_flows_file,
+            after=last.get("run_at_utc"),
+            through=checked_at,
+        )
+        expected_equity, mismatches = _ledger_expected_equity(
+            last,
+            current_positions=positions,
+            capital_flow=capital_flow,
+        )
         detail = f"台账 {last['date']} equity={_num(last['equity']):.4f}"
-        for row in positions:
-            symbol = str(row.get("symbol") or "")
-            ledger_row = ledger_by_symbol.pop(symbol, None)
-            if ledger_row is None:
-                consistent = False
-                detail += f"；{symbol} 不在台账里"
-                continue
-            expected_equity += abs(_num(row.get("total"))) * (
-                _num(row.get("markPrice")) - _num(ledger_row.get("mark_price"))
-            )
-        if ledger_by_symbol:
-            consistent = False
-            detail += f"；台账多了 {', '.join(sorted(ledger_by_symbol))}"
-        consistent = consistent and abs(expected_equity - equity) <= 0.05
+        if abs(capital_flow) > 0.005:
+            detail += f"；外部资金流 {capital_flow:+.4f}"
+        if mismatches:
+            detail += f"；{'；'.join(mismatches)}"
+        consistent = not mismatches and abs(expected_equity - equity) <= 0.05
         check(
             "台账最新一行 = 当前账户（按实时标记价折算）",
             consistent,
             detail + f"；折算后应为 {expected_equity:.4f}，交易所 {equity:.4f}",
         )
-        chain_ok = True
-        detail = "无可校验的相邻行"
-        if len(journal) >= 2:
-            frame = journal.sort_values("date").reset_index(drop=True)
-            detail_parts = []
-            for index in range(1, len(frame)):
-                expected = _num(frame.loc[index, "equity"]) - _num(frame.loc[index - 1, "equity"])
-                recorded = frame.loc[index, "day_pnl"]
-                recorded_value = _num(recorded)
-                if pd.isna(recorded) or abs(recorded_value - expected) > 0.01:
-                    chain_ok = False
-                    detail_parts.append(
-                        f"{frame.loc[index, 'date']}: 记录 {recorded_value:.4f} vs 重算 {expected:.4f}"
-                    )
-            detail = "；".join(detail_parts) or f"{len(frame) - 1} 个相邻日全部一致"
+        chain_errors = _pnl_chain_errors(journal)
+        chain_ok = not chain_errors
+        detail = "；".join(chain_errors) or f"{max(len(journal) - 1, 0)} 个相邻日全部一致"
         check("台账 PnL 链一致", chain_ok, detail)
 
     # -- trades vs venue order history -----------------------------------
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    now_ms = int(checked_at.timestamp() * 1000)
     history = client.order_history(
         start_time_ms=now_ms - int(args.history_days) * 86_400_000,
         end_time_ms=now_ms,
@@ -202,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
                 venue = by_id.get(order_id)
                 if venue is None:
                     # older than the queried window is fine; only flag recent days
-                    if str(row["date"]) >= (datetime.now(timezone.utc) - timedelta(days=args.history_days - 1)).strftime("%Y-%m-%d"):
+                    if str(row["date"]) >= (checked_at - timedelta(days=args.history_days - 1)).strftime("%Y-%m-%d"):
                         missing.append(order_id)
                     continue
                 same_qty = abs(_num(venue.get("cumExecQty")) - _num(trade.get("qty"))) <= 1e-9
@@ -300,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # -- output ----------------------------------------------------------
     hard_failures = [row for row in checks if not row["ok"] and row["hard"]]
-    print(f"Atlas20 实盘全链路核对 · {args.spec} · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
+    print(f"Atlas20 实盘全链路核对 · {args.spec} · {checked_at.strftime('%Y-%m-%d %H:%M UTC')}")
     print(f"交易所: 权益 {equity:.4f} USDT · 仓位 {gross:.4f} · 持仓 {len(positions)} 腿 · 未实现 {unrealised:+.4f}")
     print("")
     for row in checks:
@@ -314,7 +359,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "spec": args.spec,
-                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "checked_at": checked_at.isoformat(),
                 "equity": equity,
                 "position_value": gross,
                 "signal_date": str(pd.Timestamp(signal_date).date()),

@@ -455,6 +455,7 @@ def format_execution_report(
     warnings: list[str] | None = None,
     prev_equity: float | None = None,
     prev_day_pnl: float | None = None,
+    capital_flow: float = 0.0,
     run_at: datetime | None = None,
     event_age_days: int | None = None,
 ) -> str:
@@ -489,20 +490,27 @@ def format_execution_report(
         position_notionals.append((row, asset, notional))
     total_notional = sum(notional_by_asset.values())
     equity = report.equity_after or report.equity_before
-    day_pnl = None if prev_equity is None else equity - float(prev_equity)
+    day_pnl = (
+        None
+        if prev_equity is None
+        else equity - float(prev_equity) - float(capital_flow)
+    )
 
     lines = [f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
     lines.append(f"总权益 {_money(equity)} USDT")
     share = f"（{total_notional / equity:.1%} 权益）" if equity > 0 else ""
     lines.append(f"仓位价值 {_money(total_notional)} USDT{share}")
-    if day_pnl is None or not prev_equity:
+    capital_base = None if prev_equity is None else float(prev_equity) + float(capital_flow)
+    if day_pnl is None or not capital_base or capital_base <= 0:
         lines.append("今日盈亏 —（首个记录日）")
     else:
-        lines.append(f"今日盈亏 {day_pnl:+.2f} USDT（{day_pnl / float(prev_equity):+.2%}）")
+        lines.append(f"今日盈亏 {day_pnl:+.2f} USDT（{day_pnl / capital_base:+.2%}）")
     if prev_day_pnl is None:
         lines.append("昨日盈亏 —")
     else:
         lines.append(f"昨日盈亏 {float(prev_day_pnl):+.2f} USDT")
+    if abs(float(capital_flow)) > 0.005:
+        lines.append(f"外部资金流 {float(capital_flow):+.2f} USDT（不计入盈亏）")
 
     lines += ["", "今日成交:"]
     if not report.fills:

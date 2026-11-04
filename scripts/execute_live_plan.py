@@ -51,8 +51,10 @@ from atlas20.derivatives.live_executor import (  # noqa: E402
     format_execution_report,
 )
 from atlas20.derivatives.live_journal import (  # noqa: E402
+    DEFAULT_CAPITAL_FLOWS_FILE,
     JournalEntry,
     load_journal,
+    net_capital_flow,
     previous_row,
     upsert_entry,
 )
@@ -117,6 +119,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--require-isolated", action="store_true")
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--journal-file", type=Path, default=DEFAULT_JOURNAL_FILE)
+    parser.add_argument("--capital-flows-file", type=Path, default=DEFAULT_CAPITAL_FLOWS_FILE)
     parser.add_argument("--kill-switch", type=Path, default=DEFAULT_KILL_SWITCH)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--instruments-file", type=Path, default=None)
@@ -143,6 +146,7 @@ def _journal_entry(
     signal_date: str,
     run_at: datetime,
     prev_equity: float | None,
+    capital_flow: float,
     warnings: list[str],
 ) -> JournalEntry:
     positions: list[dict] = []
@@ -174,11 +178,18 @@ def _journal_entry(
             }
         )
     equity = report.equity_after
-    day_pnl = None if prev_equity is None else round(equity - float(prev_equity), 6)
+    day_pnl = (
+        None
+        if prev_equity is None
+        else round(equity - float(prev_equity) - float(capital_flow), 6)
+    )
+    capital_base = (
+        None if prev_equity is None else float(prev_equity) + float(capital_flow)
+    )
     day_return = (
         None
-        if not prev_equity or day_pnl is None
-        else round(day_pnl / float(prev_equity), 8)
+        if not capital_base or capital_base <= 0 or day_pnl is None
+        else round(day_pnl / capital_base, 8)
     )
     return JournalEntry(
         date=run_at.strftime("%Y-%m-%d"),
@@ -192,6 +203,7 @@ def _journal_entry(
         fees_today=round(report.fee_total, 8),
         funding_total=round(funding, 8),
         unrealised_pnl=round(unrealised, 6),
+        capital_flow=round(float(capital_flow), 6),
         positions=positions,
         trades=[
             {
@@ -380,13 +392,20 @@ def main(argv: list[str] | None = None) -> int:
         if asset in prices_by_asset
     }
     warnings = [*plan.warnings, *warnings]
-    notes = list(warnings)
-    if freshness_note:
-        notes.append(freshness_note)
     run_at = datetime.now(timezone.utc)
     journal = load_journal(args.journal_file)
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
     prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
+    capital_flow = net_capital_flow(
+        args.capital_flows_file,
+        after=previous.get("run_at_utc") if previous else None,
+        through=run_at,
+    )
+    if abs(capital_flow) > 0.005:
+        warnings.append(f"外部资金流 {capital_flow:+.2f} USDT（已从盈亏中剔除）")
+    notes = list(warnings)
+    if freshness_note:
+        notes.append(freshness_note)
     prev_day_pnl = (
         float(previous["day_pnl"])
         if previous and previous.get("day_pnl") is not None
@@ -450,6 +469,7 @@ def main(argv: list[str] | None = None) -> int:
         warnings=warnings,
         prev_equity=prev_equity,
         prev_day_pnl=prev_day_pnl,
+        capital_flow=capital_flow,
         run_at=run_at,
         event_age_days=event_age_days,
     )
@@ -473,6 +493,7 @@ def main(argv: list[str] | None = None) -> int:
             signal_date=str(signal_date.date()),
             run_at=run_at,
             prev_equity=prev_equity,
+            capital_flow=capital_flow,
             warnings=notes,
         )
         _persist_run_result(

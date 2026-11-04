@@ -34,6 +34,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pandas as pd
 import requests
 
 # ruff: noqa: E402
@@ -44,7 +45,12 @@ for path in (PROJECT_ROOT, PROJECT_ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
-from atlas20.derivatives.live_journal import load_journal, previous_row  # noqa: E402
+from atlas20.derivatives.live_journal import (  # noqa: E402
+    DEFAULT_CAPITAL_FLOWS_FILE,
+    latest_row,
+    load_journal,
+    net_capital_flow,
+)
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.audit_live_track import (  # noqa: E402
@@ -76,6 +82,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--journal-file", type=Path, default=DEFAULT_JOURNAL_FILE)
+    parser.add_argument("--capital-flows-file", type=Path, default=DEFAULT_CAPITAL_FLOWS_FILE)
     parser.add_argument("--targets-file", type=Path, default=DEFAULT_TARGETS_FILE)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
@@ -90,7 +97,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _run_audit() -> tuple[int, dict]:
+def _audit_command(json_out: Path, capital_flows_file: Path) -> list[str]:
+    return [
+        sys.executable,
+        str(AUDIT_SCRIPT),
+        "--json-out",
+        str(json_out),
+        "--capital-flows-file",
+        str(capital_flows_file),
+    ]
+
+
+def _audit_failure_details(audit: dict) -> str:
+    failures = [
+        row
+        for row in audit.get("checks") or []
+        if isinstance(row, dict) and row.get("hard") and not row.get("ok")
+    ]
+    if not failures:
+        return "全链路核对失败（未返回明细；手动运行 make audit-live）"
+    details = "；".join(
+        f"{row.get('check') or '未命名检查'} — {row.get('detail') or '无详情'}"
+        for row in failures
+    )
+    return f"全链路核对失败：{details}"
+
+
+def _run_audit(capital_flows_file: Path) -> tuple[int, dict]:
     """Run the read-only audit in a subprocess and parse its JSON payload."""
 
     import tempfile
@@ -98,7 +131,7 @@ def _run_audit() -> tuple[int, dict]:
     with tempfile.TemporaryDirectory(prefix="atlas20-monitor-") as tmp:
         json_out = Path(tmp) / "audit.json"
         proc = subprocess.run(
-            [sys.executable, str(AUDIT_SCRIPT), "--json-out", str(json_out)],
+            _audit_command(json_out, capital_flows_file),
             cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
@@ -146,11 +179,31 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
     return True, f"最近成功执行 {last_at}（{age_hours:.1f}h 前）"
 
 
+def _ledger_change(
+    journal: pd.DataFrame,
+    capital_flows_file: Path,
+    *,
+    equity: float,
+    now: datetime,
+) -> float | None:
+    """Account change since the latest ledger row, excluding outside cash."""
+
+    latest = latest_row(journal)
+    if latest is None or latest.get("equity") is None:
+        return None
+    flow = net_capital_flow(
+        capital_flows_file,
+        after=latest.get("run_at_utc"),
+        through=now,
+    )
+    return equity - float(latest["equity"]) - flow
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     now = datetime.now(timezone.utc)
 
-    audit_exit, audit = _run_audit()
+    audit_exit, audit = _run_audit(args.capital_flows_file)
     audit_failures = int(audit.get("hard_failures") or 0)
     equity = float(audit.get("equity") or 0.0)
     gross = float(audit.get("position_value") or 0.0)
@@ -175,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
 
     issues: list[str] = []
     if audit_exit != 0 or audit_failures:
-        issues.append(f"全链路核对有 {audit_failures} 项硬失败（跑 make audit-live 看明细）")
+        issues.append(_audit_failure_details(audit))
 
     actual = _position_notional(positions, symbol_map)
     for asset, weight in targets.items():
@@ -210,11 +263,12 @@ def main(argv: list[str] | None = None) -> int:
         issues.append(fresh_detail)
 
     journal = load_journal(args.journal_file)
-    previous = previous_row(journal, now.strftime("%Y-%m-%d"))
-    prev_equity = (
-        float(previous["equity"]) if previous is not None and previous.get("equity") is not None else None
+    day_pnl = _ledger_change(
+        journal,
+        args.capital_flows_file,
+        equity=equity,
+        now=now,
     )
-    day_pnl = equity - prev_equity if prev_equity is not None else None
 
     flags = {"audit_exit": audit_exit, "issues": issues, "checked_at": now.isoformat()}
     ensure_dir(args.out.parent)

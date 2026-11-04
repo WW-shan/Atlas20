@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timezone
 
 import pytest
 
@@ -77,3 +78,25 @@ def test_state_is_not_marked_complete_when_notification_fails(tmp_path: Path) ->
         )
 
     assert not state_path.exists()
+
+
+def test_external_deposit_is_excluded_from_daily_pnl() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-03",
+        equity_before=501.0,
+        equity_after=501.0,
+        balance_after=501.0,
+    )
+
+    entry = execute_live_plan._journal_entry(
+        report,
+        signal_date="2026-11-03",
+        run_at=datetime(2026, 11, 4, 11, 15, tzinfo=timezone.utc),
+        prev_equity=100.0,
+        capital_flow=400.0,
+        warnings=[],
+    )
+
+    assert entry.day_pnl == pytest.approx(1.0)
+    assert entry.day_return == pytest.approx(0.002)
+    assert entry.capital_flow == pytest.approx(400.0)
