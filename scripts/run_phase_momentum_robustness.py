@@ -33,6 +33,7 @@ from atlas20.strategies.phase_momentum import (  # noqa: E402
 )
 
 from scripts.run_phase_momentum import (  # noqa: E402
+    _btc_benchmark_returns,
     _load_market,
     _parse_floats,
     _production_result,
@@ -98,7 +99,7 @@ def main() -> None:
     headline = {
         "primary": candidates["primary"],
         PARAMETER_ENSEMBLE_COLUMN: candidates[PARAMETER_ENSEMBLE_COLUMN],
-        "BTC": market.returns["bitcoin"].reindex(index).fillna(0.0),
+        "BTC": _btc_benchmark_returns(market, index),
     }
     best_year = _best_year_removal(headline)
     rolling = pd.DataFrame(
@@ -129,7 +130,7 @@ def main() -> None:
             )
             stress_returns[f"{name}_{cost:g}bps"] = result.daily_returns
             stress_rows.append(_summary_row(name, result.daily_returns, cost_bps=cost, period=period))
-    stress_btc = stress_market.returns["bitcoin"].reindex(stress_index).fillna(0.0)
+    stress_btc = _btc_benchmark_returns(stress_market, stress_index)
     stress_returns["BTC"] = stress_btc
     stress_rows.append(_summary_row("BTC", stress_btc, cost_bps=0.0, period=period))
     stress = pd.DataFrame(stress_rows)

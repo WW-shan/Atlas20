@@ -83,6 +83,14 @@ def _load_market(
     return config, market, universe, index
 
 
+def _btc_benchmark_returns(market: MarketDataBundle, index: pd.DatetimeIndex) -> pd.Series:
+    """Buy at the first window close, matching the production benchmark."""
+    returns = market.returns["bitcoin"].reindex(index).copy()
+    if not returns.empty:
+        returns.iloc[0] = 0.0
+    return returns.fillna(0.0)
+
+
 def _production_result(
     config: ResearchConfig,
     market: MarketDataBundle,
@@ -506,7 +514,7 @@ def main() -> None:
             }
         )
 
-    btc_returns = market.returns["bitcoin"].reindex(index).fillna(0.0)
+    btc_returns = _btc_benchmark_returns(market, index)
     summary_rows.append(
         _summary_row("BTC", btc_returns, cost_bps=0.0, period="full_2022_plus")
     )
