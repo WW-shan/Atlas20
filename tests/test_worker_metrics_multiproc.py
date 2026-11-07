@@ -73,9 +73,10 @@ def test_worker_metrics_scrape_aggregates_subprocess_counter(tmp_path: Path) -> 
         )
         del child
 
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         body = ""
         for _ in range(20):
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics", timeout=2) as response:
+            with opener.open(f"http://127.0.0.1:{port}/metrics", timeout=2) as response:
                 body = response.read().decode("utf-8")
             match = re.search(r'atlas20_backtests_total\\{status="completed"\\}\\s+([0-9.]+)', body)
             if match and float(match.group(1)) > 0:
