@@ -22,6 +22,11 @@ LOGGER = get_logger(__name__)
 
 def _all_rebalance_dates(market_index: pd.DatetimeIndex, config: ResearchConfig) -> list[pd.Timestamp]:
     dates: set[pd.Timestamp] = set()
+    # The equal-weight benchmark needs a PIT universe for its initial entry,
+    # even when every configured rebalance schedule starts at month-end.
+    in_window = market_index[market_index >= config.start_timestamp]
+    if not in_window.empty:
+        dates.add(pd.Timestamp(in_window[0]))
     for frequency_name, frequency_value in config.rebalancing.frequencies.items():
         dates.update(get_rebalance_dates(market_index, config.start_timestamp, frequency_name, frequency_value))
     return sorted(dates)
