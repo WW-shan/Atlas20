@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atlas20.derivatives.live_journal import (
     JOURNAL_COLUMNS,
     JournalEntry,
     append_capital_flow,
     latest_row,
+    load_capital_flows,
     load_journal,
     net_capital_flow,
     previous_row,
@@ -139,3 +142,42 @@ def test_old_journal_rows_default_missing_capital_flow_to_zero(tmp_path: Path) -
     frame = load_journal(path)
 
     assert float(frame.iloc[0]["capital_flow"]) == 0.0
+
+
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize(
+    ("timestamp", "amount"),
+    [
+        ("2026-11-04", float("nan")),
+        ("2026-11-04", float("inf")),
+        ("2026-11-04", float("-inf")),
+        ("NaT", 100.0),
+    ],
+)
+def test_invalid_capital_flow_does_not_change_the_file(
+    tmp_path: Path,
+    existing: bool,
+    timestamp: str,
+    amount: float,
+) -> None:
+    path = tmp_path / "capital_flows.csv"
+    if existing:
+        append_capital_flow(path, timestamp_utc="2026-11-03", amount_usdt=25.0)
+    before = path.read_bytes() if existing else None
+
+    with pytest.raises(ValueError):
+        append_capital_flow(path, timestamp_utc=timestamp, amount_usdt=amount)
+
+    assert (path.read_bytes() if path.exists() else None) == before
+
+
+@pytest.mark.parametrize("amount", ["inf", "-inf"])
+def test_loading_non_finite_capital_flow_rejects_the_ledger(tmp_path: Path, amount: str) -> None:
+    path = tmp_path / "capital_flows.csv"
+    path.write_text(
+        f"timestamp_utc,amount_usdt,note\n2026-11-04T11:17:00Z,{amount},deposit\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="invalid timestamp or amount"):
+        load_capital_flows(path)
