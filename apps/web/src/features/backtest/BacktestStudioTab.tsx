@@ -104,7 +104,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
   // id that doesn't exist would 404 here and the UI would show ghost KPIs
   // (we previously had a literal "btk_0142" fallback that surfaced fake
   // numbers for every fresh visit). Fallback chain:
-  //   explicit prefillRunId  →  first run in queue (in-flight)
+  //   submitted run → explicit prefillRunId → first run in queue (in-flight)
   //                          →  most recent COMPLETED backtest in history
   //                          →  undefined (honest empty state)
   // Filtering on status === "completed" (and return_pct present) prevents
@@ -124,7 +124,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
 
   const latestHistoryRunId = recentRunsQuery.data?.items
     .find((row) => isBacktestRun(row) && row.status === "completed" && row.return_pct != null)?.run_id;
-  const selectedRunId = prefillRunId ?? submittedRunId ?? latestQueueRunId ?? latestHistoryRunId;
+  const selectedRunId = submittedRunId ?? prefillRunId ?? latestQueueRunId ?? latestHistoryRunId;
   const detailQuery = useQuery({
     queryKey: qk.runs.detail(selectedRunId ?? "__none__"),
     queryFn: () => getRunDetail(selectedRunId as string),
@@ -208,7 +208,7 @@ export function BacktestStudioTab({ prefillRunId, onNavigate }: Props) {
         <Button
           variant="gold"
           onClick={() => {
-            hydratedFor.current = undefined;
+            // Keep the history prefill consumed so it cannot overwrite this reset.
             setSubmittedRunId(undefined);
             runMutation.reset();
             setReportError(undefined);

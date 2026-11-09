@@ -91,7 +91,7 @@ describe("BacktestStudioTab", () => {
     expect(button).toHaveAttribute("aria-busy", "true");
   });
 
-  it("keeps a submitted run selected after it leaves the active queue", async () => {
+  it.each([undefined, "btk_0142"])("keeps a submitted run selected after it leaves the active queue (prefill: %s)", async (prefillRunId) => {
     const historyRun = { ...api.fallbackRunsList[6], run_id: "btk_0100" };
     const submittedRun: api.RunRowSummary = {
       ...api.fallbackRunsQueue[0],
@@ -111,16 +111,21 @@ describe("BacktestStudioTab", () => {
     vi.mocked(api.getRunDetail).mockImplementation(async (runId: string) => ({
       ...api.fallbackRunDetail,
       run_id: runId,
+      window: { ...api.fallbackRunDetail.window, start: "2023-01-01" },
       status: runId === submittedRun.run_id ? "queued" : "completed",
     }));
 
-    const { client } = renderWithQuery(<BacktestStudioTab onNavigate={() => {}} />);
+    const { client } = renderWithQuery(<BacktestStudioTab prefillRunId={prefillRunId} onNavigate={() => {}} />);
 
-    expect(await screen.findByText(historyRun.run_id)).toBeInTheDocument();
+    expect(await screen.findByText(prefillRunId ?? historyRun.run_id)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Window start")).toHaveValue(
+      prefillRunId ? "2023-01-01" : api.defaultBacktestConfig.window.start,
+    ));
 
     fireEvent.click(await screen.findByRole("button", { name: /RUN BACKTEST/ }));
 
     expect((await screen.findAllByText(submittedRun.run_id)).length).toBeGreaterThan(0);
+    await waitFor(() => expect(api.getRunDetail).toHaveBeenCalledWith(submittedRun.run_id));
     expect(await screen.findByText("Waiting for backend output")).toBeInTheDocument();
 
     act(() => {
@@ -128,7 +133,14 @@ describe("BacktestStudioTab", () => {
     });
 
     await waitFor(() => expect(screen.getAllByText(submittedRun.run_id).length).toBeGreaterThan(0));
-    expect(screen.queryByText(historyRun.run_id)).not.toBeInTheDocument();
+    expect(screen.queryByText(prefillRunId ?? historyRun.run_id)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ NEW RUN/ }));
+    await waitFor(() => expect(screen.getByLabelText("Window start")).toHaveValue(api.defaultBacktestConfig.window.start));
+    fireEvent.click(screen.getByRole("button", { name: /RUN BACKTEST/ }));
+    await waitFor(() => expect(api.runBacktest).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.runBacktest).mock.calls[1][0].preset).toBe(api.defaultBacktestConfig.preset);
+    expect(vi.mocked(api.runBacktest).mock.calls[1][0].window.start).toBe(api.defaultBacktestConfig.window.start);
   });
 
   it.each([
