@@ -1,0 +1,10 @@
+strategy,date,asset,weight,event
+TOP20_EQ__always_on,2022-07-31,chainlink,0.048376284957369155,carried
+TOP20_EQ__always_on,2022-07-31,chainlink,0.049037928755297895,stale_fill
+TOP20_MOM_top6_monthly__always_on,2022-07-31,chainlink,0.1651058614803215,carried
+TOP20_MOM_top6_monthly__always_on,2022-07-31,chainlink,0.1681718870531619,stale_fill
+TOP20_MOM_top8_biweekly__always_on,2022-07-31,chainlink,0.12613074149085998,carried
+TOP20_MOM_top8_monthly__always_on,2022-07-31,chainlink,0.126631292208592,carried
+TOP20_MOM_top8_monthly__always_on,2022-07-31,chainlink,0.12885050927765662,stale_fill
+TOP20_SECTOR_top3_biweekly__always_on,2022-07-31,chainlink,0.33593103959415305,carried
+TOP20_SECTOR_top4_biweekly__always_on,2022-07-31,chainlink,0.2523688532535821,carried

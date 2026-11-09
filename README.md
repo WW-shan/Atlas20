@@ -315,8 +315,8 @@ npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.n
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 568 Python tests plus
-188 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
+Current local verification for this release line covers 1,538 Python tests plus
+249 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
 ## Operations Surface
@@ -473,6 +473,7 @@ The end-to-end pipeline writes research artifacts to `reports/latest/`:
 - `equity_curves.png`
 - `drawdowns.png`
 - `rolling_12m_returns.png`
+- `gap_carries.csv` (every holding carried through a provider gap and any fill priced at the stale close)
 - `sector_exposure_<best_sector_strategy>.csv`
 - `sector_exposure_<best_sector_strategy>.png`
 
@@ -481,29 +482,33 @@ Git except for the directory placeholder.
 
 ## Current Included Snapshot
 
-Using the cached public-data run included in this workspace:
+Using the cached public-data run included in this workspace (2021-01-01 through
+2026-11-08):
 
-- Best momentum variant: `TOP20_MOM_top6_biweekly__always_on` - +323.8% total,
-  CAGR about 28.7%, Sharpe 0.72, max drawdown -74.6%
-- Best sector variant: `TOP20_SECTOR_top4_monthly__bull_only` - CAGR about 16.0%
-- BTC buy-and-hold CAGR: about 20.8% (+194.2% total)
-- Top-20 equal-weight CAGR: about 11.2%
-- Best sector CAGR: about 16.0%
+- Best momentum variant by Sharpe: `TOP20_MOM_top6_biweekly__bull_only` -
+  +402.3% total, CAGR about 31.7%, Sharpe 0.77, max drawdown -56.0%
+- Best sector variant by Sharpe: `TOP20_SECTOR_top4_biweekly__bull_only` -
+  +211.9% total, CAGR about 21.4%, Sharpe 0.63, max drawdown -71.7%
+- BTC buy-and-hold CAGR: about 17.2% (+153.4% total)
+- Top-20 equal-weight CAGR: about 14.4% (+119.3% total)
 
-Read those honestly. The momentum book beats BTC buy-and-hold on return, Sharpe
-and drawdown (-74.6% versus -76.6%), but almost all of the outperformance is
-the 2021 leg (+445% versus BTC's +57%); it loses to BTC in 2022, 2023, 2024 and
-2025. The current concentrated champion is documented in `RESEARCH.md`; the
-standalone snapshots in `reports/latest/` remain useful as broad benchmark
-comparisons, not as the final strategy verdict.
+Read those honestly. The momentum book beats BTC buy-and-hold on cumulative
+return, Sharpe and drawdown (-56.0% versus -76.6%), but most of that advantage
+comes from the 2021 leg (+426.1% versus BTC's +57.3%). It outperforms BTC in
+2022, but loses to BTC in 2023, 2024, 2025 and 2026. The current concentrated
+champion is documented in `RESEARCH.md`; the standalone snapshots in
+`reports/latest/` remain useful as broad benchmark comparisons, not as the final
+strategy verdict.
 
-**The benchmark moved on 2026-09-22 and that is an engine fix, not a strategy
-change.** `BTC_BH`/`ETH_BH` were still subject to the 50% sector cap, so the
-"buy-and-hold" benchmark was silently half invested in cash; the pipeline now
-lifts both the per-coin and per-sector cap for benchmarks (`max_weight_per_coin`
-and `max_weight_per_sector` = 1.0), which is what a real buy-and-hold is. Every
-number in this section is generated from `reports/latest/` by the pipeline and
-pinned by `tests/test_checked_in_report_snapshot.py`.
+**The benchmark corrections are engine fixes, not strategy changes.** `BTC_BH`
+and `ETH_BH` were subject to the 50% sector cap, so a supposed "buy-and-hold"
+benchmark was silently half invested in cash; the pipeline now lifts both the
+per-coin and per-sector cap for benchmarks (`max_weight_per_coin` and
+`max_weight_per_sector` = 1.0). The Top-20 equal-weight benchmark also enters at
+the first close of the evaluation window instead of staying in cash until the
+first month-end. Every number in this section is generated from
+`reports/latest/` by the pipeline and pinned by
+`tests/test_checked_in_report_snapshot.py`.
 
 The BTC benchmark is anchored on the first day of the backtest window, so the
 comparison is against a real buy-and-hold, not a benchmark that sat in cash
