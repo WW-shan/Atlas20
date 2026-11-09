@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -117,6 +118,8 @@ def latest_row(frame: pd.DataFrame) -> dict[str, Any] | None:
 
 def _utc_timestamp(value: datetime | str) -> pd.Timestamp:
     timestamp = pd.Timestamp(value)
+    if pd.isna(timestamp):
+        raise ValueError("capital flow timestamp must be valid")
     if timestamp.tzinfo is None:
         return timestamp.tz_localize("UTC")
     return timestamp.tz_convert("UTC")
@@ -134,7 +137,7 @@ def load_capital_flows(path: Path) -> pd.DataFrame:
     frame = frame.loc[:, CAPITAL_FLOW_COLUMNS].copy()
     frame["timestamp_utc"] = pd.to_datetime(frame["timestamp_utc"], utc=True, errors="coerce")
     frame["amount_usdt"] = pd.to_numeric(frame["amount_usdt"], errors="coerce")
-    if frame["timestamp_utc"].isna().any() or frame["amount_usdt"].isna().any():
+    if frame["timestamp_utc"].isna().any() or not frame["amount_usdt"].map(isfinite).all():
         raise ValueError("capital flows contain an invalid timestamp or amount")
     frame["note"] = frame["note"].fillna("").astype(str)
     return frame.sort_values("timestamp_utc").reset_index(drop=True)
@@ -170,8 +173,8 @@ def append_capital_flow(
     """Append one external deposit (positive) or withdrawal (negative)."""
 
     amount = float(amount_usdt)
-    if amount == 0.0:
-        raise ValueError("capital flow amount must be non-zero")
+    if not isfinite(amount) or amount == 0.0:
+        raise ValueError("capital flow amount must be finite and non-zero")
     timestamp = _utc_timestamp(timestamp_utc)
     frame = load_capital_flows(path)
     row = pd.DataFrame(
