@@ -174,6 +174,9 @@ def build_rebalance_targets(
                 targets[date] = pd.Series(dtype=float)
         return targets, rebalance_dates
 
+    if strategy.family == "equal_weight":
+        rebalance_dates = _anchor_benchmark_dates(rebalance_dates, market, config)
+
     for date in rebalance_dates:
         if strategy.regime_mode == "bull_only" and not _regime_allows(date, regime_frame, strategy.regime_mode):
             targets[date] = pd.Series(dtype=float)
