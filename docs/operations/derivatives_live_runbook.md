@@ -382,6 +382,10 @@ make execution-plan-live               # 内部带 --notify，同日幂等
 「🩺 Atlas20 实盘巡检」告警，退出码 1 让 launchd 日志可见。输出快照在
 `reports/derivatives_track_live/health.json`（已被 gitignore）。手动跑：
 
+若 `audit-live` 子进程自身崩溃、没有写出 JSON，巡检会明确显示「账户总价值未知」并把退出码与
+stderr 放进告警/`health.json`；**不会再把它当成 0 权益**。真实权益为 0 时名义倍率显示为
+「比例不可计算」，不会出现 `infx`。
+
 ```bash
 ops/run_live_monitor.sh                 # 带 --notify，异常才发
 .venv/bin/python scripts/monitor_live_track.py            # 只看不 notify

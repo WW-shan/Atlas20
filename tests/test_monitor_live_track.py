@@ -13,7 +13,9 @@ from atlas20.derivatives.live_journal import (
 from scripts.monitor_live_track import (
     _audit_command,
     _audit_failure_details,
+    _audit_metrics,
     _execution_freshness,
+    _gross_ratio,
     _ledger_change,
 )
 
@@ -99,3 +101,24 @@ def test_alert_names_the_failed_audit_check() -> None:
     assert "台账最新一行 = 当前账户" in detail
     assert "差 400" in detail
     assert "mark 数据新鲜" not in detail
+
+
+def test_missing_audit_payload_never_becomes_zero_equity() -> None:
+    assert _audit_metrics({}) == (None, None)
+    assert _audit_metrics({"equity": "499.68", "position_value": 0}) == (499.68, 0.0)
+
+
+def test_audit_process_failure_reports_its_exit_code_and_stderr() -> None:
+    detail = _audit_failure_details(
+        {},
+        exit_code=1,
+        stderr="requests.exceptions.SSLError: EOF occurred in violation of protocol",
+    )
+
+    assert "退出码 1" in detail
+    assert "SSLError" in detail
+
+
+def test_gross_ratio_is_unknown_when_equity_is_zero() -> None:
+    assert _gross_ratio(gross=0.0, equity=0.0) is None
+    assert _gross_ratio(gross=25.0, equity=100.0) == 0.25

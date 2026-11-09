@@ -1,5 +1,5 @@
 {
-  "execution_hint": "2026-11-04 03:00:00+00:00",
+  "execution_hint": "2026-11-07 03:00:00+00:00",
   "plan": {
     "equity": 499.68070768,
     "expected_gross_notional": 0.0,
@@ -21,10 +21,10 @@
     "margin_mode": "",
     "margin_notes": [],
     "positions_after": [],
-    "signal_date": "2026-11-03",
+    "signal_date": "2026-11-06",
     "traded": false
   },
-  "signal_date": "2026-11-03",
+  "signal_date": "2026-11-06",
   "spec": "PR2026-10-D-L125-V2",
   "status": "ok"
 }

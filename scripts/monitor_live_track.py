@@ -108,13 +108,38 @@ def _audit_command(json_out: Path, capital_flows_file: Path) -> list[str]:
     ]
 
 
-def _audit_failure_details(audit: dict) -> str:
+def _audit_metrics(audit: dict) -> tuple[float | None, float | None]:
+    def metric(key: str) -> float | None:
+        value = audit.get(key)
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    return metric("equity"), metric("position_value")
+
+
+def _gross_ratio(*, gross: float, equity: float) -> float | None:
+    return gross / equity if equity > 0 else None
+
+
+def _audit_failure_details(
+    audit: dict,
+    *,
+    exit_code: int = 0,
+    stderr: str = "",
+) -> str:
     failures = [
         row
         for row in audit.get("checks") or []
         if isinstance(row, dict) and row.get("hard") and not row.get("ok")
     ]
     if not failures:
+        if exit_code != 0:
+            diagnostic = stderr.strip()[-1_200:] or "未返回 stderr"
+            return f"全链路核对进程失败（退出码 {exit_code}）：{diagnostic}"
         return "全链路核对失败（未返回明细；手动运行 make audit-live）"
     details = "；".join(
         f"{row.get('check') or '未命名检查'} — {row.get('detail') or '无详情'}"
@@ -123,8 +148,8 @@ def _audit_failure_details(audit: dict) -> str:
     return f"全链路核对失败：{details}"
 
 
-def _run_audit(capital_flows_file: Path) -> tuple[int, dict]:
-    """Run the read-only audit in a subprocess and parse its JSON payload."""
+def _run_audit(capital_flows_file: Path) -> tuple[int, dict, str]:
+    """Run the read-only audit in a subprocess and preserve failure diagnostics."""
 
     import tempfile
 
@@ -137,8 +162,14 @@ def _run_audit(capital_flows_file: Path) -> tuple[int, dict]:
             text=True,
             timeout=180,
         )
-        payload = json.loads(json_out.read_text(encoding="utf-8")) if json_out.exists() else {}
-        return proc.returncode, payload
+        payload: dict = {}
+        stderr = proc.stderr.strip()
+        if json_out.exists():
+            try:
+                payload = json.loads(json_out.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                stderr = f"{stderr}\naudit JSON unreadable: {exc}".strip()
+        return proc.returncode, payload, stderr
 
 
 def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dict[str, float]:
@@ -203,10 +234,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     now = datetime.now(timezone.utc)
 
-    audit_exit, audit = _run_audit(args.capital_flows_file)
+    audit_exit, audit, audit_stderr = _run_audit(args.capital_flows_file)
     audit_failures = int(audit.get("hard_failures") or 0)
-    equity = float(audit.get("equity") or 0.0)
-    gross = float(audit.get("position_value") or 0.0)
+    equity, gross = _audit_metrics(audit)
     signal_date = str(audit.get("signal_date") or "?")
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
@@ -227,35 +257,50 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     issues: list[str] = []
-    if audit_exit != 0 or audit_failures:
-        issues.append(_audit_failure_details(audit))
+    if audit_exit != 0 or audit_failures or equity is None or gross is None:
+        issues.append(
+            _audit_failure_details(
+                audit,
+                exit_code=audit_exit,
+                stderr=audit_stderr,
+            )
+        )
 
     actual = _position_notional(positions, symbol_map)
-    for asset, weight in targets.items():
-        symbol = symbol_map.get(asset, f"{asset.upper()}USDT")
-        price = float(prices.get(symbol.upper()) or 0.0)
-        spec = specs.get(asset)
-        lot_notional = (
-            float(spec.min_order_qty or spec.quantity_multiplier) * price
-            if spec is not None and price > 0
-            else 0.0
-        )
-        want = weight * equity
-        got = actual.get(asset, 0.0)
-        # The executor only trades gaps above 5 USDT; anything larger that
-        # survives to a monitor run means the rebalance did not land.
-        tolerance = max(5.0, 0.02 * want, 1.5 * lot_notional)
-        if abs(got - want) > tolerance:
-            direction = "低" if got < want else "高"
-            issues.append(
-                f"{asset.upper()} 仓位偏离冻结目标 {abs(got - want):.1f} USDT（实际 {got:.1f} / 目标 {want:.1f}，偏{direction}）"
+    if equity is not None:
+        for asset, weight in targets.items():
+            symbol = symbol_map.get(asset, f"{asset.upper()}USDT")
+            price = float(prices.get(symbol.upper()) or 0.0)
+            spec = specs.get(asset)
+            lot_notional = (
+                float(spec.min_order_qty or spec.quantity_multiplier) * price
+                if spec is not None and price > 0
+                else 0.0
             )
+            want = weight * equity
+            got = actual.get(asset, 0.0)
+            # The executor only trades gaps above 5 USDT; anything larger that
+            # survives to a monitor run means the rebalance did not land.
+            tolerance = max(5.0, 0.02 * want, 1.5 * lot_notional)
+            if abs(got - want) > tolerance:
+                direction = "低" if got < want else "高"
+                issues.append(
+                    f"{asset.upper()} 仓位偏离冻结目标 {abs(got - want):.1f} USDT（实际 {got:.1f} / 目标 {want:.1f}，偏{direction}）"
+                )
 
-    ratio = gross / equity if equity else float("inf")
-    if ratio > SPEC_MAX_GROSS:
+    ratio = (
+        _gross_ratio(gross=gross, equity=equity)
+        if gross is not None and equity is not None
+        else None
+    )
+    if ratio is not None and ratio > SPEC_MAX_GROSS:
         issues.append(f"总名义 {ratio:.2f}x 权益，超过规格上限 {SPEC_MAX_GROSS:.2f}x")
+    elif equity is not None and equity <= 0 and gross is not None and gross > 1.0:
+        issues.append(
+            f"权益 {equity:.2f} USDT 但仓位价值 {gross:.2f} USDT，无法计算名义倍数，请立即核对"
+        )
 
-    if equity < EXECUTION_FLOOR_USDT:
+    if equity is not None and equity < EXECUTION_FLOOR_USDT:
         issues.append(f"权益 {equity:.2f} USDT 低于执行下限 {EXECUTION_FLOOR_USDT:.0f}")
 
     fresh_ok, fresh_detail = _execution_freshness(args.state_file, now)
@@ -263,22 +308,40 @@ def main(argv: list[str] | None = None) -> int:
         issues.append(fresh_detail)
 
     journal = load_journal(args.journal_file)
-    day_pnl = _ledger_change(
-        journal,
-        args.capital_flows_file,
-        equity=equity,
-        now=now,
+    day_pnl = (
+        _ledger_change(
+            journal,
+            args.capital_flows_file,
+            equity=equity,
+            now=now,
+        )
+        if equity is not None
+        else None
     )
 
-    flags = {"audit_exit": audit_exit, "issues": issues, "checked_at": now.isoformat()}
+    flags = {
+        "audit_exit": audit_exit,
+        "audit_stderr": audit_stderr or None,
+        "equity": equity,
+        "position_value": gross,
+        "issues": issues,
+        "checked_at": now.isoformat(),
+    }
     ensure_dir(args.out.parent)
     args.out.write_text(json.dumps(flags, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    lines = [
-        "🩺 Atlas20 实盘巡检",
-        f"账户总价值: {equity:.2f} USDT",
-        f"仓位价值: {gross:.2f} USDT（{ratio:.2f}x）",
-    ]
+    equity_line = (
+        f"账户总价值: {equity:.2f} USDT"
+        if equity is not None
+        else "账户总价值: 未知（全链路核对失败）"
+    )
+    if gross is None:
+        position_line = "仓位价值: 未知（全链路核对失败）"
+    elif ratio is None:
+        position_line = f"仓位价值: {gross:.2f} USDT（权益≤0 或未知，比例不可计算）"
+    else:
+        position_line = f"仓位价值: {gross:.2f} USDT（{ratio:.2f}x）"
+    lines = ["🩺 Atlas20 实盘巡检", equity_line, position_line]
     if day_pnl is not None:
         lines.append(f"较上次记账: {day_pnl:+.2f} USDT")
     lines.append(f"当前信号日: {signal_date}")
