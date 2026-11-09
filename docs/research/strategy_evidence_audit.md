@@ -424,7 +424,7 @@ Top20 市场宽度闸门（严格 Top20）：
 | 365D/90D walk-forward，2023 起，含 40bps 切换成本 | 20.78x，Sharpe 1.621 |
 | 固定主策略 2023 起 OOS | 29.91x，Sharpe 1.734 |
 | 固定主策略 CSCV OOS 低于中位数比例 | 7.47%（924 折） |
-| 去掉最佳年份 2023 | 4.83x vs BTC 0.73x |
+| 去掉最佳年份 2023 | 4.83x vs BTC 0.71x |
 | 去掉任意一条信号 @20bps | 20.58x–27.58x |
 | 去掉任意一个相位 @20bps | 21.26x–23.91x |
 | 市场状态拆分 bull / non-bull @20bps | bull 51.83x vs BTC 13.65x；non-bull 0.445x vs BTC 0.137x |

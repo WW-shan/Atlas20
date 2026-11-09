@@ -681,7 +681,7 @@ audit record:
   hold band (see above) - a robustness failure under AGENTS.md.
 - 365D/90D walk-forward from 2023 over the 25 pre-specified variants,
   including 40bps switch cost: **20.78x** (fills at the close).
-- Best-year removal: removing 2023 leaves **4.83x** versus BTC **0.73x**.
+- Best-year removal: removing 2023 leaves **4.83x** versus BTC **0.71x**.
 - Leave-one-signal / leave-one-phase: **20.58x-27.58x** / **21.26x-23.91x**.
 - 2020-10-03 .. 2021-12-31 stress at 20bps: **4.55x**, Sharpe 2.39,
   maximum drawdown -18.9%.
