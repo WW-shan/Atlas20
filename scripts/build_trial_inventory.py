@@ -167,6 +167,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "phase_momentum_crash_states": "crash-month state diagnostic of the frozen trial (no configuration)",
     "phase_momentum_flow_states": "volume/turnover state screening of the frozen trial (no configuration)",
     "phase_momentum_hourly_states": "intraday state screening of the frozen trial (no configuration)",
+    "phase_momentum_intraday_risk_diagnostic": "hourly stop/gate diagnostic of the frozen trial (no configuration)",
     "phase_momentum_funding_states": "funding-rate state screening of the frozen trial (no configuration)",
     "phase_momentum_chase_risk": "entry-extremity diagnostic of the frozen trial (no configuration)",
     "phase_momentum_candidate_eval_h5": "side-by-side re-listing of registered trials (counted via the ledger)",
