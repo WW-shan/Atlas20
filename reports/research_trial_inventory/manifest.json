@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "9c0d4d93ceeb1f65ee55f86949be55f712276e9c",
+  "repository_head": "2c6fba146fd6fcebc0733aa652bdb2a8b167219a",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "fa3596fa1cfd02c9039bbf3c0a11c0cdc2f0f7170de6c18aaad95090f1dba0cc",
+  "research_md_sha256": "097932d39dd631a808bb22f0245512982a675f9cad016fdbf38da2f973461179",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -146,8 +146,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20399,
-  "rows_at_primary_cost": 17861,
+  "rows_read": 20409,
+  "rows_at_primary_cost": 17871,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -395,50 +395,6 @@
     {
       "study": "phase_momentum_hypotheses_2026_10",
       "config_id": "PR2026-10-D-CAL-MB75-L125",
-      "window_start": "2022-01-01",
-      "window_end": "2026-09-21",
-      "cost_bps": 20.0,
-      "universe": "Derivatives",
-      "family": "derivatives",
-      "reason": "registered but not yet completed",
-      "source": "reports/research_trial_inventory/preregistered_trials.csv"
-    },
-    {
-      "study": "phase_momentum_hypotheses_2026_10",
-      "config_id": "PR2026-11-RS-R-BTC25",
-      "window_start": "2022-01-01",
-      "window_end": "2026-09-21",
-      "cost_bps": 20.0,
-      "universe": "Derivatives",
-      "family": "derivatives",
-      "reason": "registered but not yet completed",
-      "source": "reports/research_trial_inventory/preregistered_trials.csv"
-    },
-    {
-      "study": "phase_momentum_hypotheses_2026_10",
-      "config_id": "PR2026-11-RS-R-WEAK25",
-      "window_start": "2022-01-01",
-      "window_end": "2026-09-21",
-      "cost_bps": 20.0,
-      "universe": "Derivatives",
-      "family": "derivatives",
-      "reason": "registered but not yet completed",
-      "source": "reports/research_trial_inventory/preregistered_trials.csv"
-    },
-    {
-      "study": "phase_momentum_hypotheses_2026_10",
-      "config_id": "PR2026-11-RS-F-BTC25",
-      "window_start": "2022-01-01",
-      "window_end": "2026-09-21",
-      "cost_bps": 20.0,
-      "universe": "Derivatives",
-      "family": "derivatives",
-      "reason": "registered but not yet completed",
-      "source": "reports/research_trial_inventory/preregistered_trials.csv"
-    },
-    {
-      "study": "phase_momentum_hypotheses_2026_10",
-      "config_id": "PR2026-11-RS-F-WEAK25",
       "window_start": "2022-01-01",
       "window_end": "2026-09-21",
       "cost_bps": 20.0,
@@ -718,6 +674,30 @@
       "origin": "working tree (committed)",
       "sha256": "af25b558727717f8f97dc8338edbd254666529f29c127711894712971c017275"
     },
+    "reports/derivatives_track_cross_sectional_basket_round4/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "ff770dbb1f79f0f42cb9608722aed7120c35953d4332e166f59fe2673dfd54c0"
+    },
+    "reports/derivatives_track_cross_sectional_basket_round5/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "ace124ff6d18de3064646c3fa71cfa64ee3d6dff8d498b7d80a201a568b18706"
+    },
+    "reports/derivatives_track_cross_sectional_basket_round6/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "f25fafc1306f7f9c99f8ae6d32a2a347c221348918ad2383c7156279fb364562"
+    },
+    "reports/derivatives_track_cross_sectional_short_round3/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "48299d7af96a9ad12295becda081a8cd4eef5a51698013dc097f0b6f45006894"
+    },
+    "reports/derivatives_track_reversal_short_round2/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "bc4dd5e96fcce3eec2c18c365cf2ba69a79b7579cf774ad6519121fdbf2c515a"
+    },
+    "reports/derivatives_track_reversal_short_schedule_fix/trial_results.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "0af6ea20a1b4c6f648def01198a0797dc7d7ac2cc775e9af6fe7ff9d89f7adfc"
+    },
     "reports/ensemble_ctrend_2022_top50/summary.csv": {
       "origin": "working tree (committed)",
       "sha256": "7b87496a6502c6c29526e793cb5c1a31fc2071b9e0147b5499dca4e121576fb6"
@@ -844,7 +824,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (committed)",
-      "sha256": "006e09a8f1720067a02ecaf71c7a9ca87e3a9f2c62e905a0cb50ee9391b5f5ae"
+      "sha256": "1928e29d47b353079a731879fe58e52f9eb909ff6430860227d2e7877257b373"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",
