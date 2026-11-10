@@ -42,6 +42,8 @@ class DerivativeBacktestConfig:
     execution_hour: int = 3
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
+    funding_stress: str = "none"
+    funding_multiplier: float = 1.0
     funding_carry_max_hours: float = 24.0
     fill_missing_policy: str = "error"
     missing_mark_policy: str = "error"
@@ -77,6 +79,12 @@ class DerivativeBacktestConfig:
                 "funding_missing_policy must be 'error', 'skip', 'carry_last', "
                 "or 'stress_median'"
             )
+        if self.funding_stress not in {"none", "long-adverse", "short-adverse"}:
+            raise ValueError(
+                "funding_stress must be 'none', 'long-adverse', or 'short-adverse'"
+            )
+        if not np.isfinite(self.funding_multiplier) or self.funding_multiplier < 0.0:
+            raise ValueError("funding_multiplier must be finite and non-negative")
         if self.funding_carry_max_hours < 0.0 or not np.isfinite(self.funding_carry_max_hours):
             raise ValueError("funding_carry_max_hours must be finite and non-negative")
         if self.fill_missing_policy not in {"error", "downgrade_to_mark"}:
@@ -319,8 +327,10 @@ def run_derivative_backtest(
     if cfg.funding_missing_policy == "stress_median":
         if funding.empty:
             raise ValueError("stress_median funding policy requires funding rates")
-        positive_only = funding.where(funding > 0.0)
-        adverse_median = positive_only.median(axis=1, skipna=True).ffill()
+        adverse_rates = funding.where(funding > 0.0)
+        if cfg.funding_stress == "short-adverse":
+            adverse_rates = funding.where(funding < 0.0)
+        adverse_median = adverse_rates.median(axis=1, skipna=True).ffill()
 
     index = pd.DatetimeIndex(
         sorted(set().union(*(frame.index for frame in candles.values())) | set(funding.index))
@@ -865,6 +875,15 @@ def run_derivative_backtest(
                     else:
                         rate = adverse_median_rate(asset, timestamp)
                     carried = True
+                if cfg.funding_stress == "long-adverse" and position.side > 0:
+                    rate = max(rate, 0.0)
+                elif cfg.funding_stress == "short-adverse" and position.side < 0:
+                    rate = min(rate, 0.0)
+                elif cfg.funding_stress != "none":
+                    # A side-specific stress must not let income on the other
+                    # side offset the adverse funding being tested.
+                    rate = 0.0
+                rate *= cfg.funding_multiplier
                 price = mark(asset, timestamp, "open")
                 notional = position.quantity * price
                 amount = -position.side * rate * notional

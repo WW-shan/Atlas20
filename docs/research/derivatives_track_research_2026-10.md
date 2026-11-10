@@ -707,7 +707,7 @@ Bitget 当前 USDT-M 基础费率：
 
 引擎现已加入可选 `start_time`/`end_time`，区间为左闭右开；窗口外的 target 不执行，窗口外的小时 mark 不进入 equity path。所有 Phase 2 结果已按 **2022-01-01 00:00 UTC 至 2026-09-21 23:00 UTC** 重跑。以下数字替代本文件此前记录的所有 Phase 2 结果。
 
-Bitget 运行器同时加入 funding 压力接口：`--funding-stress long-adverse` 只保留对多头不利的正 funding（把负 funding 置零），`--funding-stress short-adverse` 只保留对空头不利的负 funding；`--funding-multiplier` 可把该不利 funding 放大 2x/3x。它仍是 Binance proxy 压力带，不是 Bitget 精确历史。
+Bitget 运行器同时加入 funding 压力接口：`--funding-stress long-adverse` 只保留对多头不利的正 funding，`--funding-stress short-adverse` 只保留对空头不利的负 funding；非受压腿的 funding 置零，避免其他方向的收入掩盖压力；`--funding-multiplier` 可把该不利 funding 放大 2x/3x。它仍是 Binance proxy 压力带，不是 Bitget 精确历史。
 
 ### 12.2 1.0x 校验的否定结果（修正窗口、+3h 对 +3h）
 

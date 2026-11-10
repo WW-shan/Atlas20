@@ -169,12 +169,6 @@ def main() -> None:
                   funding = pd.DataFrame()
               else:
                   funding = proxy_funding.copy()
-                  if funding_stress == "long-adverse":
-                      funding = funding.clip(lower=0.0)
-                  elif funding_stress == "short-adverse":
-                      funding = funding.clip(upper=0.0)
-                  if multiplier != 1.0:
-                      funding = funding * multiplier
                   funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
                   if funding.empty:
                       raise SystemExit(
@@ -208,6 +202,8 @@ def main() -> None:
                       max_margin_utilization=0.85,
                       max_gross_exposure=leverage,
                       funding_missing_policy=args.funding_missing_policy,
+                      funding_stress=funding_stress,
+                      funding_multiplier=multiplier,
                       missing_mark_policy=args.missing_mark_policy,
                       missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
                       fill_missing_policy=args.fill_missing_policy,

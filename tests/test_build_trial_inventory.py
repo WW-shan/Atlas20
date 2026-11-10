@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 
 import numpy as np
@@ -312,6 +313,37 @@ def test_completed_ledger_trials_enter_with_their_lag0_20bps_sharpe(tmp_path) ->
     assert set(frame["window_start"]) == {"2022-01-01"}
 
 
+def test_completed_derivative_trial_keeps_its_track_and_window(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from scripts.build_trial_inventory import PREREGISTERED_STUDY, _load_preregistered_lane
+
+    trial_id = "PR2026-11-RS-TEST"
+    result = "reports/derivatives_track_test/runs.csv"
+    (tmp_path / result).parent.mkdir(parents=True)
+    pd.DataFrame(
+        [{"trial_id": trial_id, "window": "main", "fill": "lag0", "cost_bps": 20.0, "sharpe": 1.4}]
+    ).to_csv(tmp_path / result, index=False)
+    entry = _registration(trial_id, True)
+    entry["spec"] = json.dumps(
+        {
+            "track": "derivatives",
+            "main_window": ["2022-03-01", "2026-09-21"],
+        }
+    )
+    _write_ledger(
+        tmp_path,
+        [entry, {"trial_id": trial_id, "status": "completed", "result_path": result}],
+    )
+
+    recorder = TrialRecorder()
+    assert _load_preregistered_lane(_FakeSources(tmp_path), recorder) == []
+    row = recorder.frame().iloc[0]
+    assert row["study"] == PREREGISTERED_STUDY
+    assert row["universe"] == "Derivatives"
+    assert row["family"] == "derivatives"
+    assert row["window_start"] == "2022-03-01"
+    assert row["window_end"] == "2026-09-21"
+
+
 def test_missing_ledger_leaves_the_inventory_unchanged(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from scripts.build_trial_inventory import _load_preregistered_lane
 
@@ -335,3 +367,31 @@ def test_preregistered_trials_are_new_configurations_in_the_top20_2022_scope() -
 
     assert bool(flagged.loc[(PREREGISTERED_STUDY, "PR-H2", "Top20"), TOP20_2022_TRIALS])
     assert int(flagged[TOP20_2022_TRIALS].sum()) == 3
+
+
+def test_derivatives_report_dirs_are_excluded_from_the_spot_inventory() -> None:
+    from scripts.build_trial_inventory import unclassified_report_dirs
+
+    assert unclassified_report_dirs(
+        ["derivatives_track_reversal_short", "phase_momentum_2022"],
+        {"phase_momentum_2022"},
+    ) == []
+
+
+def test_derivative_ledger_rows_do_not_enter_the_spot_top20_scope(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from scripts.build_trial_inventory import _load_preregistered_lane, _unscored_in_scope
+
+    entry = _registration("PR2026-11-RS-TEST", True)
+    entry["spec"] = json.dumps(
+        {
+            "track": "derivatives",
+            "main_window": ["2022-01-01", "2026-09-21"],
+        }
+    )
+    _write_ledger(tmp_path, [entry])
+
+    unscored = _load_preregistered_lane(_FakeSources(tmp_path), TrialRecorder())
+
+    assert len(unscored) == 1
+    assert unscored[0].universe == "Derivatives"
+    assert _unscored_in_scope(unscored[0]) is False

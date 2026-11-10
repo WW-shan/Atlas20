@@ -5,11 +5,11 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-10-09（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional） |
-> | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-10-07** |
+> | 最后更新 | 2026-11-10（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：**步骤一已把主执行提前到 00:30/01:05 UTC，并加入面板完整性复核与实时盘口检查；步骤二反手空首轮被拒，flat-only 仅保留为 provisional，PBO=0.931，不接实盘**） |
+> | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-09**（仅运行跟踪，不用于选规则） |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。衍生品轨（§9，独立风险预算，Bitget isolated margin）在单独设计文档 `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` 下研究，不得与现货轨的口径混用 |
-> | 执行 | 信号收盘生成、T+1 执行；**实盘口径为收盘后约 3 小时成交**（02:30 UTC 刷新之后），用 Binance/Gate 1 小时 K 线模拟；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
+> | 执行 | 信号收盘生成、T+1 执行；现货轨为收盘后约 3 小时成交，衍生品轨已切到 01:05 UTC 早盘执行（回测仍用 +3h 保守口径），用 Binance/Gate 1 小时 K 线模拟；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
 > | 成本口径 | 基准 **2bps**（AGENTS.md），20/50/100bps 为压力测试 |
 > | 主回测起点 | **2022-01-01**，剔除 2021 泡沫行情 |
 
@@ -1741,3 +1741,49 @@ cross 全仓下没有逐腿强平线，账户级风险由「总名义 ≤ 1.25×
 2026-10-10 首次真钱全链路实测（100 USDT）：读账户 → 计划器按真实权益出单 → 下单成交 → 回读持仓 → 平仓，全部跑通（一个来回成本 0.0866 USDT ≈ 5.81 bps/边）；但**逐仓在跟单 key 下不可得**（`25200 fixedMargin not support`、`set-margin` `40731`），执行层因此新增 `close_position()`（按 `holdMode` 自动选 hedge/单边写法）与 key 前置自检，见 runbook §1.1。**换普通 API key 复测逐仓之前，实盘不得开启。**
 
 最小上线动作：成交价敏感性（#8）已通过，不再阻塞；剩余动作 = 每日累积样本外（#10）+ 预 2022 覆盖率收口（#9），随后按 3% 总资金 / 1.25x / 50% buffer 隔离保证金小规模试运行，继续逐日记录样本外。**每日播报已上线**（`scripts/send_derivatives_signal.py`，systemd timer，含「执行时点已过请勿追单」保护）；实盘执行、监控与 kill criteria 见 `docs/operations/derivatives_live_runbook.md`。
+
+---
+
+## 00.21 2026-11-10 执行实时化与反手空研究
+
+### 00.21.1 步骤一：把执行从 +3h 提前到 +1h（已实现，不改策略）
+
+负责人要求“收益优先，回撤只要不要明显变差”。在不改变 H5 选币、权重、1.25x gross 和 T+1 信号规则的前提下，执行链改为：
+
+- 主面板刷新：08:30 / 08:50 北京 = **00:30 / 00:50 UTC**，旧的 02:30/02:55/06:30 UTC 全部保留为回退；
+- 主执行：09:05 北京 = **01:05 UTC**，旧的 03:05/03:35/04:35/06:35 UTC 全部保留为重试；
+- 交易窗口：01:05–07:05 UTC；
+- 下单前新增 Bitget 最新价/mark/best-bid/best-ask/顶档数量快照；缺失或超过 120 秒的必需报价 fail closed，点差、last/mark 偏离和“订单大于可见顶档”进入执行报告；
+- 面板现在不仅要求日期等于最后完整 UTC 日，还必须通过 `data.completeness.assess_last_day` 的成交量/市值覆盖检查；不通过时包装脚本强制重建并**再次检查**，仍不完整则拒绝进入下单链。
+
+回测操作口径：`reports/phase_momentum_execution_lag_2022/fill_timing.csv` 的 +1h vs +3h（20bps，较差缺 K 线口径）为 21.22x vs 19.56x，终值约 +8.5%；代价是 MDD 从 -45.67% 到 -46.59%，约变差 0.9 个百分点，符合“不要变差特别多”的约束。该数字是 H5/B 的现货执行替代口径，不证明新的衍生品 OOS 收益。
+
+CMC 发布探针（10 个最大候选，非全 102 资产）从 2026-10-08 到 2026-11-09 共 34 个目标日；最近 32 个目标日在 00:20 UTC 均为 10/10 覆盖。由于样本只有 10 个资产，00:30 只是候选刷新时点，生产面板完整性检查才是每次交易的权威闸门。部署后本机 `launchd` 日历已同步到新时点；旧时间表仍作为回退。
+
+### 00.21.2 步骤二：反手空首轮研究（不接实盘）
+
+新预注册文件：`docs/superpowers/specs/2026-11-10-reversal-short-research-design.md`。四条固定试验（不扫参数、最大空头 0.25x，使用 BTC 200D+30D 熊市确认和 3 结算点 funding 过滤）：
+
+| trial | 模式 | 空头 | 20bps 终值 | Sharpe | MDD | 结论 |
+|---|---|---|---:|---:|---:|---|
+| `PR2026-10-D-L125` | 多头基线 | 无 | 34.8735x | 1.6935 | -40.65% | 基线 |
+| `PR2026-11-RS-R-BTC25` | replace | BTC | 34.3995x | 1.6887 | -40.65% | 收益低于基线，拒绝 |
+| `PR2026-11-RS-R-WEAK25` | replace | 最弱 Top20 | 33.9680x | 1.6716 | -40.65% | 收益低于基线，拒绝 |
+| `PR2026-11-RS-F-BTC25` | flat-only | BTC | 36.0045x | 1.7025 | -40.65% | 小幅度改善，provisional |
+| `PR2026-11-RS-F-WEAK25` | flat-only | 最弱 Top20 | 37.4394x | 1.7079 | -40.65% | 小幅度改善，provisional |
+
+关键淘汰证据：
+
+- `replace` 模式（最接近“平仓后反手”）反而低于基线，说明把 H5 多头整体换空并不创造足够收益；
+- `flat-only` 在 20bps 相对基线约 +7.4%，50bps 相对基线约 +6.8%，但全样本只有 4 次空头开仓，收益集中在 2022 年熊市；
+- 四条新试验 + 基线的 PBO = **0.9307**，远高于 0.5；DSR 虽然高，但不能抵消 PBO 所揭示的选择不稳定性；
+- 365 天滚动最差：基线 0.7325x，F-WEAK25 0.6854x，空头版本最坏一年反而更差；
+- 100bps 压力下基线和空头版本都约 -50.02%，空头版本没有解除项目的 50% kill line；
+- 修正 funding 压力实现后，3x adverse 下 F-BTC25 为 38.89x / MDD -40.72% / 0 强平，F-WEAK25 为 37.85x / MDD -40.72% / **1 次强平**；F-WEAK25 因强平被拒绝，F-BTC25 仍只是 provisional；
+- Binance funding proxy 的 Phase 1 重合门槛失败，且本次使用 `funding_missing_policy=skip`，不能称为 Bitget 精确 funding 回测。
+
+此外，首轮复现发现 runner 原先没有显式把 `btc_asset` 指向实际 funding 列名 `bitcoin`；在 lower-case coin-id funding matrix 上，旧 `BTC` 默认会让空头 funding 闸门静默为 false。新 runner 显式传 `btc_asset="bitcoin"`，并新增 case-insensitive funding 列匹配测试；旧的空头报告不能直接当作“已经激活过空头”的证据。
+
+判定：**“平仓即反手”拒绝；F-BTC25 的 `flat-only` 仅保留为 provisional research candidate，F-WEAK25 因 3x adverse funding 强平被拒绝；不修改当前多头实盘，不接空头执行。** 下一步只能补 Bitget 精确 funding、累积至少 30–60 天真实 OOS，并独立复测；不能通过提高空头权重、改 funding 阈值或只报 2022 年结果来救活。
+
+复现与完整输出：`reports/derivatives_track_reversal_short/report.md`、`reports/derivatives_track_reversal_short/multiple_testing/`、`reports/derivatives_track_reversal_short/robustness/`。

@@ -38,7 +38,7 @@ phase_momentum_walk_forward_2022,reports/,reports/phase_momentum_walk_forward_20
 phase_momentum_leave_one_out_2022,reports/,reports/phase_momentum_leave_one_out_2022/summary.csv,drop one signal or one phase,7,7,7,7,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
 phase_momentum_parameter_leave_one_out_2022,reports/,reports/phase_momentum_parameter_leave_one_out_2022/summary.csv,drop one of the 13 ensemble specs,13,13,13,13,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
 phase_momentum_execution_lag_2022,reports/,reports/phase_momentum_execution_lag_2022/summary.csv,extra execution lag of 0/1/2 days,3,3,2,2,2022-01-01,2026-09-21,20.0,2;20;50;100,Top20,True,True,
-phase_momentum_hypotheses_2026_10,reports/,reports/phase_momentum_hypotheses_2026_10/runs.csv,,15,15,15,15,2022-01-01,2026-09-21,20.0,20,Top20,True,True,
+phase_momentum_hypotheses_2026_10,reports/,reports/phase_momentum_hypotheses_2026_10/runs.csv; reports/research_trial_inventory/preregistered_trials.csv,,38,15,38,15,2022-01-01,2026-09-21,20.0,20,Derivatives;Top20,True,True,
 convex_validation_2022_top50,reports/,reports/convex_validation_2022_top50/candidate_summary.csv,"2218 recipes: ctrend_lite 1440, leader_momentum 576, sector_lead 180, champion_ablation 22",2218,2218,2218,0,2022-01-01,2026-09-22,20.0,20,Top50,True,False,
 ctrend_focus_2022_top50,reports/,reports/ctrend_focus_2022_top50/candidate_summary.csv,liquidity x 14/21D x 3 scores x BTC x MA 75-150 x confirm,192,192,168,0,2022-01-01,2026-09-22,20.0,20,Top50,True,False,window end inferred
 ensemble_ctrend_2022_top50,reports/,reports/ensemble_ctrend_2022_top50/summary.csv,2/3/5/10-component equal-weight CTREND ensembles,5,5,5,0,2022-01-01,2026-09-21,20.0,20,Top50,True,False,cost not recorded (assumed 20 bps)
@@ -46,7 +46,7 @@ no_leverage_ablation_v2,reports/,reports/no_leverage_ablation_v2/candidate_summa
 top20_convex_validation(old panel),reports/,reports/top20_convex_validation/candidate_summary.csv,"2218 recipes: ctrend_lite 1440, leader_momentum 576, sector_lead 180, champion_ablation 22",2218,2218,0,0,2021-01-01,2026-09-20,20.0,20,Top20,False,False,old (pre-CMC-only) panel; window end not recorded
 bull_offense_finalist,reports/,reports/bull_offense_finalist/cost_sensitivity.csv; reports/bull_offense_finalist/sweep_summary.csv,hold x lookback x BTC MA x asset MA x target vol 0.5-1.0,648,648,0,0,2021-01-01,2026-09-21,10.0,5;8;10;15,Top20,False,False,cost re-run of a sweep cell
 bull_offense_finalist_aggressive,reports/,reports/bull_offense_finalist_aggressive/cost_sensitivity.csv,one finalist grid cell at 5/8/10/15 bps,1,1,0,0,2021-01-01,2026-09-21,15.0,5;8;10;15,Top20,False,False,
-pipeline_latest,reports/,reports/latest/strategy_summary.csv,TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only,27,27,23,0,2021-01-01,2026-09-21,20.0,20,Top20,True,False,
+pipeline_latest,reports/,reports/latest/strategy_summary.csv,TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only,27,27,27,0,2021-01-01,2026-09-21,20.0,20,Top20,True,False,
 pipeline_bear_bottom_2022_11_21,reports/,reports/bear_bottom_to_current_2022_11_21_2026_04_22/strategy_summary.csv,same 27 strategies as pipeline_latest (old panel),27,27,0,0,2022-11-21,2026-04-21,20.0,20,Top20,False,False,old panel
 pipeline_five_year_2020_2024,reports/,reports/five_year_2020_2024/strategy_summary.csv,same 27 strategies as pipeline_latest (old panel),27,27,0,0,2020-01-01,2024-12-31,20.0,20,Top20,False,False,old panel
 pipeline_five_year_exact_2021_04_22,reports/,reports/five_year_exact_2021_04_22_2026_04_22/strategy_summary.csv,same 27 strategies as pipeline_latest (old panel),27,27,0,0,2021-04-22,2026-04-21,20.0,20,Top20,False,False,old panel
@@ -82,6 +82,7 @@ phase_momentum_dispersion_diagnostic,reports/ (no new configuration),reports/pha
 phase_momentum_dsr_gap,reports/ (no new configuration),reports/phase_momentum_dsr_gap/,prices the Deflated Sharpe gap of a saved return series (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_dsr_horizon,reports/ (no new configuration),reports/phase_momentum_dsr_horizon/,prices how much out-of-sample data closes the Deflated Sharpe gap (no configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_dispersion_overlay,reports/ (no new configuration),reports/phase_momentum_dispersion_overlay/,diagnostic screening of the dispersion overlay (no charged configuration),0,0,0,0,,,,,,False,False,
+phase_momentum_rotation_skill_2022,reports/ (no new configuration),reports/phase_momentum_rotation_skill_2022/,selection-skill diagnostic of the frozen rotation (no new configuration),0,0,0,0,,,,,,False,False,
 phase_momentum_multiple_testing_h3,reports/ (no new configuration),reports/phase_momentum_multiple_testing_h3/,CSCV/PBO over the fixed candidate family,0,0,0,0,,,,,,False,False,
 phase_momentum_multiple_testing_overlays,reports/ (no new configuration),reports/phase_momentum_multiple_testing_overlays/,CSCV/PBO over the fixed candidate family,0,0,0,0,,,,,,False,False,
 phase_momentum_regime_overlays,reports/ (no new configuration),reports/phase_momentum_regime_overlays/,regime breakdown of saved candidate returns,0,0,0,0,,,,,,False,False,

@@ -82,12 +82,23 @@ def funding_filter(
     """
     if lookback < 1:
         raise ValueError("lookback must be positive")
-    if funding_rates is None or funding_rates.empty or asset not in funding_rates.columns:
+    if funding_rates is None or funding_rates.empty:
         return False
-    frame = funding_rates.loc[:, [asset]].copy()
+    requested = str(asset)
+    column: str | None = requested if requested in funding_rates.columns else None
+    if column is None:
+        matches = [
+            str(candidate)
+            for candidate in funding_rates.columns
+            if str(candidate).casefold() == requested.casefold()
+        ]
+        if len(matches) != 1:
+            return False
+        column = matches[0]
+    frame = funding_rates.loc[:, [column]].copy()
     frame.index = pd.DatetimeIndex([_as_utc(value) for value in frame.index])
     frame = frame[~frame.index.duplicated(keep="last")].sort_index()
-    eligible = frame.loc[frame.index <= _as_utc(as_of), asset].dropna()
+    eligible = frame.loc[frame.index <= _as_utc(as_of), column].dropna()
     if len(eligible) < lookback:
         return False
     return bool(float(eligible.iloc[-lookback:].mean()) > float(threshold))
@@ -162,16 +173,35 @@ def build_derivative_targets(
     btc_asset: str = "BTC",
     btc_funding_threshold: float = -0.0001,
     short_funding_threshold: float = -0.0002,
+    short_mode: str = "additive",
 ) -> dict[pd.Timestamp, pd.Series]:
-    """Combine the scaled H5 long book with the pre-registered short overlay."""
+    """Combine the scaled H5 long book with a pre-registered short overlay.
+
+    ``short_mode`` is deliberately explicit:
+
+    * ``additive`` keeps the long book and adds the short leg (the original
+      overlay already rejected by the drawdown gate);
+    * ``flat-only`` opens the short only when the H5 long book is entirely in
+      cash;
+    * ``replace`` flips the whole target to cash plus the small short when the
+      bear and funding gates are active.
+    """
     if short_weight < 0.0:
         raise ValueError("short_weight must be non-negative")
+    if short_mode not in {"additive", "flat-only", "replace"}:
+        raise ValueError(
+            "short_mode must be one of 'additive', 'flat-only', or 'replace'"
+        )
     scaled = scale_long_targets(long_targets, leverage=leverage, max_gross=max_gross)
     regime = bear_regime(btc_close)
     targets: dict[pd.Timestamp, pd.Series] = {}
     for date, long_weights in scaled.items():
         combined = long_weights.copy()
         if short_asset is not None and short_weight > 0.0 and bool(regime.get(date, False)):
+            long_gross = float(long_weights.abs().sum())
+            if short_mode == "flat-only" and long_gross > 1e-12:
+                targets[date] = combined
+                continue
             chosen: str | None
             if short_asset == "weakest":
                 chosen = weakest_top20(
@@ -183,6 +213,9 @@ def build_derivative_targets(
                 )
             else:
                 chosen = str(short_asset)
+            if chosen is not None:
+                if eligible is not None and chosen not in {str(value) for value in eligible}:
+                    chosen = None
             if chosen is not None:
                 btc_ok = funding_filter(
                     funding_rates,
@@ -197,6 +230,8 @@ def build_derivative_targets(
                     threshold=short_funding_threshold,
                 )
                 if btc_ok and weak_ok:
+                    if short_mode == "replace":
+                        combined = pd.Series(dtype=float)
                     combined.loc[chosen] = float(combined.get(chosen, 0.0)) - float(short_weight)
         gross = float(combined.abs().sum())
         if gross > max_gross:

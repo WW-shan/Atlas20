@@ -174,6 +174,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "phase_momentum_dsr_gap": "prices the Deflated Sharpe gap of a saved return series (no configuration)",
     "phase_momentum_dsr_horizon": "prices how much out-of-sample data closes the Deflated Sharpe gap (no configuration)",
     "phase_momentum_dispersion_overlay": "diagnostic screening of the dispersion overlay (no charged configuration)",
+    "phase_momentum_rotation_skill_2022": "selection-skill diagnostic of the frozen rotation (no new configuration)",
     "phase_momentum_multiple_testing_h3": "CSCV/PBO over the fixed candidate family",
     "phase_momentum_multiple_testing_overlays": "CSCV/PBO over the fixed candidate family",
     "phase_momentum_regime_overlays": "regime breakdown of saved candidate returns",
@@ -908,6 +909,23 @@ def _ledger_result_row(ledger: pd.DataFrame, trial_id: str) -> pd.Series | None:
     return rows.iloc[-1]
 
 
+def _ledger_spec(registration: pd.Series) -> dict[str, object]:
+    """Decode the optional registration spec without trusting malformed rows."""
+
+    raw = registration.get("spec", "")
+    if isinstance(raw, dict):
+        return {str(key): value for key, value in raw.items()}
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {str(key): value for key, value in parsed.items()}
+
+
 def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredConfiguration]:
     """Load the pre-registered H2-H4 ledger into the trial inventory.
 
@@ -939,17 +957,29 @@ def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredC
         if not _ledger_bool(registration.get("counts_as_trial", "")):
             continue
 
+        spec = _ledger_spec(registration)
+        track = str(spec.get("track", "")).strip().lower()
+        is_derivatives = track == "derivatives" or trial_id.startswith(("PR2026-10-D-", "PR2026-11-RS-"))
+        universe = "Derivatives" if is_derivatives else SCOPE_UNIVERSE
+        family = "derivatives" if is_derivatives else "phase_momentum"
+        window_start = SCOPE_START
+        window_end = PHASE_WINDOW[1]
+        main_window = spec.get("main_window")
+        if isinstance(main_window, list) and len(main_window) >= 2:
+            window_start = str(main_window[0])
+            window_end = str(main_window[1])
+
         terminal = _ledger_result_row(ledger, trial_id)
         if terminal is None:
             unscored.append(
                 UnscoredConfiguration(
                     PREREGISTERED_STUDY,
                     trial_id,
-                    SCOPE_START,
-                    PHASE_WINDOW[1],
+                    window_start,
+                    window_end,
                     REFERENCE_COST_BPS,
-                    SCOPE_UNIVERSE,
-                    "phase_momentum",
+                    universe,
+                    family,
                     "registered but not yet completed",
                     str(PREREGISTERED_LEDGER),
                 )
@@ -981,13 +1011,13 @@ def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredC
                     rec.add(
                         PREREGISTERED_STUDY,
                         trial_id,
-                        PHASE_WINDOW,
+                        (window_start, window_end),
                         REFERENCE_COST_BPS,
-                        SCOPE_UNIVERSE,
+                        universe,
                         float(sharpe),
                         source=result_path,
                         column="sharpe (window='main', fill='lag0', cost_bps=20)",
-                        family="phase_momentum",
+                        family=family,
                         lineage=PREREGISTERED_STUDY,
                     )
                     continue
@@ -995,11 +1025,11 @@ def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredC
             UnscoredConfiguration(
                 PREREGISTERED_STUDY,
                 trial_id,
-                SCOPE_START,
-                PHASE_WINDOW[1],
+                window_start,
+                window_end,
                 REFERENCE_COST_BPS,
-                SCOPE_UNIVERSE,
-                "phase_momentum",
+                universe,
+                family,
                 reason,
                 result_path or str(PREREGISTERED_LEDGER),
             )
@@ -1167,7 +1197,16 @@ def scope_summary(sharpes: pd.Series, *, unscored: int, description: str) -> dic
 def unclassified_report_dirs(report_dirs: Sequence[str], used_dirs: set[str]) -> list[str]:
     """Report directories that are neither a trial source nor declared as holding no new configuration."""
     known = used_dirs | set(NO_NEW_CONFIGURATION_DIRS) | NON_RESEARCH_DIRS
-    return sorted(name for name in report_dirs if name not in known)
+    # The derivatives track has its own preregistered ledger and mark/funding
+    # protocol; its report directories are diagnostics/outcomes, not sources
+    # for the spot Top20 trial inventory. Their configurations are counted by
+    # _load_preregistered_lane, so treating every derivatives_track_ directory
+    # as a new spot study would double count them.
+    return sorted(
+        name
+        for name in report_dirs
+        if name not in known and not name.startswith("derivatives_track_")
+    )
 
 
 # --------------------------------------------------------------------------- outputs

@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 5,
+  "duplicates": {},
+  "expected_max_sharpe": 0.0007730722897294705,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": -0.6931471805599454,
+    "most_selected_candidate": "RS-F-WEAK25",
+    "most_selected_count": 339,
+    "pbo": 0.9307359307359307,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.002463464997956482,
+    "reality_check_p_value": 0.004995004995004995
+  },
+  "trial_count": 4
+}

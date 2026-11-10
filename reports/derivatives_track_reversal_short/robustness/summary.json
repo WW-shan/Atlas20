@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    "L125-baseline",
+    "RS-R-BTC25",
+    "RS-R-WEAK25",
+    "RS-F-BTC25",
+    "RS-F-WEAK25"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "window_days": 365
+}

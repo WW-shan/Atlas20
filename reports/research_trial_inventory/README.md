@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `a4e497b`; every source file is committed.
+Built at commit `4420730` from 1 uncommitted source file(s): `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,132 | 14,117 | 8,948 | 0.7940 | 0.6519 | 0.03412 |
+| all_trials | 14,159 | 14,121 | 8,952 | 0.7939 | 0.6519 | 0.03412 |
 | top20_2022_trials | 6,138 | 6,123 | 3,826 | 0.4315 | 0.3165 | 0.01657 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -47,13 +47,14 @@ multiple-testing script uses it only for the trial count.
 
 | family | all_trials | top20_2022_trials |
 | --- | --- | --- |
-| benchmark_timing | 99 | 98 |
+| benchmark_timing | 101 | 98 |
 | bull_offense | 792 | 648 |
 | ctrend_lite | 5241 | 3626 |
+| derivatives | 23 | 0 |
 | leader_momentum | 5761 | 655 |
 | phase_momentum | 79 | 77 |
 | sector | 647 | 254 |
-| topN_momentum | 73 | 60 |
+| topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |
 
 ## Caveats
@@ -73,14 +74,14 @@ multiple-testing script uses it only for the trial count.
   cells are no longer in reports/.
 - **Re-implemented pipeline strategies.** The no-leverage ablation re-implements 7
   pipeline bull-only strategies as `X_bull__none`. On the shared 2021-01-01 window
-  4 reproduce the pipeline Sharpe exactly and count once; 3 (`TOP20_EQ__bull_only`, `TOP20_MOM_top6_monthly__bull_only`, `TOP20_SECTOR_top3_monthly__bull_only`) differ by 0.99 to 1.06 in Sharpe, so they are different return streams and count as separate trials.
+  0 reproduce the pipeline Sharpe exactly and count once; 7 (`ETH_BH__bull_only`, `TOP20_MOM_top6_biweekly__bull_only`, `TOP20_EQ__bull_only`, `TOP20_MOM_top4_biweekly__bull_only`, `TOP20_MOM_top6_monthly__bull_only`, `TOP20_SECTOR_top3_monthly__bull_only`, `BTC_BH__bull_only`) differ by 0.02 to 1.03 in Sharpe, so they are different return streams and count as separate trials.
 - **Earlier hand count.** A first inventory (2026-09-24) gave 14,124 configurations
   overall. It counted every profit-max row as new, but 14 reproduce an earlier
   study's Sharpe exactly (2 profit_max_search rows re-list pipeline strategies
   as benchmarks; 12 profit_max_refine rows (focused_profit_search) re-run
   profit_max_search cells),
-  and it merged the 3 differing re-implementations above by name. This build
-  therefore counts 14 fewer and 3 more. The Top20/2022 scope is unaffected.
+  and it merged the 7 differing re-implementations above by name. This build
+  therefore counts 14 fewer and 7 more. The Top20/2022 scope is unaffected.
 - **Not verifiable, not counted.** The deleted `scripts/run_profit_max_refine.py`
   defines its own grid, but its summary CSV was never committed; the committed
   refine CSVs came from other code. RESEARCH.md says it replaced earlier `/tmp`

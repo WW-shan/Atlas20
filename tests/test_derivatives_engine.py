@@ -69,6 +69,61 @@ def test_long_funding_is_deducted_from_isolated_margin() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(999.0)
 
 
+def test_short_adverse_funding_multiplier_is_applied_only_to_short_positions() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame({"BTC": [-0.001]}, index=pd.DatetimeIndex(["2026-01-02T04:00:00Z"]))
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_stress="short-adverse",
+            funding_multiplier=3.0,
+        ),
+    )
+
+    assert result.funding.iloc[0]["amount"] == pytest.approx(-3.0)
+    assert result.equity_curve.iloc[-1] == pytest.approx(997.0)
+
+
+def test_short_adverse_does_not_let_long_funding_income_offset_the_stress() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame({"BTC": [-0.001]}, index=pd.DatetimeIndex(["2026-01-02T04:00:00Z"]))
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_stress="short-adverse",
+            funding_multiplier=3.0,
+        ),
+    )
+
+    assert result.funding.iloc[0]["amount"] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("stress", ["unknown", "long_adverse", ""])
+def test_funding_stress_rejects_unknown_values(stress: str) -> None:
+    with pytest.raises(ValueError, match="funding_stress"):
+        DerivativeBacktestConfig(funding_stress=stress)
+
+
 def test_funding_timestamp_jitter_is_normalised_to_the_settlement_hour() -> None:
     index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h")
     candles = {"BTC": _flat_frame(index)}

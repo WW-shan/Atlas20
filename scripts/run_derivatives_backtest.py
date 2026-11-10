@@ -14,6 +14,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from typing import Any
 
 import pandas as pd
 
@@ -36,7 +37,7 @@ from scripts.run_phase_momentum import _load_market  # noqa: E402
 from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
 from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E402
 
-TRIAL_RULES: dict[str, dict[str, object]] = {
+TRIAL_RULES: dict[str, dict[str, Any]] = {
     "PR2026-10-D-L125": {"leverage": 1.25, "short_asset": None, "short_weight": 0.0},
     "PR2026-10-D-L150": {"leverage": 1.50, "short_asset": None, "short_weight": 0.0},
     "PR2026-10-D-L200": {"leverage": 2.00, "short_asset": None, "short_weight": 0.0},
@@ -44,12 +45,40 @@ TRIAL_RULES: dict[str, dict[str, object]] = {
     "PR2026-10-D-SBTC50": {"leverage": 1.25, "short_asset": "bitcoin", "short_weight": 0.50},
     "PR2026-10-D-SWEAK25": {"leverage": 1.25, "short_asset": "weakest", "short_weight": 0.25},
     "PR2026-10-D-SWEAK50": {"leverage": 1.25, "short_asset": "weakest", "short_weight": 0.50},
+    # 2026-11 reversal-short research family: the short leg is opened only
+    # under the same BTC-bear and funding gates as the failed additive overlay.
+    # R = replace the long book with a small short; F = only short when H5 is
+    # already entirely in cash. No parameter sweep is allowed inside this family.
+    "PR2026-11-RS-R-BTC25": {
+        "leverage": 1.25,
+        "short_asset": "bitcoin",
+        "short_weight": 0.25,
+        "short_mode": "replace",
+    },
+    "PR2026-11-RS-R-WEAK25": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "replace",
+    },
+    "PR2026-11-RS-F-BTC25": {
+        "leverage": 1.25,
+        "short_asset": "bitcoin",
+        "short_weight": 0.25,
+        "short_mode": "flat-only",
+    },
+    "PR2026-11-RS-F-WEAK25": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "flat-only",
+    },
 }
-STOP_TRIALS = {
+STOP_TRIALS: dict[str, dict[str, Any]] = {
     "PR2026-10-D-S-BTC25-STOP20": {"short_asset": "bitcoin", "short_weight": 0.25},
     "PR2026-10-D-S-WEAK25-STOP20": {"short_asset": "weakest", "short_weight": 0.25},
 }
-COST_TRIALS = {
+COST_TRIALS: dict[str, dict[str, Any]] = {
     "PR2026-10-D-L125-COST50": {"leverage": 1.25, "short_asset": None, "short_weight": 0.0},
     "PR2026-10-D-L125-COST100": {"leverage": 1.25, "short_asset": None, "short_weight": 0.0},
 }
@@ -176,7 +205,12 @@ def main() -> None:
         default="error",
         help="error is the production default; skip is only for an explicitly labelled proxy stress run",
     )
-    parser.add_argument("--raw-dir", type=Path, default=Path("data/raw/bitget_derivatives"))
+    parser.add_argument(
+        "--raw-dir",
+        type=Path,
+        default=Path("data/raw/bitget_derivatives/merged_20261009"),
+        help="merged Bitget mark tree; the bare data/raw/bitget_derivatives directory is only a downloader shard root",
+    )
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
     parser.add_argument("--output-dir", type=Path, default=Path("reports/derivatives_track_backtest"))
     args = parser.parse_args()
@@ -215,12 +249,6 @@ def main() -> None:
         coins=set(market.price.columns),
     )
     if not funding.empty:
-        if args.funding_stress == "long-adverse":
-            funding = funding.clip(lower=0.0)
-        elif args.funding_stress == "short-adverse":
-            funding = funding.clip(upper=0.0)
-        if args.funding_multiplier != 1.0:
-            funding = funding * float(args.funding_multiplier)
         funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
@@ -233,7 +261,12 @@ def main() -> None:
     short_asset = rule["short_asset"]
     short_weight = float(rule["short_weight"])
     leverage = float(rule["leverage"])
-    max_gross = leverage + short_weight
+    short_mode = str(rule.get("short_mode", "additive"))
+    max_gross = (
+        leverage
+        if short_mode in {"replace", "flat-only"}
+        else leverage + short_weight
+    )
 
     derivative_targets = build_derivative_targets(
         restricted,
@@ -245,6 +278,8 @@ def main() -> None:
         max_gross=max_gross,
         short_asset=short_asset,
         short_weight=short_weight,
+        short_mode=short_mode,
+        btc_asset="bitcoin",
         eligible=available,
     )
 
@@ -257,6 +292,8 @@ def main() -> None:
         short_buffer=float(args.short_buffer),
         max_gross_exposure=max_gross,
         funding_missing_policy=args.funding_missing_policy,
+        funding_stress=args.funding_stress,
+        funding_multiplier=float(args.funding_multiplier),
         missing_mark_policy=args.missing_mark_policy,
         missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
     )
@@ -282,6 +319,7 @@ def main() -> None:
         "leverage": leverage,
         "short_asset": short_asset,
         "short_weight": short_weight,
+        "short_mode": short_mode,
         "max_gross": max_gross,
         "available_marks": sorted(available_marks),
         "funding_columns": sorted(funding.columns.tolist()),
