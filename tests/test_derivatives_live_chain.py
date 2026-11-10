@@ -26,6 +26,7 @@ from atlas20.derivatives.live_chain import (
     DEFAULT_CATCHUP_HOURS,
     DEFAULT_SCHEDULED_UTC,
     last_completed_utc_day,
+    live_execution_hint_for_signal,
     panel_end_date,
     panel_lags_last_completed_day,
     run_day_already_done,
@@ -111,20 +112,27 @@ def test_run_day_already_done_ignores_a_key_without_a_run_day(tmp_path: Path) ->
 
 
 def test_window_opens_at_the_fill_time() -> None:
-    before = datetime(2026, 10, 16, 3, 4, tzinfo=timezone.utc)
+    before = datetime(2026, 10, 16, 1, 4, tzinfo=timezone.utc)
     ok, reason = within_run_window(before)
     assert ok is False
     assert "before" in reason
 
-    ok, _ = within_run_window(datetime(2026, 10, 16, 3, 5, tzinfo=timezone.utc))
+    ok, _ = within_run_window(datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc))
     assert ok is True
 
 
+def test_live_execution_hint_uses_the_early_schedule() -> None:
+    hint = live_execution_hint_for_signal(datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc))
+
+    assert hint == datetime(2026, 10, 17, 1, 5, tzinfo=timezone.utc)
+
+
 def test_window_closes_after_the_catchup_budget() -> None:
-    inside = NOW + timedelta(hours=DEFAULT_CATCHUP_HOURS - 0.01)
+    opened = datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc)
+    inside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS - 0.01)
     assert within_run_window(inside)[0] is True
 
-    outside = NOW + timedelta(hours=DEFAULT_CATCHUP_HOURS + 0.01)
+    outside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS + 0.01)
     ok, reason = within_run_window(outside)
     assert ok is False
     assert "catch-up" in reason
@@ -141,6 +149,6 @@ def test_window_honours_a_shifted_schedule() -> None:
     [(DEFAULT_SCHEDULED_UTC.hour, DEFAULT_SCHEDULED_UTC.minute)],
 )
 def test_default_schedule_matches_the_launchd_job(hour: int, minute: int) -> None:
-    # ops/com.atlas20.derivatives-execute.plist fires at 11:05 Beijing = 03:05
-    # UTC; the gate must not open before the model's T+1 fill point.
-    assert (hour, minute) == (3, 5)
+    # ops/com.atlas20.derivatives-execute.plist fires at 09:05 Beijing = 01:05
+    # UTC; the gate must not open before the early execution window.
+    assert (hour, minute) == (1, 5)

@@ -406,7 +406,8 @@ That scheduler lives **inside the API process**, so nothing refreshes while the
 API is stopped - which is the normal state on this workstation. For a machine
 that is not running the API around the clock, `ops/com.atlas20.daily-refresh.plist`
 is an equivalent launchd job that runs `scripts/download_data.py` followed by
-`scripts/build_datasets.py` at 02:30 and 06:30 UTC and appends to
+`scripts/build_datasets.py` on the early 00:30/00:50 UTC fast path and the
+02:30/02:55/06:30 UTC fallback path, appending to
 `~/Library/Logs/atlas20-daily-refresh.log`. It is installed on this machine;
 verify it with:
 
@@ -418,13 +419,13 @@ launchctl list | grep atlas20        # confirms it is registered
 For another machine, install the checked-in plist with `cp` plus
 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.daily-refresh.plist`.
 launchd reads the plist's `StartCalendarInterval` in the machine's **local**
-time zone, not UTC. The checked-in hours (10 and 14) are 02:30/06:30 UTC for
-this workstation's Asia/Shanghai zone; convert them for any other zone, or the
-job fires before CoinMarketCap has published the close.
+time zone, not UTC. The checked-in hours are the 00:30/00:50/02:30/02:55/06:30
+UTC schedule for this workstation's Asia/Shanghai zone; convert them for any
+other zone, or the job fires before CoinMarketCap has published the close.
 
 `ops/com.atlas20.cmc-probe.plist` is a second launchd job (installed here as
-well) that measures when CoinMarketCap finishes publishing day D-1, so the fill
-can move from +3h to +1h. It runs every 15 minutes through the 00:05-03:50 UTC
+well) that measured when CoinMarketCap finishes publishing day D-1; it supported
+the implemented move from +3h to +1h. It runs every 15 minutes through the 00:05-03:50 UTC
 window and appends to `reports/provider_publication/cmc_publication_probe.csv`
 (a local, untracked operational log; `reports/provider_publication/*` is
 gitignored so the job never dirties the working tree);

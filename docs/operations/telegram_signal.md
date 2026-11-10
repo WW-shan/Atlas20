@@ -101,8 +101,9 @@ and sends one message per signal day with:
   (notional x 51.5% = 50% buffer + 1% maintenance + 0.5% fee buffer, the same ratio the
   engine posts, giving the -51.01% liquidation distance) for every leg;
 - the total notional vs the 1.25x cap, margin used, and remaining free margin;
-- the UTC signal date, the UTC close (Beijing 08:00 next day), and the modelled
-  execution time (T+1 +3h, i.e. 11:00 Beijing);
+- the UTC signal date, the UTC close (Beijing 08:00 next day), and the live
+  execution window (T+1 01:05 UTC, i.e. 09:05 Beijing; the backtest still uses
+  the conservative +3h fill);
 - a warning line when the execution time has already passed, so a late run
   cannot be mistaken for a live order instruction.
 
@@ -135,10 +136,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
 ```
 
-It fires at 02:00 UTC (10:00 Beijing, one hour before the modelled fill) and
-03:00 UTC (11:00 Beijing, the modelled fill itself) as a catch-up. Both attempts
-run the data refresh first, so a stale or partial panel fails the run instead of
-sending a stale message.
+It fires at 01:05 UTC (09:05 Beijing, the live execution window) and 01:35 UTC
+as a catch-up. It rebuilds the derivatives ledger first, so a stale or partial
+panel fails the run instead of sending a stale message. The timer is mutually
+exclusive with the derivatives execution timer to avoid duplicate messages.
 
 ## Idempotency
 

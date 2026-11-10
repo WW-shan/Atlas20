@@ -7,14 +7,14 @@
 	<!--
 	  Measures when CoinMarketCap has finished publishing day D-1.
 
-	  Why this exists: the champion is filled about three hours after the
-	  00:00 UTC close because the daily refresh runs at 02:30 UTC. The
+	  Why this exists: the champion was previously filled about three hours
+	  after the 00:00 UTC close because the daily refresh ran after 02:00 UTC. The
 	  literature review records a compliant alternative - keep the signal at
 	  the close, shorten the data pipeline, fill about one hour after it - which
 	  the hourly-fill backtest prices at 21.22x against 19.56x at 20 bps. The
 	  gate is a provider fact nobody has measured: when does CMC have >=90% of
-	  assets finished for D-1? This job answers that, and nothing else depends
-	  on it until the answer exists.
+	  assets finished for D-1? This job answers that; the live wrapper also
+	  checks the actual panel's finished-day coverage before every trade.
 
 	  The schedule fires every 15 minutes from 08:05 to 11:50 local time, which
 	  is 00:05 to 03:50 UTC on this Asia/Shanghai workstation - the window in

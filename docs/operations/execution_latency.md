@@ -13,7 +13,7 @@ wealth at 20 bps, with no rule change, no new parameter and no new trial.
 | --- | ---: | ---: | ---: | ---: |
 | At the signal close (lag 0) | 28.80x | 23.09x | 15.97x | 8.62x |
 | **+1h** | **26.48x** | **21.22x** | **14.66x** | **7.90x** |
-| +3h (current live timing) | 24.42x | 19.56x | 13.50x | 7.27x |
+| +3h (previous live timing) | 24.42x | 19.56x | 13.50x | 7.27x |
 
 Source: `reports/phase_momentum_execution_lag_2022/fill_timing.csv`. The +3h
 figure is the `--fill-hours 3` run that already backs `RESEARCH.md` section 00.1.
@@ -28,15 +28,35 @@ needs the owner's sign-off.
 on the selection history, not on execution. Only data no trial has seen can move
 them. This work is operational; the champion stays provisional either way.
 
-## The current chain
+## Implemented live schedule (2026-11-10)
+
+The early path is now the primary chain; the old timing remains the fallback:
 
 | UTC | What happens | Where |
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
-| 02:30 | `daily_universe_refresh` job runs (deployment; `.env.example` default is 02:00) | `src/atlas20/api/scheduler.py`, `ATLAS20_DAILY_REFRESH_HOUR_UTC/MINUTE_UTC` |
+| 00:30 / 00:50 | early panel refresh and catch-up | `ops/com.atlas20.daily-refresh.plist`, `scripts/refresh_daily_data.py` |
+| 01:05 / 01:35 | early live chain and first retry | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
+| 03:05 / 03:35 / 04:35 / 06:35 | legacy fallback retries | same wrapper, bounded by the 01:05-07:05 UTC window |
+| 06:30 | late panel catch-up | `scripts/refresh_daily_data.py` |
+
+Before every order the wrapper now checks both the panel date and the
+finished-last-day volume/market-cap coverage. If either is stale or partial it
+forces a rebuild and checks again; a second failure stops before trading. At
+order time, Bitget tickers supply fresh last/mark/best-bid/best-ask/size
+snapshots. Stale or missing required quotes fail closed; wide spreads, large
+last/mark gaps and orders larger than the visible top-of-book are surfaced in
+the execution report.
+
+## The previous chain
+
+| UTC | What happens | Where |
+| --- | --- | --- |
+| 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
+| 02:30 | former panel refresh (now a fallback) | `src/atlas20/api/scheduler.py`, `ops/com.atlas20.daily-refresh.plist` |
 | ~02:30-03:00 | `download_and_cache_raw_data` pulls each coin's CMC tail, cross-checks, rebuilds `data/processed/panel_daily.csv` | `src/atlas20/data/processor.py` |
-| after that | `scripts/run_phase_momentum_live_signal.py` writes the target snapshot | manual today |
-| ~03:00 | order fills; the backtest models this as +3h | `reports/phase_momentum_execution_lag_2022/` |
+| after that | `scripts/run_derivatives_oos.py` writes the frozen target snapshot | live wrapper |
+| ~03:00 | former order fill; the backtest still models +3h as its conservative protocol | `reports/phase_momentum_execution_lag_2022/` |
 | 06:30 | conditional catch-up refresh | `daily_refresh_catchup_offset_hours` |
 
 ## The real bottleneck
@@ -46,7 +66,8 @@ D-1 row by row, and the panel refuses to append a day until
 `data_quality.min_daily_coverage` (0.9) of live assets carry it
 (`_panel_end` in `src/atlas20/data/processor.py`). `src/atlas20/api/settings.py`
 already records that CMC "is sometimes still writing it when the first job
-runs" at 02:00. Until that curve is measured we cannot claim +1h is reachable.
+runs" at 02:00. The measured curve and the production completeness gate are
+what make the earlier fill safe; without either, do not claim +1h is reachable.
 
 ## Step 0 - Measure the publication curve (gate; do this first)
 
@@ -104,7 +125,7 @@ sample carries D-1 on >=90% of days (the P90 across days):
 
 | `T90` | Action |
 | --- | --- |
-| `<= 00:30` | refresh at `T90 + 10 min`; fill at **+1h** (01:00) |
+| `<= 00:30` | refresh at `T90 + 10 min`; fill at **+1h5m** (01:05) |
 | `00:30 < T90 <= 01:30` | fill at **+2h** (02:00); refresh at `T90 + 10 min` |
 | `> 01:30` | keep the current +3h chain and record why |
 
@@ -112,33 +133,39 @@ Do not move the schedule before this measurement exists; a refresh that runs
 too early appends nothing (the coverage gate holds the panel end) and only
 produces a wasted run and a PARTIAL-day warning.
 
-## Step 1 - Move the refresh (only after Step 0 passes)
+**Measured result.** The committed operational probe (10 largest candidates,
+not the full 102-asset candidate pool) has 34 target days from 2026-10-08 to
+2026-11-09. On the latest 32 target days, the 10/10 sample first reached full
+coverage at 00:20 UTC every day; the first two probe days were setup outliers.
+This is strong enough to justify the early execution path only because the
+production gate now independently checks the **actual panel's** finished-day
+volume and market-cap coverage. The 10-asset sample is not a claim that all
+102 candidate histories are complete at 00:20, so fallback and self-healing
+remain mandatory.
 
-- Set `ATLAS20_DAILY_REFRESH_HOUR_UTC` / `ATLAS20_DAILY_REFRESH_MINUTE_UTC` to
-  `T90 + 10 min` in the deployment environment (see `.env.example`).
-- Keep the catch-up job (`ATLAS20_DAILY_REFRESH_CATCHUP_OFFSET_HOURS`) as the
-  retry for days CMC is late.
-- Re-check `ATLAS20_DAILY_REFRESH_GRACE_MINUTES` and
-  `data_freshness_max_primary_lag_days`: both are written for the 02:00
-  schedule and must still describe the new one.
-- Optional hardening: gate the job on the probe's coverage so a refresh is not
-  queued before CMC has the day. Without it the existing freshness guard
-  (`scripts/run_phase_momentum_live_signal.py`) still refuses to trade a stale
-  or partial last day, which is the safe failure mode.
+## Step 1 - Move the refresh (implemented)
 
-## Step 2 - Move the fill
+- The workstation `ops/com.atlas20.daily-refresh.plist` now fires at 08:30 and
+  08:50 Beijing (00:30/00:50 UTC), then keeps the legacy 02:30/02:55/06:30 UTC
+  fires as fallbacks.
+- `scripts/refresh_daily_data.py` owns the lock and skip-if-current behavior;
+  the executor wrapper owns the stronger finished-last-day check.
+- The API scheduler's `ATLAS20_DAILY_REFRESH_*` environment remains a separate
+  deployment path and is not silently changed by this workstation plist.
 
-- Schedule `scripts/run_phase_momentum_live_signal.py` to finish before the
-  target fill hour, then place the order so the fill lands at the intended time.
-- Record which missing-candle case actually occurred each day (the live analogue
-  of `observed_weight_share` in `fill_timing.csv`): 91.8% of the historical fill
-  weight had an observed hourly candle, and the backtest decides on the worse of
-  the `day_close` / `prior_close` policies.
-- Keep the audit's hourly source identical to the venue that would print the
-  live fill (`data-api.binance.vision` 1h candles, see
-  `src/atlas20/data/binance.py`).
+## Step 2 - Move the fill (implemented)
 
-## Step 3 - Audit (required)
+- `ops/com.atlas20.derivatives-execute.plist` and
+  `ops/systemd/atlas20-derivatives-execute.timer` now fire at 01:05 UTC; the
+  wrapper keeps the old 03:05/03:35/04:35/06:35 UTC retries.
+- The live executor fetches one server-timestamped Bitget ticker snapshot for
+  the required symbols. Missing/stale quotes fail closed; wide spreads,
+  last/mark divergence and orders larger than the visible top-of-book level are
+  printed in the daily report.
+- The strategy selection, target weights, 1.25x gross cap and T+1 signal rule
+  are unchanged. This is an execution-latency change, not a new alpha trial.
+
+## Step 3 - Audit (required, ongoing)
 
 The review states the compliant alternative "needs only an audit that the live
 data reproduce the historical daily snapshot". Concretely, for every new day:
@@ -154,9 +181,9 @@ data reproduce the historical daily snapshot". Concretely, for every new day:
 
 ## Rollback
 
-Only the refresh hour and the order timing change. Reverting
-`ATLAS20_DAILY_REFRESH_HOUR_UTC`/`MINUTE_UTC` and the order schedule restores the
-current +3h chain; no strategy, universe, cost or execution-rule state moves.
+Only the refresh and order schedules changed. Reverting the two launchd/systemd
+calendars to the old 02:30/03:05 path restores the previous +3h chain; no
+strategy, universe, cost or execution-rule state moves.
 
 ## Record
 

@@ -33,14 +33,16 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
-#: The frozen spec's T+1 fill point, in UTC.  ops/com.atlas20.derivatives-execute.plist
-#: fires five minutes later (11:05 Beijing); tests/test_launchd_derivatives_schedule.py
-#: pins the local-to-UTC conversion.
-DEFAULT_SCHEDULED_UTC = time(3, 5)
+from atlas20.data.completeness import assess_last_day
+
+#: The first executable T+1 window, in UTC. ops/com.atlas20.derivatives-execute.plist
+#: fires at 09:05 Beijing (01:05 UTC), after the early panel refresh; the
+#: preflight and the panel completeness gate are both required before trading.
+DEFAULT_SCHEDULED_UTC = time(1, 5)
 
 #: How long after the fill point a missed run may still be caught up.  Beyond
 #: this the rebalance is skipped and the 19:00 monitor reports the gap, because
@@ -48,6 +50,9 @@ DEFAULT_SCHEDULED_UTC = time(3, 5)
 DEFAULT_CATCHUP_HOURS = 6.0
 
 PANEL_FILENAME = "panel_daily.csv"
+# The live universe is a point-in-time Top20; a panel with only the old
+# calibration minimum of ten names must not be accepted as an executable panel.
+LIVE_PANEL_MIN_ASSETS = 20
 
 
 def as_utc(moment: datetime) -> datetime:
@@ -62,6 +67,22 @@ def last_completed_utc_day(now: datetime) -> date:
     """The newest day whose UTC bar has closed."""
 
     return as_utc(now).date() - timedelta(days=1)
+
+
+def live_execution_hint_for_signal(
+    signal_date: date | datetime,
+    *,
+    scheduled_utc: time = DEFAULT_SCHEDULED_UTC,
+) -> datetime:
+    """The UTC timestamp the automated live executor aims at for a signal day.
+
+    The frozen target file keeps its backtest ``execution_hint`` (T+1 +3h).
+    Live execution is intentionally earlier; keeping this conversion in one
+    place prevents a manual plan or alert from advertising the old fill time.
+    """
+
+    day = signal_date.date() if isinstance(signal_date, datetime) else signal_date
+    return datetime.combine(day + timedelta(days=1), scheduled_utc, tzinfo=timezone.utc)
 
 
 def panel_end_date(panel_path: Path) -> date | None:
@@ -79,7 +100,7 @@ def panel_end_date(panel_path: Path) -> date | None:
     dates = pd.to_datetime(frame["date"], utc=True, format="mixed", errors="coerce").dropna()
     if dates.empty:
         return None
-    return dates.max().date()
+    return cast(date, pd.Timestamp(dates.max()).date())
 
 
 def panel_lags_last_completed_day(panel_path: Path, now: datetime) -> bool:
@@ -89,6 +110,28 @@ def panel_lags_last_completed_day(panel_path: Path, now: datetime) -> bool:
     if end is None:
         return True
     return end < last_completed_utc_day(now)
+
+
+def panel_completeness(panel_path: Path) -> tuple[bool, str]:
+    """Whether the newest panel day is finished, with a human-readable reason.
+
+    A panel can carry the correct date and still be unsafe to trade: CMC
+    publishes rows asset by asset, and a day whose volume or market-cap
+    coverage is still incomplete must not move the Top20 or size an order.
+    """
+
+    path = Path(panel_path)
+    if not path.is_file():
+        return False, f"panel is missing: {path}"
+    try:
+        frame = pd.read_csv(path, usecols=["date", "coin_id", "volume_usd", "market_cap"])
+    except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+        return False, f"panel could not be read: {exc}"
+    try:
+        verdict = assess_last_day(frame, min_assets=LIVE_PANEL_MIN_ASSETS)
+    except (KeyError, ValueError, TypeError) as exc:
+        return False, f"panel completeness check failed: {exc}"
+    return bool(verdict.complete), verdict.describe()
 
 
 def run_day_already_done(state_path: Path, run_day: date) -> bool:

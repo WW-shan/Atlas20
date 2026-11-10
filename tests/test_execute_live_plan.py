@@ -8,6 +8,63 @@ import pytest
 from atlas20.derivatives.live_executor import ExecutionReport
 from atlas20.derivatives.live_journal import JournalEntry
 from scripts import execute_live_plan
+from scripts.plan_live_execution import account_state_from_bitget
+
+
+class _QuoteResponse:
+    ok = True
+    status_code = 200
+
+    def json(self):
+        return {
+            "code": "00000",
+            "msg": "success",
+            "requestTime": 1_800_000_000_000,
+            "data": [
+                {
+                    "symbol": "BTCUSDT",
+                    "ts": "1799999999000",
+                    "lastPrice": "100.0",
+                    "markPrice": "100.1",
+                    "bid1Price": "99.9",
+                    "ask1Price": "100.2",
+                    "bid1Size": "3.0",
+                    "ask1Size": "2.0",
+                }
+            ],
+        }
+
+
+class _QuoteSession:
+    def get(self, url, params, timeout):
+        return _QuoteResponse()
+
+
+class _PositionClient:
+    def account_assets(self):
+        return {"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "100"}]}
+
+    def current_positions(self):
+        return [{"symbol": "TRXUSDT", "total": "1", "posSide": "long"}]
+
+
+def test_live_quote_snapshot_returns_prices_and_execution_warnings() -> None:
+    prices, quotes, warnings = execute_live_plan._live_quote_snapshot(
+        _QuoteSession(),  # type: ignore[arg-type]
+        {"BTCUSDT"},
+        max_age_seconds=120.0,
+        spread_warning_bps=20.0,
+        mark_deviation_warning_bps=5.0,
+    )
+
+    assert prices == {"BTCUSDT": pytest.approx(100.0)}
+    assert quotes["BTCUSDT"].mark_price == pytest.approx(100.1)
+    assert any("BTCUSDT" in warning for warning in warnings)
+
+
+def test_unmapped_live_position_fails_closed() -> None:
+    with pytest.raises(RuntimeError, match="not in the frozen symbol map"):
+        account_state_from_bitget(_PositionClient(), {"near": "NEARUSDT"})  # type: ignore[arg-type]
 
 
 def test_state_is_not_marked_complete_when_journal_write_fails(tmp_path: Path) -> None:

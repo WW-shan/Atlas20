@@ -22,12 +22,13 @@
 # (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
 # checkout and the credentials somewhere else, so both paths are overridable.
 #
-# The primary schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after
-# the model's T+1 03:00 UTC fill point. The launchd/systemd timers also retry
-# at 11:35, 12:35 and 14:35 Beijing; a successful same-day run makes those
-# retries no-ops. macOS loads the job at boot (RunAtLoad) and systemd replays a
-# missed timer fire (Persistent=true); scripts/live_chain_preflight.py keeps
-# those from turning into a second trade or an out-of-hours one.
+# The primary schedule fires at 09:05 Beijing = 01:05 UTC, about one hour after
+# the 00:00 UTC signal close and after the early 00:30 UTC panel refresh. The
+# old 03:05/03:35/04:35/06:35 UTC fires remain fallbacks; a successful same-day
+# run makes those retries no-ops. macOS loads the job at boot (RunAtLoad) and
+# systemd replays a missed timer fire (Persistent=true);
+# scripts/live_chain_preflight.py keeps those from turning into a second trade
+# or an out-of-hours one.
 #
 # Do not run two copies at once: launchd carries a start-interval throttle, the
 # refresh step takes its own lock, and the executor is idempotent per run day.
@@ -85,22 +86,35 @@ elif [ "$window_status" -ne 0 ]; then
   exit "$window_status"
 fi
 
-# --- 2. Self-heal the panel --------------------------------------------------
+# --- 2. Self-heal and re-check the panel -------------------------------------
 # A shutdown in the middle of the daily refresh leaves the panel a day behind
 # while the Bitget marks keep moving; the executor would then fail closed and
 # silently skip the day. Repair it once here, waiting for a scheduled refresh
-# that is already in flight instead of racing it. If the panel is still stale
-# afterwards the executor's own guard remains the backstop and refuses to
-# trade.
+# that is already in flight instead of racing it. The panel can also carry the
+# right date while the newest provider day is still partial; --force rebuilds
+# that case instead of letting refresh_daily_data.py skip it as date-current.
+# Re-check after the refresh: a lock timeout or an unfinished provider day must
+# stop the chain before any order is planned.
 panel_status=0
 .venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
 if [ "$panel_status" -eq 3 ]; then
-  echo "panel lags the last completed UTC day; refreshing before the chain" >&2
+  echo "panel is stale or partial; forcing a rebuild before the chain" >&2
   .venv/bin/python scripts/refresh_daily_data.py \
     --config config/base.yaml \
+    --force \
     --wait-seconds 900
 elif [ "$panel_status" -ne 0 ]; then
   echo "live chain panel preflight failed with status $panel_status" >&2
+  exit "$panel_status"
+fi
+
+panel_status=0
+.venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
+if [ "$panel_status" -eq 3 ]; then
+  echo "panel is still stale or partial after self-heal; refusing to trade" >&2
+  exit 1
+elif [ "$panel_status" -ne 0 ]; then
+  echo "live chain panel recheck failed with status $panel_status" >&2
   exit "$panel_status"
 fi
 

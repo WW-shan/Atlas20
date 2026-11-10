@@ -53,6 +53,7 @@ from atlas20.derivatives.execution import (  # noqa: E402
     PositionState,
     build_execution_plan,
 )
+from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -109,20 +110,35 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
     available = float(usdt.get("available") or 0.0)
     by_symbol = {symbol.upper(): asset for asset, symbol in symbols_by_asset.items()}
     positions: dict[str, PositionState] = {}
+    unknown: set[str] = set()
     for row in client.current_positions():
         symbol = str(row.get("symbol", "")).upper()
+        total = abs(float(row.get("total") or 0.0))
+        if total <= 0.0:
+            continue
         asset = by_symbol.get(symbol)
         if asset is None:
+            unknown.add(symbol or "<empty-symbol>")
             continue
+        if asset in positions:
+            raise RuntimeError(
+                f"multiple venue positions map to asset {asset!r}; hedge-mode/duplicate rows "
+                "need explicit review before planning"
+            )
         side = str(row.get("posSide", "long")).lower()
         positions[asset] = PositionState(
             asset=asset,
             symbol=symbol,
             side=side or "long",
-            size=abs(float(row.get("total") or 0.0)),
+            size=total,
             entry_price=float(row.get("avgPrice") or 0.0),
             mark_price=float(row.get("markPrice") or 0.0),
             margin=float(row.get("positionBalance") or 0.0),
+        )
+    if unknown:
+        raise RuntimeError(
+            "account has position(s) whose symbols are not in the frozen symbol map: "
+            + ", ".join(sorted(unknown))
         )
     return AccountState(equity=equity, available_margin=available, positions=positions)
 
@@ -264,7 +280,8 @@ def main() -> None:
     args = parser.parse_args()
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, _, book = load_latest_targets(args.targets_file)
+    execution_hint = live_execution_hint_for_signal(signal_date)
     targets = {
         str(record["asset"]): float(record["target_weight"])
         for record in book.to_dict("records")

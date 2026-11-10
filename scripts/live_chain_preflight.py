@@ -36,6 +36,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     DEFAULT_SCHEDULED_UTC,
     as_utc,
     last_completed_utc_day,
+    panel_completeness,
     panel_end_date,
     panel_lags_last_completed_day,
     run_day_already_done,
@@ -70,7 +71,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="ignore the run window and the same-day idempotency record",
+        help="ignore the run window and same-day idempotency; data completeness is still enforced",
     )
     return parser.parse_args(argv)
 
@@ -100,10 +101,12 @@ def main(argv: list[str] | None = None) -> int:
 
     end = panel_end_date(args.panel)
     expected = last_completed_utc_day(now)
-    if args.force:
-        return 0
     if panel_lags_last_completed_day(args.panel, now):
         print(f"panel ends {end or 'missing'} but {expected.isoformat()} is the last completed UTC day")
+        return BLOCKED
+    complete, detail = panel_completeness(args.panel)
+    if not complete:
+        print(f"panel date is current but the last provider day is not finished: {detail}")
         return BLOCKED
     print(f"panel carries {expected.isoformat()}")
     return 0

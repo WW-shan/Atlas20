@@ -16,13 +16,13 @@
 	  this order. ops/run_derivatives_daily.sh sources the credentials outside
 	  the repo, because launchd does not read shell rc files.
 
-	  Schedule: 11:05 Beijing = 03:05 UTC, five minutes after the model's T+1
-	  03:00 UTC fill point and after the 02:30 UTC daily refresh has
-	  written the panel. Retries at 11:35, 12:35 and 14:35 Beijing repair a
-	  transient API/order failure without waiting until tomorrow; the wrapper's
+	  Schedule: 09:05 Beijing = 01:05 UTC, about one hour after the signal
+	  close and after the early panel refresh/catch-up. Retries at 09:35,
+	  11:05, 11:35, 12:35 and 14:35 Beijing repair a transient API/order or
+	  late-provider failure without waiting until tomorrow; the wrapper's
 	  same-day success gate makes these retries no-ops after a good run.
 	  launchd reads StartCalendarInterval in the machine's LOCAL time zone
-	  (Asia/Shanghai here), so Hour 11 is the Beijing time, not UTC: on a
+	  (Asia/Shanghai here), so Hour 9 is the Beijing time, not UTC: on a
 	  machine in another zone convert the hour again, or the trade will fire
 	  before the close exists. tests/test_launchd_derivatives_schedule.py pins
 	  this conversion.
@@ -50,6 +50,18 @@
 	<string>/Users/ww/Project/Atlas20</string>
 	<key>StartCalendarInterval</key>
 	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>9</integer>
+			<key>Minute</key>
+			<integer>5</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>9</integer>
+			<key>Minute</key>
+			<integer>35</integer>
+		</dict>
 		<dict>
 			<key>Hour</key>
 			<integer>11</integer>

@@ -15,8 +15,26 @@ import pandas as pd
 from scripts.live_chain_preflight import BLOCKED, main
 
 
-def _write_panel(path: Path, days: list[str]) -> Path:
-    pd.DataFrame({"date": days}).to_csv(path, index=False)
+def _write_panel(
+    path: Path,
+    days: list[str],
+    *,
+    last_volume_factor: float = 1.0,
+    assets: int = 20,
+) -> Path:
+    rows = []
+    for day in days:
+        factor = last_volume_factor if day == days[-1] else 1.0
+        for index in range(assets):
+            rows.append(
+                {
+                    "date": day,
+                    "coin_id": f"coin-{index}",
+                    "volume_usd": 100.0 * factor,
+                    "market_cap": 1_000.0,
+                }
+            )
+    pd.DataFrame(rows).to_csv(path, index=False)
     return path
 
 
@@ -34,17 +52,44 @@ def test_panel_check_blocks_when_the_panel_lags(tmp_path: Path) -> None:
 
 
 def test_panel_check_allows_when_the_panel_is_current(tmp_path: Path) -> None:
-    panel = _write_panel(tmp_path / "panel.csv", ["2026-10-14", "2026-10-15"])
+    panel = _write_panel(
+        tmp_path / "panel.csv",
+        [f"2026-10-{day:02d}" for day in range(8, 16)],
+    )
 
     code = main(["--check", "panel", "--panel", str(panel), "--now", "2026-10-16T03:05:00+00:00"])
 
     assert code == 0
 
 
+def test_panel_check_blocks_a_partial_last_day(tmp_path: Path) -> None:
+    panel = _write_panel(
+        tmp_path / "panel.csv",
+        [f"2026-10-{day:02d}" for day in range(8, 16)],
+        last_volume_factor=0.3,
+    )
+
+    code = main(["--check", "panel", "--panel", str(panel), "--now", "2026-10-16T03:05:00+00:00"])
+
+    assert code == BLOCKED
+
+
+def test_panel_check_blocks_a_narrow_panel(tmp_path: Path) -> None:
+    panel = _write_panel(
+        tmp_path / "panel.csv",
+        [f"2026-10-{day:02d}" for day in range(8, 16)],
+        assets=10,
+    )
+
+    code = main(["--check", "panel", "--panel", str(panel), "--now", "2026-10-16T03:05:00+00:00"])
+
+    assert code == BLOCKED
+
+
 def test_window_check_blocks_before_the_fill_point(tmp_path: Path) -> None:
     state = _write_state(tmp_path / "state.json", "spec|2026-10-14|2026-10-15", "ok")
 
-    code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T02:00:00+00:00"])
+    code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T01:04:00+00:00"])
 
     assert code == BLOCKED
 
@@ -81,7 +126,7 @@ def test_window_check_blocks_outside_the_catchup_budget(tmp_path: Path) -> None:
     assert code == BLOCKED
 
 
-def test_force_overrides_both_checks(tmp_path: Path) -> None:
+def test_force_overrides_window_but_not_data_completeness(tmp_path: Path) -> None:
     panel = _write_panel(tmp_path / "panel.csv", ["2026-10-13"])
     state = _write_state(tmp_path / "state.json", "spec|2026-10-15|2026-10-16", "ok")
 
@@ -111,5 +156,5 @@ def test_force_overrides_both_checks(tmp_path: Path) -> None:
                 "2026-10-16T23:00:00+00:00",
             ]
         )
-        == 0
+        == BLOCKED
     )

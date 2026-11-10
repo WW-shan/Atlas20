@@ -2,8 +2,8 @@
 
 Why this exists
 ---------------
-The frozen phase-momentum champion is filled about three hours after the
-00:00 UTC close because the daily refresh is scheduled for 02:00 UTC. The
+The frozen phase-momentum champion was previously filled about three hours
+after the 00:00 UTC close because the daily refresh ran after 02:00 UTC. The
 literature review (``docs/research/literature_review_2026-09.md``, section 4,
 H1) records a compliant operational alternative: keep the signal at the close
 and shorten the data pipeline so the fill lands about one hour after it. That

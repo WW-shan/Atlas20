@@ -80,6 +80,18 @@ def test_format_derivatives_message_flags_stale_execution() -> None:
     assert "请勿追单" in message
 
 
+def test_format_derivatives_message_shows_the_early_execution_lag() -> None:
+    from scripts.send_derivatives_signal import format_derivatives_message
+
+    message = format_derivatives_message(
+        _book(),
+        signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
+    )
+
+    assert "UTC 2026-10-09 01:05，T+1 +1h5m" in message
+
+
 def test_format_derivatives_message_reports_no_trade_when_book_is_unchanged() -> None:
     from scripts.send_derivatives_signal import format_derivatives_message
 

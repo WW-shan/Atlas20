@@ -31,6 +31,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
     _chat_ids,
@@ -79,10 +80,16 @@ def _close_and_execution_lines(signal_date: pd.Timestamp, execution_hint: pd.Tim
     close_utc = signal_date + pd.Timedelta(days=1)
     close_local = close_utc + pd.Timedelta(hours=8)
     execution_local = execution_hint + pd.Timedelta(hours=8)
+    lag_minutes = int((execution_hint - close_utc).total_seconds() // 60)
+    lag_label = (
+        f"T+1 +{lag_minutes // 60}h"
+        if lag_minutes % 60 == 0
+        else f"T+1 +{lag_minutes // 60}h{lag_minutes % 60}m"
+    )
     return [
         f"信号日线（UTC）: {signal_date.date()}（{signal_date.date()} 00:00→24:00 UTC）",
         f"数据收盘: {close_utc.strftime('%Y-%m-%d %H:%M')} UTC / 北京时间 {close_local.strftime('%Y-%m-%d %H:%M')}",
-        f"建议执行: 北京时间 {execution_local.strftime('%Y-%m-%d %H:%M')}（UTC {execution_hint.strftime('%Y-%m-%d %H:%M')}，T+1 +3h）",
+        f"建议执行: 北京时间 {execution_local.strftime('%Y-%m-%d %H:%M')}（UTC {execution_hint.strftime('%Y-%m-%d %H:%M')}，{lag_label}）",
     ]
 
 
@@ -211,7 +218,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, _, book = load_latest_targets(args.targets_file)
+    execution_hint = live_execution_hint_for_signal(signal_date)
     raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
     try:
         capital = float(raw_capital)

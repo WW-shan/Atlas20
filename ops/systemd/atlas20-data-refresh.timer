@@ -1,15 +1,17 @@
 [Unit]
-Description=Refresh the Atlas20 PIT panel three times daily
+Description=Refresh the Atlas20 PIT panel on the early and fallback schedule
 
 [Timer]
-# 10:30 / 10:55 / 14:30 Beijing = 02:30 / 02:55 / 06:30 UTC.
-# 02:30 is the primary run after CoinMarketCap finalises day D-1 (measured by
-# ops/systemd's cmc probe); 02:55 is the pre-trade catch-up that repairs a
-# primary run a reboot killed, and it lands ten minutes before the 03:05
-# rebalance; 06:30 is the late catch-up.  scripts/refresh_daily_data.py exits
-# immediately when the panel already carries the last completed UTC day, so
-# only the runs that are actually needed do any work, and it holds a lock so
-# two fires can never write the raw cache at once.
+# 08:30 / 08:50 / 10:30 / 10:55 / 14:30 Beijing =
+# 00:30 / 00:50 / 02:30 / 02:55 / 06:30 UTC.
+# The 00:20 UTC CMC publication probe has measured 10/10 sample coverage for
+# 32 consecutive days, so 00:30 is the early primary and 00:50 is its catch-up.
+# The production panel's finished-day coverage check remains authoritative.
+# The old 02:30/02:55 pair and the 06:30 late run remain fail-safe fallbacks.
+# scripts/refresh_daily_data.py exits immediately when the panel already carries
+# the last completed UTC day, and the file lock prevents overlapping writes.
+OnCalendar=*-*-* 00:30:00 UTC
+OnCalendar=*-*-* 00:50:00 UTC
 OnCalendar=*-*-* 02:30:00 UTC
 OnCalendar=*-*-* 02:55:00 UTC
 OnCalendar=*-*-* 06:30:00 UTC

@@ -1,12 +1,12 @@
 """The macOS launchd jobs must trade and check *after* the close, not before.
 
 launchd reads ``StartCalendarInterval`` in the host's local time zone, not
-UTC. The checked-in plists target this workstation (Asia/Shanghai, UTC+8), so
-an ``Hour`` of 11 fires at 03:05 UTC: five minutes after the model's T+1
-03:00 UTC fill point and after the 02:30 UTC daily refresh has written the
-panel. Getting this conversion wrong would silently trade a day early, so the
-schedule is pinned here the same way the refresh and probe jobs are; the
-read-only monitor follows the same rule one window later.
+UTC. The checked-in plists target this workstation (Asia/Shanghai, UTC+8). The
+primary fire is now 09:05 Beijing = 01:05 UTC after the measured 00:20 UTC CMC
+publication window, with the old 03:05/03:35/04:35/06:35 UTC fires retained as
+fallback and catch-up. Getting this conversion wrong would silently trade a day
+early, so the schedule is pinned here the same way the refresh and probe jobs
+are; the read-only monitor follows the same rule one window later.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _scheduled_utc_time(plist_path: Path) -> tuple[int, int]:
 
 
 def test_derivatives_job_fires_at_documented_utc_time():
-    assert _scheduled_utc_times(EXECUTE_PLIST)[0] == (3, 5)
+    assert _scheduled_utc_times(EXECUTE_PLIST)[0] == (1, 5)
 
 
 def test_monitor_fires_after_the_daily_rebalance():
@@ -53,16 +53,16 @@ def test_monitor_fires_after_the_daily_rebalance():
 
 
 def test_derivatives_job_runs_after_the_daily_refresh():
-    # The primary panel refresh fires at 10:30 Beijing (02:30 UTC); the trade
-    # must not fire before the panel has for that day.
-    assert min(_scheduled_utc_times(EXECUTE_PLIST)) > (2, 30)
+    # The early panel refresh fires at 08:30 Beijing (00:30 UTC); the trade
+    # must not fire before the panel has a chance to carry that day.
+    assert min(_scheduled_utc_times(EXECUTE_PLIST)) > (0, 30)
 
 
 def test_derivatives_job_retries_failed_runs_inside_the_catchup_window():
     times = _scheduled_utc_times(EXECUTE_PLIST)
 
-    assert times == [(3, 5), (3, 35), (4, 35), (6, 35)]
-    assert max(times) <= (9, 5)
+    assert times == [(1, 5), (1, 35), (3, 5), (3, 35), (4, 35), (6, 35)]
+    assert max(times) <= (7, 5)
 
 
 def _wrapper_project_root(wrapper_path: Path) -> str:
@@ -131,6 +131,18 @@ def test_execute_job_catches_a_reboot_up_without_trading_twice():
     assert "scripts/refresh_daily_data.py" in script
 
 
+def test_execute_wrapper_rechecks_complete_data_after_self_healing():
+    """A refresh that skipped or still left a partial day must not trade."""
+
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+
+    assert script.count("scripts/live_chain_preflight.py --check panel") >= 2
+    assert "--force" in script[script.index("scripts/refresh_daily_data.py") :]
+    assert script.index("scripts/refresh_daily_data.py") < script.rindex(
+        "scripts/live_chain_preflight.py --check panel"
+    )
+
+
 def test_execute_wrapper_sources_credentials_and_runs_the_live_chain():
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
     # Credentials live outside the repo; the wrapper is the one place that
@@ -162,7 +174,7 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     """Only a human may drop the window; the scheduled fires must obey it.
 
     The window gate would otherwise make the documented manual catch-up
-    (`ops/run_derivatives_daily.sh`) a silent no-op outside 03:05-09:05 UTC.
+    (`ops/run_derivatives_daily.sh`) a silent no-op outside 01:05-07:05 UTC.
     """
 
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")

@@ -14,13 +14,16 @@
 	  running on a stale panel - and a slow run can never race a catch-up fire
 	  into the same raw cache.
 
-	  The schedule fires three times, and scripts/refresh_daily_data.py exits
+	  The schedule fires five times, and scripts/refresh_daily_data.py exits
 	  immediately when the panel already carries the last completed UTC day, so
-	  only the runs that are actually needed do any work:
+	  only the runs that are actually needed do any work.  The first pair is the
+	  fast path; the old pair and the late run remain fail-safe fallbacks:
 
-	    10:30 Beijing (02:30 UTC)  primary run, after CMC finalises day D-1
-	    10:55 Beijing (02:55 UTC)  pre-trade catch-up, 10 min before the
-	                               11:05 derivatives job reads the panel
+	    08:30 Beijing (00:30 UTC)  early primary, after the 10-asset probe's
+	                               measured 00:20 CMC publication window
+	    08:50 Beijing (00:50 UTC)  early catch-up, before the 09:05 trade
+	    10:30 Beijing (02:30 UTC)  legacy primary fallback
+	    10:55 Beijing (02:55 UTC)  legacy pre-trade fallback before 11:05
 	    14:30 Beijing (06:30 UTC)  late catch-up for anything that still failed
 
 	  The pre-trade catch-up is what makes a shutdown in the middle of the
@@ -34,10 +37,9 @@
 	  stale lock behind.
 
 	  launchd reads StartCalendarInterval in the machine's LOCAL time zone,
-	  not UTC. This workstation runs Asia/Shanghai (UTC+8), so 02:30/02:55/
-	  06:30 UTC are Hour 10:30, 10:55 and 14:30 below. On a machine in another
-	  zone, convert again: Hour 2/6 here would fire at 18:30/22:30 UTC, before
-	  the close exists. tests/test_launchd_refresh_schedule.py pins this.
+	  not UTC. This workstation runs Asia/Shanghai (UTC+8), so the UTC times
+	  above map to the Hour/Minute pairs below. On a machine in another zone,
+	  convert again. tests/test_launchd_refresh_schedule.py pins this.
 	-->
 	<key>ProgramArguments</key>
 	<array>
@@ -49,6 +51,18 @@
 	<string>/Users/ww/Project/Atlas20</string>
 	<key>StartCalendarInterval</key>
 	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>8</integer>
+			<key>Minute</key>
+			<integer>30</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>8</integer>
+			<key>Minute</key>
+			<integer>50</integer>
+		</dict>
 		<dict>
 			<key>Hour</key>
 			<integer>10</integer>

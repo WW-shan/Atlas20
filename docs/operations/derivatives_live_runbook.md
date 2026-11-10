@@ -1,8 +1,8 @@
 # 衍生品轨（Bitget USDT-M）实盘 Runbook
 
 > 适用规格：**`PR2026-10-D-L125-V2`** —— H5 多头账本 × 1.25x 名义、**隔离保证金**、
-> 每腿 50% 保证金缓冲、20 bps 成本、T+1 +3h 成交。规格已冻结，本文只描述**执行**，
-> 不允许在实盘中改参数。
+> 每腿 50% 保证金缓冲、20 bps 成本、T+1 信号；回测保守口径为 +3h，实盘已按 00:30 早盘刷新
+> 和 01:05 UTC 执行优化。规格已冻结，本文只描述**执行**，不允许在实盘中改参数。
 >
 > 证据与门槛状态：`RESEARCH.md` §9.8–9.9、`docs/research/derivatives_track_research_2026-10.md` §13。
 > 门槛 #9（pre-2022 压力）为 partial-with-bounding、#10（12 个月样本外）进行中；
@@ -17,9 +17,9 @@
 
 | launchd 任务 | 本机时间（北京） | 干什么 | 日志 |
 |---|---|---|---|
-| `com.atlas20.daily-refresh` | 每天 10:30、**10:55**、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（02:30 / **02:55** / 06:30 UTC）。10:55 是**盘前补跑**，必须落在 11:05 主任务之前；面板已覆盖最后完整 UTC 日时 `scripts/refresh_daily_data.py` 直接跳过，下载+构建全程持文件锁 | `~/Library/Logs/atlas20-daily-refresh.log` |
+| `com.atlas20.daily-refresh` | 每天 **08:30、08:50**、10:30、10:55、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（**00:30 / 00:50** / 02:30 / 02:55 / 06:30 UTC）。前两次是早盘快路径，后三次是回退；面板已覆盖最后完整 UTC 日且最后一天完整时脚本直接跳过，下载+构建全程持文件锁 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | 每天 **11:05**，失败重试 **11:35 / 12:35 / 14:35** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram；成功当天重试会直接跳过 | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.derivatives-execute` | 每天 **09:05**，失败重试 **09:35 / 11:05 / 11:35 / 12:35 / 14:35** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram；成功当天重试会直接跳过 | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 每天 **19:00** | **只读巡检**：跑全链路核对 + 仓位偏离 + 名义上限 + 执行新鲜度；**只在异常时发 Telegram**（安静=正常） | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 重建并给上述运营日志加 macOS `uappnd`（append-only）保护；腾讯柠檬等清理工具无法删除或清空，launchd 仍可正常追加 | `~/Library/Logs/atlas20-log-protect.log` |
 
@@ -49,25 +49,25 @@ launchctl print gui/$(id -u)/com.atlas20.protect-live-logs | head -30
 `ops/run_derivatives_daily.sh`，脚本里 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`
 （launchd **不读** shell rc 文件，凭证必须由脚本自己加载；缺文件直接退出 1，不会盲目下单），
 然后执行 `make derivatives-oos-data derivatives-oos execute-plan-live`。调度时点由
-`tests/test_launchd_derivatives_schedule.py` 钉住：11:05 北京 = 03:05 UTC，在模型 T+1
-03:00 UTC 成交点之后 5 分钟，且在面板刷新之后。11:35 / 12:35 / 14:35 的三次重试用于接住
-瞬时接口错误、未成交订单和部分成交；只要当天状态已是 `ok`，包装脚本会快速跳过。
+`tests/test_launchd_derivatives_schedule.py` 钉住：09:05 北京 = 01:05 UTC，在模型 T+1
+约一小时成交点之后，且在早盘面板刷新之后。09:35 / 11:05 / 11:35 / 12:35 / 14:35 的重试用于接住
+瞬时接口错误、未成交订单、晚发布数据和部分成交；只要当天状态已是 `ok`，包装脚本会快速跳过。
 
 **重启与自愈（2026-10-16 起）**：plist 的 `RunAtLoad=true`，所以重启/登录时也会跑一次包装脚本；
 包装脚本先用 `scripts/live_chain_preflight.py` 过两道闸：
 
-1. `--check window`：只允许"03:05 UTC 起 **6 小时**内 **且** 当日 run day 尚未成功"时交易。
+1. `--check window`：只允许"01:05 UTC 起 **6 小时**内 **且** 当日 run day 尚未成功"时交易。
    窗口外、或当日已成交 → 静默退出（exit 3，与真错误区分）；`partial`/失败状态会在当天的
    11:35、12:35、14:35 重试。
    这样重启补跑不会重复下单，也不会在信号早已失效时补单；窗口外漏跑由 19:00 巡检告警。
    注意 `launchctl kickstart` 不带参数，所以它**永远遵守窗口**；要窗口外补做只能跑
    `ops/run_derivatives_daily.sh --force`。
-2. `--check panel`：`panel_daily.csv` 落后于最后完整 UTC 日时，先调用
-   `scripts/refresh_daily_data.py --wait-seconds 900` 自愈（会等已在跑的刷新，不与其抢锁），
-   再进链。自愈后仍落后时，执行器自己的新鲜度闸门照旧拒绝下单。
+2. `--check panel`：`panel_daily.csv` 落后于最后完整 UTC 日，**或最后一天成交/市值覆盖不完整**时，先调用
+   `scripts/refresh_daily_data.py --force --wait-seconds 900` 自愈（会等已在跑的刷新，不与其抢锁），
+   然后**再次**检查；仍然不完整就拒绝进入下单链。这样不会把 CMC 尚未发布完的半天面板当成信号。
 
 2026-10-16 实测故障即此路径：机器 10:34 关机、10:35:17 重启，打断了 10:30 的主刷新，面板停在
-10-14，11:05 主任务按设计拒绝下单（当日无成交）。现在同样的重启会被 10:55 补跑或主任务自愈接住。
+10-14，当时 11:05 的主任务按设计拒绝下单（当日无成交）。现在同样的重启会被 00:50 早盘补跑或主任务自愈接住。
 
 安装 / 检查 / 手动补跑：
 
@@ -91,8 +91,8 @@ ops/run_derivatives_daily.sh --force
 ```
 
 > **macOS 睡眠 / 重启**：launchd 的日历任务在机器唤醒后会补跑（若错过），`RunAtLoad=true`
-> 也会在重启后立刻跑一次包装脚本；两种情况都要过上面的窗口闸门——03:05 UTC 起 6 小时内会补做，
-> 更晚则跳过并等 19:00 巡检告警。所以 11:05 合上盖子没关系，但**别让这台 Mac 在这件事上长期离线**。
+> 也会在重启后立刻跑一次包装脚本；两种情况都要过上面的窗口闸门——01:05 UTC 起 6 小时内会补做，
+> 更晚则跳过并等 19:00 巡检告警。所以 09:05 合上盖子没关系，但**别让这台 Mac 在这件事上长期离线**。
 > 真停用自动交易时优先放 kill switch：`touch data/derivatives_execution.KILL`（删除文件即恢复），
 > 比卸载任务安全。
 >
@@ -157,12 +157,12 @@ systemctl list-timers 'atlas20-*'
 > **两个 timer 不要同时装**：`derivatives-signal`（模型播报）与 `derivatives-execute`（真单 + 真持仓播报）
 > 各发一条消息。要自动下单就只装 execute；信号内容都在 execute 的消息里。
 
-时间线（UTC）：**02:30 刷面板 → 02:55 盘前补刷 → 03:05 合约链 → 03:35 / 04:35 失败重试 → 06:30 晚补刷 → 06:35 最后一次重试**。
-02:55 那次是给"主刷被重启打断"兜底的：`scripts/refresh_daily_data.py` 在面板已覆盖最后完整 UTC 日时
-直接跳过，所以正常一天只有 02:30 真下载，另外两次是空转；它全程持锁，不会和慢主刷抢 raw。
+时间线（UTC）：**00:30 早盘刷面板 → 00:50 早盘补刷 → 01:05 合约链 → 01:35 / 03:05 / 03:35 / 04:35 失败重试 → 06:30 晚补刷 → 06:35 最后一次重试**。
+00:50 那次是给"主刷被重启打断或 CMC 晚发布"兜底的：`scripts/refresh_daily_data.py` 在面板已覆盖最后完整 UTC 日且最后一天完整时
+直接跳过，所以正常一天只有 00:30 真下载，另外几次是空转；它全程持锁，不会和慢主刷抢 raw。
 
 和 macOS 一条线同样的三道闸：`derivatives-execute.service` 通过
-`ops/run_derivatives_daily.sh` 进入，先过 **03:05–09:05 UTC 交易窗口 + 当日幂等**，再对面板
+`ops/run_derivatives_daily.sh` 进入，先过 **01:05–07:05 UTC 交易窗口 + 当日幂等**，再对面板
 **自愈刷新**，最后才 `make derivatives-oos-data derivatives-oos execute-plan-live`。
 systemd 的 `Persistent=true` 会在开机后补跑错过的 timer —— 这正是 launchd `RunAtLoad` 的等价物，
 补跑同样受窗口闸限制（窗口外静默跳过，19:00 巡检告警）。
@@ -233,8 +233,8 @@ systemd 的 `Persistent=true` 会在开机后补跑错过的 timer —— 这正
 
 ### 2.0 全自动（默认路线，2026-10-11 起）
 
-`ops/systemd/atlas20-derivatives-execute.{service,timer}` 每天 **03:05 UTC（北京 11:05）** 跑，
-并在 **03:35 / 04:35 / 06:35 UTC** 重试未成功的当天任务：
+`ops/systemd/atlas20-derivatives-execute.{service,timer}` 每天 **01:05 UTC（北京 09:05）** 跑，
+并在 **01:35 / 03:05 / 03:35 / 04:35 / 06:35 UTC** 重试未成功的当天任务：
 
 ```bash
 make derivatives-oos-data derivatives-oos   # 刷 mark + 冻结账本 → 当日目标仓位
@@ -316,8 +316,8 @@ make derivatives-notify     # 只发模型播报（同日幂等，重跑不会�
 > 冻结的账本；确需回放旧数据时用 `--allow-stale`。信号日同样被封顶在**最近一个已收盘的
 > UTC 日**，避免用未收盘的当日 bar 生成仓位。
 
-定时器在 **02:00 UTC（北京 10:00）** 与 **03:00 UTC（北京 11:00，模型成交点）** 各跑一次；
-第一次成功即发送，同日重跑自动跳过。
+定时器在 **01:05 UTC（北京 09:05，早盘执行窗口）** 与 **01:35 UTC（北京 09:35）** 各跑一次；
+第一次成功即发送，同日重跑自动跳过。它和实盘执行 timer 互斥安装，避免同一天重复推送。
 
 手动（只在需要人肉复核时，或者 `derivatives-signal` 路线下）：
 
@@ -392,7 +392,7 @@ ops/run_live_monitor.sh                 # 带 --notify，异常才发
 .venv/bin/python scripts/monitor_live_track.py --always-report --notify  # 强制发一条
 ```
 
-**它还补了哪些"非调仓时间"的盲区**：调仓执行器在 11:05 和三个重试点读取账户；巡检在 19:00 再读一次，
+**它还补了哪些"非调仓时间"的盲区**：调仓执行器在 09:05 和五个重试点读取账户；巡检在 19:00 再读一次，
 能当天发现「调仓没跑」「跑歪了」「持仓被手动平了」「名义超限」「权益跌破下限」这类问题；
 但不能替代执行器本身（它不下单、不修正仓位，只报警）。
 

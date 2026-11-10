@@ -1,6 +1,6 @@
 """Read-only live health monitor: the check that runs *between* rebalances.
 
-The daily executor already re-reads the real account every day at 11:05
+The daily executor already re-reads the real account every day at 09:05
 Beijing. This script adds the missing piece: a scheduled, read-only probe that
 answers "is anything wrong right now?" without waiting for the next rebalance.
 
@@ -17,7 +17,7 @@ Checks:
    threshold would correct on the next run;
 3. gross notional / equity within the 1.25x specification cap;
 4. execution freshness: the last successful run is too old, or today's run is
-   already overdue (after 06:00 UTC);
+   already overdue after the early window and fallbacks have had time to run;
 5. account equity above the executor's floor.
 
 Exit code is 0 when healthy (and with ``--quiet`` nothing is printed/sent),
@@ -74,7 +74,7 @@ DEFAULT_OUT = Path("reports/derivatives_track_live/health.json")
 AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_live_track.py"
 SPEC_MAX_GROSS = 1.25
 EXECUTION_FLOOR_USDT = 20.0
-EXECUTION_OVERDUE_UTC_HOUR = 6  # by 11:05 Beijing the daily run should have landed
+EXECUTION_OVERDUE_UTC_HOUR = 6  # after the 06:35 UTC final fallback has landed
 MAX_EXECUTION_AGE_HOURS = 36.0
 
 

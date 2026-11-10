@@ -58,6 +58,15 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     previous_row,
     upsert_entry,
 )
+from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
+from atlas20.derivatives.quotes import (  # noqa: E402
+    ExecutionQuote,
+    QuoteError,
+    fetch_execution_quotes,
+    orderbook_warnings,
+    quote_warnings,
+    require_fresh_quotes,
+)
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.plan_live_execution import (  # noqa: E402
@@ -66,7 +75,6 @@ from scripts.plan_live_execution import (  # noqa: E402
     TRACKED_SPEC,
     account_state_from_bitget,
     fetch_public_instruments,
-    fetch_public_prices,
     load_symbol_map,
     spec_symbol_universe,
     specs_from_instruments,
@@ -79,6 +87,30 @@ DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
 DEFAULT_MANIFEST_FILE = Path("reports/derivatives_track_oos_2026/manifest.json")
 DEFAULT_KILL_SWITCH = Path("data/derivatives_execution.KILL")
 DEFAULT_JSON_OUT = Path("reports/derivatives_track_execution/latest.json")
+
+
+def _live_quote_snapshot(
+    session: requests.Session,
+    symbols: set[str],
+    *,
+    required_symbols: set[str] | None = None,
+    max_age_seconds: float = 120.0,
+    spread_warning_bps: float = 50.0,
+    mark_deviation_warning_bps: float = 100.0,
+) -> tuple[dict[str, float], dict[str, ExecutionQuote], list[str]]:
+    """Fetch fresh ticker quotes and return prices, snapshots, and warnings."""
+
+    quotes = fetch_execution_quotes(session, symbols)
+    required = set(symbols) if required_symbols is None else set(required_symbols)
+    require_fresh_quotes(quotes, required, max_age_seconds=max_age_seconds)
+    prices = {symbol: quote.last_price for symbol, quote in quotes.items()}
+    warnings = quote_warnings(
+        quotes,
+        required,
+        spread_warning_bps=spread_warning_bps,
+        mark_deviation_warning_bps=mark_deviation_warning_bps,
+    )
+    return prices, quotes, warnings
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -110,6 +142,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
+    parser.add_argument(
+        "--max-quote-age-seconds",
+        type=float,
+        default=120.0,
+        help="refuse to trade when Bitget's ticker timestamp is older than this",
+    )
+    parser.add_argument(
+        "--spread-warning-bps",
+        type=float,
+        default=50.0,
+        help="warn when the live bid/ask spread exceeds this threshold",
+    )
+    parser.add_argument(
+        "--mark-deviation-warning-bps",
+        type=float,
+        default=100.0,
+        help="warn when last and mark price diverge beyond this threshold",
+    )
     parser.add_argument(
         "--margin-mode",
         choices=("auto", "isolated", "crossed"),
@@ -279,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    live_execution_hint = live_execution_hint_for_signal(signal_date)
     event_age_days = (
         pd.Timestamp.now(tz="UTC").normalize() - pd.Timestamp(signal_date).normalize()
     ).days
@@ -333,11 +384,6 @@ def main(argv: list[str] | None = None) -> int:
     # of the held leg still needs its contract.
     relevant_symbols = spec_symbol_universe(symbols_by_asset, targets)
     session = requests.Session()
-    if args.prices_file is not None:
-        price_payload = json.loads(Path(args.prices_file).read_text(encoding="utf-8"))
-        prices = {str(key).upper(): float(value) for key, value in price_payload.items()}
-    else:
-        prices = fetch_public_prices(session)
     if args.instruments_file is not None:
         payload = json.loads(Path(args.instruments_file).read_text(encoding="utf-8"))
         rows = payload.get("data", payload) if isinstance(payload, dict) else payload
@@ -352,6 +398,29 @@ def main(argv: list[str] | None = None) -> int:
             f"account equity {account.equity:.2f} USDT is below the "
             f"{args.equity_floor:.2f} USDT floor; refusing to trade"
         )
+    required_assets = set(targets) | set(account.positions)
+    required_symbols = {
+        str(relevant_symbols[asset]).upper()
+        for asset in required_assets
+        if asset in relevant_symbols
+    }
+    quotes: dict[str, ExecutionQuote] = {}
+    if args.prices_file is not None:
+        price_payload = json.loads(Path(args.prices_file).read_text(encoding="utf-8"))
+        prices = {str(key).upper(): float(value) for key, value in price_payload.items()}
+    else:
+        try:
+            prices, quotes, live_quote_warnings = _live_quote_snapshot(
+                session,
+                set(relevant_symbols.values()),
+                required_symbols=required_symbols,
+                max_age_seconds=float(args.max_quote_age_seconds),
+                spread_warning_bps=float(args.spread_warning_bps),
+                mark_deviation_warning_bps=float(args.mark_deviation_warning_bps),
+            )
+        except QuoteError as exc:
+            raise SystemExit(f"live quote check failed: {exc}") from exc
+        warnings.extend(live_quote_warnings)
 
     prices_by_asset: dict[str, float] = {}
     for asset in targets:
@@ -373,6 +442,16 @@ def main(argv: list[str] | None = None) -> int:
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
     )
+    if quotes:
+        warnings.extend(
+            orderbook_warnings(
+                quotes,
+                [
+                    (order.symbol, order.side, order.notional)
+                    for order in plan.orders
+                ],
+            )
+        )
 
     # Idempotency is per *run day*, not per signal date: the book only changes
     # when a sleeve changes its pick, so keying on the signal date alone would
@@ -462,7 +541,7 @@ def main(argv: list[str] | None = None) -> int:
         report,
         signal_date=str(signal_date.date()),
         spec=args.spec,
-        execution_hint=execution_hint.strftime("%Y-%m-%d %H:%M UTC"),
+        execution_hint=live_execution_hint.strftime("%Y-%m-%d %H:%M UTC"),
         targets=targets,
         lot_notional=lot_notional,
         planned_orders=planned_orders,
@@ -502,6 +581,12 @@ def main(argv: list[str] | None = None) -> int:
                 "spec": args.spec,
                 "signal_date": str(signal_date.date()),
                 "execution_hint": str(execution_hint),
+                "live_execution_hint": str(live_execution_hint),
+                "quotes": {
+                    asset: quotes[symbol].as_dict()
+                    for asset, symbol in relevant_symbols.items()
+                    if asset in required_assets and symbol in quotes
+                },
                 "plan": plan.as_dict(),
                 "report": report.as_dict(),
                 "status": status,

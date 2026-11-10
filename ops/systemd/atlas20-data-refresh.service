@@ -12,7 +12,7 @@ EnvironmentFile=-/etc/atlas20/atlas20.env
 # refresh the panel freezes at the deployment date and the daily chain keeps
 # recomputing the same signal day (silence, not an error - see the runbook).
 # Go through the locked wrapper rather than the bare Makefile target: it skips
-# a run whose day is already on disk and serialises the 02:55 catch-up against
-# a slow primary run.
+# a run whose day is already on disk and serialises the 00:50/02:55 catch-ups
+# against a slow primary run.
 ExecStart=/opt/atlas20/.venv/bin/python scripts/refresh_daily_data.py --config config/base.yaml
 TimeoutStartSec=1800

@@ -10,10 +10,10 @@
 	  Runs scripts/monitor_live_track.py: the 12-item live audit plus position
 	  drift vs the frozen target, gross-notional cap, and execution freshness.
 	  It never places orders. Telegram is messaged ONLY when something needs
-	  attention (silence = healthy), so the daily 11:05 rebalance report stays
+	  attention (silence = healthy), so the daily 09:05 rebalance report stays
 	  the only routine message.
 
-	  Schedule: 19:00 Beijing = 11:00 UTC, eight hours after the 03:05 UTC
+	  Schedule: 19:00 Beijing = 11:00 UTC, ten hours after the 01:05 UTC
 	  rebalance, so a missing or mis-sized rebalance is visible the same day
 	  instead of waiting for tomorrow. launchd reads StartCalendarInterval in
 	  LOCAL time (Asia/Shanghai here); convert the hour again on another

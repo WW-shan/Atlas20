@@ -4,6 +4,9 @@ launchd reads ``StartCalendarInterval`` in the host's local time zone, not
 UTC. The checked-in plist targets this workstation (Asia/Shanghai, UTC+8), so
 an ``Hour`` of 2 fires at 18:30 UTC on the previous day: before CMC has
 published the last completed day's close, which left the panel a day stale.
+The publication probe now shows 10/10 sample coverage at 00:20 UTC, so an early
+00:30 UTC attempt can safely run before the 01:05 UTC trade window while the
+old 02:30/02:55/06:30 runs remain as fallbacks.
 """
 
 from __future__ import annotations
@@ -29,29 +32,31 @@ def _scheduled_utc_times() -> list[tuple[int, int]]:
 
 
 def test_refresh_runs_at_documented_utc_times():
-    assert _scheduled_utc_times() == [(2, 30), (2, 55), (6, 30)]
+    assert _scheduled_utc_times() == [(0, 30), (0, 50), (2, 30), (2, 55), (6, 30)]
 
 
 def test_a_catchup_lands_before_the_trade_job_reads_the_panel():
-    """A primary run killed by a reboot must be repaired before 03:05 UTC.
+    """A primary run killed by a reboot must be repaired before 01:05 UTC.
 
     On 2026-10-16 the machine went down mid-refresh at 10:34 Beijing, the panel
-    stayed on 10-14, and the 11:05 trade job failed closed with nothing to
-    trade. The 10:55 catch-up is the fix; the trade job also self-heals.
+    stayed on 10-14, and the trade job failed closed with nothing to trade.
+    The early and late catch-ups are the fix; the trade job also self-heals.
     """
 
     execute_plist = PLIST_PATH.parent / "com.atlas20.derivatives-execute.plist"
     trade_hour, trade_minute = _trade_utc_time(execute_plist)
 
     assert any(
-        (hour, minute) > (2, 30) and (hour, minute) < (trade_hour, trade_minute)
+        (hour, minute) < (trade_hour, trade_minute)
         for hour, minute in _scheduled_utc_times()
     ), "a catch-up must fire between the primary refresh and the trade job"
 
 
 def test_refresh_runs_after_the_utc_close_is_published():
-    for hour, _minute in _scheduled_utc_times():
-        assert 1 <= hour < 8, "a run before 00:00 UTC cannot see the last completed day's close"
+    for hour, minute in _scheduled_utc_times():
+        assert (0, 20) <= (hour, minute) < (8, 0), (
+            "a run before the measured CMC publication window cannot see the last completed day"
+        )
 
 def _trade_utc_time(plist_path: Path) -> tuple[int, int]:
     payload = plistlib.loads(plist_path.read_bytes())

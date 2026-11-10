@@ -11,6 +11,8 @@ def test_data_refresh_timer_precedes_the_signal_attempts() -> None:
         encoding="utf-8"
     )
 
+    assert "OnCalendar=*-*-* 00:30:00 UTC" in timer
+    assert "OnCalendar=*-*-* 00:50:00 UTC" in timer
     assert "OnCalendar=*-*-* 02:30:00 UTC" in timer
     assert "OnCalendar=*-*-* 02:55:00 UTC" in timer
     assert "OnCalendar=*-*-* 06:30:00 UTC" in timer
@@ -25,12 +27,12 @@ def test_data_refresh_timer_precedes_the_signal_attempts() -> None:
 
 
 def test_data_refresh_catchup_lands_before_the_rebalance() -> None:
-    """A primary run a reboot killed must be repaired before 03:05 UTC."""
+    """A primary run a reboot killed must be repaired before 01:05 UTC."""
 
     timer = (ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer").read_text(encoding="utf-8")
 
-    assert "OnCalendar=*-*-* 02:55:00 UTC" in timer
-    assert timer.index("02:30:00") < timer.index("02:55:00")
+    assert "OnCalendar=*-*-* 00:50:00 UTC" in timer
+    assert timer.index("00:30:00") < timer.index("00:50:00")
 
 
 def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
@@ -64,7 +66,7 @@ def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> No
         ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer"
     ).read_text(encoding="utf-8")
 
-    for clock in ("03:05:00", "03:35:00", "04:35:00", "06:35:00"):
+    for clock in ("01:05:00", "01:35:00", "03:05:00", "03:35:00", "04:35:00", "06:35:00"):
         assert f"OnCalendar=*-*-* {clock} UTC" in timer
     assert "OnCalendar=*-*-* 09:05:00 UTC" not in timer
 
@@ -85,11 +87,11 @@ def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
         encoding="utf-8"
     )
 
-    assert "OnCalendar=*-*-* 02:00:00 UTC" in timer
-    assert "OnCalendar=*-*-* 03:00:00 UTC" in timer
+    assert "OnCalendar=*-*-* 01:05:00 UTC" in timer
+    assert "OnCalendar=*-*-* 01:35:00 UTC" in timer
     assert "Unit=atlas20-derivatives-signal.service" in timer
     assert "derivatives-oos-data derivatives-oos derivatives-notify" in service
-    # The data-refresh timer must run before the 03:00 catch-up attempt.
-    assert "02:30:00 UTC" in (
+    # The data-refresh timer must run before the 01:05 signal attempt.
+    assert "00:50:00 UTC" in (
         ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer"
     ).read_text(encoding="utf-8")

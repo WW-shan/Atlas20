@@ -2,7 +2,7 @@
 
 ``ops/com.atlas20.daily-refresh.plist`` fires this several times a day: a
 primary run after the UTC close and one or more catch-up runs, the earliest of
-which lands before the 11:05 Beijing trade job.  Two properties matter more
+which lands before the 09:05 Beijing trade job.  Two properties matter more
 than speed here:
 
 * **No overlap.**  A slow primary run must never race the catch-up fire, or
@@ -84,10 +84,18 @@ def panel_path_for(config_path: str) -> Path:
     return config.resolve_path(config.paths.processed_dir) / PANEL_FILENAME
 
 
-def run_refresh(config_path: str) -> None:
-    """The two steps the plist used to chain with ``&&``."""
+def run_refresh(config_path: str, *, force: bool = False) -> None:
+    """The two steps the plist used to chain with ``&&``.
 
-    download_data.main(["--config", config_path])
+    ``force`` must reach the downloader, not just the panel-level skip gate:
+    a partial provider day can have the expected date while still needing a
+    fresh full-history fetch before the rebuild.
+    """
+
+    download_args = ["--config", config_path]
+    if force:
+        download_args.append("--force")
+    download_data.main(download_args)
     build_datasets.main(["--config", config_path])
 
 
@@ -119,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             f"refreshing: panel ends {panel_end_date(panel) or 'missing'}, "
             f"{last_completed_utc_day(now).isoformat()} is the last completed UTC day"
         )
-        run_refresh(args.config)
+        run_refresh(args.config, force=args.force)
     finally:
         lock.release()
     return 0
