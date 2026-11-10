@@ -482,3 +482,171 @@ def test_build_derivative_targets_cross_sectional_basket_splits_total_weight() -
     assert target["SOL"] == pytest.approx(-0.125)
     assert target["ADA"] == pytest.approx(-0.125)
     assert "BTC" not in target.index
+
+
+def _cross_sectional_hold_band_fixture(
+    second_current: dict[str, float],
+) -> tuple[
+    pd.DatetimeIndex,
+    pd.Timestamp,
+    pd.Timestamp,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+]:
+    dates = pd.date_range("2025-01-01", periods=20, freq="D", tz="UTC")
+    first_signal = dates[7]
+    second_signal = dates[14]
+    assets = ["LONG", "A", "B", "C", "D", "E", "F"]
+    prices = pd.DataFrame(100.0, index=dates, columns=assets)
+    prices.loc[first_signal, ["A", "B", "C", "D", "E", "F"]] = [
+        50.0,
+        60.0,
+        70.0,
+        80.0,
+        90.0,
+        100.0,
+    ]
+    prices.loc[second_signal, list(second_current)] = list(second_current.values())
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [dates[0]] * len(assets),
+            "coin_id": assets,
+        }
+    )
+    funding = pd.DataFrame(
+        {asset: [0.0001] * 3 for asset in assets},
+        index=pd.DatetimeIndex(
+            [
+                dates[0].replace(hour=0),
+                dates[0].replace(hour=8),
+                dates[0].replace(hour=16),
+            ]
+        ),
+    )
+    long_targets = {dates[0]: pd.Series({"LONG": 1.0})}
+    return (
+        dates,
+        first_signal,
+        second_signal,
+        prices,
+        universe,
+        funding,
+        long_targets,
+    )
+
+
+def test_cross_sectional_hold_band_retains_incumbents_inside_bottom_four_of_eight() -> None:
+    (
+        dates,
+        first_signal,
+        second_signal,
+        prices,
+        universe,
+        funding,
+        long_targets,
+    ) = _cross_sectional_hold_band_fixture(
+        {"A": 55.0, "B": 70.0, "C": 80.0, "D": 82.0, "E": 110.0, "F": 120.0}
+    )
+
+    combined = build_derivative_targets(
+        long_targets,
+        btc_close=prices["LONG"],
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="weakest",
+        short_weight=0.25,
+        eligible=set(prices.columns),
+        short_mode="cross-sectional",
+        calendar=dates,
+        cross_sectional_lookback=7,
+        cross_sectional_rebalance_days=7,
+        cross_sectional_short_count=2,
+        cross_sectional_hold_rank=4,
+        cross_sectional_anchor=dates[0],
+    )
+
+    assert combined[first_signal]["A"] == pytest.approx(-0.125)
+    assert combined[first_signal]["B"] == pytest.approx(-0.125)
+    assert second_signal not in combined
+
+
+def test_cross_sectional_hold_band_replaces_incumbents_outside_bottom_four_of_eight() -> None:
+    (
+        dates,
+        first_signal,
+        second_signal,
+        prices,
+        universe,
+        funding,
+        long_targets,
+    ) = _cross_sectional_hold_band_fixture(
+        {"A": 70.0, "B": 90.0, "C": 80.0, "D": 82.0, "E": 100.0, "F": 105.0}
+    )
+
+    combined = build_derivative_targets(
+        long_targets,
+        btc_close=prices["LONG"],
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="weakest",
+        short_weight=0.25,
+        eligible=set(prices.columns),
+        short_mode="cross-sectional",
+        calendar=dates,
+        cross_sectional_lookback=7,
+        cross_sectional_rebalance_days=7,
+        cross_sectional_short_count=2,
+        cross_sectional_hold_rank=4,
+        cross_sectional_anchor=dates[0],
+    )
+
+    assert combined[first_signal]["A"] == pytest.approx(-0.125)
+    assert combined[first_signal]["B"] == pytest.approx(-0.125)
+    target = combined[second_signal]
+    assert target["D"] == pytest.approx(-0.125)
+    assert target["F"] == pytest.approx(-0.125)
+    assert "A" not in target.index
+    assert "B" not in target.index
+
+
+def test_cross_sectional_hold_rank_cannot_be_smaller_than_entry_count() -> None:
+    (
+        dates,
+        _,
+        _,
+        prices,
+        universe,
+        funding,
+        long_targets,
+    ) = _cross_sectional_hold_band_fixture(
+        {"A": 55.0, "B": 70.0, "C": 80.0, "D": 82.0, "E": 110.0, "F": 120.0}
+    )
+
+    with pytest.raises(ValueError, match="cross_sectional_hold_rank"):
+        build_derivative_targets(
+            long_targets,
+            btc_close=prices["LONG"],
+            universe=universe,
+            prices=prices,
+            funding_rates=funding,
+            leverage=1.25,
+            max_gross=1.5,
+            short_asset="weakest",
+            short_weight=0.25,
+            eligible=set(prices.columns),
+            short_mode="cross-sectional",
+            calendar=dates,
+            cross_sectional_lookback=7,
+            cross_sectional_rebalance_days=7,
+            cross_sectional_short_count=2,
+            cross_sectional_hold_rank=1,
+            cross_sectional_anchor=dates[0],
+        )

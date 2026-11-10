@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 3,
+  "duplicates": {},
+  "expected_max_sharpe": 0.0035617324762540303,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 1.0986122886681098,
+    "most_selected_candidate": "PR2026-11-RS6-X-WEAK4-STOP20",
+    "most_selected_count": 805,
+    "pbo": 0.25757575757575757,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.0026235773786945945,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 3
+}

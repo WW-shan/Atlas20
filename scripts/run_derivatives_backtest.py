@@ -128,6 +128,17 @@ TRIAL_RULES: dict[str, dict[str, Any]] = {
         "cross_sectional_short_count": 4,
         "short_stop_loss_pct": 0.20,
     },
+    "PR2026-11-RS7-X-WEAK4-HOLD8-STOP20": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+        "cross_sectional_short_count": 4,
+        "cross_sectional_hold_rank": 8,
+        "short_stop_loss_pct": 0.20,
+    },
 }
 STOP_TRIALS: dict[str, dict[str, Any]] = {
     "PR2026-10-D-S-BTC25-STOP20": {"short_asset": "bitcoin", "short_weight": 0.25},
@@ -364,6 +375,11 @@ def main() -> None:
         cross_sectional_lookback=int(rule.get("cross_sectional_lookback", 14)),
         cross_sectional_rebalance_days=int(rule.get("cross_sectional_rebalance_days", 7)),
         cross_sectional_short_count=int(rule.get("cross_sectional_short_count", 1)),
+        cross_sectional_hold_rank=(
+            None
+            if rule.get("cross_sectional_hold_rank") is None
+            else int(rule["cross_sectional_hold_rank"])
+        ),
         cross_sectional_anchor=args.start_date,
     )
 
@@ -408,6 +424,7 @@ def main() -> None:
         "short_weight": short_weight,
         "short_mode": short_mode,
         "short_buffer": short_buffer,
+        "cross_sectional_hold_rank": rule.get("cross_sectional_hold_rank"),
         "short_stop_loss_pct": (
             None if short_stop_loss_pct is None else float(short_stop_loss_pct)
         ),

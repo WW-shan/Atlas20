@@ -69,3 +69,13 @@ def test_round6_cross_sectional_basket_uses_the_prespecified_stop20() -> None:
     assert rule["cross_sectional_short_count"] == 4
     assert rule["short_stop_loss_pct"] == 0.20
     assert "short_buffer" not in rule
+
+
+def test_round7_cross_sectional_basket_uses_only_the_prespecified_bottom8_hold_band() -> None:
+    rule = TRIAL_RULES["PR2026-11-RS7-X-WEAK4-HOLD8-STOP20"]
+    assert rule["short_mode"] == "cross-sectional"
+    assert rule["short_weight"] == 0.25
+    assert rule["cross_sectional_short_count"] == 4
+    assert rule["cross_sectional_hold_rank"] == 8
+    assert rule["short_stop_loss_pct"] == 0.20
+    assert "short_buffer" not in rule

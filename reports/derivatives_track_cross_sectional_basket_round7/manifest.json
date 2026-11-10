@@ -1,0 +1,19 @@
+{
+  "baseline": "PR2026-10-D-L125",
+  "candidate": "PR2026-11-RS7-X-WEAK4-HOLD8-STOP20",
+  "cost_bps": 20.0,
+  "cross_sectional_hold_rank": 8,
+  "funding_missing_policy": "skip",
+  "funding_source": "binance-proxy",
+  "limitations": [
+    "Binance funding proxy",
+    "100bps MDD exceeds 50%",
+    "remove-2022 is below baseline",
+    "rolling 365-day worst is below baseline",
+    "OOS insufficient"
+  ],
+  "mark_source": "bitget_mark",
+  "result": "rejected: fails 50bps terminal gate, 100bps MDD gate, remove-2022 gate, and rolling worst-year gate",
+  "short_buffer": 0.5,
+  "short_stop_loss_pct": 0.2
+}

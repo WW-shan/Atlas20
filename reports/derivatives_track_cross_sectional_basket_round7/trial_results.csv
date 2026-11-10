@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-RS7-X-WEAK4-HOLD8-STOP20,main,lag0,20.0,1.8266407552574444,43.29089516394595,-0.42396064719549764,reports/derivatives_track_cross_sectional_basket_round7/PR2026-11-RS7-X-WEAK4-HOLD8-STOP20/summary.json

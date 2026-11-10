@@ -122,7 +122,7 @@ def _members_at(universe: pd.DataFrame, as_of: pd.Timestamp) -> set[str]:
     return {str(value) for value in exact.dropna().astype(str)}
 
 
-def weakest_top20(
+def _ranked_weakest_top20(
     prices: pd.DataFrame,
     universe: pd.DataFrame,
     as_of: pd.Timestamp,
@@ -130,8 +130,8 @@ def weakest_top20(
     eligible: Set[str] | None = None,
     exclude: Set[str] | None = None,
     lookback: int = 30,
-) -> str | None:
-    """Return the weakest eligible point-in-time Top20 coin by trailing return."""
+) -> list[str]:
+    """Rank eligible point-in-time Top20 coins from weakest trailing return."""
     if lookback < 1:
         raise ValueError("lookback must be positive")
     date = _as_utc(as_of)
@@ -143,24 +143,45 @@ def weakest_top20(
         excluded_folded = {str(value).casefold() for value in exclude}
         members = {member for member in members if member.casefold() not in excluded_folded}
     if not members:
-        return None
+        return []
     price_frame = prices.copy()
     price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
     price_frame = price_frame.sort_index()
     if date not in price_frame.index:
-        return None
+        return []
     base_date = date - pd.Timedelta(days=lookback)
     if base_date not in price_frame.index:
         candidates = price_frame.index[price_frame.index <= base_date]
         if candidates.empty:
-            return None
+            return []
         base_date = candidates[-1]
     current = pd.to_numeric(price_frame.loc[date].reindex(sorted(members)), errors="coerce")
     base = pd.to_numeric(price_frame.loc[base_date].reindex(sorted(members)), errors="coerce")
     trailing = (current / base - 1.0).replace([np.inf, -np.inf], np.nan).dropna()
     if trailing.empty:
-        return None
-    return str(trailing.idxmin())
+        return []
+    return [str(value) for value in trailing.sort_values(kind="stable").index]
+
+
+def weakest_top20(
+    prices: pd.DataFrame,
+    universe: pd.DataFrame,
+    as_of: pd.Timestamp,
+    *,
+    eligible: Set[str] | None = None,
+    exclude: Set[str] | None = None,
+    lookback: int = 30,
+) -> str | None:
+    """Return the weakest eligible point-in-time Top20 coin by trailing return."""
+    ranked = _ranked_weakest_top20(
+        prices,
+        universe,
+        as_of,
+        eligible=eligible,
+        exclude=exclude,
+        lookback=lookback,
+    )
+    return ranked[0] if ranked else None
 
 
 def _member_name(members: set[str], requested: str) -> str | None:
@@ -208,6 +229,7 @@ def build_derivative_targets(
     cross_sectional_lookback: int = 14,
     cross_sectional_rebalance_days: int = 7,
     cross_sectional_short_count: int = 1,
+    cross_sectional_hold_rank: int | None = None,
     cross_sectional_anchor: object | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Combine the scaled H5 long book with a pre-registered short overlay.
@@ -254,6 +276,12 @@ def build_derivative_targets(
         raise ValueError("cross_sectional_rebalance_days must be positive")
     if cross_sectional_short_count < 1:
         raise ValueError("cross_sectional_short_count must be positive")
+    if cross_sectional_hold_rank is not None:
+        if cross_sectional_hold_rank < cross_sectional_short_count:
+            raise ValueError(
+                "cross_sectional_hold_rank must be at least "
+                "cross_sectional_short_count"
+            )
     rebalance_anchor = (
         _as_utc(cross_sectional_anchor)
         if cross_sectional_anchor is not None
@@ -296,24 +324,23 @@ def build_derivative_targets(
                     and asset not in long_members
                 ]
             if long_cursor > 0 and rebalance_due and short_weight > 0.0:
-                selected: list[str] = []
-                excluded = set(long_members)
-                for _ in range(cross_sectional_short_count):
-                    chosen = weakest_top20(
-                        prices,
-                        universe,
-                        date,
-                        eligible=eligible,
-                        exclude=excluded,
-                        lookback=cross_sectional_lookback,
-                    )
-                    if chosen is None:
-                        break
-                    excluded.add(chosen)
-                    if eligible is not None:
-                        eligible_folded = {str(value).casefold() for value in eligible}
-                        if chosen.casefold() not in eligible_folded:
-                            continue
+                eligible_folded = (
+                    {str(value).casefold() for value in eligible}
+                    if eligible is not None
+                    else None
+                )
+                ranked = _ranked_weakest_top20(
+                    prices,
+                    universe,
+                    date,
+                    eligible=eligible,
+                    exclude=set(long_members),
+                    lookback=cross_sectional_lookback,
+                )
+                investable: list[str] = []
+                for chosen in ranked:
+                    if eligible_folded is not None and chosen.casefold() not in eligible_folded:
+                        continue
                     if short_available is not None and not short_available(chosen, date):
                         continue
                     if not funding_filter(
@@ -323,7 +350,23 @@ def build_derivative_targets(
                         threshold=short_funding_threshold,
                     ):
                         continue
-                    selected.append(chosen)
+                    investable.append(chosen)
+
+                if cross_sectional_hold_rank is None:
+                    selected = investable[:cross_sectional_short_count]
+                else:
+                    hold_set = set(investable[:cross_sectional_hold_rank])
+                    selected = [
+                        asset
+                        for asset in active_cross_sectional_shorts
+                        if asset in hold_set
+                    ]
+                    selected.extend(
+                        asset
+                        for asset in investable
+                        if asset not in selected
+                    )
+                    selected = selected[:cross_sectional_short_count]
                 # A failed weekly selection exits the old basket rather than
                 # retaining coins that no longer clear the screen.
                 active_cross_sectional_shorts = selected
