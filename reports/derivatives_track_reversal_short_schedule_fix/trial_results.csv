@@ -1,0 +1,6 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-10-D-L125,main,lag0,20.0,1.7329754409581548,40.21998808392151,-0.40650590493304783,reports/derivatives_track_reversal_short_schedule_fix/PR2026-10-D-L125/summary.json
+PR2026-11-RS-R-BTC25,main,lag0,20.0,1.670565129338905,34.81990652235163,-0.40650590493304906,reports/derivatives_track_reversal_short_schedule_fix/PR2026-11-RS-R-BTC25/summary.json
+PR2026-11-RS-R-WEAK25,main,lag0,20.0,1.6731807751314023,36.47691297121047,-0.4188076035024113,reports/derivatives_track_reversal_short_schedule_fix/PR2026-11-RS-R-WEAK25/summary.json
+PR2026-11-RS-F-BTC25,main,lag0,20.0,1.681235777047869,36.15919425126079,-0.4065059049330483,reports/derivatives_track_reversal_short_schedule_fix/PR2026-11-RS-F-BTC25/summary.json
+PR2026-11-RS-F-WEAK25,main,lag0,20.0,1.7030054118713358,39.634843365826846,-0.40650590493304817,reports/derivatives_track_reversal_short_schedule_fix/PR2026-11-RS-F-WEAK25/summary.json

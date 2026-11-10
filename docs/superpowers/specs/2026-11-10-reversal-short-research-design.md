@@ -69,6 +69,11 @@ make derivatives-oos-data
 
 ## 5. 首轮结果（2026-11-10）
 
+> **实现修正后已被取代（2026-11-10）。** 本节数字来自一个空头只在 H5 稀疏事件日评估、
+> 且把 funding 列交集误当长账本可交易条件的旧 runner。修正后的同规则重跑见
+> `reports/derivatives_track_reversal_short_schedule_fix/report.md`：正确基线为 40.2200x，
+> 四条空头试验均低于基线。本节仅保留为历史记录，不再是当前结论。
+
 首轮按上述冻结规则运行，数据为 Bitget mark、2022-01-01 → 2026-09-21、T+1 +3h、missing mark=carry、20bps 主口径；funding 只能使用 Binance proxy 并标记 `funding_missing_policy=skip`，不是 Bitget 精确历史。
 
 | trial | 终值 | Sharpe | MDD | 20bps 判定 |

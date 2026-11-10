@@ -37,6 +37,7 @@ class DerivativeBacktestConfig:
     fee_buffer: float = 0.005
     long_buffer: float = 0.30
     short_buffer: float = 0.50
+    short_stop_loss_pct: float | None = None
     max_gross_exposure: float = 1.25
     max_margin_utilization: float = 0.85
     execution_hour: int = 3
@@ -66,6 +67,8 @@ class DerivativeBacktestConfig:
             raise ValueError("long_buffer must be in (0, 1)")
         if not 0.0 < self.short_buffer < 1.0:
             raise ValueError("short_buffer must be in (0, 1)")
+        if self.short_stop_loss_pct is not None and not 0.0 < self.short_stop_loss_pct < 1.0:
+            raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
         if self.max_gross_exposure <= 0.0:
             raise ValueError("max_gross_exposure must be positive")
         if not 0.0 < self.max_margin_utilization <= 1.0:
@@ -594,6 +597,30 @@ def run_derivative_backtest(
             }
         )
 
+    def stop_out_short(asset: str, timestamp: pd.Timestamp) -> None:
+        """Close a short after a pre-registered adverse mark-price move."""
+        if cfg.short_stop_loss_pct is None:
+            return
+        position = positions.get(asset)
+        if position is None or position.side >= 0:
+            return
+        candle = bar(asset, timestamp)
+        trigger = position.entry_price * (1.0 + float(cfg.short_stop_loss_pct))
+        open_price = float(candle["open"])
+        if open_price >= trigger:
+            raw_execution = open_price
+        elif float(candle["high"]) >= trigger:
+            raw_execution = trigger
+        else:
+            return
+        execution_price = raw_execution * (1.0 + cfg.liquidation_slippage_bps / 10_000.0)
+        close_position(
+            asset,
+            timestamp,
+            execution_price,
+            reason="stop_loss",
+        )
+
     def open_position(
         asset: str,
         timestamp: pd.Timestamp,
@@ -899,6 +926,12 @@ def run_derivative_backtest(
                         "carried": carried,
                     }
                 )
+
+        # A pre-registered short stop is checked before liquidation. With the
+        # standard 50% margin buffer, a 20% stop is crossed well before the
+        # isolated-leg liquidation price.
+        for asset in list(positions):
+            stop_out_short(asset, timestamp)
 
         # A funding deficit or a mark-path breach liquidates the isolated leg.
         for asset in list(positions):

@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-11-10（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：**步骤一已把主执行提前到 00:30/01:05 UTC，并加入面板完整性复核与实时盘口检查；步骤二反手空首轮被拒，F-BTC25 flat-only 仅保留 provisional，F-WEAK25 因 3x adverse funding 强平被拒，PBO=0.931，不接实盘**） |
+> | 最后更新 | 2026-11-10（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：执行提前到 00:30/01:05 UTC，空头研究首轮和方向性快速 BTC 空头均被拒；§00.21.4：bottom-quintile 空头 + 20% stop 在 20bps 为 **51.8010x / 1.8918 / -42.59% / 0 强平**，但 100bps MDD -54.06% 且移除 2022 后低于基线，仍为 provisional，不接实盘） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-09**（仅运行跟踪，不用于选规则） |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。衍生品轨（§9，独立风险预算，Bitget isolated margin）在单独设计文档 `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` 下研究，不得与现货轨的口径混用 |
@@ -1787,3 +1787,63 @@ CMC 发布探针（10 个最大候选，非全 102 资产）从 2026-10-08 到 2
 判定：**“平仓即反手”拒绝；F-BTC25 的 `flat-only` 仅保留为 provisional research candidate，F-WEAK25 因 3x adverse funding 强平被拒绝；不修改当前多头实盘，不接空头执行。** 下一步只能补 Bitget 精确 funding、累积至少 30–60 天真实 OOS，并独立复测；不能通过提高空头权重、改 funding 阈值或只报 2022 年结果来救活。
 
 复现与完整输出：`reports/derivatives_track_reversal_short/report.md`、`reports/derivatives_track_reversal_short/multiple_testing/`、`reports/derivatives_track_reversal_short/robustness/`。
+
+### 00.21.3 2026-11-10 实现修正与第二轮快速 BTC 空头
+
+首轮报告发现了两个会改变结论的实现问题：空头只在 H5 稀疏调仓日评估，且 runner 把 funding
+列交集错误地当成整个长账本的可交易条件。修正后同规则重跑（`reports/derivatives_track_reversal_short_schedule_fix/`）：
+
+| trial | 修正后终值 | Sharpe | MDD |
+|---|---:|---:|---:|
+| L125 基线 | **40.2200x** | **1.7330** | -40.6506% |
+| RS-R-BTC25 | 34.8199x | 1.6706 | -40.6506% |
+| RS-R-WEAK25 | 36.4769x | 1.6732 | -41.8808% |
+| RS-F-BTC25 | 36.1592x | 1.6812 | -40.6506% |
+| RS-F-WEAK25 | 39.6348x | 1.7030 | -40.6506% |
+
+因此首轮四条空头全部低于修正基线，旧报告的 provisional 结论撤销。
+
+第二轮按 `docs/superpowers/specs/2026-11-10-reversal-short-round2-design.md` 预注册了两个
+快速 BTC 趋势空头（50D SMA + 28D return，每日评估，0.25x）：additive 和 flat-only。
+20bps 下 additive 为 42.1308x / 1.7489 / -40.3874%，暂时高于基线，但：
+
+- 50bps 为 26.1010x，低于基线 27.3725x；
+- 移除 2022 后为 47.0582x，低于基线 50.0330x；
+- PBO/CSCV = **0.8355**；
+- 61 次空头开仓中仅 19 次正贡献，约 85% 相对收益来自 2022；
+- 365 天滚动最差 0.7271x，低于基线 0.7325x；
+- 100bps MDD -51.13%，越过 50% kill line。
+
+判定：**第二轮两个候选均拒绝，不再扫描相邻 BTC 趋势窗口。** 方向性 BTC 空头只有在
+20bps 口径下出现事件型增益，不能通过成本、年份集中度和多重检验。当前实盘仍是 H5 多头
+账本；空头不接实盘。完整报告见 `reports/derivatives_track_reversal_short_round2/report.md`。
+
+### 00.21.4 2026-11-10 双边轮动 R3-R6：单币失败，bottom-quintile + stop 仅 provisional
+
+R3 单币横截面最弱空头（`PR2026-11-RS3-X-WEAK14`）在 20bps 为 38.5909x / Sharpe 1.7106 /
+MDD -47.0461%，并在 2023-07-13 被 XRP 逼空触发 1 次强平，拒绝。
+
+R4 改为 Top20 的 bottom-quintile 4 币等权空头（总 0.25x，14D/7D，每周再平衡）。20bps
+表面为 53.0245x / 1.8980 / -41.5294%，但有 **3 次强平**（XRP 两次、TRON 一次），拒绝。
+
+R5 只把 short buffer 从 50% 提到 75%。20bps 为 51.2754x / 1.8817 / -41.5294%，仍发生
+**2 次强平**；按预注册停止，不再扫 buffer。
+
+R6 保持 R4 信号，加入原设计已预注册的 **20% adverse short stop**（逐小时 mark，单腿止损）。
+
+| 口径 | L125 基线 | R6 STOP20 |
+|---|---:|---:|
+| 20bps | 40.2200x / 1.7330 / -40.65% / 0 强平 | **51.8010x / 1.8918 / -42.59% / 0 强平** |
+| 50bps | 27.3725x / 1.5790 / -44.20% | **28.3854x / 1.6409 / -47.18%** |
+| 100bps | 14.3794x / 1.3204 / -50.02% | 10.3786x / 1.2196 / **-54.06%** |
+| 3x short-adverse | 44.1253x（零 funding 上界） | 49.6029x / 1.8723 / -42.95% / 0 强平 |
+
+R6 的 PBO=0.0281，365 天滚动最差 0.7958x（基线 0.7325x），但移除 2022 后 48.5848x
+低于基线 50.0330x；2022 仍决定相对优势。加上 100bps MDD 已超过 50%，按预注册判定为
+**provisional research candidate，不是可上线策略**。
+
+结论：bottom-quintile + STOP20 是当前最强的空头研究线，证明了相对价值信号和尾部止损能同时
+工作；但成本、2022 依赖、funding proxy 和不足 12 个月 OOS 仍不合格。下一步只能预注册
+降低换手/成本的新机制；不能继续扫 stop、buffer、篮子大小或趋势窗口。
+
+完整报告：`reports/derivatives_track_cross_sectional_basket_round6/report.md`。

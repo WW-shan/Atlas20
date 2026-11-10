@@ -1,0 +1,11 @@
+{
+  "baseline": "PR2026-10-D-L125",
+  "candidate": "PR2026-11-RS5-X-WEAK4-SB75",
+  "cost_bps": 20.0,
+  "short_buffer": 0.75,
+  "funding_missing_policy": "skip",
+  "funding_source": "binance-proxy",
+  "mark_source": "bitget_mark",
+  "result": "rejected: two short liquidations",
+  "limitations": ["Binance funding proxy", "zero liquidations required", "OOS insufficient"]
+}

@@ -267,10 +267,218 @@ def test_build_derivative_targets_skips_a_fixed_short_outside_eligible_universe(
         funding_rates=funding,
         leverage=1.25,
         max_gross=1.25,
-        short_asset="bitcoin",
+        short_asset="BTC",
         short_weight=0.25,
         eligible={"ETH"},
         short_mode="flat-only",
     )
 
     assert combined[date].empty
+
+
+def test_build_derivative_targets_requires_fixed_short_to_be_a_pit_top20_member() -> None:
+    date, btc, prices, universe, funding = _short_overlay_fixture()
+    # BTC is tradeable but the point-in-time universe contains only ETH.
+    universe = universe.loc[universe["coin_id"].eq("ETH")].copy()
+
+    combined = build_derivative_targets(
+        {date: pd.Series(dtype=float)},
+        btc_close=btc,
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.25,
+        short_asset="BTC",
+        short_weight=0.25,
+        eligible={"BTC", "ETH"},
+        short_mode="flat-only",
+    )
+
+    assert combined[date].empty
+
+
+def test_build_derivative_targets_can_evaluate_short_regime_on_every_calendar_day() -> None:
+    dates = pd.date_range("2025-01-01", periods=260, freq="D", tz="UTC")
+    btc = pd.Series(100.0, index=dates)
+    btc.iloc[-30:] = 80.0
+    prices = pd.DataFrame({"BTC": btc, "ETH": btc}, index=dates)
+    prices.loc[dates[-1], "ETH"] = 70.0
+    universe = pd.DataFrame(
+        {"rebalance_date": [dates[-1], dates[-1]], "coin_id": ["BTC", "ETH"]}
+    )
+    funding = pd.DataFrame(
+        {"BTC": [0.0001] * 3, "ETH": [0.0001] * 3},
+        index=pd.DatetimeIndex(
+            [
+                dates[-2].replace(hour=0),
+                dates[-2].replace(hour=8),
+                dates[-2].replace(hour=16),
+            ]
+        ),
+    )
+    # The H5 long book only has an event on the first day. The short regime
+    # starts later, so the short must still be evaluated on the later date.
+    long_targets = {dates[0]: pd.Series({"ETH": 1.0})}
+
+    combined = build_derivative_targets(
+        long_targets,
+        btc_close=btc,
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="BTC",
+        short_weight=0.25,
+        eligible={"BTC", "ETH"},
+        short_mode="additive",
+        calendar=dates,
+    )
+
+    assert combined[dates[-1]]["BTC"] == pytest.approx(-0.25)
+    assert combined[dates[-1]]["ETH"] == pytest.approx(1.25)
+
+
+def test_build_derivative_targets_does_not_short_during_h5_warmup() -> None:
+    dates = pd.date_range("2025-01-01", periods=260, freq="D", tz="UTC")
+    btc = pd.Series(100.0, index=dates)
+    btc.iloc[-30:] = 80.0
+    prices = pd.DataFrame({"BTC": btc, "ETH": btc}, index=dates)
+    universe = pd.DataFrame(
+        {"rebalance_date": [dates[-1], dates[-1]], "coin_id": ["BTC", "ETH"]}
+    )
+    funding = pd.DataFrame(
+        {"BTC": [0.0001] * 3, "ETH": [0.0001] * 3},
+        index=pd.DatetimeIndex(
+            [
+                dates[-2].replace(hour=0),
+                dates[-2].replace(hour=8),
+                dates[-2].replace(hour=16),
+            ]
+        ),
+    )
+    long_targets = {dates[-1]: pd.Series(dtype=float)}
+
+    combined = build_derivative_targets(
+        long_targets,
+        btc_close=btc,
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.25,
+        short_asset="BTC",
+        short_weight=0.25,
+        eligible={"BTC", "ETH"},
+        short_mode="flat-only",
+        calendar=dates,
+    )
+
+    assert combined[dates[0]].empty
+
+
+def test_build_derivative_targets_cross_sectional_short_excludes_long_book() -> None:
+    dates = pd.date_range("2024-12-01", periods=45, freq="D", tz="UTC")
+    signal_date = dates[21]
+    btc = pd.Series(100.0, index=dates)
+    prices = pd.DataFrame({"BTC": btc, "ETH": btc, "SOL": btc}, index=dates)
+    prices.loc[signal_date, "BTC"] = 70.0
+    prices.loc[signal_date, "SOL"] = 80.0
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [dates[0]] * 3,
+            "coin_id": ["BTC", "ETH", "SOL"],
+        }
+    )
+    funding = pd.DataFrame(
+        {"BTC": [0.0001] * 3, "ETH": [0.0001] * 3, "SOL": [0.0001] * 3},
+        index=pd.DatetimeIndex(
+            [
+                dates[20].replace(hour=0),
+                dates[20].replace(hour=8),
+                dates[20].replace(hour=16),
+            ]
+        ),
+    )
+    long_targets = {dates[0]: pd.Series({"BTC": 0.5, "ETH": 0.5})}
+
+    combined = build_derivative_targets(
+        long_targets,
+        btc_close=btc,
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="weakest",
+        short_weight=0.25,
+        eligible={"BTC", "ETH", "SOL"},
+        short_mode="cross-sectional",
+        calendar=dates,
+        cross_sectional_lookback=14,
+        cross_sectional_rebalance_days=7,
+        cross_sectional_anchor=dates[0],
+    )
+
+    target = combined[signal_date]
+    assert target["BTC"] == pytest.approx(0.625)
+    assert target["ETH"] == pytest.approx(0.625)
+    assert target["SOL"] == pytest.approx(-0.25)
+
+
+def test_build_derivative_targets_cross_sectional_basket_splits_total_weight() -> None:
+    dates = pd.date_range("2024-12-01", periods=45, freq="D", tz="UTC")
+    signal_date = dates[21]
+    prices = pd.DataFrame(
+        {
+            "BTC": 100.0,
+            "ETH": 100.0,
+            "SOL": 100.0,
+            "ADA": 100.0,
+        },
+        index=dates,
+    )
+    prices.loc[signal_date, "BTC"] = 80.0
+    prices.loc[signal_date, "SOL"] = 70.0
+    prices.loc[signal_date, "ADA"] = 75.0
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [dates[0]] * 4,
+            "coin_id": ["BTC", "ETH", "SOL", "ADA"],
+        }
+    )
+    funding = pd.DataFrame(
+        {coin: [0.0001] * 3 for coin in ["BTC", "ETH", "SOL", "ADA"]},
+        index=pd.DatetimeIndex(
+            [
+                dates[20].replace(hour=0),
+                dates[20].replace(hour=8),
+                dates[20].replace(hour=16),
+            ]
+        ),
+    )
+
+    combined = build_derivative_targets(
+        {dates[0]: pd.Series({"ETH": 1.0})},
+        btc_close=prices["BTC"],
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="weakest",
+        short_weight=0.25,
+        eligible={"BTC", "ETH", "SOL", "ADA"},
+        short_mode="cross-sectional",
+        calendar=dates,
+        cross_sectional_lookback=14,
+        cross_sectional_rebalance_days=7,
+        cross_sectional_short_count=2,
+        cross_sectional_anchor=dates[0],
+    )
+
+    target = combined[signal_date]
+    assert target["SOL"] == pytest.approx(-0.125)
+    assert target["ADA"] == pytest.approx(-0.125)
+    assert "BTC" not in target.index

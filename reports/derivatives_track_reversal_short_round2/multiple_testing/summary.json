@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 3,
+  "duplicates": {},
+  "expected_max_sharpe": 0.0005097544610983989,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 0.0,
+    "most_selected_candidate": "PR2026-11-RS2-A-BTC28",
+    "most_selected_count": 517,
+    "pbo": 0.8354978354978355,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.0025349590278328804,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 2
+}

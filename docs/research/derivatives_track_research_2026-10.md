@@ -1408,3 +1408,70 @@ support copy trading`，且 Web 端持仓模式开关变灰、强制 hedge）。
 - 另需用户自查：该账户若挂着**活跃的精英交易组合**，本账户下的手动单可能被镜像给跟随者（本次
   drill 的 2 笔开平也在内），上实盘前应先确认组合状态。
 
+
+---
+
+## 14. 2026-11-10 空头扩展：实现修正、方向性空头与双边轮动
+
+### 14.1 Runner 实现修正
+
+首轮反手空报告发现了两个会影响结论的问题：
+
+1. 空头只在 H5 稀疏调仓事件日评估，而不是每个 UTC 日线收盘；
+2. runner 把 funding 列交集当作整个长账本的可交易集合，导致无 proxy funding 的长仓被错误替换为现金。
+
+修正后：
+
+- 空头每日评估，H5 权重前向填充；
+- 固定空头必须属于当日 PIT Top20；
+- 短腿执行 mark 不可用时 fail closed；
+- Bitget mark 全量长账本不再因 funding 列缺失被清仓。
+
+同规则重跑后，第一轮四条空头全部低于修正基线 40.2200x；旧 provisional 结论撤销。
+明细：`reports/derivatives_track_reversal_short_schedule_fix/report.md`。
+
+### 14.2 方向性 BTC 空头
+
+R2 固定测试 50D SMA + 28D return，每日评估，0.25x BTC 空头：
+
+| trial | 20bps | 50bps | 100bps | PBO |
+|---|---:|---:|---:|---:|
+| RS2 A（additive） | 42.1308x / 1.7489 / -40.39% | 26.1010x | 11.7179x / -51.13% | 0.8355 |
+| RS2 F（flat-only） | 39.1204x / 1.7116 / -42.14% | 24.6933x | 11.4376x / -53.44% | — |
+
+RS2 A 在 20bps 有事件型增益，但 50bps 低于基线、PBO 0.8355、移除 2022 后低于基线，拒绝。
+不再扫描相邻 BTC 趋势窗口。明细：`reports/derivatives_track_reversal_short_round2/report.md`。
+
+### 14.3 横截面单币空头
+
+R3 每周做空 Top20 中 14D 最弱、非 H5 多头持仓的币，20bps 为 38.5909x / 1.7106 / -47.05%，
+2023-07-13 XRP 逼空触发 1 次强平，拒绝。明细：
+`reports/derivatives_track_cross_sectional_short_round3/report.md`。
+
+### 14.4 Bottom-quintile 篮子、buffer 与止损
+
+R4 将空头改为 bottom-quintile 4 币等权篮子（总 0.25x），20bps 为 53.0245x / 1.8980 /
+-41.5294%，但有 3 次强平（XRP ×2、TRON），拒绝。
+
+R5 将 short buffer 从 50% 提高到 75%，仍发生 2 次强平（XRP、TRON），按预注册停止 buffer 扫描。
+
+R6 保留 R4 信号，加入原始设计已预注册的 20% adverse short stop：
+
+| 口径 | L125 基线 | R6 STOP20 |
+|---|---:|---:|
+| 20bps | 40.2200x / 1.7330 / -40.65% / 0 强平 | **51.8010x / 1.8918 / -42.59% / 0 强平** |
+| 50bps | 27.3725x / 1.5790 / -44.20% | **28.3854x / 1.6409 / -47.18%** |
+| 100bps | 14.3794x / 1.3204 / -50.02% | 10.3786x / 1.2196 / **-54.06%** |
+| 3x short-adverse | 44.1253x（零 funding 上界） | 49.6029x / 1.8723 / -42.95% / 0 强平 |
+
+R6 的 PBO=0.0281，365 天滚动最差 0.7958x（基线 0.7325x），说明风险端和选择稳定性明显改善；
+但 100bps MDD 超过 50%，且移除 2022 后 48.5848x 低于基线 50.0330x。按预注册，R6 只能是
+**provisional research candidate**，不接实盘。完整报告：
+`reports/derivatives_track_cross_sectional_basket_round6/report.md`。
+
+### 14.5 当前状态
+
+- 当前实盘仍是 H5 多头账本，没有任何空头执行；
+- 空头线中 R6 是唯一值得继续研究的候选，但必须先解决换手/100bps 成本和 2022 依赖；
+- 不允许继续扫描 stop、buffer、篮子大小或趋势窗口来救活 R6；
+- funding 仍是 Binance proxy/skip，OOS 仍不足 12 个月。

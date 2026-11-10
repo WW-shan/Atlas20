@@ -1,0 +1,29 @@
+{
+  "baseline": "PR2026-10-D-L125",
+  "candidates": [
+    "PR2026-11-RS2-A-BTC28",
+    "PR2026-11-RS2-F-BTC28"
+  ],
+  "cost_bps": 20.0,
+  "end": "2026-09-21",
+  "funding_missing_policy": "skip",
+  "funding_source": "binance-proxy",
+  "leverage": 1.25,
+  "limitations": [
+    "funding is Binance proxy, not exact Bitget history",
+    "funding_missing_policy=skip",
+    "PBO 0.8355 exceeds 0.5",
+    "50bps result is below the same-cost baseline",
+    "2022 is required for the additive improvement",
+    "100bps MDD exceeds 50%",
+    "OOS is too short for live promotion"
+  ],
+  "mark_source": "bitget_mark",
+  "missing_mark_policy": "carry",
+  "pre_registration": "docs/superpowers/specs/2026-11-10-reversal-short-round2-design.md",
+  "result": "rejected at 50bps, PBO, and calendar robustness gates; do not deploy",
+  "short_weight": 0.25,
+  "start": "2022-01-01",
+  "trial_count": 2,
+  "trial_family": "PR2026-11-RS2"
+}

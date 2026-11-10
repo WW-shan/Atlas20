@@ -73,6 +73,61 @@ TRIAL_RULES: dict[str, dict[str, Any]] = {
         "short_weight": 0.25,
         "short_mode": "flat-only",
     },
+    # 2026-11 round 2: two fixed fast-BTC trend-short trials. The horizon is
+    # pre-registered; do not add nearby windows as an implicit parameter sweep.
+    "PR2026-11-RS2-A-BTC28": {
+        "leverage": 1.25,
+        "short_asset": "bitcoin",
+        "short_weight": 0.25,
+        "short_mode": "additive",
+        "bear_ma_window": 50,
+        "bear_return_window": 28,
+    },
+    "PR2026-11-RS2-F-BTC28": {
+        "leverage": 1.25,
+        "short_asset": "bitcoin",
+        "short_weight": 0.25,
+        "short_mode": "flat-only",
+        "bear_ma_window": 50,
+        "bear_return_window": 28,
+    },
+    "PR2026-11-RS3-X-WEAK14": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+    },
+    "PR2026-11-RS4-X-WEAK4": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+        "cross_sectional_short_count": 4,
+    },
+    "PR2026-11-RS5-X-WEAK4-SB75": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+        "cross_sectional_short_count": 4,
+        "short_buffer": 0.75,
+    },
+    "PR2026-11-RS6-X-WEAK4-STOP20": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+        "cross_sectional_short_count": 4,
+        "short_stop_loss_pct": 0.20,
+    },
 }
 STOP_TRIALS: dict[str, dict[str, Any]] = {
     "PR2026-10-D-S-BTC25-STOP20": {"short_asset": "bitcoin", "short_weight": 0.25},
@@ -115,6 +170,15 @@ def _has_execution_mark(
         return True
     later = frame.index[frame.index >= execution_time]
     return bool(len(later) and later[0] - execution_time <= pd.Timedelta(hours=1))
+
+
+def _short_mark_available(
+    mark_candles: dict[str, pd.DataFrame],
+    asset: str,
+    date: pd.Timestamp,
+) -> bool:
+    """Keep a short out of dates where its own fill mark is unavailable."""
+    return _has_execution_mark(mark_candles, asset, date)
 
 
 def _restrict_targets(
@@ -179,6 +243,12 @@ def main() -> None:
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--short-buffer", type=float, default=0.50)
+    parser.add_argument(
+        "--short-stop-loss-pct",
+        type=float,
+        default=None,
+        help="optional adverse short mark move that closes the leg before liquidation",
+    )
     parser.add_argument(
         "--missing-mark-policy",
         choices=("error", "carry", "exit_last"),
@@ -256,12 +326,18 @@ def main() -> None:
             interval = pd.to_numeric(record.get("fund_interval"), errors="coerce")
             if pd.notna(interval) and float(interval) > 0.0:
                 funding_intervals[str(record["coin_id"])] = float(interval)
-    available = available_marks & (set(funding.columns) if not funding.empty else available_marks)
+    # Funding coverage is not a prerequisite for holding a long mark position
+    # under the explicitly labelled proxy/skip convention. Restricting the whole
+    # H5 book to the intersection with the funding columns would silently
+    # replace assets with cash and make a short-overlay comparison invalid.
+    available = available_marks
     restricted, dropped = _restrict_targets(long_targets, available, mark_candles)
     short_asset = rule["short_asset"]
     short_weight = float(rule["short_weight"])
     leverage = float(rule["leverage"])
     short_mode = str(rule.get("short_mode", "additive"))
+    short_buffer = float(rule.get("short_buffer", args.short_buffer))
+    short_stop_loss_pct = rule.get("short_stop_loss_pct", args.short_stop_loss_pct)
     max_gross = (
         leverage
         if short_mode in {"replace", "flat-only"}
@@ -281,6 +357,14 @@ def main() -> None:
         short_mode=short_mode,
         btc_asset="bitcoin",
         eligible=available,
+        calendar=index if short_asset is not None else None,
+        bear_ma_window=int(rule.get("bear_ma_window", 200)),
+        bear_return_window=int(rule.get("bear_return_window", 30)),
+        short_available=lambda asset, date: _short_mark_available(mark_candles, asset, date),
+        cross_sectional_lookback=int(rule.get("cross_sectional_lookback", 14)),
+        cross_sectional_rebalance_days=int(rule.get("cross_sectional_rebalance_days", 7)),
+        cross_sectional_short_count=int(rule.get("cross_sectional_short_count", 1)),
+        cross_sectional_anchor=args.start_date,
     )
 
     cfg = DerivativeBacktestConfig(
@@ -289,7 +373,10 @@ def main() -> None:
         slippage_bps=0.0,
         liquidation_slippage_bps=5.0,
         long_buffer=float(args.long_buffer),
-        short_buffer=float(args.short_buffer),
+        short_buffer=short_buffer,
+        short_stop_loss_pct=(
+            None if short_stop_loss_pct is None else float(short_stop_loss_pct)
+        ),
         max_gross_exposure=max_gross,
         funding_missing_policy=args.funding_missing_policy,
         funding_stress=args.funding_stress,
@@ -320,11 +407,16 @@ def main() -> None:
         "short_asset": short_asset,
         "short_weight": short_weight,
         "short_mode": short_mode,
+        "short_buffer": short_buffer,
+        "short_stop_loss_pct": (
+            None if short_stop_loss_pct is None else float(short_stop_loss_pct)
+        ),
         "max_gross": max_gross,
         "available_marks": sorted(available_marks),
         "funding_columns": sorted(funding.columns.tolist()),
         "dropped_target_rows": int(len(dropped)),
         "liquidation_count": int(len(result.liquidations)),
+        "stop_loss_count": int((result.trades.get("reason") == "stop_loss").sum()) if not result.trades.empty else 0,
         "funding_total": float(result.funding["amount"].sum()) if not result.funding.empty else 0.0,
         "fees_total": float(result.trades["fee"].sum()) if not result.trades.empty else 0.0,
         "max_gross_exposure": float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0,
@@ -352,6 +444,7 @@ def main() -> None:
                 f"- Sharpe: {metrics['sharpe']:.4f}",
                 f"- Max drawdown: {metrics['max_drawdown']:.4%}",
                 f"- Liquidations: {summary['liquidation_count']}",
+                f"- Short stop-losses: {summary['stop_loss_count']}",
                 f"- Funding total: {summary['funding_total']:.6f}",
                 f"- Fees total: {summary['fees_total']:.6f}",
                 f"- Dropped target rows: {summary['dropped_target_rows']}",

@@ -1,0 +1,12 @@
+{
+  "baseline": "PR2026-10-D-L125",
+  "candidate": "PR2026-11-RS6-X-WEAK4-STOP20",
+  "cost_bps": 20.0,
+  "short_buffer": 0.5,
+  "short_stop_loss_pct": 0.2,
+  "funding_missing_policy": "skip",
+  "funding_source": "binance-proxy",
+  "mark_source": "bitget_mark",
+  "result": "provisional research candidate; rejected for live deployment",
+  "limitations": ["Binance funding proxy", "100bps MDD exceeds 50%", "remove-2022 is below baseline", "OOS insufficient"]
+}

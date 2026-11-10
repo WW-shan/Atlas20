@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-RS3-X-WEAK14,main,lag0,20.0,1.710576182760534,38.590856081904064,-0.47046128975221946,reports/derivatives_track_cross_sectional_short_round3/PR2026-11-RS3-X-WEAK14/summary.json

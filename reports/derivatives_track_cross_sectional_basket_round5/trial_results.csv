@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-RS5-X-WEAK4-SB75,main,lag0,20.0,1.8816710805408976,51.2753705261553,-0.41529445993957237,reports/derivatives_track_cross_sectional_basket_round5/PR2026-11-RS5-X-WEAK4-SB75/summary.json

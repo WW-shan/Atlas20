@@ -1,0 +1,4 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-10-D-L125,main,lag0,20.0,1.7329754409581548,40.21998808392151,-0.40650590493304783,reports/derivatives_track_reversal_short_round2/PR2026-10-D-L125/summary.json
+PR2026-11-RS2-A-BTC28,main,lag0,20.0,1.7489115394084302,42.130774744912856,-0.40387447628542494,reports/derivatives_track_reversal_short_round2/PR2026-11-RS2-A-BTC28/summary.json
+PR2026-11-RS2-F-BTC28,main,lag0,20.0,1.7115596791471461,39.12043132668014,-0.42136270255616204,reports/derivatives_track_reversal_short_round2/PR2026-11-RS2-F-BTC28/summary.json

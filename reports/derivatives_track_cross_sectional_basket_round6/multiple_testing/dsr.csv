@@ -1,0 +1,3 @@
+candidate,observed_sharpe,expected_max_sharpe,deflated_sharpe_probability
+PR2026-10-D-L125,1.732472764967608,0.0,0.9999925164153496
+PR2026-11-RS6-X-WEAK4-STOP20,1.8912030346201507,0.0,0.9999993557374434
