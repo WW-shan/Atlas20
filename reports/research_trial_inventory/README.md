@@ -5,18 +5,18 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `19dc6ff`; every source file is committed.
+Built at commit `f119a55` from 1 uncommitted source file(s): `reports/phase_momentum_execution_timing_30m/summary.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,166 | 14,132 | 8,963 | 0.7947 | 0.6522 | 0.03414 |
-| top20_2022_trials | 6,138 | 6,123 | 3,826 | 0.4315 | 0.3165 | 0.01657 |
+| all_trials | 14,170 | 14,136 | 8,967 | 0.7948 | 0.6522 | 0.03414 |
+| top20_2022_trials | 6,142 | 6,127 | 3,830 | 0.4321 | 0.3173 | 0.01661 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
-start 2022-01-01, cost nearest 20 bps. Its 6,123 Sharpe ratios come from
-3,826 distinct return streams; configurations inside one study
+start 2022-01-01, cost nearest 20 bps. Its 6,127 Sharpe ratios come from
+3,830 distinct return streams; configurations inside one study
 that happen to give identical returns (liquidity tiers that never bind, stops
 that never fire) count separately. The `all_trials` Sharpe dispersion mixes
 windows (the April 2022-11-21 studies have Sharpe ratios near 2), so the
@@ -52,7 +52,7 @@ multiple-testing script uses it only for the trial count.
 | ctrend_lite | 5241 | 3626 |
 | derivatives | 30 | 0 |
 | leader_momentum | 5761 | 655 |
-| phase_momentum | 79 | 77 |
+| phase_momentum | 83 | 81 |
 | sector | 647 | 254 |
 | topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |

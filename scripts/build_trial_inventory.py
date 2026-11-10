@@ -117,6 +117,7 @@ TOP20_2022_ORDER: tuple[str, ...] = (
     "phase_momentum_leave_one_out_2022",
     "phase_momentum_parameter_leave_one_out_2022",
     "phase_momentum_execution_lag_2022",
+    "phase_momentum_execution_timing_30m",
     PREREGISTERED_STUDY,
 )
 TOP50_2022_ORDER: tuple[str, ...] = (
@@ -246,6 +247,7 @@ VARIES: dict[str, str] = {
     "phase_momentum_leave_one_out_2022": "drop one signal or one phase",
     "phase_momentum_parameter_leave_one_out_2022": "drop one of the 13 ensemble specs",
     "phase_momentum_execution_lag_2022": "extra execution lag of 0/1/2 days",
+    "phase_momentum_execution_timing_30m": "00:30 / 01:00 / 01:30 / 02:00 / 50-50 split fills",
 }
 
 PIPELINE_SNAPSHOTS: tuple[tuple[str, str, tuple[str, str]], ...] = (
@@ -828,6 +830,17 @@ def _load_phase_momentum_lane(src: Sources, rec: TrialRecorder) -> None:
     for lag, cost, sharpe in zip(frame["execution_lag_days"], frame["cost_bps"], frame["sharpe"]):
         rec.add("phase_momentum_execution_lag_2022", f"execution_lag_{_fmt(lag)}d", PHASE_WINDOW, cost, "Top20",
                 sharpe, source=path, column="sharpe", family=family)
+    path = "reports/phase_momentum_execution_timing_30m/summary.csv"
+    frame = src.csv(path)
+    frame = frame[
+        (frame["missing_fill"] == "prior_close")
+        & (frame["cost_bps"] == 20.0)
+        & (~frame["variant"].isin(["baseline_0100", "hourly_anchor_0100"]))
+    ]
+    for variant, sharpe in zip(frame["variant"], frame["sharpe"]):
+        rec.add("phase_momentum_execution_timing_30m", str(variant), PHASE_WINDOW, 20.0, "Top20", sharpe,
+                source=path, column="sharpe", family=family,
+                note="30m timestamp-rebuilt fill-time diagnostic; alternate missing/cost runs are sensitivity")
 
 
 def _load_april_lane(src: Sources, rec: TrialRecorder, commit: str) -> None:

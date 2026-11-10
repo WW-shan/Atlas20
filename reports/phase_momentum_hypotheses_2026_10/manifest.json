@@ -3145,19 +3145,19 @@
   },
   "ran_at_utc": "2026-10-09T00:50:39Z",
   "ledger": "reports/research_trial_inventory/preregistered_trials.csv",
-  "ledger_sha256_at_evaluation": "d245df2d25751d341e8e6ce9b9d42a2d893ea78c8ddf48d7133d4e63dd0bcbd7",
+  "ledger_sha256_at_evaluation": "da761197498eccac4bfebed3faec521aeee142774b729ee5c9a0445d4f3a9cf5",
   "trial_summary": "reports/research_trial_inventory/summary.json",
-  "trial_summary_sha256": "ac96eebffc7cde1b00edb19d5dea329d5806826b95639446166e9ed954f182e9",
+  "trial_summary_sha256": "c569e601aacb3d2188407458a3a71d97e0cd44e80a435820fa4b9ebeb162fded",
   "trial_scopes": [
     {
       "scope": "top20_2022_trials",
-      "trial_count": 6138,
-      "trial_sharpe_std_per_period": 0.01656525609587107
+      "trial_count": 6142,
+      "trial_sharpe_std_per_period": 0.016607499477050355
     },
     {
       "scope": "all_trials",
-      "trial_count": 14132,
-      "trial_sharpe_std_per_period": 0.01656525609587107
+      "trial_count": 14170,
+      "trial_sharpe_std_per_period": 0.016607499477050355
     }
   ],
   "decision_sample": {
@@ -3168,5 +3168,5 @@
   "identical_return_series": {
     "PR2026-10-H2-D100": "PR2026-10-B"
   },
-  "evaluated_at_utc": "2026-10-09T00:57:02Z"
+  "evaluated_at_utc": "2026-11-10T14:10:09Z"
 }

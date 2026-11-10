@@ -5,7 +5,7 @@
 >
 > | | |
 > |---|---|
-> | 最后更新 | 2026-11-10（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,138 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：执行提前到 00:30/01:05 UTC，空头研究首轮和方向性快速 BTC 空头均被拒；§00.21.4：bottom-quintile 空头 + 20% stop 在 20bps 为 **51.8010x / 1.8918 / -42.59% / 0 强平**，但 100bps MDD -54.06% 且移除 2022 后低于基线，仍为 provisional，不接实盘；§00.21.5：bottom-8 持有带（R7）费用降至 2.56，但 50bps/100bps/MDD、移除 2022 和滚动最差均失败，rejected；§00.22：小时级 BTC 闸门与组合止损诊断全部不升级，未新增试验，实盘仍为 H5 多头） |
+> | 最后更新 | 2026-11-10（现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外 2026-09-22 起 17 天 **0.9689x vs BTC 0.9431x**；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 上线路线：DSR 在 N=6,142 下结构性不可达，需负责人先做规则决策**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 17/365 天 0.9598x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：执行提前到 00:30/01:05 UTC，空头研究首轮和方向性快速 BTC 空头均被拒；§00.21.4：bottom-quintile 空头 + 20% stop 在 20bps 为 **51.8010x / 1.8918 / -42.59% / 0 强平**，但 100bps MDD -54.06% 且移除 2022 后低于基线，仍为 provisional，不接实盘；§00.21.5：bottom-8 持有带（R7）费用降至 2.56，但 50bps/100bps/MDD、移除 2022 和滚动最差均失败，rejected；§00.22：小时级 BTC 闸门与组合止损诊断全部不升级，实盘仍为 H5 多头；§00.23：30m 执行时点全扫被拒，00:30/01:30/02:00/50-50 分片均低于 01:00 同数据基线，成交权重覆盖率仅 78.14%，实盘继续 01:05 不改） |
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-09**（仅运行跟踪，不用于选规则） |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。衍生品轨（§9，独立风险预算，Bitget isolated margin）在单独设计文档 `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` 下研究，不得与现货轨的口径混用 |
@@ -1452,6 +1452,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_hypotheses_2026_10/` | H2–H5 预注册试验：判据、DSR、Reality Check、压力窗口、逐年、逐币归因 | ✅ 当前权威 |
 | `reports/phase_momentum_candidate_eval_h5/` | B / H3 / H5 与两族邻域的同口径横评（含 DSR） | ✅ 当前权威 |
 | `reports/phase_momentum_multiple_testing_overlays/` | 36 候选族的 CSCV/PBO（H5 = 0.192，首个通过）、DSR、Reality Check | ✅ 当前权威 |
+| `reports/phase_momentum_execution_timing_30m/` | 30m 执行时点：00:30/01:00/01:30/02:00/50-50 分片、两套缺失口径、2/20/50/100bps；全部被拒（§00.23） | ✅ 当前权威（否定结果） |
 | `reports/phase_momentum_regime_overlays/` | B / H3 / H5 的 bull 与 non-bull 拆分 | ✅ 当前权威 |
 | `reports/phase_momentum_dsr_gap/` | DSR 差距定价：达到 0.95 所需的年化 Sharpe（family / top20 / all_trials） | ✅ 当前权威 |
 | `reports/phase_momentum_dsr_horizon/` | DSR 的时间维度定价：保持样本内 Sharpe 需 6.4 年新数据；只用样本外的 t 检验需 1.06 年（§00.20） | ✅ 当前权威 |
@@ -1467,7 +1468,7 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 | `reports/phase_momentum_multiple_testing_2022/` | 30 个单规格变体的 CSCV/PBO（B = 0.526） | ✅ 历史基线 |
 | `reports/phase_momentum_candidate_eval/` | H3 采用时的横评快照 | ⚠️ 已被 §00.13 取代 |
 | `reports/phase_momentum_multiple_testing_h3/` | H3 的 PBO（0.558，fail） | ⚠️ 历史 |
-| `reports/research_trial_inventory/` | 试验台账、DSR 分母（Top20/2022 = 6,135）与 manifest | ✅ 权威计数 |
+| `reports/research_trial_inventory/` | 试验台账、DSR 分母（Top20/2022 = 6,142）与 manifest | ✅ 权威计数 |
 | `reports/trend_stop_champion_2022/` | 固定 21D 冠军结果、逐年、子区间、目标历史、最新信号、基础选币审计 | ⚠️ 相位敏感，只能作为上尾参考 |
 | `reports/trend_stop_validation_2022/` | MA20-200 × confirm1-3 每日自身趋势止损全扫 + fresh rolling | ✅ 权威研究 |
 | `reports/event_driven_validation_2022/` | 176 组每日事件/hysteresis + 36 组每日 rank-stop 混合；用于证明每日轮动未采用 | ✅ 权威研究 |
@@ -1920,3 +1921,91 @@ p≈0.0040，均通过，但不能抵消成本和年份依赖。
 ```
 
 明细：`reports/phase_momentum_intraday_risk_diagnostic/{report.md,summary.csv,yearly_returns.csv,hourly_coverage.csv,manifest.json}`。
+
+---
+
+### 00.23 2026-11-10 30 分钟执行时点：全部被拒，停止继续扫成交分钟
+
+负责人要求继续研究“更实时/分批成交是否能提高收益”。本节只改变 H5 的成交时点，不改
+point-in-time Top20、目标权重、T+1、long-only、gross<=1 或成本模型。先修数据，再按固定门槛
+比较 `00:30 / 01:00 / 01:30 / 02:00` 与 `50% 01:00 + 50% 01:30`。
+
+**一、先修复 30m 数据污染**
+
+旧 `data/raw/binance_30m` 不可用：Binance 月度归档的 `open_time` 在 2022–2024 是毫秒，
+2025 起改为微秒；旧解析把两者都当毫秒，随后又对旧 CSV 重复换算，产生 1970 和 58718 年。
+本轮没有修补旧文件，而是改用 Binance 官方 kline API，直接按整数 epoch-milliseconds
+重建，并在加载时拒绝秒/微秒/1970/重复/乱序数据。结果：
+
+- 32 个资产、**2,383,150 根 30m K 线**，全部毫秒时间戳、升序、无重复。
+- 21 个 2022 年即存在的资产各 **83,230 根**，边界为 2022-01-01 00:00 → 2026-09-30 23:30 UTC。
+- 仅保留 Binance 自身的 2023-03-24 约 1.5h 维护缺口，以及 TON→GRAM 换名期间约 53.5h 缺口；
+  不插值、不静默填价。
+- H5 实际目标资产为 **37 个**，其中 31 个有 30m 数据；缺 30m 的是
+  `bitget-token, crypto-com-chain, hyperliquid, kaspa, mantle, okb`。再叠加 MONERO/LUNC 退市后、
+  TON 换名等未覆盖时段，实际成交权重覆盖率只有 **78.14%**，低于预先写死的 95% 可执行门槛。
+
+**二、同数据口径结果（20bps）**
+
+30m 基线与旧 1h 锚不可直接比较，因为两者覆盖的交易所/资产不同；下表全部相对“同一 30m
+数据集里的 01:00 基线”。旧 1h 锚分别为 21.6900x（prior_close）和 21.2173x（day_close）。
+
+| 缺失 K 线口径 | 方案 | 终值 | Sharpe | MDD | 相对 01:00 终值 |
+|---|---|---:|---:|---:|---:|
+| prior_close | 01:00 基线 | **20.4051x** | **1.3851** | -46.48% | 1.0000 |
+| prior_close | 00:30 | 20.1493x | 1.3835 | -47.42% | 0.9875 |
+| prior_close | 01:30 | 18.8732x | 1.3575 | -45.80% | 0.9249 |
+| prior_close | 02:00 | 19.7897x | 1.3741 | -44.44% | 0.9698 |
+| prior_close | 50/50 01:00+01:30 | 19.6392x | 1.3717 | -46.15% | 0.9625 |
+| day_close | 01:00 基线 | **25.4570x** | **1.4683** | -47.12% | 1.0000 |
+| day_close | 00:30 | 25.1280x | 1.4669 | -48.06% | 0.9871 |
+| day_close | 01:30 | 23.5472x | 1.4417 | -46.47% | 0.9250 |
+| day_close | 02:00 | 24.6161x | 1.4571 | -45.17% | 0.9670 |
+| day_close | 50/50 01:00+01:30 | 24.5021x | 1.4555 | -46.81% | 0.9625 |
+
+- 四个替代方案在 2/20/50/100bps 全部低于同成本基线：提前 30m 为 0.987–0.989；延后 30m
+  为 0.9246–0.9251；延后 60m 为 0.9660–0.9701；50/50 分片为 0.9623–0.9625。
+- 00:30 的收益与 Sharpe 都略低，MDD 反而变差约 0.94pp；延后 60m 虽然把 MDD 改善约
+  2.0pp，但终值低约 3.0%、Sharpe 低约 0.011、365 天滚动最差更差。
+- 覆盖到的成交权重上，价格优势也是负的：00:30 **-1.46bps**、01:30 **-7.64bps**、
+  02:00 **-4.35bps**、50/50 **-3.82bps**；正价格优势事件占比只有 46.6%–49.4%，接近抛硬币。
+- 逐年结果不稳定：例如 02:00 在 2024 年多出约 12pp，却在 2023/2025/2026 分别少约
+  18/6/5pp；提前 30m 在 2022/2023 略好、2024/2026 明显更差。不存在可依赖的固定执行分钟。
+
+**三、判定**
+
+预写门槛为：成交权重覆盖 >=95%；20bps 收益和 Sharpe 高于同数据基线；MDD 不比基线差
+超过 2pp；移除 2022 后仍不低于基线；365 天滚动最差不变差；50/100bps 不劣于基线。
+**8 个“方案 × 缺失口径”没有一组通过全部门槛。** 其中覆盖率先行失败，而且即便只看覆盖到的
+78.14% 成交，price edge 也全部为负，因此不是“补几个交易所数据就会翻盘”的正结果。
+
+结论：**rejected。停止继续扫 00:45/00:50/01:15 等相邻成交分钟，也不上 50/50 分片。**
+实盘继续 H5 的 01:05 UTC 单次执行。真正可能提升实时性的下一步不再是挪分钟，而是引入与
+价格路径正交的新信息（真实盘口/冲击成本、Bitget funding、订单簿深度）或继续积累冻结样本外。
+
+**四、试验记账**
+
+四个不同执行配置已加入 `reports/research_trial_inventory/`，Top20/2022 N 由 6,138 升至
+**6,142**，全部试验 N=**14,170**；缺失行情口径和成本档位按同配置敏感性记录，不重复虚增。
+刷新后 H5 的 DSR 为 **0.856**（top20_2022_trials）和 **0.817**（all_trials），仍明显低于
+0.95；本次负结果没有改变 H5 的 provisional 状态。B 的多重检验报告同步刷新为
+top20_2022_trials **0.7227**、all_trials **0.6680**。
+
+复现：
+
+```bash
+.venv/bin/python scripts/download_binance_30m.py \
+  --members data/processed/metadata.csv \
+  --only aptos,avalanche-2,binancecoin,bitcoin,bitcoin-cash,bittensor,cardano,celestia,chainlink,dogecoin,ethereum,ethereum-classic,filecoin,hedera-hashgraph,immutable-x,internet-computer,litecoin,matic-network,monero,near,optimism,pepe,ripple,shiba-inu,solana,stellar,sui,terra-luna,the-open-network,tron,uniswap,zcash \
+  --start-month 2022-01 --end-month 2026-09 --force
+
+.venv/bin/python scripts/analyze_intraday_execution_timing.py \
+  --costs 2,20,50,100 --analysis-cost-bps 20 \
+  --output-dir reports/phase_momentum_execution_timing_30m
+
+.venv/bin/python scripts/build_trial_inventory.py
+.venv/bin/python scripts/run_phase_momentum_hypotheses.py --evaluate-only
+```
+
+明细：`reports/phase_momentum_execution_timing_30m/` 及
+`reports/research_trial_inventory/{summary.json,trial_inventory.csv,trial_sharpes.csv}`。

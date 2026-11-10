@@ -1,6 +1,6 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "19dc6ff56b956c22aa5ed750f5cf3f5ff44ae2ff",
+  "repository_head": "f119a552899d71b71be8f7b1c8fc13cac7113819",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
@@ -62,6 +62,7 @@
     "phase_momentum_leave_one_out_2022",
     "phase_momentum_parameter_leave_one_out_2022",
     "phase_momentum_execution_lag_2022",
+    "phase_momentum_execution_timing_30m",
     "phase_momentum_hypotheses_2026_10",
     "convex_validation_2022_top50",
     "ctrend_focus_2022_top50",
@@ -136,6 +137,7 @@
     "phase_momentum_leave_one_out_2022": 20.0,
     "phase_momentum_parameter_leave_one_out_2022": 20.0,
     "phase_momentum_execution_lag_2022": 20.0,
+    "phase_momentum_execution_timing_30m": 20.0,
     "phase_momentum_hypotheses_2026_10": 20.0,
     "git:profit_max_search": 20.0,
     "git:profit_max_refine": 20.0,
@@ -146,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20410,
-  "rows_at_primary_cost": 17872,
+  "rows_read": 20414,
+  "rows_at_primary_cost": 17876,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -797,6 +799,10 @@
     "reports/phase_momentum_execution_lag_2022/summary.csv": {
       "origin": "working tree (committed)",
       "sha256": "f5ceb23221f3c2f6bbb8c9b01392c1e686d2d80a266c34269c7e56ed8e6c24f6"
+    },
+    "reports/phase_momentum_execution_timing_30m/summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "7c3b63cda44b221c3ff6b5613d4f75faf80d259d1e0e8e637c41e87791edb9c6"
     },
     "reports/phase_momentum_hypotheses_2026_10/runs.csv": {
       "origin": "working tree (committed)",

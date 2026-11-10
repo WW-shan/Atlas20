@@ -1,0 +1,52 @@
+{
+  "analysis_cost_bps": 20.0,
+  "available_30m_asset_count": 31,
+  "config": "config/base.yaml",
+  "cost_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "decision_outcome": {
+    "conclusion": "rejected; no alternative beats the same-data 01:00 baseline across coverage, return, risk, costs and robustness",
+    "passed_all_gates": false,
+    "variants_passed": []
+  },
+  "decision_rules_fixed_before_results": {
+    "cost": "must remain no worse than baseline at 50 and 100bps",
+    "data": "no invalid dates, duplicates or uncovered timestamp-unit conversions",
+    "return": "at 20bps, alternative multiple must exceed the same-data 01:00 baseline",
+    "risk": "Sharpe must improve and MDD must not worsen by more than 2 percentage points",
+    "robustness": "must not rely on 2022 and rolling 1-year worst must not worsen",
+    "trade_weight_coverage": ">=0.95 for an actionable execution result"
+  },
+  "end_date": "2026-09-21",
+  "hourly_anchor_dir": "data/raw/binance_1h",
+  "intraday_dir": "data/raw/binance_30m",
+  "missing_30m_assets": [
+    "bitget-token",
+    "crypto-com-chain",
+    "hyperliquid",
+    "kaspa",
+    "mantle",
+    "okb"
+  ],
+  "missing_fill_policies": [
+    "prior_close",
+    "day_close"
+  ],
+  "portfolio": "long-only spot, no leverage, gross exposure <= 1.0",
+  "start_date": "2022-01-01",
+  "status": "diagnostic_only",
+  "target_asset_count": 37,
+  "timestamps": "integer epoch milliseconds; seconds/microseconds fail closed",
+  "universe": "strict point-in-time Top20",
+  "variants": {
+    "advance_30m_0030": "single fill at 00:30 UTC",
+    "baseline_0100": "single fill at 01:00 UTC",
+    "delay_30m_0130": "single fill at 01:30 UTC",
+    "delay_60m_0200": "single fill at 02:00 UTC",
+    "split_50_50_0100_0130": "50% at 01:00 and 50% at 01:30"
+  }
+}

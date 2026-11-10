@@ -524,7 +524,7 @@ PR2026-10-D-L125-COST50
 PR2026-10-D-L125-COST100
 ```
 
-Derivatives Track 的 multiple-testing scope 以这 11 个为初始 N。任何新增杠杆、空头阈值、stop、funding 阈值或执行变体都必须 append 到 `reports/research_trial_inventory/preregistered_trials.csv`，并同步增加 N。H5 的 N=6,138 继续独立报告，不能用来替代或放宽本 scope 的 DSR/PBO。
+Derivatives Track 的 multiple-testing scope 以这 11 个为初始 N。任何新增杠杆、空头阈值、stop、funding 阈值或执行变体都必须 append 到 `reports/research_trial_inventory/preregistered_trials.csv`，并同步增加 N。H5 的 N=6,142 继续独立报告，不能用来替代或放宽本 scope 的 DSR/PBO。
 
 
 ## 8. Kill Criteria
@@ -605,7 +605,7 @@ Derivatives Track 的 multiple-testing scope 以这 11 个为初始 N。任何�
 
 ### 9.1 Derivatives Track 的多重检验 scope
 
-H5 的 DSR 在 N=6,138 下为 0.858，结构性不可达。Derivatives Track 不能继承这个结论，也不能用它来放宽 H5。新轨道必须单独计算：
+H5 的 DSR 在 N=6,142 下为 0.856，结构性不可达。Derivatives Track 不能继承这个结论，也不能用它来放宽 H5。新轨道必须单独计算：
 
 - White Reality Check / stepwise；
 - Deflated Sharpe Ratio，scope = 上述 11 个 pre-registered trials；

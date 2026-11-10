@@ -15,7 +15,7 @@
   "primary": "primary",
   "best_candidate": "rebalance_1d",
   "trial_summary": "reports/research_trial_inventory/summary.json",
-  "trial_summary_sha256": "cbe96dfdfda48b8e51db426732613b7e84f63839c1d93d2f0241c0a962cd48a1",
+  "trial_summary_sha256": "c569e601aacb3d2188407458a3a71d97e0cd44e80a435820fa4b9ebeb162fded",
   "trial_scopes": [
     {
       "scope": "family",
@@ -26,16 +26,16 @@
     },
     {
       "scope": "top20_2022_trials",
-      "trial_count": 6132,
-      "trial_sharpe_std_per_period": 0.01645699730597245,
-      "trial_sharpe_std_annualized": 0.31441049206412675,
+      "trial_count": 6142,
+      "trial_sharpe_std_per_period": 0.016607499477050355,
+      "trial_sharpe_std_annualized": 0.3172858320052806,
       "sharpe_std_source": "top20_2022_trials"
     },
     {
       "scope": "all_trials",
-      "trial_count": 14126,
-      "trial_sharpe_std_per_period": 0.01645699730597245,
-      "trial_sharpe_std_annualized": 0.31441049206412675,
+      "trial_count": 14170,
+      "trial_sharpe_std_per_period": 0.016607499477050355,
+      "trial_sharpe_std_annualized": 0.3172858320052806,
       "sharpe_std_source": "top20_2022_trials"
     }
   ],
