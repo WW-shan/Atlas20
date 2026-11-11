@@ -63,6 +63,7 @@ LS20_CANDIDATE_ID = "PR2026-11-LS20-H5-COMMON-GROSS"
 LS21_CANDIDATE_ID = "PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT"
 LS21_BEAR_FUNDING_THRESHOLD = 0.0
 LS22_CANDIDATE_ID = "PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK"
+LS23_CANDIDATE_ID = "PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -70,6 +71,7 @@ LS18_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-tilt-design.md"
 LS20_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-common-gross-design.md"
 LS21_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-positive-carry-short-design.md"
 LS22_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-extreme-run-profit-lock-design.md"
+LS23_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-regime-short-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
@@ -77,11 +79,12 @@ SHORT_CANDIDATES = {
     LS18_CANDIDATE_ID: 0.0,
     LS20_CANDIDATE_ID: 0.0,
     LS21_CANDIDATE_ID: 0.0,
+    LS23_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
 LONG_COMMON_GROSS_TRIALS = {LS20_CANDIDATE_ID}
-LONG_PROFIT_LOCK_TRIALS = {LS22_CANDIDATE_ID}
+LONG_PROFIT_LOCK_TRIALS = {LS22_CANDIDATE_ID, LS23_CANDIDATE_ID}
 LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     "lookback_days": 21,
     "threshold": 1.0,
@@ -157,6 +160,10 @@ LS22_CONSTRUCTION = (
     "Frozen H5 1.25x long-only; at each H5 target event, if the largest long "
     "leg has a 21D trailing return of at least 100%, halve only that leg and "
     "leave the freed weight in cash; no redistribution and no short sleeve"
+)
+LS23_CONSTRUCTION = (
+    "LS22 single-leader profit lock applied to the H5 long book, combined with "
+    "the frozen LS12 BTC-200D dual-short router; only the long book is trimmed"
 )
 
 
@@ -486,10 +493,16 @@ def main() -> None:
             LS20_CANDIDATE_ID,
             LS21_CANDIDATE_ID,
             LS22_CANDIDATE_ID,
+            LS23_CANDIDATE_ID,
         ),
         required=True,
     )
     parser.add_argument("--start-date", default="2022-01-01")
+    parser.add_argument(
+        "--evaluation-start",
+        default=None,
+        help="optional cash-start date; history still begins at --start-date",
+    )
     parser.add_argument("--end-date", default="2026-09-21")
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -502,6 +515,12 @@ def main() -> None:
     parser.add_argument("--missing-mark-policy", choices=("error", "carry", "exit_last"), default="carry")
     parser.add_argument("--missing-mark-max-carry-hours", type=int, default=3)
     args = parser.parse_args()
+    if args.evaluation_start is None:
+        args.evaluation_start = args.start_date
+    if pd.Timestamp(args.evaluation_start) < pd.Timestamp(args.start_date):
+        parser.error("--evaluation-start must be on or after --start-date")
+    if pd.Timestamp(args.evaluation_start) >= pd.Timestamp(args.end_date):
+        parser.error("--evaluation-start must be earlier than --end-date")
     configure_logging("ERROR")
 
     config, market, universe, index = _load_market(
@@ -589,9 +608,18 @@ def main() -> None:
         funding_rates=funding if not funding.empty else None,
         funding_intervals_hours=funding_intervals if not funding.empty else None,
         config=cfg,
-        start_time=pd.Timestamp(args.start_date, tz="UTC"),
+        start_time=pd.Timestamp(args.evaluation_start, tz="UTC"),
         end_time=pd.Timestamp(args.end_date, tz="UTC"),
     )
+    evaluation_start = pd.Timestamp(args.evaluation_start, tz="UTC")
+    if "date" in long_tilt_audit.columns and not long_tilt_audit.empty:
+        long_tilt_dates = pd.to_datetime(long_tilt_audit["date"], utc=True)
+        long_tilt_audit = long_tilt_audit.loc[long_tilt_dates >= evaluation_start].copy()
+    if "date" in sleeve_audit.columns and not sleeve_audit.empty:
+        sleeve_dates = pd.to_datetime(sleeve_audit["date"], utc=True)
+        sleeve_audit = sleeve_audit.loc[sleeve_dates >= evaluation_start].copy()
+    if isinstance(target_audit.index, pd.DatetimeIndex):
+        target_audit = target_audit.loc[target_audit.index >= evaluation_start].copy()
     metrics = _metrics_from_returns(result.daily_returns)
     trades = result.trades
     short_side = trades.get("side", pd.Series(dtype=object)) == "short"
@@ -600,7 +628,8 @@ def main() -> None:
     summary = {
         "trial_id": args.trial_id,
         "baseline": args.trial_id == BASELINE_ID,
-        "start_date": args.start_date,
+        "start_date": args.evaluation_start,
+        "warmup_start_date": args.start_date,
         "end_date": args.end_date,
         "cost_bps": float(args.cost_bps),
         "funding_source": args.funding_source,
@@ -685,7 +714,7 @@ def main() -> None:
     long_tilt_audit.to_csv(output_dir / "funding_tilt_audit.csv", index=False)
     if args.trial_id == LS20_CANDIDATE_ID:
         long_tilt_audit.to_csv(output_dir / "selection_event_audit.csv", index=False)
-    if args.trial_id == LS22_CANDIDATE_ID:
+    if args.trial_id in LONG_PROFIT_LOCK_TRIALS:
         long_tilt_audit.to_csv(output_dir / "profit_lock_audit.csv", index=False)
     sleeve_audit.to_csv(output_dir / "sleeve_audit.csv", index=False)
     _write_schedule(output_dir / "routed_short_schedule.csv", short_targets)
@@ -727,6 +756,8 @@ def main() -> None:
                     if args.trial_id == LS21_CANDIDATE_ID
                     else LS22_SPEC_PATH
                     if args.trial_id == LS22_CANDIDATE_ID
+                    else LS23_SPEC_PATH
+                    if args.trial_id == LS23_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -744,6 +775,8 @@ def main() -> None:
                     if args.trial_id == LS21_CANDIDATE_ID
                     else LS22_CONSTRUCTION
                     if args.trial_id == LS22_CANDIDATE_ID
+                    else LS23_CONSTRUCTION
+                    if args.trial_id == LS23_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
@@ -766,11 +799,12 @@ def main() -> None:
                     ),
                     **(
                         LS22_PROFIT_LOCK_CONFIG
-                        if args.trial_id == LS22_CANDIDATE_ID
+                        if args.trial_id in LONG_PROFIT_LOCK_TRIALS
                         else {}
                     ),
                 },
-                "start_date": args.start_date,
+                "start_date": args.evaluation_start,
+                "warmup_start_date": args.start_date,
                 "end_date": args.end_date,
                 "cost_bps": float(args.cost_bps),
                 "funding_source": args.funding_source,
@@ -789,7 +823,7 @@ def main() -> None:
             [
                 f"# {args.trial_id}",
                 "",
-                f"- Window: {args.start_date} to {args.end_date}",
+                f"- Window: {args.evaluation_start} to {args.end_date} (warmup {args.start_date})",
                 f"- Cost: {float(args.cost_bps):g} bps",
                 f"- Terminal multiple: {metrics['multiple']:.4f}x",
                 f"- Sharpe: {metrics['sharpe']:.4f}",

@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-10-D-L125,main,lag0,20.0,1.9617892826719794,3.9238060693237315,-0.2824148838875219,reports/derivatives_track_h5_profit_lock_regime_short/pre2022_proxy_funding/PR2026-10-D-L125/summary.json

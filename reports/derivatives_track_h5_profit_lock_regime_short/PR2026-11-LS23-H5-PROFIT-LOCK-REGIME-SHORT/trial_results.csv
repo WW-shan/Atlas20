@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT,main,lag0,20.0,1.9448357012572255,61.91498344979396,-0.3983502122253627,reports/derivatives_track_h5_profit_lock_regime_short/PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT/summary.json

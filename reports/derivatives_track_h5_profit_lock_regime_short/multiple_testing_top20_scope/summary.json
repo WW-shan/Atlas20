@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 9,
+  "duplicates": {},
+  "expected_max_sharpe": 0.01453467011336561,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 1.3862943611198908,
+    "most_selected_candidate": "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "most_selected_count": 595,
+    "pbo": 0.3528138528138528,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.002739951181108031,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 6142
+}

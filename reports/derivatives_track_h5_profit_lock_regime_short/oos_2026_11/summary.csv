@@ -1,0 +1,3 @@
+arm,multiple,sharpe,max_drawdown,liquidation_count,max_observed_gross,gross_breach_hours,short_open_count,profit_lock_trimmed_count
+baseline_L125,0.9483820803240851,-0.2771254375771306,-0.17467018574411441,0,0.8148919772113098,0,0,0
+candidate_LS23,0.9403145471785488,-0.5641076180166434,-0.17471176842695746,0,0.8153150865302469,0,0,8

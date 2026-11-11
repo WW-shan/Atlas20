@@ -308,3 +308,39 @@ def test_ls22_runner_applies_profit_lock_to_the_long_book(monkeypatch) -> None:
     assert captured["lookback_days"] == 21
     assert captured["threshold"] == 1.0
     assert captured["scale"] == 0.5
+
+
+def test_ls23_combines_profit_lock_with_the_frozen_short_router() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS23_CANDIDATE_ID == "PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT"
+    assert runner.LS23_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS23_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+
+
+def test_ls23_runner_applies_profit_lock_to_the_long_book(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "trimmed"}, "audit")
+
+    def fake_trim(targets, *, prices, **kwargs):
+        captured["targets"] = targets
+        captured["prices"] = prices
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "trim_extreme_run_single_leader", fake_trim)
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS23_CANDIDATE_ID,
+        long_targets={"date": "long"},
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+        prices={"BTC": [100.0, 200.0]},
+    )
+
+    assert result is sentinel
+    assert captured["lookback_days"] == 21
+    assert captured["threshold"] == 1.0
+    assert captured["scale"] == 0.5
