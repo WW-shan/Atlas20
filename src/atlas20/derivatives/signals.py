@@ -418,6 +418,7 @@ def build_exit_short_schedule(
     holding_days: int = EXIT_SHORT_HOLDING_DAYS,
     eligible_by_date: Mapping[pd.Timestamp, Set[str]],
     per_asset_weight: float | None = None,
+    entry_allowed: Callable[[str, pd.Timestamp], bool] | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Short H5 exits for a fixed hold, closing early when an asset re-enters."""
     if holding_days < 1:
@@ -469,6 +470,8 @@ def build_exit_short_schedule(
                 eligible = normalized_eligible.get(date, set())
                 for asset in sorted(previous_holdings - holdings):
                     if asset not in eligible or asset in active:
+                        continue
+                    if entry_allowed is not None and not entry_allowed(asset, date):
                         continue
                     expiry = date + pd.Timedelta(days=holding_days)
                     active[asset] = expiry

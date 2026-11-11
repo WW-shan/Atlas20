@@ -1011,3 +1011,25 @@ def test_funding_rank_percentile_fails_closed_below_min_assets() -> None:
     )
 
     assert rank is None
+
+
+def test_build_exit_short_schedule_applies_entry_predicate() -> None:
+    from atlas20.derivatives.signals import build_exit_short_schedule
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    h5 = {
+        d1: pd.Series({"bitcoin": 0.5, "ethereum": 0.5}),
+        d2: pd.Series({"bitcoin": 0.5}),
+    }
+    eligible = {d1: {"bitcoin", "ethereum"}, d2: {"bitcoin", "ethereum"}}
+
+    short = build_exit_short_schedule(
+        h5,
+        holding_days=5,
+        eligible_by_date=eligible,
+        per_asset_weight=0.025,
+        entry_allowed=lambda asset, date: False,
+    )
+
+    assert short[d2].empty
