@@ -2962,3 +2962,32 @@ buffer、regime 或组合权重；不接执行器。跨所 funding 家族停止�
 Spec 文件 SHA-256：`f5200669908cf4a28b053be79ee1d697e6ae191fea0b9b7b2faf533774397091`。
 注册 canonical spec JSON SHA-256：`dbf834fdd99e6a7f33bec508f846354d430e62ef72c0aa9b413f0695bd353f99`。
 登记哈希：`a933acdcb585464733d338f82bcd98e4d47d045553933d9c2f456ae71de1c978`。
+
+
+### 00.48 2026-11-12 LS23 真实 shadow tracker：带符号目标账本与 funding 截止保护
+
+新增研究工具 `scripts/run_derivatives_shadow.py`，只重建冻结 LS23/L125 目标并运行研究引擎，
+不产生订单、不接触执行器、不改变 `PR2026-10-D-L125-V2`。账本保留多空符号，包含 carry-in
+信号（信号日 2026-09-21、实际在 2026-09-22 03:00 UTC 成交），并把引擎首个初始化日排除在
+Sharpe/波动率统计之外，避免首日零收益污染。
+
+2026-09-22 → 2026-11-10，20bps，50 个日行/49 个有效收益：
+
+| funding 口径 | 策略 | 终值 | Sharpe | MDD | trim | short open |
+|---|---|---:|---:|---:|---:|---:|
+| zero（上界） | L125 | 0.9484x | -0.2771 | -17.47% | 0 | 0 |
+| zero（上界） | LS23 | 0.9403x | -0.5641 | -17.47% | 8 | 0 |
+| Bitget 精确 funding 至 2026-10-09 | L125 | 0.9465x | -0.2994 | -17.47% | 0 | 0 |
+| Bitget 精确 funding 至 2026-10-09 | LS23 | 0.9391x | -0.5818 | -17.47% | 8 | 0 |
+
+- Bitget funding 结束后，shadow tracker 在下一个信号日强制 flatten 空头 sleeve，禁止用最后
+  3 个 settlement 永久续用；因此精确 funding 口径只覆盖 2026-09-22 → 2026-10-09 的实际成本，
+  之后仍是零 funding 上界。
+- 该窗口 BTC 在 200D 上方，LS23 的 LS12 空头 sleeve **0 次开仓**；本轮只检验 LS22 利润保护，
+  不能把结果当作完整 LS23 多空结论。
+- 两个 funding 口径下 LS23 都低于 L125；这与 §00.46 的 50 天结论一致，仍为 provisional，
+  不 promotion，也不修改实盘。
+
+报告：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11/report.md`。
+汇总：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11/summary.csv`
+（SHA-256 `aeb027dc97ccee2fc7436b3fa2b5d185d9761033b1b5750536d6cbc9a57c5a44`）。
