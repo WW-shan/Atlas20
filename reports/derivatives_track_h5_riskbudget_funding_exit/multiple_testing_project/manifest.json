@@ -1,0 +1,28 @@
+{
+  "candidate_returns": "reports/derivatives_track_h5_riskbudget_funding_exit/returns_20bps.csv",
+  "common_sample": {
+    "end": "2026-09-20 00:00:00+00:00",
+    "rows": 1724,
+    "start": "2022-01-01 00:00:00+00:00"
+  },
+  "dispersion_note": "family uses its own two-candidate Sharpe dispersion; every project scope uses the comparable Top20/2022 per-period Sharpe dispersion and varies trial count only",
+  "primary": "LS9_H5_RISKBUDGET_FUNDING_EXIT",
+  "trial_scopes": [
+    {
+      "scope": "family",
+      "trial_count": 2,
+      "trial_sharpe_std_annualized": 0.044050864511115125
+    },
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6142,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    },
+    {
+      "scope": "all_trials",
+      "trial_count": 14179,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    }
+  ],
+  "trial_summary": "reports/research_trial_inventory/summary.json"
+}

@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS9-H5-RISKBUDGET-FUNDING-EXIT,main,lag0,20.0,1.798378898216902,23.88319388695339,-0.3353624392977723,reports/derivatives_track_h5_riskbudget_funding_exit/PR2026-11-LS9-H5-RISKBUDGET-FUNDING-EXIT_cost20_proxy/summary.json

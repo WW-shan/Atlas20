@@ -1,0 +1,10 @@
+{
+  "all_exit_zero": true,
+  "all_three_passes": 12,
+  "gross_passes": 12,
+  "mdd_5pp_passes": 12,
+  "multiple_wins": 12,
+  "sharpe_wins": 12,
+  "starts": 12,
+  "zero_liquidations": 12
+}

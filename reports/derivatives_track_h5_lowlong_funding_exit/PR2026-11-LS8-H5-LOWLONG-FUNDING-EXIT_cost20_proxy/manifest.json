@@ -1,0 +1,29 @@
+{
+  "baseline": false,
+  "candidate_id": "PR2026-11-LS8-H5-LOWLONG-FUNDING-EXIT",
+  "construction": "H5 1.0x + 7D funding-top-tercile 21-day exit shorts only when the post-exit H5 long target gross is <= 0.50, funded only by unused gross",
+  "cost_bps": 20.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "exit_short_holding_days": 21,
+    "funding_lookback_days": 7,
+    "funding_min_assets": 5,
+    "funding_rank_min": 0.6666666666666666,
+    "hard_gross": 1.0,
+    "long_buffer": 0.75,
+    "max_h5_long_gross_for_short": 0.5,
+    "max_total_gross": 0.95,
+    "short_buffer": 0.5,
+    "short_per_asset_weight": 0.025,
+    "short_risk_per_trade": 0.005,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_missing_policy": "skip",
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-h5-lowlong-funding-exit-design.md",
+  "start_date": "2022-01-01",
+  "target_events": 562
+}

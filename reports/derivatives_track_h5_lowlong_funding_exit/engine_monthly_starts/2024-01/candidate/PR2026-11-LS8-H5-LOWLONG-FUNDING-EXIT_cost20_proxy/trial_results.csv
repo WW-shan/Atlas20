@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS8-H5-LOWLONG-FUNDING-EXIT,main,lag0,20.0,1.9166821055053382,8.804452946337824,-0.2761726283172611,reports/derivatives_track_h5_lowlong_funding_exit/engine_monthly_starts/2024-01/candidate/PR2026-11-LS8-H5-LOWLONG-FUNDING-EXIT_cost20_proxy/summary.json

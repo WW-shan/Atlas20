@@ -1,0 +1,27 @@
+{
+  "baseline": true,
+  "candidate_id": "PR2026-11-LS9-H5-BASELINE",
+  "construction": "H5 1.0x",
+  "cost_bps": 20.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "base_short_per_asset_weight_at_zero_long": 0.05,
+    "exit_short_holding_days": 21,
+    "funding_lookback_days": 7,
+    "funding_min_assets": 5,
+    "funding_rank_min": 0.6666666666666666,
+    "hard_gross": 1.0,
+    "long_buffer": 0.75,
+    "max_total_gross": 0.95,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_missing_policy": "skip",
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-h5-riskbudget-funding-exit-design.md",
+  "start_date": "2023-05-01",
+  "target_events": 439
+}

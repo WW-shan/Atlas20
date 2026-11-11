@@ -1,0 +1,10 @@
+{
+  "base_short_per_asset_weight_at_zero_long": 0.05,
+  "filtered_active_dates": 540,
+  "filtered_leg_dates": 353,
+  "funding_lookback_days": 7,
+  "funding_min_assets": 5,
+  "funding_rank_min": 0.6666666666666666,
+  "unfiltered_active_dates": 558,
+  "unfiltered_leg_dates": 940
+}

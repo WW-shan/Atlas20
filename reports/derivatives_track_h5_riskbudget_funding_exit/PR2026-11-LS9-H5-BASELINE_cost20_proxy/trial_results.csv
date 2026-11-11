@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS9-H5-BASELINE,main,lag0,20.0,1.7360634926560345,21.34873960767978,-0.33363217947528545,reports/derivatives_track_h5_riskbudget_funding_exit/PR2026-11-LS9-H5-BASELINE_cost20_proxy/summary.json
