@@ -16,3 +16,16 @@ def test_runner_freezes_monthly_sector_short_candidate() -> None:
     assert FROZEN_CONFIG["long_buffer"] == 0.75
     assert FROZEN_CONFIG["short_buffer"] == 0.50
     assert FROZEN_CONFIG["short_stop_loss_pct"] == 0.20
+
+
+def test_available_mark_assets_uses_loaded_coin_keys() -> None:
+    import pandas as pd
+
+    from scripts.run_monthly_sector_short import _available_mark_assets
+
+    marks = {
+        "bitcoin": pd.DataFrame({"close": [1.0]}),
+        "ethereum": pd.DataFrame({"close": [2.0]}),
+    }
+
+    assert _available_mark_assets(marks) == {"bitcoin", "ethereum"}

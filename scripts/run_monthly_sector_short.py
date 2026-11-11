@@ -35,7 +35,6 @@ from atlas20.signals.regime import build_regime_frame  # noqa: E402
 
 from scripts.run_derivatives_backtest import (  # noqa: E402
     _funding_for_source,
-    _has_execution_mark,
     _long_targets_from_build,
     _restrict_targets,
 )
@@ -76,6 +75,13 @@ def _build_sector_targets(
         pd.Timestamp(date): pd.to_numeric(target, errors="coerce").fillna(0.0)
         for date, target in targets.items()
     }
+
+
+def _available_mark_assets(
+    mark_candles: dict[str, pd.DataFrame],
+) -> set[str]:
+    """Return coin ids for which a complete mark frame was loaded."""
+    return set(mark_candles)
 
 
 def _funding_tag(source: str, stress: str, multiplier: float) -> str:
@@ -354,7 +360,7 @@ def main() -> None:
     raw_dir = Path(args.raw_dir)
     symbol_map = pd.read_csv(raw_dir / "symbol_map.csv")
     mark_candles = load_mark_candles(raw_dir, symbol_map)
-    available = {asset for asset in mark_candles if _has_execution_mark(mark_candles[asset])}
+    available = _available_mark_assets(mark_candles)
 
     h5_built = build_trial(trial_by_id("PR2026-10-H5"), market, universe, index)
     h5_raw = _long_targets_from_build(h5_built, index)
