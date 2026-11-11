@@ -854,3 +854,75 @@ def test_build_exit_short_schedule_can_use_fixed_per_asset_weight() -> None:
 
     assert short[d2]["ethereum"] == pytest.approx(0.025)
     assert short[d2].sum() == pytest.approx(0.025)
+
+
+def test_weak_short_schedule_selects_bottom_four_on_fixed_weekly_grid() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_weak_short_schedule
+
+    dates = pd.date_range("2026-01-01", periods=22, freq="D", tz="UTC")
+    slopes = {"a": 0.0, "b": 2.0, "c": -1.0, "d": -2.0, "e": -3.0, "f": -4.0}
+    prices = pd.DataFrame(
+        {name: [100.0 + slope * i for i in range(len(dates))] for name, slope in slopes.items()},
+        index=dates,
+    )
+    anchor = dates[14]
+    universe = pd.DataFrame(
+        {"rebalance_date": [anchor] * 6, "coin_id": list(prices.columns)}
+    )
+    h5 = {anchor: pd.Series({"a": 0.5})}
+    funding = pd.DataFrame(
+        0.0,
+        index=dates[11:15],
+        columns=prices.columns,
+    )
+
+    schedule = build_cross_sectional_weak_short_schedule(
+        prices,
+        universe,
+        h5,
+        calendar=dates,
+        funding_rates=funding,
+        eligible=set(prices.columns),
+        short_available=lambda asset, date: True,
+        anchor=anchor,
+    )
+
+    assert sorted(schedule) == [anchor, dates[21]]
+    assert set(schedule[anchor].index) == {"c", "d", "e", "f"}
+    assert schedule[anchor].sum() == pytest.approx(0.10)
+    assert "a" not in schedule[anchor].index
+
+
+def test_weak_short_schedule_excludes_missing_funding() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_weak_short_schedule
+
+    dates = pd.date_range("2026-01-01", periods=22, freq="D", tz="UTC")
+    slopes = {"a": 0.0, "b": 2.0, "c": -1.0, "d": -2.0, "e": -4.0}
+    prices = pd.DataFrame(
+        {name: [100.0 + slope * i for i in range(len(dates))] for name, slope in slopes.items()},
+        index=dates,
+    )
+    anchor = dates[14]
+    universe = pd.DataFrame(
+        {"rebalance_date": [anchor] * 5, "coin_id": list(prices.columns)}
+    )
+    funding = pd.DataFrame(
+        0.0,
+        index=dates[11:15],
+        columns=["a", "b", "c", "d"],
+    )
+
+    schedule = build_cross_sectional_weak_short_schedule(
+        prices,
+        universe,
+        {anchor: pd.Series({"a": 0.5})},
+        calendar=dates,
+        funding_rates=funding,
+        eligible=set(prices.columns),
+        short_available=lambda asset, date: True,
+        anchor=anchor,
+    )
+
+    assert "e" not in schedule[anchor].index
+    assert len(schedule[anchor]) == 3
+    assert schedule[anchor].sum() == pytest.approx(0.075)

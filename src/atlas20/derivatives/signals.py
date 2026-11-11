@@ -432,6 +432,96 @@ def build_exit_short_schedule(
     return dict(sorted(schedule.items()))
 
 
+def build_cross_sectional_weak_short_schedule(
+    prices: pd.DataFrame,
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    funding_rates: pd.DataFrame | None,
+    eligible: Set[str] | None,
+    short_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    lookback: int = 14,
+    rebalance_days: int = 7,
+    short_count: int = 4,
+    per_asset_weight: float = 0.025,
+    funding_threshold: float = -0.0002,
+    funding_lookback: int = 3,
+    anchor: object | None = None,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build the pre-registered weekly bottom-four Top20 short schedule."""
+    if lookback < 1:
+        raise ValueError("lookback must be positive")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if short_count < 1:
+        raise ValueError("short_count must be positive")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+    if funding_lookback < 1:
+        raise ValueError("funding_lookback must be positive")
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = (
+        _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+    )
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float)
+    h5_dates = sorted(normalized_h5)
+
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        holdings = set(long_weights.loc[long_weights > 1e-15].index.astype(str))
+        ranked = _ranked_weakest_top20(
+            prices,
+            universe,
+            date,
+            eligible=eligible,
+            exclude=holdings,
+            lookback=lookback,
+        )
+        selected: list[str] = []
+        for asset in ranked:
+            if short_available is not None and not short_available(asset, date):
+                continue
+            if not funding_filter(
+                funding_rates,
+                asset,
+                as_of=date,
+                threshold=funding_threshold,
+                lookback=funding_lookback,
+            ):
+                continue
+            selected.append(asset)
+            if len(selected) >= short_count:
+                break
+        schedule[date] = pd.Series(
+            float(per_asset_weight), index=selected, dtype=float
+        )
+    return schedule
+
+
 def combine_long_with_cash_budgeted_short(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     short_targets: Mapping[pd.Timestamp, pd.Series],
@@ -759,6 +849,7 @@ def build_derivative_targets(
 
 __all__ = [
     "build_cash_sleeve_targets",
+    "build_cross_sectional_weak_short_schedule",
     "build_exit_short_schedule",
     "combine_long_with_cash_budgeted_short",
     "EXIT_SHORT_HOLDING_DAYS",
