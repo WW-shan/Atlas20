@@ -64,6 +64,19 @@ def _as_utc(value: object) -> pd.Timestamp:
     return stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
 
 
+def _manifest_construction(args: argparse.Namespace, *, baseline: bool) -> str:
+    """Return the trial construction label used in the per-run manifest."""
+    if baseline:
+        return "H5 1.0x"
+    return str(
+        getattr(
+            args,
+            "construction",
+            "H5 1.0x long + 21-day equal-weight short of H5 exits, funded only by unused gross",
+        )
+    )
+
+
 def _eligible_members_by_date(
     universe: pd.DataFrame,
     dates: list[pd.Timestamp],
@@ -258,9 +271,7 @@ def _run_one(
         "candidate_id": trial_id,
         "baseline": baseline,
         "spec": spec_path,
-        "construction": "H5 1.0x long + 21-day equal-weight short of H5 exits, funded only by unused gross"
-        if not baseline
-        else "H5 1.0x",
+        "construction": _manifest_construction(args, baseline=baseline),
         "frozen_config": frozen_config,
         "start_date": args.start_date,
         "end_date": args.end_date,

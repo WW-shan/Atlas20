@@ -46,3 +46,13 @@ def test_runner_freezes_risk_budget_exit_short_candidate() -> None:
     assert RISK_BUDGET_CONFIG["short_per_asset_weight"] == 0.025
     assert RISK_BUDGET_CONFIG["max_total_gross"] == 0.95
     assert RISK_BUDGET_CONFIG["hard_gross"] == 1.00
+
+
+def test_manifest_construction_override() -> None:
+    from scripts.run_h5_exit_short import _manifest_construction
+
+    class Args:
+        construction = "H5 1.0x + exit + weak-four fixed-risk shorts"
+
+    assert _manifest_construction(Args(), baseline=False) == Args.construction
+    assert _manifest_construction(Args(), baseline=True) == "H5 1.0x"
