@@ -1,6 +1,6 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "4d1e075f09b06bacd60e76ec3c96a7211cf0b062",
+  "repository_head": "2a8065ba82e46bf0d332cae1c1975a0951347a27",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
@@ -697,7 +697,7 @@
       "sha256": "48299d7af96a9ad12295becda081a8cd4eef5a51698013dc097f0b6f45006894"
     },
     "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/trial_results.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "04d0764be29009bb6c5064064bbefcacbd536cae3cb0a25938529b583c748cf8"
     },
     "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/trial_results.csv": {
@@ -845,7 +845,7 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (modified)",
+      "origin": "working tree (committed)",
       "sha256": "83d9536ec002eaa5ceb55baea617cde2342f9807ac4f4a81b8751a99fb7555b9"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
