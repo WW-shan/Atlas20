@@ -224,3 +224,41 @@ def test_ls20_runner_preserves_relative_weights_on_same_selection(monkeypatch) -
 
     assert result is sentinel
     assert captured["targets"] is long_targets
+
+
+def test_ls21_positive_carry_short_is_frozen_to_strict_positive_bear_funding() -> None:
+    from scripts.run_h5_regime_short_router import (
+        LS21_BEAR_FUNDING_THRESHOLD,
+        LS21_CANDIDATE_ID,
+    )
+
+    assert LS21_CANDIDATE_ID == "PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT"
+    assert LS21_BEAR_FUNDING_THRESHOLD == 0.0
+
+
+def test_ls21_runner_passes_strict_positive_bear_funding(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "target"}, "audit", {}, {})
+
+    def fake_builder(**kwargs):
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "build_regime_short_schedules", fake_builder)
+    result = runner.build_short_targets_for_trial(
+        trial_id=runner.LS21_CANDIDATE_ID,
+        market=object(),
+        universe=object(),
+        index=object(),
+        long_raw={},
+        long_targets={},
+        funding=object(),
+        available=set(),
+        mark_candles={},
+        start_date="2022-01-01",
+    )
+
+    assert result is sentinel
+    assert captured["bear_funding_threshold"] == 0.0

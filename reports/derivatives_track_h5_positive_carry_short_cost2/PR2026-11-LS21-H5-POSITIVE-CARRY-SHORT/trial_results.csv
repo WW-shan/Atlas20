@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT,main,lag0,2.0,1.933351581858295,67.82901793016626,-0.38374385537213485,reports/derivatives_track_h5_positive_carry_short_cost2/PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT/summary.json

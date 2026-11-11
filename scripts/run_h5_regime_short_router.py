@@ -59,17 +59,21 @@ NO_TRADE_BAND_FRACTION = 0.05
 LS17_CANDIDATE_ID = "PR2026-11-LS17-H5-FUNDING-BASKET"
 LS18_CANDIDATE_ID = "PR2026-11-LS18-H5-FUNDING-TILT"
 LS20_CANDIDATE_ID = "PR2026-11-LS20-H5-COMMON-GROSS"
+LS21_CANDIDATE_ID = "PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT"
+LS21_BEAR_FUNDING_THRESHOLD = 0.0
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
 LS18_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-tilt-design.md"
 LS20_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-common-gross-design.md"
+LS21_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-positive-carry-short-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
     LS17_CANDIDATE_ID: 0.0,
     LS18_CANDIDATE_ID: 0.0,
     LS20_CANDIDATE_ID: 0.0,
+    LS21_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -134,6 +138,11 @@ LS20_CONSTRUCTION = (
     "Frozen LS12 H5 1.25x + dual-short router; when the H5 selected asset set "
     "is unchanged, preserve the prior relative weights and only scale them to "
     "the new target gross; selection changes still execute the exact new target"
+)
+LS21_CONSTRUCTION = (
+    "Frozen LS12 H5 1.25x + dual-short router; the bear weak-four sleeve only "
+    "admits candidates whose three-settlement mean funding is strictly positive; "
+    "the non-bear funding-exit sleeve and all other rules are unchanged"
 )
 
 
@@ -288,6 +297,7 @@ def build_regime_short_schedules(
     mark_candles: dict[str, pd.DataFrame],
     start_date: str,
     non_bear_mode: str = "h5_exit",
+    bear_funding_threshold: float | None = None,
 ) -> tuple[
     dict[pd.Timestamp, pd.Series],
     pd.DataFrame,
@@ -314,7 +324,11 @@ def build_regime_short_schedules(
         rebalance_days=int(FROZEN_CONFIG["bear_rebalance_days"]),
         short_count=int(FROZEN_CONFIG["bear_short_count"]),
         per_asset_weight=float(FROZEN_CONFIG["bear_per_asset_weight"]),
-        funding_threshold=float(FROZEN_CONFIG["bear_funding_threshold"]),
+        funding_threshold=(
+            float(FROZEN_CONFIG["bear_funding_threshold"])
+            if bear_funding_threshold is None
+            else float(bear_funding_threshold)
+        ),
         funding_lookback=int(FROZEN_CONFIG["bear_funding_lookback_settlements"]),
         anchor=start_date,
     )
@@ -429,6 +443,9 @@ def build_short_targets_for_trial(
         mark_candles=mark_candles,
         start_date=start_date,
         non_bear_mode=non_bear_mode_for_trial(trial_id),
+        bear_funding_threshold=(
+            LS21_BEAR_FUNDING_THRESHOLD if trial_id == LS21_CANDIDATE_ID else None
+        ),
     )
 
 
@@ -444,6 +461,7 @@ def main() -> None:
             LS17_CANDIDATE_ID,
             LS18_CANDIDATE_ID,
             LS20_CANDIDATE_ID,
+            LS21_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -593,6 +611,11 @@ def main() -> None:
             else 0.0
         ),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
+        "bear_funding_threshold": (
+            float(FROZEN_CONFIG["bear_funding_threshold"])
+            if args.trial_id != LS21_CANDIDATE_ID
+            else float(LS21_BEAR_FUNDING_THRESHOLD)
+        ),
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
         "max_observed_gross": float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0,
@@ -657,6 +680,8 @@ def main() -> None:
                     if args.trial_id == LS18_CANDIDATE_ID
                     else LS20_SPEC_PATH
                     if args.trial_id == LS20_CANDIDATE_ID
+                    else LS21_SPEC_PATH
+                    if args.trial_id == LS21_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -670,6 +695,8 @@ def main() -> None:
                     if args.trial_id == LS18_CANDIDATE_ID
                     else LS20_CONSTRUCTION
                     if args.trial_id == LS20_CANDIDATE_ID
+                    else LS21_CONSTRUCTION
+                    if args.trial_id == LS21_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
@@ -718,6 +745,7 @@ def main() -> None:
                 f"- Max requested short gross: {summary['max_requested_short_gross']:.6f}x",
                 f"- Rebalance no-trade band: {summary['rebalance_no_trade_band']:.4%} NAV",
                 f"- Non-bear short sleeve: {summary['non_bear_sleeve']}",
+                f"- Bear funding threshold: {summary['bear_funding_threshold']:.8f}",
                 f"- Funding long-tilt events: {summary['funding_tilt_event_count']}",
                 f"- Relative tilts skipped: {summary['relative_tilt_skipped_count']}",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
