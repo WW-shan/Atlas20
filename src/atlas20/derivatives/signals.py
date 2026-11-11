@@ -50,6 +50,59 @@ def scale_long_targets(
     return dict(sorted(scaled.items()))
 
 
+def preserve_relative_weights_on_same_selection(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Keep prior relative weights unless the selected asset set changes.
+
+    The current target gross is always preserved. This keeps selection and
+    common gross-risk changes exact while avoiding per-asset relative-weight
+    churn on events where the H5 book holds the same assets.
+    """
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    previous = pd.Series(dtype=float)
+    previous_set: set[str] = set()
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target[target > 1e-15].astype(float).sort_index()
+        current_set = set(target.index.astype(str))
+        set_changed = current_set != previous_set
+        previous_gross = float(previous.sum())
+        target_gross = float(target.sum())
+        if not set_changed and previous_gross > 0.0 and target_gross > 0.0:
+            adjusted_target = previous * (target_gross / previous_gross)
+            relative_l1 = float((target - adjusted_target).abs().sum())
+        else:
+            adjusted_target = target.copy()
+            relative_l1 = 0.0
+        adjusted_target = adjusted_target[adjusted_target > 1e-15].sort_index()
+        adjusted[date] = adjusted_target
+        audit_rows.append(
+            {
+                "date": date,
+                "set_changed": set_changed,
+                "holdings": len(current_set),
+                "previous_gross": previous_gross,
+                "target_gross": target_gross,
+                "adjusted_gross": float(adjusted_target.sum()),
+                "relative_tilt_skipped": bool(
+                    not set_changed and previous_gross > 0.0 and target_gross > 0.0
+                ),
+                "relative_l1_skipped": relative_l1,
+            }
+        )
+        previous = adjusted_target.copy()
+        previous_set = current_set
+    return adjusted, pd.DataFrame(audit_rows)
+
+
 def bear_regime(
     btc_close: pd.Series,
     *,
@@ -322,6 +375,95 @@ def tilt_long_targets_away_from_crowded_funding(
             }
         )
     return adjusted, pd.DataFrame(audit_rows)
+
+
+def build_cross_sectional_reversal_pair_schedule(
+    prices: pd.DataFrame,
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    eligible: Set[str] | None,
+    trade_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    lookback: int = 28,
+    rebalance_days: int = 28,
+    count: int = 4,
+    per_asset_weight: float = 0.025,
+    min_assets: int = 8,
+    anchor: object | None = None,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build a monthly 28D loser-long / winner-short reversal sleeve."""
+    if lookback < 1:
+        raise ValueError("lookback must be positive")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if count < 1:
+        raise ValueError("count must be positive")
+    if min_assets < 2 * count:
+        raise ValueError("min_assets must be at least two times count")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float)
+    h5_dates = sorted(normalized_h5)
+
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        held = {
+            str(asset).casefold()
+            for asset in long_weights.loc[long_weights > 1e-15].index
+        }
+        ranked = _ranked_weakest_top20(
+            prices,
+            universe,
+            date,
+            eligible=eligible,
+            exclude=held,
+            lookback=lookback,
+        )
+        investable = [
+            asset
+            for asset in ranked
+            if trade_available is None or trade_available(asset, date)
+        ]
+        if len(investable) < max(min_assets, 2 * count):
+            schedule[date] = pd.Series(dtype=float)
+            continue
+        losers = investable[:count]
+        winners = investable[-count:]
+        weights = pd.Series(
+            {
+                **{asset: float(per_asset_weight) for asset in losers},
+                **{asset: -float(per_asset_weight) for asset in winners},
+            },
+            dtype=float,
+        ).sort_index()
+        schedule[date] = weights
+    return schedule
 
 
 def build_cross_sectional_funding_short_schedule(

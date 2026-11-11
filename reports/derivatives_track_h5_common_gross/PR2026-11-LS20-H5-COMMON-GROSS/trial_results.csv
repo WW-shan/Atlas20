@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS20-H5-COMMON-GROSS,main,lag0,20.0,1.7682627200723733,39.41482516895923,-0.405613614049831,reports/derivatives_track_h5_common_gross/PR2026-11-LS20-H5-COMMON-GROSS/summary.json

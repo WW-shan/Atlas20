@@ -1210,3 +1210,74 @@ def test_funding_tilt_keeps_unallocatable_weight_in_cash_when_recipient_caps_bin
         "C": pytest.approx(0.35),
     }
     assert audit.iloc[0]["cash_weight"] == pytest.approx(0.05)
+
+
+def test_cross_sectional_reversal_pair_selects_four_losers_and_four_winners() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_reversal_pair_schedule
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    base = date - pd.Timedelta(days=28)
+    assets = ["BTC", "A", "B", "C", "D", "E", "F", "G", "H", "I"]
+    current = {"BTC": 100, "A": 70, "B": 80, "C": 90, "D": 95, "E": 100, "F": 105, "G": 110, "H": 120, "I": 130}
+    prices = pd.DataFrame(
+        {asset: [100.0, float(current[asset])] for asset in assets},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * len(assets), "coin_id": assets})
+    h5 = {date: pd.Series({"BTC": 0.5})}
+
+    schedule = build_cross_sectional_reversal_pair_schedule(
+        prices,
+        universe,
+        h5,
+        calendar=[date],
+        eligible=set(assets),
+        lookback=28,
+        rebalance_days=28,
+        count=4,
+        per_asset_weight=0.025,
+        min_assets=8,
+        anchor=date,
+    )
+
+    assert schedule[date].to_dict() == {
+        "A": pytest.approx(0.025),
+        "B": pytest.approx(0.025),
+        "C": pytest.approx(0.025),
+        "D": pytest.approx(0.025),
+        "F": pytest.approx(-0.025),
+        "G": pytest.approx(-0.025),
+        "H": pytest.approx(-0.025),
+        "I": pytest.approx(-0.025),
+    }
+
+
+def test_preserve_relative_weights_skips_same_set_tilts_but_keeps_gross_and_selection_changes() -> None:
+    from atlas20.derivatives.signals import preserve_relative_weights_on_same_selection
+
+    d1 = pd.Timestamp("2026-01-01T00:00:00Z")
+    d2 = pd.Timestamp("2026-01-02T00:00:00Z")
+    d3 = pd.Timestamp("2026-01-03T00:00:00Z")
+    d4 = pd.Timestamp("2026-01-04T00:00:00Z")
+    targets = {
+        d1: pd.Series({"A": 0.6, "B": 0.4}),
+        d2: pd.Series({"A": 0.7, "B": 0.3}),
+        d3: pd.Series({"A": 0.3, "B": 0.3, "C": 0.4}),
+        d4: pd.Series({"A": 0.25, "B": 0.10, "C": 0.15}),
+    }
+
+    adjusted, audit = preserve_relative_weights_on_same_selection(targets)
+
+    assert adjusted[d1].to_dict() == {"A": pytest.approx(0.6), "B": pytest.approx(0.4)}
+    assert adjusted[d2].to_dict() == {"A": pytest.approx(0.6), "B": pytest.approx(0.4)}
+    assert adjusted[d3].to_dict() == {
+        "A": pytest.approx(0.3),
+        "B": pytest.approx(0.3),
+        "C": pytest.approx(0.4),
+    }
+    assert adjusted[d4].to_dict() == {
+        "A": pytest.approx(0.15),
+        "B": pytest.approx(0.15),
+        "C": pytest.approx(0.20),
+    }
+    assert audit["set_changed"].tolist() == [True, False, True, False]

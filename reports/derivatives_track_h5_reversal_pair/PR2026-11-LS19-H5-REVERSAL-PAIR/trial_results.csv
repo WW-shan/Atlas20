@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS19-H5-REVERSAL-PAIR,main,lag0,20.0,1.696897291081825,37.39244664419605,-0.40148099959040273,reports/derivatives_track_h5_reversal_pair/PR2026-11-LS19-H5-REVERSAL-PAIR/summary.json

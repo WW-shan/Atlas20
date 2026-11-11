@@ -176,3 +176,51 @@ def test_ls18_runner_applies_funding_tilt_to_long_targets(monkeypatch) -> None:
     assert captured["targets"] is long_targets
     assert captured["rank_min"] == 2.0 / 3.0
     assert captured["max_asset_weight"] == 0.60
+
+
+def test_ls19_reversal_pair_is_frozen_to_28d_four_by_four() -> None:
+    from scripts.run_h5_reversal_pair import LS19_CONFIG, LS19_ID
+
+    assert LS19_ID == "PR2026-11-LS19-H5-REVERSAL-PAIR"
+    assert LS19_CONFIG == {
+        "h5_leverage": 1.25,
+        "max_total_gross": 1.50,
+        "long_buffer": 0.50,
+        "short_buffer": 0.50,
+        "short_stop_loss_pct": 0.20,
+        "lookback_days": 28,
+        "rebalance_days": 28,
+        "count": 4,
+        "per_asset_weight": 0.025,
+        "min_assets": 8,
+    }
+
+
+def test_ls20_common_gross_candidate_is_frozen() -> None:
+    from scripts.run_h5_regime_short_router import LS20_CANDIDATE_ID
+
+    assert LS20_CANDIDATE_ID == "PR2026-11-LS20-H5-COMMON-GROSS"
+
+
+def test_ls20_runner_preserves_relative_weights_on_same_selection(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "adjusted"}, "audit")
+
+    def fake_transform(targets):
+        captured["targets"] = targets
+        return sentinel
+
+    monkeypatch.setattr(runner, "preserve_relative_weights_on_same_selection", fake_transform)
+    long_targets = {"date": "long"}
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS20_CANDIDATE_ID,
+        long_targets=long_targets,
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+    )
+
+    assert result is sentinel
+    assert captured["targets"] is long_targets
