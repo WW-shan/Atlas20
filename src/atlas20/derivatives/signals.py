@@ -123,6 +123,63 @@ def _members_at(universe: pd.DataFrame, as_of: pd.Timestamp) -> set[str]:
     return {str(value) for value in exact.dropna().astype(str)}
 
 
+def funding_rank_percentile(
+    funding_rates: pd.DataFrame | None,
+    universe: pd.DataFrame,
+    asset: str,
+    *,
+    as_of: pd.Timestamp,
+    eligible: Set[str] | None,
+    lookback_days: int = 7,
+    min_assets: int = 5,
+) -> float | None:
+    """Return an asset's PIT Top20 funding percentile, or None if incomplete."""
+    if funding_rates is None or funding_rates.empty:
+        return None
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if min_assets < 2:
+        raise ValueError("min_assets must be at least two")
+
+    date = _as_utc(as_of)
+    members = _members_at(universe, date)
+    if eligible is not None:
+        eligible_folded = {str(value).casefold() for value in eligible}
+        members = {
+            member for member in members if member.casefold() in eligible_folded
+        }
+    if not members:
+        return None
+
+    frame = funding_rates.copy()
+    frame.index = pd.DatetimeIndex([_as_utc(value) for value in frame.index])
+    window = frame.loc[
+        (frame.index <= date)
+        & (frame.index >= date - pd.Timedelta(days=lookback_days))
+    ]
+    columns_by_fold: dict[str, list[object]] = {}
+    for column in frame.columns:
+        columns_by_fold.setdefault(str(column).casefold(), []).append(column)
+
+    means: dict[str, float] = {}
+    for member in members:
+        columns = columns_by_fold.get(member.casefold(), [])
+        if len(columns) != 1:
+            continue
+        values = pd.to_numeric(window[columns[0]], errors="coerce").dropna()
+        if values.empty:
+            continue
+        means[member] = float(values.mean())
+
+    requested = next(
+        (member for member in means if member.casefold() == str(asset).casefold()),
+        None,
+    )
+    if requested is None or len(means) < min_assets:
+        return None
+    return float(pd.Series(means, dtype=float).rank(pct=True)[requested])
+
+
 def _ranked_weakest_top20(
     prices: pd.DataFrame,
     universe: pd.DataFrame,
@@ -930,6 +987,7 @@ __all__ = [
     "bear_regime",
     "build_derivative_targets",
     "funding_filter",
+    "funding_rank_percentile",
     "scale_long_targets",
     "weakest_top20",
 ]

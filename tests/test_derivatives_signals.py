@@ -962,3 +962,52 @@ def test_combine_fixed_risk_short_schedules_emits_empty_close_event() -> None:
     )
 
     assert combined[d2].empty
+
+
+def test_funding_rank_percentile_uses_pit_top20_cross_section() -> None:
+    from atlas20.derivatives.signals import funding_rank_percentile
+
+    date = pd.Timestamp("2026-01-10", tz="UTC")
+    funding = pd.DataFrame(
+        {
+            "a": [0.0001],
+            "b": [0.0002],
+            "c": [0.0003],
+            "d": [0.0004],
+            "e": [0.0005],
+        },
+        index=[date],
+    )
+    universe = pd.DataFrame(
+        {"rebalance_date": [date] * 5, "coin_id": list(funding.columns)}
+    )
+
+    rank = funding_rank_percentile(
+        funding,
+        universe,
+        "e",
+        as_of=date,
+        eligible=set(funding.columns),
+    )
+
+    assert rank == pytest.approx(1.0)
+
+
+def test_funding_rank_percentile_fails_closed_below_min_assets() -> None:
+    from atlas20.derivatives.signals import funding_rank_percentile
+
+    date = pd.Timestamp("2026-01-10", tz="UTC")
+    funding = pd.DataFrame({"a": [0.0001], "b": [0.0002]}, index=[date])
+    universe = pd.DataFrame(
+        {"rebalance_date": [date] * 2, "coin_id": ["a", "b"]}
+    )
+
+    rank = funding_rank_percentile(
+        funding,
+        universe,
+        "b",
+        as_of=date,
+        eligible={"a", "b"},
+    )
+
+    assert rank is None
