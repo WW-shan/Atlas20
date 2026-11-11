@@ -375,6 +375,21 @@ def test_preregistered_trials_are_new_configurations_in_the_top20_2022_scope() -
     assert int(flagged[TOP20_2022_TRIALS].sum()) == 3
 
 
+def test_ls_prefix_is_derivatives_even_without_an_explicit_track(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from scripts.build_trial_inventory import _load_preregistered_lane, _unscored_in_scope
+
+    entry = _registration("PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT", True)
+    entry["spec"] = json.dumps({"main_window": ["2022-01-01", "2026-09-21"]})
+    _write_ledger(tmp_path, [entry])
+
+    unscored = _load_preregistered_lane(_FakeSources(tmp_path), TrialRecorder())
+
+    assert len(unscored) == 1
+    assert unscored[0].universe == "Derivatives"
+    assert unscored[0].family == "derivatives"
+    assert _unscored_in_scope(unscored[0]) is False
+
+
 def test_derivatives_report_dirs_are_excluded_from_the_spot_inventory() -> None:
     from scripts.build_trial_inventory import unclassified_report_dirs
 

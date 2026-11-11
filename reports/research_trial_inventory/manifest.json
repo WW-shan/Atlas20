@@ -1,6 +1,6 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "3e1b6329ff17b8df02fe2ba0bac7b17432becf4b",
+  "repository_head": "5d86aaa91493db9fbed3b7b6c733a5c736619660",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
@@ -913,7 +913,7 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (modified)",
+      "origin": "working tree (committed)",
       "sha256": "e00ce757edc06ae4e8cd7b94a3470a7c58805d1eb4b443efdd3a434184987a9a"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {

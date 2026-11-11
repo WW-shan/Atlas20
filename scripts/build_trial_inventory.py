@@ -974,7 +974,9 @@ def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredC
 
         spec = _ledger_spec(registration)
         track = str(spec.get("track", "")).strip().lower()
-        is_derivatives = track == "derivatives" or trial_id.startswith(("PR2026-10-D-", "PR2026-11-RS-"))
+        is_derivatives = track == "derivatives" or trial_id.startswith(
+            ("PR2026-10-D-", "PR2026-11-RS-", "PR2026-11-LS")
+        )
         universe = "Derivatives" if is_derivatives else SCOPE_UNIVERSE
         family = "derivatives" if is_derivatives else "phase_momentum"
         window_start = SCOPE_START
