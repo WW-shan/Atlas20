@@ -89,3 +89,47 @@ def test_ls16_no_trade_band_candidate_is_frozen_to_five_percent_nav() -> None:
 
     assert NO_TRADE_BAND_CANDIDATE_ID == "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5"
     assert NO_TRADE_BAND_FRACTION == 0.05
+
+
+def test_ls17_high_funding_basket_is_frozen_to_weekly_four_names() -> None:
+    from scripts.run_h5_regime_short_router import (
+        HIGH_FUNDING_SHORT_CONFIG,
+        LS17_CANDIDATE_ID,
+    )
+
+    assert LS17_CANDIDATE_ID == "PR2026-11-LS17-H5-FUNDING-BASKET"
+    assert HIGH_FUNDING_SHORT_CONFIG == {
+        "lookback_days": 7,
+        "rebalance_days": 7,
+        "short_count": 4,
+        "per_asset_weight": 0.0625,
+        "min_assets": 5,
+    }
+
+
+def test_ls17_runner_passes_high_funding_mode_to_schedule_builder(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "target"}, "audit", {}, {})
+
+    def fake_builder(**kwargs):
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "build_regime_short_schedules", fake_builder)
+    result = runner.build_short_targets_for_trial(
+        trial_id=runner.LS17_CANDIDATE_ID,
+        market=object(),
+        universe=object(),
+        index=object(),
+        long_raw={},
+        long_targets={},
+        funding=object(),
+        available=set(),
+        mark_candles={},
+        start_date="2022-01-01",
+    )
+
+    assert result is sentinel
+    assert captured["non_bear_mode"] == "high_funding"

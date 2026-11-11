@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS17-H5-FUNDING-BASKET,main,lag0,2.0,2.014731652186379,67.77476297854004,-0.3487506080913504,reports/derivatives_track_h5_funding_basket/cost_2bps/PR2026-11-LS17-H5-FUNDING-BASKET/summary.json

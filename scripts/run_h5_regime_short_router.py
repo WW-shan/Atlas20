@@ -27,6 +27,7 @@ from atlas20.derivatives.data import load_mark_candles  # noqa: E402
 from atlas20.derivatives.engine import DerivativeBacktestConfig, run_derivative_backtest  # noqa: E402
 from atlas20.derivatives.signals import (  # noqa: E402
     EXIT_SHORT_HOLDING_DAYS,
+    build_cross_sectional_funding_short_schedule,
     build_cross_sectional_weak_short_schedule,
     build_exit_short_schedule,
     combine_long_with_cash_budgeted_short,
@@ -53,11 +54,22 @@ BASELINE_ID = "PR2026-10-D-L125"
 CANDIDATE_ID = "PR2026-11-LS12-H5-REGIME-SHORT-ROUTER"
 NO_TRADE_BAND_CANDIDATE_ID = "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5"
 NO_TRADE_BAND_FRACTION = 0.05
+LS17_CANDIDATE_ID = "PR2026-11-LS17-H5-FUNDING-BASKET"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
+LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
+    LS17_CANDIDATE_ID: 0.0,
+}
+NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
+HIGH_FUNDING_SHORT_CONFIG: dict[str, Any] = {
+    "lookback_days": 7,
+    "rebalance_days": 7,
+    "short_count": 4,
+    "per_asset_weight": 0.0625,
+    "min_assets": 5,
 }
 FROZEN_CONFIG: dict[str, Any] = {
     "h5_leverage": 1.25,
@@ -88,6 +100,12 @@ NO_TRADE_BAND_CONSTRUCTION = (
     CONSTRUCTION
     + "; existing same-side positions use a 5% NAV no-trade region and only "
     "trade beyond that boundary, while opens/exits/side flips stay exact"
+)
+LS17_CONSTRUCTION = (
+    "H5 1.25x + exactly one short sleeve selected by BTC close versus its "
+    "200D SMA: bear = weekly 14D weakest-four PIT Top20 non-H5 basket; "
+    "non-bear = weekly top-four positive 7D funding PIT Top20 non-H5 basket; "
+    "total short <=0.25x and hard total gross 1.50x"
 )
 
 
@@ -241,13 +259,16 @@ def build_regime_short_schedules(
     available: set[str],
     mark_candles: dict[str, pd.DataFrame],
     start_date: str,
+    non_bear_mode: str = "h5_exit",
 ) -> tuple[
     dict[pd.Timestamp, pd.Series],
     pd.DataFrame,
     dict[pd.Timestamp, pd.Series],
     dict[pd.Timestamp, pd.Series],
 ]:
-    """Build the frozen LS12 short router from market and H5 inputs."""
+    """Build the frozen regime-routed short sleeves from market and H5 inputs."""
+    if non_bear_mode not in {"h5_exit", "high_funding"}:
+        raise ValueError("non_bear_mode must be 'h5_exit' or 'high_funding'")
     bear = _btc_bear_regime(
         market.price["bitcoin"],
         index,
@@ -269,29 +290,47 @@ def build_regime_short_schedules(
         funding_lookback=int(FROZEN_CONFIG["bear_funding_lookback_settlements"]),
         anchor=start_date,
     )
-    eligible_by_date = _eligible_members_by_date(universe, list(long_raw))
-
-    def exit_entry_allowed(asset: str, date: pd.Timestamp) -> bool:
-        if not _short_mark_available(mark_candles, asset, date):
-            return False
-        rank = funding_rank_percentile(
-            funding if not funding.empty else None,
+    if non_bear_mode == "high_funding":
+        exit_schedule = build_cross_sectional_funding_short_schedule(
             universe,
-            asset,
-            as_of=date,
+            long_targets,
+            calendar=index,
+            funding_rates=funding if not funding.empty else None,
             eligible=available,
-            lookback_days=int(FROZEN_CONFIG["exit_funding_lookback_days"]),
-            min_assets=int(FROZEN_CONFIG["exit_funding_min_assets"]),
+            short_available=lambda asset, date: _short_mark_available(
+                mark_candles, asset, date
+            ),
+            lookback_days=int(HIGH_FUNDING_SHORT_CONFIG["lookback_days"]),
+            rebalance_days=int(HIGH_FUNDING_SHORT_CONFIG["rebalance_days"]),
+            short_count=int(HIGH_FUNDING_SHORT_CONFIG["short_count"]),
+            per_asset_weight=float(HIGH_FUNDING_SHORT_CONFIG["per_asset_weight"]),
+            min_assets=int(HIGH_FUNDING_SHORT_CONFIG["min_assets"]),
+            anchor=start_date,
         )
-        return rank is not None and rank >= float(FROZEN_CONFIG["exit_funding_rank_min"])
+    else:
+        eligible_by_date = _eligible_members_by_date(universe, list(long_raw))
 
-    exit_schedule = build_exit_short_schedule(
-        long_raw,
-        holding_days=int(FROZEN_CONFIG["exit_holding_days"]),
-        eligible_by_date=eligible_by_date,
-        per_asset_weight=float(FROZEN_CONFIG["exit_per_asset_weight"]),
-        entry_allowed=exit_entry_allowed,
-    )
+        def exit_entry_allowed(asset: str, date: pd.Timestamp) -> bool:
+            if not _short_mark_available(mark_candles, asset, date):
+                return False
+            rank = funding_rank_percentile(
+                funding if not funding.empty else None,
+                universe,
+                asset,
+                as_of=date,
+                eligible=available,
+                lookback_days=int(FROZEN_CONFIG["exit_funding_lookback_days"]),
+                min_assets=int(FROZEN_CONFIG["exit_funding_min_assets"]),
+            )
+            return rank is not None and rank >= float(FROZEN_CONFIG["exit_funding_rank_min"])
+
+        exit_schedule = build_exit_short_schedule(
+            long_raw,
+            holding_days=int(FROZEN_CONFIG["exit_holding_days"]),
+            eligible_by_date=eligible_by_date,
+            per_asset_weight=float(FROZEN_CONFIG["exit_per_asset_weight"]),
+            entry_allowed=exit_entry_allowed,
+        )
     short_targets, sleeve_audit = route_short_sleeves(
         calendar=index,
         bear=bear,
@@ -301,12 +340,48 @@ def build_regime_short_schedules(
     return short_targets, sleeve_audit, bear_schedule, exit_schedule
 
 
+def non_bear_mode_for_trial(trial_id: str) -> str:
+    return NON_BEAR_MODE_BY_TRIAL.get(trial_id, "h5_exit")
+
+
+def build_short_targets_for_trial(
+    *,
+    trial_id: str,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_raw: Mapping[pd.Timestamp, pd.Series],
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding: pd.DataFrame,
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+):
+    return build_regime_short_schedules(
+        market=market,
+        universe=universe,
+        index=index,
+        long_raw=long_raw,
+        long_targets=long_targets,
+        funding=funding,
+        available=available,
+        mark_candles=mark_candles,
+        start_date=start_date,
+        non_bear_mode=non_bear_mode_for_trial(trial_id),
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument(
         "--trial-id",
-        choices=(BASELINE_ID, CANDIDATE_ID, NO_TRADE_BAND_CANDIDATE_ID),
+        choices=(
+            BASELINE_ID,
+            CANDIDATE_ID,
+            NO_TRADE_BAND_CANDIDATE_ID,
+            LS17_CANDIDATE_ID,
+        ),
         required=True,
     )
     parser.add_argument("--start-date", default="2022-01-01")
@@ -361,7 +436,8 @@ def main() -> None:
     bear_schedule: dict[pd.Timestamp, pd.Series] = {}
     exit_schedule: dict[pd.Timestamp, pd.Series] = {}
     if args.trial_id in SHORT_CANDIDATES:
-        short_targets, sleeve_audit, bear_schedule, exit_schedule = build_regime_short_schedules(
+        short_targets, sleeve_audit, bear_schedule, exit_schedule = build_short_targets_for_trial(
+            trial_id=args.trial_id,
             market=market,
             universe=universe,
             index=index,
@@ -424,6 +500,7 @@ def main() -> None:
         "h5_leverage": float(FROZEN_CONFIG["h5_leverage"]),
         "max_total_gross": float(FROZEN_CONFIG["max_total_gross"]),
         "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
+        "non_bear_sleeve": non_bear_mode_for_trial(args.trial_id),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
@@ -480,6 +557,8 @@ def main() -> None:
                     if args.trial_id == CANDIDATE_ID
                     else NO_TRADE_BAND_SPEC_PATH
                     if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
+                    else LS17_SPEC_PATH
+                    if args.trial_id == LS17_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -487,12 +566,22 @@ def main() -> None:
                     if args.trial_id == BASELINE_ID
                     else NO_TRADE_BAND_CONSTRUCTION
                     if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
+                    else LS17_CONSTRUCTION
+                    if args.trial_id == LS17_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
                     **FROZEN_CONFIG,
                     "rebalance_no_trade_band": float(
                         SHORT_CANDIDATES.get(args.trial_id, 0.0)
+                    ),
+                    "non_bear_sleeve": NON_BEAR_MODE_BY_TRIAL.get(
+                        args.trial_id, "h5_exit"
+                    ),
+                    **(
+                        HIGH_FUNDING_SHORT_CONFIG
+                        if args.trial_id == LS17_CANDIDATE_ID
+                        else {}
                     ),
                 },
                 "start_date": args.start_date,
@@ -521,6 +610,7 @@ def main() -> None:
                 f"- Max drawdown: {metrics['max_drawdown']:.4%}",
                 f"- Max requested short gross: {summary['max_requested_short_gross']:.6f}x",
                 f"- Rebalance no-trade band: {summary['rebalance_no_trade_band']:.4%} NAV",
+                f"- Non-bear short sleeve: {summary['non_bear_sleeve']}",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",

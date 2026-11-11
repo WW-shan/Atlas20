@@ -180,6 +180,145 @@ def funding_rank_percentile(
     return float(pd.Series(means, dtype=float).rank(pct=True)[requested])
 
 
+def funding_mean(
+    funding_rates: pd.DataFrame | None,
+    asset: str,
+    *,
+    as_of: pd.Timestamp,
+    lookback_days: int = 7,
+) -> float | None:
+    """Return an asset's mean funding over a point-in-time trailing window."""
+    if funding_rates is None or funding_rates.empty:
+        return None
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+
+    date = _as_utc(as_of)
+    columns = [
+        column
+        for column in funding_rates.columns
+        if str(column).casefold() == str(asset).casefold()
+    ]
+    if len(columns) != 1:
+        return None
+    frame = funding_rates.copy()
+    frame.index = pd.DatetimeIndex([_as_utc(value) for value in frame.index])
+    window = frame.loc[
+        (frame.index <= date)
+        & (frame.index >= date - pd.Timedelta(days=lookback_days)),
+        columns[0],
+    ]
+    values = pd.to_numeric(window, errors="coerce").dropna()
+    if values.empty:
+        return None
+    return float(values.mean())
+
+
+def build_cross_sectional_funding_short_schedule(
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    funding_rates: pd.DataFrame | None,
+    eligible: Set[str] | None,
+    short_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    lookback_days: int = 7,
+    rebalance_days: int = 7,
+    short_count: int = 4,
+    per_asset_weight: float = 0.0625,
+    min_assets: int = 5,
+    anchor: object | None = None,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build a weekly positive-funding short basket outside the H5 long book."""
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if short_count < 1:
+        raise ValueError("short_count must be positive")
+    if min_assets < 2:
+        raise ValueError("min_assets must be at least two")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float)
+    h5_dates = sorted(normalized_h5)
+
+    eligible_folded = (
+        {str(value).casefold() for value in eligible}
+        if eligible is not None
+        else None
+    )
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        held = {
+            str(asset).casefold()
+            for asset in long_weights.loc[long_weights > 1e-15].index
+        }
+        members = _members_at(universe, date)
+        funding_by_asset: dict[str, float] = {}
+        valid_funding = 0
+        for asset in sorted(members):
+            folded = asset.casefold()
+            if folded in held:
+                continue
+            if eligible_folded is not None and folded not in eligible_folded:
+                continue
+            if short_available is not None and not short_available(asset, date):
+                continue
+            mean = funding_mean(
+                funding_rates,
+                asset,
+                as_of=date,
+                lookback_days=lookback_days,
+            )
+            if mean is None:
+                continue
+            valid_funding += 1
+            if mean > 0.0:
+                funding_by_asset[asset] = mean
+
+        selected: list[str] = []
+        if valid_funding >= min_assets:
+            selected = [
+                asset
+                for asset, _ in sorted(
+                    funding_by_asset.items(),
+                    key=lambda item: (-item[1], item[0].casefold()),
+                )[:short_count]
+            ]
+        schedule[date] = pd.Series(
+            float(per_asset_weight),
+            index=selected,
+            dtype=float,
+        )
+    return schedule
+
+
 def _ranked_weakest_top20(
     prices: pd.DataFrame,
     universe: pd.DataFrame,

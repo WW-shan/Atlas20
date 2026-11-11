@@ -1080,3 +1080,64 @@ def test_build_exit_short_schedule_applies_entry_predicate() -> None:
     )
 
     assert short[d2].empty
+
+
+def test_funding_mean_uses_only_the_point_in_time_lookback_window() -> None:
+    from atlas20.derivatives.signals import funding_mean
+
+    as_of = pd.Timestamp("2026-01-10T00:00:00Z")
+    funding = pd.DataFrame(
+        {"ASSET": [0.0001, 0.0003, 0.0005]},
+        index=pd.DatetimeIndex(
+            [
+                "2026-01-02T00:00:00Z",
+                "2026-01-08T00:00:00Z",
+                "2026-01-09T00:00:00Z",
+            ]
+        ),
+    )
+
+    mean = funding_mean(funding, "asset", as_of=as_of, lookback_days=7)
+
+    assert mean == pytest.approx(0.0004)
+
+
+def test_high_funding_short_schedule_selects_positive_non_h5_names() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_short_schedule
+
+    date = pd.Timestamp("2026-01-10T00:00:00Z")
+    assets = ["BTC", "ETH", "SOL", "ADA", "XRP", "DOGE"]
+    funding = pd.DataFrame(
+        {
+            "BTC": [0.0005, 0.0005],
+            "ETH": [0.0006, 0.0006],
+            "SOL": [0.0004, 0.0004],
+            "ADA": [0.0003, 0.0003],
+            "XRP": [0.0002, 0.0002],
+            "DOGE": [-0.0001, -0.0001],
+        },
+        index=pd.DatetimeIndex(["2026-01-08T00:00:00Z", "2026-01-09T00:00:00Z"]),
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * len(assets), "coin_id": assets})
+    h5 = {date: pd.Series({"BTC": 0.5})}
+
+    schedule = build_cross_sectional_funding_short_schedule(
+        universe,
+        h5,
+        calendar=[date],
+        funding_rates=funding,
+        eligible=set(assets),
+        lookback_days=7,
+        rebalance_days=7,
+        short_count=4,
+        per_asset_weight=0.0625,
+        min_assets=5,
+        anchor=date,
+    )
+
+    assert schedule[date].to_dict() == {
+        "ETH": pytest.approx(0.0625),
+        "SOL": pytest.approx(0.0625),
+        "ADA": pytest.approx(0.0625),
+        "XRP": pytest.approx(0.0625),
+    }
