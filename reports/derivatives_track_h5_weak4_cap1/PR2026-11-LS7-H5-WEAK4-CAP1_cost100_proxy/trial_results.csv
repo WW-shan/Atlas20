@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS7-H5-WEAK4-CAP1,main,lag0,100.0,0.9651720071261953,3.5300408927878424,-0.4058786606878523,/Users/ww/Project/Atlas20/reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost100_proxy/summary.json

@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 2,
+  "duplicates": {},
+  "expected_max_sharpe": 0.001544566537419372,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": -0.6931471805599454,
+    "most_selected_candidate": "LS7_H5_WEAK4_CAP1",
+    "most_selected_count": 654,
+    "pbo": 0.5844155844155844,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.0020107678993073748,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 2
+}

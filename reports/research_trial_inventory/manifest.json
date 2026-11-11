@@ -1,6 +1,6 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "f92574a0334cd0d7849eb25cb2864d28cbbd3e78",
+  "repository_head": "4b81c8f0f0575876d71ef60977275bd1885c2432",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
@@ -397,6 +397,17 @@
     {
       "study": "phase_momentum_hypotheses_2026_10",
       "config_id": "PR2026-10-D-CAL-MB75-L125",
+      "window_start": "2022-01-01",
+      "window_end": "2026-09-21",
+      "cost_bps": 20.0,
+      "universe": "Derivatives",
+      "family": "derivatives",
+      "reason": "registered but not yet completed",
+      "source": "reports/research_trial_inventory/preregistered_trials.csv"
+    },
+    {
+      "study": "phase_momentum_hypotheses_2026_10",
+      "config_id": "PR2026-11-LS7-H5-WEAK4-CAP1",
       "window_start": "2022-01-01",
       "window_end": "2026-09-21",
       "cost_bps": 20.0,
@@ -858,7 +869,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (committed)",
-      "sha256": "03a0e9610f2e32def5f746ffcf28bfa49090311f562b41d23434b5cf76d9bd9d"
+      "sha256": "4de2d3c04881e04104b266af8ad060f67c5c7b7a9081f5489581d00b3ca1d196"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

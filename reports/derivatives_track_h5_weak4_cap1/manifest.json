@@ -1,0 +1,141 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3872,
+      "path": "reports/derivatives_track_h5_weak4_cap1/report.md",
+      "sha256": "faa47cbddb61e309b1a07bdc32a67553d2bf5a9af82b3cbe0d3ce05627dd43fa"
+    },
+    {
+      "bytes": 98546,
+      "path": "reports/derivatives_track_h5_weak4_cap1/returns_20bps.csv",
+      "sha256": "ff1c8eed66a40d1f1fd9aa92b4040409545863211f10046e62c95d39105df6d1"
+    },
+    {
+      "bytes": 1259,
+      "path": "reports/derivatives_track_h5_weak4_cap1/cost_comparison.csv",
+      "sha256": "9ec11a4e920a9d1b156e35f27a5491ecfa524d4b90f54cf4ba0c444692c07381"
+    },
+    {
+      "bytes": 3233,
+      "path": "reports/derivatives_track_h5_weak4_cap1/cost_runs_long.csv",
+      "sha256": "1e293ff0da905514503c0cc3ce204812fcb43fb2079a0edd8c5984e07b40307d"
+    },
+    {
+      "bytes": 924,
+      "path": "reports/derivatives_track_h5_weak4_cap1/funding_stress_summary.csv",
+      "sha256": "df2eb8b966d2e3c0b453f785edf28de4c228382749b16af3f6afc06f112d78d1"
+    },
+    {
+      "bytes": 415,
+      "path": "reports/derivatives_track_h5_weak4_cap1/robustness/yearly_returns.csv",
+      "sha256": "b3350c6047f9df94e2042da6831e9089b918e64c4b2415be9826b7d7cf256ea0"
+    },
+    {
+      "bytes": 1076,
+      "path": "reports/derivatives_track_h5_weak4_cap1/robustness/best_year_removal.csv",
+      "sha256": "cf1f588d1bb969dc68437f8c6335faa42c300db5d3ef776d703b063ff482e862"
+    },
+    {
+      "bytes": 253,
+      "path": "reports/derivatives_track_h5_weak4_cap1/robustness/rolling_worst.csv",
+      "sha256": "f7d70eec53ec5684a7a027b5e749fa47c4d4ad699318637b17ae4c852c54b382"
+    },
+    {
+      "bytes": 507,
+      "path": "reports/derivatives_track_h5_weak4_cap1/multiple_testing/summary.json",
+      "sha256": "42498964441733ab1fa7f781bd3156ae082f44db6bbc399da07d239a7b799536"
+    },
+    {
+      "bytes": 218,
+      "path": "reports/derivatives_track_h5_weak4_cap1/multiple_testing/dsr.csv",
+      "sha256": "2aef32b65dc62ec4d151faa7440cd1160e58b3d2c3f44556bf7b9e6d907d7971"
+    },
+    {
+      "bytes": 45162,
+      "path": "reports/derivatives_track_h5_weak4_cap1/multiple_testing/pbo_splits.csv",
+      "sha256": "5b64a87ce05e629db2c5ef2c6f17da3bc60984717a966f05bab951f481c84298"
+    },
+    {
+      "bytes": 447,
+      "path": "reports/derivatives_track_h5_weak4_cap1/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "bcd11bbcaa6f64e1a9c0eecf8a0ba18f770080cbe7384a295aec97ad17ac8472"
+    },
+    {
+      "bytes": 593,
+      "path": "reports/derivatives_track_h5_weak4_cap1/multiple_testing_project/manifest.json",
+      "sha256": "b63b7ce466f09681b26a7500f82775942f7ff3aa181d20ca77c3237c3cfdce25"
+    },
+    {
+      "bytes": 1140,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "f14f039a38b106a98865ee4476db7bc82c9915b6621a037f33d0524b14179e59"
+    },
+    {
+      "bytes": 257,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-BASELINE_cost20_proxy/trial_results.csv",
+      "sha256": "fab1213e460577257d1f2d9f2c351d5205f5bbf4be57ab30c80725f367226ea8"
+    },
+    {
+      "bytes": 1146,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/summary.json",
+      "sha256": "2f664e8278dc232411e779c41b952d435f659fc393b1514bb3e7e449d7856eac"
+    },
+    {
+      "bytes": 261,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/trial_results.csv",
+      "sha256": "6311c764e25b07e93dfd6493d30d35e65fc12952b91ff4121e97fdcb113b1adc"
+    },
+    {
+      "bytes": 78879,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/target_gross.csv",
+      "sha256": "614c7f312f2b61b0ef14807764533d52f999c55085ea6a5adf9aaa5911cd7004"
+    },
+    {
+      "bytes": 702501,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/trades.csv",
+      "sha256": "f855db962877608aac123ac20dc25da3c2413c32abfedc732dc1e4c04574f753"
+    },
+    {
+      "bytes": 187435,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/combined_targets.csv",
+      "sha256": "f6741ad7c1985d2974f57ea576b564f1d9d8927ecc599d22dc23226b5700540a"
+    },
+    {
+      "bytes": 41712,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/weak4_short_schedule.csv",
+      "sha256": "395bc88de2fb225f91e5b5695b8ad24c11bf9e70cc2d680684cfad75f59f6b7f"
+    },
+    {
+      "bytes": 1151,
+      "path": "reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_short_adverse_x3/summary.json",
+      "sha256": "9e48251c623dd6bd4dcc6ab2b5c1efbdd7e46b4534064ff2b3be65cf460c2a3d"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history is not closed",
+    "12 months of true out-of-sample data after 2026-09-21 has not accumulated",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS7-H5-WEAK4-CAP1",
+  "execution_deviations": [
+    "12 real engine starts and episode attribution were not executed after the candidate failed terminal value, gross cap and PBO at the main cost; these gates are not counted as passed."
+  ],
+  "hard_failures": [
+    "20bps terminal 13.4246x is below H5 baseline 21.3487x",
+    "terminal value is below H5 at every cost level",
+    "observed gross reached 1.000559x and breached the 1.00 hard cap",
+    "PBO 0.5844 is above 0.50",
+    "Top20/2022 DSR 0.9410 and all-project DSR 0.9194 are below 0.95",
+    "remove-best-year gates fail for multiple years"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "35f6bf3ba397b3b5a11abecf7dd8ed4171045badf7e3010765577937f6b503fb",
+  "spec_sha256": "1d7fae9694f83d31060ae1e8bec69dcee88235a89fba2e4ac9c02aa3fc2ab44d",
+  "trial_count_all_projects": 14177,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

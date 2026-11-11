@@ -1,5 +1,6 @@
 {
   "execution_hint": "2026-11-07 03:00:00+00:00",
+  "live_execution_hint": "2026-11-07 01:05:00+00:00",
   "plan": {
     "equity": 499.68070768,
     "expected_gross_notional": 0.0,
@@ -11,6 +12,7 @@
     "target_notional": {},
     "warnings": []
   },
+  "quotes": {},
   "report": {
     "available_after": 499.68070768,
     "balance_after": 499.68070768,

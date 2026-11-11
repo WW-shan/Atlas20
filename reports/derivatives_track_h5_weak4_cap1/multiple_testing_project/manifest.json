@@ -1,0 +1,25 @@
+{
+  "bootstrap_block_length": 20,
+  "bootstrap_count": 1000,
+  "candidate_count": 2,
+  "candidate_returns": "reports/derivatives_track_h5_weak4_cap1/returns_20bps.csv",
+  "cscv_blocks": 12,
+  "primary": "LS7_H5_WEAK4_CAP1",
+  "seed": 20261111,
+  "trial_scopes": [
+    {
+      "scope": "family",
+      "trial_count": 2
+    },
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6142
+    },
+    {
+      "note": "uses Top20/2022 Sharpe dispersion",
+      "scope": "all_trials",
+      "trial_count": 14177
+    }
+  ],
+  "trial_summary": "reports/research_trial_inventory/summary.json"
+}

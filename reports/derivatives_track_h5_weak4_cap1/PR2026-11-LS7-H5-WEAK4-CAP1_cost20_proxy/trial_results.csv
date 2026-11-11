@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS7-H5-WEAK4-CAP1,main,lag0,20.0,1.8163781998265758,13.42458619538448,-0.29711688412442727,reports/derivatives_track_h5_weak4_cap1/PR2026-11-LS7-H5-WEAK4-CAP1_cost20_proxy/summary.json

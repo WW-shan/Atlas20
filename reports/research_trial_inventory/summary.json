@@ -1,8 +1,8 @@
 {
   "all_trials": {
-    "n_trials": 14176,
+    "n_trials": 14177,
     "n_with_sharpe": 14142,
-    "n_without_sharpe": 34,
+    "n_without_sharpe": 35,
     "n_distinct_sharpe_values": 8973,
     "sharpe_mean_annualized": 0.7952182292538988,
     "sharpe_std_annualized": 0.6523348487809988,
