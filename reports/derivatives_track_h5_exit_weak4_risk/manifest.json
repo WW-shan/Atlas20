@@ -1,0 +1,438 @@
+{
+  "artifacts": [
+    {
+      "bytes": 9673,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/report.md",
+      "sha256": "0d6c747fba318ef9fdc24ddec91a8c6103e6356e1d27bc15991978ef6754b5a8"
+    },
+    {
+      "bytes": 98544,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/returns_20bps.csv",
+      "sha256": "17c8f9d31ab0d47316f2cb4be231878befe68dfe0b618c80d68fd5a28e7db3b4"
+    },
+    {
+      "bytes": 1528,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/cost_comparison.csv",
+      "sha256": "3c9027355ad5f31459bb25ae291f52213c80d5a3367adff0328cfce1806e452b"
+    },
+    {
+      "bytes": 3887,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/cost_runs_long.csv",
+      "sha256": "b4bc94db1ffebc2e4e2027cb1762dbeee01d4f01c3df56547722c0e7b2ceab8c"
+    },
+    {
+      "bytes": 1168,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/funding_stress_summary.csv",
+      "sha256": "f4a9e58409fded2577c6e0097ef345cedfe4d04d4af8faff35015bf541dc5fa4"
+    },
+    {
+      "bytes": 417,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/robustness/yearly_returns.csv",
+      "sha256": "3b8a8452fc34709281880420989b0a88333fd1ba1f24aa36156483992425a0c2"
+    },
+    {
+      "bytes": 1079,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/robustness/best_year_removal.csv",
+      "sha256": "1743243f684754886b9c0be27758618abc2c2fd37ac562599f9a4d0915ee0c63"
+    },
+    {
+      "bytes": 253,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/robustness/rolling_worst.csv",
+      "sha256": "88f045087c27b56c2ac0144b71ea7940f17e4717dbc0c83afd9d0f2d9ec7dde3"
+    },
+    {
+      "bytes": 8235,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/robustness/monthly_start_slices.csv",
+      "sha256": "1f68a933677107df98523d789f0226e0b1819354a433385c66194b6f93e5995b"
+    },
+    {
+      "bytes": 216,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/robustness/monthly_start_slice_summary.json",
+      "sha256": "ffd0cc84b15e4eeac907692eec91c2909acb28c65c6d7d58046e88661372dd45"
+    },
+    {
+      "bytes": 507,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing/summary.json",
+      "sha256": "ada6d1b806335043ca7e0ded695596e45d3dbd8e74ec1f446d611930a378cda3"
+    },
+    {
+      "bytes": 218,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing/dsr.csv",
+      "sha256": "197d8293f37099f1bf6a41917a186e4f64e23cbcc90c8824facab9e2d616d32c"
+    },
+    {
+      "bytes": 46066,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing/pbo_splits.csv",
+      "sha256": "46953d60bc45ef6cba718941b02a2741632965538168d4a0d038ff8f868a6b73"
+    },
+    {
+      "bytes": 138,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing/reality_check_btc.csv",
+      "sha256": "8b0702c6c269f78f24011d99eb3c4f9242d09b9819e6f8261aec43ebe41f6097"
+    },
+    {
+      "bytes": 446,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "c73bc1fa401c0e2116212a9d0a4b17898fb45f392a854c39800f4f66a83fefa4"
+    },
+    {
+      "bytes": 943,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/multiple_testing_project/manifest.json",
+      "sha256": "981937b6615105872bbf15e1807b5acd6d1e8e794f24c2c6eb734eaab156c222"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "6cc75d9fed8e4e9c2701e3f16dba7d525ff808e3ef9b0127341d08365f889377"
+    },
+    {
+      "bytes": 262,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-BASELINE_cost20_proxy/trial_results.csv",
+      "sha256": "d50d49a8ac99082d0f15dc1fba3f2b060e4d8bc0e8461cc45b46a4f970637ca9"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "13c1fa3abaa4c986a612e9bd7fcb41885902d544c9b106f47ee7e96de16c10b3"
+    },
+    {
+      "bytes": 280,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/trial_results.csv",
+      "sha256": "4efd6572983bab8ca56be9be87eb7b08f10c2a50ec4bedee0178284d930fdbd2"
+    },
+    {
+      "bytes": 78852,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/target_gross.csv",
+      "sha256": "85bd08e00b79958f6235921a6b09398d8550d57c5317656723be558477aead82"
+    },
+    {
+      "bytes": 830066,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/trades.csv",
+      "sha256": "c35e11e74412529ed107faca58e32cc6b313df9b5d5abdb1e0fefebcf2cf0d1b"
+    },
+    {
+      "bytes": 39557,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/exit_short_schedule.csv",
+      "sha256": "0c1680ee928b51b57c54c4c9a3661f1e07b50b476f8c66678d8e35bfbbfdf15f"
+    },
+    {
+      "bytes": 40724,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/weak4_short_schedule.csv",
+      "sha256": "a6fc2fe66f93bceeaa5f1bd02a410616ce997069b348b450141661a15f8a18a7"
+    },
+    {
+      "bytes": 78185,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/combined_short_schedule.csv",
+      "sha256": "cfd2e4f34a8aaaa273aac8e9c20a44cc9df1b60e44923c987f8762c16f9e420f"
+    },
+    {
+      "bytes": 181954,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/short_episodes.csv",
+      "sha256": "f7637703042108525968d8a71c904147384d517cf68246b61abbcc66c3bdb681"
+    },
+    {
+      "bytes": 5091,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/short_asset_attribution.csv",
+      "sha256": "e90316113365886ec6f0ad667e6688f55253444853197741c828dd9624a9486a"
+    },
+    {
+      "bytes": 340,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/short_episode_summary.csv",
+      "sha256": "210209c4268c8be3ec1d1cb96b68f6745d5379dc1f5ff6170a9bf6d2ee4a7039"
+    },
+    {
+      "bytes": 1439,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_short_adverse_x3/summary.json",
+      "sha256": "f8ae176a9da5d8486ac4736e3c0320557cd7bec4ff7b8ce388b6178b6669a0d7"
+    },
+    {
+      "bytes": 996,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/status.csv",
+      "sha256": "2b93c27b1b5132ac3135ba6dffbe83ac2fd797ec6ccdd7cdaea9311dbc17bded"
+    },
+    {
+      "bytes": 2884,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/summary.csv",
+      "sha256": "2d4680b285294d309cbc7db45235c9497693ce745fcabcbfe5afd732e9e3504a"
+    },
+    {
+      "bytes": 334,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/summary.json",
+      "sha256": "e04c59c2f0892911f279f0f5d7f555f5567a291e87e899b58131e166700af28f"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-01/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "6cc75d9fed8e4e9c2701e3f16dba7d525ff808e3ef9b0127341d08365f889377"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-01/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "13c1fa3abaa4c986a612e9bd7fcb41885902d544c9b106f47ee7e96de16c10b3"
+    },
+    {
+      "bytes": 1444,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-01_baseline.log",
+      "sha256": "44f5fc5baf6a81752e7a71b1715f376b1d67011e7363dd791826fe55d10b5d67"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-01_candidate.log",
+      "sha256": "e18d00f2d6a7bc530d1391aa15dfebff2236a168e151014e7cc1421417569f2b"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-05/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "788eca62e82430005ed7adf12cab804b10c620a498b50195f8703552556a4465"
+    },
+    {
+      "bytes": 1424,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-05/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "16a5431d20064a26a994b3130081d71971d845b5012058f89120a82198a9f0c7"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-05_baseline.log",
+      "sha256": "fe45620d46c50058b904b00d8d1c8ed10d3e9d624c7254552876f7df782a17c8"
+    },
+    {
+      "bytes": 1455,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-05_candidate.log",
+      "sha256": "10c5ea2312eef6a30c58121ee6f1fc4d26f9d2035875bbfe6da789c624c204c9"
+    },
+    {
+      "bytes": 1415,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-09/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "ad6c924626b5579f9b7b04a7e9671e5901f6e431eb67c092381693750df1f751"
+    },
+    {
+      "bytes": 1426,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-09/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "e6d96cce5ab2b9b7c0a992743e71c639f3f9f659d57b8141c2620922937a5f44"
+    },
+    {
+      "bytes": 1446,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-09_baseline.log",
+      "sha256": "678cbbae539640e2d8869a004332c2857c84cb8ab8aeb3aca1a5c8816a43d24f"
+    },
+    {
+      "bytes": 1457,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2022-09_candidate.log",
+      "sha256": "cb5c97caef89649c504eea6318c5526dcaac956bf41e4d36f277c893d459cfc1"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-01/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "02249cdb04f175985407c551e19293dae28a976b3ea07fac7488dcccaf5bbf96"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-01/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "b9e220bac83d3eee6e947ec437c1a1933a9786f65926a0a8ce40690a8fb23c6f"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-01_baseline.log",
+      "sha256": "ddee76c9c9ea972ec87f221c18ed66e511ac71c165d68f2dc0ba2a3d210bb9d7"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-01_candidate.log",
+      "sha256": "4c022e1f2bf98bca56ecf6e396522522c22d8bdd6de2a95f854a3afdbdb04642"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-05/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "1529fc180b31f048c8b56b5691cf446c82671cebcab794bf2ded72854b90cee6"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-05/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "65430549d76e2958612781e05e4a35c81ba2998e1a66a9e1227efbe1eb5e7bf4"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-05_baseline.log",
+      "sha256": "53bbdc9642ce54e41af5db88f1b0f33884ca67013ffc449e66320e9250921c72"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-05_candidate.log",
+      "sha256": "daece16066512655cb1f942a1361aa0a623a29bb9e90ebcb36bfaf4662a911a2"
+    },
+    {
+      "bytes": 1416,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-09/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "ed6ba6877e3ecb52c7cc6c67e106ebfde498d14306509cc2a0602779996c65c7"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2023-09/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "4cd089833aa5ca49d9dce139639dab353ca459765694e32cde73f87666797259"
+    },
+    {
+      "bytes": 1447,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-09_baseline.log",
+      "sha256": "cc40ca59d8ab7086ba02782fe1c24bb5a2da1aeef42ebe42b451daad0562ea1d"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2023-09_candidate.log",
+      "sha256": "0cd6674791a23b2329063cc7f55ef58d4cf25a87553dec45f54b58d5be14f956"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-01/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "b9a4552662d290685d0a056005c04df83e58495c3fcb97cdc2ec5e769d894b4f"
+    },
+    {
+      "bytes": 1429,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-01/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "0c527bb7df26e6108be94b296c6042eb542fb129b32d3407d1e22a7d4274d21f"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-01_baseline.log",
+      "sha256": "e6bdaa74df3fb41d2a6ffeb766d8c8389a31af78c6850aae0fde5458656cb9d2"
+    },
+    {
+      "bytes": 1460,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-01_candidate.log",
+      "sha256": "49aba19f03ace39a0b91fa9d6bab37b1bc45d431942ca5060d8e07d12bf5e1c5"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-05/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "dc95ecc3b1ffbc1f6b95e2bce1cd47bbe3fd820d2deb772310c4e87815d08afd"
+    },
+    {
+      "bytes": 1430,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-05/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "d68e88cae6b2597d0bf56f06161dbf5e8a4381af5534b7d03f0ccac781880e81"
+    },
+    {
+      "bytes": 1444,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-05_baseline.log",
+      "sha256": "db2d971374b29f17041c6f23f4167d257b4aa232be5e1fbf850fa5b601d9d051"
+    },
+    {
+      "bytes": 1461,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-05_candidate.log",
+      "sha256": "1f1b682223b130ecca20aec0333316720669267ccdcfb03093d5f112e6aca55a"
+    },
+    {
+      "bytes": 1415,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-09/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "1e7acdf0f93082152970dd45c35fb5fc8368b3d909b29a8c9ccdb7e9cc395c20"
+    },
+    {
+      "bytes": 1424,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-09/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "a713200ca55a4bacb1d9c6f101aea593ef0301f7eb6c97ad2d76e1aff9a599ea"
+    },
+    {
+      "bytes": 1446,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-09_baseline.log",
+      "sha256": "82717b0fc1fe97866cc8bb7c44b8a9ba2b61b2559cbd9f8469673a19a0dad1f6"
+    },
+    {
+      "bytes": 1455,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2024-09_candidate.log",
+      "sha256": "ef4da4d0060f9f911cd93e3cfcefedf573c25cef799e97fae36ab25b380402a1"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-01/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "0819ae9b39fdc79f703a9fdea3ed1f0c1e93711a9d963d1f99a45aeed3cb9a81"
+    },
+    {
+      "bytes": 1429,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-01/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "29804a620453ff792de9984e840aa6fdbe069a452bfb4f9d504e7cf486f167b5"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-01_baseline.log",
+      "sha256": "8c273477229bc77c8be3390859279dbd1a6e93b4eabf27f9dbe66ca2611c6fc3"
+    },
+    {
+      "bytes": 1460,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-01_candidate.log",
+      "sha256": "9114afa777f9ae8f399a49923094bda54a03e092036c18df0a23fc64f216428d"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-05/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "1ff731bbc977161b3f9a62fd6352b189e5ef217451b221aee2e07d4fe24d3e85"
+    },
+    {
+      "bytes": 1429,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-05/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "55acadb711975bb66180c6a779d0e8424229cf76444be1b1c5a078df361bef83"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-05_baseline.log",
+      "sha256": "910e92c6a6337154fa8f366124a146dcc922aca246ea3915696ac723a6196aa5"
+    },
+    {
+      "bytes": 1460,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-05_candidate.log",
+      "sha256": "efae6711c59bde93df0d1b38d5fa02825e4c2fcfaad029ec38858db129a46b41"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-09/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "333291617bf78b3947eb749cca28948e03f03f4a772328689333834bed42a67a"
+    },
+    {
+      "bytes": 1433,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2025-09/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json",
+      "sha256": "2629c935817e99fa480e55f15f20170ec6d57bacd7cd652413e6fead4e670f75"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-09_baseline.log",
+      "sha256": "9742dbb1d8f2d73e9481645775d4ace47e5a028d1f63f3e136a17dcb7b88a5c2"
+    },
+    {
+      "bytes": 1464,
+      "path": "reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/logs/2025-09_candidate.log",
+      "sha256": "e2b3631d81bd0d9e441f22e483abc7592446ff03bfdfd518d38d9299337fedec"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history is not closed",
+    "12 months of true out-of-sample data after 2026-09-21 has not accumulated",
+    "nominal 0.5% NAV per-trade risk is not a hard cap; realized max adverse mark loss was 0.7088% NAV",
+    "weak4 sleeve net contribution was negative in the formal run",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS5-H5-EXIT-WEAK4-RISK05",
+  "engine_monthly_starts": {
+    "count": 12,
+    "mdd_5pp_pass": 12,
+    "multiple_wins": 11,
+    "sharpe_wins": 12,
+    "status": "passed"
+  },
+  "execution_deviations": [],
+  "hard_failures": [
+    "100bps terminal 7.7417x is below baseline 9.3848x and Sharpe is below baseline",
+    "remove-2022 terminal 24.4989x is below baseline 25.3369x",
+    "all-project DSR 0.933398 is below 0.95",
+    "top-three short contribution 126.53% exceeds 80%",
+    "weak4 sleeve net contribution is -2.662% of opening equity",
+    "realized max adverse short loss 0.7088% NAV exceeds nominal 0.5%"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "113030ad110255ca8c9064f8fb948c3bfb8961e397f21faaebc58aa944a31f96",
+  "spec_sha256": "fdf8fb8c7bf831f98096f7ec7b398ba73817d6b876d2686bab6dfb51cff81286",
+  "trial_count_all_projects": 14175,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

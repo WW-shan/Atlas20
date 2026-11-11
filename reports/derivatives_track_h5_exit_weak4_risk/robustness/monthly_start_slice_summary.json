@@ -1,0 +1,8 @@
+{
+  "all_three_passes": 39,
+  "mdd_5pp_passes": 45,
+  "sharpe_passes": 45,
+  "start_rule": "calendar month starts with at least 365 days remaining; saved-return path slice",
+  "starts": 45,
+  "terminal_passes": 39
+}

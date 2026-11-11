@@ -1,0 +1,33 @@
+{
+  "bootstrap_block_length": 20,
+  "bootstrap_count": 1000,
+  "candidate_count": 2,
+  "candidate_returns": "reports/derivatives_track_h5_exit_weak4_risk/returns_20bps.csv",
+  "common_sample": {
+    "end": "2026-09-20 00:00:00+00:00",
+    "rows": 1724,
+    "start": "2022-01-01 00:00:00+00:00"
+  },
+  "cscv_blocks": 12,
+  "primary": "LS5_H5_EXIT_WEAK4",
+  "seed": 20261111,
+  "trial_scopes": [
+    {
+      "scope": "family",
+      "trial_count": 2,
+      "trial_sharpe_std_annualized": 0.07515220808258367
+    },
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6142,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    },
+    {
+      "note": "uses Top20/2022 Sharpe dispersion because other-window Sharpes are not comparable",
+      "scope": "all_trials",
+      "trial_count": 14175,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    }
+  ],
+  "trial_summary": "reports/research_trial_inventory/summary.json"
+}

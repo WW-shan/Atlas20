@@ -35,7 +35,7 @@
 - Produces:
   `build_cross_sectional_weak_short_schedule(prices, universe, h5_targets, *, calendar, funding_rates, eligible, short_available, lookback=14, rebalance_days=7, short_count=4, per_asset_weight=0.025, funding_threshold=-0.0002, funding_lookback=3, anchor) -> dict[pd.Timestamp, pd.Series]`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_weak_short_schedule_selects_bottom_four_on_fixed_weekly_grid() -> None:
@@ -76,23 +76,23 @@ def test_weak_short_schedule_selects_bottom_four_on_fixed_weekly_grid() -> None:
     assert "a" not in schedule[dates[0]].index
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_derivatives_signals.py::test_weak_short_schedule_selects_bottom_four_on_fixed_weekly_grid -q`
 
 Expected: FAIL because `build_cross_sectional_weak_short_schedule` is not defined.
 
-- [ ] **Step 3: Implement the minimal schedule**
+- [x] **Step 3: Implement the minimal schedule**
 
 Add a function that normalizes UTC dates, emits targets only on the fixed seven-day grid, forward-fills H5 holdings, excludes those holdings, ranks 14D trailing returns, filters unavailable/funding-failing assets, and assigns `per_asset_weight` per selected asset.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_derivatives_signals.py::test_weak_short_schedule_selects_bottom_four_on_fixed_weekly_grid -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Add a failing funding-fail-closed test**
+- [x] **Step 5: Add a failing funding-fail-closed test**
 
 ```python
 def test_weak_short_schedule_excludes_missing_funding() -> None:
@@ -127,11 +127,11 @@ def test_weak_short_schedule_excludes_missing_funding() -> None:
     assert len(schedule[dates[0]]) == 3
 ```
 
-- [ ] **Step 6: Run the new test to verify it fails, then make it pass**
+- [x] **Step 6: Run the new test to verify it fails, then make it pass**
 
 Run the exact test, observe the missing-funding asset is currently included, add the `funding_filter` condition with `funding_lookback`, then rerun and observe PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/atlas20/derivatives/signals.py tests/test_derivatives_signals.py
@@ -151,7 +151,7 @@ git commit -m "feat: add weekly weak-four short schedule"
 - Produces:
   `combine_fixed_risk_short_schedules(schedules, *, per_asset_weight) -> dict[pd.Timestamp, pd.Series]`
 
-- [ ] **Step 1: Write the failing overlap test**
+- [x] **Step 1: Write the failing overlap test**
 
 ```python
 def test_combine_fixed_risk_short_schedules_uses_max_not_sum() -> None:
@@ -177,21 +177,21 @@ def test_combine_fixed_risk_short_schedules_uses_max_not_sum() -> None:
     assert set(combined[d2].index) == {"ethereum", "cardano"}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_derivatives_signals.py::test_combine_fixed_risk_short_schedules_uses_max_not_sum -q`
 
 Expected: FAIL because the function is not defined.
 
-- [ ] **Step 3: Implement forward-filled asset-level maximum**
+- [x] **Step 3: Implement forward-filled asset-level maximum**
 
 Normalize each schedule, forward-fill sleeve states on the union event calendar, compute `max` across sleeve weights for each asset, enforce the per-asset cap, and emit only changed targets plus explicit empty close events.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run the exact test and observe PASS.
 
-- [ ] **Step 5: Add a failing explicit-close test**
+- [x] **Step 5: Add a failing explicit-close test**
 
 ```python
 def test_combine_fixed_risk_short_schedules_emits_empty_close_event() -> None:
@@ -207,7 +207,7 @@ def test_combine_fixed_risk_short_schedules_emits_empty_close_event() -> None:
     assert combined[d2].empty
 ```
 
-- [ ] **Step 6: Verify close-event behavior then commit**
+- [x] **Step 6: Verify close-event behavior then commit**
 
 Run the exact test; fix only if it fails for the missing empty close event, then run both signal tests.
 
@@ -230,7 +230,7 @@ git commit -m "feat: merge fixed-risk short sleeves"
 - Consumes: the two signal builders from Tasks 1-2 and `_run_one(...)` from `scripts.run_h5_exit_short`.
 - Produces: executable research runner with candidate ID `PR2026-11-LS5-H5-EXIT-WEAK4-RISK05`.
 
-- [ ] **Step 1: Write failing runner constant tests**
+- [x] **Step 1: Write failing runner constant tests**
 
 ```python
 def test_runner_freezes_combined_candidate() -> None:
@@ -246,13 +246,13 @@ def test_runner_freezes_combined_candidate() -> None:
     assert FROZEN_CONFIG["cross_sectional_short_count"] == 4
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_run_h5_exit_weak_combo.py -q`
 
 Expected: collection failure because the runner does not exist.
 
-- [ ] **Step 3: Add construction-label regression test**
+- [x] **Step 3: Add construction-label regression test**
 
 ```python
 def test_manifest_construction_override() -> None:
@@ -267,7 +267,7 @@ def test_manifest_construction_override() -> None:
 
 Run it and observe failure before adding `_manifest_construction`.
 
-- [ ] **Step 4: Implement runner and manifest override**
+- [x] **Step 4: Implement runner and manifest override**
 
 The runner must:
 
@@ -278,7 +278,7 @@ The runner must:
 5. call `_run_one` with the frozen LS5 config and construction label;
 6. write sleeve schedules and an audit file next to the run output.
 
-- [ ] **Step 5: Run signal and runner tests**
+- [x] **Step 5: Run signal and runner tests**
 
 Run:
 
@@ -288,7 +288,7 @@ Run:
 
 Expected: all PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/run_h5_exit_weak_combo.py scripts/run_h5_exit_short.py tests/test_run_h5_exit_short.py tests/test_run_h5_exit_weak_combo.py
@@ -306,17 +306,17 @@ git commit -m "feat: add combined fixed-risk short runner"
 - Consumes: frozen spec and runner constants.
 - Produces: exactly one `registered` row for LS5 with hashes.
 
-- [ ] **Step 1: Build the registration row**
+- [x] **Step 1: Build the registration row**
 
 Use `scripts.run_phase_momentum_hypotheses.ledger_registration_row` semantics. The `spec` JSON must include all frozen values from the design.
 
-- [ ] **Step 2: Append only one registration row**
+- [x] **Step 2: Append only one registration row**
 
 ```bash
 .venv/bin/python <one-off preregistration command>
 ```
 
-- [ ] **Step 3: Verify the row and hashes**
+- [x] **Step 3: Verify the row and hashes**
 
 ```bash
 .venv/bin/python -m pytest tests/test_run_phase_momentum_hypotheses.py -q
@@ -324,7 +324,7 @@ Use `scripts.run_phase_momentum_hypotheses.ledger_registration_row` semantics. T
 
 Expected: PASS and no modification of the registration row afterward.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add reports/research_trial_inventory/preregistered_trials.csv
@@ -338,7 +338,7 @@ git commit -m "research: preregister LS5 combined short candidate"
 **Files:**
 - Create: `reports/derivatives_track_h5_exit_weak4_risk/`
 
-- [ ] **Step 1: Run baseline and candidate at 20bps**
+- [x] **Step 1: Run baseline and candidate at 20bps**
 
 ```bash
 .venv/bin/python scripts/run_h5_exit_weak_combo.py --baseline --cost-bps 20 \
@@ -349,19 +349,19 @@ git commit -m "research: preregister LS5 combined short candidate"
   --output-dir reports/derivatives_track_h5_exit_weak4_risk
 ```
 
-- [ ] **Step 2: Run 2/50/100bps and 3x short-adverse funding**
+- [x] **Step 2: Run 2/50/100bps and 3x short-adverse funding**
 
 Run both baseline and candidate at every cost and the candidate funding stress.
 
-- [ ] **Step 3: Run calendar, removal, rolling, saved-path starts and 12 real engine starts**
+- [x] **Step 3: Run calendar, removal, rolling, saved-path starts and 12 real engine starts**
 
 The 12 starts are 2022-01/05/09, 2023-01/05/09, 2024-01/05/09, 2025-01/05/09.
 
-- [ ] **Step 4: Run PBO/RC and both DSR scopes**
+- [x] **Step 4: Run PBO/RC and both DSR scopes**
 
 Use the inventory count after LS5 registration.
 
-- [ ] **Step 5: Compute short episodes and concentration**
+- [x] **Step 5: Compute short episodes and concentration**
 
 Attribute each closed short to its originating sleeve. Overlap assets must not be counted twice.
 
@@ -375,15 +375,15 @@ Attribute each closed short to its originating sleeve. Overlap assets must not b
 - Modify: `RESEARCH.md`
 - Modify: `reports/research_trial_inventory/preregistered_trials.csv`
 
-- [ ] **Step 1: Apply every kill criterion without changing thresholds**
+- [x] **Step 1: Apply every kill criterion without changing thresholds**
 
-- [ ] **Step 2: Write report and manifest**
+- [x] **Step 2: Write report and manifest**
 
 Include realized adverse risk, gross breaches, cost/funding failures and true OOS boundary.
 
-- [ ] **Step 3: Append exactly one evaluated ledger row**
+- [x] **Step 3: Append exactly one evaluated ledger row**
 
-- [ ] **Step 4: Update RESEARCH.md**
+- [x] **Step 4: Update RESEARCH.md**
 
 - [ ] **Step 5: Run verification**
 
@@ -411,7 +411,7 @@ git push origin research/long-short-cash-sleeve
 **Files:**
 - Create: a new spec and plan for the next mechanism.
 
-- [ ] **Step 1: Do not scan any LS5 parameter**
-- [ ] **Step 2: Identify the failed mechanism from the actual evidence**
-- [ ] **Step 3: Design a structurally different candidate**
-- [ ] **Step 4: Pre-register before running it**
+- [x] **Step 1: Do not scan any LS5 parameter**
+- [x] **Step 2: Identify the failed mechanism from the actual evidence**
+- [x] **Step 3: Design a structurally different candidate**
+- [x] **Step 4: Pre-register before running it**

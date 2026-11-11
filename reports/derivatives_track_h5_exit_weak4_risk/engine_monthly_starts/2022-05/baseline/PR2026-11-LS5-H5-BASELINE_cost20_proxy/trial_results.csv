@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS5-H5-BASELINE,main,lag0,20.0,1.8239507643705282,22.09808465287388,-0.33363217947528545,/Users/ww/Project/Atlas20/reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2022-05/baseline/PR2026-11-LS5-H5-BASELINE_cost20_proxy/summary.json

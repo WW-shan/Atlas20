@@ -1,0 +1,13 @@
+{
+  "all_processes_status_zero": true,
+  "engine_monthly_start_gate_passed": true,
+  "gross_at_or_below_one_all": true,
+  "mdd_gate_12_of_12": true,
+  "mdd_pass_5pp": 12,
+  "multiple_gate_8_of_12": true,
+  "multiple_wins": 11,
+  "sharpe_gate_8_of_12": true,
+  "sharpe_wins": 12,
+  "start_count": 12,
+  "zero_liquidations_all": true
+}

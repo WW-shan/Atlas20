@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS5-H5-EXIT-WEAK4-RISK05,main,lag0,20.0,2.218727122942019,7.4517245445663685,-0.2501352291495228,/Users/ww/Project/Atlas20/reports/derivatives_track_h5_exit_weak4_risk/engine_monthly_starts/2024-05/candidate/PR2026-11-LS5-H5-EXIT-WEAK4-RISK05_cost20_proxy/summary.json
