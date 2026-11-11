@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS6-H5-FUNDING-EXIT-RISK05,main,lag0,20.0,1.7811340405949456,22.927890261485757,-0.3340418382098359,reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json

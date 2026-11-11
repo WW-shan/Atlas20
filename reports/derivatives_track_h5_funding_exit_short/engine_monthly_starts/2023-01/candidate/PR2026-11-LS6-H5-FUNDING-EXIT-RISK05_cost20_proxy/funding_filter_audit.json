@@ -1,0 +1,9 @@
+{
+  "filtered_active_dates": 540,
+  "filtered_leg_dates": 363,
+  "funding_lookback_days": 7,
+  "funding_min_assets": 5,
+  "funding_rank_min": 0.6666666666666666,
+  "unfiltered_active_dates": 558,
+  "unfiltered_leg_dates": 940
+}

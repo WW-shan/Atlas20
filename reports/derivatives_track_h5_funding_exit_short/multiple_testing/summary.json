@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 2,
+  "duplicates": {},
+  "expected_max_sharpe": 0.0008667710139536017,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 0.6931471805599452,
+    "most_selected_candidate": "LS6_H5_FUNDING_EXIT",
+    "most_selected_count": 922,
+    "pbo": 0.004329004329004329,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.00204906953180317,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 2
+}

@@ -1,0 +1,435 @@
+{
+  "artifacts": [
+    {
+      "bytes": 7273,
+      "path": "reports/derivatives_track_h5_funding_exit_short/report.md",
+      "sha256": "3943498a948dda7f1b8f05ec4d685e2b843401958e68d0438348a0c8a59e09b9"
+    },
+    {
+      "bytes": 88239,
+      "path": "reports/derivatives_track_h5_funding_exit_short/returns_20bps.csv",
+      "sha256": "2fdc9a20c2fa345a9a3dcc26296a1f171332f1a65dd38357ec9ce6b9f6202893"
+    },
+    {
+      "bytes": 1229,
+      "path": "reports/derivatives_track_h5_funding_exit_short/cost_comparison.csv",
+      "sha256": "dffed84acdb065d987cfa47d97687d5e9276633f48b0c8241b472572f9bd5b91"
+    },
+    {
+      "bytes": 3891,
+      "path": "reports/derivatives_track_h5_funding_exit_short/cost_runs_long.csv",
+      "sha256": "8979b50e84bd1fddbc0aae37d42e242b7c5920b5bbe8760acc11554fe6eb7e5d"
+    },
+    {
+      "bytes": 1167,
+      "path": "reports/derivatives_track_h5_funding_exit_short/funding_stress_summary.csv",
+      "sha256": "cac46d50207ffc98b7fbcb7f641b2ce77a47aa6fe994f05b369cb70680939619"
+    },
+    {
+      "bytes": 425,
+      "path": "reports/derivatives_track_h5_funding_exit_short/robustness/yearly_returns.csv",
+      "sha256": "86f9c0c9cc54b30095c10d9af03edbab5f9a8a46b16c85c5d29a40d6fd222d1d"
+    },
+    {
+      "bytes": 1088,
+      "path": "reports/derivatives_track_h5_funding_exit_short/robustness/best_year_removal.csv",
+      "sha256": "d8d74c6347223074cea4b8dd57b6d4fff9f65bb701e8d38a3d62dafe0825e6e0"
+    },
+    {
+      "bytes": 255,
+      "path": "reports/derivatives_track_h5_funding_exit_short/robustness/rolling_worst.csv",
+      "sha256": "c455338c0cdd9998fbab4b6fde4dce67a1a1d740740430ed3a45aafdce175914"
+    },
+    {
+      "bytes": 8306,
+      "path": "reports/derivatives_track_h5_funding_exit_short/robustness/monthly_start_slices.csv",
+      "sha256": "386b0f3f256c15a80822cbdb8c727dcef34f951dc6f3f045015186e414ab5d11"
+    },
+    {
+      "bytes": 117,
+      "path": "reports/derivatives_track_h5_funding_exit_short/robustness/monthly_start_slice_summary.json",
+      "sha256": "329cac166dc560a023aac526b8cbae28d80aa03866684e4f4912c76bf070448b"
+    },
+    {
+      "bytes": 509,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing/summary.json",
+      "sha256": "c7bf58a20e3b137d504aa432c63d84959efd10bb7996ab10a21adfdbf6a892e0"
+    },
+    {
+      "bytes": 224,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing/dsr.csv",
+      "sha256": "d2e772f5bb665bfe2bef1316702df3d291f71948c281fcf019f158517ad1be2e"
+    },
+    {
+      "bytes": 48078,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing/pbo_splits.csv",
+      "sha256": "358707c68ed4d0e87ca13a972f3a58a8c1ce8dd4124ded18defa5fafeed4d130"
+    },
+    {
+      "bytes": 138,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing/reality_check_btc.csv",
+      "sha256": "8d823cdb16a6388fe0126476a5adb0b100778452ce2b668547e785a05b06e446"
+    },
+    {
+      "bytes": 459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "8077bcf266cbb1ba615db7e140f1ea95d5c4941ab20264fba913ffd6b752701f"
+    },
+    {
+      "bytes": 947,
+      "path": "reports/derivatives_track_h5_funding_exit_short/multiple_testing_project/manifest.json",
+      "sha256": "56338c16aae41d840f7d61dc6b7174b7e0447924f58254c6141f1fe3baf2e281"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "c32e4c6cbac6fb163e489376293843bfda296869574c967a25cba1f09332b8fe"
+    },
+    {
+      "bytes": 265,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-BASELINE_cost20_proxy/trial_results.csv",
+      "sha256": "0834db4b471a5f78873e36b27b93a05b5fbc29668b8602f6a2c072d744e8ede2"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "eb158a25fc1a5321d71050a358c55196e81ea4af643706c528b769d15d217a4c"
+    },
+    {
+      "bytes": 287,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/trial_results.csv",
+      "sha256": "1ce8440842dd4b9b6f12d9ddc5b3bfc88ada40c551d802a06188bbd9c56b5820"
+    },
+    {
+      "bytes": 64339,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/target_gross.csv",
+      "sha256": "ea3331dde93c8126ccdd9c6959414e8d861cb16d1aadaf2ef3e7f0ead378cb60"
+    },
+    {
+      "bytes": 238201,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/trades.csv",
+      "sha256": "d39fa49371dea1b943f312aff91e7ffd6662a85c07675ad02cbb403f6e7002c1"
+    },
+    {
+      "bytes": 39557,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/unfiltered_exit_short_schedule.csv",
+      "sha256": "0c1680ee928b51b57c54c4c9a3661f1e07b50b476f8c66678d8e35bfbbfdf15f"
+    },
+    {
+      "bytes": 15226,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/funding_filtered_exit_short_schedule.csv",
+      "sha256": "09db029a1fe397007337e6692d39beddb89adc1becf84f381c2a0d025a10ef2f"
+    },
+    {
+      "bytes": 228,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/funding_filter_audit.json",
+      "sha256": "7e22db68df590dded00d3861d4224dfc64b20dc194b25b8f55280171d744c22b"
+    },
+    {
+      "bytes": 12448,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/short_episodes.csv",
+      "sha256": "389b44a50901498a987b53c234b99f8b59517828bc91c652a7c50a146f9540bb"
+    },
+    {
+      "bytes": 2851,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/short_asset_attribution.csv",
+      "sha256": "7b4c5601d7873c5c5c74d6ef488e42a91aaa47aefd57ac8df2af1eec1d7e5484"
+    },
+    {
+      "bytes": 335,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/short_episode_summary.csv",
+      "sha256": "6a98700ac81731fb695f68b6d0c2309c615de2c882863df53cb603f781ff9d0b"
+    },
+    {
+      "bytes": 1438,
+      "path": "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_short_adverse_x3/summary.json",
+      "sha256": "dbe2a2ac67beb90862b5f9d7e1d4cc3fb2fc4764375de140b9fd6c56dfb1b695"
+    },
+    {
+      "bytes": 996,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/status.csv",
+      "sha256": "a549d6ddb6dadf8d43a6799ffd7ce24d44b3c6647f9b4d084bb6344143c1ca9e"
+    },
+    {
+      "bytes": 2883,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/summary.csv",
+      "sha256": "478d05b48d60ad1afea74a05954880b1cb71aa46aeb618f0967ed491e5677120"
+    },
+    {
+      "bytes": 334,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/summary.json",
+      "sha256": "ecaa891c9b9d8f0e21677e4ff7beb5d5e146d70e5f29f0b34ed0e1e6a65a06f0"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-01/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "c32e4c6cbac6fb163e489376293843bfda296869574c967a25cba1f09332b8fe"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-01/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "eb158a25fc1a5321d71050a358c55196e81ea4af643706c528b769d15d217a4c"
+    },
+    {
+      "bytes": 1444,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-01_baseline.log",
+      "sha256": "6946a330d8ba63e542957bd096ba9c684af3c5f113c0aedf1da147d7412dbd61"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-01_candidate.log",
+      "sha256": "c410c284c8bd720e953ed8b8f7aebf1ab5a574966d316edc04a290c405bba68e"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-05/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "90cda66f5346af7b21df764085ee4238f34656fe8bc9da1c1303cdf99255ccd7"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-05/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "7ec5d704953754bb1c585af8a89baf7ca46276e7617bf8cd070e07f3c9e548f6"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-05_baseline.log",
+      "sha256": "f8d5db353ba8251fd408331628eb6d2ab58067b11406b17ae03d0be7853a6570"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-05_candidate.log",
+      "sha256": "9bfaa39ee42434efe0cd490accbb5aec6f4842a20e48f95564c1f9fe310d1f4b"
+    },
+    {
+      "bytes": 1415,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-09/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "420d5707534d1d443a826e9cdce1a44688accdda398b76628629ef3b89227081"
+    },
+    {
+      "bytes": 1426,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2022-09/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "a316deb92b70f091a0ab5360b9046eeb43d8eb918716479dddeae9004ee72c55"
+    },
+    {
+      "bytes": 1446,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-09_baseline.log",
+      "sha256": "4fd4e106299e87f35fb8812488b451cc898a520429c9b0a69995ea3c08c097ba"
+    },
+    {
+      "bytes": 1457,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2022-09_candidate.log",
+      "sha256": "0e918ef6cc14c071e0ea5385cf698c43efed12440605ba9e09b092afd1541d42"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-01/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "3217d7c845c453c8a50d04f9298b9caeb11fc21a64d074ba837d7e6807cb780c"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-01/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "6a287700cb6b39556ef1674f59c182bc0b6fa3603f484ea35ef6cb86a7beb5a8"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-01_baseline.log",
+      "sha256": "f4ea117c7515237e186a365a509be380bfc34e73781fbdf48b8958a2af190081"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-01_candidate.log",
+      "sha256": "78ed43e74a2e6144c531d43da8cf9dab781fcaacdbb4dbcd8f62e6277a1d181d"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-05/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "38c9d2e91ca7c5aee687b2ec080a7dd83a45a933ade4541d5d2e7f92a82ad533"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-05/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "d14c9030afd9db9f3029193638822442ed76290719146131131f0394cac6624d"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-05_baseline.log",
+      "sha256": "72aac03de7537257071477309ab4f6ffa4b98b83a52270d6061b0d492131f06c"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-05_candidate.log",
+      "sha256": "a31d9ab1b9f664e3a145f5d20529bc10857a1830c630527a7555afa901703d5f"
+    },
+    {
+      "bytes": 1416,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-09/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "c357f0bf120f2c33ed6e3115b7d59caf9f40c829b61d3103dca061e041787256"
+    },
+    {
+      "bytes": 1429,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2023-09/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "eeb625c4076b5a52424e3d5d9611abfc23abbabeaba8b25035b382c3c93590bc"
+    },
+    {
+      "bytes": 1447,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-09_baseline.log",
+      "sha256": "02b939774c94f0d529e925fc7d4c2f58b65920e827089f5fe0e43e188bb8985a"
+    },
+    {
+      "bytes": 1460,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2023-09_candidate.log",
+      "sha256": "0653be36458ad4ff783e426beda4098d4c9d5f82cf2fe702054cf5bf0383ead2"
+    },
+    {
+      "bytes": 1412,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-01/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "8e17150906920d633577ac2e802a99beec71d811dc0184ccf2f5a6e70ddc5494"
+    },
+    {
+      "bytes": 1426,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-01/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "9558da687b444c2dcfbc166cae5c9d43ca28f90aa0e6c59af6ad2077cbade862"
+    },
+    {
+      "bytes": 1443,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-01_baseline.log",
+      "sha256": "d06a24b5a89f6d6f2a828e9afbc8f97cded1e3541b3fa50f3f5451f1f00f8e43"
+    },
+    {
+      "bytes": 1457,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-01_candidate.log",
+      "sha256": "9ca4bd6ac59ab086658b98d8f0ef4422216888ab33e6c316b97b9a525ac0201f"
+    },
+    {
+      "bytes": 1413,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-05/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "5b39d07640726f314db21ff2586933586e4ce046b16084e65b5792fbe92cba4a"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-05/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "f21d47cf09ffef5fad6ab03764cd8626beb610732913f77cd265e4e432d18186"
+    },
+    {
+      "bytes": 1444,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-05_baseline.log",
+      "sha256": "2c8fec6bfa590e49b730abbc99b25d8ce1685c9b78ec5a22e130552c24ef5b3e"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-05_candidate.log",
+      "sha256": "242100bd5661f69ed340f63dc9d388c1106ec9be7ea3c1046b8b8a2bbda1b434"
+    },
+    {
+      "bytes": 1415,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-09/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "b0c885c46129e2fbb8e240465c2bd75b8b61a8f2b4843edf829bac927b0fffeb"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-09/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "b62169681f5a5a4bdebf7acd60ac244b5732e1181ea0474d9914b06a01a5e6fc"
+    },
+    {
+      "bytes": 1446,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-09_baseline.log",
+      "sha256": "c97b84c34f8a45939c20f62332284c52239d8384b429b933c974061e97f1eddc"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2024-09_candidate.log",
+      "sha256": "fb5d7cfd3a4d9085474f199ea08d6079ce018da84793ae25d518efcfa0aa7296"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-01/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "6d55d35bce146d4be49aaadcc07ffcf70ad1da0d4995925dab967fcea392fc8a"
+    },
+    {
+      "bytes": 1428,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-01/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "92cd541e1a4d1bea45149bd27bb1b6eb5eb06e6ef44d5886652464ad0e3850bd"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-01_baseline.log",
+      "sha256": "f87026b6e47a8f69957889a677df977ca0a7af83e1b2f8817cb5b1cf3a91bc53"
+    },
+    {
+      "bytes": 1459,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-01_candidate.log",
+      "sha256": "0546125a5be3b015b5995e6cd34a232a7717b9812507bc78fecbd317f7e27a5f"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-05/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "9350e8eeac374511762dc7014e3278b0eedd139b5e4a30698d2b9379d05bdc25"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-05/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "6ddeed27b8e4e703f3e5fe3818af305fb7b28e44c15440c736e4a63995e7cb7e"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-05_baseline.log",
+      "sha256": "924faba0f6e34a9d1b20c52f206d4bb849dc035d980a4cefc7a5e2440edee838"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-05_candidate.log",
+      "sha256": "d9dc28e3293f3c0b7a07a5708cce2b024947156628a83845545f664362174a51"
+    },
+    {
+      "bytes": 1414,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-09/baseline/PR2026-11-LS6-H5-BASELINE_cost20_proxy/summary.json",
+      "sha256": "b800a7b2effb248dc1360c6f1b2a57e82f5b217441b64a21459bfecdbb0bf262"
+    },
+    {
+      "bytes": 1427,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2025-09/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json",
+      "sha256": "697ecd9d4d654c23426ec2edb05c25329a701666d89c50f1ebad5c116c2a015a"
+    },
+    {
+      "bytes": 1445,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-09_baseline.log",
+      "sha256": "9f0e328c33d787b47624816487347e936b99169e1719fadaf4605206f9481876"
+    },
+    {
+      "bytes": 1458,
+      "path": "reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/logs/2025-09_candidate.log",
+      "sha256": "744641d2854a5e9064d42b6d93403214c4a4bd7b436cbac43a1c25dd310f370e"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history is not closed",
+    "12 months of true out-of-sample data after 2026-09-21 has not accumulated",
+    "nominal 0.5% NAV per-trade risk is not a hard cap; realized max adverse mark loss was 0.5971% NAV",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS6-H5-FUNDING-EXIT-RISK05",
+  "engine_monthly_starts": {
+    "count": 12,
+    "mdd_5pp_pass": 12,
+    "multiple_wins": 12,
+    "sharpe_wins": 12,
+    "status": "passed"
+  },
+  "execution_deviations": [],
+  "hard_failures": [
+    "365-day rolling worst 0.7923x is below baseline 0.7970x",
+    "Top20/2022 DSR 0.932636 is below 0.95",
+    "all-project DSR 0.908511 is below 0.95",
+    "realized maximum adverse short mark loss 0.5971% NAV exceeds nominal 0.5%"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "1bcd620f657249f4f272142a272972c953cbb624b51fc0e73bb430d04f453594",
+  "spec_sha256": "6b91d61ea6c88da6daf81ee1b9e4d39bf7b8eab4c45910338cde01406871e35e",
+  "trial_count_all_projects": 14176,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

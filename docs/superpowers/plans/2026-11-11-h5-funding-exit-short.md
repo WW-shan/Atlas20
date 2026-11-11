@@ -32,7 +32,7 @@
 - Produces:
   `funding_rank_percentile(funding_rates, universe, asset, *, as_of, eligible, lookback_days=7, min_assets=5) -> float | None`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_funding_rank_percentile_uses_pit_top20_cross_section() -> None:
@@ -58,17 +58,17 @@ def test_funding_rank_percentile_uses_pit_top20_cross_section() -> None:
     assert rank == pytest.approx(1.0)
 ```
 
-- [ ] **Step 2: Run test to verify RED**
+- [x] **Step 2: Run test to verify RED**
 
 Run: `.venv/bin/python -m pytest tests/test_derivatives_signals.py::test_funding_rank_percentile_uses_pit_top20_cross_section -q`
 
 Expected: ImportError because the function does not exist.
 
-- [ ] **Step 3: Implement the minimal helper**
+- [x] **Step 3: Implement the minimal helper**
 
 Normalize dates, restrict to PIT Top20 and eligible assets, compute the last-7-calendar-day mean per funding column, fail closed below `min_assets`, and return the asset's pandas percentile rank.
 
-- [ ] **Step 4: Run GREEN and commit**
+- [x] **Step 4: Run GREEN and commit**
 
 ```bash
 .venv/bin/python -m pytest tests/test_derivatives_signals.py::test_funding_rank_percentile_uses_pit_top20_cross_section -q
@@ -90,7 +90,7 @@ git commit -m "feat: add funding rank percentile"
 - Adds optional argument:
   `entry_allowed: Callable[[str, pd.Timestamp], bool] | None = None`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_build_exit_short_schedule_applies_entry_predicate() -> None:
@@ -115,15 +115,15 @@ def test_build_exit_short_schedule_applies_entry_predicate() -> None:
     assert short[d2].empty
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the exact test and observe that the function rejects the unknown argument.
 
-- [ ] **Step 3: Implement predicate check before activation**
+- [x] **Step 3: Implement predicate check before activation**
 
 Call `entry_allowed(asset, date)` after PIT eligibility and before adding to `active`. Existing callers with no predicate behave exactly as before.
 
-- [ ] **Step 4: Run all signal tests and commit**
+- [x] **Step 4: Run all signal tests and commit**
 
 ```bash
 .venv/bin/python -m pytest tests/test_derivatives_signals.py -q
@@ -143,7 +143,7 @@ git commit -m "feat: filter exit shorts by entry signal"
 - Consumes: `funding_rank_percentile`, `build_exit_short_schedule`, `_run_one`.
 - Produces: candidate ID `PR2026-11-LS6-H5-FUNDING-EXIT-RISK05`.
 
-- [ ] **Step 1: Write the failing constants test**
+- [x] **Step 1: Write the failing constants test**
 
 ```python
 def test_runner_freezes_funding_exit_candidate() -> None:
@@ -157,15 +157,15 @@ def test_runner_freezes_funding_exit_candidate() -> None:
     assert FROZEN_CONFIG["short_stop_loss_pct"] == 0.20
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run the new test; expect import failure.
 
-- [ ] **Step 3: Implement runner**
+- [x] **Step 3: Implement runner**
 
 Reuse the LS4 main/load path, pass an `entry_allowed` lambda using `funding_rank_percentile`, and label the construction correctly through `_manifest_construction`.
 
-- [ ] **Step 4: Run runner tests and commit**
+- [x] **Step 4: Run runner tests and commit**
 
 ```bash
 .venv/bin/python -m pytest tests/test_run_h5_funding_exit_short.py tests/test_run_h5_exit_short.py -q
@@ -180,10 +180,10 @@ git commit -m "feat: add funding-rank exit short runner"
 **Files:**
 - Modify: `reports/research_trial_inventory/preregistered_trials.csv`
 
-- [ ] **Step 1: Build the canonical spec JSON and hashes**
-- [ ] **Step 2: Append exactly one registered row**
-- [ ] **Step 3: Verify ledger tests**
-- [ ] **Step 4: Commit registration**
+- [x] **Step 1: Build the canonical spec JSON and hashes**
+- [x] **Step 2: Append exactly one registered row**
+- [x] **Step 3: Verify ledger tests**
+- [x] **Step 4: Commit registration**
 
 ```bash
 git add reports/research_trial_inventory/preregistered_trials.csv
@@ -194,12 +194,12 @@ git commit -m "research: preregister LS6 funding-rank exit short"
 
 ### Task 5: Run and evaluate
 
-- [ ] **Step 1: Run baseline and candidate at 20bps**
-- [ ] **Step 2: Run 2/50/100bps and 3x short-adverse**
-- [ ] **Step 3: Run annual, removal, rolling, saved-path starts and 12 engine starts**
-- [ ] **Step 4: Run PBO/RC and both DSR scopes**
-- [ ] **Step 5: Compute episode and concentration attribution**
-- [ ] **Step 6: Apply all kill criteria mechanically**
+- [x] **Step 1: Run baseline and candidate at 20bps**
+- [x] **Step 2: Run 2/50/100bps and 3x short-adverse**
+- [x] **Step 3: Run annual, removal, rolling, saved-path starts and 12 engine starts**
+- [x] **Step 4: Run PBO/RC and both DSR scopes**
+- [x] **Step 5: Compute episode and concentration attribution**
+- [x] **Step 6: Apply all kill criteria mechanically**
 
 Expected commands:
 
@@ -216,9 +216,9 @@ Expected commands:
 
 ### Task 6: Evidence and continuation
 
-- [ ] **Step 1: Write report and manifest**
-- [ ] **Step 2: Append one evaluated ledger row**
-- [ ] **Step 3: Update RESEARCH.md**
-- [ ] **Step 4: Run tests, lint, typecheck, manifest verification**
-- [ ] **Step 5: Commit and push**
-- [ ] **Step 6: If rejected, design a new mechanism without scanning LS6**
+- [x] **Step 1: Write report and manifest**
+- [x] **Step 2: Append one evaluated ledger row**
+- [x] **Step 3: Update RESEARCH.md**
+- [x] **Step 4: Run tests, lint, typecheck, manifest verification**
+- [x] **Step 5: Commit and push**
+- [x] **Step 6: If rejected, design a new mechanism without scanning LS6**

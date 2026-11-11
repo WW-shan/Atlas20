@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS6-H5-FUNDING-EXIT-RISK05,main,lag0,20.0,2.5342743638587595,9.572284384511818,-0.22697789325728324,/Users/ww/Project/Atlas20/reports/derivatives_track_h5_funding_exit_short/engine_monthly_starts/2024-09/candidate/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/summary.json
