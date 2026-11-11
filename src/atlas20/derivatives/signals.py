@@ -768,6 +768,7 @@ def build_derivative_targets(
     cross_sectional_short_count: int = 1,
     cross_sectional_hold_rank: int | None = None,
     cross_sectional_anchor: object | None = None,
+    cross_sectional_entry_allowed: Callable[[pd.Timestamp], bool] | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Combine the scaled H5 long book with a pre-registered short overlay.
 
@@ -861,52 +862,58 @@ def build_derivative_targets(
                     and asset not in long_members
                 ]
             if long_cursor > 0 and rebalance_due and short_weight > 0.0:
-                eligible_folded = (
-                    {str(value).casefold() for value in eligible}
-                    if eligible is not None
-                    else None
-                )
-                ranked = _ranked_weakest_top20(
-                    prices,
-                    universe,
-                    date,
-                    eligible=eligible,
-                    exclude=set(long_members),
-                    lookback=cross_sectional_lookback,
-                )
-                investable: list[str] = []
-                for chosen in ranked:
-                    if eligible_folded is not None and chosen.casefold() not in eligible_folded:
-                        continue
-                    if short_available is not None and not short_available(chosen, date):
-                        continue
-                    if not funding_filter(
-                        funding_rates,
-                        chosen,
-                        as_of=date,
-                        threshold=short_funding_threshold,
-                    ):
-                        continue
-                    investable.append(chosen)
-
-                if cross_sectional_hold_rank is None:
-                    selected = investable[:cross_sectional_short_count]
+                if (
+                    cross_sectional_entry_allowed is not None
+                    and not cross_sectional_entry_allowed(date)
+                ):
+                    active_cross_sectional_shorts = []
                 else:
-                    hold_set = set(investable[:cross_sectional_hold_rank])
-                    selected = [
-                        asset
-                        for asset in active_cross_sectional_shorts
-                        if asset in hold_set
-                    ]
-                    selected.extend(
-                        asset
-                        for asset in investable
-                        if asset not in selected
+                    eligible_folded = (
+                        {str(value).casefold() for value in eligible}
+                        if eligible is not None
+                        else None
                     )
-                    selected = selected[:cross_sectional_short_count]
-                # A failed weekly selection exits the old basket rather than
-                # retaining coins that no longer clear the screen.
-                active_cross_sectional_shorts = selected
+                    ranked = _ranked_weakest_top20(
+                        prices,
+                        universe,
+                        date,
+                        eligible=eligible,
+                        exclude=set(long_members),
+                        lookback=cross_sectional_lookback,
+                    )
+                    investable: list[str] = []
+                    for chosen in ranked:
+                        if eligible_folded is not None and chosen.casefold() not in eligible_folded:
+                            continue
+                        if short_available is not None and not short_available(chosen, date):
+                            continue
+                        if not funding_filter(
+                            funding_rates,
+                            chosen,
+                            as_of=date,
+                            threshold=short_funding_threshold,
+                        ):
+                            continue
+                        investable.append(chosen)
+
+                    if cross_sectional_hold_rank is None:
+                        selected = investable[:cross_sectional_short_count]
+                    else:
+                        hold_set = set(investable[:cross_sectional_hold_rank])
+                        selected = [
+                            asset
+                            for asset in active_cross_sectional_shorts
+                            if asset in hold_set
+                        ]
+                        selected.extend(
+                            asset
+                            for asset in investable
+                            if asset not in selected
+                        )
+                        selected = selected[:cross_sectional_short_count]
+                    # A failed weekly selection exits the old basket rather than
+                    # retaining coins that no longer clear the screen.
+                    active_cross_sectional_shorts = selected
             leg_weight = float(short_weight) / float(cross_sectional_short_count)
             for asset in active_cross_sectional_shorts:
                 combined.loc[asset] = -leg_weight

@@ -139,6 +139,17 @@ TRIAL_RULES: dict[str, dict[str, Any]] = {
         "cross_sectional_hold_rank": 8,
         "short_stop_loss_pct": 0.20,
     },
+    "PR2026-11-LS11-H5-WEAK4-BEAR200-STOP20": {
+        "leverage": 1.25,
+        "short_asset": "weakest",
+        "short_weight": 0.25,
+        "short_mode": "cross-sectional",
+        "cross_sectional_lookback": 14,
+        "cross_sectional_rebalance_days": 7,
+        "cross_sectional_short_count": 4,
+        "cross_sectional_btc_ma_window": 200,
+        "short_stop_loss_pct": 0.20,
+    },
 }
 STOP_TRIALS: dict[str, dict[str, Any]] = {
     "PR2026-10-D-S-BTC25-STOP20": {"short_asset": "bitcoin", "short_weight": 0.25},
@@ -355,6 +366,34 @@ def main() -> None:
         else leverage + short_weight
     )
 
+    btc_ma_window = rule.get("cross_sectional_btc_ma_window")
+    cross_sectional_entry_allowed = None
+    if btc_ma_window is not None:
+        btc_close = market.price["bitcoin"].copy()
+        btc_close.index = pd.DatetimeIndex(
+            [
+                pd.Timestamp(value).tz_localize("UTC")
+                if pd.Timestamp(value).tzinfo is None
+                else pd.Timestamp(value).tz_convert("UTC")
+                for value in btc_close.index
+            ]
+        )
+        btc_close = btc_close[~btc_close.index.duplicated(keep="last")].sort_index()
+        btc_ma = btc_close.rolling(
+            int(btc_ma_window), min_periods=int(btc_ma_window)
+        ).mean()
+
+        def cross_sectional_entry_allowed(date: pd.Timestamp) -> bool:
+            timestamp = pd.Timestamp(date)
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.tz_localize("UTC")
+            else:
+                timestamp = timestamp.tz_convert("UTC")
+            if timestamp not in btc_close.index:
+                return False
+            threshold = btc_ma.loc[timestamp]
+            return bool(pd.notna(threshold) and float(btc_close.loc[timestamp]) < float(threshold))
+
     derivative_targets = build_derivative_targets(
         restricted,
         btc_close=market.price["bitcoin"],
@@ -381,6 +420,7 @@ def main() -> None:
             else int(rule["cross_sectional_hold_rank"])
         ),
         cross_sectional_anchor=args.start_date,
+        cross_sectional_entry_allowed=cross_sectional_entry_allowed,
     )
 
     cfg = DerivativeBacktestConfig(
@@ -425,6 +465,7 @@ def main() -> None:
         "short_mode": short_mode,
         "short_buffer": short_buffer,
         "cross_sectional_hold_rank": rule.get("cross_sectional_hold_rank"),
+        "cross_sectional_btc_ma_window": rule.get("cross_sectional_btc_ma_window"),
         "short_stop_loss_pct": (
             None if short_stop_loss_pct is None else float(short_stop_loss_pct)
         ),

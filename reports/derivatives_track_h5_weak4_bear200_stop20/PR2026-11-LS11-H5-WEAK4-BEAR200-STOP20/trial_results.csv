@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS11-H5-WEAK4-BEAR200-STOP20,main,lag0,20.0,1.8068741541090352,49.795176672701366,-0.4065059049330483,reports/derivatives_track_h5_weak4_bear200_stop20/PR2026-11-LS11-H5-WEAK4-BEAR200-STOP20/summary.json

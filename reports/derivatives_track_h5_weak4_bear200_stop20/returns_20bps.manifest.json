@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    "H5_BASELINE",
+    "LS11_H5_WEAK4_BEAR200_STOP20"
+  ],
+  "end": "2026-09-20T00:00:00+00:00",
+  "inputs": [
+    "reports/derivatives_track_h5_weak4_bear200_stop20/returns_inputs/H5_BASELINE.csv",
+    "reports/derivatives_track_h5_weak4_bear200_stop20/returns_inputs/LS11_H5_WEAK4_BEAR200_STOP20.csv"
+  ],
+  "rows": 1724,
+  "start": "2022-01-01T00:00:00+00:00"
+}

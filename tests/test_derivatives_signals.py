@@ -427,6 +427,53 @@ def test_build_derivative_targets_cross_sectional_short_excludes_long_book() -> 
     assert target["SOL"] == pytest.approx(-0.25)
 
 
+def test_build_derivative_targets_cross_sectional_entry_gate_keeps_book_long_only() -> None:
+    dates = pd.date_range("2024-12-01", periods=45, freq="D", tz="UTC")
+    signal_date = dates[21]
+    prices = pd.DataFrame(
+        {"BTC": 100.0, "ETH": 100.0, "SOL": 100.0, "ADA": 100.0},
+        index=dates,
+    )
+    prices.loc[signal_date, "SOL"] = 70.0
+    prices.loc[signal_date, "ADA"] = 75.0
+    universe = pd.DataFrame(
+        {"rebalance_date": [dates[0]] * 4, "coin_id": ["BTC", "ETH", "SOL", "ADA"]}
+    )
+    funding = pd.DataFrame(
+        {coin: [0.0001] * 3 for coin in prices.columns},
+        index=pd.DatetimeIndex(
+            [
+                dates[20].replace(hour=0),
+                dates[20].replace(hour=8),
+                dates[20].replace(hour=16),
+            ]
+        ),
+    )
+
+    combined = build_derivative_targets(
+        {dates[0]: pd.Series({"ETH": 1.0})},
+        btc_close=prices["BTC"],
+        universe=universe,
+        prices=prices,
+        funding_rates=funding,
+        leverage=1.25,
+        max_gross=1.5,
+        short_asset="weakest",
+        short_weight=0.25,
+        eligible=set(prices.columns),
+        short_mode="cross-sectional",
+        calendar=dates,
+        cross_sectional_lookback=14,
+        cross_sectional_rebalance_days=7,
+        cross_sectional_short_count=2,
+        cross_sectional_anchor=dates[0],
+        cross_sectional_entry_allowed=lambda date: False,
+    )
+
+    assert combined
+    assert all((target >= 0.0).all() for target in combined.values())
+
+
 def test_build_derivative_targets_cross_sectional_basket_splits_total_weight() -> None:
     dates = pd.date_range("2024-12-01", periods=45, freq="D", tz="UTC")
     signal_date = dates[21]

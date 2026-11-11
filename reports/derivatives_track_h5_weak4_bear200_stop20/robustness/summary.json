@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    "H5_BASELINE",
+    "LS11_H5_WEAK4_BEAR200_STOP20"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "window_days": 365
+}
