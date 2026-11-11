@@ -218,6 +218,77 @@ def _write_schedule(path: Path, schedule: Mapping[pd.Timestamp, pd.Series]) -> N
     pd.DataFrame(rows, columns=["date", "asset", "weight"]).to_csv(path, index=False)
 
 
+def build_regime_short_schedules(
+    *,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_raw: Mapping[pd.Timestamp, pd.Series],
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding: pd.DataFrame,
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+) -> tuple[
+    dict[pd.Timestamp, pd.Series],
+    pd.DataFrame,
+    dict[pd.Timestamp, pd.Series],
+    dict[pd.Timestamp, pd.Series],
+]:
+    """Build the frozen LS12 short router from market and H5 inputs."""
+    bear = _btc_bear_regime(
+        market.price["bitcoin"],
+        index,
+        ma_window=int(FROZEN_CONFIG["btc_ma_window"]),
+    )
+    bear_schedule = build_cross_sectional_weak_short_schedule(
+        market.price,
+        universe,
+        long_targets,
+        calendar=index,
+        funding_rates=funding if not funding.empty else None,
+        eligible=available,
+        short_available=lambda asset, date: _short_mark_available(mark_candles, asset, date),
+        lookback=int(FROZEN_CONFIG["bear_lookback_days"]),
+        rebalance_days=int(FROZEN_CONFIG["bear_rebalance_days"]),
+        short_count=int(FROZEN_CONFIG["bear_short_count"]),
+        per_asset_weight=float(FROZEN_CONFIG["bear_per_asset_weight"]),
+        funding_threshold=float(FROZEN_CONFIG["bear_funding_threshold"]),
+        funding_lookback=int(FROZEN_CONFIG["bear_funding_lookback_settlements"]),
+        anchor=start_date,
+    )
+    eligible_by_date = _eligible_members_by_date(universe, list(long_raw))
+
+    def exit_entry_allowed(asset: str, date: pd.Timestamp) -> bool:
+        if not _short_mark_available(mark_candles, asset, date):
+            return False
+        rank = funding_rank_percentile(
+            funding if not funding.empty else None,
+            universe,
+            asset,
+            as_of=date,
+            eligible=available,
+            lookback_days=int(FROZEN_CONFIG["exit_funding_lookback_days"]),
+            min_assets=int(FROZEN_CONFIG["exit_funding_min_assets"]),
+        )
+        return rank is not None and rank >= float(FROZEN_CONFIG["exit_funding_rank_min"])
+
+    exit_schedule = build_exit_short_schedule(
+        long_raw,
+        holding_days=int(FROZEN_CONFIG["exit_holding_days"]),
+        eligible_by_date=eligible_by_date,
+        per_asset_weight=float(FROZEN_CONFIG["exit_per_asset_weight"]),
+        entry_allowed=exit_entry_allowed,
+    )
+    short_targets, sleeve_audit = route_short_sleeves(
+        calendar=index,
+        bear=bear,
+        bear_schedule=bear_schedule,
+        non_bear_schedule=exit_schedule,
+    )
+    return short_targets, sleeve_audit, bear_schedule, exit_schedule
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
@@ -274,55 +345,16 @@ def main() -> None:
     bear_schedule: dict[pd.Timestamp, pd.Series] = {}
     exit_schedule: dict[pd.Timestamp, pd.Series] = {}
     if args.trial_id == CANDIDATE_ID:
-        bear = _btc_bear_regime(
-            market.price["bitcoin"],
-            index,
-            ma_window=int(FROZEN_CONFIG["btc_ma_window"]),
-        )
-        bear_schedule = build_cross_sectional_weak_short_schedule(
-            market.price,
-            universe,
-            long_targets,
-            calendar=index,
-            funding_rates=funding if not funding.empty else None,
-            eligible=available,
-            short_available=lambda asset, date: _short_mark_available(mark_candles, asset, date),
-            lookback=int(FROZEN_CONFIG["bear_lookback_days"]),
-            rebalance_days=int(FROZEN_CONFIG["bear_rebalance_days"]),
-            short_count=int(FROZEN_CONFIG["bear_short_count"]),
-            per_asset_weight=float(FROZEN_CONFIG["bear_per_asset_weight"]),
-            funding_threshold=float(FROZEN_CONFIG["bear_funding_threshold"]),
-            funding_lookback=int(FROZEN_CONFIG["bear_funding_lookback_settlements"]),
-            anchor=args.start_date,
-        )
-        eligible_by_date = _eligible_members_by_date(universe, list(long_raw))
-
-        def exit_entry_allowed(asset: str, date: pd.Timestamp) -> bool:
-            if not _short_mark_available(mark_candles, asset, date):
-                return False
-            rank = funding_rank_percentile(
-                funding if not funding.empty else None,
-                universe,
-                asset,
-                as_of=date,
-                eligible=available,
-                lookback_days=int(FROZEN_CONFIG["exit_funding_lookback_days"]),
-                min_assets=int(FROZEN_CONFIG["exit_funding_min_assets"]),
-            )
-            return rank is not None and rank >= float(FROZEN_CONFIG["exit_funding_rank_min"])
-
-        exit_schedule = build_exit_short_schedule(
-            long_raw,
-            holding_days=int(FROZEN_CONFIG["exit_holding_days"]),
-            eligible_by_date=eligible_by_date,
-            per_asset_weight=float(FROZEN_CONFIG["exit_per_asset_weight"]),
-            entry_allowed=exit_entry_allowed,
-        )
-        short_targets, sleeve_audit = route_short_sleeves(
-            calendar=index,
-            bear=bear,
-            bear_schedule=bear_schedule,
-            non_bear_schedule=exit_schedule,
+        short_targets, sleeve_audit, bear_schedule, exit_schedule = build_regime_short_schedules(
+            market=market,
+            universe=universe,
+            index=index,
+            long_raw=long_raw,
+            long_targets=long_targets,
+            funding=funding,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=args.start_date,
         )
 
     combined, target_audit = combine_long_with_cash_budgeted_short(

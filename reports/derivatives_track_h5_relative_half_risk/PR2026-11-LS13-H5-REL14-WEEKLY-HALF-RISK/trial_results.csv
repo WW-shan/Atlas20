@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS13-H5-REL14-WEEKLY-HALF-RISK,main,lag0,20.0,1.9632562597396754,33.708314283821586,-0.28370216180574326,reports/derivatives_track_h5_relative_half_risk/PR2026-11-LS13-H5-REL14-WEEKLY-HALF-RISK/summary.json
