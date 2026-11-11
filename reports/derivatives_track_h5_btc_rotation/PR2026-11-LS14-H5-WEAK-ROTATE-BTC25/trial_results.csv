@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS14-H5-WEAK-ROTATE-BTC25,main,lag0,20.0,1.8785747287152572,43.532611086158816,-0.36487049449937503,reports/derivatives_track_h5_btc_rotation/PR2026-11-LS14-H5-WEAK-ROTATE-BTC25/summary.json

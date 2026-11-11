@@ -5,18 +5,18 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `ee958e0` from 2 uncommitted source file(s): `reports/derivatives_track_h5_relative_half_risk/PR2026-11-LS13-H5-REL14-WEEKLY-HALF-RISK/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `14cb862` from 2 uncommitted source file(s): `reports/derivatives_track_h5_btc_rotation/PR2026-11-LS14-H5-WEAK-ROTATE-BTC25/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,183 | 14,149 | 8,980 | 0.7957 | 0.6526 | 0.03416 |
-| top20_2022_trials | 6,144 | 6,129 | 3,832 | 0.4326 | 0.3184 | 0.01666 |
+| all_trials | 14,184 | 14,150 | 8,981 | 0.7958 | 0.6526 | 0.03416 |
+| top20_2022_trials | 6,145 | 6,130 | 3,833 | 0.4328 | 0.3189 | 0.01669 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
-start 2022-01-01, cost nearest 20 bps. Its 6,129 Sharpe ratios come from
-3,832 distinct return streams; configurations inside one study
+start 2022-01-01, cost nearest 20 bps. Its 6,130 Sharpe ratios come from
+3,833 distinct return streams; configurations inside one study
 that happen to give identical returns (liquidity tiers that never bind, stops
 that never fire) count separately. The `all_trials` Sharpe dispersion mixes
 windows (the April 2022-11-21 studies have Sharpe ratios near 2), so the
@@ -52,7 +52,7 @@ multiple-testing script uses it only for the trial count.
 | ctrend_lite | 5241 | 3626 |
 | derivatives | 41 | 0 |
 | leader_momentum | 5761 | 655 |
-| phase_momentum | 85 | 83 |
+| phase_momentum | 86 | 84 |
 | sector | 647 | 254 |
 | topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |

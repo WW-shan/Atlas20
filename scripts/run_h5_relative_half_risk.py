@@ -141,6 +141,48 @@ def scale_long_targets_by_state(
     return scaled
 
 
+def rotate_long_targets_to_btc(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    index: pd.DatetimeIndex,
+    risk_off: pd.Series,
+    rotation_fraction: float,
+    btc_asset: str = "bitcoin",
+) -> dict[pd.Timestamp, pd.Series]:
+    """Rotate part of the long risk budget into BTC without changing long gross."""
+    if not 0.0 < rotation_fraction <= 1.0:
+        raise ValueError("rotation_fraction must be in (0, 1]")
+    if not btc_asset:
+        raise ValueError("btc_asset must be non-empty")
+    h5_dates = sorted({_as_utc(value) for value in long_targets})
+    scale_dates = set(risk_off.index[risk_off.ne(risk_off.shift()).fillna(True)].tolist())
+    event_dates = sorted(set(h5_dates) | scale_dates)
+    cursor = 0
+    weights = pd.Series(dtype=float)
+    previous: pd.Series | None = None
+    rotated: dict[pd.Timestamp, pd.Series] = {}
+    for date in event_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            raw = pd.to_numeric(long_targets[h5_dates[cursor]], errors="coerce").fillna(0.0)
+            raw.index = raw.index.astype(str)
+            weights = raw.astype(float).sort_index()
+            cursor += 1
+        is_risk_off = bool(risk_off.reindex([date]).fillna(False).iloc[0])
+        if is_risk_off and not weights.empty:
+            total = float(weights.sum())
+            target = weights * (1.0 - float(rotation_fraction))
+            target.loc[btc_asset] = float(target.get(btc_asset, 0.0)) + total * float(
+                rotation_fraction
+            )
+            target = target.sort_index()
+        else:
+            target = weights.copy()
+        if previous is None or not _target_equal(previous.to_dict(), target.to_dict()):
+            rotated[date] = target
+            previous = target.copy()
+    return rotated
+
+
 def _engine_config(args: argparse.Namespace) -> DerivativeBacktestConfig:
     return DerivativeBacktestConfig(
         initial_capital=1.0,

@@ -1,0 +1,24 @@
+{
+  "baseline": true,
+  "candidate_id": "PR2026-10-D-L125",
+  "construction": "H5 1.25x long-only",
+  "cost_bps": 20.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "btc_rotation_fraction": 0.25,
+    "evaluation_days": 7,
+    "h5_leverage": 1.25,
+    "long_buffer": 0.5,
+    "max_total_gross": 1.5,
+    "relative_lookback_days": 14,
+    "risk_off_h5_scale": 0.75,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-h5-btc-rotation-design.md",
+  "start_date": "2022-01-01"
+}

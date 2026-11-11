@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    "L125_BASELINE",
+    "LS14_H5_WEAK_ROTATE_BTC25"
+  ],
+  "end": "2026-09-20T00:00:00+00:00",
+  "inputs": [
+    "reports/derivatives_track_h5_btc_rotation/returns_inputs/L125_BASELINE.csv",
+    "reports/derivatives_track_h5_btc_rotation/returns_inputs/LS14_H5_WEAK_ROTATE_BTC25.csv"
+  ],
+  "rows": 1724,
+  "start": "2022-01-01T00:00:00+00:00"
+}
