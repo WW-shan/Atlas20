@@ -5,18 +5,18 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `c713b41` from 2 uncommitted source file(s): `reports/derivatives_track_h5_funding_basket/PR2026-11-LS17-H5-FUNDING-BASKET/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `1e5685d` from 2 uncommitted source file(s): `reports/derivatives_track_h5_funding_tilt/PR2026-11-LS18-H5-FUNDING-TILT/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,187 | 14,153 | 8,984 | 0.7960 | 0.6527 | 0.03417 |
-| top20_2022_trials | 6,148 | 6,133 | 3,836 | 0.4335 | 0.3203 | 0.01677 |
+| all_trials | 14,188 | 14,154 | 8,985 | 0.7961 | 0.6528 | 0.03417 |
+| top20_2022_trials | 6,149 | 6,134 | 3,837 | 0.4337 | 0.3207 | 0.01679 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
-start 2022-01-01, cost nearest 20 bps. Its 6,133 Sharpe ratios come from
-3,836 distinct return streams; configurations inside one study
+start 2022-01-01, cost nearest 20 bps. Its 6,134 Sharpe ratios come from
+3,837 distinct return streams; configurations inside one study
 that happen to give identical returns (liquidity tiers that never bind, stops
 that never fire) count separately. The `all_trials` Sharpe dispersion mixes
 windows (the April 2022-11-21 studies have Sharpe ratios near 2), so the
@@ -52,7 +52,7 @@ multiple-testing script uses it only for the trial count.
 | ctrend_lite | 5241 | 3626 |
 | derivatives | 41 | 0 |
 | leader_momentum | 5761 | 655 |
-| phase_momentum | 89 | 87 |
+| phase_momentum | 90 | 88 |
 | sector | 647 | 254 |
 | topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |

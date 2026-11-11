@@ -1141,3 +1141,72 @@ def test_high_funding_short_schedule_selects_positive_non_h5_names() -> None:
         "ADA": pytest.approx(0.0625),
         "XRP": pytest.approx(0.0625),
     }
+
+
+def test_funding_tilt_halves_crowded_h5_leg_and_redistributes_to_other_holdings() -> None:
+    from atlas20.derivatives.signals import tilt_long_targets_away_from_crowded_funding
+
+    date = pd.Timestamp("2026-01-10T00:00:00Z")
+    assets = ["A", "B", "C", "D", "E"]
+    funding = pd.DataFrame(
+        {
+            "A": [0.0005],
+            "B": [0.0001],
+            "C": [0.0002],
+            "D": [0.0003],
+            "E": [0.0004],
+        },
+        index=[date],
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * 5, "coin_id": assets})
+    long_targets = {date: pd.Series({"A": 0.5, "B": 0.3, "C": 0.2})}
+
+    tilted, audit = tilt_long_targets_away_from_crowded_funding(
+        long_targets,
+        funding_rates=funding,
+        universe=universe,
+        eligible=set(assets),
+        lookback_days=7,
+        rank_min=2.0 / 3.0,
+        min_assets=5,
+        crowded_weight_scale=0.5,
+        max_asset_weight=0.60,
+    )
+
+    assert tilted[date].to_dict() == {
+        "A": pytest.approx(0.25),
+        "B": pytest.approx(0.45),
+        "C": pytest.approx(0.30),
+    }
+    assert audit.iloc[0]["crowded_assets"] == "A"
+    assert audit.iloc[0]["freed_weight"] == pytest.approx(0.25)
+    assert audit.iloc[0]["redistributed_weight"] == pytest.approx(0.25)
+    assert audit.iloc[0]["cash_weight"] == pytest.approx(0.0)
+
+
+def test_funding_tilt_keeps_unallocatable_weight_in_cash_when_recipient_caps_bind() -> None:
+    from atlas20.derivatives.signals import tilt_long_targets_away_from_crowded_funding
+
+    date = pd.Timestamp("2026-01-10T00:00:00Z")
+    assets = ["A", "B", "C", "D", "E"]
+    funding = pd.DataFrame(
+        {"A": [0.0005], "B": [0.0001], "C": [0.0002], "D": [0.0003], "E": [0.0004]},
+        index=[date],
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * 5, "coin_id": assets})
+    long_targets = {date: pd.Series({"A": 0.5, "B": 0.3, "C": 0.2})}
+
+    tilted, audit = tilt_long_targets_away_from_crowded_funding(
+        long_targets,
+        funding_rates=funding,
+        universe=universe,
+        eligible=set(assets),
+        max_asset_weight=0.35,
+    )
+
+    assert tilted[date].to_dict() == {
+        "A": pytest.approx(0.25),
+        "B": pytest.approx(0.35),
+        "C": pytest.approx(0.35),
+    }
+    assert audit.iloc[0]["cash_weight"] == pytest.approx(0.05)

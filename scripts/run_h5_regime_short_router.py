@@ -30,6 +30,7 @@ from atlas20.derivatives.signals import (  # noqa: E402
     build_cross_sectional_funding_short_schedule,
     build_cross_sectional_weak_short_schedule,
     build_exit_short_schedule,
+    tilt_long_targets_away_from_crowded_funding,
     combine_long_with_cash_budgeted_short,
     funding_rank_percentile,
     scale_long_targets,
@@ -55,21 +56,32 @@ CANDIDATE_ID = "PR2026-11-LS12-H5-REGIME-SHORT-ROUTER"
 NO_TRADE_BAND_CANDIDATE_ID = "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5"
 NO_TRADE_BAND_FRACTION = 0.05
 LS17_CANDIDATE_ID = "PR2026-11-LS17-H5-FUNDING-BASKET"
+LS18_CANDIDATE_ID = "PR2026-11-LS18-H5-FUNDING-TILT"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
+LS18_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-tilt-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
     LS17_CANDIDATE_ID: 0.0,
+    LS18_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
+LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
 HIGH_FUNDING_SHORT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
     "rebalance_days": 7,
     "short_count": 4,
     "per_asset_weight": 0.0625,
     "min_assets": 5,
+}
+FUNDING_LONG_TILT_CONFIG: dict[str, Any] = {
+    "lookback_days": 7,
+    "rank_min": 2.0 / 3.0,
+    "min_assets": 5,
+    "crowded_weight_scale": 0.5,
+    "max_asset_weight": 0.60,
 }
 FROZEN_CONFIG: dict[str, Any] = {
     "h5_leverage": 1.25,
@@ -106,6 +118,12 @@ LS17_CONSTRUCTION = (
     "200D SMA: bear = weekly 14D weakest-four PIT Top20 non-H5 basket; "
     "non-bear = weekly top-four positive 7D funding PIT Top20 non-H5 basket; "
     "total short <=0.25x and hard total gross 1.50x"
+)
+LS18_CONSTRUCTION = (
+    "Frozen LS12 H5 1.25x + dual-short router; before execution, halve any "
+    "H5 long leg whose positive 7D funding is in the top third of the PIT "
+    "cross-section, redistribute freed weight to other non-crowded H5 legs "
+    "with a 60% per-asset cap, and leave unallocatable weight in cash"
 )
 
 
@@ -344,6 +362,37 @@ def non_bear_mode_for_trial(trial_id: str) -> str:
     return NON_BEAR_MODE_BY_TRIAL.get(trial_id, "h5_exit")
 
 
+def build_long_targets_for_trial(
+    *,
+    trial_id: str,
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding_rates: pd.DataFrame,
+    universe: pd.DataFrame,
+    available: set[str],
+):
+    if trial_id not in LONG_TILT_TRIALS:
+        return long_targets, pd.DataFrame(
+            columns=[
+                "date",
+                "holdings",
+                "crowded_legs",
+                "crowded_assets",
+                "target_gross_before",
+                "target_gross_after",
+                "freed_weight",
+                "redistributed_weight",
+                "cash_weight",
+            ]
+        )
+    return tilt_long_targets_away_from_crowded_funding(
+        long_targets,
+        funding_rates=funding_rates,
+        universe=universe,
+        eligible=available,
+        **FUNDING_LONG_TILT_CONFIG,
+    )
+
+
 def build_short_targets_for_trial(
     *,
     trial_id: str,
@@ -381,6 +430,7 @@ def main() -> None:
             CANDIDATE_ID,
             NO_TRADE_BAND_CANDIDATE_ID,
             LS17_CANDIDATE_ID,
+            LS18_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -424,6 +474,13 @@ def main() -> None:
     )
     if not funding.empty:
         funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
+    long_targets, long_tilt_audit = build_long_targets_for_trial(
+        trial_id=args.trial_id,
+        long_targets=long_targets,
+        funding_rates=funding,
+        universe=universe,
+        available=available,
+    )
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
         for record in symbol_map.to_dict("records"):
@@ -501,6 +558,17 @@ def main() -> None:
         "max_total_gross": float(FROZEN_CONFIG["max_total_gross"]),
         "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         "non_bear_sleeve": non_bear_mode_for_trial(args.trial_id),
+        "funding_tilt_event_count": int(len(long_tilt_audit)),
+        "funding_tilt_crowded_leg_count": (
+            int(long_tilt_audit["crowded_legs"].sum())
+            if not long_tilt_audit.empty
+            else 0
+        ),
+        "funding_tilt_cash_weight_total": (
+            float(long_tilt_audit["cash_weight"].sum())
+            if not long_tilt_audit.empty
+            else 0.0
+        ),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
@@ -527,6 +595,7 @@ def main() -> None:
     result.positions.to_csv(output_dir / "positions.csv", index=False)
     result.gross_exposure.to_csv(output_dir / "gross_exposure.csv", header=True)
     target_audit.to_csv(output_dir / "target_gross.csv", index=False)
+    long_tilt_audit.to_csv(output_dir / "funding_tilt_audit.csv", index=False)
     sleeve_audit.to_csv(output_dir / "sleeve_audit.csv", index=False)
     _write_schedule(output_dir / "routed_short_schedule.csv", short_targets)
     _write_schedule(output_dir / "bear_weak4_schedule.csv", bear_schedule)
@@ -559,6 +628,8 @@ def main() -> None:
                     if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
                     else LS17_SPEC_PATH
                     if args.trial_id == LS17_CANDIDATE_ID
+                    else LS18_SPEC_PATH
+                    if args.trial_id == LS18_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -568,6 +639,8 @@ def main() -> None:
                     if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
                     else LS17_CONSTRUCTION
                     if args.trial_id == LS17_CANDIDATE_ID
+                    else LS18_CONSTRUCTION
+                    if args.trial_id == LS18_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
@@ -581,6 +654,11 @@ def main() -> None:
                     **(
                         HIGH_FUNDING_SHORT_CONFIG
                         if args.trial_id == LS17_CANDIDATE_ID
+                        else {}
+                    ),
+                    **(
+                        FUNDING_LONG_TILT_CONFIG
+                        if args.trial_id == LS18_CANDIDATE_ID
                         else {}
                     ),
                 },
@@ -611,6 +689,7 @@ def main() -> None:
                 f"- Max requested short gross: {summary['max_requested_short_gross']:.6f}x",
                 f"- Rebalance no-trade band: {summary['rebalance_no_trade_band']:.4%} NAV",
                 f"- Non-bear short sleeve: {summary['non_bear_sleeve']}",
+                f"- Funding long-tilt events: {summary['funding_tilt_event_count']}",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",

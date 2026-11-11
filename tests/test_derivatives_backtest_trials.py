@@ -133,3 +133,46 @@ def test_ls17_runner_passes_high_funding_mode_to_schedule_builder(monkeypatch) -
 
     assert result is sentinel
     assert captured["non_bear_mode"] == "high_funding"
+
+
+def test_ls18_funding_long_tilt_is_frozen_to_existing_risk_parameters() -> None:
+    from scripts.run_h5_regime_short_router import (
+        FUNDING_LONG_TILT_CONFIG,
+        LS18_CANDIDATE_ID,
+    )
+
+    assert LS18_CANDIDATE_ID == "PR2026-11-LS18-H5-FUNDING-TILT"
+    assert FUNDING_LONG_TILT_CONFIG == {
+        "lookback_days": 7,
+        "rank_min": 2.0 / 3.0,
+        "min_assets": 5,
+        "crowded_weight_scale": 0.5,
+        "max_asset_weight": 0.60,
+    }
+
+
+def test_ls18_runner_applies_funding_tilt_to_long_targets(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "tilted"}, "audit")
+
+    def fake_tilt(targets, **kwargs):
+        captured["targets"] = targets
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "tilt_long_targets_away_from_crowded_funding", fake_tilt)
+    long_targets = {"date": "long"}
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS18_CANDIDATE_ID,
+        long_targets=long_targets,
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+    )
+
+    assert result is sentinel
+    assert captured["targets"] is long_targets
+    assert captured["rank_min"] == 2.0 / 3.0
+    assert captured["max_asset_weight"] == 0.60

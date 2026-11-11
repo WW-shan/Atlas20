@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "c713b414d80fd6819d84a576c2782283ba5c81f1",
+  "repository_head": "1e5685d2bad1fb71cde481c101c47a0f80214425",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "993be77752c8954e19b7cd3ff293977ebaca01230499267c4adf925fd08ee160",
+  "research_md_sha256": "4fad844d7889c5f0190da159a4e8a3ab27c257799a63a50d8e30181996e8177f",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20431,
-  "rows_at_primary_cost": 17893,
+  "rows_read": 20432,
+  "rows_at_primary_cost": 17894,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -717,12 +717,16 @@
       "sha256": "4efd6572983bab8ca56be9be87eb7b08f10c2a50ec4bedee0178284d930fdbd2"
     },
     "reports/derivatives_track_h5_funding_basket/PR2026-11-LS17-H5-FUNDING-BASKET/trial_results.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "a2f82184be45a169e1deb91ffe5a67b6e02135a71ef1ff3508b79d78aaf5b71a"
     },
     "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/trial_results.csv": {
       "origin": "working tree (committed)",
       "sha256": "1ce8440842dd4b9b6f12d9ddc5b3bfc88ada40c551d802a06188bbd9c56b5820"
+    },
+    "reports/derivatives_track_h5_funding_tilt/PR2026-11-LS18-H5-FUNDING-TILT/trial_results.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "3d2d006c031de32a0f0085bacef23ebee71ce0124e9e11c1f8ae619106e8ed39"
     },
     "reports/derivatives_track_h5_lowlong_funding_exit/PR2026-11-LS8-H5-LOWLONG-FUNDING-EXIT_cost20_proxy/trial_results.csv": {
       "origin": "working tree (committed)",
@@ -902,7 +906,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (modified)",
-      "sha256": "cc9d29119117151317ee0cfdd66254eb5c4163412681bc550600d21851213ec1"
+      "sha256": "955fbc3c12329f2b495a230a15ac5e012e1c31943c9c584c6726c6bf95631c9a"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

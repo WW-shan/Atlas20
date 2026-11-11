@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS18-H5-FUNDING-TILT,main,lag0,20.0,1.7700466542294295,34.66995773699308,-0.33051834444346717,reports/derivatives_track_h5_funding_tilt/PR2026-11-LS18-H5-FUNDING-TILT/summary.json

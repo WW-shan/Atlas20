@@ -214,6 +214,116 @@ def funding_mean(
     return float(values.mean())
 
 
+def tilt_long_targets_away_from_crowded_funding(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    funding_rates: pd.DataFrame | None,
+    universe: pd.DataFrame,
+    eligible: Set[str] | None,
+    lookback_days: int = 7,
+    rank_min: float = 2.0 / 3.0,
+    min_assets: int = 5,
+    crowded_weight_scale: float = 0.5,
+    max_asset_weight: float = 0.60,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Halve crowded positive-funding long legs and redistribute within the book."""
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if not 0.0 < rank_min <= 1.0:
+        raise ValueError("rank_min must be in (0, 1]")
+    if min_assets < 2:
+        raise ValueError("min_assets must be at least two")
+    if not 0.0 < crowded_weight_scale < 1.0:
+        raise ValueError("crowded_weight_scale must be in (0, 1)")
+    if not np.isfinite(max_asset_weight) or max_asset_weight <= 0.0:
+        raise ValueError("max_asset_weight must be positive and finite")
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        original = target[target > 1e-15].astype(float).sort_index()
+        before = float(original.sum())
+        crowded: list[str] = []
+        for asset in original.index:
+            rank = funding_rank_percentile(
+                funding_rates,
+                universe,
+                str(asset),
+                as_of=date,
+                eligible=eligible,
+                lookback_days=lookback_days,
+                min_assets=min_assets,
+            )
+            mean = funding_mean(
+                funding_rates,
+                str(asset),
+                as_of=date,
+                lookback_days=lookback_days,
+            )
+            if rank is not None and rank >= rank_min and mean is not None and mean > 0.0:
+                crowded.append(str(asset))
+
+        next_target = original.copy()
+        freed = 0.0
+        for asset in crowded:
+            reduced = float(next_target.loc[asset]) * float(crowded_weight_scale)
+            freed += float(next_target.loc[asset]) - reduced
+            next_target.loc[asset] = reduced
+
+        redistributed = 0.0
+        recipients = [asset for asset in next_target.index if asset not in set(crowded)]
+        if freed > 0.0 and recipients:
+            active = pd.Series(
+                {asset: float(next_target.loc[asset]) for asset in recipients},
+                dtype=float,
+            )
+            remaining = freed
+            while remaining > 1e-15 and not active.empty:
+                share = active / float(active.sum())
+                proposed = next_target.loc[active.index] + remaining * share
+                over = proposed > float(max_asset_weight) + 1e-15
+                if not bool(over.any()):
+                    next_target.loc[active.index] = proposed
+                    redistributed += remaining
+                    remaining = 0.0
+                    break
+                capped_assets = list(proposed.index[over])
+                for asset in capped_assets:
+                    room = max(
+                        0.0,
+                        float(max_asset_weight) - float(next_target.loc[asset]),
+                    )
+                    if room > 1e-15:
+                        next_target.loc[asset] += room
+                        redistributed += room
+                        remaining -= room
+                active = active.drop(capped_assets)
+
+        next_target = next_target[next_target > 1e-15].sort_index()
+        adjusted[date] = next_target
+        audit_rows.append(
+            {
+                "date": date,
+                "holdings": int(len(original)),
+                "crowded_legs": int(len(crowded)),
+                "crowded_assets": "|".join(crowded),
+                "target_gross_before": before,
+                "target_gross_after": float(next_target.sum()),
+                "freed_weight": float(freed),
+                "redistributed_weight": float(redistributed),
+                "cash_weight": float(freed - redistributed),
+            }
+        )
+    return adjusted, pd.DataFrame(audit_rows)
+
+
 def build_cross_sectional_funding_short_schedule(
     universe: pd.DataFrame,
     h5_targets: Mapping[pd.Timestamp, pd.Series],
