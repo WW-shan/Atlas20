@@ -13,4 +13,4 @@
 - [x] Run 2/50/100bps and 3x short-adverse funding.
 - [x] Compute calendar, rolling, starts, multiple testing and episode attribution.
 - [x] Write report + manifest and append ledger result.
-- [ ] Update `RESEARCH.md`, run full verification, commit and push.
+- [x] Update `RESEARCH.md`, run full verification, commit and push.
