@@ -206,16 +206,17 @@ def _target_equal(left: pd.Series, right: pd.Series) -> bool:
     )
 
 
-def combine_sleeve_targets(
+def _combine_sleeve_targets(
     sleeves: Mapping[str, tuple[Mapping[pd.Timestamp, pd.Series], float]],
     *,
     max_gross: float,
-) -> dict[pd.Timestamp, pd.Series]:
-    """Forward-fill signed sleeve targets and cap their combined gross exposure."""
+    cap_total_gross: bool,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Forward-fill signed sleeves and apply the selected gross-cap definition."""
     if not np.isfinite(max_gross) or max_gross <= 0.0:
         raise ValueError("max_gross must be positive and finite")
     if not sleeves:
-        return {}
+        return {}, pd.DataFrame()
 
     schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {}
     multipliers: dict[str, float] = {}
@@ -237,12 +238,13 @@ def combine_sleeve_targets(
 
     dates = sorted(event_dates)
     if not dates:
-        return {}
+        return {}, pd.DataFrame()
     states: dict[str, pd.Series] = {
         name: pd.Series(dtype=float) for name in schedules
     }
     cursors = {name: 0 for name in schedules}
     combined_targets: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
     for date in dates:
         union_index = pd.Index([], dtype=object)
         for name, schedule in schedules.items():
@@ -254,19 +256,78 @@ def combine_sleeve_targets(
             cursors[name] = cursor
             union_index = union_index.union(states[name].index)
         combined = pd.Series(0.0, index=union_index, dtype=float)
+        long_gross = 0.0
+        short_gross = 0.0
         for name in schedules:
             if states[name].empty:
                 continue
-            combined = combined.add(
-                states[name].reindex(union_index).fillna(0.0) * multipliers[name],
-                fill_value=0.0,
-            )
+            contribution = states[name].reindex(union_index).fillna(0.0) * multipliers[name]
+            combined = combined.add(contribution, fill_value=0.0)
+            if cap_total_gross:
+                long_gross += float(contribution.clip(lower=0.0).sum())
+                short_gross += float(-contribution.clip(upper=0.0).sum())
         combined = combined[combined.abs() > 1e-15]
-        gross = float(combined.abs().sum())
-        if gross > max_gross:
-            combined *= max_gross / gross
+        net_gross = float(combined.abs().sum())
+        total_gross = long_gross + short_gross
+        gross = total_gross if cap_total_gross else net_gross
+        scale = min(1.0, max_gross / gross) if gross > 0.0 else 0.0
+        combined *= scale
         combined_targets[date] = combined
-    return combined_targets
+        audit_rows.append(
+            {
+                "date": date,
+                "long_gross": long_gross,
+                "short_gross": short_gross,
+                "total_gross": total_gross,
+                "net_gross": net_gross,
+                "scale": scale,
+                "scaled_total_gross": total_gross * scale,
+                "scaled_net_gross": net_gross * scale,
+            }
+        )
+    audit = pd.DataFrame(audit_rows).set_index("date")
+    return combined_targets, audit
+
+
+def combine_sleeve_targets(
+    sleeves: Mapping[str, tuple[Mapping[pd.Timestamp, pd.Series], float]],
+    *,
+    max_gross: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Forward-fill signed sleeve targets and cap net absolute exposure."""
+    targets, _ = _combine_sleeve_targets(
+        sleeves,
+        max_gross=max_gross,
+        cap_total_gross=False,
+    )
+    return targets
+
+
+def combine_sleeve_targets_by_total_gross(
+    sleeves: Mapping[str, tuple[Mapping[pd.Timestamp, pd.Series], float]],
+    *,
+    max_gross: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Cap long plus short exposure before the broker nets same-asset legs."""
+    targets, _ = _combine_sleeve_targets(
+        sleeves,
+        max_gross=max_gross,
+        cap_total_gross=True,
+    )
+    return targets
+
+
+def combine_sleeve_targets_by_total_gross_with_audit(
+    sleeves: Mapping[str, tuple[Mapping[pd.Timestamp, pd.Series], float]],
+    *,
+    max_gross: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Return capped targets plus sleeve gross before same-asset netting."""
+    return _combine_sleeve_targets(
+        sleeves,
+        max_gross=max_gross,
+        cap_total_gross=True,
+    )
 
 
 CASH_SLEEVE_H4_WEIGHT = 0.20
@@ -287,6 +348,24 @@ def build_cash_sleeve_targets(
             "sector_short": (sector_targets, -CASH_SLEEVE_SECTOR_SHORT_WEIGHT),
         },
         max_gross=CASH_SLEEVE_MAX_GROSS,
+    )
+
+
+MONTHLY_SECTOR_SHORT_WEIGHT = 1.0
+MONTHLY_SECTOR_SHORT_MAX_GROSS = 0.95
+
+
+def build_monthly_sector_short_targets(
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    sector_targets: Mapping[pd.Timestamp, pd.Series],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build the pre-registered H5-minus-monthly-sector short candidate."""
+    return combine_sleeve_targets_by_total_gross(
+        {
+            "h5": (h5_targets, 1.0),
+            "sector_short": (sector_targets, -MONTHLY_SECTOR_SHORT_WEIGHT),
+        },
+        max_gross=MONTHLY_SECTOR_SHORT_MAX_GROSS,
     )
 
 
@@ -520,10 +599,15 @@ def build_derivative_targets(
 
 __all__ = [
     "build_cash_sleeve_targets",
+    "build_monthly_sector_short_targets",
     "CASH_SLEEVE_H4_WEIGHT",
     "CASH_SLEEVE_MAX_GROSS",
     "CASH_SLEEVE_SECTOR_SHORT_WEIGHT",
     "combine_sleeve_targets",
+    "combine_sleeve_targets_by_total_gross",
+    "combine_sleeve_targets_by_total_gross_with_audit",
+    "MONTHLY_SECTOR_SHORT_MAX_GROSS",
+    "MONTHLY_SECTOR_SHORT_WEIGHT",
     "bear_regime",
     "build_derivative_targets",
     "funding_filter",

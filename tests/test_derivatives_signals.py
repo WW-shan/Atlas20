@@ -694,3 +694,56 @@ def test_build_cash_sleeve_targets_uses_frozen_weights() -> None:
     assert target["ethereum"] == pytest.approx(0.10)
     assert target["solana"] == pytest.approx(-0.20)
     assert target.abs().sum() == pytest.approx(0.60)
+
+
+def test_combine_sleeve_targets_by_total_gross_counts_both_sides_before_netting() -> None:
+    from atlas20.derivatives.signals import combine_sleeve_targets_by_total_gross
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    combined = combine_sleeve_targets_by_total_gross(
+        {
+            "long": ({date: pd.Series({"bitcoin": 0.80})}, 1.0),
+            "short": ({date: pd.Series({"bitcoin": 0.40})}, -1.0),
+        },
+        max_gross=0.60,
+    )
+
+    assert combined[date]["bitcoin"] == pytest.approx(0.20)
+    assert combined[date].abs().sum() == pytest.approx(0.20)
+
+
+def test_build_monthly_sector_short_targets_uses_frozen_one_x_short() -> None:
+    from atlas20.derivatives.signals import build_monthly_sector_short_targets
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    combined = build_monthly_sector_short_targets(
+        {date: pd.Series({"bitcoin": 0.40})},
+        {date: pd.Series({"ethereum": 1.00})},
+    )
+
+    target = combined[date]
+    scale = 0.95 / 1.40
+    assert target["bitcoin"] == pytest.approx(0.40 * scale)
+    assert target["ethereum"] == pytest.approx(-1.00 * scale)
+    assert target.abs().sum() == pytest.approx(0.95)
+
+
+def test_total_gross_composition_exposes_unscaled_sleeve_audit() -> None:
+    from atlas20.derivatives.signals import combine_sleeve_targets_by_total_gross_with_audit
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    targets, audit = combine_sleeve_targets_by_total_gross_with_audit(
+        {
+            "long": ({date: pd.Series({"bitcoin": 0.80})}, 1.0),
+            "short": ({date: pd.Series({"bitcoin": 0.40})}, -1.0),
+        },
+        max_gross=0.60,
+    )
+
+    assert targets[date]["bitcoin"] == pytest.approx(0.20)
+    row = audit.loc[date]
+    assert row["long_gross"] == pytest.approx(0.80)
+    assert row["short_gross"] == pytest.approx(0.40)
+    assert row["total_gross"] == pytest.approx(1.20)
+    assert row["scale"] == pytest.approx(0.50)
+    assert row["scaled_total_gross"] == pytest.approx(0.60)
