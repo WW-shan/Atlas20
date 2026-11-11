@@ -1,0 +1,13 @@
+{
+  "bear_both_positive": 138,
+  "bear_bybit_available": 270,
+  "bear_episodes": 297,
+  "bear_same_sign": 200,
+  "bybit_available": 307,
+  "bybit_coverage": 0.9164179104477612,
+  "non_bear_both_positive": 34,
+  "non_bear_bybit_available": 37,
+  "non_bear_episodes": 38,
+  "non_bear_same_sign": 36,
+  "total_episodes": 335
+}

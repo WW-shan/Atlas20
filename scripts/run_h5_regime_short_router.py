@@ -15,6 +15,7 @@ from pathlib import Path
 import sys
 from typing import Any, Mapping
 
+import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,8 @@ LS21_CANDIDATE_ID = "PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT"
 LS21_BEAR_FUNDING_THRESHOLD = 0.0
 LS22_CANDIDATE_ID = "PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK"
 LS23_CANDIDATE_ID = "PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT"
+LS24_CANDIDATE_ID = "PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT"
+LS24_BEAR_FUNDING_THRESHOLD = 0.0
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -72,6 +75,7 @@ LS20_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-common-gross-design.md"
 LS21_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-positive-carry-short-design.md"
 LS22_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-extreme-run-profit-lock-design.md"
 LS23_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-regime-short-design.md"
+LS24_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-cross-venue-funding-short-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
@@ -80,11 +84,13 @@ SHORT_CANDIDATES = {
     LS20_CANDIDATE_ID: 0.0,
     LS21_CANDIDATE_ID: 0.0,
     LS23_CANDIDATE_ID: 0.0,
+    LS24_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
 LONG_COMMON_GROSS_TRIALS = {LS20_CANDIDATE_ID}
-LONG_PROFIT_LOCK_TRIALS = {LS22_CANDIDATE_ID, LS23_CANDIDATE_ID}
+LONG_PROFIT_LOCK_TRIALS = {LS22_CANDIDATE_ID, LS23_CANDIDATE_ID, LS24_CANDIDATE_ID}
+CROSS_VENUE_FUNDING_TRIALS = {LS24_CANDIDATE_ID}
 LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     "lookback_days": 21,
     "threshold": 1.0,
@@ -165,6 +171,65 @@ LS23_CONSTRUCTION = (
     "LS22 single-leader profit lock applied to the H5 long book, combined with "
     "the frozen LS12 BTC-200D dual-short router; only the long book is trimmed"
 )
+LS24_CONSTRUCTION = (
+    "LS23 long book plus the frozen LS12 dual-short router, with every short "
+    "candidate required to have positive minimum Binance/Bybit last-three-"
+    "settlement mean funding; missing Bybit history is ineligible"
+)
+
+
+def _normalize_funding_grid(frame: pd.DataFrame) -> pd.DataFrame:
+    normalized = frame.copy()
+    normalized.index = pd.DatetimeIndex(
+        [_as_utc(value).floor("min") for value in normalized.index]
+    )
+    normalized = normalized[~normalized.index.duplicated(keep="last")].sort_index()
+    return normalized
+
+
+def conservative_cross_venue_funding(
+    binance: pd.DataFrame,
+    bybit: pd.DataFrame,
+) -> pd.DataFrame:
+    """Elementwise minimum of two funding panels; missing either side stays NaN."""
+    binance = _normalize_funding_grid(binance)
+    bybit = _normalize_funding_grid(bybit)
+    index = pd.DatetimeIndex(binance.index).union(pd.DatetimeIndex(bybit.index))
+    columns = pd.Index(binance.columns).union(pd.Index(bybit.columns))
+    left = binance.reindex(index=index, columns=columns)
+    right = bybit.reindex(index=index, columns=columns)
+    values = np.minimum(
+        left.to_numpy(dtype=float),
+        right.to_numpy(dtype=float),
+    )
+    return pd.DataFrame(values, index=index, columns=columns)
+
+
+def load_bybit_funding(
+    path: Path,
+    *,
+    coins: set[str],
+    index: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    """Load Bybit funding on the Binance settlement grid without filling gaps."""
+    target_index = pd.DatetimeIndex([_as_utc(value) for value in index])
+    columns: dict[str, pd.Series] = {}
+    for coin in sorted(coins):
+        csv_path = path / f"{coin}.csv"
+        if not csv_path.exists():
+            continue
+        frame = pd.read_csv(csv_path)
+        if frame.empty or not {"funding_time", "funding_rate"}.issubset(frame.columns):
+            continue
+        stamps = pd.to_datetime(frame["funding_time"], utc=True, errors="coerce")
+        values = pd.to_numeric(frame["funding_rate"], errors="coerce")
+        series = pd.Series(values.to_numpy(dtype=float), index=stamps).dropna()
+        series = series[~series.index.duplicated(keep="last")].sort_index()
+        if not series.empty:
+            columns[coin] = series
+    if not columns:
+        return pd.DataFrame(index=target_index)
+    return pd.DataFrame(columns).reindex(target_index)
 
 
 def _empty_weights() -> pd.Series:
@@ -319,6 +384,7 @@ def build_regime_short_schedules(
     start_date: str,
     non_bear_mode: str = "h5_exit",
     bear_funding_threshold: float | None = None,
+    funding_positive_only: bool = False,
 ) -> tuple[
     dict[pd.Timestamp, pd.Series],
     pd.DataFrame,
@@ -372,12 +438,17 @@ def build_regime_short_schedules(
         )
     else:
         eligible_by_date = _eligible_members_by_date(universe, list(long_raw))
+        ranking_funding = (
+            funding.where(funding > 0.0)
+            if funding_positive_only and not funding.empty
+            else funding
+        )
 
         def exit_entry_allowed(asset: str, date: pd.Timestamp) -> bool:
             if not _short_mark_available(mark_candles, asset, date):
                 return False
             rank = funding_rank_percentile(
-                funding if not funding.empty else None,
+                ranking_funding if not ranking_funding.empty else None,
                 universe,
                 asset,
                 as_of=date,
@@ -461,6 +532,7 @@ def build_short_targets_for_trial(
     available: set[str],
     mark_candles: dict[str, pd.DataFrame],
     start_date: str,
+    short_funding: pd.DataFrame | None = None,
 ):
     return build_regime_short_schedules(
         market=market,
@@ -468,14 +540,19 @@ def build_short_targets_for_trial(
         index=index,
         long_raw=long_raw,
         long_targets=long_targets,
-        funding=funding,
+        funding=short_funding if short_funding is not None else funding,
         available=available,
         mark_candles=mark_candles,
         start_date=start_date,
         non_bear_mode=non_bear_mode_for_trial(trial_id),
         bear_funding_threshold=(
-            LS21_BEAR_FUNDING_THRESHOLD if trial_id == LS21_CANDIDATE_ID else None
+            LS24_BEAR_FUNDING_THRESHOLD
+            if trial_id == LS24_CANDIDATE_ID
+            else LS21_BEAR_FUNDING_THRESHOLD
+            if trial_id == LS21_CANDIDATE_ID
+            else None
         ),
+        funding_positive_only=trial_id in CROSS_VENUE_FUNDING_TRIALS,
     )
 
 
@@ -494,6 +571,7 @@ def main() -> None:
             LS21_CANDIDATE_ID,
             LS22_CANDIDATE_ID,
             LS23_CANDIDATE_ID,
+            LS24_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -508,6 +586,11 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw/bitget_derivatives/merged_20261009"))
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
+    parser.add_argument(
+        "--bybit-funding-dir",
+        type=Path,
+        default=Path("data/raw/alternative_funding/bybit"),
+    )
     parser.add_argument("--funding-source", choices=("zero", "binance-proxy", "bitget-exact"), default="binance-proxy")
     parser.add_argument("--funding-stress", choices=("none", "long-adverse", "short-adverse"), default="none")
     parser.add_argument("--funding-multiplier", type=float, default=1.0)
@@ -548,6 +631,14 @@ def main() -> None:
     )
     if not funding.empty:
         funding = funding.dropna(how="all").loc[:, funding.notna().any(axis=0)]
+    short_funding = funding
+    if args.trial_id in CROSS_VENUE_FUNDING_TRIALS:
+        bybit_funding = load_bybit_funding(
+            args.bybit_funding_dir,
+            coins=set(market.price.columns),
+            index=pd.DatetimeIndex(funding.index),
+        )
+        short_funding = conservative_cross_venue_funding(funding, bybit_funding)
     long_targets, long_tilt_audit = build_long_targets_for_trial(
         trial_id=args.trial_id,
         long_targets=long_targets,
@@ -579,6 +670,7 @@ def main() -> None:
             available=available,
             mark_candles=mark_candles,
             start_date=args.start_date,
+            short_funding=short_funding,
         )
 
     combined, target_audit = combine_long_with_cash_budgeted_short(
@@ -682,10 +774,13 @@ def main() -> None:
         ),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "bear_funding_threshold": (
-            float(FROZEN_CONFIG["bear_funding_threshold"])
-            if args.trial_id != LS21_CANDIDATE_ID
+            float(LS24_BEAR_FUNDING_THRESHOLD)
+            if args.trial_id == LS24_CANDIDATE_ID
             else float(LS21_BEAR_FUNDING_THRESHOLD)
+            if args.trial_id == LS21_CANDIDATE_ID
+            else float(FROZEN_CONFIG["bear_funding_threshold"])
         ),
+        "cross_venue_funding": args.trial_id in CROSS_VENUE_FUNDING_TRIALS,
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
         "max_observed_gross": float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0,
@@ -758,6 +853,8 @@ def main() -> None:
                     if args.trial_id == LS22_CANDIDATE_ID
                     else LS23_SPEC_PATH
                     if args.trial_id == LS23_CANDIDATE_ID
+                    else LS24_SPEC_PATH
+                    if args.trial_id == LS24_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -777,6 +874,8 @@ def main() -> None:
                     if args.trial_id == LS22_CANDIDATE_ID
                     else LS23_CONSTRUCTION
                     if args.trial_id == LS23_CANDIDATE_ID
+                    else LS24_CONSTRUCTION
+                    if args.trial_id == LS24_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
@@ -800,6 +899,19 @@ def main() -> None:
                     **(
                         LS22_PROFIT_LOCK_CONFIG
                         if args.trial_id in LONG_PROFIT_LOCK_TRIALS
+                        else {}
+                    ),
+                    **(
+                        {
+                            "cross_venue_funding": {
+                                "binance_lookback_settlements": 3,
+                                "bybit_lookback_settlements": 3,
+                                "missing_policy": "ineligible",
+                                "score": "elementwise_min",
+                                "threshold": 0.0,
+                            }
+                        }
+                        if args.trial_id in CROSS_VENUE_FUNDING_TRIALS
                         else {}
                     ),
                 },

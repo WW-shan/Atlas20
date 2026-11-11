@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "25f490cfb1746e59029697139f53eab40513b529",
+  "repository_head": "acd35e225149caed99831d3b05f7a123197b21ad",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "6b82c7fda35d5f5b899e88367a72f75d0d3d0be1c14a01c347f7e4dba663e6c1",
+  "research_md_sha256": "11e878adc5b05059a7653b06466dba3e4420a5fe09cc6d6e22dd4938c62f4876",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20437,
-  "rows_at_primary_cost": 17899,
+  "rows_read": 20438,
+  "rows_at_primary_cost": 17900,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -708,6 +708,10 @@
       "origin": "working tree (committed)",
       "sha256": "df5155a65f504515ce5053cb5356c37c277741fd449660b567e42b67b1e6e546"
     },
+    "reports/derivatives_track_h5_cross_venue_funding_short/PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT/trial_results.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "2dcbd5b6e7f6c3b2bceba625999e39f92fc0ee676db5b45f011d38ecdeb0a672"
+    },
     "reports/derivatives_track_h5_exit_risk_budget/PR2026-11-LS4-H5-EXIT-RISK05_cost20_proxy/trial_results.csv": {
       "origin": "working tree (committed)",
       "sha256": "ca31b5b79371a5cd4fa0ffa22d975e6e40b1be7a6478c2f76702e0a6e51d45cc"
@@ -926,7 +930,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (modified)",
-      "sha256": "69de9558f4e8b3867eec003e72d7758286997725e8708b3fb37b38627afd7ee3"
+      "sha256": "bc3eff9a07cb91a39dd1a42dedf605ccda522adf6b7dc1d5ee3ed98db9dd819c"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

@@ -56,11 +56,13 @@ def _mean_recent_funding(
     if series.empty:
         return float("nan")
     index = pd.DatetimeIndex(series.index)
-    naive_dates = index.tz_localize(None) if index.tz is not None else index
-    mask = naive_dates.normalize() <= as_of.tz_localize(None).normalize()
+    mask = index.floor("min") <= _as_utc(as_of).floor("min")
     if not mask.any():
         return float("nan")
-    return float(series.loc[mask].iloc[-settlements:].mean())
+    values = pd.to_numeric(series.loc[mask], errors="coerce").dropna().iloc[-settlements:]
+    if len(values) < settlements:
+        return float("nan")
+    return float(values.mean())
 
 
 def build_audit(
@@ -72,13 +74,14 @@ def build_audit(
     frame["entry_time"] = pd.to_datetime(frame["entry_time"], utc=True)
     frame["exit_time"] = pd.to_datetime(frame["exit_time"], utc=True)
     frame["entry_date"] = frame["entry_time"].dt.tz_localize(None).dt.normalize()
-    frame["year"] = frame["entry_time"].dt.year
+    frame["signal_date"] = frame["entry_date"] - pd.Timedelta(days=1)
+    frame["year"] = frame["signal_date"].dt.year
 
     regime = sleeve_audit.copy()
     regime["date"] = pd.to_datetime(regime["date"], utc=True).dt.tz_localize(None).dt.normalize()
-    frame["entry_regime"] = frame["entry_date"].map(regime.set_index("date")["regime"])
+    frame["entry_regime"] = frame["signal_date"].map(regime.set_index("date")["regime"])
     frame["funding_mean_3"] = [
-        _mean_recent_funding(funding, str(row.asset), _as_utc(row.entry_date))
+        _mean_recent_funding(funding, str(row.asset), _as_utc(row.signal_date))
         for row in frame.itertuples()
     ]
     frame["positive_funding"] = frame["funding_mean_3"] > 0.0
@@ -150,6 +153,8 @@ def main() -> None:
         f"- Non-positive funding: {len(non_positive)}",
         f"- Positive-group episode PnL: {positive['net_pnl_pct_nav'].sum():.4f}% NAV",
         f"- Non-positive-group episode PnL: {non_positive['net_pnl_pct_nav'].sum():.4f}% NAV",
+        "- Timing: signal date = execution entry time minus one day; only settlements at or before "
+        "signal date 00:00 UTC are used. Older execution-date-normalized numbers are invalid.",
         "",
         "See `episode_funding_sign.csv` for the entry-level facts and "
         "`summary_by_regime.csv` for the complete grouped summary.",

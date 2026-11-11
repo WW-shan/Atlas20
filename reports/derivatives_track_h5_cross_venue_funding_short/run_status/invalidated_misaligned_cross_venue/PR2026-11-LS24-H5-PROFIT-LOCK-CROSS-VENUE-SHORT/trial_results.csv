@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT,main,lag0,20.0,1.8860311162134096,52.788149464535564,-0.3971496486092333,reports/derivatives_track_h5_cross_venue_funding_short/PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT/summary.json

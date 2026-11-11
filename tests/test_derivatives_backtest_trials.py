@@ -344,3 +344,90 @@ def test_ls23_runner_applies_profit_lock_to_the_long_book(monkeypatch) -> None:
     assert captured["lookback_days"] == 21
     assert captured["threshold"] == 1.0
     assert captured["scale"] == 0.5
+
+
+def test_ls24_is_registered_as_cross_venue_funding_trial() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS24_CANDIDATE_ID == "PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT"
+    assert runner.LS24_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS24_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS24_CANDIDATE_ID in runner.CROSS_VENUE_FUNDING_TRIALS
+    assert runner.LS24_BEAR_FUNDING_THRESHOLD == 0.0
+
+
+def test_cross_venue_funding_uses_conservative_min_and_missing_is_nan() -> None:
+    import pandas as pd
+
+    import scripts.run_h5_regime_short_router as runner
+
+    index = pd.to_datetime(["2022-01-01T00:00:00Z", "2022-01-02T00:00:00Z"])
+    binance = pd.DataFrame(
+        {"bitcoin": [0.001, 0.002], "ethereum": [0.001, float("nan")]},
+        index=index,
+    )
+    bybit = pd.DataFrame(
+        {"bitcoin": [0.0005, 0.003], "solana": [0.002, 0.001]},
+        index=index,
+    )
+
+    combined = runner.conservative_cross_venue_funding(binance, bybit)
+
+    assert combined.loc[index[0], "bitcoin"] == 0.0005
+    assert combined.loc[index[1], "bitcoin"] == 0.002
+    assert pd.isna(combined.loc[index[0], "ethereum"])
+    assert pd.isna(combined.loc[index[1], "ethereum"])
+    assert combined["solana"].isna().all()
+
+
+def test_ls24_short_builder_uses_cross_venue_positive_only(monkeypatch) -> None:
+    import pandas as pd
+
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({}, pd.DataFrame(), {}, {})
+
+    def fake_build(**kwargs):
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "build_regime_short_schedules", fake_build)
+    short_funding = pd.DataFrame({"bitcoin": [0.001]})
+    result = runner.build_short_targets_for_trial(
+        trial_id=runner.LS24_CANDIDATE_ID,
+        market=object(),
+        universe=object(),
+        index=pd.DatetimeIndex(["2022-01-01"], tz="UTC"),
+        long_raw={},
+        long_targets={},
+        funding=pd.DataFrame({"bitcoin": [0.002]}),
+        available={"bitcoin"},
+        mark_candles={},
+        start_date="2022-01-01",
+        short_funding=short_funding,
+    )
+
+    assert result is sentinel
+    assert captured["funding"] is short_funding
+    assert captured["bear_funding_threshold"] == 0.0
+    assert captured["funding_positive_only"] is True
+
+
+def test_cross_venue_funding_aligns_millisecond_settlement_jitter() -> None:
+    import pandas as pd
+
+    import scripts.run_h5_regime_short_router as runner
+
+    binance = pd.DataFrame(
+        {"bitcoin": [0.0]},
+        index=pd.DatetimeIndex(["2022-01-08T00:00:00.014Z"]),
+    )
+    bybit = pd.DataFrame(
+        {"bitcoin": [0.0001]},
+        index=pd.DatetimeIndex(["2022-01-08T00:00:00Z"]),
+    )
+
+    combined = runner.conservative_cross_venue_funding(binance, bybit)
+
+    assert combined.loc[pd.Timestamp("2022-01-08T00:00:00Z"), "bitcoin"] == 0.0

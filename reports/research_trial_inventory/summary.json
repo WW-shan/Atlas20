@@ -1,12 +1,12 @@
 {
   "all_trials": {
-    "n_trials": 14193,
-    "n_with_sharpe": 14159,
+    "n_trials": 14194,
+    "n_with_sharpe": 14160,
     "n_without_sharpe": 34,
-    "n_distinct_sharpe_values": 8990,
-    "sharpe_mean_annualized": 0.7964520373046229,
-    "sharpe_std_annualized": 0.6529174115016403,
-    "sharpe_std_per_period": 0.03417525926556373,
+    "n_distinct_sharpe_values": 8991,
+    "sharpe_mean_annualized": 0.796528984979687,
+    "sharpe_std_annualized": 0.6529585581639077,
+    "sharpe_std_per_period": 0.034177412980300276,
     "periods_per_year": 365,
     "sharpe_std_ddof": 1,
     "filter": "trial_sharpes.csv rows with all_trials == True (one row per configuration at its study's primary cost; pure buy-and-hold benchmarks and re-listings excluded; new = no earlier-processed study has the same identity or the same window_start/universe/cost/Sharpe rounded to 1e-9), plus configurations without a Sharpe (trial_inventory.csv)"
