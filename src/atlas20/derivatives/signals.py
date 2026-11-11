@@ -206,6 +206,69 @@ def _target_equal(left: pd.Series, right: pd.Series) -> bool:
     )
 
 
+def combine_sleeve_targets(
+    sleeves: Mapping[str, tuple[Mapping[pd.Timestamp, pd.Series], float]],
+    *,
+    max_gross: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Forward-fill signed sleeve targets and cap their combined gross exposure."""
+    if not np.isfinite(max_gross) or max_gross <= 0.0:
+        raise ValueError("max_gross must be positive and finite")
+    if not sleeves:
+        return {}
+
+    schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {}
+    multipliers: dict[str, float] = {}
+    event_dates: set[pd.Timestamp] = set()
+    for name, (raw_schedule, multiplier) in sleeves.items():
+        if not np.isfinite(multiplier):
+            raise ValueError(f"{name}: multiplier must be finite")
+        schedule: dict[pd.Timestamp, pd.Series] = {}
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            schedule[date] = target.astype(float)
+            event_dates.add(date)
+        schedules[name] = dict(sorted(schedule.items()))
+        multipliers[name] = float(multiplier)
+
+    dates = sorted(event_dates)
+    if not dates:
+        return {}
+    states: dict[str, pd.Series] = {
+        name: pd.Series(dtype=float) for name in schedules
+    }
+    cursors = {name: 0 for name in schedules}
+    combined_targets: dict[pd.Timestamp, pd.Series] = {}
+    for date in dates:
+        union_index = pd.Index([], dtype=object)
+        for name, schedule in schedules.items():
+            schedule_dates = list(schedule)
+            cursor = cursors[name]
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                states[name] = schedule[schedule_dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+            union_index = union_index.union(states[name].index)
+        combined = pd.Series(0.0, index=union_index, dtype=float)
+        for name in schedules:
+            if states[name].empty:
+                continue
+            combined = combined.add(
+                states[name].reindex(union_index).fillna(0.0) * multipliers[name],
+                fill_value=0.0,
+            )
+        combined = combined[combined.abs() > 1e-15]
+        gross = float(combined.abs().sum())
+        if gross > max_gross:
+            combined *= max_gross / gross
+        combined_targets[date] = combined
+    return combined_targets
+
+
 def build_derivative_targets(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     *,
@@ -435,6 +498,7 @@ def build_derivative_targets(
 
 
 __all__ = [
+    "combine_sleeve_targets",
     "bear_regime",
     "build_derivative_targets",
     "funding_filter",

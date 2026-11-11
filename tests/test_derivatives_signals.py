@@ -650,3 +650,30 @@ def test_cross_sectional_hold_rank_cannot_be_smaller_than_entry_count() -> None:
             cross_sectional_hold_rank=1,
             cross_sectional_anchor=dates[0],
         )
+
+
+def test_combine_sleeve_targets_forward_fills_and_scales_all_sleeves() -> None:
+    from atlas20.derivatives.signals import combine_sleeve_targets
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    h5 = {d1: pd.Series({"bitcoin": 0.40})}
+    h4 = {d1: pd.Series({"ethereum": 0.50})}
+    short = {d2: pd.Series({"solana": 1.00})}
+
+    combined = combine_sleeve_targets(
+        {
+            "h5": (h5, 1.0),
+            "h4": (h4, 0.2),
+            "sector_short": (short, -0.2),
+        },
+        max_gross=0.50,
+    )
+
+    assert combined[d1]["bitcoin"] == pytest.approx(0.40)
+    assert combined[d1]["ethereum"] == pytest.approx(0.10)
+    target = combined[d2]
+    assert target["bitcoin"] == pytest.approx(0.40 * 0.50 / 0.70)
+    assert target["ethereum"] == pytest.approx(0.10 * 0.50 / 0.70)
+    assert target["solana"] == pytest.approx(-0.20 * 0.50 / 0.70)
+    assert target.abs().sum() == pytest.approx(0.50)
