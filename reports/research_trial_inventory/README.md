@@ -5,7 +5,7 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `b15818e` from 2 uncommitted source file(s): `reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `574a898`; every source file is committed.
 
 ## Totals
 
