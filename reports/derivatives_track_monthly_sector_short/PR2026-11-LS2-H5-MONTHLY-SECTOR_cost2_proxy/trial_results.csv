@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS2-H5-MONTHLY-SECTOR,main,lag0,2.0,1.3532732342528164,7.901905721132123,-0.2743151051315652,reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost2_proxy/summary.json

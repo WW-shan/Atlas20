@@ -1,6 +1,6 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "574a8983b5f4bb1539eb8b7ddc7aa2718e2b9e02",
+  "repository_head": "ea2f3437a6dd3b05f52df78b210697581f85998a",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20415,
-  "rows_at_primary_cost": 17877,
+  "rows_read": 20416,
+  "rows_at_primary_cost": 17878,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -700,6 +700,10 @@
       "origin": "working tree (committed)",
       "sha256": "25dc2fd7438d29707cacf3f7d792152a5f1b53bb6c6a1e805b27f91bb0225a85"
     },
+    "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_proxy/trial_results.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "50d0959904a8c4696fea160d0403e3ad708b0b80d31e0f7a96f668c286c7a0b9"
+    },
     "reports/derivatives_track_reversal_short_round2/trial_results.csv": {
       "origin": "working tree (committed)",
       "sha256": "bc4dd5e96fcce3eec2c18c365cf2ba69a79b7579cf774ad6519121fdbf2c515a"
@@ -837,8 +841,8 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (committed)",
-      "sha256": "295f76a30b8310fa12d355aa213a9831cfa116c796083288a4742b5147fa0bba"
+      "origin": "working tree (modified)",
+      "sha256": "3259a9688bea265014d74543adac1d2d15d75702147020a88bd2aae7f812055d"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

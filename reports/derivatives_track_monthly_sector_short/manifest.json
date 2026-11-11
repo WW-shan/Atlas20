@@ -1,0 +1,147 @@
+{
+  "artifacts": [
+    {
+      "bytes": 9429,
+      "path": "reports/derivatives_track_monthly_sector_short/report.md",
+      "sha256": "790292b3a3c48c251b49900e7cc919d80f2a012766db2c4d7316f176550eaac4"
+    },
+    {
+      "bytes": 87322,
+      "path": "reports/derivatives_track_monthly_sector_short/returns_20bps.csv",
+      "sha256": "ee9caa9bde23ea94a07531ca4737c642ba9e41ee4d7d1499713630722df3345e"
+    },
+    {
+      "bytes": 61462,
+      "path": "reports/derivatives_track_monthly_sector_short/returns_20bps_naive_dates.csv",
+      "sha256": "600a22761536e7c6efe8ad33d84ea212e04e4c839351aa077ebe896840302ec6"
+    },
+    {
+      "bytes": 918,
+      "path": "reports/derivatives_track_monthly_sector_short/cost_comparison.csv",
+      "sha256": "001bb0c7f03b27c673f79e36d5c1b2a0e2b4ba7d265d9fa5498bf60398488df4"
+    },
+    {
+      "bytes": 1308,
+      "path": "reports/derivatives_track_monthly_sector_short/cost_runs_long.csv",
+      "sha256": "c12edbcfd947970c0173252c87787788240bd987d98f51accef758b23db7956c"
+    },
+    {
+      "bytes": 1112,
+      "path": "reports/derivatives_track_monthly_sector_short/funding_stress_summary.csv",
+      "sha256": "3f77340895e4de62bb12b7189bd2460590c6e86f2e6311f813872c5c279caad4"
+    },
+    {
+      "bytes": 437,
+      "path": "reports/derivatives_track_monthly_sector_short/robustness/yearly_returns.csv",
+      "sha256": "e74bdeb5641b64bc1f1c1a491650238359aa1d663efc3a598466856d814fa24d"
+    },
+    {
+      "bytes": 1103,
+      "path": "reports/derivatives_track_monthly_sector_short/robustness/best_year_removal.csv",
+      "sha256": "bda3bef7500c2376851233129f590e0b00cd5610f8d67c2b99e7f5bf3bf7dadc"
+    },
+    {
+      "bytes": 227,
+      "path": "reports/derivatives_track_monthly_sector_short/robustness/rolling_worst.csv",
+      "sha256": "c7ef9c9448a1e8ed1261363faa7573367a86fc8dd48f2c54916d9611bbc2aeaa"
+    },
+    {
+      "bytes": 6788,
+      "path": "reports/derivatives_track_monthly_sector_short/robustness/monthly_start_slices.csv",
+      "sha256": "de55d09b3af15bc1c18892d922c7da15c84bdcfca2ddbcb2628c368377a32908"
+    },
+    {
+      "bytes": 240,
+      "path": "reports/derivatives_track_monthly_sector_short/robustness/monthly_start_slice_summary.json",
+      "sha256": "890bf4083a8010894f90c0350f23e2db36363963492c37071a62384b3ab153e1"
+    },
+    {
+      "bytes": 503,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing/summary.json",
+      "sha256": "a3d8721fdd0feb598f9c17b7d6145ec5066b583d4d2a38165ce90385606c9318"
+    },
+    {
+      "bytes": 223,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing/dsr.csv",
+      "sha256": "880bf5e799a150cd4be149e3eb429c05a988b2b5794c2d9234d63885b13c3534"
+    },
+    {
+      "bytes": 41478,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing/pbo_splits.csv",
+      "sha256": "f4315124059195de5cb310c888a09ca631ab8cf87eb060360bad2431d4d7fc73"
+    },
+    {
+      "bytes": 1455,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing_project/manifest.json",
+      "sha256": "b70ba5a1e401cf2e450e4e0820b7dea5b3e43f5c2f1ec6cc051f0654501fe2f5"
+    },
+    {
+      "bytes": 781,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "c2f38829ceb539b553724d1f6aad3328bb43869182a64b94b5cd9c172619229c"
+    },
+    {
+      "bytes": 193,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing_project/reality_check.csv",
+      "sha256": "70ef2f05ff41a34df41eab10c85cf6340ae7fb724c1194ee489f16c6a2fedc33"
+    },
+    {
+      "bytes": 156,
+      "path": "reports/derivatives_track_monthly_sector_short/multiple_testing_project/pbo.csv",
+      "sha256": "3da957fbe6201864682810ede834d3952299384fcdac89ae3da370cca771cbd7"
+    },
+    {
+      "bytes": 1352,
+      "path": "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_proxy/summary.json",
+      "sha256": "7064d1dc59ecb91c462bae4496290988f1d619baac1265d59ec808c80eed3214"
+    },
+    {
+      "bytes": 276,
+      "path": "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_proxy/trial_results.csv",
+      "sha256": "50d0959904a8c4696fea160d0403e3ad708b0b80d31e0f7a96f668c286c7a0b9"
+    },
+    {
+      "bytes": 75311,
+      "path": "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_proxy/target_gross.csv",
+      "sha256": "5634ea95b2ac6b1f6d729d09cd902eb6254225a88cce4c57e9122a004c21fd72"
+    },
+    {
+      "bytes": 412269,
+      "path": "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_proxy/trades.csv",
+      "sha256": "32417709ba4f92450423c135c3931f49865e6bb8722154fc1e9210b277385346"
+    },
+    {
+      "bytes": 1359,
+      "path": "reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-MONTHLY-SECTOR_cost20_short_adverse_x3/summary.json",
+      "sha256": "77b95e80619ab3076c8f8d84f4819bcaf6eed18082085d8cd731594b89a71496"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history not closed",
+    "12 months of true out-of-sample has not accumulated",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS2-H5-MONTHLY-SECTOR",
+  "execution_deviations": [
+    "The pre-registered 12 engine-level monthly reruns were not executed after the candidate failed the primary return, gross, cost, calendar, and 45 return-path slice gates. The report records this explicitly and does not count the gate as passed."
+  ],
+  "hard_failures": [
+    "20bps terminal and Sharpe below baseline",
+    "observed broker gross reached 1.2318 in the main sample",
+    "all 2/20/50/100bps terminal multiples below baseline",
+    "100bps drawdown exceeded 50 percent",
+    "365-day rolling worst below baseline",
+    "all-project DSR below 0.95",
+    "all 45 monthly return-path start slices failed terminal and Sharpe"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "e9216eac0210aa7d594c9b14ff4a0dfbfc568d05c0867593e6d9e117995bd790",
+  "spec_sha256": "27c9e78c38d3fd7ba07d34f59444aa8bbd3887d478ae9ed2322f9ffb8932423d",
+  "trial_count_all_projects": 14172,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

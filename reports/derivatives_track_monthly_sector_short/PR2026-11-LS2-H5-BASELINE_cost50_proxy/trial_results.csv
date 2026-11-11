@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS2-H5-BASELINE,main,lag0,50.0,1.5826125400746456,15.694593566770239,-0.36586667710458587,reports/derivatives_track_monthly_sector_short/PR2026-11-LS2-H5-BASELINE_cost50_proxy/summary.json

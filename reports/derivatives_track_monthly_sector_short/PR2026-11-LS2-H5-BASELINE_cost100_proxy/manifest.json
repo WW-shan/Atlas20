@@ -1,0 +1,23 @@
+{
+  "baseline": true,
+  "candidate_id": "PR2026-11-LS2-H5-BASELINE",
+  "construction": "1.0*w_H5",
+  "cost_bps": 100.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "hard_gross": 1.0,
+    "long_buffer": 0.75,
+    "max_gross": 0.95,
+    "sector_short_weight": 1.0,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_missing_policy": "skip",
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-monthly-sector-short-design.md",
+  "start_date": "2022-01-01",
+  "target_events": 542
+}
