@@ -385,7 +385,7 @@ Include realized adverse risk, gross breaches, cost/funding failures and true OO
 
 - [x] **Step 4: Update RESEARCH.md**
 
-- [ ] **Step 5: Run verification**
+- [x] **Step 5: Run verification**
 
 ```bash
 .venv/bin/python -m pytest tests/test_derivatives_engine.py \
@@ -396,7 +396,7 @@ make typecheck
 git diff --check
 ```
 
-- [ ] **Step 6: Commit and push research evidence**
+- [x] **Step 6: Commit and push research evidence**
 
 ```bash
 git add <explicit research files>
