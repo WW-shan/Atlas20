@@ -31,6 +31,7 @@ from atlas20.derivatives.signals import (  # noqa: E402
     build_cross_sectional_weak_short_schedule,
     build_exit_short_schedule,
     preserve_relative_weights_on_same_selection,
+    trim_extreme_run_single_leader,
     tilt_long_targets_away_from_crowded_funding,
     combine_long_with_cash_budgeted_short,
     funding_rank_percentile,
@@ -61,12 +62,14 @@ LS18_CANDIDATE_ID = "PR2026-11-LS18-H5-FUNDING-TILT"
 LS20_CANDIDATE_ID = "PR2026-11-LS20-H5-COMMON-GROSS"
 LS21_CANDIDATE_ID = "PR2026-11-LS21-H5-POSITIVE-CARRY-SHORT"
 LS21_BEAR_FUNDING_THRESHOLD = 0.0
+LS22_CANDIDATE_ID = "PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
 LS18_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-tilt-design.md"
 LS20_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-common-gross-design.md"
 LS21_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-positive-carry-short-design.md"
+LS22_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-extreme-run-profit-lock-design.md"
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
@@ -78,6 +81,12 @@ SHORT_CANDIDATES = {
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
 LONG_COMMON_GROSS_TRIALS = {LS20_CANDIDATE_ID}
+LONG_PROFIT_LOCK_TRIALS = {LS22_CANDIDATE_ID}
+LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    "lookback_days": 21,
+    "threshold": 1.0,
+    "scale": 0.5,
+}
 HIGH_FUNDING_SHORT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
     "rebalance_days": 7,
@@ -143,6 +152,11 @@ LS21_CONSTRUCTION = (
     "Frozen LS12 H5 1.25x + dual-short router; the bear weak-four sleeve only "
     "admits candidates whose three-settlement mean funding is strictly positive; "
     "the non-bear funding-exit sleeve and all other rules are unchanged"
+)
+LS22_CONSTRUCTION = (
+    "Frozen H5 1.25x long-only; at each H5 target event, if the largest long "
+    "leg has a 21D trailing return of at least 100%, halve only that leg and "
+    "leave the freed weight in cash; no redistribution and no short sleeve"
 )
 
 
@@ -393,9 +407,18 @@ def build_long_targets_for_trial(
     funding_rates: pd.DataFrame,
     universe: pd.DataFrame,
     available: set[str],
+    prices: pd.DataFrame | None = None,
 ):
     if trial_id in LONG_COMMON_GROSS_TRIALS:
         return preserve_relative_weights_on_same_selection(long_targets)
+    if trial_id in LONG_PROFIT_LOCK_TRIALS:
+        if prices is None:
+            raise ValueError("LS22 requires the point-in-time H5 price panel")
+        return trim_extreme_run_single_leader(
+            long_targets,
+            prices=prices,
+            **LS22_PROFIT_LOCK_CONFIG,
+        )
     if trial_id not in LONG_TILT_TRIALS:
         return long_targets, pd.DataFrame(
             columns=[
@@ -462,6 +485,7 @@ def main() -> None:
             LS18_CANDIDATE_ID,
             LS20_CANDIDATE_ID,
             LS21_CANDIDATE_ID,
+            LS22_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -511,6 +535,7 @@ def main() -> None:
         funding_rates=funding,
         universe=universe,
         available=available,
+        prices=market.price,
     )
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
@@ -610,6 +635,22 @@ def main() -> None:
             if "relative_l1_skipped" in long_tilt_audit.columns
             else 0.0
         ),
+        "profit_lock_event_count": int(len(long_tilt_audit)) if "trimmed" in long_tilt_audit.columns else 0,
+        "profit_lock_trimmed_count": (
+            int(long_tilt_audit["trimmed"].sum())
+            if "trimmed" in long_tilt_audit.columns
+            else 0
+        ),
+        "profit_lock_cash_weight_total": (
+            float(
+                (
+                    long_tilt_audit["gross_before"]
+                    - long_tilt_audit["gross_after"]
+                ).sum()
+            )
+            if {"gross_before", "gross_after"}.issubset(long_tilt_audit.columns)
+            else 0.0
+        ),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "bear_funding_threshold": (
             float(FROZEN_CONFIG["bear_funding_threshold"])
@@ -644,6 +685,8 @@ def main() -> None:
     long_tilt_audit.to_csv(output_dir / "funding_tilt_audit.csv", index=False)
     if args.trial_id == LS20_CANDIDATE_ID:
         long_tilt_audit.to_csv(output_dir / "selection_event_audit.csv", index=False)
+    if args.trial_id == LS22_CANDIDATE_ID:
+        long_tilt_audit.to_csv(output_dir / "profit_lock_audit.csv", index=False)
     sleeve_audit.to_csv(output_dir / "sleeve_audit.csv", index=False)
     _write_schedule(output_dir / "routed_short_schedule.csv", short_targets)
     _write_schedule(output_dir / "bear_weak4_schedule.csv", bear_schedule)
@@ -682,6 +725,8 @@ def main() -> None:
                     if args.trial_id == LS20_CANDIDATE_ID
                     else LS21_SPEC_PATH
                     if args.trial_id == LS21_CANDIDATE_ID
+                    else LS22_SPEC_PATH
+                    if args.trial_id == LS22_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -697,6 +742,8 @@ def main() -> None:
                     if args.trial_id == LS20_CANDIDATE_ID
                     else LS21_CONSTRUCTION
                     if args.trial_id == LS21_CANDIDATE_ID
+                    else LS22_CONSTRUCTION
+                    if args.trial_id == LS22_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {
@@ -715,6 +762,11 @@ def main() -> None:
                     **(
                         FUNDING_LONG_TILT_CONFIG
                         if args.trial_id == LS18_CANDIDATE_ID
+                        else {}
+                    ),
+                    **(
+                        LS22_PROFIT_LOCK_CONFIG
+                        if args.trial_id == LS22_CANDIDATE_ID
                         else {}
                     ),
                 },
@@ -748,6 +800,7 @@ def main() -> None:
                 f"- Bear funding threshold: {summary['bear_funding_threshold']:.8f}",
                 f"- Funding long-tilt events: {summary['funding_tilt_event_count']}",
                 f"- Relative tilts skipped: {summary['relative_tilt_skipped_count']}",
+                f"- Profit-lock trimmed events: {summary['profit_lock_trimmed_count']}",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",

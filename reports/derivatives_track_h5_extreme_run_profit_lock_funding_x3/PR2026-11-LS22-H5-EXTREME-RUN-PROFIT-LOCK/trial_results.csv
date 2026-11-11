@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK,main,lag0,20.0,1.6990945501662131,32.822859274796166,-0.41701390638268754,reports/derivatives_track_h5_extreme_run_profit_lock_funding_x3/PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK/summary.json

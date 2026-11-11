@@ -1,0 +1,21 @@
+{
+  "baseline": "L125_BASELINE",
+  "candidates": [
+    "LS22_H5_EXTREME_RUN_PROFIT_LOCK"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 37,
+      "candidate": "LS22_H5_EXTREME_RUN_PROFIT_LOCK",
+      "mdd_pass": 45,
+      "multiple_pass": 37,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.39841739164424916,
+      "worst_relative_mdd": -0.39841739164424916
+    }
+  ]
+}

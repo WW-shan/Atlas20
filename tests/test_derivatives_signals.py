@@ -1281,3 +1281,54 @@ def test_preserve_relative_weights_skips_same_set_tilts_but_keeps_gross_and_sele
         "C": pytest.approx(0.20),
     }
     assert audit["set_changed"].tolist() == [True, False, True, False]
+
+
+def test_trim_extreme_single_leader_scales_only_the_largest_leg() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 220.0], "B": [100.0, 120.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+    )
+
+    assert adjusted[date].to_dict() == {
+        "A": pytest.approx(0.30),
+        "B": pytest.approx(0.40),
+    }
+    assert audit.iloc[0]["leader"] == "A"
+    assert audit.iloc[0]["trailing_return"] == pytest.approx(1.20)
+    assert bool(audit.iloc[0]["trimmed"]) is True
+
+
+def test_trim_extreme_single_leader_keeps_targets_when_leader_is_below_threshold() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 180.0], "B": [100.0, 120.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+    )
+
+    assert adjusted[date].to_dict() == {"A": pytest.approx(0.60), "B": pytest.approx(0.40)}
+    assert bool(audit.iloc[0]["trimmed"]) is False

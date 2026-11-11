@@ -103,6 +103,91 @@ def preserve_relative_weights_on_same_selection(
     return adjusted, pd.DataFrame(audit_rows)
 
 
+def trim_extreme_run_single_leader(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    prices: pd.DataFrame,
+    *,
+    lookback_days: int,
+    threshold: float,
+    scale: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Halve the largest long leg after an extreme trailing run.
+
+    Only the single largest target-weight asset is eligible. The freed weight
+    stays in cash; no asset is added and no weight is redistributed. A missing
+    or stale price never triggers the trim.
+    """
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if not np.isfinite(threshold) or threshold <= 0.0:
+        raise ValueError("threshold must be positive and finite")
+    if not np.isfinite(scale) or not 0.0 < scale < 1.0:
+        raise ValueError("scale must be finite and in (0, 1)")
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame.sort_index()
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target[target > 1e-15].astype(float).sort_index()
+
+        leader = ""
+        leader_weight_before = 0.0
+        trailing_return = float("nan")
+        trimmed = False
+        output = target.copy()
+        if not target.empty:
+            leader = str(target.idxmax())
+            leader_weight_before = float(target.loc[leader])
+            base_cutoff = date - pd.Timedelta(days=lookback_days)
+            candidates = price_frame.index[price_frame.index <= base_cutoff]
+            if (
+                leader in price_frame.columns
+                and date in price_frame.index
+                and not candidates.empty
+            ):
+                base_date = pd.Timestamp(candidates[-1])
+                base_price = float(pd.to_numeric(price_frame.at[base_date, leader], errors="coerce"))
+                current_price = float(pd.to_numeric(price_frame.at[date, leader], errors="coerce"))
+                if (
+                    np.isfinite(base_price)
+                    and np.isfinite(current_price)
+                    and base_price > 0.0
+                    and current_price > 0.0
+                ):
+                    trailing_return = current_price / base_price - 1.0
+                    if trailing_return >= threshold:
+                        output.loc[leader] = leader_weight_before * float(scale)
+                        trimmed = True
+
+        adjusted[date] = output
+        audit_rows.append(
+            {
+                "date": date,
+                "leader": leader,
+                "leader_weight_before": leader_weight_before,
+                "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
+                "trailing_return": trailing_return,
+                "lookback_days": int(lookback_days),
+                "threshold": float(threshold),
+                "scale": float(scale),
+                "trimmed": trimmed,
+                "gross_before": float(target.sum()),
+                "gross_after": float(output.sum()),
+            }
+        )
+    return adjusted, pd.DataFrame(audit_rows)
+
+
 def bear_regime(
     btc_close: pd.Series,
     *,

@@ -262,3 +262,49 @@ def test_ls21_runner_passes_strict_positive_bear_funding(monkeypatch) -> None:
 
     assert result is sentinel
     assert captured["bear_funding_threshold"] == 0.0
+
+
+def test_ls22_extreme_run_profit_lock_is_frozen_to_one_hundred_percent_and_half_scale() -> None:
+    from scripts.run_h5_regime_short_router import (
+        LS22_CANDIDATE_ID,
+        LS22_PROFIT_LOCK_CONFIG,
+    )
+
+    assert LS22_CANDIDATE_ID == "PR2026-11-LS22-H5-EXTREME-RUN-PROFIT-LOCK"
+    assert LS22_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+    }
+
+
+def test_ls22_runner_applies_profit_lock_to_the_long_book(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "trimmed"}, "audit")
+    prices = {"BTC": [100.0, 200.0]}
+
+    def fake_trim(targets, *, prices, **kwargs):
+        captured["targets"] = targets
+        captured["prices"] = prices
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(runner, "trim_extreme_run_single_leader", fake_trim)
+    long_targets = {"date": "long"}
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS22_CANDIDATE_ID,
+        long_targets=long_targets,
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+        prices=prices,
+    )
+
+    assert result is sentinel
+    assert captured["targets"] is long_targets
+    assert captured["prices"] is prices
+    assert captured["lookback_days"] == 21
+    assert captured["threshold"] == 1.0
+    assert captured["scale"] == 0.5
