@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "f119a552899d71b71be8f7b1c8fc13cac7113819",
+  "repository_head": "b15818eb022cd3b81636d90dea109648452ca884",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "759d5ac9652cb2f387e722175bc4aa7c72571c513ab985f41cab94430bad3043",
+  "research_md_sha256": "dc625361f199019fb76852be04b27e11ca6f68dc184671b5558d4d61436b15c9",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20414,
-  "rows_at_primary_cost": 17876,
+  "rows_read": 20415,
+  "rows_at_primary_cost": 17877,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -696,6 +696,10 @@
       "origin": "working tree (committed)",
       "sha256": "48299d7af96a9ad12295becda081a8cd4eef5a51698013dc097f0b6f45006894"
     },
+    "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/trial_results.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "25dc2fd7438d29707cacf3f7d792152a5f1b53bb6c6a1e805b27f91bb0225a85"
+    },
     "reports/derivatives_track_reversal_short_round2/trial_results.csv": {
       "origin": "working tree (committed)",
       "sha256": "bc4dd5e96fcce3eec2c18c365cf2ba69a79b7579cf774ad6519121fdbf2c515a"
@@ -801,7 +805,7 @@
       "sha256": "f5ceb23221f3c2f6bbb8c9b01392c1e686d2d80a266c34269c7e56ed8e6c24f6"
     },
     "reports/phase_momentum_execution_timing_30m/summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "7c3b63cda44b221c3ff6b5613d4f75faf80d259d1e0e8e637c41e87791edb9c6"
     },
     "reports/phase_momentum_hypotheses_2026_10/runs.csv": {
@@ -833,8 +837,8 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (committed)",
-      "sha256": "da761197498eccac4bfebed3faec521aeee142774b729ee5c9a0445d4f3a9cf5"
+      "origin": "working tree (modified)",
+      "sha256": "295f76a30b8310fa12d355aa213a9831cfa116c796083288a4742b5147fa0bba"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

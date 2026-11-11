@@ -1,0 +1,162 @@
+{
+  "artifacts": [
+    {
+      "bytes": 11755,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/report.md",
+      "sha256": "ebe34d11826633fbbcaa4eab2b6bade46ce75109ee405d90955629b0ba0a1614"
+    },
+    {
+      "bytes": 86253,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/returns_20bps.csv",
+      "sha256": "f0812ba78905e099730c73d9be200f4ea1f2930a392db624bc82289b4e4ffbf4"
+    },
+    {
+      "bytes": 60393,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/returns_20bps_naive_dates.csv",
+      "sha256": "bc4a97a769d73750ddd1e15662e85a844f682cd9c650d5440a1ecc94542dc93d"
+    },
+    {
+      "bytes": 1019,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/cost_comparison.csv",
+      "sha256": "b739936602e81d1d5ca0d54059eae823dc28956144ab93d5c9a4c16bcd8838aa"
+    },
+    {
+      "bytes": 2012,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/cost_runs_long.csv",
+      "sha256": "e4f9cd780851d31279b7280aa001fef0891298a64957ee70a6976c7f04d5c291"
+    },
+    {
+      "bytes": 832,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/funding_stress_summary.csv",
+      "sha256": "2e0ec5ce3596543b986f10f03d2fe8fc0a9269a5db01f61e7d33454f01b2e203"
+    },
+    {
+      "bytes": 118987,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/target_sleeve_attribution.csv",
+      "sha256": "eceec0bd8b5dc333d5279da1fe5f612c00f8a25e4860ebbeba31cbce9da44459"
+    },
+    {
+      "bytes": 364,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/target_sleeve_attribution_summary.csv",
+      "sha256": "fb66253906c415f581796b40265b74f4ba28f8e541a1e6ea592dfa0c1c65413a"
+    },
+    {
+      "bytes": 439,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/target_sleeve_attribution_summary.json",
+      "sha256": "c637d236b3c54d3cfbdcd470848213c8fa1484ca4dbf35321c5351820ee80371"
+    },
+    {
+      "bytes": 420,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/robustness/yearly_returns.csv",
+      "sha256": "23f6049d8587d927d9c9c8566733bc28b7982f2589c0b915140600381eb74db2"
+    },
+    {
+      "bytes": 1085,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/robustness/best_year_removal.csv",
+      "sha256": "d2ead127d782b95fd20b124073738fe62f11e81a7a8125c7acbdbece7b2ff4f8"
+    },
+    {
+      "bytes": 223,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/robustness/rolling_worst.csv",
+      "sha256": "e40aa526c72b4b0ad2be2c783369a96ccb213399d8e6b75c6b1dce571e79f8cf"
+    },
+    {
+      "bytes": 8539,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/robustness/monthly_start_slices.csv",
+      "sha256": "46bac96fb50cea2d1ff2b1d6737afcce926a64389c042aea13cf87ca6c0da046"
+    },
+    {
+      "bytes": 252,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/robustness/monthly_start_slice_summary.json",
+      "sha256": "35bf568ed63a759c00cb1cf069a1e764049250e450dc150401254e259757a63a"
+    },
+    {
+      "bytes": 510,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing/summary.json",
+      "sha256": "f5fd9328f741046216bf78e394fdc2fea801cd11b5da3c69e4b72c8bf897b554"
+    },
+    {
+      "bytes": 217,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing/dsr.csv",
+      "sha256": "056864416c162f5841efaf2f1d3a89f5b064ba13472f42958aea975e8f102c18"
+    },
+    {
+      "bytes": 46836,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing/pbo_splits.csv",
+      "sha256": "5873b208c8acb96ca4d7c611e1b2d13b18649d7d03eb9bfb1d2c736e40137df4"
+    },
+    {
+      "bytes": 1461,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing_project/manifest.json",
+      "sha256": "6bb9cddf847e6001e2aaf6bbed821ed060746a4d0a7a3b9d8bcdf62b56e4e9e5"
+    },
+    {
+      "bytes": 452,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "269dd141ee2f7c3344950a914b1b5603d195c86ea543ac2fa8e1a942fc728ea7"
+    },
+    {
+      "bytes": 193,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing_project/reality_check.csv",
+      "sha256": "186740d5395ce5f921aed15f72a83c62425e36124e49d99ee5f13cfad0d485af"
+    },
+    {
+      "bytes": 164,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/multiple_testing_project/pbo.csv",
+      "sha256": "d9f97913c8d98cb4d89606c5edb8a92d7d60d259a3f59f8dbd795067e4b08787"
+    },
+    {
+      "bytes": 1030,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/summary.json",
+      "sha256": "7f5a416e7bf121e71aa2d1fb527494d782904ec02b37e52751b3b00735a73d79"
+    },
+    {
+      "bytes": 270,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/trial_results.csv",
+      "sha256": "25dc2fd7438d29707cacf3f7d792152a5f1b53bb6c6a1e805b27f91bb0225a85"
+    },
+    {
+      "bytes": 23214,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/short_episodes.csv",
+      "sha256": "d98a02fba809d99666efcdfbcb469b3f2a0435bd4352645f9a42ac0cd104aaa4"
+    },
+    {
+      "bytes": 2621,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/short_asset_attribution.csv",
+      "sha256": "d0223e1888764ed57bb8f6cbbc9853b082056147d2eeeef66794da7ce28c05b4"
+    },
+    {
+      "bytes": 335,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/short_episode_summary.csv",
+      "sha256": "4ec7f6cfaf31315f5a244726e301cec822eee0410e6185508f04d4bb85ce73f5"
+    },
+    {
+      "bytes": 1043,
+      "path": "reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_short_adverse_x3/summary.json",
+      "sha256": "fb8cf3be948004d7a14d2bada11626a7267e70c1a11ba2f2785afe4c05f3e92a"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history not closed",
+    "12 months of true out-of-sample has not accumulated",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS1-H5-H4-SECTOR20",
+  "hard_failures": [
+    "100bps terminal multiple below same-cost baseline",
+    "two-sided long+short target gross exceeded 1.00",
+    "remove-best-year 2023 below baseline",
+    "all-project DSR below 0.95",
+    "monthly-start path stability failed on 23 of 45 starts"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "8aac98afb3be8e3958db09ec7b5f2161b6cb613597f96661611d97c729b3ffbf",
+  "spec_sha256": "e4941e6f5891c03fbdbe8ebd5b34e7f010cda82d8cd6cb720eb318f6edf100cc",
+  "trial_count_all_projects": 14171,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

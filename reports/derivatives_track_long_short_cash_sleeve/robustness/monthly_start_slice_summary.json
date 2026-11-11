@@ -1,0 +1,10 @@
+{
+  "all_three_passes": 22,
+  "first_start": "2022-01-01",
+  "last_start": "2025-09-01",
+  "mdd_5pp_passes": 45,
+  "sharpe_passes": 34,
+  "start_rule": "calendar month starts with at least 365 days remaining",
+  "starts": 45,
+  "terminal_passes": 22
+}

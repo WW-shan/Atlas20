@@ -1,0 +1,15 @@
+# PR2026-11-LS1-H5-BASELINE
+
+- Window: 2022-01-01 to 2026-09-21
+- Cost: 100 bps
+- Funding: `binance-proxy`, stress `none` x 1
+- Terminal multiple: 9.3848x
+- Sharpe: 1.3251
+- Max drawdown: -41.9198%
+- Max observed gross: 0.963882x
+- Liquidations: 0
+- Short stop-losses: 0
+- Funding total: -0.200690
+- Fees total: 2.473560
+
+Research output only; not an order or a live approval.

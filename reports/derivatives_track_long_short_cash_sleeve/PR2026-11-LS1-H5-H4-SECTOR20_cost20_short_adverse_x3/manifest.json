@@ -1,0 +1,24 @@
+{
+  "baseline": false,
+  "candidate_id": "PR2026-11-LS1-H5-H4-SECTOR20",
+  "construction": "1.0*w_H5 + 0.2*w_H4 - 0.2*w_SECTOR_LEAD_top2__asset_ma50",
+  "cost_bps": 20.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "h4_weight": 0.2,
+    "hard_gross": 1.0,
+    "long_buffer": 0.75,
+    "max_gross": 0.95,
+    "sector_short_weight": 0.2,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_missing_policy": "skip",
+  "funding_multiplier": 3.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "short-adverse",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-long-short-cash-sleeve-design.md",
+  "start_date": "2022-01-01",
+  "target_events": 843
+}

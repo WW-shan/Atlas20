@@ -1,0 +1,19 @@
+{
+  "candidate_count_used": 2,
+  "duplicates": {},
+  "expected_max_sharpe": 0.01813132873011354,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": 0.6931471805599452,
+    "most_selected_candidate": "LS1_H5_H4_SECTOR20",
+    "most_selected_count": 858,
+    "pbo": 0.14285714285714285,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.002123641961760934,
+    "reality_check_p_value": 0.003996003996003996
+  },
+  "trial_count": 14171
+}

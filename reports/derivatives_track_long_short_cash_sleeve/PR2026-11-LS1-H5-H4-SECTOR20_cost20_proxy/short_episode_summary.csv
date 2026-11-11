@@ -1,0 +1,2 @@
+episodes,assets,sum_pnl_pct_open_equity,mean_pnl_pct_open_equity,median_pnl_pct_open_equity,worst_episode_pct,best_episode_pct,max_adverse_loss_pct_open_equity,negative_episodes,positive_episodes
+88,26,0.03854001543066925,0.0004379547208030596,0.0009847681847959535,-0.03699132251668824,0.029543219426907154,0.035464945629108804,36,52

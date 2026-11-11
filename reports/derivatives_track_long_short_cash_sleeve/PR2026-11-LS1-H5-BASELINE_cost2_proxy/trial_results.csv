@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS1-H5-BASELINE,main,lag0,2.0,1.8276675468754735,25.669176901939373,-0.3140813836016474,reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-BASELINE_cost2_proxy/summary.json

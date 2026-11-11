@@ -1,0 +1,13 @@
+{
+  "avg_h4_gross": 0.13796892299939598,
+  "avg_h5_gross": 0.4244021772334928,
+  "avg_raw_net_gross": 0.5100444625022885,
+  "avg_scaled_long_gross": 0.5514803533408911,
+  "avg_scaled_short_gross": 0.13104992609033425,
+  "avg_scaled_total_gross": 0.499112873198062,
+  "avg_short_gross": 0.13219454329774613,
+  "event_scale_count": 137.0,
+  "events": 843.0,
+  "max_raw_net_gross": 1.330574242598757,
+  "same_asset_two_sided_events": 581.0
+}

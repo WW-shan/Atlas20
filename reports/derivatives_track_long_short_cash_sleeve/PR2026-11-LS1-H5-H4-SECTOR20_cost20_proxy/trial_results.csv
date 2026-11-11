@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS1-H5-H4-SECTOR20,main,lag0,20.0,1.860275034041868,26.26168986961087,-0.2759879730765574,reports/derivatives_track_long_short_cash_sleeve/PR2026-11-LS1-H5-H4-SECTOR20_cost20_proxy/summary.json
