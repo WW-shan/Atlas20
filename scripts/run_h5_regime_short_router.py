@@ -51,7 +51,14 @@ from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E
 
 BASELINE_ID = "PR2026-10-D-L125"
 CANDIDATE_ID = "PR2026-11-LS12-H5-REGIME-SHORT-ROUTER"
+NO_TRADE_BAND_CANDIDATE_ID = "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5"
+NO_TRADE_BAND_FRACTION = 0.05
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
+NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
+SHORT_CANDIDATES = {
+    CANDIDATE_ID: 0.0,
+    NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
+}
 FROZEN_CONFIG: dict[str, Any] = {
     "h5_leverage": 1.25,
     "max_total_gross": 1.50,
@@ -76,6 +83,11 @@ CONSTRUCTION = (
     "200D SMA: bear = weekly 14D weakest-four PIT Top20 non-H5 basket; "
     "non-bear = 21D funding-top-tercile H5 exits; total short <=0.25x and "
     "hard total gross 1.50x"
+)
+NO_TRADE_BAND_CONSTRUCTION = (
+    CONSTRUCTION
+    + "; existing same-side positions use a 5% NAV no-trade region and only "
+    "trade beyond that boundary, while opens/exits/side flips stay exact"
 )
 
 
@@ -292,7 +304,11 @@ def build_regime_short_schedules(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="config/base.yaml")
-    parser.add_argument("--trial-id", choices=(BASELINE_ID, CANDIDATE_ID), required=True)
+    parser.add_argument(
+        "--trial-id",
+        choices=(BASELINE_ID, CANDIDATE_ID, NO_TRADE_BAND_CANDIDATE_ID),
+        required=True,
+    )
     parser.add_argument("--start-date", default="2022-01-01")
     parser.add_argument("--end-date", default="2026-09-21")
     parser.add_argument("--cost-bps", type=float, default=20.0)
@@ -344,7 +360,7 @@ def main() -> None:
     sleeve_audit = pd.DataFrame(columns=["date", "regime", "active_sleeve", "short_gross"])
     bear_schedule: dict[pd.Timestamp, pd.Series] = {}
     exit_schedule: dict[pd.Timestamp, pd.Series] = {}
-    if args.trial_id == CANDIDATE_ID:
+    if args.trial_id in SHORT_CANDIDATES:
         short_targets, sleeve_audit, bear_schedule, exit_schedule = build_regime_short_schedules(
             market=market,
             universe=universe,
@@ -371,6 +387,7 @@ def main() -> None:
         short_buffer=float(FROZEN_CONFIG["short_buffer"]),
         short_stop_loss_pct=float(FROZEN_CONFIG["short_stop_loss_pct"]),
         max_gross_exposure=float(FROZEN_CONFIG["max_total_gross"]),
+        rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         funding_missing_policy=args.funding_missing_policy,
         funding_stress=args.funding_stress,
         funding_multiplier=float(args.funding_multiplier),
@@ -406,6 +423,7 @@ def main() -> None:
         "missing_mark_max_carry_hours": int(args.missing_mark_max_carry_hours),
         "h5_leverage": float(FROZEN_CONFIG["h5_leverage"]),
         "max_total_gross": float(FROZEN_CONFIG["max_total_gross"]),
+        "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
@@ -457,9 +475,26 @@ def main() -> None:
             {
                 "candidate_id": args.trial_id,
                 "baseline": args.trial_id == BASELINE_ID,
-                "spec": SPEC_PATH,
-                "construction": "H5 1.25x long-only" if args.trial_id == BASELINE_ID else CONSTRUCTION,
-                "frozen_config": FROZEN_CONFIG,
+                "spec": (
+                    SPEC_PATH
+                    if args.trial_id == CANDIDATE_ID
+                    else NO_TRADE_BAND_SPEC_PATH
+                    if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
+                    else ""
+                ),
+                "construction": (
+                    "H5 1.25x long-only"
+                    if args.trial_id == BASELINE_ID
+                    else NO_TRADE_BAND_CONSTRUCTION
+                    if args.trial_id == NO_TRADE_BAND_CANDIDATE_ID
+                    else CONSTRUCTION
+                ),
+                "frozen_config": {
+                    **FROZEN_CONFIG,
+                    "rebalance_no_trade_band": float(
+                        SHORT_CANDIDATES.get(args.trial_id, 0.0)
+                    ),
+                },
                 "start_date": args.start_date,
                 "end_date": args.end_date,
                 "cost_bps": float(args.cost_bps),
@@ -485,6 +520,7 @@ def main() -> None:
                 f"- Sharpe: {metrics['sharpe']:.4f}",
                 f"- Max drawdown: {metrics['max_drawdown']:.4%}",
                 f"- Max requested short gross: {summary['max_requested_short_gross']:.6f}x",
+                f"- Rebalance no-trade band: {summary['rebalance_no_trade_band']:.4%} NAV",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",

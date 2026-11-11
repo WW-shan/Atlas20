@@ -1,0 +1,14 @@
+{
+  "baseline_sha256": "c5a2e582e54559f70d11c7cef7f8ba2c5ae7b994f203d74c7e49e6886f6163d0",
+  "baseline_source": "reports/derivatives_track_h5_no_trade_band/baseline_cost_20bps/PR2026-10-D-L125/daily_returns.csv",
+  "candidate_sha256": "8594a73882cfe2dc085d3df50edfd23e2252d615e7aed156c327908460a514ec",
+  "candidate_source": "reports/derivatives_track_h5_no_trade_band/PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5/daily_returns.csv",
+  "columns": [
+    "L125_BASELINE",
+    "LS16_H5_REGIME_SHORT_NOTRADE5"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "matrix_sha256": "0c75701d576781cf7a0fd3b3dadf689716274bcb8fe47ce030d6c3a4e835969e",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00"
+}

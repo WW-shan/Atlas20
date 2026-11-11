@@ -798,3 +798,125 @@ def test_hard_gross_guard_reduces_on_the_next_bar_after_a_mark_drift() -> None:
 def test_hard_gross_guard_must_exceed_target_gross() -> None:
     with pytest.raises(ValueError, match="hard_gross_exposure"):
         DerivativeBacktestConfig(max_gross_exposure=0.95, hard_gross_exposure=0.90)
+
+
+def test_no_trade_band_skips_small_same_side_rebalance() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-04T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 0.10}),
+        pd.Timestamp("2026-01-02T00:00:00Z"): pd.Series({"BTC": 0.12}),
+        pd.Timestamp("2026-01-03T00:00:00Z"): pd.Series({"BTC": 0.16}),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            max_margin_utilization=1.0,
+            rebalance_no_trade_band=0.05,
+        ),
+    )
+
+    assert result.trades["action"].tolist() == ["open", "increase"]
+    assert result.positions.iloc[-1]["notional"] == pytest.approx(110.0)
+
+
+def test_no_trade_band_reduces_only_to_the_lower_boundary() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 0.10}),
+        pd.Timestamp("2026-01-02T00:00:00Z"): pd.Series({"BTC": 0.02}),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            max_margin_utilization=1.0,
+            rebalance_no_trade_band=0.05,
+        ),
+    )
+
+    reduction = result.trades[result.trades["action"] == "reduce"].iloc[0]
+    assert reduction["notional"] == pytest.approx(30.0)
+
+
+def test_no_trade_band_never_blocks_a_full_exit() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 0.10}),
+        pd.Timestamp("2026-01-02T00:00:00Z"): pd.Series(dtype=float),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            max_margin_utilization=1.0,
+            rebalance_no_trade_band=0.05,
+        ),
+    )
+
+    assert result.trades["action"].tolist() == ["open", "close"]
+
+
+def test_no_trade_band_falls_back_to_exact_targets_before_a_gross_breach() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-03T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"A": _flat_frame(index), "B": _flat_frame(index)}
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"A": 0.60}),
+        pd.Timestamp("2026-01-02T00:00:00Z"): pd.Series({"A": 0.10, "B": 0.90}),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            max_margin_utilization=1.0,
+            max_gross_exposure=1.0,
+            rebalance_no_trade_band=0.05,
+        ),
+    )
+
+    at_second_target = pd.Timestamp("2026-01-03T03:00:00Z")
+    assert result.gross_exposure.loc[at_second_target] == pytest.approx(1.0)
+    assert result.trades.loc[result.trades["asset"] == "A", "action"].tolist() == [
+        "open",
+        "reduce",
+    ]
+    a_reduction = result.trades[
+        (result.trades["timestamp"] == at_second_target) & (result.trades["action"] == "reduce")
+    ].iloc[0]
+    assert a_reduction["notional"] == pytest.approx(500.0)
+
+
+def test_no_trade_band_must_be_below_one_hundred_percent() -> None:
+    with pytest.raises(ValueError, match="rebalance_no_trade_band"):
+        DerivativeBacktestConfig(rebalance_no_trade_band=1.0)

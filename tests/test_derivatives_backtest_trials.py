@@ -79,3 +79,13 @@ def test_round7_cross_sectional_basket_uses_only_the_prespecified_bottom8_hold_b
     assert rule["cross_sectional_hold_rank"] == 8
     assert rule["short_stop_loss_pct"] == 0.20
     assert "short_buffer" not in rule
+
+
+def test_ls16_no_trade_band_candidate_is_frozen_to_five_percent_nav() -> None:
+    from scripts.run_h5_regime_short_router import (
+        NO_TRADE_BAND_CANDIDATE_ID,
+        NO_TRADE_BAND_FRACTION,
+    )
+
+    assert NO_TRADE_BAND_CANDIDATE_ID == "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5"
+    assert NO_TRADE_BAND_FRACTION == 0.05

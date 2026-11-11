@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5,main,lag0,100.0,1.3536068024022159,15.448814557899636,-0.49115256135598195,reports/derivatives_track_h5_no_trade_band/cost_100bps/PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5/summary.json

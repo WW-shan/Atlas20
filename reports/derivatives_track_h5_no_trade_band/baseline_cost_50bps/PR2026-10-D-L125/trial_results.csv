@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-10-D-L125,main,lag0,50.0,1.578953247517987,27.372455313457614,-0.44204753811527664,reports/derivatives_track_h5_no_trade_band/baseline_cost_50bps/PR2026-10-D-L125/summary.json

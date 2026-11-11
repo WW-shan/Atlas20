@@ -1,0 +1,33 @@
+{
+  "baseline": false,
+  "candidate_id": "PR2026-11-LS16-H5-REGIME-SHORT-NOTRADE5",
+  "construction": "H5 1.25x + exactly one short sleeve selected by BTC close versus its 200D SMA: bear = weekly 14D weakest-four PIT Top20 non-H5 basket; non-bear = 21D funding-top-tercile H5 exits; total short <=0.25x and hard total gross 1.50x; existing same-side positions use a 5% NAV no-trade region and only trade beyond that boundary, while opens/exits/side flips stay exact",
+  "cost_bps": 50.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "bear_funding_lookback_settlements": 3,
+    "bear_funding_threshold": -0.0002,
+    "bear_lookback_days": 14,
+    "bear_per_asset_weight": 0.0625,
+    "bear_rebalance_days": 7,
+    "bear_short_count": 4,
+    "btc_ma_window": 200,
+    "exit_funding_lookback_days": 7,
+    "exit_funding_min_assets": 5,
+    "exit_funding_rank_min": 0.6666666666666666,
+    "exit_holding_days": 21,
+    "exit_per_asset_weight": 0.025,
+    "h5_leverage": 1.25,
+    "long_buffer": 0.5,
+    "max_total_gross": 1.5,
+    "rebalance_no_trade_band": 0.05,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md",
+  "start_date": "2022-01-01"
+}

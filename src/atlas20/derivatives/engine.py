@@ -41,6 +41,7 @@ class DerivativeBacktestConfig:
     max_gross_exposure: float = 1.25
     hard_gross_exposure: float | None = None
     max_margin_utilization: float = 0.85
+    rebalance_no_trade_band: float = 0.0
     execution_hour: int = 3
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
@@ -82,6 +83,8 @@ class DerivativeBacktestConfig:
                 )
         if not 0.0 < self.max_margin_utilization <= 1.0:
             raise ValueError("max_margin_utilization must be in (0, 1]")
+        if not 0.0 <= self.rebalance_no_trade_band < 1.0:
+            raise ValueError("rebalance_no_trade_band must be in [0, 1)")
         if not 0 <= self.execution_hour <= 23:
             raise ValueError("execution_hour must be in [0, 23]")
         if self.execution_lag_days < 0:
@@ -851,11 +854,44 @@ def run_derivative_backtest(
             for asset, (side, notional) in desired.items()
         }
 
+        effective = desired
+        if cfg.rebalance_no_trade_band > 0.0 and equity > 0.0:
+            band_notional = cfg.rebalance_no_trade_band * equity
+            current_gross = sum(
+                position.quantity * fill_price(asset, timestamp)
+                for asset, position in positions.items()
+            )
+            gross_cap = cfg.max_gross_exposure * equity
+            # A no-trade buffer must never preserve an already breached gross
+            # limit. It is also discarded if holding the buffer would create a
+            # new breach after the target schedule adds other positions.
+            if current_gross <= gross_cap + 1e-12:
+                buffered: dict[str, tuple[int, float]] = {}
+                for asset, (side, target_notional) in desired.items():
+                    current = positions.get(asset)
+                    if current is None or current.side != side:
+                        buffered[asset] = (side, target_notional)
+                        continue
+                    price = fill_price(asset, timestamp)
+                    current_notional = current.quantity * price
+                    delta = target_notional - current_notional
+                    if abs(delta) <= band_notional + 1e-12:
+                        buffered[asset] = (side, current_notional)
+                    else:
+                        buffered_notional = max(
+                            0.0,
+                            target_notional - np.sign(delta) * band_notional,
+                        )
+                        buffered[asset] = (side, buffered_notional)
+                projected_gross = sum(notional for _, notional in buffered.values())
+                if projected_gross <= gross_cap + 1e-12:
+                    effective = buffered
+
         # Reduce or close first so the released cash can fund increases.
         for asset in list(positions):
             price = fill_price(asset, timestamp)
             current = positions[asset]
-            target_entry = desired.get(asset)
+            target_entry = effective.get(asset)
             if target_entry is None or target_entry[0] != current.side:
                 close_position(asset, timestamp, price, reason="rebalance")
                 continue
@@ -869,7 +905,7 @@ def run_derivative_backtest(
                 )
 
         # Open or increase only after reductions have settled.
-        for asset, (side, notional) in desired.items():
+        for asset, (side, notional) in effective.items():
             price = fill_price(asset, timestamp)
             current = positions.get(asset)
             if current is None:
