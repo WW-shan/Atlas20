@@ -926,3 +926,39 @@ def test_weak_short_schedule_excludes_missing_funding() -> None:
     assert "e" not in schedule[anchor].index
     assert len(schedule[anchor]) == 3
     assert schedule[anchor].sum() == pytest.approx(0.075)
+
+
+def test_combine_fixed_risk_short_schedules_uses_max_not_sum() -> None:
+    from atlas20.derivatives.signals import combine_fixed_risk_short_schedules
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    combined = combine_fixed_risk_short_schedules(
+        {
+            "exit": {
+                d1: pd.Series({"ethereum": 0.025, "solana": 0.025}),
+                d2: pd.Series({"ethereum": 0.025}),
+            },
+            "weak": {d1: pd.Series({"ethereum": 0.025, "cardano": 0.025})},
+        },
+        per_asset_weight=0.025,
+    )
+
+    assert combined[d1]["ethereum"] == pytest.approx(0.025)
+    assert combined[d1]["solana"] == pytest.approx(0.025)
+    assert combined[d1]["cardano"] == pytest.approx(0.025)
+    assert combined[d1].sum() == pytest.approx(0.075)
+    assert set(combined[d2].index) == {"ethereum", "cardano"}
+
+
+def test_combine_fixed_risk_short_schedules_emits_empty_close_event() -> None:
+    from atlas20.derivatives.signals import combine_fixed_risk_short_schedules
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    combined = combine_fixed_risk_short_schedules(
+        {"exit": {d1: pd.Series({"ethereum": 0.025}), d2: pd.Series(dtype=float)}},
+        per_asset_weight=0.025,
+    )
+
+    assert combined[d2].empty

@@ -522,6 +522,70 @@ def build_cross_sectional_weak_short_schedule(
     return schedule
 
 
+def combine_fixed_risk_short_schedules(
+    schedules: Mapping[str, Mapping[pd.Timestamp, pd.Series]],
+    *,
+    per_asset_weight: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Union fixed-risk short sleeves without double sizing an asset."""
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+
+    normalized: dict[str, dict[pd.Timestamp, pd.Series]] = {}
+    event_dates: set[pd.Timestamp] = set()
+    for name, raw_schedule in schedules.items():
+        sleeve: dict[pd.Timestamp, pd.Series] = {}
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            if (target < 0.0).any():
+                raise ValueError(f"{name}: short target weights must be non-negative")
+            if (target > per_asset_weight + 1e-12).any():
+                raise ValueError(
+                    f"{name}: short target weight exceeds per-asset cap"
+                )
+            sleeve[date] = target.astype(float)
+            event_dates.add(date)
+        normalized[str(name)] = dict(sorted(sleeve.items()))
+
+    if not event_dates:
+        return {}
+    states: dict[str, pd.Series] = {
+        name: pd.Series(dtype=float) for name in normalized
+    }
+    cursors = {name: 0 for name in normalized}
+    combined_targets: dict[pd.Timestamp, pd.Series] = {}
+    previous: pd.Series | None = None
+    for date in sorted(event_dates):
+        for name, sleeve in normalized.items():
+            dates = list(sleeve)
+            cursor = cursors[name]
+            while cursor < len(dates) and dates[cursor] <= date:
+                states[name] = sleeve[dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+
+        assets = pd.Index([], dtype=object)
+        for state in states.values():
+            assets = assets.union(state.index)
+        weights: dict[str, float] = {}
+        for asset in assets:
+            weight = max(
+                (float(state.get(asset, 0.0)) for state in states.values()),
+                default=0.0,
+            )
+            if weight > 1e-15:
+                weights[str(asset)] = float(weight)
+        combined = pd.Series(weights, dtype=float).sort_index()
+        if previous is None or not _target_equal(previous, combined):
+            combined_targets[date] = combined
+            previous = combined.copy()
+    return combined_targets
+
+
 def combine_long_with_cash_budgeted_short(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     short_targets: Mapping[pd.Timestamp, pd.Series],
@@ -851,6 +915,7 @@ __all__ = [
     "build_cash_sleeve_targets",
     "build_cross_sectional_weak_short_schedule",
     "build_exit_short_schedule",
+    "combine_fixed_risk_short_schedules",
     "combine_long_with_cash_budgeted_short",
     "EXIT_SHORT_HOLDING_DAYS",
     "build_monthly_sector_short_targets",
