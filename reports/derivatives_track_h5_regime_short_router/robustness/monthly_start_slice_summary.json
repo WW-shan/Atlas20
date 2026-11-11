@@ -1,0 +1,9 @@
+{
+  "all_three_passes": 44,
+  "best_mdd_delta_pp": -0.7551597732703197,
+  "mdd_5pp_passes": 45,
+  "sharpe_passes": 44,
+  "starts": 45,
+  "terminal_passes": 44,
+  "worst_mdd_delta_pp": 4.668946789283302
+}

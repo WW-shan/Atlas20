@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    "L125_BASELINE",
+    "LS12_H5_REGIME_SHORT_ROUTER"
+  ],
+  "end": "2026-09-20T00:00:00+00:00",
+  "inputs": [
+    "reports/derivatives_track_h5_regime_short_router/returns_inputs/L125_BASELINE.csv",
+    "reports/derivatives_track_h5_regime_short_router/returns_inputs/LS12_H5_REGIME_SHORT_ROUTER.csv"
+  ],
+  "rows": 1724,
+  "start": "2022-01-01T00:00:00+00:00"
+}

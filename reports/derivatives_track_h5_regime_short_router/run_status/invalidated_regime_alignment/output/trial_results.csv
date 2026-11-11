@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS12-H5-REGIME-SHORT-ROUTER,main,lag0,20.0,1.771494326829493,43.42827099542761,-0.40643962876770257,reports/derivatives_track_h5_regime_short_router/PR2026-11-LS12-H5-REGIME-SHORT-ROUTER/summary.json
