@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    "H5_BASELINE",
+    "LS4_H5_EXIT_RISK05"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "window_days": 365
+}

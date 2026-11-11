@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS4-H5-EXIT-RISK05,main,lag0,50.0,1.6418156665767858,17.124562521076633,-0.3756027157890194,reports/derivatives_track_h5_exit_risk_budget/PR2026-11-LS4-H5-EXIT-RISK05_cost50_proxy/summary.json

@@ -1,0 +1,18 @@
+# PR2026-11-LS4-H5-EXIT-RISK05
+
+- Window: 2022-09-01 to 2026-09-21
+- Cost: 20 bps
+- Funding: `binance-proxy`, stress `none` x 1
+- Terminal multiple: 22.1306x
+- Sharpe: 1.9102
+- Max drawdown: -33.8951%
+- Max target total gross: 0.950000x
+- Max observed Broker gross: 0.961569x
+- Observed gross breach hours: 0
+- Gross-guard reductions: 0
+- Liquidations: 0
+- Short stop-losses: 18
+- Funding total: -0.311170
+- Fees total: 0.935682
+
+Research output only; not an order or a live approval.

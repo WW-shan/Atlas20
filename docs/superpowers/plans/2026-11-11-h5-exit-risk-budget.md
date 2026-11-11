@@ -8,9 +8,9 @@
 
 - [x] Add fixed per-asset exit-short weight support.
 - [x] Add the risk-budget runner variant and structural tests.
-- [ ] Register the candidate before any formal run.
-- [ ] Run baseline and candidate at 20bps.
-- [ ] Run 2/50/100bps and 3x short-adverse funding.
-- [ ] Compute calendar, rolling, starts, multiple testing and episode attribution.
-- [ ] Write report + manifest and append ledger result.
+- [x] Register the candidate before any formal run.
+- [x] Run baseline and candidate at 20bps.
+- [x] Run 2/50/100bps and 3x short-adverse funding.
+- [x] Compute calendar, rolling, starts, multiple testing and episode attribution.
+- [x] Write report + manifest and append ledger result.
 - [ ] Update `RESEARCH.md`, run full verification, commit and push.
