@@ -39,6 +39,7 @@ class DerivativeBacktestConfig:
     short_buffer: float = 0.50
     short_stop_loss_pct: float | None = None
     max_gross_exposure: float = 1.25
+    hard_gross_exposure: float | None = None
     max_margin_utilization: float = 0.85
     execution_hour: int = 3
     execution_lag_days: int = 1
@@ -71,6 +72,14 @@ class DerivativeBacktestConfig:
             raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
         if self.max_gross_exposure <= 0.0:
             raise ValueError("max_gross_exposure must be positive")
+        if self.hard_gross_exposure is not None:
+            if (
+                not np.isfinite(self.hard_gross_exposure)
+                or self.hard_gross_exposure <= self.max_gross_exposure
+            ):
+                raise ValueError(
+                    "hard_gross_exposure must be finite and greater than max_gross_exposure"
+                )
         if not 0.0 < self.max_margin_utilization <= 1.0:
             raise ValueError("max_margin_utilization must be in (0, 1]")
         if not 0 <= self.execution_hour <= 23:
@@ -692,6 +701,8 @@ def run_derivative_backtest(
         timestamp: pd.Timestamp,
         price: float,
         quantity: float,
+        *,
+        reason: str = "rebalance",
     ) -> None:
         nonlocal cash
         position = positions[asset]
@@ -699,7 +710,7 @@ def run_derivative_backtest(
         if quantity <= 1e-15:
             return
         if quantity >= position.quantity - 1e-15:
-            close_position(asset, timestamp, price, reason="rebalance")
+            close_position(asset, timestamp, price, reason=reason)
             return
         fraction = quantity / position.quantity
         released_margin = position.margin * fraction
@@ -720,7 +731,7 @@ def run_derivative_backtest(
                 "notional": notional,
                 "fee": fee,
                 "margin": released_margin,
-                "reason": "rebalance",
+                "reason": reason,
             }
         )
 
@@ -786,6 +797,39 @@ def run_derivative_backtest(
             }
         )
 
+    def reduce_gross_to_target(timestamp: pd.Timestamp) -> None:
+        """Reduce positions at an executable price after a prior close breach."""
+        if cfg.hard_gross_exposure is None or not positions:
+            return
+        equity = account_equity(timestamp, column="open")
+        if equity <= 0.0:
+            return
+        gross_notional = sum(
+            position.quantity * mark(asset, timestamp, "open")
+            for asset, position in positions.items()
+        )
+        gross_ratio = gross_notional / equity
+        if gross_ratio <= cfg.max_gross_exposure + 1e-12:
+            return
+        reduction_fraction = max(
+            0.0,
+            1.0 - cfg.max_gross_exposure / gross_ratio,
+        )
+        if reduction_fraction <= 0.0:
+            return
+        for asset in list(positions):
+            position = positions.get(asset)
+            if position is None:
+                continue
+            reduce_position(
+                asset,
+                timestamp,
+                fill_price(asset, timestamp),
+                position.quantity * reduction_fraction,
+                reason="gross_guard",
+            )
+
+
     def rebalance(timestamp: pd.Timestamp, target: pd.Series) -> None:
         equity = account_equity(timestamp, column="open")
         desired: dict[str, tuple[int, float]] = {}
@@ -840,6 +884,7 @@ def run_derivative_backtest(
                         notional - current_notional,
                     )
 
+    previous_gross_exposure = 0.0
     for timestamp in index:
         timestamp = pd.Timestamp(timestamp)
 
@@ -874,6 +919,12 @@ def run_derivative_backtest(
                                 "price": float(frame.at[last_time, "close"]),
                             }
                         )
+
+        if (
+            cfg.hard_gross_exposure is not None
+            and previous_gross_exposure > cfg.hard_gross_exposure + 1e-12
+        ):
+            reduce_gross_to_target(timestamp)
 
         # Funding is settled before the hourly liquidation check.
         for asset in positions:
@@ -946,10 +997,15 @@ def run_derivative_backtest(
                     check_funding_coverage(asset, timestamp)
 
         equity = account_equity(timestamp)
-        gross_notional = sum(position.quantity * mark(asset, timestamp) for asset, position in positions.items())
+        gross_notional = sum(
+            position.quantity * mark(asset, timestamp)
+            for asset, position in positions.items()
+        )
+        gross_ratio = gross_notional / equity if equity > 0.0 else float("nan")
         equity_values.append(equity)
         cash_values.append(cash)
-        gross_values.append(gross_notional / equity if equity > 0.0 else float("nan"))
+        gross_values.append(gross_ratio)
+        previous_gross_exposure = gross_ratio
 
     equity_curve = pd.Series(equity_values, index=index, name="equity")
     cash_curve = pd.Series(cash_values, index=index, name="cash")

@@ -756,3 +756,45 @@ def test_fill_hour_hole_slides_to_the_next_candle_within_one_hour() -> None:
     opens = result.trades.loc[result.trades["action"] == "open"]
     assert len(opens) == 1
     assert pd.Timestamp(opens["timestamp"].iloc[0]) == pd.Timestamp("2026-09-01 04:00", tz="UTC")
+
+
+def test_hard_gross_guard_reduces_on_the_next_bar_after_a_mark_drift() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=8, freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[pd.Timestamp("2026-01-01T02:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        130.0,
+        100.0,
+        130.0,
+    ]
+    candles["BTC"].loc[index >= pd.Timestamp("2026-01-01T03:00:00Z"), ["open", "high", "low", "close"]] = 130.0
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -0.95})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            execution_lag_days=0,
+            execution_hour=0,
+            max_gross_exposure=0.90,
+            hard_gross_exposure=1.00,
+        ),
+    )
+
+    assert result.gross_exposure.loc[pd.Timestamp("2026-01-01T02:00:00Z")] > 1.0
+    guard = result.trades[result.trades["reason"] == "gross_guard"]
+    assert len(guard) == 1
+    assert guard.iloc[0]["timestamp"] == pd.Timestamp("2026-01-01T03:00:00Z")
+    assert guard.iloc[0]["side"] == "short"
+    assert result.gross_exposure.loc[pd.Timestamp("2026-01-01T03:00:00Z")] <= 0.91
+
+
+def test_hard_gross_guard_must_exceed_target_gross() -> None:
+    with pytest.raises(ValueError, match="hard_gross_exposure"):
+        DerivativeBacktestConfig(max_gross_exposure=0.95, hard_gross_exposure=0.90)

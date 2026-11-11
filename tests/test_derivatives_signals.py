@@ -747,3 +747,88 @@ def test_total_gross_composition_exposes_unscaled_sleeve_audit() -> None:
     assert row["total_gross"] == pytest.approx(1.20)
     assert row["scale"] == pytest.approx(0.50)
     assert row["scaled_total_gross"] == pytest.approx(0.60)
+
+
+def test_build_exit_short_schedule_holds_and_expires_exited_assets() -> None:
+    from atlas20.derivatives.signals import build_exit_short_schedule
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    d7 = pd.Timestamp("2026-01-07", tz="UTC")
+    h5 = {
+        d1: pd.Series({"bitcoin": 0.5, "ethereum": 0.5}),
+        d2: pd.Series({"bitcoin": 0.5}),
+        d7: pd.Series({"bitcoin": 0.5}),
+    }
+    eligible = {d1: {"bitcoin", "ethereum"}, d2: {"bitcoin", "ethereum"}, d7: {"bitcoin"}}
+
+    short = build_exit_short_schedule(
+        h5,
+        holding_days=5,
+        eligible_by_date=eligible,
+    )
+
+    assert short[d2]["ethereum"] == pytest.approx(1.0)
+    assert d7 in short
+    assert short[d7].empty
+
+
+def test_build_exit_short_schedule_closes_on_reentry() -> None:
+    from atlas20.derivatives.signals import build_exit_short_schedule
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    d3 = pd.Timestamp("2026-01-03", tz="UTC")
+    h5 = {
+        d1: pd.Series({"bitcoin": 0.5, "ethereum": 0.5}),
+        d2: pd.Series({"bitcoin": 0.5}),
+        d3: pd.Series({"bitcoin": 0.5, "ethereum": 0.5}),
+    }
+    eligible = {date: {"bitcoin", "ethereum"} for date in (d1, d2, d3)}
+
+    short = build_exit_short_schedule(
+        h5,
+        holding_days=5,
+        eligible_by_date=eligible,
+    )
+
+    assert short[d2]["ethereum"] == pytest.approx(1.0)
+    assert short[d3].empty
+
+
+def test_cash_budgeted_short_never_reduces_the_long_book() -> None:
+    from atlas20.derivatives.signals import combine_long_with_cash_budgeted_short
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    combined, audit = combine_long_with_cash_budgeted_short(
+        {date: pd.Series({"bitcoin": 0.80})},
+        {date: pd.Series({"ethereum": 0.50})},
+        max_total_gross=0.95,
+    )
+
+    target = combined[date]
+    assert target["bitcoin"] == pytest.approx(0.80)
+    assert target["ethereum"] == pytest.approx(-0.15)
+    row = audit.loc[date]
+    assert row["long_gross"] == pytest.approx(0.80)
+    assert row["requested_short_gross"] == pytest.approx(0.50)
+    assert row["funded_short_gross"] == pytest.approx(0.15)
+    assert row["total_gross"] == pytest.approx(0.95)
+
+
+def test_cash_budgeted_short_scales_only_when_long_alone_exceeds_cap() -> None:
+    from atlas20.derivatives.signals import combine_long_with_cash_budgeted_short
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    combined, audit = combine_long_with_cash_budgeted_short(
+        {date: pd.Series({"bitcoin": 0.98})},
+        {date: pd.Series({"ethereum": 0.50})},
+        max_total_gross=0.95,
+    )
+
+    assert combined[date]["bitcoin"] == pytest.approx(0.95)
+    assert "ethereum" not in combined[date]
+    row = audit.loc[date]
+    assert row["long_scale"] == pytest.approx(0.95 / 0.98)
+    assert row["funded_short_gross"] == pytest.approx(0.0)
+    assert row["total_gross"] == pytest.approx(0.95)

@@ -9,6 +9,7 @@ universe.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Set
+import heapq
 
 import numpy as np
 import pandas as pd
@@ -351,6 +352,159 @@ def build_cash_sleeve_targets(
     )
 
 
+EXIT_SHORT_HOLDING_DAYS = 21
+
+
+def build_exit_short_schedule(
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    holding_days: int = EXIT_SHORT_HOLDING_DAYS,
+    eligible_by_date: Mapping[pd.Timestamp, Set[str]],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Short H5 exits for a fixed hold, closing early when an asset re-enters."""
+    if holding_days < 1:
+        raise ValueError("holding_days must be positive")
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        normalized_h5[date] = target.astype(float)
+    normalized_eligible = {
+        _as_utc(date): {str(asset) for asset in assets}
+        for date, assets in eligible_by_date.items()
+    }
+
+    pending = list(normalized_h5)
+    heapq.heapify(pending)
+    processed: set[pd.Timestamp] = set()
+    active: dict[str, pd.Timestamp] = {}
+    previous_holdings: set[str] | None = None
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    while pending:
+        date = pd.Timestamp(heapq.heappop(pending))
+        if date in processed:
+            continue
+        processed.add(date)
+
+        for asset, expiry in list(active.items()):
+            if expiry <= date:
+                active.pop(asset, None)
+
+        if date in normalized_h5:
+            target = normalized_h5[date]
+            holdings = {
+                str(asset)
+                for asset, weight in target.items()
+                if float(weight) > 1e-15
+            }
+            for asset in holdings:
+                active.pop(asset, None)
+            if previous_holdings is not None:
+                eligible = normalized_eligible.get(date, set())
+                for asset in sorted(previous_holdings - holdings):
+                    if asset not in eligible or asset in active:
+                        continue
+                    expiry = date + pd.Timedelta(days=holding_days)
+                    active[asset] = expiry
+                    if expiry not in processed:
+                        heapq.heappush(pending, expiry)
+            previous_holdings = holdings
+
+        if active:
+            weights = pd.Series(
+                1.0 / float(len(active)),
+                index=sorted(active),
+                dtype=float,
+            )
+        else:
+            weights = pd.Series(dtype=float)
+        schedule[date] = weights
+    return dict(sorted(schedule.items()))
+
+
+def combine_long_with_cash_budgeted_short(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    short_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    max_total_gross: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Use only unused long gross for shorts; never scale down the long book."""
+    if not np.isfinite(max_total_gross) or max_total_gross <= 0.0:
+        raise ValueError("max_total_gross must be positive and finite")
+
+    schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {"long": {}, "short": {}}
+    for name, raw_schedule in (("long", long_targets), ("short", short_targets)):
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            if (target < 0.0).any():
+                raise ValueError(f"{name}: target weights must be non-negative")
+            schedules[name][date] = target.astype(float)
+
+    dates = sorted(set(schedules["long"]) | set(schedules["short"]))
+    states: dict[str, pd.Series] = {
+        "long": pd.Series(dtype=float),
+        "short": pd.Series(dtype=float),
+    }
+    cursors = {"long": 0, "short": 0}
+    targets: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for date in dates:
+        union_index = pd.Index([], dtype=object)
+        for name in ("long", "short"):
+            schedule_dates = list(schedules[name])
+            cursor = cursors[name]
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                states[name] = schedules[name][schedule_dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+            union_index = union_index.union(states[name].index)
+
+        long = states["long"].reindex(union_index).fillna(0.0)
+        short = states["short"].reindex(union_index).fillna(0.0)
+        long_gross = float(long.sum())
+        requested_short_gross = float(short.sum())
+        long_scale = (
+            min(1.0, max_total_gross / long_gross)
+            if long_gross > max_total_gross + 1e-12
+            else 1.0
+        )
+        long = long * long_scale
+        scaled_long_gross = long_gross * long_scale
+        available = max(0.0, max_total_gross - scaled_long_gross)
+        short_scale = (
+            min(1.0, available / requested_short_gross)
+            if requested_short_gross > 0.0
+            else 0.0
+        )
+        funded_short = short * short_scale
+        combined = long - funded_short
+        combined = combined[combined.abs() > 1e-15]
+        targets[date] = combined
+        audit_rows.append(
+            {
+                "date": date,
+                "long_gross": long_gross,
+                "long_scale": long_scale,
+                "scaled_long_gross": scaled_long_gross,
+                "requested_short_gross": requested_short_gross,
+                "short_scale": short_scale,
+                "funded_short_gross": requested_short_gross * short_scale,
+                "total_gross": scaled_long_gross + requested_short_gross * short_scale,
+                "net_gross": float(combined.abs().sum()),
+            }
+        )
+    audit = pd.DataFrame(audit_rows).set_index("date")
+    return targets, audit
+
+
 MONTHLY_SECTOR_SHORT_WEIGHT = 1.0
 MONTHLY_SECTOR_SHORT_MAX_GROSS = 0.95
 
@@ -599,6 +753,9 @@ def build_derivative_targets(
 
 __all__ = [
     "build_cash_sleeve_targets",
+    "build_exit_short_schedule",
+    "combine_long_with_cash_budgeted_short",
+    "EXIT_SHORT_HOLDING_DAYS",
     "build_monthly_sector_short_targets",
     "CASH_SLEEVE_H4_WEIGHT",
     "CASH_SLEEVE_MAX_GROSS",
