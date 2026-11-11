@@ -677,3 +677,20 @@ def test_combine_sleeve_targets_forward_fills_and_scales_all_sleeves() -> None:
     assert target["ethereum"] == pytest.approx(0.10 * 0.50 / 0.70)
     assert target["solana"] == pytest.approx(-0.20 * 0.50 / 0.70)
     assert target.abs().sum() == pytest.approx(0.50)
+
+
+def test_build_cash_sleeve_targets_uses_frozen_weights() -> None:
+    from atlas20.derivatives.signals import build_cash_sleeve_targets
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    combined = build_cash_sleeve_targets(
+        {date: pd.Series({"bitcoin": 0.30})},
+        {date: pd.Series({"ethereum": 0.50})},
+        {date: pd.Series({"solana": 1.00})},
+    )
+
+    target = combined[date]
+    assert target["bitcoin"] == pytest.approx(0.30)
+    assert target["ethereum"] == pytest.approx(0.10)
+    assert target["solana"] == pytest.approx(-0.20)
+    assert target.abs().sum() == pytest.approx(0.60)

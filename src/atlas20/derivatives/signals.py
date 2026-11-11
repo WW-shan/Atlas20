@@ -269,6 +269,27 @@ def combine_sleeve_targets(
     return combined_targets
 
 
+CASH_SLEEVE_H4_WEIGHT = 0.20
+CASH_SLEEVE_SECTOR_SHORT_WEIGHT = 0.20
+CASH_SLEEVE_MAX_GROSS = 0.95
+
+
+def build_cash_sleeve_targets(
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    h4_targets: Mapping[pd.Timestamp, pd.Series],
+    sector_targets: Mapping[pd.Timestamp, pd.Series],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build the pre-registered H5+H4-minus-sector candidate target."""
+    return combine_sleeve_targets(
+        {
+            "h5": (h5_targets, 1.0),
+            "h4": (h4_targets, CASH_SLEEVE_H4_WEIGHT),
+            "sector_short": (sector_targets, -CASH_SLEEVE_SECTOR_SHORT_WEIGHT),
+        },
+        max_gross=CASH_SLEEVE_MAX_GROSS,
+    )
+
+
 def build_derivative_targets(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     *,
@@ -498,6 +519,10 @@ def build_derivative_targets(
 
 
 __all__ = [
+    "build_cash_sleeve_targets",
+    "CASH_SLEEVE_H4_WEIGHT",
+    "CASH_SLEEVE_MAX_GROSS",
+    "CASH_SLEEVE_SECTOR_SHORT_WEIGHT",
     "combine_sleeve_targets",
     "bear_regime",
     "build_derivative_targets",
