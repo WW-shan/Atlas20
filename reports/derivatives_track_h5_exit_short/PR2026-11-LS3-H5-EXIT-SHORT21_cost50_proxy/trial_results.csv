@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS3-H5-EXIT-SHORT21,main,lag0,50.0,1.5257402595831238,22.946226213033942,-0.47623543712551775,reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost50_proxy/summary.json

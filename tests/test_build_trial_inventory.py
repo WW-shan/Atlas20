@@ -191,7 +191,13 @@ def test_recorder_skips_exact_repeats_and_rejects_conflicts_or_missing_sharpe() 
 
 
 def test_unclassified_report_directories_are_listed() -> None:
-    dirs = ["latest", "app_runs", "phase_momentum_live", "brand_new_study_2022"]
+    dirs = [
+        "latest",
+        "app_runs",
+        "phase_momentum_live",
+        "h5_exit_short_diagnostic_2026_11_11",
+        "brand_new_study_2022",
+    ]
 
     assert unclassified_report_dirs(dirs, used_dirs={"latest"}) == ["brand_new_study_2022"]
 

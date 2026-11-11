@@ -1,0 +1,177 @@
+{
+  "artifacts": [
+    {
+      "bytes": 10229,
+      "path": "reports/derivatives_track_h5_exit_short/report.md",
+      "sha256": "1a2fa2f5c4322b2e75e7c41021158e2dd826ffb749555860f53438d795009ac9"
+    },
+    {
+      "bytes": 89005,
+      "path": "reports/derivatives_track_h5_exit_short/returns_20bps.csv",
+      "sha256": "b902418468346b285ad11c163c1ca5ec5906522253b1414e17c66498fa05d97d"
+    },
+    {
+      "bytes": 63145,
+      "path": "reports/derivatives_track_h5_exit_short/returns_20bps_naive_dates.csv",
+      "sha256": "09e836c111d919413c1345ad198e07fe949059bbd0ed4e170c9d7cb29cabdee4"
+    },
+    {
+      "bytes": 915,
+      "path": "reports/derivatives_track_h5_exit_short/cost_comparison.csv",
+      "sha256": "2255a755efd24aba887b200e94c92ee1d01733505cfd6e2b612f05df7b58cf54"
+    },
+    {
+      "bytes": 1352,
+      "path": "reports/derivatives_track_h5_exit_short/cost_runs_long.csv",
+      "sha256": "a08624a6620329ad4e3f02017049ce97c04e5d342dab71ac5b582d6b12faca63"
+    },
+    {
+      "bytes": 1159,
+      "path": "reports/derivatives_track_h5_exit_short/funding_stress_summary.csv",
+      "sha256": "102213bbad03c8050379c36c497afcbac1f32acab365984d6cedc2bf27e1cdfa"
+    },
+    {
+      "bytes": 425,
+      "path": "reports/derivatives_track_h5_exit_short/robustness/yearly_returns.csv",
+      "sha256": "5dcc2327b59e8be24efe21fcd47a4160224bdb79da18c338f31dc5a2966ec9fb"
+    },
+    {
+      "bytes": 1093,
+      "path": "reports/derivatives_track_h5_exit_short/robustness/best_year_removal.csv",
+      "sha256": "45224cbc92d903bfc98aa36b9dec4c6a52086a9071486f10841a344b24e3501c"
+    },
+    {
+      "bytes": 225,
+      "path": "reports/derivatives_track_h5_exit_short/robustness/rolling_worst.csv",
+      "sha256": "ff0a39df686f732e897fc969c0a77289fe01538792055a5c10332837b1d9635a"
+    },
+    {
+      "bytes": 6750,
+      "path": "reports/derivatives_track_h5_exit_short/robustness/monthly_start_slices.csv",
+      "sha256": "0842b18563b44c4052051262aa8387ac45f5e064a6cb84971416d9afd5b35004"
+    },
+    {
+      "bytes": 241,
+      "path": "reports/derivatives_track_h5_exit_short/robustness/monthly_start_slice_summary.json",
+      "sha256": "b3dd88bfb9b87e00c9e1c2deb8c9561804d2d706a6e241ad7d31a758593a9a67"
+    },
+    {
+      "bytes": 512,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing/summary.json",
+      "sha256": "d0917995c7ccf85d72d24abf8b433c9b53098ea45a0b31fb1cba5e8adb65e4b5"
+    },
+    {
+      "bytes": 221,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing/dsr.csv",
+      "sha256": "e429a2cf55a28300ad4ce50e189e65a8152d90850c1a62688e24a2331af91105"
+    },
+    {
+      "bytes": 45810,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing/pbo_splits.csv",
+      "sha256": "a31bbf921023ec37fc70305031f51e4904948e3f7a738db4660c3752b6087240"
+    },
+    {
+      "bytes": 1454,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing_project/manifest.json",
+      "sha256": "d40f1e7bc96e106159dd2fbab1662398cb4e729db48584d28864b82ce675f17d"
+    },
+    {
+      "bytes": 455,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing_project/deflated_sharpe.csv",
+      "sha256": "88f3dd33e9ddacf205cc304afb0e6d4a868ec1d1f34182d8d8c3f237b718e359"
+    },
+    {
+      "bytes": 193,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing_project/reality_check.csv",
+      "sha256": "49fae5e41350c8112cf9a8b2e7dc2d60beddffa6ce55b0f8616b8d92560e1025"
+    },
+    {
+      "bytes": 165,
+      "path": "reports/derivatives_track_h5_exit_short/multiple_testing_project/pbo.csv",
+      "sha256": "7d90c0143a15896ee49861a3efcff7030a662e5248d13a5ee81645a82512cf7c"
+    },
+    {
+      "bytes": 1423,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/summary.json",
+      "sha256": "161f46d73cdb85e53599a9796fe7fabab34080be7b50b531c3433b34ce2c2c16"
+    },
+    {
+      "bytes": 264,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/trial_results.csv",
+      "sha256": "04d0764be29009bb6c5064064bbefcacbd536cae3cb0a25938529b583c748cf8"
+    },
+    {
+      "bytes": 67076,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/target_gross.csv",
+      "sha256": "63d970eb43e156431c255ec324a2f9d404c54b4c2ab268565de7657b4448260e"
+    },
+    {
+      "bytes": 405139,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/trades.csv",
+      "sha256": "3b8c2bd4bdcb06a5074397dea856680e9e969d00ebc7ddbc794282295834f151"
+    },
+    {
+      "bytes": 36117,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/short_episodes.csv",
+      "sha256": "a94bed1b9442957b884a8c8b8bcc86df07f4b122f0cdad40e3a9158a48f17132"
+    },
+    {
+      "bytes": 3020,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/short_asset_attribution.csv",
+      "sha256": "2b4faf7137fd9caf1bf9a23138913708da1cebc4f7e420c22f888d7466d6f5a5"
+    },
+    {
+      "bytes": 330,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_proxy/short_episode_summary.csv",
+      "sha256": "6bbd57ff8e04eca7497fdc23c63739ea3a7c5270e896f9f08619cf09ccff75d8"
+    },
+    {
+      "bytes": 1430,
+      "path": "reports/derivatives_track_h5_exit_short/PR2026-11-LS3-H5-EXIT-SHORT21_cost20_short_adverse_x3/summary.json",
+      "sha256": "63aba018ee30d8655e8065634371d721832f39aa1286f3a97c15f34b48e7a751"
+    },
+    {
+      "bytes": 2157,
+      "path": "reports/h5_exit_short_diagnostic_2026_11_11/report.md",
+      "sha256": "9aabdc5efe6cc9a762742923e47785c9efd2cdea76a102188d20a49f2f8d45e9"
+    },
+    {
+      "bytes": 88891,
+      "path": "reports/h5_exit_short_diagnostic_2026_11_11/exit_forward_returns.csv",
+      "sha256": "1f04fe7fae4dc9a4de8a84e985c7b31fe2cb74ae8cf7892e38f6a778c209724c"
+    },
+    {
+      "bytes": 934,
+      "path": "reports/h5_exit_short_diagnostic_2026_11_11/exit_short_summary.csv",
+      "sha256": "38924c463523001c4f6e0c8ac12caed142eccbd95a5ebadb0e97cdcdb892ba0c"
+    }
+  ],
+  "boundaries": [
+    "Binance funding remains a proxy; Bitget exact history not closed",
+    "12 months of true out-of-sample has not accumulated",
+    "no live execution or H5 ledger changes were made"
+  ],
+  "candidate_id": "PR2026-11-LS3-H5-EXIT-SHORT21",
+  "execution_deviations": [
+    "The pre-registered 12 engine-level monthly starts were not executed after the candidate failed drawdown, gross, cost, rolling worst, PBO and DSR. The report records this and does not count the gate as passed."
+  ],
+  "hard_failures": [
+    "20bps drawdown 7.39pp worse than baseline",
+    "observed gross reached 1.0820 with 145 breach hours",
+    "100bps terminal multiple below baseline and drawdown exceeded 50 percent",
+    "365-day rolling worst below baseline",
+    "PBO above 0.50",
+    "all-project DSR below 0.95",
+    "short contribution concentrated in NEAR and top three assets"
+  ],
+  "live_h5_modified": false,
+  "live_ready": false,
+  "registration_sha256": "1018daeee77d256c0f347d5eee0093c417833a18e4ddbdc9059d31b9ded7878d",
+  "spec_sha256": "4596615470a3933b3fc10c04cb1a9a7e7683b0d36598f28ede4d49733785b00c",
+  "trial_count_all_projects": 14173,
+  "verdict": "rejected",
+  "window": {
+    "end": "2026-09-21",
+    "start": "2022-01-01"
+  }
+}

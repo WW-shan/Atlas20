@@ -183,6 +183,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "provider_publication": "CMC publication-time probe (ops, no strategy configuration)",
     "phase_momentum_multiple_testing_2022": "re-listing of phase-momentum configurations counted in their own studies",
     "phase_momentum_oos_2026": "out-of-sample tracking of the frozen primary",
+    "h5_exit_short_diagnostic_2026_11_11": "forward-return diagnostic of H5 exits (no backtest configuration)",
 }
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 
