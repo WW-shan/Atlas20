@@ -2735,9 +2735,13 @@ target total gross 1.45x，hard observed 1.50x，short winner 腿使用 20% stop
 **11 次强平全部在 long loser 腿**（2022 年 10 次，2023 SHIB，2024 INTERNET-COMPUTER，2025-10
 LINK/TON 各一次）。
 
+事后把 short winner 腿单独归因：292 个 episode，145 正/147 负，累计 net PnL **-0.2925 NAV**，
+平均 -0.0215% NAV、中位 -0.0094% NAV、最差 -1.0136% NAV。因此“去掉 long loser、只做
+28D winner short”也不是有效变体；该家族不能靠保留单边救活。
+
 **判定：rejected。** 反转的主要收益腿无法在高波动级联中活到反转完成；S3 关于“反转由过去输家
 驱动”的结论在本项目 Top20 + isolated margin 口径下转化为不可接受的强平尾部。按预注册不扫描
-lookback、rebalance、数量、权重、stop 或 H5/factor 比例；该家族停止。当前实盘
+lookback、rebalance、数量、权重、stop 或 H5/factor 比例；该分支停止。当前实盘
 `PR2026-10-D-L125-V2` 不变。
 
 报告：`reports/derivatives_track_h5_reversal_pair/report.md`。
@@ -2879,8 +2883,10 @@ LS23 不再新增参数搜索，而是组合两个已经分别冻结、且失败
 切片 **45/45** 三项通过；12 个真实 cash-start 引擎季度起点终值和 Sharpe **12/12** 胜 L125，
 MDD 5pp **12/12** 通过，0 强平/0 gross breach。
 
-空头归因：333 个 episode，167 正/166 负；单资产最大贡献 **23.63%**、前 3 **62.59%**，通过
-50%/80% 集中度门槛。9 个冻结候选矩阵 PBO/CSCV **0.3528**、White Reality Check
+空头归因：修复 attribution 脚本后为 335 个 episode，169 正/166 负；平均每 episode
++0.1010% NAV、中位数 +0.0099%、最差 -1.3807% NAV；单资产最大贡献 **23.44%**、前 3
+**62.09%**，通过 50%/80% 集中度门槛。修复前误记为 333 个，原因是大数量 close 的绝对浮点
+容差过紧，导致两个已平仓 episode 被留在 open-at-end。9 个冻结候选矩阵 PBO/CSCV **0.3528**、White Reality Check
 **p=0.003996**；LS23 DSR all-trial **0.9999832**、Top20/2022 scope **0.9999858**。
 
 50 天 cash-start OOS（2026-09-22 → 2026-11-10，20bps，Bitget OOS mark，zero funding）：

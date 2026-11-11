@@ -62,7 +62,24 @@ short stop = 20%
 
 反转 long 腿虽然捕获部分反弹，但在高波动/级联行情中会先被强平，无法等到反转完成。
 
-## 五、未继续执行的阶段
+## 五、事后空头归因：只做 winner short 也不成立
+
+LS19 失败后，额外把 **short winner 腿**单独配对归因（`scripts/attribute_derivatives_short.py`，
+读取 saved engine outputs；不是新试验，不改变 rejected 判定）：
+
+| 指标 | 结果 |
+|---|---:|
+| short episodes | 292 |
+| 正 / 负贡献 | 145 / 147 |
+| 累计 net PnL | **-0.2925 NAV** |
+| 平均 / 中位 episode | -0.0215% / -0.0094% NAV |
+| 最好 / 最差 episode | +1.4583% / -1.0136% NAV |
+
+所以“把 LS19 的 long loser 腿去掉，只保留 short winner 腿”也不能救活该家族：short 腿本身
+就是负期望，且正负几乎各半。该结果直接否定了基于 28D winner reversal 的 short-only 变体；
+不新增试验，不扫描 lookback/rebalance/stop/权重。
+
+## 六、未继续执行的阶段
 
 LS19 已触发 20bps 终值/Sharpe 和 11 次强平硬失败，因此按预注册：
 
@@ -71,7 +88,7 @@ LS19 已触发 20bps 终值/Sharpe 和 11 次强平硬失败，因此按预注�
 - 不扫描 lookback、rebalance、4 币数量、单腿权重、stop、H5/factor 比例；
 - 不接入执行器或修改实盘。
 
-## 六、最终判定
+## 七、最终判定
 
 **LS19 rejected。**
 

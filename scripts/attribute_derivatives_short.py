@@ -36,6 +36,7 @@ def attribute(
     trades: pd.DataFrame,
     funding: pd.DataFrame,
     equity_curve: pd.DataFrame,
+    liquidations: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, object]]:
     equity = equity_curve.iloc[:, 0].copy()
     equity.index = pd.DatetimeIndex([_as_utc(value) for value in equity.index])
@@ -64,7 +65,24 @@ def attribute(
                 "amount": float(row.amount),
             }
         )
-    events.sort(key=lambda item: (item["timestamp"], 0 if item["kind"] == "funding" else 1))
+    if liquidations is not None:
+        for row in liquidations.loc[
+            liquidations["side"].astype(str) == "short"
+        ].itertuples(index=False):
+            events.append(
+                {
+                    "timestamp": _as_utc(row.trigger_timestamp),
+                    "kind": "liquidation",
+                    "asset": str(row.asset),
+                    "action": "close",
+                    "quantity": float(row.quantity),
+                    "price": float(row.execution_price),
+                    "fee": 0.0,
+                    "reason": "liquidation",
+                }
+            )
+    kind_order = {"funding": 0, "liquidation": 1, "trade": 2}
+    events.sort(key=lambda item: (item["timestamp"], kind_order[str(item["kind"])]))
 
     state: dict[str, dict[str, object]] = {}
     episodes: list[dict[str, object]] = []
@@ -112,8 +130,10 @@ def attribute(
         if action not in {"reduce", "close"}:
             raise ValueError(f"{asset}: unsupported short action {action}")
         held = float(current["quantity"])
-        if quantity > held + 1e-12:
+        close_tolerance = max(1e-12, abs(held) * 1e-9)
+        if quantity > held + close_tolerance:
             raise ValueError(f"{asset}: close quantity exceeds held quantity")
+        quantity = held if action == "close" else min(quantity, held)
         current["net_pnl"] = float(current["net_pnl"]) + (
             float(current["average_entry"]) - price
         ) * quantity
@@ -194,6 +214,12 @@ def main() -> None:
     parser.add_argument("--trades", type=Path, required=True)
     parser.add_argument("--funding", type=Path, required=True)
     parser.add_argument("--equity-curve", type=Path, required=True)
+    parser.add_argument(
+        "--liquidations",
+        type=Path,
+        default=None,
+        help="optional engine liquidations.csv; short liquidations close episodes",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -201,6 +227,7 @@ def main() -> None:
         pd.read_csv(args.trades),
         pd.read_csv(args.funding),
         pd.read_csv(args.equity_curve, index_col=0),
+        pd.read_csv(args.liquidations) if args.liquidations is not None else None,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     episodes.to_csv(args.output_dir / "short_episode_attribution.csv", index=False)
