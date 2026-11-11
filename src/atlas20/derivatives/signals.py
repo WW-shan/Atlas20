@@ -360,10 +360,15 @@ def build_exit_short_schedule(
     *,
     holding_days: int = EXIT_SHORT_HOLDING_DAYS,
     eligible_by_date: Mapping[pd.Timestamp, Set[str]],
+    per_asset_weight: float | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Short H5 exits for a fixed hold, closing early when an asset re-enters."""
     if holding_days < 1:
         raise ValueError("holding_days must be positive")
+    if per_asset_weight is not None and (
+        not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0
+    ):
+        raise ValueError("per_asset_weight must be positive and finite")
 
     normalized_h5: dict[pd.Timestamp, pd.Series] = {}
     for raw_date, raw_target in h5_targets.items():
@@ -415,11 +420,12 @@ def build_exit_short_schedule(
             previous_holdings = holdings
 
         if active:
-            weights = pd.Series(
-                1.0 / float(len(active)),
-                index=sorted(active),
-                dtype=float,
+            weight = (
+                float(per_asset_weight)
+                if per_asset_weight is not None
+                else 1.0 / float(len(active))
             )
+            weights = pd.Series(weight, index=sorted(active), dtype=float)
         else:
             weights = pd.Series(dtype=float)
         schedule[date] = weights

@@ -832,3 +832,25 @@ def test_cash_budgeted_short_scales_only_when_long_alone_exceeds_cap() -> None:
     assert row["long_scale"] == pytest.approx(0.95 / 0.98)
     assert row["funded_short_gross"] == pytest.approx(0.0)
     assert row["total_gross"] == pytest.approx(0.95)
+
+
+def test_build_exit_short_schedule_can_use_fixed_per_asset_weight() -> None:
+    from atlas20.derivatives.signals import build_exit_short_schedule
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    h5 = {
+        d1: pd.Series({"bitcoin": 0.5, "ethereum": 0.5}),
+        d2: pd.Series({"bitcoin": 0.5}),
+    }
+    eligible = {d1: {"bitcoin", "ethereum"}, d2: {"bitcoin", "ethereum"}}
+
+    short = build_exit_short_schedule(
+        h5,
+        holding_days=5,
+        eligible_by_date=eligible,
+        per_asset_weight=0.025,
+    )
+
+    assert short[d2]["ethereum"] == pytest.approx(0.025)
+    assert short[d2].sum() == pytest.approx(0.025)

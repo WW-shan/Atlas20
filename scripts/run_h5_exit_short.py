@@ -50,6 +50,13 @@ FROZEN_CONFIG: dict[str, Any] = {
     "short_buffer": 0.50,
     "short_stop_loss_pct": 0.20,
 }
+RISK_BUDGET_CANDIDATE_ID = "PR2026-11-LS4-H5-EXIT-RISK05"
+RISK_BUDGET_BASELINE_ID = "PR2026-11-LS4-H5-BASELINE"
+RISK_BUDGET_CONFIG: dict[str, Any] = {
+    **FROZEN_CONFIG,
+    "short_risk_per_trade": 0.005,
+    "short_per_asset_weight": 0.025,
+}
 
 
 def _as_utc(value: object) -> pd.Timestamp:
@@ -106,15 +113,17 @@ def _run_one(
     short_targets: dict[pd.Timestamp, pd.Series],
     trial_id: str,
     baseline: bool,
+    frozen_config: dict[str, Any],
+    spec_path: str,
 ) -> dict[str, Any]:
     """Run one candidate or baseline and write its complete research output."""
     combined, target_audit = combine_long_with_cash_budgeted_short(
         h5_targets,
         {} if baseline else short_targets,
-        max_total_gross=float(FROZEN_CONFIG["max_total_gross"]),
+        max_total_gross=float(frozen_config["max_total_gross"]),
     )
     max_target_total = float(target_audit["total_gross"].max())
-    if max_target_total > float(FROZEN_CONFIG["hard_gross"]) + 1e-12:
+    if max_target_total > float(frozen_config["hard_gross"]) + 1e-12:
         raise ValueError(
             f"target total gross {max_target_total:.12f} exceeds hard cap"
         )
@@ -124,11 +133,11 @@ def _run_one(
         taker_fee_bps=float(args.cost_bps),
         slippage_bps=0.0,
         liquidation_slippage_bps=5.0,
-        long_buffer=float(FROZEN_CONFIG["long_buffer"]),
-        short_buffer=float(FROZEN_CONFIG["short_buffer"]),
-        short_stop_loss_pct=float(FROZEN_CONFIG["short_stop_loss_pct"]),
-        max_gross_exposure=float(FROZEN_CONFIG["max_total_gross"]),
-        hard_gross_exposure=float(FROZEN_CONFIG["hard_gross"]),
+        long_buffer=float(frozen_config["long_buffer"]),
+        short_buffer=float(frozen_config["short_buffer"]),
+        short_stop_loss_pct=float(frozen_config["short_stop_loss_pct"]),
+        max_gross_exposure=float(frozen_config["max_total_gross"]),
+        hard_gross_exposure=float(frozen_config["hard_gross"]),
         max_margin_utilization=0.85,
         funding_missing_policy=args.funding_missing_policy,
         funding_stress=args.funding_stress,
@@ -173,9 +182,9 @@ def _run_one(
         "h5_weight": 1.0,
         "exit_short_holding_days": 0
         if baseline
-        else int(FROZEN_CONFIG["exit_short_holding_days"]),
-        "target_total_gross_cap": float(FROZEN_CONFIG["max_total_gross"]),
-        "hard_total_gross_cap": float(FROZEN_CONFIG["hard_gross"]),
+        else int(frozen_config["exit_short_holding_days"]),
+        "target_total_gross_cap": float(frozen_config["max_total_gross"]),
+        "hard_total_gross_cap": float(frozen_config["hard_gross"]),
         "target_event_count": int(len(combined)),
         "max_target_long_gross": float(target_audit["long_gross"].max()),
         "max_scaled_target_long_gross": float(target_audit["scaled_long_gross"].max()),
@@ -192,10 +201,10 @@ def _run_one(
         "max_gross_exposure": float(observed_gross.max()) if not observed_gross.empty else 0.0,
         "avg_gross_exposure": float(observed_gross.mean()) if not observed_gross.empty else 0.0,
         "observed_gross_over_one": bool(
-            (observed_gross > float(FROZEN_CONFIG["hard_gross"]) + 1e-12).any()
+            (observed_gross > float(frozen_config["hard_gross"]) + 1e-12).any()
         ),
         "observed_gross_breach_hours": int(
-            (observed_gross > float(FROZEN_CONFIG["hard_gross"]) + 1e-12).sum()
+            (observed_gross > float(frozen_config["hard_gross"]) + 1e-12).sum()
         ),
         "gross_guard_reduction_count": guard_reductions,
         "short_open_count": short_opens,
@@ -248,11 +257,11 @@ def _run_one(
     manifest = {
         "candidate_id": trial_id,
         "baseline": baseline,
-        "spec": "docs/superpowers/specs/2026-11-11-h5-exit-short-design.md",
+        "spec": spec_path,
         "construction": "H5 1.0x long + 21-day equal-weight short of H5 exits, funded only by unused gross"
         if not baseline
         else "H5 1.0x",
-        "frozen_config": FROZEN_CONFIG,
+        "frozen_config": frozen_config,
         "start_date": args.start_date,
         "end_date": args.end_date,
         "cost_bps": float(args.cost_bps),
@@ -308,6 +317,11 @@ def main() -> None:
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--baseline", action="store_true")
     parser.add_argument(
+        "--risk-budget",
+        action="store_true",
+        help="use the fixed 0.5%%-per-trade risk-budget variant",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("reports/derivatives_track_h5_exit_short"),
@@ -347,7 +361,14 @@ def main() -> None:
     args = parser.parse_args()
 
     configure_logging("ERROR")
-    trial_id = BASELINE_ID if args.baseline else CANDIDATE_ID
+    if args.risk_budget:
+        frozen_config = RISK_BUDGET_CONFIG
+        trial_id = RISK_BUDGET_BASELINE_ID if args.baseline else RISK_BUDGET_CANDIDATE_ID
+        spec_path = "docs/superpowers/specs/2026-11-11-h5-exit-risk-budget-design.md"
+    else:
+        frozen_config = FROZEN_CONFIG
+        trial_id = BASELINE_ID if args.baseline else CANDIDATE_ID
+        spec_path = "docs/superpowers/specs/2026-11-11-h5-exit-short-design.md"
     config, market, universe, index = _load_market(
         args.config,
         start_date=args.start_date,
@@ -367,8 +388,9 @@ def main() -> None:
         eligible = _eligible_members_by_date(universe, list(h5_raw))
         short_raw = build_exit_short_schedule(
             h5_raw,
-            holding_days=int(FROZEN_CONFIG["exit_short_holding_days"]),
+            holding_days=int(frozen_config["exit_short_holding_days"]),
             eligible_by_date=eligible,
+            per_asset_weight=frozen_config.get("short_per_asset_weight"),
         )
         short_targets, _ = _restrict_targets(short_raw, available, mark_candles)
 
@@ -395,6 +417,8 @@ def main() -> None:
         short_targets=short_targets,
         trial_id=trial_id,
         baseline=bool(args.baseline),
+        frozen_config=frozen_config,
+        spec_path=spec_path,
     )
     print(json.dumps(summary, indent=2, sort_keys=True, default=str))
 
