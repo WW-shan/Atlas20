@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    "L125_BASELINE",
+    "LS15_H5_BULL_WEAK_CASH10"
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "window_days": 365
+}

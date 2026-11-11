@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from scripts.run_h5_bull_weak_cash import scale_target_book_by_state
 from scripts.run_h5_relative_half_risk import (
     rotate_long_targets_to_btc,
     scale_long_targets_by_state,
@@ -62,3 +63,20 @@ def test_rotate_long_targets_to_btc_preserves_long_gross() -> None:
     assert rotated[index[0]].to_dict() == pytest.approx({"ETH": 1.0, "SOL": 0.1, "bitcoin": 0.2})
     assert rotated[index[3]].to_dict() == pytest.approx({"ETH": 0.75, "SOL": 0.075, "bitcoin": 0.475})
     assert rotated[index[3]].sum() == pytest.approx(1.3)
+
+
+def test_scale_target_book_by_state_preserves_signed_structure() -> None:
+    index = pd.date_range("2024-01-01", periods=4, freq="D", tz="UTC")
+    insurance = pd.Series([False, False, True, True], index=index)
+    targets = {index[0]: pd.Series({"A": 1.25, "B": -0.25})}
+
+    scaled = scale_target_book_by_state(
+        targets,
+        index=index,
+        insurance=insurance,
+        gross_scale=0.9,
+    )
+
+    assert scaled[index[0]].to_dict() == {"A": 1.25, "B": -0.25}
+    assert scaled[index[2]].to_dict() == pytest.approx({"A": 1.125, "B": -0.225})
+    assert len(scaled) == 2

@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS15-H5-BULL-WEAK-CASH10,main,lag0,20.0,1.843098639367386,48.32250314330616,-0.3810807665119793,reports/derivatives_track_h5_bull_weak_cash/PR2026-11-LS15-H5-BULL-WEAK-CASH10/summary.json
