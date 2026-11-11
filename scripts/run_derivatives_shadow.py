@@ -180,6 +180,57 @@ def _shadow_targets(
     return pd.DataFrame(rows, columns=_TARGET_COLUMNS)
 
 
+
+def _mark_coverage(
+    marks: Mapping[str, pd.DataFrame],
+    *,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> dict[str, int | float]:
+    """Measure hourly mark coverage over an explicit evaluation window."""
+    start = _as_utc(start)
+    end = _as_utc(end)
+    if end <= start:
+        raise ValueError("coverage end must be after coverage start")
+    expected = pd.date_range(start, end, freq="h", inclusive="left")
+    missing_hours = 0
+    assets_with_gaps = 0
+    max_gap_hours = 0.0
+    for frame in marks.values():
+        index = pd.DatetimeIndex([_as_utc(value) for value in frame.index])
+        index = index[(index >= start) & (index < end)].drop_duplicates().sort_values()
+        missing = expected.difference(index)
+        if len(missing):
+            assets_with_gaps += 1
+            missing_hours += len(missing)
+        if len(index) > 1:
+            gaps = index.to_series().diff().dropna().dt.total_seconds() / 3600.0
+            max_gap_hours = max(max_gap_hours, float(gaps.max()))
+    return {
+        "assets": len(marks),
+        "expected_hours": int(len(expected)),
+        "missing_hours": int(missing_hours),
+        "assets_with_gaps": int(assets_with_gaps),
+        "max_gap_hours": float(max_gap_hours),
+    }
+
+
+def _merge_mark_maps(
+    warmup: Mapping[str, pd.DataFrame],
+    execution: Mapping[str, pd.DataFrame],
+) -> dict[str, pd.DataFrame]:
+    """Merge warmup history with OOS marks; execution marks win on overlap."""
+    merged: dict[str, pd.DataFrame] = {}
+    for asset in sorted(set(warmup) | set(execution)):
+        frames = [frame for frame in (warmup.get(asset), execution.get(asset)) if frame is not None]
+        if not frames:
+            continue
+        frame = pd.concat(frames)
+        frame.index = pd.DatetimeIndex([_as_utc(value) for value in frame.index])
+        frame = frame[~frame.index.duplicated(keep="last")].sort_index()
+        merged[asset] = frame
+    return merged
+
 def _funding_last_timestamp(funding: pd.DataFrame) -> pd.Timestamp | None:
     """Latest settlement timestamp available in a funding panel, if any."""
     if funding.empty:
@@ -262,6 +313,12 @@ def main() -> None:
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--trial-id", choices=TRIAL_CHOICES, default=SHADOW_SPEC)
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
+    parser.add_argument(
+        "--warmup-raw-dir",
+        type=Path,
+        default=None,
+        help="optional full-history mark tree used to rebuild stateful signals before the OOS window",
+    )
     parser.add_argument("--start-date", default=OOS_START)
     parser.add_argument("--warmup-start", default=DEFAULT_WARMUP_START)
     parser.add_argument(
@@ -290,6 +347,11 @@ def main() -> None:
     parser.add_argument("--missing-mark-max-carry-hours", type=int, default=3)
     parser.add_argument("--max-staleness-hours", type=float, default=30.0)
     parser.add_argument("--allow-stale", action="store_true")
+    parser.add_argument(
+        "--allow-incomplete-marks",
+        action="store_true",
+        help="continue only for a deliberately labelled incomplete-data diagnostic",
+    )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     args = parser.parse_args()
 
@@ -304,10 +366,10 @@ def main() -> None:
     configure_logging("ERROR")
 
     symbol_map = load_symbol_map(args.raw_dir)
-    marks = load_mark_candles(args.raw_dir, symbol_map)
-    if not marks:
+    execution_marks = load_mark_candles(args.raw_dir, symbol_map)
+    if not execution_marks:
         raise SystemExit(f"no market candles found in {args.raw_dir}/candles")
-    last_mark = max(frame.index.max() for frame in marks.values())
+    last_mark = max(frame.index.max() for frame in execution_marks.values())
     try:
         signal_end_day, staleness_hours = resolve_signal_window(
             last_mark,
@@ -323,6 +385,26 @@ def main() -> None:
     end_date = pd.Timestamp(signal_end_day).normalize()
     if end_date <= start:
         raise SystemExit("no completed signal days in the requested OOS window")
+    coverage_end = min(end_date + pd.Timedelta(days=1), last_mark + pd.Timedelta(hours=1))
+    mark_coverage = _mark_coverage(execution_marks, start=start, end=coverage_end)
+    if int(mark_coverage["missing_hours"]) > 0 and not args.allow_incomplete_marks:
+        raise SystemExit(
+            "mark coverage is incomplete: "
+            f"{mark_coverage['missing_hours']} missing hours across "
+            f"{mark_coverage['assets_with_gaps']} assets (max gap "
+            f"{mark_coverage['max_gap_hours']:.1f}h) in {start}..{coverage_end}; "
+            "refresh the marks or pass --allow-incomplete-marks only for a "
+            "deliberately labelled diagnostic"
+        )
+
+    warmup_marks: dict[str, pd.DataFrame] = {}
+    if args.warmup_raw_dir is not None:
+        if not args.warmup_raw_dir.is_dir():
+            raise SystemExit(f"warmup mark directory does not exist: {args.warmup_raw_dir}")
+        warmup_marks = load_mark_candles(args.warmup_raw_dir, symbol_map)
+        if not warmup_marks:
+            raise SystemExit(f"no warmup market candles found in {args.warmup_raw_dir}/candles")
+    marks = _merge_mark_maps(warmup_marks, execution_marks)
 
     _, market, universe, index = _load_market(
         args.config,
@@ -482,6 +564,15 @@ def main() -> None:
 
     trades = result.trades
     short_side = trades.get("side", pd.Series(dtype=object)) == "short"
+    if args.funding_source == "zero":
+        funding_status = "zero (explicit upper bound; no funding charged)"
+    elif funding_last is not None and funding_last >= coverage_end:
+        funding_status = f"{args.funding_source} (complete for the OOS window)"
+    else:
+        funding_status = (
+            f"{args.funding_source} (available through {funding_last}; "
+            "stale shorts flattened)"
+        )
     short_opens = int((short_side & (trades.get("action") == "open")).sum()) if not trades.empty else 0
     summary = {
         "tracked_spec": args.trial_id,
@@ -500,11 +591,7 @@ def main() -> None:
         "funding_source": args.funding_source,
         "funding_last": None if funding_last is None else str(funding_last),
         "funding_missing_policy": args.funding_missing_policy,
-        "funding": (
-            "zero (explicit upper bound; no funding charged)"
-            if args.funding_source == "zero"
-            else f"{args.funding_source} (available through {funding_last}; stale shorts flattened)"
-        ),
+        "funding": funding_status,
         "mark_source": "bitget_mark",
         "missing_mark_policy": args.missing_mark_policy,
         "missing_mark_max_carry_hours": int(args.missing_mark_max_carry_hours),
@@ -541,6 +628,10 @@ def main() -> None:
         ),
         "dropped_target_rows": int(len(dropped_oos)),
         "available_mark_count": int(len(marks)),
+        "execution_mark_count": int(len(execution_marks)),
+        "warmup_raw_dir": str(args.warmup_raw_dir) if args.warmup_raw_dir else None,
+        "mark_coverage": mark_coverage,
+        "allow_incomplete_marks": bool(args.allow_incomplete_marks),
         **metrics,
     }
     (output_dir / "summary.json").write_text(
@@ -571,6 +662,9 @@ def main() -> None:
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
                 "mark_source": "bitget_mark",
+                "warmup_raw_dir": str(args.warmup_raw_dir) if args.warmup_raw_dir else None,
+                "mark_coverage": mark_coverage,
+                "allow_incomplete_marks": bool(args.allow_incomplete_marks),
             },
             indent=2,
             sort_keys=True,
@@ -618,6 +712,9 @@ def main() -> None:
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",
         f"- funding: {summary['funding']}",
         f"- last mark: {last_mark}; staleness: {staleness_hours:.1f}h",
+        f"- warmup history: {args.warmup_raw_dir or 'same as OOS marks'}",
+        f"- mark coverage: {mark_coverage['missing_hours']} missing hours; "
+        f"{mark_coverage['assets']} assets checked; max gap {mark_coverage['max_gap_hours']:.1f}h",
         "",
         "## OOS metrics",
         "",

@@ -239,7 +239,10 @@ class BitgetClient:
                     break
                 rows.extend(page)
                 first_open = pd.to_datetime(min(page_times), unit="ms", utc=True)
-                next_end = first_open - pd.Timedelta(milliseconds=1)
+                # Bitget treats endTime as an hour-exclusive boundary.  Using
+                # first_open - 1ms floors back to the previous hour and drops
+                # that hour on every 100-row page; use the first open itself.
+                next_end = first_open
                 if next_end >= end_cursor:
                     break
                 end_cursor = next_end

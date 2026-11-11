@@ -203,12 +203,18 @@ def _write_report(
         for candle_type, group in coverage.groupby("candle_type", sort=True):
             complete = int(group["complete_windows"].sum())
             missing_windows = int(group["missing_windows"].sum())
-            total = complete + missing_windows
+            partial_windows = (
+                int(group["partial_windows"].sum())
+                if "partial_windows" in group.columns
+                else 0
+            )
+            total = complete + missing_windows + partial_windows
             ratio = complete / total if total else 0.0
             max_gap = float(group["max_gap_hours"].max()) if not group.empty else 0.0
             lines.append(
                 f"- `{candle_type}`: {complete}/{total} windows complete "
-                f"({ratio:.1%}), max observed gap {max_gap:.0f}h"
+                f"({ratio:.1%}), {partial_windows} partial, "
+                f"max observed gap {max_gap:.0f}h"
             )
     lines.extend(["", "## Funding overlap", ""])
     if funding.empty:

@@ -80,7 +80,7 @@ def test_fetch_history_candles_pages_backwards_from_end_time() -> None:
     assert len(calls) == 2
     assert calls[0]["startTime"] == int(pd.Timestamp("2026-01-01T00:00:00Z").timestamp() * 1000)
     assert calls[0]["endTime"] == int(pd.Timestamp("2026-01-01T02:00:00Z").timestamp() * 1000)
-    assert calls[1]["endTime"] == int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000) - 1
+    assert calls[1]["endTime"] == int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000)
 
 
 def test_fetch_funding_history_paginates() -> None:
@@ -165,3 +165,42 @@ def test_funding_overlap_fails_on_sign_disagreement() -> None:
 
     assert result["passed"] is False
     assert result["sign_agreement"] == pytest.approx(0.0)
+
+
+def test_fetch_history_candles_does_not_drop_the_page_boundary_hour() -> None:
+    class _Session:
+        def get(self, url, params, timeout):
+            del url, timeout
+            start = pd.to_datetime(params["startTime"], unit="ms", utc=True)
+            end = pd.to_datetime(params["endTime"], unit="ms", utc=True)
+            hours = pd.date_range(start, end, freq="h", inclusive="left")
+            page = hours[-100:]
+            return _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": [_row(str(stamp)) for stamp in page],
+                }
+            )
+
+    client = _client(_Session())
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+    end = start + pd.Timedelta(hours=101)
+
+    frame = client.fetch_history_candles("BTCUSDT", "mark", start, end)
+
+    assert len(frame) == 101
+    assert frame["open_time"].iloc[0] == start
+    assert frame["open_time"].iloc[-1] == end - pd.Timedelta(hours=1)
+
+
+def test_window_status_marks_page_gaps_as_partial() -> None:
+    from scripts.download_bitget_derivatives_data import _window_status
+
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+    end = start + pd.Timedelta(hours=4)
+    full = candle_frame([_row(str(start + pd.Timedelta(hours=i))) for i in range(4)])
+    gapped = full.drop(full.index[2])
+
+    assert _window_status(full, start, end) == ("complete", 4)
+    assert _window_status(gapped, start, end) == ("partial", 4)
+    assert _window_status(pd.DataFrame(), start, end) == ("missing", 4)

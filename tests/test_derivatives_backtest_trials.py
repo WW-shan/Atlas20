@@ -431,3 +431,90 @@ def test_cross_venue_funding_aligns_millisecond_settlement_jitter() -> None:
     combined = runner.conservative_cross_venue_funding(binance, bybit)
 
     assert combined.loc[pd.Timestamp("2022-01-08T00:00:00Z"), "bitcoin"] == 0.0
+
+
+def test_ls25_is_registered_as_stateful_long_only_profit_lock() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS25_CANDIDATE_ID == "PR2026-11-LS25-H5-STATEFUL-PROFIT-LOCK"
+    assert runner.LS25_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS25_CANDIDATE_ID in runner.LONG_STATEFUL_PROFIT_LOCK_TRIALS
+    assert runner.LS25_CANDIDATE_ID not in runner.SHORT_CANDIDATES
+
+
+def test_ls25_runner_uses_stateful_profit_lock(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "locked"}, "audit")
+
+    def fake_stateful(targets, *, prices, **kwargs):
+        captured["targets"] = targets
+        captured["prices"] = prices
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(
+        runner,
+        "trim_extreme_run_single_leader_stateful",
+        fake_stateful,
+    )
+    long_targets = {"date": "long"}
+    prices = {"BTC": [100.0, 200.0]}
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS25_CANDIDATE_ID,
+        long_targets=long_targets,
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+        prices=prices,
+    )
+
+    assert result is sentinel
+    assert captured["targets"] is long_targets
+    assert captured["prices"] is prices
+    assert captured["lookback_days"] == 21
+    assert captured["threshold"] == 1.0
+    assert captured["scale"] == 0.5
+
+
+def test_ls26_is_registered_as_rearming_long_only_profit_lock() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS26_CANDIDATE_ID == "PR2026-11-LS26-H5-REARMING-PROFIT-LOCK"
+    assert runner.LS26_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS26_CANDIDATE_ID in runner.LONG_REARMING_PROFIT_LOCK_TRIALS
+    assert runner.LS26_CANDIDATE_ID not in runner.SHORT_CANDIDATES
+
+
+def test_ls26_runner_enables_threshold_release(monkeypatch) -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({"date": "rearming"}, "audit")
+
+    def fake_stateful(targets, *, prices, **kwargs):
+        captured["targets"] = targets
+        captured["prices"] = prices
+        captured.update(kwargs)
+        return sentinel
+
+    monkeypatch.setattr(
+        runner,
+        "trim_extreme_run_single_leader_stateful",
+        fake_stateful,
+    )
+    result = runner.build_long_targets_for_trial(
+        trial_id=runner.LS26_CANDIDATE_ID,
+        long_targets={"date": "long"},
+        funding_rates=object(),
+        universe=object(),
+        available={"BTC"},
+        prices={"BTC": [100.0, 200.0]},
+    )
+
+    assert result is sentinel
+    assert captured["release_at_threshold"] is True
+    assert captured["lookback_days"] == 21
+    assert captured["threshold"] == 1.0
+    assert captured["scale"] == 0.5

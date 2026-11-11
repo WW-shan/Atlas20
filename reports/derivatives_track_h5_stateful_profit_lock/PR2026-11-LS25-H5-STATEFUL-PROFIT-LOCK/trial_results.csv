@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS25-H5-STATEFUL-PROFIT-LOCK,main,lag0,20.0,1.7690731747733035,35.17547215038171,-0.411535442163677,reports/derivatives_track_h5_stateful_profit_lock/PR2026-11-LS25-H5-STATEFUL-PROFIT-LOCK/summary.json

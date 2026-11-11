@@ -188,6 +188,122 @@ def trim_extreme_run_single_leader(
     return adjusted, pd.DataFrame(audit_rows)
 
 
+def trim_extreme_run_single_leader_stateful(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    prices: pd.DataFrame,
+    *,
+    lookback_days: int,
+    threshold: float,
+    scale: float,
+    release_at_threshold: bool = False,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Keep one leader at half weight until its lock is released.
+
+    The first time the largest long leg has an extreme trailing run, its
+    current target is scaled by ``scale``.  While the same asset remains the
+    largest target, the lock stays active and caps it at ``scale`` times each
+    new H5 target; the trim is not applied again.  A leader change or an empty
+    target starts a new spell.  With ``release_at_threshold``, a finite
+    trailing return below the trigger releases the lock and permits a later
+    re-trigger; missing prices cannot initiate or release a lock.
+    """
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if not np.isfinite(threshold) or threshold <= 0.0:
+        raise ValueError("threshold must be positive and finite")
+    if not np.isfinite(scale) or not 0.0 < scale < 1.0:
+        raise ValueError("scale must be finite and in (0, 1)")
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame.sort_index()
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    locked_leader: str | None = None
+    previous_leader: str | None = None
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target[target > 1e-15].astype(float).sort_index()
+
+        leader = str(target.idxmax()) if not target.empty else ""
+        leader_changed = leader != previous_leader
+        if leader_changed:
+            locked_leader = None
+
+        leader_weight_before = float(target.get(leader, 0.0)) if leader else 0.0
+        trailing_return = float("nan")
+        initiated = False
+        released = False
+        output = target.copy()
+        if leader:
+            base_cutoff = date - pd.Timedelta(days=lookback_days)
+            candidates = price_frame.index[price_frame.index <= base_cutoff]
+            if (
+                leader in price_frame.columns
+                and date in price_frame.index
+                and not candidates.empty
+            ):
+                base_date = pd.Timestamp(candidates[-1])
+                base_price = float(
+                    pd.to_numeric(price_frame.at[base_date, leader], errors="coerce")
+                )
+                current_price = float(
+                    pd.to_numeric(price_frame.at[date, leader], errors="coerce")
+                )
+                if (
+                    np.isfinite(base_price)
+                    and np.isfinite(current_price)
+                    and base_price > 0.0
+                    and current_price > 0.0
+                ):
+                    trailing_return = current_price / base_price - 1.0
+
+            if locked_leader == leader:
+                if (
+                    release_at_threshold
+                    and np.isfinite(trailing_return)
+                    and trailing_return < threshold
+                ):
+                    locked_leader = None
+                    released = True
+                else:
+                    output.loc[leader] = leader_weight_before * float(scale)
+            elif np.isfinite(trailing_return) and trailing_return >= threshold:
+                output.loc[leader] = leader_weight_before * float(scale)
+                locked_leader = leader
+                initiated = True
+
+        locked = bool(leader and locked_leader == leader)
+        audit_rows.append(
+            {
+                "date": date,
+                "leader": leader,
+                "leader_changed": leader_changed,
+                "leader_weight_before": leader_weight_before,
+                "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
+                "trailing_return": trailing_return,
+                "lookback_days": int(lookback_days),
+                "threshold": float(threshold),
+                "scale": float(scale),
+                "trimmed": initiated,
+                "released": released,
+                "locked": locked,
+                "gross_before": float(target.sum()),
+                "gross_after": float(output.sum()),
+            }
+        )
+        adjusted[date] = output
+        previous_leader = leader or None
+    return adjusted, pd.DataFrame(audit_rows)
+
+
 def bear_regime(
     btc_close: pd.Series,
     *,
@@ -1475,5 +1591,6 @@ __all__ = [
     "funding_filter",
     "funding_rank_percentile",
     "scale_long_targets",
+    "trim_extreme_run_single_leader_stateful",
     "weakest_top20",
 ]

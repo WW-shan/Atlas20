@@ -1332,3 +1332,114 @@ def test_trim_extreme_single_leader_keeps_targets_when_leader_is_below_threshold
 
     assert adjusted[date].to_dict() == {"A": pytest.approx(0.60), "B": pytest.approx(0.40)}
     assert bool(audit.iloc[0]["trimmed"]) is False
+
+
+def test_stateful_profit_lock_holds_half_until_leader_changes() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_stateful
+
+    d1 = pd.Timestamp("2026-02-01T00:00:00Z")
+    d2 = d1 + pd.Timedelta(days=21)
+    d3 = d2 + pd.Timedelta(days=21)
+    base = d1 - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 220.0, 230.0, 240.0],
+            "B": [100.0, 120.0, 130.0, 300.0],
+        },
+        index=pd.DatetimeIndex([base, d1, d2, d3]),
+    )
+    targets = {
+        d1: pd.Series({"A": 0.60, "B": 0.40}),
+        d2: pd.Series({"A": 0.70, "B": 0.30}),
+        d3: pd.Series({"B": 0.60, "A": 0.20}),
+    }
+
+    adjusted, audit = trim_extreme_run_single_leader_stateful(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+    )
+
+    assert adjusted[d1].to_dict() == {
+        "A": pytest.approx(0.30),
+        "B": pytest.approx(0.40),
+    }
+    assert adjusted[d2].to_dict() == {
+        "A": pytest.approx(0.35),
+        "B": pytest.approx(0.30),
+    }
+    assert adjusted[d3].to_dict() == {
+        "B": pytest.approx(0.30),
+        "A": pytest.approx(0.20),
+    }
+    assert audit["leader"].tolist() == ["A", "A", "B"]
+    assert audit["trimmed"].tolist() == [True, False, True]
+    assert audit["locked"].tolist() == [True, True, True]
+    assert audit["leader_changed"].tolist() == [True, False, True]
+
+
+def test_rearming_profit_lock_releases_below_threshold_and_retriggers() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_stateful
+
+    d1 = pd.Timestamp("2026-02-01T00:00:00Z")
+    dates = [d1 + pd.Timedelta(days=21 * index) for index in range(4)]
+    base = d1 - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 220.0, 450.0, 180.0, 400.0], "B": [100.0, 100.0, 100.0, 100.0, 100.0]},
+        index=pd.DatetimeIndex([base, *dates]),
+    )
+    targets = {
+        date: pd.Series({"A": 0.60, "B": 0.40})
+        for date in dates
+    }
+
+    adjusted, audit = trim_extreme_run_single_leader_stateful(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        release_at_threshold=True,
+    )
+
+    assert [adjusted[date]["A"] for date in dates] == pytest.approx([0.30, 0.30, 0.60, 0.30])
+    assert audit["trimmed"].tolist() == [True, False, False, True]
+    assert audit["released"].tolist() == [False, False, True, False]
+    assert audit["locked"].tolist() == [True, True, False, True]
+
+
+def test_rearming_profit_lock_matches_ls22_on_same_target_schedule() -> None:
+    from atlas20.derivatives.signals import (
+        trim_extreme_run_single_leader,
+        trim_extreme_run_single_leader_stateful,
+    )
+
+    d1 = pd.Timestamp("2026-02-01T00:00:00Z")
+    dates = [d1 + pd.Timedelta(days=21 * index) for index in range(4)]
+    base = d1 - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 220.0, 450.0, 180.0, 400.0], "B": [100.0] * 5},
+        index=pd.DatetimeIndex([base, *dates]),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40}) for date in dates}
+
+    ls22, _ = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+    )
+    ls26, _ = trim_extreme_run_single_leader_stateful(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        release_at_threshold=True,
+    )
+
+    for date in dates:
+        pd.testing.assert_series_equal(ls22[date], ls26[date])

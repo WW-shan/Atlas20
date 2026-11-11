@@ -69,3 +69,31 @@ def test_shadow_ledger_marks_a_close_as_flat() -> None:
     assert close["side"] == "flat"
     assert close["target_weight"] == 0.0
     assert close["action"] == "CLOSE"
+
+
+def test_mark_coverage_detects_hourly_page_boundary_gaps() -> None:
+    from scripts.run_derivatives_shadow import _mark_coverage
+
+    start = pd.Timestamp("2026-01-01", tz="UTC")
+    end = start + pd.Timedelta(hours=4)
+    full = pd.DataFrame({"close": [1.0, 1.0, 1.0, 1.0]}, index=pd.date_range(start, periods=4, freq="h"))
+    gapped = full.drop(full.index[2])
+
+    coverage = _mark_coverage({"full": full, "gapped": gapped}, start=start, end=end)
+
+    assert coverage["expected_hours"] == 4
+    assert coverage["missing_hours"] == 1
+    assert coverage["max_gap_hours"] == 2.0
+    assert coverage["assets_with_gaps"] == 1
+
+
+def test_merge_mark_maps_lets_oos_marks_override_warmup_overlap() -> None:
+    from scripts.run_derivatives_shadow import _merge_mark_maps
+
+    index = pd.date_range("2026-01-01", periods=3, freq="h", tz="UTC")
+    warmup = {"A": pd.DataFrame({"close": [1.0, 2.0]}, index=index[:2])}
+    execution = {"A": pd.DataFrame({"close": [20.0, 3.0]}, index=index[1:])}
+
+    merged = _merge_mark_maps(warmup, execution)
+
+    assert merged["A"]["close"].tolist() == [1.0, 20.0, 3.0]

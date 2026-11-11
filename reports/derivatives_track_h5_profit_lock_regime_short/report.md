@@ -158,9 +158,11 @@ settlement 不可得。
 完成并通过；但：
 
 - 12 个月真实 OOS 尚未完成；
-- funding 仍是 proxy，不是完整 Bitget 实盘 settlement 对账；
+- 主样本 funding 仍是 Binance proxy；OOS 已用完整 Bitget exact funding，但跨所 overlap gate
+  0/88，不能把 proxy 当作 exact；
 - pre-2022 proxy stress 在 funding proxy 下终值和 Sharpe 低于 L125，只在 MDD 上改善；
-- 最新 50 天 cash-start OOS 相对 baseline 没有正增量。
+- 最新 50 天 cash-start OOS 相对 baseline 没有正增量：zero 0.9403x vs 0.9484x，Bitget exact
+  0.9365x vs 0.9440x。
 
 因此：
 
@@ -194,3 +196,24 @@ settlement 不可得。
 ```
 
 研究输出不是订单，也不是 live approval。
+
+
+## 十二、2026-11-12 v2：完整 Bitget funding 复跑
+
+修复 Bitget candle 分页边界（`endTime` 小时开区间，旧 `first_open - 1ms` 每 100 行少 1 小时）
+后，新 OOS 快照 88 个资产窗口内 **0 missing hours / max gap 1h**；状态 warmup 使用
+`merged_20261009` 完整历史，成本使用完整 Bitget exact funding：
+
+| funding | 策略 | 终值 | Sharpe | MDD | funding total | trim | short open |
+|---|---|---:|---:|---:|---:|---:|---:|
+| zero（上界） | L125 | 0.9484x | -0.2771 | -17.47% | 0 | 0 | 0 |
+| zero（上界） | LS23 | 0.9403x | -0.5641 | -17.47% | 0 | 8 | 0 |
+| Bitget exact | L125 | 0.9440x | -0.3303 | -17.65% | -0.4808% | 0 | 0 |
+| Bitget exact | LS23 | **0.9365x** | **-0.6187** | **-17.65%** | **-0.4088%** | 8 | 0 |
+
+完整 funding 下 LS23 仍低于 L125 约 0.0074x，Sharpe 低约 0.2884；零 funding 下也低约
+0.85%。该窗口 BTC 在 200D 上方，空头 sleeve 0 次开仓；结论与旧 partial-funding 版本一致，
+旧 0.9391x / 0.9465x 读数由本 v2 取代。
+
+报告：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_refresh/report.md`。
+数据审计：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_refresh/data_audit/report.md`。

@@ -102,6 +102,22 @@ def _merge_candles(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
     return combined.reset_index(drop=True)
 
 
+
+def _window_status(
+    frame: pd.DataFrame,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> tuple[str, int]:
+    """Classify a fetched window without calling a gapped frame complete."""
+    expected = max(int((end - start).total_seconds() // 3600), 0)
+    if frame.empty:
+        return "missing", expected
+    times = pd.to_datetime(frame["open_time"], utc=True)
+    actual = int(((times >= start) & (times < end)).sum())
+    if actual >= expected:
+        return "complete", expected
+    return "partial", expected
+
 def _max_gap_hours(frame: pd.DataFrame) -> float:
     if len(frame) < 2:
         return 0.0
@@ -134,6 +150,7 @@ def _coverage_row(
 ) -> dict[str, Any]:
     complete = sum(1 for value in window_state.values() if value.get("status") == "complete")
     missing = sum(1 for value in window_state.values() if value.get("status") == "missing")
+    partial = sum(1 for value in window_state.values() if value.get("status") == "partial")
     return {
         "coin_id": coin_id,
         "bitget_symbol": symbol,
@@ -143,7 +160,12 @@ def _coverage_row(
         "last": frame["open_time"].max() if not frame.empty else pd.NaT,
         "complete_windows": complete,
         "missing_windows": missing,
-        "window_coverage": complete / (complete + missing) if complete + missing else 0.0,
+        "partial_windows": partial,
+        "window_coverage": (
+            complete / (complete + missing + partial)
+            if complete + missing + partial
+            else 0.0
+        ),
         "max_gap_hours": _max_gap_hours_within_windows(frame, windows),
     }
 
@@ -285,8 +307,25 @@ def main() -> None:
             existing = pd.read_csv(path) if path.exists() and not args.force else pd.DataFrame(columns=CANDLE_COLUMNS)
             for window_start, window_end in windows:
                 key = window_start.isoformat()
-                if not args.force and window_state.get(key, {}).get("status") in {"complete", "missing"}:
-                    continue
+                cached_status = window_state.get(key, {}).get("status")
+                if not args.force and cached_status in {"complete", "missing", "partial"}:
+                    if cached_status == "complete":
+                        cached_frame = existing.loc[
+                            (pd.to_datetime(existing["open_time"], utc=True) >= window_start)
+                            & (pd.to_datetime(existing["open_time"], utc=True) < window_end)
+                        ]
+                        actual_status, _ = _window_status(
+                            cached_frame,
+                            window_start,
+                            window_end,
+                        )
+                        if actual_status != "complete":
+                            window_state[key]["status"] = actual_status
+                            _save_state(state_path, state)
+                        else:
+                            continue
+                    else:
+                        continue
                 if args.max_requests > 0 and client.request_count >= args.max_requests:
                     LOGGER.warning("request budget reached at %s %s", symbol, candle_type)
                     break
@@ -298,9 +337,11 @@ def main() -> None:
                     _save_state(state_path, state)
                     continue
                 existing = _merge_candles(existing, frame)
+                status, expected_rows = _window_status(frame, window_start, window_end)
                 window_state[key] = {
-                    "status": "complete" if not frame.empty else "missing",
+                    "status": status,
                     "rows": int(len(frame)),
+                    "expected_rows": int(expected_rows),
                 }
                 _save_state(state_path, state)
             existing.to_csv(path, index=False)
