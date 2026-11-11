@@ -1,0 +1,28 @@
+{
+  "candidate_returns": "reports/derivatives_track_h5_relmom_riskbudget_funding_exit/returns_20bps.csv",
+  "common_sample": {
+    "end": "2026-09-20 00:00:00+00:00",
+    "rows": 1724,
+    "start": "2022-01-01 00:00:00+00:00"
+  },
+  "dispersion_note": "family uses its own two-candidate dispersion; project scopes use Top20/2022 dispersion and vary N only",
+  "primary": "LS10_H5_RELMOM14_RISKBUDGET_FUNDING_EXIT",
+  "trial_scopes": [
+    {
+      "scope": "family",
+      "trial_count": 2,
+      "trial_sharpe_std_annualized": 0.014582616273856768
+    },
+    {
+      "scope": "top20_2022_trials",
+      "trial_count": 6142,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    },
+    {
+      "scope": "all_trials",
+      "trial_count": 14180,
+      "trial_sharpe_std_annualized": 0.3172858320052806
+    }
+  ],
+  "trial_summary": "reports/research_trial_inventory/summary.json"
+}

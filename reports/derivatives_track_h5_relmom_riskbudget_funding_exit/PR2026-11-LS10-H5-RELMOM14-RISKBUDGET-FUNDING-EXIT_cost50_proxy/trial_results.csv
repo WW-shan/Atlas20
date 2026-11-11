@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS10-H5-RELMOM14-RISKBUDGET-FUNDING-EXIT,main,lag0,50.0,1.6016509536524859,16.237900009213487,-0.3679533736132333,reports/derivatives_track_h5_relmom_riskbudget_funding_exit/PR2026-11-LS10-H5-RELMOM14-RISKBUDGET-FUNDING-EXIT_cost50_proxy/summary.json

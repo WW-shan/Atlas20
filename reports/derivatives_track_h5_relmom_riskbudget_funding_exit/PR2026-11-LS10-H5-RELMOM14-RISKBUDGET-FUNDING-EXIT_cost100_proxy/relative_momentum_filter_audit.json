@@ -1,0 +1,14 @@
+{
+  "funding_active_dates": 567,
+  "funding_leg_dates": 374,
+  "funding_lookback_days": 7,
+  "funding_min_assets": 5,
+  "funding_rank_min": 0.6666666666666666,
+  "relative_benchmark": "bitcoin",
+  "relative_lookback_days": 14,
+  "relative_rule": "asset_14d_return < btc_14d_return",
+  "relmom_active_dates": 549,
+  "relmom_leg_dates": 133,
+  "unfiltered_active_dates": 586,
+  "unfiltered_leg_dates": 958
+}
