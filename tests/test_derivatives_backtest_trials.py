@@ -690,6 +690,18 @@ def test_ls33_registers_residual_carry_with_buffer_control() -> None:
         assert trial_id in runner.SHORT_CANDIDATES
 
 
+def test_ls38_registers_ls23_same_side_no_trade_band() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS38_CANDIDATE_ID == "PR2026-11-LS38-H5-LS23-NOTRADE5"
+    assert runner.LS38_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS38_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.SHORT_CANDIDATES[runner.LS38_CANDIDATE_ID] == 0.05
+    config = runner._trial_frozen_config(runner.LS38_CANDIDATE_ID)
+    assert config["rebalance_no_trade_band"] == 0.05
+    assert config["long_buffer"] == 0.50
+
+
 def test_ls37_registers_fourteen_day_residual_carry() -> None:
     import scripts.run_h5_regime_short_router as runner
 

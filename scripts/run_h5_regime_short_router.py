@@ -89,6 +89,7 @@ LS34_CANDIDATE_ID = "PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD"
 LS35_CANDIDATE_ID = "PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN"
 LS36_CANDIDATE_ID = "PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY"
 LS37_CANDIDATE_ID = "PR2026-11-LS37-H5-LS23-RESIDUAL-CARRY-14D"
+LS38_CANDIDATE_ID = "PR2026-11-LS38-H5-LS23-NOTRADE5"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -111,6 +112,7 @@ LS34_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-short
 LS35_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-sign-design.md"
 LS36_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-short-carry-design.md"
 LS37_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-14d-design.md"
+LS38_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-notrade5-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -133,6 +135,7 @@ SHORT_CANDIDATES = {
     LS35_CANDIDATE_ID: 0.0,
     LS36_CANDIDATE_ID: 0.0,
     LS37_CANDIDATE_ID: 0.0,
+    LS38_CANDIDATE_ID: 0.05,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -152,6 +155,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS35_CANDIDATE_ID,
     LS36_CANDIDATE_ID,
     LS37_CANDIDATE_ID,
+    LS38_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -417,6 +421,10 @@ LS36_CONSTRUCTION = (
 LS37_CONSTRUCTION = (
     "LS33 residual-budget market-neutral funding carry rebalanced every 14 "
     "days instead of 7; ranking and weights unchanged"
+)
+LS38_CONSTRUCTION = (
+    "Frozen LS23 with a 5% NAV same-side no-trade band; opens, exits, side "
+    "flips and gross-guard events remain exact"
 )
 
 
@@ -1091,6 +1099,7 @@ def main() -> None:
             LS35_CANDIDATE_ID,
             LS36_CANDIDATE_ID,
             LS37_CANDIDATE_ID,
+            LS38_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1538,6 +1547,8 @@ def main() -> None:
                     if args.trial_id == LS36_CANDIDATE_ID
                     else LS37_SPEC_PATH
                     if args.trial_id == LS37_CANDIDATE_ID
+                    else LS38_SPEC_PATH
+                    if args.trial_id == LS38_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1587,6 +1598,8 @@ def main() -> None:
                     if args.trial_id == LS36_CANDIDATE_ID
                     else LS37_CONSTRUCTION
                     if args.trial_id == LS37_CANDIDATE_ID
+                    else LS38_CONSTRUCTION
+                    if args.trial_id == LS38_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

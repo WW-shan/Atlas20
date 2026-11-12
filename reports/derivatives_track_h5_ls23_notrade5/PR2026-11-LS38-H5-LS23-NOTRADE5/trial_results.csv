@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS38-H5-LS23-NOTRADE5,main,lag0,20.0,1.9101793990187632,54.533486491175445,-0.38685110560986613,reports/derivatives_track_h5_ls23_notrade5/PR2026-11-LS38-H5-LS23-NOTRADE5/summary.json
