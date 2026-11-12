@@ -1,0 +1,43 @@
+{
+  "allow_incomplete_marks": false,
+  "cost_bps": 20.0,
+  "end_date": "2026-11-11 00:00:00+00:00",
+  "frozen_config": {
+    "bear_funding_lookback_settlements": 3,
+    "bear_funding_threshold": -0.0002,
+    "bear_lookback_days": 14,
+    "bear_per_asset_weight": 0.0625,
+    "bear_rebalance_days": 7,
+    "bear_short_count": 4,
+    "btc_ma_window": 200,
+    "exit_funding_lookback_days": 7,
+    "exit_funding_min_assets": 5,
+    "exit_funding_rank_min": 0.6666666666666666,
+    "exit_holding_days": 21,
+    "exit_per_asset_weight": 0.025,
+    "h5_leverage": 1.25,
+    "long_buffer": 0.5,
+    "max_total_gross": 1.5,
+    "rebalance_no_trade_band": 0.0,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2
+  },
+  "funding_last": "2026-11-12 12:00:00+00:00",
+  "funding_source": "bitget-exact",
+  "live_execution": false,
+  "mark_coverage": {
+    "assets": 88,
+    "assets_with_gaps": 0,
+    "expected_hours": 1224,
+    "max_gap_hours": 1.0,
+    "missing_hours": 0
+  },
+  "mark_source": "bitget_mark",
+  "raw_dir": "data/raw/bitget_derivatives/oos_refresh_20261112",
+  "research_only": true,
+  "spec": "frozen H5 1.25x long-only baseline",
+  "start": "2026-09-22 00:00:00+00:00",
+  "tracked_spec": "PR2026-10-D-L125",
+  "warmup_raw_dir": "data/raw/bitget_derivatives/merged_20261009",
+  "warmup_start": "2021-01-01 00:00:00+00:00"
+}

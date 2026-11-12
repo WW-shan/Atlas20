@@ -64,7 +64,7 @@ from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E
 SHADOW_SPEC = LS23_CANDIDATE_ID
 OOS_START = "2026-09-22"
 DEFAULT_WARMUP_START = "2021-01-01"
-DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261009")
+DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
 DEFAULT_OUTPUT_DIR = Path(
     "reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11"
 )
@@ -389,7 +389,7 @@ def main() -> None:
     mark_coverage = _mark_coverage(execution_marks, start=start, end=coverage_end)
     if int(mark_coverage["missing_hours"]) > 0 and not args.allow_incomplete_marks:
         raise SystemExit(
-            "mark coverage is incomplete: "
+            f"mark coverage is incomplete in {args.raw_dir}: "
             f"{mark_coverage['missing_hours']} missing hours across "
             f"{mark_coverage['assets_with_gaps']} assets (max gap "
             f"{mark_coverage['max_gap_hours']:.1f}h) in {start}..{coverage_end}; "
@@ -629,6 +629,7 @@ def main() -> None:
         "dropped_target_rows": int(len(dropped_oos)),
         "available_mark_count": int(len(marks)),
         "execution_mark_count": int(len(execution_marks)),
+        "raw_dir": str(args.raw_dir),
         "warmup_raw_dir": str(args.warmup_raw_dir) if args.warmup_raw_dir else None,
         "mark_coverage": mark_coverage,
         "allow_incomplete_marks": bool(args.allow_incomplete_marks),
@@ -662,6 +663,7 @@ def main() -> None:
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
                 "mark_source": "bitget_mark",
+                "raw_dir": str(args.raw_dir),
                 "warmup_raw_dir": str(args.warmup_raw_dir) if args.warmup_raw_dir else None,
                 "mark_coverage": mark_coverage,
                 "allow_incomplete_marks": bool(args.allow_incomplete_marks),

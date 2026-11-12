@@ -19,8 +19,8 @@ LS23 把两个已经分别冻结的机制组合起来，而不是重新扫描参
 **40.2200x / 1.7330 / -40.65%**。LS23 同时提高了终值、Sharpe 和回撤，并在 2/20/50/100bps
 四档成本上全部胜过同成本 L125；100bps 也守住了 50% MDD kill line。
 
-但这仍不是可上线策略：12 个月真实 OOS 只完成约 50 天，funding 仍是 Binance proxy，且最新
-50 天 cash-start OOS 中 LS23 略低于 L125、Sharpe 明显更差。预注册规则要求满 12 个月 OOS，
+但这仍不是可上线策略：12 个月真实 OOS 只完成约 51 天，funding 仍是 Binance proxy，且最新
+51 天 cash-start OOS 中 LS23 略低于 L125、Sharpe 明显更差。预注册规则要求满 12 个月 OOS，
 因此最高判定只能是 **provisional**。
 
 ## 二、预注册与构造
@@ -119,23 +119,26 @@ LS23 把两个已经分别冻结的机制组合起来，而不是重新扫描参
 这些统计量支持“在已记录的候选族里，LS23 不是明显的选择偏差产物”，但不能替代 12 个月 OOS，
 也不能证明未来收益。
 
-## 八、50 天 cash-start OOS（关键警告）
+## 八、51 天 cash-start OOS（关键警告）
 
-冻结后窗口：2026-09-22 → 2026-11-10，20bps，Bitget OOS mark，zero funding，cash-start：
+冻结后窗口：2026-09-22 → 2026-11-11，20bps，Bitget OOS mark，zero funding，cash-start：
 
 | 口径 | 终值 | Sharpe | MDD | 0 强平 | max gross |
 |---|---:|---:|---:|---:|---:|
-| L125 baseline | 0.9484x | -0.2771 | -17.47% | 是 | 0.8149x |
-| LS23 candidate | 0.9403x | -0.5641 | -17.47% | 是 | 0.8153x |
+| L125 baseline | 0.9484x | -0.2743 | -17.47% | 是 | 0.8149x |
+| LS23 candidate | 0.9403x | -0.5584 | -17.47% | 是 | 0.8153x |
 
-该窗口 BTC 在 200D 上方，因此 LS23 **没有开空头**，实际只检验了多头利润保护。50 天内触发
-8 次 trim；相对同口径 baseline，终值低约 0.85%，Sharpe 更差，最大回撤基本不变。这个结果不能
-判定 LS23 失败——50 天只有 12 个月 OOS 的 13.7%——但足以阻止 promotion 和任何实盘切换。
+该窗口 BTC 在 200D 上方，因此 LS23 **没有开空头**，实际只检验了多头利润保护。51 天内触发
+8 次 trim；相对同口径 baseline，终值低约 0.85%，Sharpe 低约 0.284，最大回撤基本不变。
+2026-11-11 的日收益为 0，所以终值倍数未变；多一个零收益观测使 Sharpe 从 50 天口径的 -0.5641
+调整为 -0.5584。这个结果不能判定 LS23 失败——51 天只有 12 个月 OOS 的约 14.0%——但足以阻止
+promotion 和任何实盘切换。
 
 注意：这与 `run_derivatives_oos.py` 的 carry-in L125 0.9787x 不是同一口径；此处 baseline
 和 candidate 都是同一 cash-start 引擎，因此只能看相对差。
 
-汇总：`reports/derivatives_track_h5_profit_lock_regime_short/oos_2026_11/summary.csv`。
+汇总：`reports/derivatives_track_h5_profit_lock_regime_short/oos_2026_11/summary.csv`；
+完整 shadow 四臂：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/summary.csv`。
 
 ## 九、pre-2022 proxy stress（2020-10-03 → 2022-01-01）
 
@@ -167,7 +170,7 @@ settlement 不可得。
 - 主样本 funding 仍是 Binance proxy；OOS 已用完整 Bitget exact funding，但跨所 overlap gate
   0/88，不能把 proxy 当作 exact；
 - pre-2022 proxy stress 在 funding proxy 下终值和 Sharpe 低于 L125，只在 MDD 上改善；
-- 最新 50 天 cash-start OOS 相对 baseline 没有正增量：zero 0.9403x vs 0.9484x，Bitget exact
+- 最新 51 天 cash-start OOS 相对 baseline 没有正增量：zero 0.9403x vs 0.9484x，Bitget exact
   0.9365x vs 0.9440x。
 
 因此：
@@ -190,36 +193,37 @@ settlement 不可得。
   --funding-source binance-proxy --funding-missing-policy skip \
   --output-dir reports/derivatives_track_h5_profit_lock_regime_short
 
-# 50 天 cash-start OOS
+# 51 天 cash-start OOS
 .venv/bin/python scripts/run_h5_regime_short_router.py \
   --trial-id PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT \
   --start-date 2022-01-01 --evaluation-start 2026-09-22 \
-  --end-date 2026-11-10 --cost-bps 20 \
-  --raw-dir data/raw/bitget_derivatives/merged_oos_20261009 \
+  --end-date 2026-11-11 --cost-bps 20 \
+  --raw-dir data/raw/bitget_derivatives/oos_refresh_20261112 \
   --missing-mark-policy carry --missing-mark-max-carry-hours 3 \
   --funding-source zero --funding-missing-policy skip \
-  --output-dir reports/derivatives_track_h5_profit_lock_regime_short/oos_2026_11/candidate
+  --output-dir reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/ls23_zero_funding
 ```
 
 研究输出不是订单，也不是 live approval。
 
 
-## 十二、2026-11-12 v2：完整 Bitget funding 复跑
+## 十二、2026-11-12 v3：完整 Bitget funding + 51 天 OOS
 
 修复 Bitget candle 分页边界（`endTime` 小时开区间，旧 `first_open - 1ms` 每 100 行少 1 小时）
 后，新 OOS 快照 88 个资产窗口内 **0 missing hours / max gap 1h**；状态 warmup 使用
-`merged_20261009` 完整历史，成本使用完整 Bitget exact funding：
+`merged_20261009` 完整历史，OOS mark 使用 `oos_refresh_20261112`，成本使用完整 Bitget exact funding：
 
 | funding | 策略 | 终值 | Sharpe | MDD | funding total | trim | short open |
 |---|---|---:|---:|---:|---:|---:|---:|
-| zero（上界） | L125 | 0.9484x | -0.2771 | -17.47% | 0 | 0 | 0 |
-| zero（上界） | LS23 | 0.9403x | -0.5641 | -17.47% | 0 | 8 | 0 |
-| Bitget exact | L125 | 0.9440x | -0.3303 | -17.65% | -0.4808% | 0 | 0 |
-| Bitget exact | LS23 | **0.9365x** | **-0.6187** | **-17.65%** | **-0.4088%** | 8 | 0 |
+| zero（上界） | L125 | 0.9484x | -0.2743 | -17.47% | 0 | 0 | 0 |
+| zero（上界） | LS23 | 0.9403x | -0.5584 | -17.47% | 0 | 8 | 0 |
+| Bitget exact | L125 | 0.9440x | -0.3270 | -17.65% | -0.4808% | 0 | 0 |
+| Bitget exact | LS23 | **0.9365x** | **-0.6125** | **-17.65%** | **-0.4088%** | 8 | 0 |
 
-完整 funding 下 LS23 仍低于 L125 约 0.0074x，Sharpe 低约 0.2884；零 funding 下也低约
-0.85%。该窗口 BTC 在 200D 上方，空头 sleeve 0 次开仓；结论与旧 partial-funding 版本一致，
-旧 0.9391x / 0.9465x 读数由本 v2 取代。
+完整 funding 下 LS23 仍低于 L125 约 0.0074x，Sharpe 低约 0.2855；零 funding 下也低约
+0.85%。2026-11-11 日收益为 0，因此终值和 MDD 与 50 天版本相同；多一个零收益观测使
+Sharpe 从 -0.5641/-0.3303 调整为 -0.5584/-0.3270。该窗口 BTC 在 200D 上方，空头 sleeve
+0 次开仓；结论与旧 partial-funding 版本一致，旧 0.9391x / 0.9465x 读数已被当前 51 天版本取代。
 
-报告：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_refresh/report.md`。
-数据审计：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_refresh/data_audit/report.md`。
+报告：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/report.md`。
+汇总：`reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/summary.csv`。
