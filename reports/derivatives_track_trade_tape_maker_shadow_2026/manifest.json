@@ -1,0 +1,31 @@
+{
+  "acceptance_checks": {
+    "event_coverage_ge_70pct": true,
+    "events_ge_200": true,
+    "notional_coverage_ge_70pct": true,
+    "strict_fill_ge_70pct": true,
+    "weighted_improvement_ge_5bps": true
+  },
+  "acceptance_verdict": "pass",
+  "cache_dir": "data/raw/bitget_history",
+  "end_date": "2026-09-21",
+  "equity_reference": 500.0,
+  "events_covered": 433,
+  "events_error": 0,
+  "events_expected": 443,
+  "guard_bps": 30.0,
+  "maker_fee_bps": 2.0,
+  "notional_covered": 397596.56961381517,
+  "notional_expected": 397621.0956748318,
+  "offset_bps": 5.0,
+  "orders_sent": false,
+  "read_only": true,
+  "start_date": "2026-01-01",
+  "strict_maker_fill_rate": 0.7493606522568581,
+  "strict_weighted_improvement_bps": 9.55332901445137,
+  "symbol_map": "data/raw/bitget_derivatives/merged_oos_20261009/symbol_map.csv",
+  "taker_fee_bps": 20.0,
+  "through_bps": 1.0,
+  "timeout_hours": 2.0,
+  "trades_path": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_stable1d_redistribute/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/trades.csv"
+}
