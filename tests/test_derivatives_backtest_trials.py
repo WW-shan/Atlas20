@@ -839,3 +839,12 @@ def test_ls40_inverse_vol_parameters_are_frozen() -> None:
     assert runner.LS40_CANDIDATE_ID in runner.SHORT_CANDIDATES
     assert runner.LS40_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
     assert runner.LS40_CANDIDATE_ID in runner.LONG_INVERSE_VOL_TRIALS
+
+
+def test_ls41_long_stop_is_frozen_to_twenty_percent() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS41_CANDIDATE_ID == "PR2026-11-LS41-H5-LS23-LONGSTOP20"
+    assert runner.LS41_LONG_STOP_CONFIG == {"long_stop_loss_pct": 0.20}
+    assert runner.LS41_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS41_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS

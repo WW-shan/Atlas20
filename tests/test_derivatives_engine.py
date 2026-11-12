@@ -923,3 +923,42 @@ def test_no_trade_band_falls_back_to_exact_targets_before_a_gross_breach() -> No
 def test_no_trade_band_must_be_below_one_hundred_percent() -> None:
     with pytest.raises(ValueError, match="rebalance_no_trade_band"):
         DerivativeBacktestConfig(rebalance_no_trade_band=1.0)
+
+
+def test_long_stop_loss_closes_before_isolated_liquidation() -> None:
+    index = pd.date_range("2026-01-01 00:00:00Z", "2026-01-02 05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        100.0,
+        75.0,
+        75.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            long_buffer=0.50,
+            long_stop_loss_pct=0.20,
+        ),
+    )
+
+    assert result.liquidations.empty
+    stops = result.trades[result.trades["reason"] == "stop_loss"]
+    assert len(stops) == 1
+    assert stops.iloc[0]["side"] == "long"
+    assert stops.iloc[0]["price"] == pytest.approx(80.0)
+    assert result.equity_curve.iloc[-1] == pytest.approx(800.0)
+
+
+def test_long_stop_loss_rejects_invalid_percentage() -> None:
+    with pytest.raises(ValueError, match="long_stop_loss_pct"):
+        DerivativeBacktestConfig(long_stop_loss_pct=1.0)

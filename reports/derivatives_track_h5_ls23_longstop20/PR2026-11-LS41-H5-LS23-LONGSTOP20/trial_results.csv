@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS41-H5-LS23-LONGSTOP20,main,lag0,20.0,1.9035805302154518,57.252210619933265,-0.3983502122253624,reports/derivatives_track_h5_ls23_longstop20/PR2026-11-LS41-H5-LS23-LONGSTOP20/summary.json

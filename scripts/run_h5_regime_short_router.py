@@ -94,6 +94,7 @@ LS37_CANDIDATE_ID = "PR2026-11-LS37-H5-LS23-RESIDUAL-CARRY-14D"
 LS38_CANDIDATE_ID = "PR2026-11-LS38-H5-LS23-NOTRADE5"
 LS39_CANDIDATE_ID = "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
 LS40_CANDIDATE_ID = "PR2026-11-LS40-H5-LS23-INVVOL60"
+LS41_CANDIDATE_ID = "PR2026-11-LS41-H5-LS23-LONGSTOP20"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -119,6 +120,7 @@ LS37_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-14d-d
 LS38_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-notrade5-design.md"
 LS39_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-lowvol-pair-design.md"
 LS40_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-inverse-vol60-design.md"
+LS41_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-long-stop20-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -144,6 +146,7 @@ SHORT_CANDIDATES = {
     LS38_CANDIDATE_ID: 0.05,
     LS39_CANDIDATE_ID: 0.0,
     LS40_CANDIDATE_ID: 0.0,
+    LS41_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -166,6 +169,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS38_CANDIDATE_ID,
     LS39_CANDIDATE_ID,
     LS40_CANDIDATE_ID,
+    LS41_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -177,6 +181,7 @@ MARKET_NEUTRAL_TRIALS = {
 }
 LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
 LONG_INVERSE_VOL_TRIALS = {LS40_CANDIDATE_ID}
+LONG_STOP_TRIALS = {LS41_CANDIDATE_ID}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -243,6 +248,7 @@ LS37_CARRY_CONFIG: dict[str, Any] = {
     **FUNDING_CARRY_CONFIG,
     "rebalance_days": 14,
 }
+LS41_LONG_STOP_CONFIG: dict[str, Any] = {"long_stop_loss_pct": 0.20}
 LS40_INVERSE_VOL_CONFIG: dict[str, Any] = {
     "lookback_days": 60,
     "min_observations": 45,
@@ -318,6 +324,8 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         config["volatility_pair"] = LS39_VOL_PAIR_CONFIG
     if trial_id in LONG_INVERSE_VOL_TRIALS:
         config["inverse_volatility_long_allocation"] = LS40_INVERSE_VOL_CONFIG
+    if trial_id in LONG_STOP_TRIALS:
+        config.update(LS41_LONG_STOP_CONFIG)
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -455,6 +463,11 @@ LS37_CONSTRUCTION = (
 LS38_CONSTRUCTION = (
     "Frozen LS23 with a 5% NAV same-side no-trade band; opens, exits, side "
     "flips and gross-guard events remain exact"
+)
+LS41_CONSTRUCTION = (
+    "Frozen LS23 with a 20% hourly-mark adverse stop on every H5 long leg; "
+    "funding is charged first, stop executes before liquidation, and a stopped "
+    "leg may re-enter only at the next scheduled H5 target event"
 )
 LS40_CONSTRUCTION = (
     "Frozen LS23 with each multi-asset H5 long event reweighted inversely to "
@@ -1209,6 +1222,7 @@ def main() -> None:
             LS38_CANDIDATE_ID,
             LS39_CANDIDATE_ID,
             LS40_CANDIDATE_ID,
+            LS41_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1446,6 +1460,11 @@ def main() -> None:
         ),
         short_buffer=float(FROZEN_CONFIG["short_buffer"]),
         short_stop_loss_pct=float(FROZEN_CONFIG["short_stop_loss_pct"]),
+        long_stop_loss_pct=(
+            float(LS41_LONG_STOP_CONFIG["long_stop_loss_pct"])
+            if args.trial_id in LONG_STOP_TRIALS
+            else None
+        ),
         max_gross_exposure=target_total_gross,
         hard_gross_exposure=(
             float(FROZEN_CONFIG["max_total_gross"])
@@ -1612,7 +1631,9 @@ def main() -> None:
         "max_observed_gross": float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0,
         "gross_breach_hours": int((result.gross_exposure > float(FROZEN_CONFIG["max_total_gross"]) + 1e-12).sum()),
         "short_open_count": short_opens,
-        "stop_loss_count": int((short_side & stop_reason).sum()) if not trades.empty else 0,
+        "stop_loss_count": int(stop_reason.sum()) if not trades.empty else 0,
+        "short_stop_loss_count": int((short_side & stop_reason).sum()) if not trades.empty else 0,
+        "long_stop_loss_count": int(((trades.get("side") == "long") & stop_reason).sum()) if not trades.empty else 0,
         "liquidation_count": int(len(result.liquidations)),
         "funding_total": float(result.funding["amount"].sum()) if not result.funding.empty else 0.0,
         "fees_total": float(trades["fee"].sum()) if not trades.empty else 0.0,
@@ -1725,6 +1746,8 @@ def main() -> None:
                     if args.trial_id == LS39_CANDIDATE_ID
                     else LS40_SPEC_PATH
                     if args.trial_id == LS40_CANDIDATE_ID
+                    else LS41_SPEC_PATH
+                    if args.trial_id == LS41_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1780,6 +1803,8 @@ def main() -> None:
                     if args.trial_id == LS39_CANDIDATE_ID
                     else LS40_CONSTRUCTION
                     if args.trial_id == LS40_CANDIDATE_ID
+                    else LS41_CONSTRUCTION
+                    if args.trial_id == LS41_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),
@@ -1819,7 +1844,7 @@ def main() -> None:
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",
-                f"- Short stop-losses: {summary['stop_loss_count']}",
+                f"- Stop-losses: {summary['stop_loss_count']} (long {summary['long_stop_loss_count']} / short {summary['short_stop_loss_count']})",
                 "",
                 "Research output only; not an order or a live approval.",
             ]
