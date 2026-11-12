@@ -1,0 +1,9 @@
+{
+  "archived_true_cash_start_baseline": true,
+  "max_drawdown": -0.2065350525594422,
+  "multiple": 6.411249703560953,
+  "sharpe": 2.6201904725962515,
+  "source": "reports/derivatives_track_h5_profit_lock_regime_short/engine_monthly_starts/summary.csv",
+  "start": "2025-05",
+  "trial_id": "PR2026-10-D-L125"
+}

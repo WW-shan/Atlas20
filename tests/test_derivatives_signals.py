@@ -2212,3 +2212,74 @@ def test_profit_lock_redistribution_leaves_unallocatable_weight_in_cash() -> Non
     assert float(adjusted[date]["B"]) == pytest.approx(0.60)
     assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.05)
     assert audit.loc[0, "cash_weight"] == pytest.approx(0.25)
+
+
+def test_profit_lock_redistribution_requires_stronger_recipient_momentum() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_redistribute
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base21 = date - pd.Timedelta(days=21)
+    base7 = date - pd.Timedelta(days=7)
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 200.0, 250.0],
+            "B": [100.0, 100.0, 160.0],
+            "C": [100.0, 100.0, 105.0],
+        },
+        index=pd.DatetimeIndex([base21, base7, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25, "C": 0.15})}
+
+    adjusted, audit = trim_extreme_run_single_leader_redistribute(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+        recipient_confirmation_days=7,
+    )
+
+    weights = adjusted[date]
+    assert float(weights["A"]) == pytest.approx(0.25)
+    assert float(weights["B"]) == pytest.approx(0.50)
+    assert float(weights["C"]) == pytest.approx(0.15)
+    assert audit.loc[0, "eligible_recipient_count"] == 1
+    assert audit.loc[0, "leader_confirmation_return"] == pytest.approx(0.25)
+    assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.25)
+    assert audit.loc[0, "cash_weight"] == pytest.approx(0.0)
+
+
+def test_profit_lock_redistribution_keeps_cash_without_confirmed_recipient() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_redistribute
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base21 = date - pd.Timedelta(days=21)
+    base7 = date - pd.Timedelta(days=7)
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 200.0, 250.0],
+            "B": [100.0, 100.0, 105.0],
+            "C": [100.0, 100.0, 103.0],
+        },
+        index=pd.DatetimeIndex([base21, base7, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25, "C": 0.15})}
+
+    adjusted, audit = trim_extreme_run_single_leader_redistribute(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+        recipient_confirmation_days=7,
+    )
+
+    weights = adjusted[date]
+    assert float(weights["A"]) == pytest.approx(0.25)
+    assert float(weights["B"]) == pytest.approx(0.25)
+    assert float(weights["C"]) == pytest.approx(0.15)
+    assert audit.loc[0, "eligible_recipient_count"] == 0
+    assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.0)
+    assert audit.loc[0, "cash_weight"] == pytest.approx(0.25)

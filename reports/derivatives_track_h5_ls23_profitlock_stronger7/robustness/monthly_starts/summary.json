@@ -1,0 +1,43 @@
+{
+  "baseline": "L125_BASELINE",
+  "candidates": [
+    "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE",
+    "LS43_H5_LS23_PROFITLOCK_STRONGER7"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 45,
+      "candidate": "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40134166606720534,
+      "worst_relative_mdd": -0.40134166606720534
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS43_H5_LS23_PROFITLOCK_STRONGER7",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40134166606720534,
+      "worst_relative_mdd": -0.40134166606720534
+    }
+  ]
+}

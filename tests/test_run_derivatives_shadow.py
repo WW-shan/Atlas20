@@ -102,8 +102,14 @@ def test_merge_mark_maps_lets_oos_marks_override_warmup_overlap() -> None:
 
 def test_shadow_spec_selects_ls42_and_rejects_unknown_trials() -> None:
     from scripts.run_derivatives_shadow import _shadow_spec
-    from scripts.run_h5_regime_short_router import LS42_CANDIDATE_ID, LS42_SPEC_PATH
+    from scripts.run_h5_regime_short_router import (
+        LS42_CANDIDATE_ID,
+        LS42_SPEC_PATH,
+        LS43_CANDIDATE_ID,
+        LS43_SPEC_PATH,
+    )
 
     assert _shadow_spec(LS42_CANDIDATE_ID) == LS42_SPEC_PATH
+    assert _shadow_spec(LS43_CANDIDATE_ID) == LS43_SPEC_PATH
     with pytest.raises(ValueError, match="unsupported shadow trial"):
         _shadow_spec("not-a-trial")

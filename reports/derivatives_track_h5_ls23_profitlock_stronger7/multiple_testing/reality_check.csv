@@ -1,0 +1,3 @@
+benchmark,observed_max_mean_daily,reality_check_p_value,bootstrap_count
+zero,0.002787357795924246,0.003996003996003996,1000.0
+BTC buy-and-hold,0.002109233006169809,0.008991008991008992,1000.0

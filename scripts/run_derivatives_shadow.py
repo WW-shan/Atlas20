@@ -1,4 +1,4 @@
-"""Research-only shadow tracker for the LS23 and LS42 long/short candidates.
+"""Research-only shadow tracker for the LS23, LS42, and LS43 long/short candidates.
 
 This script rebuilds a frozen long/short target book from point-in-time data,
 records the signed long/short targets, and runs the derivatives research
@@ -54,8 +54,10 @@ from scripts.run_h5_regime_short_router import (  # noqa: E402
     FROZEN_CONFIG,
     LS23_CANDIDATE_ID,
     LS42_CANDIDATE_ID,
-    LS42_PROFIT_LOCK_CONFIG,
     LS42_SPEC_PATH,
+    LS43_CANDIDATE_ID,
+    LS43_SPEC_PATH,
+    PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL,
     SHORT_CANDIDATES,
     build_long_targets_for_trial,
     build_short_targets_for_trial,
@@ -71,7 +73,12 @@ DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
 DEFAULT_OUTPUT_DIR = Path(
     "reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11"
 )
-TRIAL_CHOICES = (BASELINE_ID, LS23_CANDIDATE_ID, LS42_CANDIDATE_ID)
+TRIAL_CHOICES = (
+    BASELINE_ID,
+    LS23_CANDIDATE_ID,
+    LS42_CANDIDATE_ID,
+    LS43_CANDIDATE_ID,
+)
 _TARGET_COLUMNS = [
     "signal_date",
     "execution_hint",
@@ -314,6 +321,8 @@ def _shadow_spec(trial_id: str) -> str:
         return "docs/superpowers/specs/2026-11-12-h5-profit-lock-regime-short-design.md"
     if trial_id == LS42_CANDIDATE_ID:
         return LS42_SPEC_PATH
+    if trial_id == LS43_CANDIDATE_ID:
+        return LS43_SPEC_PATH
     if trial_id == BASELINE_ID:
         return "frozen H5 1.25x long-only baseline"
     raise ValueError(f"unsupported shadow trial: {trial_id}")
@@ -650,6 +659,19 @@ def main() -> None:
             if "cash_weight" in profit_lock_oos.columns
             else 0.0
         ),
+        "profit_lock_confirmed_recipient_event_count": (
+            int(
+                (
+                    profit_lock_oos["trimmed"].fillna(False)
+                    & (profit_lock_oos["eligible_recipient_count"] > 0)
+                ).sum()
+            )
+            if {
+                "trimmed",
+                "eligible_recipient_count",
+            }.issubset(profit_lock_oos.columns)
+            else 0
+        ),
         "dropped_target_rows": int(len(dropped_oos)),
         "available_mark_count": int(len(marks)),
         "execution_mark_count": int(len(execution_marks)),
@@ -676,8 +698,12 @@ def main() -> None:
                         SHORT_CANDIDATES.get(args.trial_id, 0.0)
                     ),
                     **(
-                        {"profit_lock_redistribution": LS42_PROFIT_LOCK_CONFIG}
-                        if args.trial_id == LS42_CANDIDATE_ID
+                        {
+                            "profit_lock_redistribution": PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[
+                                args.trial_id
+                            ]
+                        }
+                        if args.trial_id in PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL
                         else {}
                     ),
                 },
@@ -738,6 +764,8 @@ def main() -> None:
             if args.trial_id == LS23_CANDIDATE_ID
             else "- frozen long/short book: H5 1.25x + LS42 profit-lock redistribution/regime short"
             if args.trial_id == LS42_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS43 stronger-7D profit-lock redistribution/regime short"
+            if args.trial_id == LS43_CANDIDATE_ID
             else "- frozen long/short book: H5 1.25x baseline"
         ),
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",

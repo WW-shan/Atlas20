@@ -97,6 +97,7 @@ LS39_CANDIDATE_ID = "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
 LS40_CANDIDATE_ID = "PR2026-11-LS40-H5-LS23-INVVOL60"
 LS41_CANDIDATE_ID = "PR2026-11-LS41-H5-LS23-LONGSTOP20"
 LS42_CANDIDATE_ID = "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE"
+LS43_CANDIDATE_ID = "PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -124,6 +125,7 @@ LS39_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-lowvol-pair-design.m
 LS40_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-inverse-vol60-design.md"
 LS41_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-long-stop20-design.md"
 LS42_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-profit-lock-redistribute-design.md"
+LS43_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger7-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -151,6 +153,7 @@ SHORT_CANDIDATES = {
     LS40_CANDIDATE_ID: 0.0,
     LS41_CANDIDATE_ID: 0.0,
     LS42_CANDIDATE_ID: 0.0,
+    LS43_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -175,6 +178,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS40_CANDIDATE_ID,
     LS41_CANDIDATE_ID,
     LS42_CANDIDATE_ID,
+    LS43_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -187,7 +191,7 @@ MARKET_NEUTRAL_TRIALS = {
 LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
 LONG_INVERSE_VOL_TRIALS = {LS40_CANDIDATE_ID}
 LONG_STOP_TRIALS = {LS41_CANDIDATE_ID}
-PROFIT_LOCK_REDISTRIBUTE_TRIALS = {LS42_CANDIDATE_ID}
+PROFIT_LOCK_REDISTRIBUTE_TRIALS = {LS42_CANDIDATE_ID, LS43_CANDIDATE_ID}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -260,6 +264,14 @@ LS42_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     "threshold": 1.0,
     "scale": 0.5,
     "max_asset_weight": 0.60,
+}
+LS43_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS42_PROFIT_LOCK_CONFIG,
+    "recipient_confirmation_days": 7,
+}
+PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL = {
+    LS42_CANDIDATE_ID: LS42_PROFIT_LOCK_CONFIG,
+    LS43_CANDIDATE_ID: LS43_PROFIT_LOCK_CONFIG,
 }
 LS40_INVERSE_VOL_CONFIG: dict[str, Any] = {
     "lookback_days": 60,
@@ -339,7 +351,9 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
     if trial_id in LONG_STOP_TRIALS:
         config.update(LS41_LONG_STOP_CONFIG)
     if trial_id in PROFIT_LOCK_REDISTRIBUTE_TRIALS:
-        config["profit_lock_redistribution"] = LS42_PROFIT_LOCK_CONFIG
+        config["profit_lock_redistribution"] = PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[
+            trial_id
+        ]
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -482,6 +496,11 @@ LS42_CONSTRUCTION = (
     "Frozen LS23 with LS22 profit-lock freed weight redistributed to other "
     "already-held H5 assets pro-rata, capped at 60% NAV per asset, with any "
     "unallocatable remainder left in cash"
+)
+LS43_CONSTRUCTION = (
+    "Frozen LS23 with LS22 profit-lock freed weight redistributed only to "
+    "already-held H5 assets whose 7D trailing return is stronger than the "
+    "trimmed leader's, pro-rata and capped at 60% NAV; otherwise cash"
 )
 LS41_CONSTRUCTION = (
     "Frozen LS23 with a 20% hourly-mark adverse stop on every H5 long leg; "
@@ -1064,11 +1083,11 @@ def build_long_targets_for_trial(
 ):
     if trial_id in PROFIT_LOCK_REDISTRIBUTE_TRIALS:
         if prices is None:
-            raise ValueError("LS42 requires the point-in-time H5 price panel")
+            raise ValueError("profit-lock redistribution requires the point-in-time H5 price panel")
         return trim_extreme_run_single_leader_redistribute(
             long_targets,
             prices=prices,
-            **LS42_PROFIT_LOCK_CONFIG,
+            **PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[trial_id],
         )
     if trial_id in LONG_COMMON_GROSS_TRIALS:
         return preserve_relative_weights_on_same_selection(long_targets)
@@ -1251,6 +1270,7 @@ def main() -> None:
             LS40_CANDIDATE_ID,
             LS41_CANDIDATE_ID,
             LS42_CANDIDATE_ID,
+            LS43_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1783,6 +1803,8 @@ def main() -> None:
                     if args.trial_id == LS41_CANDIDATE_ID
                     else LS42_SPEC_PATH
                     if args.trial_id == LS42_CANDIDATE_ID
+                    else LS43_SPEC_PATH
+                    if args.trial_id == LS43_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1842,6 +1864,8 @@ def main() -> None:
                     if args.trial_id == LS41_CANDIDATE_ID
                     else LS42_CONSTRUCTION
                     if args.trial_id == LS42_CANDIDATE_ID
+                    else LS43_CONSTRUCTION
+                    if args.trial_id == LS43_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

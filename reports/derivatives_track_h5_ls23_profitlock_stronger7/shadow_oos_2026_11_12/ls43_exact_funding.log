@@ -1,0 +1,13 @@
+{
+  "days": 51,
+  "end_date": "2026-11-11 00:00:00+00:00",
+  "funding_source": "bitget-exact",
+  "metrics": {
+    "cagr": -0.3863336533847682,
+    "max_drawdown": -0.17654653343920612,
+    "multiple": 0.9365492890377107,
+    "sharpe": -0.6124670712399761
+  },
+  "spec": "PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7"
+}
+Wrote research-only shadow tracker to reports/derivatives_track_h5_ls23_profitlock_stronger7/shadow_oos_2026_11_12/ls43_exact_funding

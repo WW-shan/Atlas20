@@ -304,12 +304,15 @@ def trim_extreme_run_single_leader_redistribute(
     threshold: float,
     scale: float,
     max_asset_weight: float,
+    recipient_confirmation_days: int | None = None,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
-    """Trim an extreme leader and redistribute freed weight to existing holdings.
+    """Trim an extreme leader and redistribute only to confirmed holdings.
 
     No new asset or side is introduced.  Freed weight is allocated pro-rata to
     the other positive holdings in the same event, with any amount blocked by
-    the per-asset cap left in cash.
+    the per-asset cap left in cash.  When ``recipient_confirmation_days`` is
+    set, a recipient must also have a stronger trailing return than the leader
+    over that window; otherwise the freed weight remains in cash.
     """
     if lookback_days < 1:
         raise ValueError("lookback_days must be positive")
@@ -319,6 +322,8 @@ def trim_extreme_run_single_leader_redistribute(
         raise ValueError("scale must be finite and in (0, 1)")
     if not np.isfinite(max_asset_weight) or not 0.0 < max_asset_weight < 1.0:
         raise ValueError("max_asset_weight must be finite and in (0, 1)")
+    if recipient_confirmation_days is not None and recipient_confirmation_days < 1:
+        raise ValueError("recipient_confirmation_days must be positive when set")
 
     price_frame = prices.copy()
     price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
@@ -339,6 +344,8 @@ def trim_extreme_run_single_leader_redistribute(
         leader = str(target.idxmax()) if not target.empty else ""
         leader_weight_before = float(target.loc[leader]) if leader else 0.0
         trailing_return = float("nan")
+        leader_confirmation_return = float("nan")
+        eligible_recipient_count = 0
         trimmed = False
         redistributed = 0.0
         cash_weight = 0.0
@@ -367,6 +374,65 @@ def trim_extreme_run_single_leader_redistribute(
                         output.loc[leader] = leader_weight_before * float(scale)
                         recipients = output.drop(index=leader)
                         recipients = recipients[recipients > 1e-15]
+                        eligible_recipient_count = int(len(recipients))
+                        if recipient_confirmation_days is not None:
+                            confirmation_cutoff = date - pd.Timedelta(
+                                days=recipient_confirmation_days
+                            )
+                            confirmation_candidates = price_frame.index[
+                                price_frame.index <= confirmation_cutoff
+                            ]
+                            if (
+                                leader in price_frame.columns
+                                and not confirmation_candidates.empty
+                            ):
+                                confirmation_base_date = pd.Timestamp(
+                                    confirmation_candidates[-1]
+                                )
+                                confirmation_base_price = float(
+                                    pd.to_numeric(
+                                        price_frame.at[confirmation_base_date, leader],
+                                        errors="coerce",
+                                    )
+                                )
+                                if confirmation_base_price > 0.0:
+                                    leader_confirmation_return = (
+                                        current_price / confirmation_base_price - 1.0
+                                    )
+                            if np.isfinite(leader_confirmation_return):
+                                confirmed: list[str] = []
+                                for asset in recipients.index:
+                                    if asset not in price_frame.columns:
+                                        continue
+                                    recipient_base_price = float(
+                                        pd.to_numeric(
+                                            price_frame.at[
+                                                confirmation_base_date, asset
+                                            ],
+                                            errors="coerce",
+                                        )
+                                    )
+                                    if recipient_base_price <= 0.0:
+                                        continue
+                                    recipient_current_price = float(
+                                        pd.to_numeric(
+                                            price_frame.at[date, asset],
+                                            errors="coerce",
+                                        )
+                                    )
+                                    recipient_return = (
+                                        recipient_current_price / recipient_base_price - 1.0
+                                    )
+                                    if (
+                                        np.isfinite(recipient_return)
+                                        and recipient_return
+                                        > leader_confirmation_return + 1e-12
+                                    ):
+                                        confirmed.append(str(asset))
+                                recipients = recipients.loc[confirmed]
+                            else:
+                                recipients = recipients.iloc[0:0]
+                        eligible_recipient_count = int(len(recipients))
                         remaining = freed
                         active = recipients.copy()
                         while remaining > 1e-15 and not active.empty:
@@ -399,6 +465,9 @@ def trim_extreme_run_single_leader_redistribute(
                 "leader_weight_before": leader_weight_before,
                 "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
                 "trailing_return": trailing_return,
+                "leader_confirmation_return": leader_confirmation_return,
+                "recipient_confirmation_days": recipient_confirmation_days,
+                "eligible_recipient_count": eligible_recipient_count,
                 "lookback_days": int(lookback_days),
                 "threshold": float(threshold),
                 "scale": float(scale),

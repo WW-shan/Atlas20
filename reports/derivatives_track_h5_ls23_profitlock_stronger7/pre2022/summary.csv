@@ -1,0 +1,3 @@
+funding,multiple,sharpe,max_drawdown,liquidations,max_observed_gross,gross_breach_hours,available_mark_count,profit_lock_trimmed_count,profit_lock_redistributed_weight_total,source
+zero_proxy,4.449581160935141,2.410532131311571,-0.22477507533982588,0,0.9532328749446531,0,64,83,5.965863287564609,reports/derivatives_track_h5_ls23_profitlock_stronger7/pre2022/zero_proxy/PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7/summary.json
+funding_proxy,3.1599200632356013,1.9261345912935015,-0.22732614069043122,0,0.9533626903222326,0,64,83,5.965863287564609,reports/derivatives_track_h5_ls23_profitlock_stronger7/pre2022/funding_proxy/PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7/summary.json

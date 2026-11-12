@@ -1,0 +1,9 @@
+strategy,funding,multiple,sharpe,max_drawdown,profit_lock_trimmed_count,profit_lock_confirmed_recipient_event_count,profit_lock_redistributed_weight_total,profit_lock_cash_weight_total,liquidation_count,source
+L125,zero,0.9483820803240844,-0.2743396093813331,-0.17467018574411475,0,0,0.0,0.0,0,reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/l125_zero_funding/summary.json
+LS23,zero,0.9403145471785488,-0.5584331822675354,-0.17471176842695746,8,0,0.0,0.0,0,reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/ls23_zero_funding/summary.json
+LS42,zero,0.9220496079900796,-0.7873919331946062,-0.17471176842695824,8,0,0.7147880946869938,0.9364790953830515,0,reports/derivatives_track_h5_ls23_profitlock_redistribute/shadow_oos_2026_11_12/ls42_zero_funding/summary.json
+LS43,zero,0.9403145471785488,-0.5584331822675354,-0.17471176842695746,8,0,0.0,1.6512671900700453,0,reports/derivatives_track_h5_ls23_profitlock_stronger7/shadow_oos_2026_11_12/ls43_zero_funding/summary.json
+L125,exact,0.9439691262808964,-0.3269930519197985,-0.17650490435399369,0,0,0.0,0.0,0,reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/l125_exact_funding/summary.json
+LS23,exact,0.9365492890377107,-0.6124670712399761,-0.17654653343920612,8,0,0.0,0.0,0,reports/derivatives_track_h5_profit_lock_regime_short/shadow_oos_2026_11_12/ls23_exact_funding/summary.json
+LS42,exact,0.9183065331733308,-0.8405186031954478,-0.17654653343920745,8,0,0.7147880946869938,0.9364790953830515,0,reports/derivatives_track_h5_ls23_profitlock_redistribute/shadow_oos_2026_11_12/ls42_exact_funding/summary.json
+LS43,exact,0.9365492890377107,-0.6124670712399761,-0.17654653343920612,8,0,0.0,1.6512671900700453,0,reports/derivatives_track_h5_ls23_profitlock_stronger7/shadow_oos_2026_11_12/ls43_exact_funding/summary.json

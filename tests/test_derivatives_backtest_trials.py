@@ -862,3 +862,19 @@ def test_ls42_profit_lock_redistribution_parameters_are_frozen() -> None:
     }
     assert runner.LS42_CANDIDATE_ID in runner.SHORT_CANDIDATES
     assert runner.LS42_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+
+
+def test_ls43_stronger_recipient_confirmation_is_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS43_CANDIDATE_ID == "PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7"
+    assert runner.LS43_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 7,
+    }
+    assert runner.LS43_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS43_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS43_CANDIDATE_ID in runner.PROFIT_LOCK_REDISTRIBUTE_TRIALS
