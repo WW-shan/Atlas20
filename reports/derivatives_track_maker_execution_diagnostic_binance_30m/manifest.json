@@ -1,4 +1,5 @@
 {
+  "adverse_guard_bps": null,
   "analysis_offset_bps": 5.0,
   "analysis_timeout_bars": 2,
   "bar_source": "binance-30m",
@@ -6,16 +7,19 @@
   "intraday_dir": "data/raw/binance_30m",
   "maker_fee_bps": 2.0,
   "primary": {
+    "adverse_guard_bps": null,
     "coverage": 0.8160748270931724,
     "covered_notional": 1393.1329149232417,
     "effective_cost_bps": 6.53602014248028,
+    "guard_triggered_share": 0.0,
     "improvement_bps": 13.463979857519721,
     "notional_fill_rate": 0.8869735487618737,
     "offset_bps": 5.0,
     "positive_improvement_share": 0.8885339133904155,
     "price_edge_bps": -2.501544020194007,
-    "timeout_bars": 2.0,
-    "trade_count": 2247.0,
+    "timeout_bars": 2,
+    "timeout_notional_share": 0.11302645123812614,
+    "trade_count": 2247,
     "unfilled_improvement_median_bps": -45.78956797813342,
     "unfilled_improvement_p05_bps": -208.23694292571594,
     "unfilled_notional_share": 0.11302645123812614

@@ -4038,3 +4038,31 @@ LS57 相同，不是新的独立证据。另一个“post-skip MA21 日内/日�
 执行成本、真实盘口和独立 OOS，而不是继续在同一 2022–2026 样本上调 7D/1D 阈值。
 
 报告：`reports/derivatives_track_profitlock_followup_diagnostics/report.md`。
+
+### 00.89 2026-11-13 Maker-first adverse guard：尾部改善，仍是 shadow 执行候选
+
+上一节 maker-first 的平均成本改善成立，但未成交回退尾部太大。本节预注册一个**事后
+follow-up**：每根未成交 bar 检查相对 reference 的 adverse move，若达到 **30bps**，立即在
+该 bar close 以 taker 回退，而不是继续等第二根 bar。其余仍为 5bps offset / 2 bars /
+1bp through / 2bps maker / 20bps taker。
+
+| 指标 | 无 guard | 30bps guard |
+|---|---:|---:|
+| 被动成交率 | 91.40% | **90.48%** |
+| 有效成本 | 8.45bps | **7.06bps** |
+| 相对基线改善 | +11.55bps | **+12.94bps** |
+| 未成交名义占比 | 8.60% | 9.52% |
+| 未成交改善中位数 | -76.26bps | **-64.17bps** |
+| 未成交改善 5% 分位 | -278.55bps | **-214.08bps** |
+
+2022–2026 年度改善 **+15.00 / +14.97 / +11.91 / +14.15 / +12.05bps**，五年全为正。
+Binance 30m 交叉检查覆盖率 81.61%，改善 +11.46bps，方向一致。Bitget mark 的名义覆盖率
+仍为 100%。
+
+**判定：follow-up 通过，仍是 shadow 执行候选，不接实盘。** 30bps guard 改善了平均成本和
+尾部，但没有解决 mark K 线触碰、队列位置、部分成交、撤单延迟和交易所拒绝。下一步必须做
+真实盘口/订单簿 shadow；不能把 7.06bps 直接写进 live 成本、LS57 的 DSR 或 promotion 结论。
+
+报告：`reports/derivatives_track_maker_execution_guard30_bps/`；
+交叉检查：`reports/derivatives_track_maker_execution_guard30_bps_binance_30m/`；
+Spec：`docs/superpowers/specs/2026-11-13-maker-adverse-guard-followup-design.md`。

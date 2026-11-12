@@ -1,0 +1,33 @@
+{
+  "adverse_guard_bps": 30.0,
+  "analysis_offset_bps": 5.0,
+  "analysis_timeout_bars": 2,
+  "bar_source": "binance-30m",
+  "baseline_fee_bps": 20.0,
+  "intraday_dir": "data/raw/binance_30m",
+  "maker_fee_bps": 2.0,
+  "primary": {
+    "adverse_guard_bps": 30.0,
+    "coverage": 0.8160748270931724,
+    "covered_notional": 1393.1329149232417,
+    "effective_cost_bps": 8.535312976215348,
+    "guard_triggered_share": 0.09798040908727884,
+    "improvement_bps": 11.464687023784649,
+    "notional_fill_rate": 0.8783539143261163,
+    "offset_bps": 5.0,
+    "positive_improvement_share": 0.8799142789546585,
+    "price_edge_bps": -4.345683434085446,
+    "timeout_bars": 2.0,
+    "timeout_notional_share": 0.02366567658660465,
+    "trade_count": 2247.0,
+    "unfilled_improvement_median_bps": -44.91677166810276,
+    "unfilled_improvement_p05_bps": -136.8257266116553,
+    "unfilled_notional_share": 0.1216460856738835
+  },
+  "raw_dir": null,
+  "taker_fee_bps": 20.0,
+  "through_bps": 1.0,
+  "total_notional": 1707.114186925148,
+  "trade_count": 2524,
+  "trades_path": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_stable1d_redistribute/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/trades.csv"
+}

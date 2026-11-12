@@ -121,6 +121,7 @@ def simulate_trade(
     maker_fee_bps: float,
     taker_fee_bps: float,
     baseline_fee_bps: float,
+    adverse_guard_bps: float | None = None,
 ) -> dict[str, object]:
     """Simulate one passive-first trade against a bar frame."""
     if offset_bps < 0.0 or through_bps < 0.0:
@@ -129,6 +130,8 @@ def simulate_trade(
         raise ValueError("timeout_bars must be positive")
     if min(maker_fee_bps, taker_fee_bps, baseline_fee_bps) < 0.0:
         raise ValueError("fee assumptions must be non-negative")
+    if adverse_guard_bps is not None and adverse_guard_bps < 0.0:
+        raise ValueError("adverse_guard_bps must be non-negative when set")
     if pd.isna(trade.get("timestamp")):
         raise ValueError("trade timestamp must be present")
     timestamp = _as_utc(trade["timestamp"])
@@ -141,6 +144,10 @@ def simulate_trade(
             "side": trade_direction(trade.get("side"), trade.get("action")),
             "notional": float(trade.get("notional", 0.0)),
             "filled": False,
+            "fallback_reason": "unavailable",
+            "guard_triggered": False,
+            "bars_waited": 0,
+            "adverse_move_bps": np.nan,
             "effective_cost_bps": np.nan,
             "improvement_bps": np.nan,
         }
@@ -154,6 +161,10 @@ def simulate_trade(
             "side": trade_direction(trade.get("side"), trade.get("action")),
             "notional": float(trade.get("notional", 0.0)),
             "filled": False,
+            "fallback_reason": "unavailable",
+            "guard_triggered": False,
+            "bars_waited": 0,
+            "adverse_move_bps": np.nan,
             "effective_cost_bps": np.nan,
             "improvement_bps": np.nan,
         }
@@ -171,17 +182,34 @@ def simulate_trade(
 
     filled = False
     fill_price = float("nan")
-    for _, bar in segment.iterrows():
+    fallback_reason = "timeout"
+    guard_triggered = False
+    bars_waited = 0
+    adverse_move_bps = float("nan")
+    for bar_number, (_, bar) in enumerate(segment.iterrows(), start=1):
+        bars_waited = bar_number
         if direction == "buy" and float(bar["low"]) <= through:
             filled = True
             fill_price = limit
+            fallback_reason = "maker_fill"
             break
         if direction == "sell" and float(bar["high"]) >= through:
             filled = True
             fill_price = limit
+            fallback_reason = "maker_fill"
             break
-    if not filled:
+        if direction == "buy":
+            adverse_move_bps = (float(bar["close"]) - reference) / reference * 10_000.0
+        else:
+            adverse_move_bps = (reference - float(bar["close"])) / reference * 10_000.0
+        if adverse_guard_bps is not None and adverse_move_bps >= float(adverse_guard_bps):
+            fill_price = float(bar["close"])
+            fallback_reason = "adverse_guard"
+            guard_triggered = True
+            break
+    if not filled and not guard_triggered:
         fill_price = float(segment.iloc[-1]["close"])
+        fallback_reason = "timeout"
     fee_bps = maker_fee_bps if filled else taker_fee_bps
     if direction == "buy":
         price_edge_bps = (reference - fill_price) / reference * 10_000.0
@@ -199,6 +227,10 @@ def simulate_trade(
         "limit_price": float(limit),
         "fill_price": fill_price,
         "filled": filled,
+        "fallback_reason": fallback_reason,
+        "guard_triggered": guard_triggered,
+        "bars_waited": int(bars_waited),
+        "adverse_move_bps": float(adverse_move_bps),
         "fee_bps": float(fee_bps),
         "price_edge_bps": float(price_edge_bps),
         "effective_cost_bps": effective_cost_bps,
@@ -221,6 +253,10 @@ def summarise(
     timeout_bars: int,
 ) -> dict[str, float | int]:
     available = simulation.loc[simulation["available"].astype(bool)].copy()
+    if "guard_triggered" not in available.columns:
+        available["guard_triggered"] = False
+    if "fallback_reason" not in available.columns:
+        available["fallback_reason"] = "unknown"
     covered = float(available["notional"].sum())
     if available.empty or covered <= 0.0:
         return {
@@ -237,6 +273,8 @@ def summarise(
             "unfilled_notional_share": float("nan"),
             "unfilled_improvement_median_bps": float("nan"),
             "unfilled_improvement_p05_bps": float("nan"),
+            "guard_triggered_share": float("nan"),
+            "timeout_notional_share": float("nan"),
         }
     weights = available["notional"].astype(float)
     unfilled = available.loc[~available["filled"].astype(bool)]
@@ -274,6 +312,12 @@ def summarise(
             float(unfilled["improvement_bps"].astype(float).quantile(0.05))
             if not unfilled.empty
             else float("nan")
+        ),
+        "guard_triggered_share": _weighted_mean(
+            available["guard_triggered"].astype(float), weights
+        ),
+        "timeout_notional_share": _weighted_mean(
+            (available["fallback_reason"] == "timeout").astype(float), weights
         ),
     }
 
@@ -384,6 +428,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--maker-fee-bps", type=float, default=2.0)
     parser.add_argument("--taker-fee-bps", type=float, default=20.0)
     parser.add_argument("--baseline-fee-bps", type=float, default=20.0)
+    parser.add_argument("--adverse-guard-bps", type=float, default=None)
     parser.add_argument("--analysis-offset-bps", type=float, default=5.0)
     parser.add_argument("--analysis-timeout-bars", type=int, default=2)
     args = parser.parse_args(argv)
@@ -402,7 +447,7 @@ def main(argv: list[str] | None = None) -> None:
             args.taker_fee_bps,
             args.baseline_fee_bps,
         )
-    ):
+    ) or (args.adverse_guard_bps is not None and args.adverse_guard_bps < 0.0):
         parser.error("fee and through-bps assumptions must be non-negative")
 
     configure_logging("ERROR")
@@ -432,6 +477,7 @@ def main(argv: list[str] | None = None) -> None:
                     maker_fee_bps=float(args.maker_fee_bps),
                     taker_fee_bps=float(args.taker_fee_bps),
                     baseline_fee_bps=float(args.baseline_fee_bps),
+                    adverse_guard_bps=args.adverse_guard_bps,
                 )
                 if str(trade["asset"]) in bars
                 else {
@@ -441,6 +487,10 @@ def main(argv: list[str] | None = None) -> None:
                     "side": trade_direction(trade["side"], trade["action"]),
                     "notional": float(trade["notional"]),
                     "filled": False,
+                    "fallback_reason": "unavailable",
+                    "guard_triggered": False,
+                    "bars_waited": 0,
+                    "adverse_move_bps": np.nan,
                     "effective_cost_bps": np.nan,
                     "improvement_bps": np.nan,
                 }
@@ -459,6 +509,7 @@ def main(argv: list[str] | None = None) -> None:
                 )
             )
     summary = pd.DataFrame(summaries).sort_values(["offset_bps", "timeout_bars"])
+    summary["adverse_guard_bps"] = args.adverse_guard_bps
     all_simulation = pd.concat(simulations, ignore_index=True)
     primary = all_simulation.loc[
         (all_simulation["offset_bps"] == float(args.analysis_offset_bps))
@@ -487,6 +538,7 @@ def main(argv: list[str] | None = None) -> None:
         "maker_fee_bps": float(args.maker_fee_bps),
         "taker_fee_bps": float(args.taker_fee_bps),
         "baseline_fee_bps": float(args.baseline_fee_bps),
+        "adverse_guard_bps": args.adverse_guard_bps,
         "analysis_offset_bps": float(args.analysis_offset_bps),
         "analysis_timeout_bars": int(args.analysis_timeout_bars),
         "primary": {str(key): value for key, value in primary_row.to_dict().items()},
@@ -503,6 +555,7 @@ def main(argv: list[str] | None = None) -> None:
         f"{args.analysis_timeout_bars} bars / {args.through_bps:g}bps**",
         f"- assumptions: maker **{args.maker_fee_bps:g}bps**, taker "
         f"**{args.taker_fee_bps:g}bps**, baseline **{args.baseline_fee_bps:g}bps**",
+        f"- adverse guard: **{args.adverse_guard_bps if args.adverse_guard_bps is not None else 'off'}**",
         "",
         "## Sensitivity",
         "",

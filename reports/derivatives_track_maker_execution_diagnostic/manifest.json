@@ -1,4 +1,5 @@
 {
+  "adverse_guard_bps": null,
   "analysis_offset_bps": 5.0,
   "analysis_timeout_bars": 2,
   "bar_source": "bitget-mark",
@@ -6,16 +7,19 @@
   "intraday_dir": null,
   "maker_fee_bps": 2.0,
   "primary": {
+    "adverse_guard_bps": null,
     "coverage": 1.0,
     "covered_notional": 1707.114186925148,
     "effective_cost_bps": 8.44643305553281,
+    "guard_triggered_share": 0.0,
     "improvement_bps": 11.553566944467189,
     "notional_fill_rate": 0.9139763003581377,
     "offset_bps": 5.0,
     "positive_improvement_share": 0.9140625441796709,
     "price_edge_bps": -4.898006461979291,
-    "timeout_bars": 2.0,
-    "trade_count": 2524.0,
+    "timeout_bars": 2,
+    "timeout_notional_share": 0.08602369964186218,
+    "trade_count": 2524,
     "unfilled_improvement_median_bps": -76.2575777977786,
     "unfilled_improvement_p05_bps": -278.55244111740893,
     "unfilled_notional_share": 0.08602369964186218

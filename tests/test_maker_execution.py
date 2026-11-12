@@ -81,6 +81,57 @@ def test_passive_sell_falls_back_when_price_never_trades_through() -> None:
     assert result["improvement_bps"] < 0.0
 
 
+def _two_bars() -> pd.DataFrame:
+    index = pd.DatetimeIndex(
+        ["2026-01-02 03:00:00+00:00", "2026-01-02 04:00:00+00:00"]
+    )
+    return pd.DataFrame(
+        {
+            "open": [100.0, 100.5],
+            "high": [101.0, 101.0],
+            "low": [100.5, 99.9],
+            "close": [100.5, 100.0],
+        },
+        index=index,
+    )
+
+
+def test_adverse_guard_falls_back_before_a_later_maker_fill() -> None:
+    result = simulate_trade(
+        _trade("long", "open"),
+        _two_bars(),
+        offset_bps=5.0,
+        timeout_bars=2,
+        through_bps=1.0,
+        maker_fee_bps=2.0,
+        taker_fee_bps=20.0,
+        baseline_fee_bps=20.0,
+        adverse_guard_bps=30.0,
+    )
+    assert result["filled"] is False
+    assert result["guard_triggered"] is True
+    assert result["fallback_reason"] == "adverse_guard"
+    assert result["bars_waited"] == 1
+    assert result["fill_price"] == pytest.approx(100.5)
+
+
+def test_no_guard_allows_later_maker_fill() -> None:
+    result = simulate_trade(
+        _trade("long", "open"),
+        _two_bars(),
+        offset_bps=5.0,
+        timeout_bars=2,
+        through_bps=1.0,
+        maker_fee_bps=2.0,
+        taker_fee_bps=20.0,
+        baseline_fee_bps=20.0,
+    )
+    assert result["filled"] is True
+    assert result["guard_triggered"] is False
+    assert result["bars_waited"] == 2
+    assert result["fill_price"] == pytest.approx(99.95)
+
+
 def test_summary_weights_by_notional() -> None:
     simulation = pd.DataFrame(
         {
@@ -107,6 +158,18 @@ def test_summary_weights_by_notional() -> None:
 def test_invalid_assumptions_fail_closed() -> None:
     with pytest.raises(ValueError):
         trade_direction("flat", "open")
+    with pytest.raises(ValueError):
+        simulate_trade(
+            _trade("long", "open"),
+            _bars(),
+            offset_bps=5.0,
+            timeout_bars=1,
+            through_bps=1.0,
+            maker_fee_bps=2.0,
+            taker_fee_bps=20.0,
+            baseline_fee_bps=20.0,
+            adverse_guard_bps=-1.0,
+        )
     with pytest.raises(ValueError):
         simulate_trade(
             _trade("long", "open"),
