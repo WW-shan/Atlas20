@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE,main,lag0,20.0,1.9589044978467423,65.81471661591637,-0.40134166606720634,reports/derivatives_track_h5_ls23_profitlock_redistribute/PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE/summary.json

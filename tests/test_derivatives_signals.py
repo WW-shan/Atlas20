@@ -2156,3 +2156,59 @@ def test_inverse_volatility_reweight_leaves_single_asset_or_missing_history_unch
     assert not bool(audit_single.loc[0, "missing_volatility"])
     assert not bool(audit_multi.loc[0, "changed"])
     assert bool(audit_multi.loc[0, "missing_volatility"])
+
+
+def test_profit_lock_redistribution_preserves_gross_across_existing_holdings() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_redistribute
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 250.0], "B": [100.0, 100.0], "C": [100.0, 100.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25, "C": 0.15})}
+
+    adjusted, audit = trim_extreme_run_single_leader_redistribute(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+    )
+
+    weights = adjusted[date]
+    assert float(weights.sum()) == pytest.approx(0.90)
+    assert float(weights["A"]) == pytest.approx(0.25)
+    assert float(weights["B"]) == pytest.approx(0.40625)
+    assert float(weights["C"]) == pytest.approx(0.24375)
+    assert audit.loc[0, "trimmed"]
+    assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.25)
+    assert audit.loc[0, "cash_weight"] == pytest.approx(0.0)
+
+
+def test_profit_lock_redistribution_leaves_unallocatable_weight_in_cash() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_redistribute
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 250.0], "B": [100.0, 100.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.55})}
+
+    adjusted, audit = trim_extreme_run_single_leader_redistribute(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+    )
+
+    assert float(adjusted[date]["A"]) == pytest.approx(0.30)
+    assert float(adjusted[date]["B"]) == pytest.approx(0.60)
+    assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.05)
+    assert audit.loc[0, "cash_weight"] == pytest.approx(0.25)

@@ -848,3 +848,17 @@ def test_ls41_long_stop_is_frozen_to_twenty_percent() -> None:
     assert runner.LS41_LONG_STOP_CONFIG == {"long_stop_loss_pct": 0.20}
     assert runner.LS41_CANDIDATE_ID in runner.SHORT_CANDIDATES
     assert runner.LS41_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+
+
+def test_ls42_profit_lock_redistribution_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS42_CANDIDATE_ID == "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE"
+    assert runner.LS42_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "max_asset_weight": 0.60,
+    }
+    assert runner.LS42_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS42_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS

@@ -1,0 +1,306 @@
+{
+  "candidate": "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE",
+  "costs_bps": {
+    "100": {
+      "gross_breach_hours": 0,
+      "liquidations": 0,
+      "max_drawdown": -0.497749569363074,
+      "max_observed_gross": 1.3404876934373284,
+      "multiple": 16.07003470335156,
+      "sharpe": 1.3825204047080915
+    },
+    "2": {
+      "gross_breach_hours": 0,
+      "liquidations": 0,
+      "max_drawdown": -0.3786517414562808,
+      "max_observed_gross": 1.3286184914995045,
+      "multiple": 90.26315322019582,
+      "sharpe": 2.087367575178755
+    },
+    "20": {
+      "gross_breach_hours": 0,
+      "liquidations": 0,
+      "max_drawdown": -0.40134166606720634,
+      "max_observed_gross": 1.3307778558429912,
+      "multiple": 65.81471661591637,
+      "sharpe": 1.9589044978467423
+    },
+    "50": {
+      "gross_breach_hours": 0,
+      "liquidations": 0,
+      "max_drawdown": -0.437439163395384,
+      "max_observed_gross": 1.3343962136776544,
+      "multiple": 38.83348722426692,
+      "sharpe": 1.7436806834030378
+    }
+  },
+  "gates": {
+    "10_rolling_worst": "pass",
+    "11_monthly_paths": "pass",
+    "12_engine_cash_starts": "pass",
+    "13_short_concentration": "pass",
+    "14_pbo_reality_check": "pass",
+    "15_dsr": "pass",
+    "16_12m_oos": "pending (51/365 days)",
+    "1_primary_20bps": "pass",
+    "4_zero_liquidations": "pass",
+    "5_cost_family": "pass",
+    "6_100bps_tail": "pass",
+    "7_funding_stress": "pass",
+    "8_gross_cap": "pass",
+    "9_best_year_removal": "pass"
+  },
+  "l125_reference_costs": {
+    "100": {
+      "max_drawdown": -0.5002,
+      "multiple": 14.3794,
+      "sharpe": 1.3204
+    },
+    "2": {
+      "max_drawdown": -0.3842,
+      "multiple": 50.6408,
+      "sharpe": 1.8249
+    },
+    "20": {
+      "max_drawdown": -0.4065,
+      "multiple": 40.22,
+      "sharpe": 1.733
+    },
+    "50": {
+      "max_drawdown": -0.442,
+      "multiple": 27.3725,
+      "sharpe": 1.579
+    }
+  },
+  "ls23_reference_costs": {
+    "100": {
+      "max_drawdown": -0.4948,
+      "multiple": 15.5037,
+      "sharpe": 1.3745
+    },
+    "2": {
+      "max_drawdown": -0.3757,
+      "multiple": 84.4362,
+      "sharpe": 2.0719
+    },
+    "20": {
+      "max_drawdown": -0.3984,
+      "multiple": 61.915,
+      "sharpe": 1.9448
+    },
+    "50": {
+      "max_drawdown": -0.4345,
+      "multiple": 36.8788,
+      "sharpe": 1.7319
+    }
+  },
+  "main_test": {
+    "available_mark_count": 88,
+    "baseline": false,
+    "bear_days": 837,
+    "bear_funding_threshold": -0.0002,
+    "cagr": 1.4276898911652625,
+    "cost_bps": 20.0,
+    "cross_venue_funding": false,
+    "dropped_target_rows": 106,
+    "end_date": "2026-09-21",
+    "fees_total": 3.42027287750646,
+    "funding_missing_policy": "skip",
+    "funding_multiplier": 1.0,
+    "funding_source": "binance-proxy",
+    "funding_stress": "none",
+    "funding_tilt_cash_weight_total": 4.8876112360561255,
+    "funding_tilt_crowded_leg_count": 0,
+    "funding_tilt_event_count": 0,
+    "funding_total": -0.8135211469463884,
+    "gross_breach_hours": 0,
+    "h5_leverage": 1.25,
+    "inverse_vol_changed_count": 0,
+    "inverse_vol_event_count": 0,
+    "inverse_vol_l1_change_total": 0.0,
+    "inverse_vol_missing_count": 0,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "long_stop_loss_count": 0,
+    "low_vol_pair_event_count": 0,
+    "low_vol_pair_long_gross_total": 0.0,
+    "low_vol_pair_short_gross_total": 0.0,
+    "mark_source": "bitget_mark",
+    "max_drawdown": -0.40134166606720634,
+    "max_funded_short_gross": 0.25,
+    "max_observed_gross": 1.3307778558429912,
+    "max_requested_short_gross": 0.25,
+    "max_target_total_gross": 1.2999999999999998,
+    "max_total_gross": 1.5,
+    "missing_mark_max_carry_hours": 3,
+    "missing_mark_policy": "carry",
+    "multiple": 65.81471661591637,
+    "non_bear_days": 888,
+    "non_bear_sleeve": "h5_exit",
+    "profit_lock_cash_weight_total": 4.8876112360561255,
+    "profit_lock_event_count": 542,
+    "profit_lock_redistributed_weight_total": 4.355550966094681,
+    "profit_lock_trimmed_count": 57,
+    "rebalance_no_trade_band": 0.0,
+    "regime_switch_count": 33,
+    "relative_l1_skipped_total": 0.0,
+    "relative_tilt_skipped_count": 0,
+    "sharpe": 1.9589044978467423,
+    "short_open_count": 335,
+    "short_stop_loss_count": 29,
+    "start_date": "2022-01-01",
+    "stop_loss_count": 29,
+    "target_total_gross": 1.5,
+    "trial_id": "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE",
+    "warmup_start_date": "2022-01-01"
+  },
+  "multiple_testing": {
+    "dsr_all_trials": 0.961571127092548,
+    "dsr_top20_2022": 0.9733750808516008,
+    "pbo": 0.2132034632034632,
+    "rc_btc_p": 0.0099900099900099,
+    "rc_zero_p": 0.0039960039960039
+  },
+  "oos_51d": {
+    "candidate": [
+      {
+        "days": 51,
+        "funding": "zero",
+        "max_drawdown": -0.17471176842695824,
+        "metric_days": 50,
+        "multiple": 0.9220496079900796,
+        "sharpe": -0.7873919331946062
+      },
+      {
+        "days": 51,
+        "funding": "exact",
+        "max_drawdown": -0.17654653343920745,
+        "metric_days": 50,
+        "multiple": 0.9183065331733308,
+        "sharpe": -0.8405186031954478
+      }
+    ],
+    "days": 51,
+    "gate_12_months": "pending",
+    "reference": {
+      "L125_exact": {
+        "max_drawdown": -0.17650490435399369,
+        "multiple": 0.9439691262808964,
+        "sharpe": -0.3269930519197985
+      },
+      "L125_zero": {
+        "max_drawdown": -0.17467018574411475,
+        "multiple": 0.9483820803240844,
+        "sharpe": -0.2743396093813331
+      },
+      "LS23_exact": {
+        "max_drawdown": -0.17654653343920612,
+        "multiple": 0.9365492890377107,
+        "sharpe": -0.6124670712399761
+      },
+      "LS23_zero": {
+        "max_drawdown": -0.17471176842695746,
+        "multiple": 0.9403145471785488,
+        "sharpe": -0.5584331822675354
+      }
+    },
+    "required_days": 365
+  },
+  "registration_sha256": "4a4c9938c745f044e8650da71883a90a0f303d51fecc347107cb77f5aa7167eb",
+  "robustness": {
+    "best_year_removal_multiple_min": 18.035272547951603,
+    "best_year_removal_multiple_pass": true,
+    "engine_monthly": {
+      "all_risk_checks": true,
+      "engine_monthly_start_gate_passed": true,
+      "mdd_gate_all": true,
+      "mdd_pass_5pp": 12,
+      "multiple_gate_10_of_12": true,
+      "multiple_wins": 12,
+      "sharpe_gate_10_of_12": true,
+      "sharpe_wins": 12,
+      "start_count": 12
+    },
+    "monthly_path_all_pass": 45,
+    "monthly_path_gate": true,
+    "monthly_path_slices": 45,
+    "rolling_1y_baseline": 0.7325148940097908,
+    "rolling_1y_worst": 0.8508413683365893,
+    "rolling_gate": true
+  },
+  "short_attribution": {
+    "best_pct_nav": 6.3846605486279255,
+    "episodes": 335,
+    "max_asset_share": 0.23315160492565065,
+    "mean_pct_nav": 0.10061707831775865,
+    "median_pct_nav": 0.00991228367633634,
+    "negative_episodes": 166,
+    "positive_episodes": 169,
+    "top3_share": 0.6195299284909455,
+    "total_net_pnl": 4.539932022223061,
+    "total_pct_nav_sum": 33.70672123644915,
+    "worst_pct_nav": -1.3806937158242012
+  },
+  "spec_canonical_sha256": "fcd155c0355dad49007be33f50d0b9f99387d3f812739c50ff915fcb855e8cc7",
+  "stress_short_adverse_x3": {
+    "available_mark_count": 88,
+    "baseline": false,
+    "bear_days": 837,
+    "bear_funding_threshold": -0.0002,
+    "cagr": 1.429855684008979,
+    "cost_bps": 20.0,
+    "cross_venue_funding": false,
+    "dropped_target_rows": 106,
+    "end_date": "2026-09-21",
+    "fees_total": 3.434189603126459,
+    "funding_missing_policy": "skip",
+    "funding_multiplier": 3.0,
+    "funding_source": "binance-proxy",
+    "funding_stress": "short-adverse",
+    "funding_tilt_cash_weight_total": 4.8876112360561255,
+    "funding_tilt_crowded_leg_count": 0,
+    "funding_tilt_event_count": 0,
+    "funding_total": -0.8173375087487273,
+    "gross_breach_hours": 0,
+    "h5_leverage": 1.25,
+    "inverse_vol_changed_count": 0,
+    "inverse_vol_event_count": 0,
+    "inverse_vol_l1_change_total": 0.0,
+    "inverse_vol_missing_count": 0,
+    "liquidation_count": 0,
+    "long_buffer": 0.5,
+    "long_stop_loss_count": 0,
+    "low_vol_pair_event_count": 0,
+    "low_vol_pair_long_gross_total": 0.0,
+    "low_vol_pair_short_gross_total": 0.0,
+    "mark_source": "bitget_mark",
+    "max_drawdown": -0.4025269761791378,
+    "max_funded_short_gross": 0.25,
+    "max_observed_gross": 1.3309391581959136,
+    "max_requested_short_gross": 0.25,
+    "max_target_total_gross": 1.2999999999999998,
+    "max_total_gross": 1.5,
+    "missing_mark_max_carry_hours": 3,
+    "missing_mark_policy": "carry",
+    "multiple": 66.09234244498602,
+    "non_bear_days": 888,
+    "non_bear_sleeve": "h5_exit",
+    "profit_lock_cash_weight_total": 4.8876112360561255,
+    "profit_lock_event_count": 542,
+    "profit_lock_redistributed_weight_total": 4.355550966094681,
+    "profit_lock_trimmed_count": 57,
+    "rebalance_no_trade_band": 0.0,
+    "regime_switch_count": 33,
+    "relative_l1_skipped_total": 0.0,
+    "relative_tilt_skipped_count": 0,
+    "sharpe": 1.9593327397238636,
+    "short_open_count": 335,
+    "short_stop_loss_count": 29,
+    "start_date": "2022-01-01",
+    "stop_loss_count": 29,
+    "target_total_gross": 1.5,
+    "trial_id": "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE",
+    "warmup_start_date": "2022-01-01"
+  },
+  "verdict": "provisional; strongest main-sample LS42 variant, but 51-day OOS underperforms LS23 and L125; no live promotion or executor change."
+}

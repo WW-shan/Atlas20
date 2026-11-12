@@ -37,6 +37,7 @@ from atlas20.derivatives.signals import (  # noqa: E402
     route_short_schedule_with_long_exclusions,
     route_signed_sleeve_with_long_exclusions,
     trim_extreme_run_single_leader,
+    trim_extreme_run_single_leader_redistribute,
     trim_extreme_run_single_leader_stateful,
     tilt_long_targets_away_from_crowded_funding,
     combine_long_with_cash_budgeted_short,
@@ -95,6 +96,7 @@ LS38_CANDIDATE_ID = "PR2026-11-LS38-H5-LS23-NOTRADE5"
 LS39_CANDIDATE_ID = "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
 LS40_CANDIDATE_ID = "PR2026-11-LS40-H5-LS23-INVVOL60"
 LS41_CANDIDATE_ID = "PR2026-11-LS41-H5-LS23-LONGSTOP20"
+LS42_CANDIDATE_ID = "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -121,6 +123,7 @@ LS38_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-notrade5-design.md"
 LS39_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-lowvol-pair-design.md"
 LS40_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-inverse-vol60-design.md"
 LS41_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-long-stop20-design.md"
+LS42_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-profit-lock-redistribute-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -147,6 +150,7 @@ SHORT_CANDIDATES = {
     LS39_CANDIDATE_ID: 0.0,
     LS40_CANDIDATE_ID: 0.0,
     LS41_CANDIDATE_ID: 0.0,
+    LS42_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -170,6 +174,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS39_CANDIDATE_ID,
     LS40_CANDIDATE_ID,
     LS41_CANDIDATE_ID,
+    LS42_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -182,6 +187,7 @@ MARKET_NEUTRAL_TRIALS = {
 LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
 LONG_INVERSE_VOL_TRIALS = {LS40_CANDIDATE_ID}
 LONG_STOP_TRIALS = {LS41_CANDIDATE_ID}
+PROFIT_LOCK_REDISTRIBUTE_TRIALS = {LS42_CANDIDATE_ID}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -249,6 +255,12 @@ LS37_CARRY_CONFIG: dict[str, Any] = {
     "rebalance_days": 14,
 }
 LS41_LONG_STOP_CONFIG: dict[str, Any] = {"long_stop_loss_pct": 0.20}
+LS42_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    "lookback_days": 21,
+    "threshold": 1.0,
+    "scale": 0.5,
+    "max_asset_weight": 0.60,
+}
 LS40_INVERSE_VOL_CONFIG: dict[str, Any] = {
     "lookback_days": 60,
     "min_observations": 45,
@@ -326,6 +338,8 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         config["inverse_volatility_long_allocation"] = LS40_INVERSE_VOL_CONFIG
     if trial_id in LONG_STOP_TRIALS:
         config.update(LS41_LONG_STOP_CONFIG)
+    if trial_id in PROFIT_LOCK_REDISTRIBUTE_TRIALS:
+        config["profit_lock_redistribution"] = LS42_PROFIT_LOCK_CONFIG
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -463,6 +477,11 @@ LS37_CONSTRUCTION = (
 LS38_CONSTRUCTION = (
     "Frozen LS23 with a 5% NAV same-side no-trade band; opens, exits, side "
     "flips and gross-guard events remain exact"
+)
+LS42_CONSTRUCTION = (
+    "Frozen LS23 with LS22 profit-lock freed weight redistributed to other "
+    "already-held H5 assets pro-rata, capped at 60% NAV per asset, with any "
+    "unallocatable remainder left in cash"
 )
 LS41_CONSTRUCTION = (
     "Frozen LS23 with a 20% hourly-mark adverse stop on every H5 long leg; "
@@ -1043,6 +1062,14 @@ def build_long_targets_for_trial(
     available: set[str],
     prices: pd.DataFrame | None = None,
 ):
+    if trial_id in PROFIT_LOCK_REDISTRIBUTE_TRIALS:
+        if prices is None:
+            raise ValueError("LS42 requires the point-in-time H5 price panel")
+        return trim_extreme_run_single_leader_redistribute(
+            long_targets,
+            prices=prices,
+            **LS42_PROFIT_LOCK_CONFIG,
+        )
     if trial_id in LONG_COMMON_GROSS_TRIALS:
         return preserve_relative_weights_on_same_selection(long_targets)
     if trial_id in LONG_INVERSE_VOL_TRIALS:
@@ -1223,6 +1250,7 @@ def main() -> None:
             LS39_CANDIDATE_ID,
             LS40_CANDIDATE_ID,
             LS41_CANDIDATE_ID,
+            LS42_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1607,6 +1635,11 @@ def main() -> None:
             if not low_vol_sleeve_audit.empty
             else 0.0
         ),
+        "profit_lock_redistributed_weight_total": (
+            float(long_tilt_audit["redistributed_weight"].sum())
+            if "redistributed_weight" in long_tilt_audit.columns
+            else 0.0
+        ),
         "profit_lock_cash_weight_total": (
             float(
                 (
@@ -1748,6 +1781,8 @@ def main() -> None:
                     if args.trial_id == LS40_CANDIDATE_ID
                     else LS41_SPEC_PATH
                     if args.trial_id == LS41_CANDIDATE_ID
+                    else LS42_SPEC_PATH
+                    if args.trial_id == LS42_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1805,6 +1840,8 @@ def main() -> None:
                     if args.trial_id == LS40_CANDIDATE_ID
                     else LS41_CONSTRUCTION
                     if args.trial_id == LS41_CANDIDATE_ID
+                    else LS42_CONSTRUCTION
+                    if args.trial_id == LS42_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

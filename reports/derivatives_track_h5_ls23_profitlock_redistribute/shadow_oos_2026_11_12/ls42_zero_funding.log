@@ -1,0 +1,13 @@
+{
+  "days": 51,
+  "end_date": "2026-11-11 00:00:00+00:00",
+  "funding_source": "zero",
+  "metrics": {
+    "cagr": -0.45366954956284034,
+    "max_drawdown": -0.17471176842695824,
+    "multiple": 0.9220496079900796,
+    "sharpe": -0.7873919331946062
+  },
+  "spec": "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE"
+}
+Wrote research-only shadow tracker to reports/derivatives_track_h5_ls23_profitlock_redistribute/shadow_oos_2026_11_12/ls42_zero_funding

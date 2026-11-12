@@ -295,6 +295,123 @@ def trim_extreme_run_single_leader(
     return adjusted, pd.DataFrame(audit_rows)
 
 
+
+def trim_extreme_run_single_leader_redistribute(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    prices: pd.DataFrame,
+    *,
+    lookback_days: int,
+    threshold: float,
+    scale: float,
+    max_asset_weight: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Trim an extreme leader and redistribute freed weight to existing holdings.
+
+    No new asset or side is introduced.  Freed weight is allocated pro-rata to
+    the other positive holdings in the same event, with any amount blocked by
+    the per-asset cap left in cash.
+    """
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if not np.isfinite(threshold) or threshold <= 0.0:
+        raise ValueError("threshold must be positive and finite")
+    if not np.isfinite(scale) or not 0.0 < scale < 1.0:
+        raise ValueError("scale must be finite and in (0, 1)")
+    if not np.isfinite(max_asset_weight) or not 0.0 < max_asset_weight < 1.0:
+        raise ValueError("max_asset_weight must be finite and in (0, 1)")
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame[~price_frame.index.duplicated(keep="last")].sort_index()
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target[target > 1e-15].astype(float).sort_index()
+
+        leader = str(target.idxmax()) if not target.empty else ""
+        leader_weight_before = float(target.loc[leader]) if leader else 0.0
+        trailing_return = float("nan")
+        trimmed = False
+        redistributed = 0.0
+        cash_weight = 0.0
+        output = target.copy()
+        if leader:
+            base_cutoff = date - pd.Timedelta(days=lookback_days)
+            candidates = price_frame.index[price_frame.index <= base_cutoff]
+            if (
+                leader in price_frame.columns
+                and date in price_frame.index
+                and not candidates.empty
+            ):
+                base_date = pd.Timestamp(candidates[-1])
+                base_price = float(pd.to_numeric(price_frame.at[base_date, leader], errors="coerce"))
+                current_price = float(pd.to_numeric(price_frame.at[date, leader], errors="coerce"))
+                if (
+                    np.isfinite(base_price)
+                    and np.isfinite(current_price)
+                    and base_price > 0.0
+                    and current_price > 0.0
+                ):
+                    trailing_return = current_price / base_price - 1.0
+                    if trailing_return >= threshold:
+                        trimmed = True
+                        freed = leader_weight_before * (1.0 - float(scale))
+                        output.loc[leader] = leader_weight_before * float(scale)
+                        recipients = output.drop(index=leader)
+                        recipients = recipients[recipients > 1e-15]
+                        remaining = freed
+                        active = recipients.copy()
+                        while remaining > 1e-15 and not active.empty:
+                            share = active / float(active.sum())
+                            proposed = output.loc[active.index] + remaining * share
+                            over = proposed > float(max_asset_weight) + 1e-15
+                            if not bool(over.any()):
+                                output.loc[active.index] = proposed
+                                redistributed += remaining
+                                remaining = 0.0
+                                break
+                            capped_assets = list(proposed.index[over])
+                            for asset in capped_assets:
+                                room = max(
+                                    0.0,
+                                    float(max_asset_weight) - float(output.loc[asset]),
+                                )
+                                if room > 1e-15:
+                                    output.loc[asset] += room
+                                    redistributed += room
+                                    remaining -= room
+                            active = active.drop(capped_assets)
+                        cash_weight = max(0.0, remaining)
+
+        adjusted[date] = output
+        audit_rows.append(
+            {
+                "date": date,
+                "leader": leader,
+                "leader_weight_before": leader_weight_before,
+                "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
+                "trailing_return": trailing_return,
+                "lookback_days": int(lookback_days),
+                "threshold": float(threshold),
+                "scale": float(scale),
+                "max_asset_weight": float(max_asset_weight),
+                "trimmed": trimmed,
+                "redistributed_weight": redistributed,
+                "cash_weight": cash_weight,
+                "gross_before": float(target.sum()),
+                "gross_after": float(output.sum()),
+            }
+        )
+    return adjusted, pd.DataFrame(audit_rows)
+
 def trim_extreme_run_single_leader_stateful(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     prices: pd.DataFrame,
