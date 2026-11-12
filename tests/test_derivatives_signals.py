@@ -2093,3 +2093,66 @@ def test_cross_sectional_volatility_pair_clears_when_history_or_members_are_insu
     )
 
     assert schedule[date].empty
+
+
+def test_inverse_volatility_reweight_preserves_multi_asset_event_gross() -> None:
+    import numpy as np
+
+    from atlas20.derivatives.signals import inverse_volatility_reweight_long_targets
+
+    date = pd.Timestamp("2026-04-01T00:00:00Z")
+    index = pd.date_range(end=date, periods=61, freq="D", tz="UTC")
+    assets = ["A", "B", "C"]
+    amplitudes = {"A": 0.10, "B": 0.20, "C": 0.30}
+    pattern = np.tile(np.array([0.02, -0.02]), len(index) // 2 + 1)[: len(index)]
+    prices = pd.DataFrame(
+        {asset: 100.0 * np.exp(np.cumsum(amplitudes[asset] * pattern)) for asset in assets},
+        index=index,
+    )
+    targets = {date: pd.Series({"A": 0.30, "B": 0.30, "C": 0.30})}
+
+    adjusted, audit = inverse_volatility_reweight_long_targets(
+        targets,
+        prices=prices,
+        lookback_days=60,
+        min_observations=45,
+    )
+
+    weights = adjusted[date]
+    expected_raw = {"A": 10.0, "B": 5.0, "C": 10.0 / 3.0}
+    expected_total = sum(expected_raw.values())
+    assert float(weights.sum()) == pytest.approx(0.90)
+    for asset, score in expected_raw.items():
+        assert float(weights[asset]) == pytest.approx(0.90 * score / expected_total)
+    assert bool(audit.loc[0, "changed"])
+    assert not bool(audit.loc[0, "missing_volatility"])
+
+
+def test_inverse_volatility_reweight_leaves_single_asset_or_missing_history_unchanged() -> None:
+    from atlas20.derivatives.signals import inverse_volatility_reweight_long_targets
+
+    date = pd.Timestamp("2026-04-01T00:00:00Z")
+    index = pd.date_range(end=date, periods=20, freq="D", tz="UTC")
+    prices = pd.DataFrame({"A": [100.0 + i for i in range(20)], "B": [50.0 + i for i in range(20)]}, index=index)
+    single = {date: pd.Series({"A": 0.75})}
+    multi = {date: pd.Series({"A": 0.40, "B": 0.35})}
+
+    adjusted_single, audit_single = inverse_volatility_reweight_long_targets(
+        single,
+        prices=prices,
+        lookback_days=60,
+        min_observations=45,
+    )
+    adjusted_multi, audit_multi = inverse_volatility_reweight_long_targets(
+        multi,
+        prices=prices,
+        lookback_days=60,
+        min_observations=45,
+    )
+
+    pd.testing.assert_series_equal(adjusted_single[date], single[date])
+    pd.testing.assert_series_equal(adjusted_multi[date], multi[date])
+    assert not bool(audit_single.loc[0, "changed"])
+    assert not bool(audit_single.loc[0, "missing_volatility"])
+    assert not bool(audit_multi.loc[0, "changed"])
+    assert bool(audit_multi.loc[0, "missing_volatility"])

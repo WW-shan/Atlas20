@@ -50,6 +50,106 @@ def scale_long_targets(
     return dict(sorted(scaled.items()))
 
 
+
+def inverse_volatility_reweight_long_targets(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    prices: pd.DataFrame,
+    lookback_days: int = 60,
+    min_observations: int = 45,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Risk-balance each multi-asset long target while preserving its gross.
+
+    Single-asset events are unchanged.  A multi-asset event is also unchanged
+    when any held asset lacks enough finite daily log returns or a positive
+    volatility estimate, which keeps the overlay fail-closed on incomplete
+    history.  The function only reallocates existing event gross; it never
+    changes the selected asset set or total target gross.
+    """
+    if lookback_days < 2:
+        raise ValueError("lookback_days must be at least two days")
+    if not 2 <= min_observations <= lookback_days:
+        raise ValueError("min_observations must be between two and lookback_days")
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame[~price_frame.index.duplicated(keep="last")].sort_index()
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target.astype(float).sort_index()
+        held = [str(asset) for asset in target.index[target > 1e-15]]
+        gross_before = float(target.sum())
+        missing_volatility = False
+
+        if len(held) < 2 or gross_before <= 0.0:
+            reweighted = target.copy()
+        else:
+            start = date - pd.Timedelta(days=lookback_days)
+            if date not in price_frame.index:
+                missing_volatility = True
+                reweighted = target.copy()
+            else:
+                window = price_frame.loc[
+                    (price_frame.index >= start) & (price_frame.index <= date)
+                ]
+                scores: dict[str, float] = {}
+                for asset in held:
+                    if asset not in window.columns:
+                        missing_volatility = True
+                        break
+                    values = pd.to_numeric(window[asset], errors="coerce")
+                    positive = values.where(values > 0.0)
+                    returns = np.log(positive).diff()
+                    observations = returns.replace([np.inf, -np.inf], np.nan).dropna()
+                    if len(observations) < min_observations:
+                        missing_volatility = True
+                        break
+                    volatility = float(observations.std(ddof=1))
+                    if not np.isfinite(volatility) or volatility <= 0.0:
+                        missing_volatility = True
+                        break
+                    scores[asset] = 1.0 / volatility
+                if missing_volatility:
+                    reweighted = target.copy()
+                else:
+                    score_total = float(sum(scores.values()))
+                    reweighted = pd.Series(
+                        {
+                            asset: (
+                                gross_before * scores[str(asset)] / score_total
+                                if str(asset) in scores
+                                else float(weight)
+                            )
+                            for asset, weight in target.items()
+                        },
+                        dtype=float,
+                    ).sort_index()
+
+        l1_change = float((reweighted - target).abs().sum())
+        changed = l1_change > 1e-12
+        adjusted[date] = reweighted
+        audit_rows.append(
+            {
+                "date": date,
+                "holdings": len(held),
+                "gross_before": gross_before,
+                "gross_after": float(reweighted.sum()),
+                "l1_change": l1_change,
+                "changed": changed,
+                "missing_volatility": missing_volatility,
+            }
+        )
+    return adjusted, pd.DataFrame(audit_rows)
+
 def preserve_relative_weights_on_same_selection(
     long_targets: Mapping[pd.Timestamp, pd.Series],
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:

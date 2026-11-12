@@ -826,3 +826,16 @@ def test_ls39_lowvol_pair_parameters_are_frozen() -> None:
     }
     assert runner.LS39_CANDIDATE_ID in runner.SHORT_CANDIDATES
     assert runner.LS39_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+
+
+def test_ls40_inverse_vol_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS40_CANDIDATE_ID == "PR2026-11-LS40-H5-LS23-INVVOL60"
+    assert runner.LS40_INVERSE_VOL_CONFIG == {
+        "lookback_days": 60,
+        "min_observations": 45,
+    }
+    assert runner.LS40_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS40_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS40_CANDIDATE_ID in runner.LONG_INVERSE_VOL_TRIALS

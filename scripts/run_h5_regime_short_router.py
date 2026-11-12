@@ -45,6 +45,7 @@ from atlas20.derivatives.signals import (  # noqa: E402
     combine_signed_book_with_residual_sleeve,
     combine_sleeve_targets,
     funding_rank_percentile,
+    inverse_volatility_reweight_long_targets,
     scale_long_targets,
 )
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
@@ -92,6 +93,7 @@ LS36_CANDIDATE_ID = "PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY"
 LS37_CANDIDATE_ID = "PR2026-11-LS37-H5-LS23-RESIDUAL-CARRY-14D"
 LS38_CANDIDATE_ID = "PR2026-11-LS38-H5-LS23-NOTRADE5"
 LS39_CANDIDATE_ID = "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
+LS40_CANDIDATE_ID = "PR2026-11-LS40-H5-LS23-INVVOL60"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -116,6 +118,7 @@ LS36_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-short-carry
 LS37_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-14d-design.md"
 LS38_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-notrade5-design.md"
 LS39_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-lowvol-pair-design.md"
+LS40_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-inverse-vol60-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -140,6 +143,7 @@ SHORT_CANDIDATES = {
     LS37_CANDIDATE_ID: 0.0,
     LS38_CANDIDATE_ID: 0.05,
     LS39_CANDIDATE_ID: 0.0,
+    LS40_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -161,6 +165,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS37_CANDIDATE_ID,
     LS38_CANDIDATE_ID,
     LS39_CANDIDATE_ID,
+    LS40_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -171,6 +176,7 @@ MARKET_NEUTRAL_TRIALS = {
     LS32_CANDIDATE_ID,
 }
 LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
+LONG_INVERSE_VOL_TRIALS = {LS40_CANDIDATE_ID}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -236,6 +242,10 @@ LS36_CARRY_CONFIG: dict[str, Any] = {
 LS37_CARRY_CONFIG: dict[str, Any] = {
     **FUNDING_CARRY_CONFIG,
     "rebalance_days": 14,
+}
+LS40_INVERSE_VOL_CONFIG: dict[str, Any] = {
+    "lookback_days": 60,
+    "min_observations": 45,
 }
 LS39_VOL_PAIR_CONFIG: dict[str, Any] = {
     "lookback_days": 60,
@@ -306,6 +316,8 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         }
     if trial_id in LOW_VOL_PAIR_TRIALS:
         config["volatility_pair"] = LS39_VOL_PAIR_CONFIG
+    if trial_id in LONG_INVERSE_VOL_TRIALS:
+        config["inverse_volatility_long_allocation"] = LS40_INVERSE_VOL_CONFIG
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -443,6 +455,12 @@ LS37_CONSTRUCTION = (
 LS38_CONSTRUCTION = (
     "Frozen LS23 with a 5% NAV same-side no-trade band; opens, exits, side "
     "flips and gross-guard events remain exact"
+)
+LS40_CONSTRUCTION = (
+    "Frozen LS23 with each multi-asset H5 long event reweighted inversely to "
+    "its held assets' 60D realized volatility while preserving event gross; "
+    "single-asset or incomplete-history events keep original H5 weights and "
+    "the LS22 profit lock is applied after reweighting"
 )
 LS39_CONSTRUCTION = (
     "Frozen LS23 with a monthly residual-gross low-volatility pair: long the "
@@ -1014,6 +1032,32 @@ def build_long_targets_for_trial(
 ):
     if trial_id in LONG_COMMON_GROSS_TRIALS:
         return preserve_relative_weights_on_same_selection(long_targets)
+    if trial_id in LONG_INVERSE_VOL_TRIALS:
+        if prices is None:
+            raise ValueError("LS40 requires the point-in-time H5 price panel")
+        reweighted, reweight_audit = inverse_volatility_reweight_long_targets(
+            long_targets,
+            prices=prices,
+            **LS40_INVERSE_VOL_CONFIG,
+        )
+        trimmed, trim_audit = trim_extreme_run_single_leader(
+            reweighted,
+            prices=prices,
+            **LS22_PROFIT_LOCK_CONFIG,
+        )
+        reweight_audit = reweight_audit.rename(
+            columns={
+                "holdings": "reweight_holdings",
+                "gross_before": "reweight_gross_before",
+                "gross_after": "reweight_gross_after",
+                "l1_change": "reweight_l1_change",
+                "changed": "reweight_changed",
+                "missing_volatility": "reweight_missing_volatility",
+            }
+        )
+        if trim_audit.empty:
+            return trimmed, reweight_audit
+        return trimmed, reweight_audit.merge(trim_audit, on="date", how="outer")
     if trial_id in LONG_STATEFUL_PROFIT_LOCK_TRIALS:
         if prices is None:
             raise ValueError("LS25 requires the point-in-time H5 price panel")
@@ -1164,6 +1208,7 @@ def main() -> None:
             LS37_CANDIDATE_ID,
             LS38_CANDIDATE_ID,
             LS39_CANDIDATE_ID,
+            LS40_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1512,6 +1557,26 @@ def main() -> None:
             if "trimmed" in long_tilt_audit.columns
             else 0
         ),
+        "inverse_vol_event_count": (
+            int(long_tilt_audit["reweight_changed"].notna().sum())
+            if "reweight_changed" in long_tilt_audit.columns
+            else 0
+        ),
+        "inverse_vol_changed_count": (
+            int(long_tilt_audit["reweight_changed"].fillna(False).sum())
+            if "reweight_changed" in long_tilt_audit.columns
+            else 0
+        ),
+        "inverse_vol_l1_change_total": (
+            float(long_tilt_audit["reweight_l1_change"].fillna(0.0).sum())
+            if "reweight_l1_change" in long_tilt_audit.columns
+            else 0.0
+        ),
+        "inverse_vol_missing_count": (
+            int(long_tilt_audit["reweight_missing_volatility"].fillna(False).sum())
+            if "reweight_missing_volatility" in long_tilt_audit.columns
+            else 0
+        ),
         "low_vol_pair_event_count": int(len(low_vol_sleeve_audit)),
         "low_vol_pair_long_gross_total": (
             float(low_vol_sleeve_audit["long_gross"].sum())
@@ -1572,6 +1637,8 @@ def main() -> None:
         long_tilt_audit.to_csv(output_dir / "selection_event_audit.csv", index=False)
     if args.trial_id in LONG_PROFIT_LOCK_TRIALS:
         long_tilt_audit.to_csv(output_dir / "profit_lock_audit.csv", index=False)
+    if args.trial_id in LONG_INVERSE_VOL_TRIALS:
+        long_tilt_audit.to_csv(output_dir / "inverse_vol_audit.csv", index=False)
     sleeve_audit.to_csv(output_dir / "sleeve_audit.csv", index=False)
     _write_schedule(output_dir / "routed_short_schedule.csv", short_targets)
     _write_schedule(output_dir / "bear_weak4_schedule.csv", bear_schedule)
@@ -1656,6 +1723,8 @@ def main() -> None:
                     if args.trial_id == LS38_CANDIDATE_ID
                     else LS39_SPEC_PATH
                     if args.trial_id == LS39_CANDIDATE_ID
+                    else LS40_SPEC_PATH
+                    if args.trial_id == LS40_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1709,6 +1778,8 @@ def main() -> None:
                     if args.trial_id == LS38_CANDIDATE_ID
                     else LS39_CONSTRUCTION
                     if args.trial_id == LS39_CANDIDATE_ID
+                    else LS40_CONSTRUCTION
+                    if args.trial_id == LS40_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),
