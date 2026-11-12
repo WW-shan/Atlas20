@@ -690,6 +690,22 @@ def test_ls33_registers_residual_carry_with_buffer_control() -> None:
         assert trial_id in runner.SHORT_CANDIDATES
 
 
+def test_ls37_registers_fourteen_day_residual_carry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS37_CANDIDATE_ID == "PR2026-11-LS37-H5-LS23-RESIDUAL-CARRY-14D"
+    assert runner.LS37_CANDIDATE_ID in runner.RESIDUAL_CARRY_TRIALS
+    assert runner.LS37_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS37_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS37_CARRY_CONFIG == {
+        **runner.FUNDING_CARRY_CONFIG,
+        "rebalance_days": 14,
+    }
+    config = runner._trial_frozen_config(runner.LS37_CANDIDATE_ID)
+    assert config["long_buffer"] == 0.60
+    assert config["funding_carry"] == runner.LS37_CARRY_CONFIG
+
+
 def test_ls36_registers_short_only_residual_carry() -> None:
     import scripts.run_h5_regime_short_router as runner
 
