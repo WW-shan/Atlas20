@@ -3978,3 +3978,63 @@ PBO 修复手段。
 APTOS 式继续破位和 NEAR 式止跌反转之间二选一；1D 止跌确认是目前唯一同时保留 OOS 收益和
 修复 rolling 的可观察条件。下一步不能继续在同一 2022–2026 样本上扫 scale 或混合权重，而应
 把 LS57 作为 provisional shadow track 积累真实 OOS，并用独立数据检验 1D 条件的稳定性。
+
+### 00.87 2026-11-13 Maker-first execution diagnostic：平均成本改善，但未成交尾部不合格
+
+本轮第一次把“更实时”从 alpha 调到执行层：不改变 LS57/LS23 的选币、权重、T+1、空头、
+stop 或 gross，只对 LS57 的 2,524 笔历史成交逐一模拟“盘口内侧被动限价单、短窗口未成交
+后 taker 回退”。主数据使用与成交同一 venue 的 Bitget mark 1h K 线，Binance 30m 只作交叉
+检查。主配置预注册为 **5bps offset / 2 bars timeout / 1bp through / 2bps maker / 20bps
+taker / 20bps baseline**。
+
+| 指标 | Bitget mark 主结果 |
+|---|---:|
+| 成交名义覆盖率 | **100%** |
+| 名义加权被动成交率 | **91.40%** |
+| 有效成本 | **8.45bps** |
+| 相对 20bps 基线改善 | **+11.55bps** |
+| 改善为正的名义占比 | **91.41%** |
+| 未成交回退名义占比 | 8.60% |
+| 未成交回退改善中位数 | **-76.26bps** |
+| 未成交回退改善 5% 分位 | **-278.55bps** |
+
+主配置 2022–2026 各年改善 **+16.15 / +10.67 / +12.25 / +16.32 / +7.67bps**，买入
++10.08bps、卖出 +12.96bps。Binance 30m 交叉检查覆盖率仅 **81.61%**，但方向一致：
+有效成本 6.54bps、改善 +13.46bps。
+
+**判定：执行诊断平均通过，尾部失败，不接实盘。** 8.6% 的未成交回退在不利行情中承担了
+很大的追价成本；mark K 线触碰也不等于真实 maker 成交，且没有队列位置、部分成交、撤单延迟、
+ADL 或交易所拒绝。下一步只能是真实盘口/订单簿 shadow，并测试“首小时逆向移动 guard”，
+不能把 8.45bps 直接写进 live 成本假设或 LS57 的 promotion 结论。
+
+报告：`reports/derivatives_track_maker_execution_diagnostic/`；
+交叉检查：`reports/derivatives_track_maker_execution_diagnostic_binance_30m/`；
+Spec：`docs/superpowers/specs/2026-11-13-maker-first-execution-diagnostic-design.md`。
+
+### 00.88 2026-11-13 利润保护后续诊断：BTC fallback 与深回撤退出均被拒
+
+在 LS57 之后又做了四个机制诊断，全部使用同一 20bps/T+1 +3h/Bitget mark/funding skip
+口径；这些结果标记为 exploratory，不新增 promotion 结论：
+
+| 变体 | 终值 | Sharpe | MDD | 判定 |
+|---|---:|---:|---:|---|
+| LS45 基线 | **69.2088x** | 1.9846 | -39.835% | 参考 |
+| LS57 基线 | 68.8077x | 1.9819 | -39.835% | 参考 |
+| 释放权重转 BTC（MA200 上） | 68.0224x | 1.9715 | -40.023% | rejected |
+| 释放权重转 BTC（MA100 上） | 64.5174x | 1.9489 | -40.023% | rejected |
+| 7D < -5% 时全退 | 67.5924x | 1.9759 | -39.056% | rejected |
+| 7D < -8% 时全退 | 67.8148x | 1.9767 | -39.835% | rejected |
+| 7D < -10% 时全退 | 68.3776x | 1.9802 | -39.835% | rejected |
+| 只跳过 7D >= -10% 的浅回撤 | 69.8013x | 1.9881 | -39.835% | post-hoc diagnostic |
+
+BTC fallback 想解决 bull market 的 cash drag，但把利润保护释放权重重新暴露到 BTC beta，
+既没有提高终值也没有改善 MDD。深 7D full exit 在 -5% 档改善了约 0.78pp MDD，却牺牲了
+更多收益；更深的 -10% 档仍低于 LS45。`7D >= -10%` 浅回撤版本是 **事后扫描**，只在
+2024 SHIB 事件上比 LS57 少一次 skip，主样本略高；当前 OOS 窗口没有该事件，因此 OOS 与
+LS57 相同，不是新的独立证据。另一个“post-skip MA21 日内/日线 stop”在测试路径上没有产生
+可执行的非重复目标，是 null diagnostic。
+
+**判定：不接实盘，不修改 LS57/LS45 状态。** 利润保护阈值扫描到此停止；后续优先研究
+执行成本、真实盘口和独立 OOS，而不是继续在同一 2022–2026 样本上调 7D/1D 阈值。
+
+报告：`reports/derivatives_track_profitlock_followup_diagnostics/report.md`。

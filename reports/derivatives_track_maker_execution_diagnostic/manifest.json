@@ -1,0 +1,29 @@
+{
+  "analysis_offset_bps": 5.0,
+  "analysis_timeout_bars": 2,
+  "bar_source": "bitget-mark",
+  "baseline_fee_bps": 20.0,
+  "intraday_dir": null,
+  "maker_fee_bps": 2.0,
+  "primary": {
+    "coverage": 1.0,
+    "covered_notional": 1707.114186925148,
+    "effective_cost_bps": 8.44643305553281,
+    "improvement_bps": 11.553566944467189,
+    "notional_fill_rate": 0.9139763003581377,
+    "offset_bps": 5.0,
+    "positive_improvement_share": 0.9140625441796709,
+    "price_edge_bps": -4.898006461979291,
+    "timeout_bars": 2.0,
+    "trade_count": 2524.0,
+    "unfilled_improvement_median_bps": -76.2575777977786,
+    "unfilled_improvement_p05_bps": -278.55244111740893,
+    "unfilled_notional_share": 0.08602369964186218
+  },
+  "raw_dir": "data/raw/bitget_derivatives/merged_20261009",
+  "taker_fee_bps": 20.0,
+  "through_bps": 1.0,
+  "total_notional": 1707.114186925148,
+  "trade_count": 2524,
+  "trades_path": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_stable1d_redistribute/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/trades.csv"
+}

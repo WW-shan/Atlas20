@@ -1,0 +1,9 @@
+variant,multiple,sharpe,max_drawdown,status,note
+LS45 baseline,69.208804,1.984597,-0.398350,baseline,frozen stronger-21D redistribution
+LS57 baseline,68.807685,1.981942,-0.398350,baseline,stable-1D skip/redistribute
+BTC fallback MA200,68.022442,1.971482,-0.400233,rejected,freed cash into BTC when BTC above MA200
+BTC fallback MA100,64.517413,1.948908,-0.400233,rejected,freed cash into BTC when BTC above MA100
+deep-7D exit -5%,67.592431,1.975884,-0.390564,rejected,full exit of leader when 7D return below -5%
+deep-7D exit -8%,67.814809,1.976672,-0.398350,rejected,full exit of leader when 7D return below -8%
+deep-7D exit -10%,68.377612,1.980162,-0.398350,rejected,full exit of leader when 7D return below -10%
+shallow-7D skip -10%,69.801264,1.988132,-0.398350,post-hoc diagnostic,LS57 skip only when 7D return >= -10%; changed event lies outside current OOS
