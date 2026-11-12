@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS39-H5-LS23-LOWVOL-PAIR,main,lag0,20.0,1.9730784625768008,64.22790295773912,-0.376474007359742,reports/derivatives_track_h5_ls23_lowvol_pair/PR2026-11-LS39-H5-LS23-LOWVOL-PAIR/summary.json

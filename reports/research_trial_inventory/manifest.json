@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "797e2f52bc02d10726828db0f8d85e4f151aa2bf",
+  "repository_head": "0bcbe312d9fb5acd7a3d89df266787b1cddfe1ab",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "d11e9f50f9c9b19eb44b4b128a1539158ff8fe8b85b403f93537592ff12fbc33",
+  "research_md_sha256": "3d8932b07c7d031bd991004436b083b0758c42f94f9c5d9eae9168d5c2d6a474",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20451,
-  "rows_at_primary_cost": 17913,
+  "rows_read": 20452,
+  "rows_at_primary_cost": 17914,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -760,8 +760,12 @@
       "origin": "working tree (committed)",
       "sha256": "f08d8cf739baec158d10dc3b6061d7cbef235e20170ad7958e8a3f9eeb9b935f"
     },
-    "reports/derivatives_track_h5_ls23_notrade5/PR2026-11-LS38-H5-LS23-NOTRADE5/trial_results.csv": {
+    "reports/derivatives_track_h5_ls23_lowvol_pair/PR2026-11-LS39-H5-LS23-LOWVOL-PAIR/trial_results.csv": {
       "origin": "working tree (untracked)",
+      "sha256": "273406b199535c7bee8f71b8d1aa94815a5067141b19826a56756db1b2ad6fba"
+    },
+    "reports/derivatives_track_h5_ls23_notrade5/PR2026-11-LS38-H5-LS23-NOTRADE5/trial_results.csv": {
+      "origin": "working tree (committed)",
       "sha256": "1ed71451bbf9e548424e836b633cf35cfd3109112f5ad62b40499e446f685eb5"
     },
     "reports/derivatives_track_h5_ls23_residual_carry/PR2026-11-LS33-H5-LS23-RESIDUAL-CARRY-LONG60/trial_results.csv": {
@@ -982,7 +986,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (modified)",
-      "sha256": "5859e03d418f5dcc17d02b025591b8ae891b573c74245a6c645ad36ec3bcd493"
+      "sha256": "62e3847bc03597764eae7567c5b030dad5a8844a93c9b1896af7d3056a7029e0"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

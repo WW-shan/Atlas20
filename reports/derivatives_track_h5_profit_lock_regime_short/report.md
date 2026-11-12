@@ -107,13 +107,14 @@ LS23 把两个已经分别冻结的机制组合起来，而不是重新扫描参
 
 - PBO/CSCV：**0.3528**（<=0.50）；
 - White Reality Check：zero **p=0.003996**、BTC **p=0.009990**（均 <=0.05）；
-- LS23 DSR：按最新台账重算，all-project N=14,207 **0.958977**，Top20/2022 N=6,142
+- LS23 DSR：按最新台账重算，all-project N=14,208 **0.958975**，Top20/2022 N=6,142
   **0.971481**（均 >=0.95）；family-only 为 0.999998，不作为项目级选择偏差证据；
-- 当前 inventory trial count：all-project **14,207**；Top20/2022 **6,142**。旧
+- 当前 inventory trial count：all-project **14,208**；Top20/2022 **6,142**。旧
   `0.9999832/0.9999858` 与 14,192 计数基于过期 inventory，已作废；
 - 刷新共同样本为 1,724 天（2022-01-01 → 2026-09-20），因此观测 Sharpe 为 1.9443；
   manifest SHA-256 记录的 trial summary 为
-  `6ee5ff694f1cdc4557874fc4bd9f0d7ca4d49b9313ff8cbee346b5d16bebffc7`。
+  `00e8955ec48338059298bc8e15c55479a7ddff84f068db54fce9e02b8f960df6`。
+  目录为 `multiple_testing_refresh_20261112_r2/`；`_20261112/` 保留为 N=14,207 的历史刷新。
 
 这些统计量支持“在已记录的候选族里，LS23 不是明显的选择偏差产物”，但不能替代 12 个月 OOS，
 也不能证明未来收益。

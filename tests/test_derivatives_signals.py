@@ -2006,3 +2006,90 @@ def test_combine_long_with_signed_sleeve_scales_into_unused_gross() -> None:
     assert combined[date]["c"] == pytest.approx(-0.075)
     assert audit.loc[date, "funded_sleeve_gross"] == pytest.approx(0.15)
     assert audit.loc[date, "total_gross"] == pytest.approx(1.50)
+
+
+def test_cross_sectional_volatility_pair_longs_low_vol_and_shorts_high_vol() -> None:
+    import numpy as np
+
+    from atlas20.derivatives.signals import build_cross_sectional_volatility_pair_schedule
+
+    date = pd.Timestamp("2026-04-01T00:00:00Z")
+    index = pd.date_range(end=date, periods=61, freq="D", tz="UTC")
+    assets = ["BTC", "A", "B", "C", "D", "E", "F", "G", "H"]
+    amplitudes = {
+        "A": 0.10,
+        "B": 0.20,
+        "C": 0.30,
+        "D": 0.40,
+        "E": 0.60,
+        "F": 0.70,
+        "G": 0.80,
+        "H": 0.90,
+        "BTC": 0.50,
+    }
+    pattern = np.tile(np.array([0.02, -0.02]), len(index) // 2 + 1)[: len(index)]
+    prices = pd.DataFrame(
+        {
+            asset: 100.0 * np.exp(np.cumsum(amplitudes[asset] * pattern))
+            for asset in assets
+        },
+        index=index,
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * len(assets), "coin_id": assets})
+    h5 = {date: pd.Series({"BTC": 0.5})}
+
+    schedule = build_cross_sectional_volatility_pair_schedule(
+        prices,
+        universe,
+        h5,
+        calendar=[date],
+        eligible=set(assets),
+        lookback_days=60,
+        min_observations=45,
+        rebalance_days=28,
+        count=4,
+        per_asset_weight=0.025,
+        min_assets=8,
+        anchor=date,
+    )
+
+    assert schedule[date].to_dict() == {
+        "A": pytest.approx(0.025),
+        "B": pytest.approx(0.025),
+        "C": pytest.approx(0.025),
+        "D": pytest.approx(0.025),
+        "E": pytest.approx(-0.025),
+        "F": pytest.approx(-0.025),
+        "G": pytest.approx(-0.025),
+        "H": pytest.approx(-0.025),
+    }
+
+
+def test_cross_sectional_volatility_pair_clears_when_history_or_members_are_insufficient() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_volatility_pair_schedule
+
+    date = pd.Timestamp("2026-04-01T00:00:00Z")
+    index = pd.date_range(end=date, periods=20, freq="D", tz="UTC")
+    assets = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    prices = pd.DataFrame(
+        {asset: [100.0 + i + j for j in range(len(index))] for i, asset in enumerate(assets)},
+        index=index,
+    )
+    universe = pd.DataFrame({"rebalance_date": [date] * len(assets), "coin_id": assets})
+
+    schedule = build_cross_sectional_volatility_pair_schedule(
+        prices,
+        universe,
+        {},
+        calendar=[date],
+        eligible=set(assets),
+        lookback_days=60,
+        min_observations=45,
+        rebalance_days=28,
+        count=4,
+        per_asset_weight=0.025,
+        min_assets=8,
+        anchor=date,
+    )
+
+    assert schedule[date].empty

@@ -30,6 +30,7 @@ from atlas20.derivatives.signals import (  # noqa: E402
     EXIT_SHORT_HOLDING_DAYS,
     build_cross_sectional_funding_short_schedule,
     build_cross_sectional_funding_carry_schedule,
+    build_cross_sectional_volatility_pair_schedule,
     build_cross_sectional_weak_short_schedule,
     build_exit_short_schedule,
     preserve_relative_weights_on_same_selection,
@@ -90,6 +91,7 @@ LS35_CANDIDATE_ID = "PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN"
 LS36_CANDIDATE_ID = "PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY"
 LS37_CANDIDATE_ID = "PR2026-11-LS37-H5-LS23-RESIDUAL-CARRY-14D"
 LS38_CANDIDATE_ID = "PR2026-11-LS38-H5-LS23-NOTRADE5"
+LS39_CANDIDATE_ID = "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -113,6 +115,7 @@ LS35_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-sign-
 LS36_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-short-carry-design.md"
 LS37_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-14d-design.md"
 LS38_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-notrade5-design.md"
+LS39_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-lowvol-pair-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -136,6 +139,7 @@ SHORT_CANDIDATES = {
     LS36_CANDIDATE_ID: 0.0,
     LS37_CANDIDATE_ID: 0.0,
     LS38_CANDIDATE_ID: 0.05,
+    LS39_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -156,6 +160,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS36_CANDIDATE_ID,
     LS37_CANDIDATE_ID,
     LS38_CANDIDATE_ID,
+    LS39_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -165,6 +170,7 @@ MARKET_NEUTRAL_TRIALS = {
     LS31_CANDIDATE_ID,
     LS32_CANDIDATE_ID,
 }
+LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -231,6 +237,14 @@ LS37_CARRY_CONFIG: dict[str, Any] = {
     **FUNDING_CARRY_CONFIG,
     "rebalance_days": 14,
 }
+LS39_VOL_PAIR_CONFIG: dict[str, Any] = {
+    "lookback_days": 60,
+    "min_observations": 45,
+    "rebalance_days": 28,
+    "count": 4,
+    "per_asset_weight": 0.025,
+    "min_assets": 8,
+}
 FUNDING_LONG_TILT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
     "rank_min": 2.0 / 3.0,
@@ -266,7 +280,9 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         config["long_buffer"] = LS31_LONG_BUFFER
     config["rebalance_no_trade_band"] = float(SHORT_CANDIDATES.get(trial_id, 0.0))
     config["non_bear_sleeve"] = (
-        "ls12_router_plus_residual_funding_carry"
+        "ls12_router_plus_residual_lowvol_pair"
+        if trial_id in LOW_VOL_PAIR_TRIALS
+        else "ls12_router_plus_residual_funding_carry"
         if trial_id in RESIDUAL_CARRY_TRIALS
         else "funding_carry_market_neutral"
         if trial_id in MARKET_NEUTRAL_TRIALS
@@ -288,6 +304,8 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
             "score": "elementwise_min",
             "threshold": 0.0,
         }
+    if trial_id in LOW_VOL_PAIR_TRIALS:
+        config["volatility_pair"] = LS39_VOL_PAIR_CONFIG
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -425,6 +443,11 @@ LS37_CONSTRUCTION = (
 LS38_CONSTRUCTION = (
     "Frozen LS23 with a 5% NAV same-side no-trade band; opens, exits, side "
     "flips and gross-guard events remain exact"
+)
+LS39_CONSTRUCTION = (
+    "Frozen LS23 with a monthly residual-gross low-volatility pair: long the "
+    "four lowest 60D realized-volatility PIT Top20 non-H5 names and short the "
+    "four highest at 2.5% NAV each; 28D rebalance, base priority, hard gross 1.50x"
 )
 
 
@@ -865,6 +888,46 @@ def build_funding_carry_sleeve(
     return routed, pd.DataFrame(rows)
 
 
+
+def build_low_vol_pair_sleeve(
+    *,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Build the frozen monthly low-volatility long / high-volatility short sleeve."""
+    raw = build_cross_sectional_volatility_pair_schedule(
+        market.price,
+        universe,
+        long_targets,
+        calendar=index,
+        eligible=available,
+        trade_available=lambda asset, date: _short_mark_available(
+            mark_candles, asset, date
+        ),
+        anchor=start_date,
+        **LS39_VOL_PAIR_CONFIG,
+    )
+    rows = []
+    for date, target in sorted(raw.items()):
+        long_gross = float(target.clip(lower=0.0).sum())
+        short_gross = float((-target.clip(upper=0.0)).sum())
+        rows.append(
+            {
+                "date": date,
+                "regime": "neutral",
+                "active_sleeve": "low_vol_pair",
+                "long_gross": long_gross,
+                "short_gross": short_gross,
+                "net_gross": float(target.sum()),
+            }
+        )
+    return raw, pd.DataFrame(rows)
+
 def build_dynamic_short_schedules(
     *,
     market: Any,
@@ -1100,6 +1163,7 @@ def main() -> None:
             LS36_CANDIDATE_ID,
             LS37_CANDIDATE_ID,
             LS38_CANDIDATE_ID,
+            LS39_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1254,6 +1318,18 @@ def main() -> None:
         )
 
     carry_sleeve_audit = pd.DataFrame()
+    low_vol_schedule: dict[pd.Timestamp, pd.Series] = {}
+    low_vol_sleeve_audit = pd.DataFrame()
+    if args.trial_id in LOW_VOL_PAIR_TRIALS:
+        low_vol_schedule, low_vol_sleeve_audit = build_low_vol_pair_sleeve(
+            market=market,
+            universe=universe,
+            index=index,
+            long_targets=long_targets,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=args.start_date,
+        )
     if args.trial_id in RESIDUAL_CARRY_TRIALS:
         carry_schedule, carry_sleeve_audit = build_funding_carry_sleeve(
             trial_id=args.trial_id,
@@ -1272,7 +1348,18 @@ def main() -> None:
         if args.trial_id == LS27_CANDIDATE_ID
         else float(FROZEN_CONFIG["max_total_gross"])
     )
-    if args.trial_id in RESIDUAL_CARRY_TRIALS:
+    if args.trial_id in LOW_VOL_PAIR_TRIALS:
+        base_combined, _ = combine_long_with_cash_budgeted_short(
+            long_targets,
+            short_targets,
+            max_total_gross=target_total_gross,
+        )
+        combined, target_audit = combine_signed_book_with_residual_sleeve(
+            base_combined,
+            low_vol_schedule,
+            max_total_gross=target_total_gross,
+        )
+    elif args.trial_id in RESIDUAL_CARRY_TRIALS:
         base_combined, _ = combine_long_with_cash_budgeted_short(
             long_targets,
             short_targets,
@@ -1320,6 +1407,7 @@ def main() -> None:
             if args.trial_id
             in (
                 MARKET_NEUTRAL_TRIALS
+                | LOW_VOL_PAIR_TRIALS
                 | RESIDUAL_CARRY_TRIALS
                 | {LS27_CANDIDATE_ID, LS28_CANDIDATE_ID}
             )
@@ -1379,7 +1467,9 @@ def main() -> None:
         "target_total_gross": target_total_gross,
         "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         "non_bear_sleeve": (
-            "ls12_router_plus_residual_funding_carry"
+            "ls12_router_plus_residual_lowvol_pair"
+            if args.trial_id in LOW_VOL_PAIR_TRIALS
+            else "ls12_router_plus_residual_funding_carry"
             if args.trial_id in RESIDUAL_CARRY_TRIALS
             else "dynamic_short_ensemble"
             if args.trial_id == LS27_CANDIDATE_ID
@@ -1421,6 +1511,17 @@ def main() -> None:
             int(long_tilt_audit["trimmed"].sum())
             if "trimmed" in long_tilt_audit.columns
             else 0
+        ),
+        "low_vol_pair_event_count": int(len(low_vol_sleeve_audit)),
+        "low_vol_pair_long_gross_total": (
+            float(low_vol_sleeve_audit["long_gross"].sum())
+            if not low_vol_sleeve_audit.empty
+            else 0.0
+        ),
+        "low_vol_pair_short_gross_total": (
+            float(low_vol_sleeve_audit["short_gross"].sum())
+            if not low_vol_sleeve_audit.empty
+            else 0.0
         ),
         "profit_lock_cash_weight_total": (
             float(
@@ -1479,6 +1580,10 @@ def main() -> None:
         _write_schedule(output_dir / "bottom4_schedule.csv", bottom4_schedule)
     if carry_schedule:
         _write_schedule(output_dir / "carry_schedule.csv", carry_schedule)
+    if low_vol_schedule:
+        _write_schedule(output_dir / "low_vol_pair_schedule.csv", low_vol_schedule)
+    if not low_vol_sleeve_audit.empty:
+        low_vol_sleeve_audit.to_csv(output_dir / "low_vol_pair_audit.csv", index=False)
     if not carry_sleeve_audit.empty:
         carry_sleeve_audit.to_csv(output_dir / "carry_sleeve_audit.csv", index=False)
     dropped.to_csv(output_dir / "dropped_targets.csv", index=False)
@@ -1549,6 +1654,8 @@ def main() -> None:
                     if args.trial_id == LS37_CANDIDATE_ID
                     else LS38_SPEC_PATH
                     if args.trial_id == LS38_CANDIDATE_ID
+                    else LS39_SPEC_PATH
+                    if args.trial_id == LS39_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1600,6 +1707,8 @@ def main() -> None:
                     if args.trial_id == LS37_CANDIDATE_ID
                     else LS38_CONSTRUCTION
                     if args.trial_id == LS38_CANDIDATE_ID
+                    else LS39_CONSTRUCTION
+                    if args.trial_id == LS39_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

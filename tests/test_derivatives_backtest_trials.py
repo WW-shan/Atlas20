@@ -810,3 +810,19 @@ def test_ls31_is_the_same_carry_sleeve_with_sixty_percent_long_buffer() -> None:
     assert runner.LS31_CANDIDATE_ID == "PR2026-11-LS31-H5-FUNDING-CARRY-LONG60"
     assert runner.LS31_CANDIDATE_ID in runner.MARKET_NEUTRAL_TRIALS
     assert runner.LS31_LONG_BUFFER == 0.60
+
+
+def test_ls39_lowvol_pair_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS39_CANDIDATE_ID == "PR2026-11-LS39-H5-LS23-LOWVOL-PAIR"
+    assert runner.LS39_VOL_PAIR_CONFIG == {
+        "lookback_days": 60,
+        "min_observations": 45,
+        "rebalance_days": 28,
+        "count": 4,
+        "per_asset_weight": 0.025,
+        "min_assets": 8,
+    }
+    assert runner.LS39_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS39_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS

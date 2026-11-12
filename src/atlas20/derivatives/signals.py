@@ -674,6 +674,129 @@ def build_cross_sectional_reversal_pair_schedule(
     return schedule
 
 
+
+def build_cross_sectional_volatility_pair_schedule(
+    prices: pd.DataFrame,
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    eligible: Set[str] | None,
+    trade_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    lookback_days: int = 60,
+    min_observations: int = 45,
+    rebalance_days: int = 28,
+    count: int = 4,
+    per_asset_weight: float = 0.025,
+    min_assets: int = 8,
+    anchor: object | None = None,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build a monthly low-volatility long / high-volatility short pair.
+
+    The signal is the sample standard deviation of daily log returns over the
+    trailing calendar window.  Assets with too few finite returns are skipped.
+    Current H5 long holdings are excluded here so the sleeve does not simply
+    duplicate the base book; the later residual-gross combiner removes any
+    remaining base-book overlap before sizing.
+    """
+    if lookback_days < 2:
+        raise ValueError("lookback_days must be at least two days")
+    if not 2 <= min_observations <= lookback_days:
+        raise ValueError("min_observations must be between two and lookback_days")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if count < 1:
+        raise ValueError("count must be positive")
+    if min_assets < 2 * count:
+        raise ValueError("min_assets must be at least two times count")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float)
+    h5_dates = sorted(normalized_h5)
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame[~price_frame.index.duplicated(keep="last")].sort_index()
+
+    eligible_folded = (
+        {str(value).casefold() for value in eligible}
+        if eligible is not None
+        else None
+    )
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        held = {
+            str(asset).casefold()
+            for asset in long_weights.loc[long_weights > 1e-15].index
+        }
+        members = {
+            asset
+            for asset in _members_at(universe, date)
+            if asset.casefold() not in held
+            and (eligible_folded is None or asset.casefold() in eligible_folded)
+            and (trade_available is None or trade_available(asset, date))
+        }
+        if len(members) < max(min_assets, 2 * count):
+            schedule[date] = pd.Series(dtype=float)
+            continue
+
+        start = date - pd.Timedelta(days=lookback_days)
+        window = price_frame.loc[(price_frame.index >= start) & (price_frame.index <= date)]
+        ranked: list[tuple[float, str, str]] = []
+        for asset in sorted(members):
+            if asset not in window.columns:
+                continue
+            values = pd.to_numeric(window[asset], errors="coerce")
+            positive = values.where(values > 0.0)
+            returns = np.log(positive).diff()
+            observations = returns.replace([np.inf, -np.inf], np.nan).dropna()
+            if len(observations) < min_observations:
+                continue
+            volatility = float(observations.std(ddof=1))
+            if np.isfinite(volatility) and volatility >= 0.0:
+                ranked.append((volatility, asset.casefold(), asset))
+
+        if len(ranked) < max(min_assets, 2 * count):
+            schedule[date] = pd.Series(dtype=float)
+            continue
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        low_vol = [asset for _, _, asset in ranked[:count]]
+        high_vol = [asset for _, _, asset in ranked[-count:]]
+        weights = pd.Series(
+            {
+                **{asset: float(per_asset_weight) for asset in low_vol},
+                **{asset: -float(per_asset_weight) for asset in high_vol},
+            },
+            dtype=float,
+        ).sort_index()
+        schedule[date] = weights
+    return schedule
+
 def build_cross_sectional_funding_short_schedule(
     universe: pd.DataFrame,
     h5_targets: Mapping[pd.Timestamp, pd.Series],
