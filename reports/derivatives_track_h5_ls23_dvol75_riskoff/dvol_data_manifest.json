@@ -1,0 +1,10 @@
+{
+  "currency": "BTC",
+  "end": "2026-11-12 00:00:00+00:00",
+  "resolution": "1D",
+  "retrieved_at": "2026-11-12T21:25:20.272448+00:00",
+  "rows": 2060,
+  "sha256": "227a5bf83ec36716861d2a6eceacfb5b6c6951a248e692759f42f5001ff18fb5",
+  "source": "https://www.deribit.com/api/v2/public/get_volatility_index_data",
+  "start": "2021-03-24 00:00:00+00:00"
+}

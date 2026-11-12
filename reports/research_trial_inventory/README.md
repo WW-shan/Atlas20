@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `e48f2b8` from 15 uncommitted source file(s): `reports/derivatives_track_h5_ls23_profitlock_fullexit_neg7/PR2026-11-LS44-H5-LS23-PROFITLOCK-FULLEXIT-NEG7/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_reversal_short28/PR2026-11-LS46-H5-LS23-PROFITLOCK-REVERSAL-SHORT28/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_reversal_short28_belowstop/PR2026-11-LS50-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-BELOWSTOP/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_reversal_short28_ma21/PR2026-11-LS49-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-MA21/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_reversal_short28_noreentry/PR2026-11-LS47-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-NOREENTRY/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_reversal_short28_oneshot/PR2026-11-LS48-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-ONESHOT/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg/PR2026-11-LS51-H5-LS23-PROFITLOCK-SKIP7DNEG/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_bull/PR2026-11-LS52-H5-LS23-PROFITLOCK-SKIP7DNEG-BULL/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21/PR2026-11-LS53-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_redistribute/PR2026-11-LS54-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-REDISTRIBUTE/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_s0625_redistribute/PR2026-11-LS56-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S0625-REDISTRIBUTE/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_s075_redistribute/PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_stable1d_redistribute/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/trial_results.csv`, `reports/derivatives_track_h5_ls23_profitlock_stronger21/PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `42e1ee8` from 2 uncommitted source file(s): `reports/derivatives_track_h5_ls23_dvol75_riskoff/PR2026-11-LS58-H5-LS23-DVOL75-RISKOFF/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,226 | 14,192 | 9,020 | 0.7991 | 0.6545 | 0.03426 |
+| all_trials | 14,227 | 14,193 | 9,021 | 0.7992 | 0.6546 | 0.03426 |
 | top20_2022_trials | 6,142 | 6,127 | 3,830 | 0.4321 | 0.3173 | 0.01661 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -50,7 +50,7 @@ multiple-testing script uses it only for the trial count.
 | benchmark_timing | 101 | 98 |
 | bull_offense | 792 | 648 |
 | ctrend_lite | 5241 | 3626 |
-| derivatives | 86 | 0 |
+| derivatives | 87 | 0 |
 | leader_momentum | 5761 | 655 |
 | phase_momentum | 83 | 81 |
 | sector | 647 | 254 |

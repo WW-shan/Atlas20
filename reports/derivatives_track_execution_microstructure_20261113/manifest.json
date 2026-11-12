@@ -1,0 +1,54 @@
+{
+  "completed_observations": 12,
+  "equity_reference": 500.0,
+  "errors": 0,
+  "execution_hint": "2026-11-07T03:00:00+00:00",
+  "interval_seconds": 5.0,
+  "legs": [
+    {
+      "action": "SELL",
+      "asset": "hyperliquid",
+      "change_notional": -52.0833333333333,
+      "change_weight": -0.1041666666666666,
+      "side": "sell",
+      "symbol": "HYPEUSDT",
+      "target_notional": 0.0,
+      "target_weight": 0.0
+    },
+    {
+      "action": "SELL",
+      "asset": "monero",
+      "change_notional": -234.375,
+      "change_weight": -0.46875,
+      "side": "sell",
+      "symbol": "XMRUSDT",
+      "target_notional": 0.0,
+      "target_weight": 0.0
+    },
+    {
+      "action": "SELL",
+      "asset": "near",
+      "change_notional": -14.967151390598401,
+      "change_weight": -0.0299343027811968,
+      "side": "sell",
+      "symbol": "NEARUSDT",
+      "target_notional": 0.0,
+      "target_weight": 0.0
+    }
+  ],
+  "limit": 50,
+  "orders_sent": false,
+  "read_only": true,
+  "requested_observations": 12,
+  "rows": 36,
+  "signal_date": "2026-11-06T00:00:00+00:00",
+  "symbol_map": "data/raw/bitget_derivatives/merged_oos_20261009/symbol_map.csv",
+  "symbol_map_sha256": "2f7c35f3b69cff428d188b20015d5fbee9ecb2a6ca191646fea22cab707fcfd8",
+  "symbols": [
+    "HYPEUSDT",
+    "NEARUSDT",
+    "XMRUSDT"
+  ],
+  "targets_file": "reports/derivatives_track_oos_2026/oos_targets.csv",
+  "targets_sha256": "a127ab41eccfaed312e26693f2a1fab62ac57c08ff8fd8d3e95aeb22c9cf9080"
+}

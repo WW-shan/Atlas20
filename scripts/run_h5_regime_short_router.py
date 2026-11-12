@@ -114,6 +114,7 @@ LS54_CANDIDATE_ID = "PR2026-11-LS54-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-REDISTRIBU
 LS55_CANDIDATE_ID = "PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE"
 LS56_CANDIDATE_ID = "PR2026-11-LS56-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S0625-REDISTRIBUTE"
 LS57_CANDIDATE_ID = "PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE"
+LS58_CANDIDATE_ID = "PR2026-11-LS58-H5-LS23-DVOL75-RISKOFF"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -156,6 +157,7 @@ LS54_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg
 LS55_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-s075-redistribute-design.md"
 LS56_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-s0625-redistribute-design.md"
 LS57_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-stable1d-redistribute-design.md"
+LS58_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-dvol75-riskooff-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -198,6 +200,7 @@ SHORT_CANDIDATES = {
     LS55_CANDIDATE_ID: 0.0,
     LS56_CANDIDATE_ID: 0.0,
     LS57_CANDIDATE_ID: 0.0,
+    LS58_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -237,6 +240,7 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS55_CANDIDATE_ID,
     LS56_CANDIDATE_ID,
     LS57_CANDIDATE_ID,
+    LS58_CANDIDATE_ID,
 }
 LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS = {LS51_CANDIDATE_ID}
 LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS = {LS52_CANDIDATE_ID}
@@ -248,6 +252,7 @@ LONG_SKIP_REDISTRIBUTE_TRIALS = {
     LS55_CANDIDATE_ID,
     LS56_CANDIDATE_ID,
     LS57_CANDIDATE_ID,
+    LS58_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -426,11 +431,18 @@ LS57_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     **LS54_PROFIT_LOCK_CONFIG,
     "skip_negative_confirmation_min_daily_return": 0.0,
 }
+LS58_DVOL_CONFIG: dict[str, Any] = {
+    "csv_path": "data/raw/deribit_dvol/BTC_DVOL_1D.csv",
+    "threshold": 75.0,
+    "scale": 0.0,
+}
+DVOL_RISK_OFF_TRIALS = {LS58_CANDIDATE_ID}
 LONG_SKIP_REDISTRIBUTE_CONFIG_BY_TRIAL = {
     LS54_CANDIDATE_ID: LS54_PROFIT_LOCK_CONFIG,
     LS55_CANDIDATE_ID: LS55_PROFIT_LOCK_CONFIG,
     LS56_CANDIDATE_ID: LS56_PROFIT_LOCK_CONFIG,
     LS57_CANDIDATE_ID: LS57_PROFIT_LOCK_CONFIG,
+    LS58_CANDIDATE_ID: LS57_PROFIT_LOCK_CONFIG,
 }
 REVERSAL_SHORT_CONFIG_BY_TRIAL = {
     LS46_CANDIDATE_ID: LS46_REVERSAL_SHORT_CONFIG,
@@ -522,6 +534,8 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         ]
     if trial_id in LONG_SKIP_REDISTRIBUTE_TRIALS:
         config["profit_lock"] = LONG_SKIP_REDISTRIBUTE_CONFIG_BY_TRIAL[trial_id]
+    if trial_id in DVOL_RISK_OFF_TRIALS:
+        config["dvol_risk_off"] = dict(LS58_DVOL_CONFIG)
     elif trial_id in LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
         config["profit_lock"] = (
             LS53_PROFIT_LOCK_CONFIG
@@ -757,6 +771,11 @@ LS57_CONSTRUCTION = (
     "trim is skipped only when the leader's 1D return is non-negative; "
     "otherwise the original half-trim applies, followed by the LS45 "
     "stronger-21D redistribution when not skipped"
+)
+LS58_CONSTRUCTION = (
+    "LS57 unchanged except that the H5 long target is scaled to zero when the "
+    "same completed signal day's Deribit BTC DVOL close is above 75; the "
+    "short router, profit lock, stops, gross cap and T+1 execution are unchanged"
 )
 LS41_CONSTRUCTION = (
     "Frozen LS23 with a 20% hourly-mark adverse stop on every H5 long leg; "
@@ -1328,6 +1347,58 @@ def non_bear_mode_for_trial(trial_id: str) -> str:
     return NON_BEAR_MODE_BY_TRIAL.get(trial_id, "h5_exit")
 
 
+def apply_dvol_long_risk_off(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    dvol: pd.Series,
+    *,
+    threshold: float,
+    scale: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Scale the H5 long book when the completed DVOL close is above a level.
+
+    The signal date is the same UTC day whose DVOL close is already complete
+    when the next-day T+1 target is published. Missing DVOL observations fail
+    closed rather than silently disabling the overlay.
+    """
+    if not np.isfinite(threshold) or threshold <= 0.0:
+        raise ValueError("threshold must be finite and positive")
+    if not np.isfinite(scale) or not 0.0 <= scale <= 1.0:
+        raise ValueError("scale must be finite and in [0, 1]")
+
+    levels = pd.to_numeric(pd.Series(dvol), errors="coerce")
+    levels.index = pd.DatetimeIndex([_as_utc(value) for value in levels.index])
+    levels = levels[~levels.index.duplicated(keep="last")].sort_index()
+
+    scaled: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        if date not in levels.index or not np.isfinite(float(levels.loc[date])):
+            raise ValueError(f"missing DVOL close for signal date {date}")
+        level = float(levels.loc[date])
+        transaction = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        transaction.index = transaction.index.astype(str)
+        if transaction.isna().any() or (transaction < 0.0).any():
+            raise ValueError("long targets must be finite and non-negative")
+        before = float(transaction.sum())
+        risk_off = level > float(threshold)
+        after_target = transaction * float(scale) if risk_off else transaction
+        after_target = after_target.loc[after_target.abs() > 1e-15]
+        scaled[date] = after_target.astype(float).sort_index()
+        audit_rows.append(
+            {
+                "date": date,
+                "dvol_close": level,
+                "threshold": float(threshold),
+                "risk_off": risk_off,
+                "scale": float(scale) if risk_off else 1.0,
+                "target_gross_before": before,
+                "target_gross_after": float(after_target.sum()),
+            }
+        )
+    return scaled, pd.DataFrame(audit_rows)
+
+
 def build_long_targets_for_trial(
     *,
     trial_id: str,
@@ -1763,6 +1834,7 @@ def main() -> None:
             LS55_CANDIDATE_ID,
             LS56_CANDIDATE_ID,
             LS57_CANDIDATE_ID,
+            LS58_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1838,6 +1910,40 @@ def main() -> None:
         available=available,
         prices=market.price,
     )
+    dvol_audit = pd.DataFrame()
+    if args.trial_id in DVOL_RISK_OFF_TRIALS:
+        dvol_path = Path(str(LS58_DVOL_CONFIG["csv_path"]))
+        if not dvol_path.is_file():
+            raise SystemExit(
+                f"DVOL data not found: {dvol_path}; run scripts/download_deribit_dvol.py"
+            )
+        dvol_frame = pd.read_csv(dvol_path)
+        if not {"date", "close"}.issubset(dvol_frame.columns):
+            raise SystemExit(f"DVOL data {dvol_path} needs date and close columns")
+        dvol_series = pd.to_numeric(dvol_frame["close"], errors="coerce")
+        dvol_series.index = pd.DatetimeIndex(
+            pd.to_datetime(dvol_frame["date"], utc=True, format="mixed")
+        )
+        evaluation_start = pd.Timestamp(args.evaluation_start, tz="UTC")
+        overlay_targets = {
+            date: target
+            for date, target in long_targets.items()
+            if _as_utc(date) >= evaluation_start
+        }
+        scaled_targets, dvol_audit = apply_dvol_long_risk_off(
+            overlay_targets,
+            dvol_series,
+            threshold=float(LS58_DVOL_CONFIG["threshold"]),
+            scale=float(LS58_DVOL_CONFIG["scale"]),
+        )
+        long_targets = {
+            **{
+                date: target
+                for date, target in long_targets.items()
+                if _as_utc(date) < evaluation_start
+            },
+            **scaled_targets,
+        }
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
         for record in symbol_map.to_dict("records"):
@@ -2089,6 +2195,9 @@ def main() -> None:
     if "date" in sleeve_audit.columns and not sleeve_audit.empty:
         sleeve_dates = pd.to_datetime(sleeve_audit["date"], utc=True)
         sleeve_audit = sleeve_audit.loc[sleeve_dates >= evaluation_start].copy()
+    if "date" in dvol_audit.columns and not dvol_audit.empty:
+        dvol_dates = pd.to_datetime(dvol_audit["date"], utc=True)
+        dvol_audit = dvol_audit.loc[dvol_dates >= evaluation_start].copy()
     if isinstance(target_audit.index, pd.DatetimeIndex):
         target_audit = target_audit.loc[target_audit.index >= evaluation_start].copy()
     metrics = _metrics_from_returns(result.daily_returns)
@@ -2221,6 +2330,23 @@ def main() -> None:
             if {"gross_before", "gross_after"}.issubset(long_tilt_audit.columns)
             else 0.0
         ),
+        "dvol_risk_off_days": (
+            int(dvol_audit["risk_off"].fillna(False).sum())
+            if "risk_off" in dvol_audit.columns
+            else 0
+        ),
+        "dvol_risk_off_long_gross_closed_total": (
+            float(
+                (
+                    dvol_audit.loc[dvol_audit["risk_off"], "target_gross_before"]
+                    - dvol_audit.loc[dvol_audit["risk_off"], "target_gross_after"]
+                ).sum()
+            )
+            if {"risk_off", "target_gross_before", "target_gross_after"}.issubset(
+                dvol_audit.columns
+            )
+            else 0.0
+        ),
         "max_requested_short_gross": float(target_audit["requested_short_gross"].max()),
         "bear_funding_threshold": (
             float(LS24_BEAR_FUNDING_THRESHOLD)
@@ -2258,6 +2384,7 @@ def main() -> None:
     result.gross_exposure.to_csv(output_dir / "gross_exposure.csv", header=True)
     target_audit.to_csv(output_dir / "target_gross.csv", index_label="date")
     long_tilt_audit.to_csv(output_dir / "funding_tilt_audit.csv", index=False)
+    dvol_audit.to_csv(output_dir / "dvol_risk_off_audit.csv", index=False)
     if args.trial_id == LS20_CANDIDATE_ID:
         long_tilt_audit.to_csv(output_dir / "selection_event_audit.csv", index=False)
     if args.trial_id in LONG_PROFIT_LOCK_TRIALS:
@@ -2384,6 +2511,8 @@ def main() -> None:
                     if args.trial_id == LS56_CANDIDATE_ID
                     else LS57_SPEC_PATH
                     if args.trial_id == LS57_CANDIDATE_ID
+                    else LS58_SPEC_PATH
+                    if args.trial_id == LS58_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -2473,6 +2602,8 @@ def main() -> None:
                     if args.trial_id == LS56_CANDIDATE_ID
                     else LS57_CONSTRUCTION
                     if args.trial_id == LS57_CANDIDATE_ID
+                    else LS58_CONSTRUCTION
+                    if args.trial_id == LS58_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),
@@ -2509,6 +2640,8 @@ def main() -> None:
                 f"- Relative tilts skipped: {summary['relative_tilt_skipped_count']}",
                 f"- Profit-lock events: {summary['profit_lock_event_count']}",
                 f"- Profit-lock trimmed events: {summary['profit_lock_trimmed_count']}",
+                f"- DVOL risk-off days: {summary['dvol_risk_off_days']}",
+                f"- DVOL long gross closed: {summary['dvol_risk_off_long_gross_closed_total']:.6f}x",
                 f"- Max observed gross: {summary['max_observed_gross']:.6f}x",
                 f"- Gross breach hours: {summary['gross_breach_hours']}",
                 f"- Liquidations: {summary['liquidation_count']}",

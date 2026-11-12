@@ -1,0 +1,11 @@
+{
+  "gross_breaches": 0,
+  "liquidations": 0,
+  "ls58_vs_l125_mdd_passes": 12,
+  "ls58_vs_l125_multiple_wins": 12,
+  "ls58_vs_l125_sharpe_wins": 12,
+  "ls58_vs_ls57_mdd_passes": 12,
+  "ls58_vs_ls57_multiple_wins": 7,
+  "ls58_vs_ls57_sharpe_wins": 12,
+  "starts": 12
+}

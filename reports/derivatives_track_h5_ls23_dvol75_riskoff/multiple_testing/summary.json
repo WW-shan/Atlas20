@@ -1,0 +1,22 @@
+{
+  "candidate_count_used": 23,
+  "duplicates": {
+    "LS50_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_BELOWSTOP": "LS47_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_NOREENTRY",
+    "LS52_H5_LS23_PROFITLOCK_SKIP7DNEG_BULL": "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG"
+  },
+  "expected_max_sharpe": 0.019986596769667735,
+  "pbo": {
+    "cscv_combinations": 924,
+    "median_oos_logit": -0.16705408466316635,
+    "most_selected_candidate": "LS58_H5_LS23_DVOL75_RISKOFF",
+    "most_selected_count": 278,
+    "pbo": 0.6179653679653679,
+    "rows_used": 1724
+  },
+  "reality_check": {
+    "bootstrap_count": 1000.0,
+    "observed_max_mean_daily": 0.002844621767315539,
+    "reality_check_p_value": 0.002997002997002997
+  },
+  "trial_count": 14227
+}

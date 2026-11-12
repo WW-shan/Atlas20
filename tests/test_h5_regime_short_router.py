@@ -69,3 +69,28 @@ def test_btc_bear_regime_aligns_naive_calendar_to_utc_prices() -> None:
 
     assert regime.tolist() == [False, False, True, False]
 
+
+
+def test_apply_dvol_long_risk_off_uses_same_signal_day_close() -> None:
+    from scripts.run_h5_regime_short_router import apply_dvol_long_risk_off
+
+    calendar = pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC")
+    targets = {
+        date: pd.Series({"A": 0.5, "B": 0.25}, dtype=float)
+        for date in calendar
+    }
+    dvol = pd.Series([74.0, 76.0, 70.0], index=calendar)
+
+    scaled, audit = apply_dvol_long_risk_off(
+        targets,
+        dvol,
+        threshold=75.0,
+        scale=0.0,
+    )
+
+    assert scaled[calendar[0]].to_dict() == {"A": 0.5, "B": 0.25}
+    assert scaled[calendar[1]].empty
+    assert scaled[calendar[2]].to_dict() == {"A": 0.5, "B": 0.25}
+    assert audit["risk_off"].tolist() == [False, True, False]
+    assert audit["target_gross_before"].tolist() == [0.75, 0.75, 0.75]
+    assert audit["target_gross_after"].tolist() == [0.75, 0.0, 0.75]

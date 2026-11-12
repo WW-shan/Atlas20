@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS58-H5-LS23-DVOL75-RISKOFF,main,lag0,2.0,2.1406995845435866,100.94314137789443,-0.3756582220585807,reports/derivatives_track_h5_ls23_dvol75_riskooff_cost2/PR2026-11-LS58-H5-LS23-DVOL75-RISKOFF/summary.json
