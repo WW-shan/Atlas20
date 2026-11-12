@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY,main,lag0,20.0,2.0158777535811545,69.5942799421363,-0.3993501964007794,reports/derivatives_track_h5_ls23_residual_short_carry/PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY/summary.json

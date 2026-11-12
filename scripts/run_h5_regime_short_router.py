@@ -86,6 +86,8 @@ LS32_CANDIDATE_ID = "PR2026-11-LS32-H5-FUNDING-CARRY-HOLD4-LONG60"
 LS33_CANDIDATE_ID = "PR2026-11-LS33-H5-LS23-RESIDUAL-CARRY-LONG60"
 LS33_CONTROL_ID = "PR2026-11-LS33C-H5-LS23-LONG60-CONTROL"
 LS34_CANDIDATE_ID = "PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD"
+LS35_CANDIDATE_ID = "PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN"
+LS36_CANDIDATE_ID = "PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -105,6 +107,8 @@ LS31_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-funding-carry-long60-desi
 LS32_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-funding-carry-holdband-design.md"
 LS33_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-design.md"
 LS34_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-shorthold-design.md"
+LS35_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-carry-sign-design.md"
+LS36_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-residual-short-carry-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -124,6 +128,8 @@ SHORT_CANDIDATES = {
     LS33_CANDIDATE_ID: 0.0,
     LS33_CONTROL_ID: 0.0,
     LS34_CANDIDATE_ID: 0.0,
+    LS35_CANDIDATE_ID: 0.0,
+    LS36_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -140,6 +146,8 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS33_CANDIDATE_ID,
     LS33_CONTROL_ID,
     LS34_CANDIDATE_ID,
+    LS35_CANDIDATE_ID,
+    LS36_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -149,13 +157,20 @@ MARKET_NEUTRAL_TRIALS = {
     LS31_CANDIDATE_ID,
     LS32_CANDIDATE_ID,
 }
-RESIDUAL_CARRY_TRIALS = {LS33_CANDIDATE_ID, LS34_CANDIDATE_ID}
+RESIDUAL_CARRY_TRIALS = {
+    LS33_CANDIDATE_ID,
+    LS34_CANDIDATE_ID,
+    LS35_CANDIDATE_ID,
+    LS36_CANDIDATE_ID,
+}
 LONG60_TRIALS = {
     LS31_CANDIDATE_ID,
     LS32_CANDIDATE_ID,
     LS33_CANDIDATE_ID,
     LS33_CONTROL_ID,
     LS34_CANDIDATE_ID,
+    LS35_CANDIDATE_ID,
+    LS36_CANDIDATE_ID,
 }
 CROSS_VENUE_FUNDING_TRIALS = {LS24_CANDIDATE_ID}
 LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
@@ -191,6 +206,16 @@ LS34_CARRY_CONFIG: dict[str, Any] = {
     "hold_count": 4,
     "hold_long": False,
     "hold_short": True,
+}
+LS35_CARRY_CONFIG: dict[str, Any] = {
+    **FUNDING_CARRY_CONFIG,
+    "carry_sign_only": True,
+}
+LS36_CARRY_CONFIG: dict[str, Any] = {
+    **FUNDING_CARRY_CONFIG,
+    "carry_sign_only": True,
+    "long_enabled": False,
+    "short_enabled": True,
 }
 FUNDING_LONG_TILT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
@@ -255,6 +280,10 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
             if trial_id == LS32_CANDIDATE_ID
             else LS34_CARRY_CONFIG
             if trial_id == LS34_CANDIDATE_ID
+            else LS35_CARRY_CONFIG
+            if trial_id == LS35_CANDIDATE_ID
+            else LS36_CARRY_CONFIG
+            if trial_id == LS36_CANDIDATE_ID
             else FUNDING_CARRY_CONFIG
         )
     return config
@@ -363,6 +392,15 @@ LS34_CONSTRUCTION = (
     "LS33 residual-budget market-neutral funding carry with short legs allowed "
     "to remain while inside the highest four eligible funding ranks; long "
     "legs always exit outside the lowest two"
+)
+LS35_CONSTRUCTION = (
+    "LS33 residual-budget funding carry restricted to true carry: long only "
+    "negative-funding names and short only positive-funding names, with exact "
+    "lowest/highest-two ranking"
+)
+LS36_CONSTRUCTION = (
+    "LS33 residual-budget carry reduced to its short leg only: highest positive "
+    "7D funding two names at 6.25% NAV each, no long carry"
 )
 
 
@@ -760,6 +798,10 @@ def build_funding_carry_sleeve(
         if trial_id == LS32_CANDIDATE_ID
         else LS34_CARRY_CONFIG
         if trial_id == LS34_CANDIDATE_ID
+        else LS35_CARRY_CONFIG
+        if trial_id == LS35_CANDIDATE_ID
+        else LS36_CARRY_CONFIG
+        if trial_id == LS36_CANDIDATE_ID
         else FUNDING_CARRY_CONFIG
     )
     raw = build_cross_sectional_funding_carry_schedule(
@@ -1028,6 +1070,8 @@ def main() -> None:
             LS33_CANDIDATE_ID,
             LS33_CONTROL_ID,
             LS34_CANDIDATE_ID,
+            LS35_CANDIDATE_ID,
+            LS36_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1469,6 +1513,10 @@ def main() -> None:
                     if args.trial_id in {LS33_CANDIDATE_ID, LS33_CONTROL_ID}
                     else LS34_SPEC_PATH
                     if args.trial_id == LS34_CANDIDATE_ID
+                    else LS35_SPEC_PATH
+                    if args.trial_id == LS35_CANDIDATE_ID
+                    else LS36_SPEC_PATH
+                    if args.trial_id == LS36_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1512,6 +1560,10 @@ def main() -> None:
                     if args.trial_id == LS33_CONTROL_ID
                     else LS34_CONSTRUCTION
                     if args.trial_id == LS34_CANDIDATE_ID
+                    else LS35_CONSTRUCTION
+                    if args.trial_id == LS35_CANDIDATE_ID
+                    else LS36_CONSTRUCTION
+                    if args.trial_id == LS36_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

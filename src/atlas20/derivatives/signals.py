@@ -1195,9 +1195,12 @@ def build_cross_sectional_funding_carry_schedule(
     per_asset_weight: float = 0.0625,
     min_assets: int = 8,
     min_settlements: int = 3,
+    long_enabled: bool = True,
+    short_enabled: bool = True,
     hold_count: int | None = None,
     hold_long: bool = True,
     hold_short: bool = True,
+    carry_sign_only: bool = False,
     anchor: object | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Build a market-neutral low-funding long / high-funding short sleeve.
@@ -1212,12 +1215,15 @@ def build_cross_sectional_funding_carry_schedule(
         raise ValueError("rebalance_days must be positive")
     if count < 1:
         raise ValueError("count must be positive")
+    enabled_sides = int(long_enabled) + int(short_enabled)
+    if enabled_sides == 0:
+        raise ValueError("at least one carry side must be enabled")
     if hold_count is not None and hold_count < count:
         raise ValueError("hold_count must be at least count")
-    if min_assets < 2 * count:
-        raise ValueError("min_assets must be at least two times count")
-    if hold_count is not None and min_assets < 2 * hold_count:
-        raise ValueError("min_assets must be at least two times hold_count")
+    if min_assets < enabled_sides * count:
+        raise ValueError("min_assets must cover every enabled carry side")
+    if hold_count is not None and min_assets < enabled_sides * hold_count:
+        raise ValueError("min_assets must cover every enabled hold band")
     if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
         raise ValueError("per_asset_weight must be positive and finite")
     if min_settlements < 1:
@@ -1298,12 +1304,26 @@ def build_cross_sectional_funding_carry_schedule(
             current_short = []
             continue
         ranked = sorted(scores, key=lambda asset: (scores[asset], asset))
+        long_ranked = (
+            []
+            if not long_enabled
+            else [asset for asset in ranked if scores[asset] < 0.0]
+            if carry_sign_only
+            else ranked
+        )
+        short_ranked = (
+            []
+            if not short_enabled
+            else [asset for asset in reversed(ranked) if scores[asset] > 0.0]
+            if carry_sign_only
+            else list(reversed(ranked))
+        )
         if hold_count is None:
-            long_assets = ranked[:count]
-            short_assets = ranked[-count:]
+            long_assets = long_ranked[:count]
+            short_assets = short_ranked[:count]
         else:
-            long_band = set(ranked[:hold_count])
-            short_band = set(ranked[-hold_count:])
+            long_band = set(long_ranked[:hold_count])
+            short_band = set(short_ranked[:hold_count])
             retained_long = (
                 [asset for asset in current_long if asset in long_band]
                 if hold_long
@@ -1317,13 +1337,13 @@ def build_cross_sectional_funding_carry_schedule(
             long_assets = retained_long[:count]
             short_assets = retained_short[:count]
             selected = set(long_assets) | set(short_assets)
-            for asset in ranked:
+            for asset in long_ranked:
                 if len(long_assets) >= count:
                     break
                 if asset not in selected:
                     long_assets.append(asset)
                     selected.add(asset)
-            for asset in reversed(ranked):
+            for asset in short_ranked:
                 if len(short_assets) >= count:
                     break
                 if asset not in selected:

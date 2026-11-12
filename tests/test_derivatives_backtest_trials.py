@@ -690,6 +690,40 @@ def test_ls33_registers_residual_carry_with_buffer_control() -> None:
         assert trial_id in runner.SHORT_CANDIDATES
 
 
+def test_ls36_registers_short_only_residual_carry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS36_CANDIDATE_ID == "PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY"
+    assert runner.LS36_CANDIDATE_ID in runner.RESIDUAL_CARRY_TRIALS
+    assert runner.LS36_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS36_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS36_CARRY_CONFIG == {
+        **runner.FUNDING_CARRY_CONFIG,
+        "carry_sign_only": True,
+        "long_enabled": False,
+        "short_enabled": True,
+    }
+    config = runner._trial_frozen_config(runner.LS36_CANDIDATE_ID)
+    assert config["long_buffer"] == 0.60
+    assert config["funding_carry"] == runner.LS36_CARRY_CONFIG
+
+
+def test_ls35_registers_sign_conditioned_residual_carry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS35_CANDIDATE_ID == "PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN"
+    assert runner.LS35_CANDIDATE_ID in runner.RESIDUAL_CARRY_TRIALS
+    assert runner.LS35_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS35_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS35_CARRY_CONFIG == {
+        **runner.FUNDING_CARRY_CONFIG,
+        "carry_sign_only": True,
+    }
+    config = runner._trial_frozen_config(runner.LS35_CANDIDATE_ID)
+    assert config["long_buffer"] == 0.60
+    assert config["funding_carry"] == runner.LS35_CARRY_CONFIG
+
+
 def test_ls34_registers_short_only_carry_hold_band() -> None:
     import scripts.run_h5_regime_short_router as runner
 

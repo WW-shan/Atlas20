@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `ea17fa3` from 2 uncommitted source file(s): `reports/derivatives_track_h5_ls23_residual_carry_shorthold/PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `4c73a2d` from 3 uncommitted source file(s): `reports/derivatives_track_h5_ls23_residual_carry_sign/PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN/trial_results.csv`, `reports/derivatives_track_h5_ls23_residual_short_carry/PR2026-11-LS36-H5-LS23-RESIDUAL-SHORT-CARRY/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,203 | 14,169 | 8,999 | 0.7972 | 0.6534 | 0.03420 |
+| all_trials | 14,205 | 14,171 | 9,001 | 0.7974 | 0.6535 | 0.03421 |
 | top20_2022_trials | 6,142 | 6,127 | 3,830 | 0.4321 | 0.3173 | 0.01661 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -50,7 +50,7 @@ multiple-testing script uses it only for the trial count.
 | benchmark_timing | 101 | 98 |
 | bull_offense | 792 | 648 |
 | ctrend_lite | 5241 | 3626 |
-| derivatives | 63 | 0 |
+| derivatives | 65 | 0 |
 | leader_momentum | 5761 | 655 |
 | phase_momentum | 83 | 81 |
 | sector | 647 | 254 |

@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN,main,lag0,20.0,2.038254567370704,74.04760052314272,-0.3949813352657251,reports/derivatives_track_h5_ls23_residual_carry_sign/PR2026-11-LS35-H5-LS23-RESIDUAL-CARRY-SIGN/summary.json
