@@ -645,3 +645,26 @@ def test_ls29_is_registered_with_concentration_conditioned_profit_lock() -> None
         "scale": 0.5,
         "min_leader_weight": 0.25,
     }
+
+
+def test_ls30_is_registered_as_market_neutral_funding_carry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS30_CANDIDATE_ID == "PR2026-11-LS30-H5-FUNDING-CARRY-NEUTRAL"
+    assert runner.LS30_CANDIDATE_ID in runner.MARKET_NEUTRAL_TRIALS
+    assert runner.FUNDING_CARRY_CONFIG == {
+        "lookback_days": 7,
+        "rebalance_days": 7,
+        "count": 2,
+        "per_asset_weight": 0.0625,
+        "min_assets": 8,
+        "min_settlements": 3,
+    }
+
+
+def test_ls31_is_the_same_carry_sleeve_with_sixty_percent_long_buffer() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS31_CANDIDATE_ID == "PR2026-11-LS31-H5-FUNDING-CARRY-LONG60"
+    assert runner.LS31_CANDIDATE_ID in runner.MARKET_NEUTRAL_TRIALS
+    assert runner.LS31_LONG_BUFFER == 0.60

@@ -1558,3 +1558,87 @@ def test_trim_extreme_single_leader_trims_at_minimum_leader_weight() -> None:
 
     assert adjusted[date]["A"] == pytest.approx(0.125)
     assert bool(audit.iloc[0]["trimmed"]) is True
+
+
+def test_funding_carry_schedule_longs_lowest_and_shorts_highest_funding() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
+
+    dates = pd.date_range("2026-01-01", periods=15, freq="D", tz="UTC")
+    anchor = dates[7]
+    assets = list("abcdefgh")
+    universe = pd.DataFrame(
+        {"rebalance_date": [anchor] * len(assets), "coin_id": assets}
+    )
+    rates = [-0.0004, -0.0002, -0.0001, 0.0, 0.00005, 0.0001, 0.0002, 0.0004]
+    funding = pd.DataFrame(
+        {asset: [rate] * len(dates) for asset, rate in zip(assets, rates)},
+        index=dates,
+    )
+
+    schedule = build_cross_sectional_funding_carry_schedule(
+        universe,
+        {anchor: pd.Series({"z": 1.25})},
+        calendar=dates,
+        funding_rates=funding,
+        eligible=set(assets),
+        market_available=lambda asset, date: True,
+        count=2,
+        per_asset_weight=0.0625,
+        min_assets=8,
+        anchor=anchor,
+    )
+
+    target = schedule[anchor]
+    assert target["a"] == pytest.approx(0.0625)
+    assert target["b"] == pytest.approx(0.0625)
+    assert target["g"] == pytest.approx(-0.0625)
+    assert target["h"] == pytest.approx(-0.0625)
+    assert target.abs().sum() == pytest.approx(0.25)
+
+
+def test_signed_sleeve_route_drops_a_leg_that_enters_the_long_book() -> None:
+    from atlas20.derivatives.signals import route_signed_sleeve_with_long_exclusions
+
+    dates = pd.date_range("2026-01-01", periods=3, freq="D", tz="UTC")
+    universe = pd.DataFrame(
+        {"rebalance_date": [dates[0]] * 4, "coin_id": ["a", "b", "c", "d"]}
+    )
+    schedule = {
+        dates[0]: pd.Series({"a": 0.0625, "b": -0.0625}),
+        dates[2]: pd.Series({"a": 0.0625, "c": -0.0625}),
+    }
+    long_targets = {dates[1]: pd.Series({"a": 1.25})}
+
+    routed = route_signed_sleeve_with_long_exclusions(
+        schedule,
+        long_targets=long_targets,
+        universe=universe,
+        calendar=dates,
+    )
+
+    assert routed[dates[0]].to_dict() == {
+        "a": pytest.approx(0.0625),
+        "b": pytest.approx(-0.0625),
+    }
+    assert routed[dates[1]].to_dict() == {"b": pytest.approx(-0.0625)}
+    assert routed[dates[2]].to_dict() == {"c": pytest.approx(-0.0625)}
+
+
+def test_combine_long_with_signed_sleeve_scales_into_unused_gross() -> None:
+    from atlas20.derivatives.signals import combine_long_with_signed_sleeve
+
+    date = pd.Timestamp("2026-01-01", tz="UTC")
+    long_targets = {date: pd.Series({"a": 1.35})}
+    sleeve = {date: pd.Series({"b": 0.125, "c": -0.125})}
+
+    combined, audit = combine_long_with_signed_sleeve(
+        long_targets,
+        sleeve,
+        max_total_gross=1.50,
+    )
+
+    assert combined[date]["a"] == pytest.approx(1.35)
+    assert combined[date]["b"] == pytest.approx(0.075)
+    assert combined[date]["c"] == pytest.approx(-0.075)
+    assert audit.loc[date, "funded_sleeve_gross"] == pytest.approx(0.15)
+    assert audit.loc[date, "total_gross"] == pytest.approx(1.50)

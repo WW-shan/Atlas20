@@ -1181,6 +1181,188 @@ def build_cross_sectional_weak_short_schedule(
     return schedule
 
 
+def build_cross_sectional_funding_carry_schedule(
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    funding_rates: pd.DataFrame | None,
+    eligible: Set[str] | None,
+    market_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    lookback_days: int = 7,
+    rebalance_days: int = 7,
+    count: int = 2,
+    per_asset_weight: float = 0.0625,
+    min_assets: int = 8,
+    min_settlements: int = 3,
+    anchor: object | None = None,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build a market-neutral low-funding long / high-funding short sleeve."""
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if count < 1:
+        raise ValueError("count must be positive")
+    if min_assets < 2 * count:
+        raise ValueError("min_assets must be at least two times count")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+    if min_settlements < 1:
+        raise ValueError("min_settlements must be positive")
+    if funding_rates is None or funding_rates.empty:
+        return {}
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float).sort_index()
+    h5_dates = sorted(normalized_h5)
+
+    funding = funding_rates.copy()
+    funding.index = pd.DatetimeIndex([_as_utc(value) for value in funding.index])
+    funding = funding[~funding.index.duplicated(keep="last")].sort_index()
+    funding_columns = {str(column).casefold(): str(column) for column in funding.columns}
+    eligible_folded = (
+        {str(value).casefold() for value in eligible}
+        if eligible is not None
+        else None
+    )
+
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        holdings = {
+            str(asset)
+            for asset, weight in long_weights.items()
+            if float(weight) > 1e-15
+        }
+        members = _members_at(universe, date) - holdings
+        scores: dict[str, float] = {}
+        window_start = date - pd.Timedelta(days=lookback_days)
+        for asset in members:
+            if eligible_folded is not None and asset.casefold() not in eligible_folded:
+                continue
+            if market_available is not None and not market_available(asset, date):
+                continue
+            column = funding_columns.get(asset.casefold())
+            if column is None:
+                continue
+            history = pd.to_numeric(
+                funding.loc[
+                    (funding.index >= window_start) & (funding.index <= date),
+                    column,
+                ],
+                errors="coerce",
+            ).dropna()
+            if len(history) < min_settlements:
+                continue
+            scores[asset] = float(history.mean())
+        if len(scores) < min_assets:
+            schedule[date] = pd.Series(dtype=float)
+            continue
+        ranked = sorted(scores, key=lambda asset: (scores[asset], asset))
+        long_assets = ranked[:count]
+        short_assets = ranked[-count:]
+        target = pd.Series(dtype=float)
+        for asset in long_assets:
+            target.loc[asset] = float(per_asset_weight)
+        for asset in short_assets:
+            target.loc[asset] = -float(per_asset_weight)
+        schedule[date] = target.sort_index()
+    return schedule
+
+
+def route_signed_sleeve_with_long_exclusions(
+    schedule: Mapping[pd.Timestamp, pd.Series],
+    *,
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    universe: pd.DataFrame,
+    calendar: Iterable[pd.Timestamp],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Forward-fill a signed sleeve and remove H5/Top20 overlaps."""
+    normalized: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in schedule.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("signed sleeve targets must be finite")
+        normalized[date] = target.astype(float).sort_index()
+
+    long_normalized: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in long_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long targets must be finite")
+        long_normalized[date] = target.astype(float).sort_index()
+
+    dates = sorted({_as_utc(value) for value in calendar})
+    if not dates:
+        return {}
+    sleeve_dates = sorted(normalized)
+    long_dates = sorted(long_normalized)
+    sleeve_state = pd.Series(dtype=float)
+    long_state = pd.Series(dtype=float)
+    sleeve_cursor = 0
+    long_cursor = 0
+    previous: pd.Series | None = None
+    routed: dict[pd.Timestamp, pd.Series] = {}
+    has_universe = not universe.empty
+    for date in dates:
+        while sleeve_cursor < len(sleeve_dates) and sleeve_dates[sleeve_cursor] <= date:
+            sleeve_state = normalized[sleeve_dates[sleeve_cursor]].copy()
+            sleeve_cursor += 1
+        while long_cursor < len(long_dates) and long_dates[long_cursor] <= date:
+            long_state = long_normalized[long_dates[long_cursor]].copy()
+            long_cursor += 1
+        holdings = {
+            str(asset)
+            for asset, weight in long_state.items()
+            if float(weight) > 1e-15
+        }
+        members = _members_at(universe, date) if has_universe else None
+        keep = sleeve_state.index.difference(pd.Index(sorted(holdings)))
+        if members is not None:
+            eligible_folded = {str(value).casefold() for value in members}
+            keep = pd.Index(
+                [
+                    str(asset)
+                    for asset in keep
+                    if str(asset).casefold() in eligible_folded
+                ],
+                dtype=object,
+            )
+        filtered = sleeve_state.reindex(keep).fillna(0.0).astype(float).sort_index()
+        sleeve_state = filtered.copy()
+        if previous is None or not _target_equal(previous, filtered):
+            routed[date] = filtered
+            previous = filtered.copy()
+    return routed
+
+
 def route_short_schedule_with_long_exclusions(
     schedule: Mapping[pd.Timestamp, pd.Series],
     *,
@@ -1325,6 +1507,83 @@ def combine_fixed_risk_short_schedules(
             combined_targets[date] = combined
             previous = combined.copy()
     return combined_targets
+
+
+def combine_long_with_signed_sleeve(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    sleeve_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    max_total_gross: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Keep the long book and scale a signed neutral sleeve into unused gross."""
+    if not np.isfinite(max_total_gross) or max_total_gross <= 0.0:
+        raise ValueError("max_total_gross must be positive and finite")
+
+    schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {"long": {}, "sleeve": {}}
+    for name, raw_schedule in (("long", long_targets), ("sleeve", sleeve_targets)):
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            if name == "long" and (target < 0.0).any():
+                raise ValueError("long target weights must be non-negative")
+            schedules[name][date] = target.astype(float).sort_index()
+
+    dates = sorted(set(schedules["long"]) | set(schedules["sleeve"]))
+    states = {name: pd.Series(dtype=float) for name in schedules}
+    cursors = {name: 0 for name in schedules}
+    targets: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for date in dates:
+        union_index = pd.Index([], dtype=object)
+        for name, schedule in schedules.items():
+            schedule_dates = list(schedule)
+            cursor = cursors[name]
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                states[name] = schedule[schedule_dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+            union_index = union_index.union(states[name].index)
+        long = states["long"].reindex(union_index).fillna(0.0)
+        sleeve = states["sleeve"].reindex(union_index).fillna(0.0)
+        long_gross = float(long.sum())
+        sleeve_gross = float(sleeve.abs().sum())
+        long_scale = (
+            min(1.0, max_total_gross / long_gross)
+            if long_gross > max_total_gross + 1e-12
+            else 1.0
+        )
+        long = long * long_scale
+        scaled_long_gross = long_gross * long_scale
+        available = max(0.0, max_total_gross - scaled_long_gross)
+        sleeve_scale = (
+            min(1.0, available / sleeve_gross)
+            if sleeve_gross > 0.0
+            else 0.0
+        )
+        funded_sleeve = sleeve * sleeve_scale
+        combined = long + funded_sleeve
+        combined = combined[combined.abs() > 1e-15]
+        targets[date] = combined
+        audit_rows.append(
+            {
+                "date": date,
+                "long_gross": long_gross,
+                "long_scale": long_scale,
+                "scaled_long_gross": scaled_long_gross,
+                "requested_sleeve_gross": sleeve_gross,
+                "sleeve_scale": sleeve_scale,
+                "funded_sleeve_gross": sleeve_gross * sleeve_scale,
+                "requested_short_gross": float((-sleeve.clip(upper=0.0)).sum()),
+                "funded_short_gross": float((-funded_sleeve.clip(upper=0.0)).sum()),
+                "total_gross": scaled_long_gross + sleeve_gross * sleeve_scale,
+                "net_gross": float(combined.abs().sum()),
+            }
+        )
+    audit = pd.DataFrame(audit_rows).set_index("date")
+    return targets, audit
 
 
 def combine_long_with_priority_short_sleeves(
@@ -1776,12 +2035,15 @@ def build_derivative_targets(
 
 __all__ = [
     "build_cash_sleeve_targets",
+    "build_cross_sectional_funding_carry_schedule",
     "build_cross_sectional_weak_short_schedule",
     "route_short_schedule_with_long_exclusions",
+    "route_signed_sleeve_with_long_exclusions",
     "build_exit_short_schedule",
     "combine_fixed_risk_short_schedules",
     "combine_long_with_cash_budgeted_short",
     "combine_long_with_priority_short_sleeves",
+    "combine_long_with_signed_sleeve",
     "EXIT_SHORT_HOLDING_DAYS",
     "build_monthly_sector_short_targets",
     "CASH_SLEEVE_H4_WEIGHT",

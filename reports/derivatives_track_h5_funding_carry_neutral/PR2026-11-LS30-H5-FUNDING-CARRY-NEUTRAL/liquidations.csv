@@ -1,0 +1,2 @@
+trigger_timestamp,asset,side,entry_price,liquidation_price,execution_price,quantity,margin_before,bad_debt
+2022-05-11 12:00:00+00:00,polkadot,long,17.5680775991683,8.426254256762594,8.422041129634213,0.004623527763561829,0.04265706423818011,0.0

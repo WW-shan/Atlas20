@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS31-H5-FUNDING-CARRY-LONG60,main,lag0,20.0,1.8167767607671934,48.95931696265147,-0.4012828236934989,reports/derivatives_track_h5_funding_carry_long60/PR2026-11-LS31-H5-FUNDING-CARRY-LONG60/summary.json
