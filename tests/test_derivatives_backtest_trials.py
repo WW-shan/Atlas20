@@ -662,6 +662,36 @@ def test_ls30_is_registered_as_market_neutral_funding_carry() -> None:
     }
 
 
+def test_ls32_registers_a_two_times_hold_band_funding_carry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS32_CANDIDATE_ID == "PR2026-11-LS32-H5-FUNDING-CARRY-HOLD4-LONG60"
+    assert runner.LS32_CANDIDATE_ID in runner.MARKET_NEUTRAL_TRIALS
+    assert runner.LS32_CARRY_CONFIG == {
+        "lookback_days": 7,
+        "rebalance_days": 7,
+        "count": 2,
+        "hold_count": 4,
+        "per_asset_weight": 0.0625,
+        "min_assets": 8,
+        "min_settlements": 3,
+    }
+
+
+def test_carry_trial_frozen_config_records_its_actual_rules() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    config31 = runner._trial_frozen_config(runner.LS31_CANDIDATE_ID)
+    assert config31["long_buffer"] == 0.60
+    assert config31["non_bear_sleeve"] == "funding_carry_market_neutral"
+    assert config31["funding_carry"] == runner.FUNDING_CARRY_CONFIG
+
+    config32 = runner._trial_frozen_config(runner.LS32_CANDIDATE_ID)
+    assert config32["long_buffer"] == 0.60
+    assert config32["non_bear_sleeve"] == "funding_carry_market_neutral"
+    assert config32["funding_carry"] == runner.LS32_CARRY_CONFIG
+
+
 def test_ls31_is_the_same_carry_sleeve_with_sixty_percent_long_buffer() -> None:
     import scripts.run_h5_regime_short_router as runner
 

@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "5416d77f87ec09dfd7322f58f7e201365274cfc2",
+  "repository_head": "73b2953be9c587445daae0c1ac5ac7bfe6463c5d",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "f5a35cc84a406fd1d33cbcf0c11d5e9390d5b07161d318bb91bd2e0893011cc3",
+  "research_md_sha256": "9f4e0e1b108245f404dc63436642aedadb5b892e0e9f9be6f3cae8d5fcd807d4",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -148,8 +148,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20443,
-  "rows_at_primary_cost": 17905,
+  "rows_read": 20444,
+  "rows_at_primary_cost": 17906,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -736,12 +736,16 @@
       "origin": "working tree (committed)",
       "sha256": "a2f82184be45a169e1deb91ffe5a67b6e02135a71ef1ff3508b79d78aaf5b71a"
     },
-    "reports/derivatives_track_h5_funding_carry_long60/PR2026-11-LS31-H5-FUNDING-CARRY-LONG60/trial_results.csv": {
+    "reports/derivatives_track_h5_funding_carry_holdband/PR2026-11-LS32-H5-FUNDING-CARRY-HOLD4-LONG60/trial_results.csv": {
       "origin": "working tree (untracked)",
+      "sha256": "f896da4f47dde1dfd11d471926ac6def61c7328185becbf5ca028156f5667a14"
+    },
+    "reports/derivatives_track_h5_funding_carry_long60/PR2026-11-LS31-H5-FUNDING-CARRY-LONG60/trial_results.csv": {
+      "origin": "working tree (committed)",
       "sha256": "14ed9a6cb240cfc55ea5ba85abd1e4b4fc28f314a75b6d1481add520e0514094"
     },
     "reports/derivatives_track_h5_funding_carry_neutral/PR2026-11-LS30-H5-FUNDING-CARRY-NEUTRAL/trial_results.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "84c1cace2bd178a3877607bd1ff9c5304e909ce31242d88829d02b670fa56e66"
     },
     "reports/derivatives_track_h5_funding_exit_short/PR2026-11-LS6-H5-FUNDING-EXIT-RISK05_cost20_proxy/trial_results.csv": {
@@ -950,7 +954,7 @@
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
       "origin": "working tree (modified)",
-      "sha256": "0cb8c611ee765f4ac02d17721184728cb778fb7d9fbf0f81ff6b4de8e120a23c"
+      "sha256": "e3cbb86a825581f2108b6f756cf588f16421fe30d8b086458b16eff646ac19b2"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

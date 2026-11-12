@@ -1596,6 +1596,183 @@ def test_funding_carry_schedule_longs_lowest_and_shorts_highest_funding() -> Non
     assert target.abs().sum() == pytest.approx(0.25)
 
 
+def _funding_carry_hold_band_inputs(
+    weekly_rates: list[dict[str, float]],
+) -> tuple[pd.DatetimeIndex, pd.DataFrame, pd.DataFrame]:
+    assets = list(weekly_rates[0])
+    anchor = pd.Timestamp("2026-01-01T00:00:00Z")
+    rebalance_dates = [anchor + pd.Timedelta(days=7 * index) for index in range(len(weekly_rates))]
+    calendar = pd.date_range(rebalance_dates[0], rebalance_dates[-1], freq="D", tz="UTC")
+    universe = pd.DataFrame(
+        {"rebalance_date": [anchor] * len(assets), "coin_id": assets}
+    )
+    funding = pd.DataFrame(weekly_rates, index=pd.DatetimeIndex(rebalance_dates))
+    return calendar, universe, funding
+
+
+def test_funding_carry_hold_band_retains_incumbents_inside_top_or_bottom_four() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
+
+    calendar, universe, funding = _funding_carry_hold_band_inputs(
+        [
+            {
+                "a": -0.0008,
+                "b": -0.0004,
+                "c": -0.0002,
+                "d": -0.0001,
+                "e": 0.0,
+                "f": 0.0001,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+            {
+                "a": -0.0008,
+                "b": -0.0007,
+                "c": -0.0010,
+                "d": -0.0009,
+                "e": -0.0003,
+                "f": 0.0,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+        ]
+    )
+    anchor = calendar[0]
+    second = pd.Timestamp("2026-01-08T00:00:00Z")
+
+    schedule = build_cross_sectional_funding_carry_schedule(
+        universe,
+        {anchor: pd.Series(dtype=float)},
+        calendar=calendar,
+        funding_rates=funding,
+        eligible=set("abcdefgh"),
+        market_available=lambda asset, date: True,
+        lookback_days=1,
+        rebalance_days=7,
+        count=2,
+        hold_count=4,
+        per_asset_weight=0.0625,
+        min_assets=8,
+        min_settlements=1,
+        anchor=anchor,
+    )
+
+    assert schedule[anchor].to_dict() == {
+        "a": pytest.approx(0.0625),
+        "b": pytest.approx(0.0625),
+        "g": pytest.approx(-0.0625),
+        "h": pytest.approx(-0.0625),
+    }
+    assert schedule[second].to_dict() == {
+        "a": pytest.approx(0.0625),
+        "b": pytest.approx(0.0625),
+        "g": pytest.approx(-0.0625),
+        "h": pytest.approx(-0.0625),
+    }
+
+
+def test_funding_carry_hold_band_replaces_only_incumbents_outside_top_or_bottom_four() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
+
+    calendar, universe, funding = _funding_carry_hold_band_inputs(
+        [
+            {
+                "a": -0.0008,
+                "b": -0.0004,
+                "c": -0.0002,
+                "d": -0.0001,
+                "e": 0.0,
+                "f": 0.0001,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+            {
+                "a": -0.0008,
+                "b": -0.0007,
+                "c": -0.0010,
+                "d": -0.0009,
+                "e": -0.0003,
+                "f": 0.0,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+            {
+                "a": -0.0005,
+                "b": -0.0008,
+                "c": -0.0010,
+                "d": -0.0009,
+                "e": -0.0007,
+                "f": -0.0006,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+        ]
+    )
+    anchor = calendar[0]
+    third = pd.Timestamp("2026-01-15T00:00:00Z")
+
+    schedule = build_cross_sectional_funding_carry_schedule(
+        universe,
+        {anchor: pd.Series(dtype=float)},
+        calendar=calendar,
+        funding_rates=funding,
+        eligible=set("abcdefgh"),
+        market_available=lambda asset, date: True,
+        lookback_days=1,
+        rebalance_days=7,
+        count=2,
+        hold_count=4,
+        per_asset_weight=0.0625,
+        min_assets=8,
+        min_settlements=1,
+        anchor=anchor,
+    )
+
+    target = schedule[third]
+    assert target["b"] == pytest.approx(0.0625)
+    assert target["c"] == pytest.approx(0.0625)
+    assert "a" not in target.index
+    assert target["g"] == pytest.approx(-0.0625)
+    assert target["h"] == pytest.approx(-0.0625)
+
+
+def test_funding_carry_hold_count_must_cover_entry_count() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
+
+    calendar, universe, funding = _funding_carry_hold_band_inputs(
+        [
+            {
+                "a": -0.0008,
+                "b": -0.0004,
+                "c": -0.0002,
+                "d": -0.0001,
+                "e": 0.0,
+                "f": 0.0001,
+                "g": 0.0004,
+                "h": 0.0008,
+            }
+        ]
+    )
+    anchor = calendar[0]
+
+    with pytest.raises(ValueError, match="hold_count"):
+        build_cross_sectional_funding_carry_schedule(
+            universe,
+            {anchor: pd.Series(dtype=float)},
+            calendar=calendar,
+            funding_rates=funding,
+            eligible=set("abcdefgh"),
+            market_available=lambda asset, date: True,
+            lookback_days=1,
+            rebalance_days=7,
+            count=2,
+            hold_count=1,
+            min_assets=8,
+            min_settlements=1,
+            anchor=anchor,
+        )
+
+
 def test_signed_sleeve_route_drops_a_leg_that_enters_the_long_book() -> None:
     from atlas20.derivatives.signals import route_signed_sleeve_with_long_exclusions
 

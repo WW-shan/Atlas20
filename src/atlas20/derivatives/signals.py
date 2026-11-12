@@ -1195,17 +1195,27 @@ def build_cross_sectional_funding_carry_schedule(
     per_asset_weight: float = 0.0625,
     min_assets: int = 8,
     min_settlements: int = 3,
+    hold_count: int | None = None,
     anchor: object | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
-    """Build a market-neutral low-funding long / high-funding short sleeve."""
+    """Build a market-neutral low-funding long / high-funding short sleeve.
+
+    ``hold_count`` applies a rank hysteresis band: an existing leg remains in
+    the book while its funding score stays inside the bottom/top hold band.
+    New legs are always selected from the lowest/highest ``count`` names.
+    """
     if lookback_days < 1:
         raise ValueError("lookback_days must be positive")
     if rebalance_days < 1:
         raise ValueError("rebalance_days must be positive")
     if count < 1:
         raise ValueError("count must be positive")
+    if hold_count is not None and hold_count < count:
+        raise ValueError("hold_count must be at least count")
     if min_assets < 2 * count:
         raise ValueError("min_assets must be at least two times count")
+    if hold_count is not None and min_assets < 2 * hold_count:
+        raise ValueError("min_assets must be at least two times hold_count")
     if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
         raise ValueError("per_asset_weight must be positive and finite")
     if min_settlements < 1:
@@ -1242,6 +1252,8 @@ def build_cross_sectional_funding_carry_schedule(
 
     schedule: dict[pd.Timestamp, pd.Series] = {}
     long_weights = pd.Series(dtype=float)
+    current_long: list[str] = []
+    current_short: list[str] = []
     cursor = 0
     for date in evaluation_dates:
         while cursor < len(h5_dates) and h5_dates[cursor] <= date:
@@ -1280,10 +1292,37 @@ def build_cross_sectional_funding_carry_schedule(
             scores[asset] = float(history.mean())
         if len(scores) < min_assets:
             schedule[date] = pd.Series(dtype=float)
+            current_long = []
+            current_short = []
             continue
         ranked = sorted(scores, key=lambda asset: (scores[asset], asset))
-        long_assets = ranked[:count]
-        short_assets = ranked[-count:]
+        if hold_count is None:
+            long_assets = ranked[:count]
+            short_assets = ranked[-count:]
+        else:
+            long_band = set(ranked[:hold_count])
+            short_band = set(ranked[-hold_count:])
+            retained_long = [asset for asset in current_long if asset in long_band]
+            retained_short = [asset for asset in current_short if asset in short_band]
+            long_assets = retained_long[:count]
+            short_assets = retained_short[:count]
+            selected = set(long_assets) | set(short_assets)
+            for asset in ranked:
+                if len(long_assets) >= count:
+                    break
+                if asset not in selected:
+                    long_assets.append(asset)
+                    selected.add(asset)
+            for asset in reversed(ranked):
+                if len(short_assets) >= count:
+                    break
+                if asset not in selected:
+                    short_assets.append(asset)
+                    selected.add(asset)
+            if set(long_assets) & set(short_assets):
+                raise ValueError("funding carry hold bands overlap")
+        current_long = list(long_assets)
+        current_short = list(short_assets)
         target = pd.Series(dtype=float)
         for asset in long_assets:
             target.loc[asset] = float(per_asset_weight)

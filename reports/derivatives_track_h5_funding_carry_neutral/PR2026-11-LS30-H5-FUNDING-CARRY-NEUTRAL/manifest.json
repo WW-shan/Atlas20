@@ -17,10 +17,18 @@
     "exit_funding_rank_min": 0.6666666666666666,
     "exit_holding_days": 21,
     "exit_per_asset_weight": 0.025,
+    "funding_carry": {
+      "count": 2,
+      "lookback_days": 7,
+      "min_assets": 8,
+      "min_settlements": 3,
+      "per_asset_weight": 0.0625,
+      "rebalance_days": 7
+    },
     "h5_leverage": 1.25,
     "long_buffer": 0.5,
     "max_total_gross": 1.5,
-    "non_bear_sleeve": "h5_exit",
+    "non_bear_sleeve": "funding_carry_market_neutral",
     "rebalance_no_trade_band": 0.0,
     "short_buffer": 0.5,
     "short_stop_loss_pct": 0.2

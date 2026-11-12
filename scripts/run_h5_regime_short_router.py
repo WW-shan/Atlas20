@@ -81,6 +81,7 @@ LS28_CANDIDATE_ID = "PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT"
 LS29_CANDIDATE_ID = "PR2026-11-LS29-H5-CONCENTRATION-PROFIT-LOCK-REGIME-SHORT"
 LS30_CANDIDATE_ID = "PR2026-11-LS30-H5-FUNDING-CARRY-NEUTRAL"
 LS31_CANDIDATE_ID = "PR2026-11-LS31-H5-FUNDING-CARRY-LONG60"
+LS32_CANDIDATE_ID = "PR2026-11-LS32-H5-FUNDING-CARRY-HOLD4-LONG60"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -97,7 +98,9 @@ LS28_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-priority-shor
 LS29_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-concentration-profit-lock-regime-short-design.md"
 LS30_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-funding-carry-neutral-sleeve-design.md"
 LS31_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-funding-carry-long60-design.md"
+LS32_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-funding-carry-holdband-design.md"
 LS31_LONG_BUFFER = 0.60
+LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
 LS27_TARGET_TOTAL_GROSS = 1.48
 SHORT_CANDIDATES = {
@@ -129,7 +132,11 @@ LONG_PROFIT_LOCK_TRIALS = {
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
 LONG_CONCENTRATION_PROFIT_LOCK_TRIALS = {LS29_CANDIDATE_ID}
-MARKET_NEUTRAL_TRIALS = {LS30_CANDIDATE_ID, LS31_CANDIDATE_ID}
+MARKET_NEUTRAL_TRIALS = {
+    LS30_CANDIDATE_ID,
+    LS31_CANDIDATE_ID,
+    LS32_CANDIDATE_ID,
+}
 CROSS_VENUE_FUNDING_TRIALS = {LS24_CANDIDATE_ID}
 LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     "lookback_days": 21,
@@ -154,6 +161,10 @@ FUNDING_CARRY_CONFIG: dict[str, Any] = {
     "per_asset_weight": 0.0625,
     "min_assets": 8,
     "min_settlements": 3,
+}
+LS32_CARRY_CONFIG: dict[str, Any] = {
+    **FUNDING_CARRY_CONFIG,
+    "hold_count": 4,
 }
 FUNDING_LONG_TILT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
@@ -181,6 +192,42 @@ FROZEN_CONFIG: dict[str, Any] = {
     "exit_funding_rank_min": 2.0 / 3.0,
     "exit_funding_min_assets": 5,
 }
+
+
+def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
+    """Return the actual frozen research config recorded for one trial."""
+    config: dict[str, Any] = {**FROZEN_CONFIG}
+    if trial_id in {LS31_CANDIDATE_ID, LS32_CANDIDATE_ID}:
+        config["long_buffer"] = LS32_LONG_BUFFER
+    config["rebalance_no_trade_band"] = float(SHORT_CANDIDATES.get(trial_id, 0.0))
+    config["non_bear_sleeve"] = (
+        "funding_carry_market_neutral"
+        if trial_id in MARKET_NEUTRAL_TRIALS
+        else NON_BEAR_MODE_BY_TRIAL.get(trial_id, "h5_exit")
+        if trial_id in SHORT_CANDIDATES
+        else "none"
+    )
+    if trial_id == LS17_CANDIDATE_ID:
+        config.update(HIGH_FUNDING_SHORT_CONFIG)
+    if trial_id == LS18_CANDIDATE_ID:
+        config.update(FUNDING_LONG_TILT_CONFIG)
+    if trial_id in LONG_PROFIT_LOCK_TRIALS:
+        config.update(LS22_PROFIT_LOCK_CONFIG)
+    if trial_id in CROSS_VENUE_FUNDING_TRIALS:
+        config["cross_venue_funding"] = {
+            "binance_lookback_settlements": 3,
+            "bybit_lookback_settlements": 3,
+            "missing_policy": "ineligible",
+            "score": "elementwise_min",
+            "threshold": 0.0,
+        }
+    if trial_id in MARKET_NEUTRAL_TRIALS:
+        config["funding_carry"] = (
+            LS32_CARRY_CONFIG if trial_id == LS32_CANDIDATE_ID else FUNDING_CARRY_CONFIG
+        )
+    return config
+
+
 CONSTRUCTION = (
     "H5 1.25x + exactly one short sleeve selected by BTC close versus its "
     "200D SMA: bear = weekly 14D weakest-four PIT Top20 non-H5 basket; "
@@ -264,6 +311,12 @@ LS30_CONSTRUCTION = (
 LS31_CONSTRUCTION = (
     "LS30 funding-carry sleeve with the only change being a 60% long buffer "
     "instead of 50%; all selection, stop, gross and execution rules unchanged"
+)
+LS32_CONSTRUCTION = (
+    "LS31 funding-carry sleeve with a 2x-entry-count rank hold band: retain "
+    "existing legs while they remain in the lowest/highest four eligible "
+    "funding ranks, replace only when they leave that band; all other rules "
+    "unchanged"
 )
 
 
@@ -645,6 +698,7 @@ def build_priority_short_schedules(
 
 def build_funding_carry_sleeve(
     *,
+    trial_id: str,
     market: Any,
     universe: pd.DataFrame,
     index: pd.DatetimeIndex,
@@ -655,6 +709,9 @@ def build_funding_carry_sleeve(
     start_date: str,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
     """Build the frozen market-neutral funding-carry sleeve."""
+    carry_config = (
+        LS32_CARRY_CONFIG if trial_id == LS32_CANDIDATE_ID else FUNDING_CARRY_CONFIG
+    )
     raw = build_cross_sectional_funding_carry_schedule(
         universe,
         long_targets,
@@ -665,7 +722,7 @@ def build_funding_carry_sleeve(
             mark_candles, asset, date
         ),
         anchor=start_date,
-        **FUNDING_CARRY_CONFIG,
+        **carry_config,
     )
     routed = route_signed_sleeve_with_long_exclusions(
         raw,
@@ -917,6 +974,7 @@ def main() -> None:
             LS29_CANDIDATE_ID,
             LS30_CANDIDATE_ID,
             LS31_CANDIDATE_ID,
+            LS32_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1006,8 +1064,9 @@ def main() -> None:
     exit_schedule: dict[pd.Timestamp, pd.Series] = {}
     bottom4_schedule: dict[pd.Timestamp, pd.Series] = {}
     carry_schedule: dict[pd.Timestamp, pd.Series] = {}
-    if args.trial_id in {LS30_CANDIDATE_ID, LS31_CANDIDATE_ID}:
+    if args.trial_id in MARKET_NEUTRAL_TRIALS:
         carry_schedule, sleeve_audit = build_funding_carry_sleeve(
+            trial_id=args.trial_id,
             market=market,
             universe=universe,
             index=index,
@@ -1074,7 +1133,7 @@ def main() -> None:
         if args.trial_id == LS27_CANDIDATE_ID
         else float(FROZEN_CONFIG["max_total_gross"])
     )
-    if args.trial_id in {LS30_CANDIDATE_ID, LS31_CANDIDATE_ID}:
+    if args.trial_id in MARKET_NEUTRAL_TRIALS:
         combined, target_audit = combine_long_with_signed_sleeve(
             long_targets,
             carry_schedule,
@@ -1099,7 +1158,9 @@ def main() -> None:
         slippage_bps=0.0,
         liquidation_slippage_bps=5.0,
         long_buffer=(
-            LS31_LONG_BUFFER
+            LS32_LONG_BUFFER
+            if args.trial_id == LS32_CANDIDATE_ID
+            else LS31_LONG_BUFFER
             if args.trial_id == LS31_CANDIDATE_ID
             else float(FROZEN_CONFIG["long_buffer"])
         ),
@@ -1108,12 +1169,8 @@ def main() -> None:
         max_gross_exposure=target_total_gross,
         hard_gross_exposure=(
             float(FROZEN_CONFIG["max_total_gross"])
-            if args.trial_id in {
-                LS27_CANDIDATE_ID,
-                LS28_CANDIDATE_ID,
-                LS30_CANDIDATE_ID,
-                LS31_CANDIDATE_ID,
-            }
+            if args.trial_id
+            in (MARKET_NEUTRAL_TRIALS | {LS27_CANDIDATE_ID, LS28_CANDIDATE_ID})
             else None
         ),
         rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
@@ -1162,7 +1219,9 @@ def main() -> None:
         "missing_mark_max_carry_hours": int(args.missing_mark_max_carry_hours),
         "h5_leverage": float(FROZEN_CONFIG["h5_leverage"]),
         "long_buffer": (
-            LS31_LONG_BUFFER
+            LS32_LONG_BUFFER
+            if args.trial_id == LS32_CANDIDATE_ID
+            else LS31_LONG_BUFFER
             if args.trial_id == LS31_CANDIDATE_ID
             else float(FROZEN_CONFIG["long_buffer"])
         ),
@@ -1175,7 +1234,7 @@ def main() -> None:
             else "priority_short_ls12_plus_residual_r6"
             if args.trial_id == LS28_CANDIDATE_ID
             else "funding_carry_market_neutral"
-            if args.trial_id in {LS30_CANDIDATE_ID, LS31_CANDIDATE_ID}
+            if args.trial_id in MARKET_NEUTRAL_TRIALS
             else non_bear_mode_for_trial(args.trial_id)
             if args.trial_id in SHORT_CANDIDATES
             else "none"
@@ -1322,6 +1381,8 @@ def main() -> None:
                     if args.trial_id == LS30_CANDIDATE_ID
                     else LS31_SPEC_PATH
                     if args.trial_id == LS31_CANDIDATE_ID
+                    else LS32_SPEC_PATH
+                    if args.trial_id == LS32_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1357,45 +1418,11 @@ def main() -> None:
                     if args.trial_id == LS30_CANDIDATE_ID
                     else LS31_CONSTRUCTION
                     if args.trial_id == LS31_CANDIDATE_ID
+                    else LS32_CONSTRUCTION
+                    if args.trial_id == LS32_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
-                "frozen_config": {
-                    **FROZEN_CONFIG,
-                    "rebalance_no_trade_band": float(
-                        SHORT_CANDIDATES.get(args.trial_id, 0.0)
-                    ),
-                    "non_bear_sleeve": NON_BEAR_MODE_BY_TRIAL.get(
-                        args.trial_id, "h5_exit"
-                    ),
-                    **(
-                        HIGH_FUNDING_SHORT_CONFIG
-                        if args.trial_id == LS17_CANDIDATE_ID
-                        else {}
-                    ),
-                    **(
-                        FUNDING_LONG_TILT_CONFIG
-                        if args.trial_id == LS18_CANDIDATE_ID
-                        else {}
-                    ),
-                    **(
-                        LS22_PROFIT_LOCK_CONFIG
-                        if args.trial_id in LONG_PROFIT_LOCK_TRIALS
-                        else {}
-                    ),
-                    **(
-                        {
-                            "cross_venue_funding": {
-                                "binance_lookback_settlements": 3,
-                                "bybit_lookback_settlements": 3,
-                                "missing_policy": "ineligible",
-                                "score": "elementwise_min",
-                                "threshold": 0.0,
-                            }
-                        }
-                        if args.trial_id in CROSS_VENUE_FUNDING_TRIALS
-                        else {}
-                    ),
-                },
+                "frozen_config": _trial_frozen_config(args.trial_id),
                 "start_date": args.evaluation_start,
                 "warmup_start_date": args.start_date,
                 "end_date": args.end_date,
