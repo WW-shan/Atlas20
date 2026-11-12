@@ -253,9 +253,12 @@ def _require_common_sample(returns: pd.DataFrame) -> pd.DataFrame:
 def _load_candidate_returns(path: Path) -> pd.DataFrame:
     """Candidate daily returns indexed by date, on one common sample of days."""
     frame = pd.read_csv(path)
-    dates = pd.to_datetime(frame.pop("date"), errors="coerce")
+    dates = pd.to_datetime(frame.pop("date"), errors="coerce", utc=True)
     if dates.isna().any():
         raise ValueError(f"{path}: {int(dates.isna().sum())} row(s) have no parseable date")
+    # The benchmark panel uses a naive daily UTC index.  Normalize candidate
+    # dates to the same coordinate or pandas reindexes them all to missing.
+    dates = dates.dt.tz_convert("UTC").dt.tz_localize(None)
     returns = frame.set_axis(pd.DatetimeIndex(dates, name="date"), axis=0).sort_index()
     duplicated = returns.index.duplicated()
     if duplicated.any():

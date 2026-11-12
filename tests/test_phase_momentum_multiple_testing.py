@@ -101,6 +101,21 @@ def test_loader_refuses_non_numeric_returns_and_duplicate_dates(tmp_path: Path) 
         _load_candidate_returns(duplicated)
 
 
+def test_loader_normalizes_timezone_aware_dates_for_benchmark_alignment(tmp_path: Path) -> None:
+    path = _write_returns(
+        tmp_path / "r.csv",
+        [
+            "2024-01-02T00:00:00+00:00,0.02,0.01",
+            "2024-01-01T00:00:00+00:00,0.01,0.02",
+        ],
+    )
+
+    returns = _load_candidate_returns(path)
+
+    assert returns.index.tz is None
+    assert [str(day.date()) for day in returns.index] == ["2024-01-01", "2024-01-02"]
+
+
 def test_loader_keeps_every_complete_row_in_date_order(tmp_path: Path) -> None:
     path = _write_returns(tmp_path / "r.csv", ["2024-01-02,0.02,0.01", "2024-01-01,0.01,0.02"])
 
