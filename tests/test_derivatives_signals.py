@@ -1736,6 +1736,65 @@ def test_funding_carry_hold_band_replaces_only_incumbents_outside_top_or_bottom_
     assert target["h"] == pytest.approx(-0.0625)
 
 
+def test_funding_carry_can_apply_hold_band_only_to_short_legs() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
+
+    calendar, universe, funding = _funding_carry_hold_band_inputs(
+        [
+            {
+                "a": -0.0008,
+                "b": -0.0004,
+                "c": -0.0002,
+                "d": -0.0001,
+                "e": 0.0,
+                "f": 0.0001,
+                "g": 0.0004,
+                "h": 0.0008,
+            },
+            {
+                "a": -0.0008,
+                "b": -0.0007,
+                "c": -0.0010,
+                "d": -0.0009,
+                "e": -0.0003,
+                "g": 0.0004,
+                "f": 0.0008,
+                "h": 0.0010,
+            },
+        ]
+    )
+    anchor = calendar[0]
+    second = pd.Timestamp("2026-01-08T00:00:00Z")
+
+    schedule = build_cross_sectional_funding_carry_schedule(
+        universe,
+        {anchor: pd.Series(dtype=float)},
+        calendar=calendar,
+        funding_rates=funding,
+        eligible=set("abcdefgh"),
+        market_available=lambda asset, date: True,
+        lookback_days=1,
+        rebalance_days=7,
+        count=2,
+        hold_count=4,
+        hold_long=False,
+        hold_short=True,
+        per_asset_weight=0.0625,
+        min_assets=8,
+        min_settlements=1,
+        anchor=anchor,
+    )
+
+    target = schedule[second]
+    assert target["c"] == pytest.approx(0.0625)
+    assert target["d"] == pytest.approx(0.0625)
+    assert "a" not in target.index
+    assert "b" not in target.index
+    assert target["g"] == pytest.approx(-0.0625)
+    assert target["h"] == pytest.approx(-0.0625)
+    assert "f" not in target.index
+
+
 def test_funding_carry_hold_count_must_cover_entry_count() -> None:
     from atlas20.derivatives.signals import build_cross_sectional_funding_carry_schedule
 

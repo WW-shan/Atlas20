@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD,main,lag0,20.0,2.0395755365737283,77.36353237852339,-0.3948259722755578,reports/derivatives_track_h5_ls23_residual_carry_shorthold/PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD/summary.json

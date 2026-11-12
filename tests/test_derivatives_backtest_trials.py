@@ -690,6 +690,30 @@ def test_ls33_registers_residual_carry_with_buffer_control() -> None:
         assert trial_id in runner.SHORT_CANDIDATES
 
 
+def test_ls34_registers_short_only_carry_hold_band() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS34_CANDIDATE_ID == "PR2026-11-LS34-H5-LS23-RESIDUAL-CARRY-SHORTHOLD"
+    assert runner.LS34_CANDIDATE_ID in runner.RESIDUAL_CARRY_TRIALS
+    assert runner.LS34_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS34_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS34_CARRY_CONFIG == {
+        "lookback_days": 7,
+        "rebalance_days": 7,
+        "count": 2,
+        "hold_count": 4,
+        "hold_long": False,
+        "hold_short": True,
+        "per_asset_weight": 0.0625,
+        "min_assets": 8,
+        "min_settlements": 3,
+    }
+    config = runner._trial_frozen_config(runner.LS34_CANDIDATE_ID)
+    assert config["long_buffer"] == 0.60
+    assert config["non_bear_sleeve"] == "ls12_router_plus_residual_funding_carry"
+    assert config["funding_carry"] == runner.LS34_CARRY_CONFIG
+
+
 def test_ls33_frozen_config_separates_carry_from_buffer_control() -> None:
     import scripts.run_h5_regime_short_router as runner
 

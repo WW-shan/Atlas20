@@ -1196,6 +1196,8 @@ def build_cross_sectional_funding_carry_schedule(
     min_assets: int = 8,
     min_settlements: int = 3,
     hold_count: int | None = None,
+    hold_long: bool = True,
+    hold_short: bool = True,
     anchor: object | None = None,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Build a market-neutral low-funding long / high-funding short sleeve.
@@ -1302,8 +1304,16 @@ def build_cross_sectional_funding_carry_schedule(
         else:
             long_band = set(ranked[:hold_count])
             short_band = set(ranked[-hold_count:])
-            retained_long = [asset for asset in current_long if asset in long_band]
-            retained_short = [asset for asset in current_short if asset in short_band]
+            retained_long = (
+                [asset for asset in current_long if asset in long_band]
+                if hold_long
+                else []
+            )
+            retained_short = (
+                [asset for asset in current_short if asset in short_band]
+                if hold_short
+                else []
+            )
             long_assets = retained_long[:count]
             short_assets = retained_short[:count]
             selected = set(long_assets) | set(short_assets)
