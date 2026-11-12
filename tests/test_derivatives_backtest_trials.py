@@ -518,3 +518,130 @@ def test_ls26_runner_enables_threshold_release(monkeypatch) -> None:
     assert captured["lookback_days"] == 21
     assert captured["threshold"] == 1.0
     assert captured["scale"] == 0.5
+
+
+def test_ls27_is_registered_as_dynamic_two_sleeve_short_candidate() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS27_CANDIDATE_ID == "PR2026-11-LS27-H5-PROFIT-LOCK-DYNAMIC-SHORT"
+    assert runner.LS27_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS27_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS27_MAX_REQUESTED_SHORT_GROSS == 0.50
+
+
+def test_ls27_blends_ls12_and_bottom4_with_frozen_half_gross(monkeypatch) -> None:
+    import pandas as pd
+    from types import SimpleNamespace
+
+    import scripts.run_h5_regime_short_router as runner
+
+    date = pd.Timestamp("2022-01-01", tz="UTC")
+    router_schedule = {date: pd.Series({"A": 0.0625})}
+    bottom_schedule = {date: pd.Series({"B": 0.0625})}
+    router_audit = pd.DataFrame(
+        {
+            "date": [date],
+            "regime": ["non_bear"],
+            "active_sleeve": ["funding_exit"],
+            "short_gross": [0.0625],
+        }
+    )
+    captured: dict[str, object] = {}
+    sentinel = {date: pd.Series({"A": 0.0625, "B": 0.0625})}
+
+    def fake_router(**kwargs):
+        captured["router_kwargs"] = kwargs
+        return router_schedule, router_audit, {}, {}
+
+    def fake_bottom(*args, **kwargs):
+        captured["bottom_args"] = args
+        captured["bottom_kwargs"] = kwargs
+        return bottom_schedule
+
+    def fake_combine(sleeves, *, max_gross):
+        captured["sleeves"] = sleeves
+        captured["max_gross"] = max_gross
+        return sentinel
+
+    monkeypatch.setattr(runner, "build_regime_short_schedules", fake_router)
+    monkeypatch.setattr(
+        runner, "build_cross_sectional_weak_short_schedule", fake_bottom
+    )
+    monkeypatch.setattr(runner, "combine_sleeve_targets", fake_combine)
+
+    combined, audit, _, _, bottom = runner.build_dynamic_short_schedules(
+        market=SimpleNamespace(price=pd.DataFrame({"A": [1.0], "B": [2.0]})),
+        universe=pd.DataFrame(),
+        index=pd.DatetimeIndex([date]),
+        long_raw={date: pd.Series({"A": 1.0})},
+        long_targets={date: pd.Series({"A": 1.25})},
+        funding=pd.DataFrame(),
+        available={"A", "B"},
+        mark_candles={},
+        start_date="2022-01-01",
+    )
+
+    assert combined is sentinel
+    assert bottom[date].equals(bottom_schedule[date])
+    assert captured["max_gross"] == 0.50
+    assert set(captured["sleeves"]) == {"ls12_router", "bottom4"}
+    assert captured["sleeves"]["ls12_router"][1] == 1.0
+    assert captured["sleeves"]["bottom4"][1] == 1.0
+    assert captured["router_kwargs"]["non_bear_mode"] == "h5_exit"
+    assert captured["bottom_kwargs"]["lookback"] == 14
+    assert captured["bottom_kwargs"]["short_count"] == 4
+    assert audit.loc[0, "active_sleeve"] == "dynamic_short_ensemble"
+    assert audit.loc[0, "router_short_gross"] == 0.0625
+
+
+def test_ls27_dispatch_uses_dynamic_builder(monkeypatch) -> None:
+    import pandas as pd
+
+    import scripts.run_h5_regime_short_router as runner
+
+    captured: dict[str, object] = {}
+    sentinel = ({}, pd.DataFrame(), {}, {})
+
+    def fake_dynamic(**kwargs):
+        captured.update(kwargs)
+        return sentinel[0], sentinel[1], sentinel[2], sentinel[3], {}
+
+    monkeypatch.setattr(runner, "build_dynamic_short_schedules", fake_dynamic)
+    result = runner.build_short_targets_for_trial(
+        trial_id=runner.LS27_CANDIDATE_ID,
+        market=object(),
+        universe=object(),
+        index=pd.DatetimeIndex(["2022-01-01"], tz="UTC"),
+        long_raw={},
+        long_targets={},
+        funding=pd.DataFrame(),
+        available=set(),
+        mark_candles={},
+        start_date="2022-01-01",
+    )
+
+    assert result == sentinel
+    assert captured["start_date"] == "2022-01-01"
+
+
+def test_ls28_is_registered_as_priority_short_candidate() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS28_CANDIDATE_ID == "PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT"
+    assert runner.LS28_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS28_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+
+
+def test_ls29_is_registered_with_concentration_conditioned_profit_lock() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS29_CANDIDATE_ID == "PR2026-11-LS29-H5-CONCENTRATION-PROFIT-LOCK-REGIME-SHORT"
+    assert runner.LS29_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS29_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS29_CANDIDATE_ID in runner.LONG_CONCENTRATION_PROFIT_LOCK_TRIALS
+    assert runner.LS29_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "min_leader_weight": 0.25,
+    }

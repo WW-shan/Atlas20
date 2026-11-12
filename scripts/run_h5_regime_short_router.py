@@ -32,10 +32,13 @@ from atlas20.derivatives.signals import (  # noqa: E402
     build_cross_sectional_weak_short_schedule,
     build_exit_short_schedule,
     preserve_relative_weights_on_same_selection,
+    route_short_schedule_with_long_exclusions,
     trim_extreme_run_single_leader,
     trim_extreme_run_single_leader_stateful,
     tilt_long_targets_away_from_crowded_funding,
     combine_long_with_cash_budgeted_short,
+    combine_long_with_priority_short_sleeves,
+    combine_sleeve_targets,
     funding_rank_percentile,
     scale_long_targets,
 )
@@ -70,6 +73,9 @@ LS24_CANDIDATE_ID = "PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT"
 LS24_BEAR_FUNDING_THRESHOLD = 0.0
 LS25_CANDIDATE_ID = "PR2026-11-LS25-H5-STATEFUL-PROFIT-LOCK"
 LS26_CANDIDATE_ID = "PR2026-11-LS26-H5-REARMING-PROFIT-LOCK"
+LS27_CANDIDATE_ID = "PR2026-11-LS27-H5-PROFIT-LOCK-DYNAMIC-SHORT"
+LS28_CANDIDATE_ID = "PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT"
+LS29_CANDIDATE_ID = "PR2026-11-LS29-H5-CONCENTRATION-PROFIT-LOCK-REGIME-SHORT"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -81,6 +87,11 @@ LS23_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-regime-short-
 LS24_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-cross-venue-funding-short-design.md"
 LS25_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-stateful-profit-lock-design.md"
 LS26_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-rearming-profit-lock-design.md"
+LS27_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-dynamic-short-design.md"
+LS28_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-profit-lock-priority-short-design.md"
+LS29_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-concentration-profit-lock-regime-short-design.md"
+LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
+LS27_TARGET_TOTAL_GROSS = 1.48
 SHORT_CANDIDATES = {
     CANDIDATE_ID: 0.0,
     NO_TRADE_BAND_CANDIDATE_ID: NO_TRADE_BAND_FRACTION,
@@ -90,6 +101,9 @@ SHORT_CANDIDATES = {
     LS21_CANDIDATE_ID: 0.0,
     LS23_CANDIDATE_ID: 0.0,
     LS24_CANDIDATE_ID: 0.0,
+    LS27_CANDIDATE_ID: 0.0,
+    LS28_CANDIDATE_ID: 0.0,
+    LS29_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -100,14 +114,22 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS24_CANDIDATE_ID,
     LS25_CANDIDATE_ID,
     LS26_CANDIDATE_ID,
+    LS27_CANDIDATE_ID,
+    LS28_CANDIDATE_ID,
+    LS29_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
+LONG_CONCENTRATION_PROFIT_LOCK_TRIALS = {LS29_CANDIDATE_ID}
 CROSS_VENUE_FUNDING_TRIALS = {LS24_CANDIDATE_ID}
 LS22_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     "lookback_days": 21,
     "threshold": 1.0,
     "scale": 0.5,
+}
+LS29_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS22_PROFIT_LOCK_CONFIG,
+    "min_leader_weight": 0.25,
 }
 HIGH_FUNDING_SHORT_CONFIG: dict[str, Any] = {
     "lookback_days": 7,
@@ -200,6 +222,22 @@ LS26_CONSTRUCTION = (
     "trailing return of at least 100%, keep that same leader at half of each "
     "new H5 target while the 21D return remains at least 100%; release below "
     "100% and allow a later re-trigger; no redistribution and no short sleeve"
+)
+LS27_CONSTRUCTION = (
+    "LS22 single-leader profit lock applied to the H5 long book, combined with "
+    "an equal nominal blend of the frozen LS12 dual-short router and the frozen "
+    "R6 weekly bottom-four short; requested short gross up to 0.50x, funded only "
+    "by unused long gross, hard total gross 1.50x"
+)
+LS28_CONSTRUCTION = (
+    "LS22 single-leader profit lock applied to the H5 long book; the frozen LS12 "
+    "dual-short router is funded first up to 0.25x and the frozen R6 bottom-four "
+    "short receives only residual unused gross, with target/hard total gross 1.50x"
+)
+LS29_CONSTRUCTION = (
+    "Frozen H5 1.25x plus the frozen LS12 dual-short router; the LS22 single-leader "
+    "profit lock is applied only when the leader already represents at least 25% "
+    "of NAV, otherwise the extreme trailing return does not trigger a trim"
 )
 
 
@@ -499,6 +537,157 @@ def build_regime_short_schedules(
     return short_targets, sleeve_audit, bear_schedule, exit_schedule
 
 
+def build_routed_bottom4_schedule(
+    *,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding: pd.DataFrame,
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build and route the frozen R6 bottom-four short sleeve."""
+    raw = build_cross_sectional_weak_short_schedule(
+        market.price,
+        universe,
+        long_targets,
+        calendar=index,
+        funding_rates=funding if not funding.empty else None,
+        eligible=available,
+        short_available=lambda asset, date: _short_mark_available(mark_candles, asset, date),
+        lookback=int(FROZEN_CONFIG["bear_lookback_days"]),
+        rebalance_days=int(FROZEN_CONFIG["bear_rebalance_days"]),
+        short_count=int(FROZEN_CONFIG["bear_short_count"]),
+        per_asset_weight=float(FROZEN_CONFIG["bear_per_asset_weight"]),
+        funding_threshold=float(FROZEN_CONFIG["bear_funding_threshold"]),
+        funding_lookback=int(FROZEN_CONFIG["bear_funding_lookback_settlements"]),
+        anchor=start_date,
+    )
+    return route_short_schedule_with_long_exclusions(
+        raw,
+        long_targets=long_targets,
+        universe=universe,
+        calendar=index,
+    )
+
+
+def build_priority_short_schedules(
+    *,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_raw: Mapping[pd.Timestamp, pd.Series],
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding: pd.DataFrame,
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+) -> tuple[
+    dict[pd.Timestamp, pd.Series],
+    pd.DataFrame,
+    dict[pd.Timestamp, pd.Series],
+    dict[pd.Timestamp, pd.Series],
+    dict[pd.Timestamp, pd.Series],
+]:
+    """Return the priority LS12 sleeve and the residual R6 sleeve."""
+    router, router_audit, bear_schedule, exit_schedule = build_regime_short_schedules(
+        market=market,
+        universe=universe,
+        index=index,
+        long_raw=long_raw,
+        long_targets=long_targets,
+        funding=funding,
+        available=available,
+        mark_candles=mark_candles,
+        start_date=start_date,
+        non_bear_mode="h5_exit",
+    )
+    bottom4 = build_routed_bottom4_schedule(
+        market=market,
+        universe=universe,
+        index=index,
+        long_targets=long_targets,
+        funding=funding,
+        available=available,
+        mark_candles=mark_candles,
+        start_date=start_date,
+    )
+    return router, router_audit, bear_schedule, exit_schedule, bottom4
+
+
+def build_dynamic_short_schedules(
+    *,
+    market: Any,
+    universe: pd.DataFrame,
+    index: pd.DatetimeIndex,
+    long_raw: Mapping[pd.Timestamp, pd.Series],
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    funding: pd.DataFrame,
+    available: set[str],
+    mark_candles: dict[str, pd.DataFrame],
+    start_date: str,
+) -> tuple[
+    dict[pd.Timestamp, pd.Series],
+    pd.DataFrame,
+    dict[pd.Timestamp, pd.Series],
+    dict[pd.Timestamp, pd.Series],
+    dict[pd.Timestamp, pd.Series],
+]:
+    """Blend the frozen LS12 router with the frozen R6 bottom-four short.
+
+    Each component requests 0.25x gross.  The caller separately applies the
+    long book's unused-gross budget, so a full 1.25x long book funds half of
+    the 0.50x request while a profit-lock trim can fund more.
+    """
+    router, router_audit, bear_schedule, exit_schedule = build_regime_short_schedules(
+        market=market,
+        universe=universe,
+        index=index,
+        long_raw=long_raw,
+        long_targets=long_targets,
+        funding=funding,
+        available=available,
+        mark_candles=mark_candles,
+        start_date=start_date,
+        non_bear_mode="h5_exit",
+    )
+    bottom4 = build_routed_bottom4_schedule(
+        market=market,
+        universe=universe,
+        index=index,
+        long_targets=long_targets,
+        funding=funding,
+        available=available,
+        mark_candles=mark_candles,
+        start_date=start_date,
+    )
+    combined = combine_sleeve_targets(
+        {
+            "ls12_router": (router, 1.0),
+            "bottom4": (bottom4, 1.0),
+        },
+        max_gross=LS27_MAX_REQUESTED_SHORT_GROSS,
+    )
+    audit = router_audit.copy()
+    if not audit.empty:
+        audit = audit.rename(columns={"short_gross": "router_short_gross"})
+        audit["active_sleeve"] = "dynamic_short_ensemble"
+        schedule_dates = sorted(bottom4)
+        state = pd.Series(dtype=float)
+        cursor = 0
+        bottom_gross: list[float] = []
+        for raw_date in audit["date"]:
+            date = _as_utc(raw_date)
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                state = bottom4[schedule_dates[cursor]].copy()
+                cursor += 1
+            bottom_gross.append(float(state.sum()))
+        audit["bottom4_short_gross"] = bottom_gross
+    return combined, audit, bear_schedule, exit_schedule, bottom4
+
+
 def non_bear_mode_for_trial(trial_id: str) -> str:
     return NON_BEAR_MODE_BY_TRIAL.get(trial_id, "h5_exit")
 
@@ -530,6 +719,14 @@ def build_long_targets_for_trial(
             prices=prices,
             release_at_threshold=True,
             **LS22_PROFIT_LOCK_CONFIG,
+        )
+    if trial_id in LONG_CONCENTRATION_PROFIT_LOCK_TRIALS:
+        if prices is None:
+            raise ValueError("LS29 requires the point-in-time H5 price panel")
+        return trim_extreme_run_single_leader(
+            long_targets,
+            prices=prices,
+            **LS29_PROFIT_LOCK_CONFIG,
         )
     if trial_id in LONG_PROFIT_LOCK_TRIALS:
         if prices is None:
@@ -576,6 +773,32 @@ def build_short_targets_for_trial(
     start_date: str,
     short_funding: pd.DataFrame | None = None,
 ):
+    if trial_id == LS28_CANDIDATE_ID:
+        priority, audit, bear, exit_schedule, _ = build_priority_short_schedules(
+            market=market,
+            universe=universe,
+            index=index,
+            long_raw=long_raw,
+            long_targets=long_targets,
+            funding=funding,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=start_date,
+        )
+        return priority, audit, bear, exit_schedule
+    if trial_id == LS27_CANDIDATE_ID:
+        combined, audit, bear, exit_schedule, _ = build_dynamic_short_schedules(
+            market=market,
+            universe=universe,
+            index=index,
+            long_raw=long_raw,
+            long_targets=long_targets,
+            funding=funding,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=start_date,
+        )
+        return combined, audit, bear, exit_schedule
     return build_regime_short_schedules(
         market=market,
         universe=universe,
@@ -616,6 +839,9 @@ def main() -> None:
             LS24_CANDIDATE_ID,
             LS25_CANDIDATE_ID,
             LS26_CANDIDATE_ID,
+            LS27_CANDIDATE_ID,
+            LS28_CANDIDATE_ID,
+            LS29_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -699,10 +925,49 @@ def main() -> None:
                 funding_intervals[str(record["coin_id"])] = float(interval)
 
     short_targets: dict[pd.Timestamp, pd.Series] = {}
+    priority_short_targets: dict[pd.Timestamp, pd.Series] = {}
     sleeve_audit = pd.DataFrame(columns=["date", "regime", "active_sleeve", "short_gross"])
     bear_schedule: dict[pd.Timestamp, pd.Series] = {}
     exit_schedule: dict[pd.Timestamp, pd.Series] = {}
-    if args.trial_id in SHORT_CANDIDATES:
+    bottom4_schedule: dict[pd.Timestamp, pd.Series] = {}
+    if args.trial_id == LS27_CANDIDATE_ID:
+        (
+            short_targets,
+            sleeve_audit,
+            bear_schedule,
+            exit_schedule,
+            bottom4_schedule,
+        ) = build_dynamic_short_schedules(
+            market=market,
+            universe=universe,
+            index=index,
+            long_raw=long_raw,
+            long_targets=long_targets,
+            funding=funding,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=args.start_date,
+        )
+    elif args.trial_id == LS28_CANDIDATE_ID:
+        (
+            priority_short_targets,
+            sleeve_audit,
+            bear_schedule,
+            exit_schedule,
+            bottom4_schedule,
+        ) = build_priority_short_schedules(
+            market=market,
+            universe=universe,
+            index=index,
+            long_raw=long_raw,
+            long_targets=long_targets,
+            funding=funding,
+            available=available,
+            mark_candles=mark_candles,
+            start_date=args.start_date,
+        )
+        short_targets = priority_short_targets
+    elif args.trial_id in SHORT_CANDIDATES:
         short_targets, sleeve_audit, bear_schedule, exit_schedule = build_short_targets_for_trial(
             trial_id=args.trial_id,
             market=market,
@@ -717,11 +982,24 @@ def main() -> None:
             short_funding=short_funding,
         )
 
-    combined, target_audit = combine_long_with_cash_budgeted_short(
-        long_targets,
-        short_targets,
-        max_total_gross=float(FROZEN_CONFIG["max_total_gross"]),
+    target_total_gross = (
+        LS27_TARGET_TOTAL_GROSS
+        if args.trial_id == LS27_CANDIDATE_ID
+        else float(FROZEN_CONFIG["max_total_gross"])
     )
+    if args.trial_id == LS28_CANDIDATE_ID:
+        combined, target_audit = combine_long_with_priority_short_sleeves(
+            long_targets,
+            priority_short_targets,
+            bottom4_schedule,
+            max_total_gross=target_total_gross,
+        )
+    else:
+        combined, target_audit = combine_long_with_cash_budgeted_short(
+            long_targets,
+            short_targets,
+            max_total_gross=target_total_gross,
+        )
     cfg = DerivativeBacktestConfig(
         initial_capital=1.0,
         taker_fee_bps=float(args.cost_bps),
@@ -730,7 +1008,12 @@ def main() -> None:
         long_buffer=float(FROZEN_CONFIG["long_buffer"]),
         short_buffer=float(FROZEN_CONFIG["short_buffer"]),
         short_stop_loss_pct=float(FROZEN_CONFIG["short_stop_loss_pct"]),
-        max_gross_exposure=float(FROZEN_CONFIG["max_total_gross"]),
+        max_gross_exposure=target_total_gross,
+        hard_gross_exposure=(
+            float(FROZEN_CONFIG["max_total_gross"])
+            if args.trial_id in {LS27_CANDIDATE_ID, LS28_CANDIDATE_ID}
+            else None
+        ),
         rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         funding_missing_policy=args.funding_missing_policy,
         funding_stress=args.funding_stress,
@@ -777,9 +1060,14 @@ def main() -> None:
         "missing_mark_max_carry_hours": int(args.missing_mark_max_carry_hours),
         "h5_leverage": float(FROZEN_CONFIG["h5_leverage"]),
         "max_total_gross": float(FROZEN_CONFIG["max_total_gross"]),
+        "target_total_gross": target_total_gross,
         "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         "non_bear_sleeve": (
-            non_bear_mode_for_trial(args.trial_id)
+            "dynamic_short_ensemble"
+            if args.trial_id == LS27_CANDIDATE_ID
+            else "priority_short_ls12_plus_residual_r6"
+            if args.trial_id == LS28_CANDIDATE_ID
+            else non_bear_mode_for_trial(args.trial_id)
             if args.trial_id in SHORT_CANDIDATES
             else "none"
         ),
@@ -857,7 +1145,7 @@ def main() -> None:
     result.liquidations.to_csv(output_dir / "liquidations.csv", index=False)
     result.positions.to_csv(output_dir / "positions.csv", index=False)
     result.gross_exposure.to_csv(output_dir / "gross_exposure.csv", header=True)
-    target_audit.to_csv(output_dir / "target_gross.csv", index=False)
+    target_audit.to_csv(output_dir / "target_gross.csv", index_label="date")
     long_tilt_audit.to_csv(output_dir / "funding_tilt_audit.csv", index=False)
     if args.trial_id == LS20_CANDIDATE_ID:
         long_tilt_audit.to_csv(output_dir / "selection_event_audit.csv", index=False)
@@ -867,6 +1155,8 @@ def main() -> None:
     _write_schedule(output_dir / "routed_short_schedule.csv", short_targets)
     _write_schedule(output_dir / "bear_weak4_schedule.csv", bear_schedule)
     _write_schedule(output_dir / "funding_exit_schedule.csv", exit_schedule)
+    if bottom4_schedule:
+        _write_schedule(output_dir / "bottom4_schedule.csv", bottom4_schedule)
     dropped.to_csv(output_dir / "dropped_targets.csv", index=False)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     pd.DataFrame(
@@ -911,6 +1201,12 @@ def main() -> None:
                     if args.trial_id == LS25_CANDIDATE_ID
                     else LS26_SPEC_PATH
                     if args.trial_id == LS26_CANDIDATE_ID
+                    else LS27_SPEC_PATH
+                    if args.trial_id == LS27_CANDIDATE_ID
+                    else LS28_SPEC_PATH
+                    if args.trial_id == LS28_CANDIDATE_ID
+                    else LS29_SPEC_PATH
+                    if args.trial_id == LS29_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -936,6 +1232,12 @@ def main() -> None:
                     if args.trial_id == LS25_CANDIDATE_ID
                     else LS26_CONSTRUCTION
                     if args.trial_id == LS26_CANDIDATE_ID
+                    else LS27_CONSTRUCTION
+                    if args.trial_id == LS27_CANDIDATE_ID
+                    else LS28_CONSTRUCTION
+                    if args.trial_id == LS28_CANDIDATE_ID
+                    else LS29_CONSTRUCTION
+                    if args.trial_id == LS29_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": {

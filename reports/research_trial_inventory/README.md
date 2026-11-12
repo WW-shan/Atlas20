@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `acd35e2` from 2 uncommitted source file(s): `reports/derivatives_track_h5_cross_venue_funding_short/PR2026-11-LS24-H5-PROFIT-LOCK-CROSS-VENUE-SHORT/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `787c522` from 4 uncommitted source file(s): `reports/derivatives_track_h5_concentration_profit_lock/PR2026-11-LS29-H5-CONCENTRATION-PROFIT-LOCK-REGIME-SHORT/trial_results.csv`, `reports/derivatives_track_h5_profit_lock_dynamic_short/PR2026-11-LS27-H5-PROFIT-LOCK-DYNAMIC-SHORT/trial_results.csv`, `reports/derivatives_track_h5_profit_lock_priority_short/PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT/trial_results.csv`, `reports/research_trial_inventory/preregistered_trials.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,194 | 14,160 | 8,991 | 0.7965 | 0.6530 | 0.03418 |
+| all_trials | 14,197 | 14,163 | 8,994 | 0.7968 | 0.6531 | 0.03419 |
 | top20_2022_trials | 6,142 | 6,127 | 3,830 | 0.4321 | 0.3173 | 0.01661 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -50,7 +50,7 @@ multiple-testing script uses it only for the trial count.
 | benchmark_timing | 101 | 98 |
 | bull_offense | 792 | 648 |
 | ctrend_lite | 5241 | 3626 |
-| derivatives | 54 | 0 |
+| derivatives | 57 | 0 |
 | leader_momentum | 5761 | 655 |
 | phase_momentum | 83 | 81 |
 | sector | 647 | 254 |

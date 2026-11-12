@@ -1443,3 +1443,118 @@ def test_rearming_profit_lock_matches_ls22_on_same_target_schedule() -> None:
 
     for date in dates:
         pd.testing.assert_series_equal(ls22[date], ls26[date])
+
+
+def test_short_schedule_route_drops_legs_that_enter_the_long_book() -> None:
+    from atlas20.derivatives.signals import route_short_schedule_with_long_exclusions
+
+    dates = pd.date_range("2026-01-01", periods=5, freq="D", tz="UTC")
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [dates[0]] * 4,
+            "coin_id": ["a", "b", "c", "d"],
+        }
+    )
+    schedule = {
+        dates[0]: pd.Series({"a": 0.0625, "b": 0.0625, "c": 0.0625, "d": 0.0625}),
+        dates[3]: pd.Series({"a": 0.0625, "b": 0.0625, "c": 0.0625, "d": 0.0625}),
+    }
+    long_targets = {
+        dates[1]: pd.Series({"a": 1.0}),
+        dates[2]: pd.Series({"b": 1.0}),
+        dates[4]: pd.Series(dtype=float),
+    }
+
+    routed = route_short_schedule_with_long_exclusions(
+        schedule,
+        long_targets=long_targets,
+        universe=universe,
+        calendar=dates,
+    )
+
+    assert set(routed[dates[0]].index) == {"a", "b", "c", "d"}
+    assert set(routed[dates[1]].index) == {"b", "c", "d"}
+    assert set(routed[dates[2]].index) == {"c", "d"}
+    assert set(routed[dates[3]].index) == {"a", "c", "d"}
+    assert dates[4] not in routed
+
+
+def test_priority_short_combiner_funds_ls12_before_residual_bottom4() -> None:
+    from atlas20.derivatives.signals import combine_long_with_priority_short_sleeves
+
+    d1 = pd.Timestamp("2026-01-01", tz="UTC")
+    d2 = pd.Timestamp("2026-01-02", tz="UTC")
+    long_targets = {
+        d1: pd.Series({"a": 1.25}),
+        d2: pd.Series({"a": 1.10}),
+    }
+    priority = {d1: pd.Series({"b": 0.25})}
+    extra = {d1: pd.Series({"c": 0.25})}
+
+    combined, audit = combine_long_with_priority_short_sleeves(
+        long_targets,
+        priority,
+        extra,
+        max_total_gross=1.50,
+    )
+
+    assert combined[d1]["a"] == pytest.approx(1.25)
+    assert combined[d1]["b"] == pytest.approx(-0.25)
+    assert "c" not in combined[d1].index
+    assert audit.loc[d1, "funded_extra_gross"] == pytest.approx(0.0)
+    assert audit.loc[d1, "total_gross"] == pytest.approx(1.50)
+
+    assert combined[d2]["a"] == pytest.approx(1.10)
+    assert combined[d2]["b"] == pytest.approx(-0.25)
+    assert combined[d2]["c"] == pytest.approx(-0.15)
+    assert audit.loc[d2, "funded_extra_gross"] == pytest.approx(0.15)
+    assert audit.loc[d2, "total_gross"] == pytest.approx(1.50)
+
+
+def test_trim_extreme_single_leader_respects_minimum_leader_weight() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 220.0], "B": [100.0, 120.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.20, "B": 0.80})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        min_leader_weight=0.25,
+    )
+
+    assert adjusted[date]["A"] == pytest.approx(0.20)
+    assert bool(audit.iloc[0]["trimmed"]) is False
+    assert audit.iloc[0]["min_leader_weight"] == pytest.approx(0.25)
+
+
+def test_trim_extreme_single_leader_trims_at_minimum_leader_weight() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    base = date - pd.Timedelta(days=21)
+    prices = pd.DataFrame(
+        {"A": [100.0, 220.0], "B": [100.0, 120.0], "C": [100.0, 110.0]},
+        index=pd.DatetimeIndex([base, date]),
+    )
+    targets = {date: pd.Series({"A": 0.25, "B": 0.20, "C": 0.10})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        min_leader_weight=0.25,
+    )
+
+    assert adjusted[date]["A"] == pytest.approx(0.125)
+    assert bool(audit.iloc[0]["trimmed"]) is True

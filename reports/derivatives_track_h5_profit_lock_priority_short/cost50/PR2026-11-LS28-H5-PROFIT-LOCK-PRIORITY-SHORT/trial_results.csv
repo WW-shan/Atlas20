@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT,main,lag0,50.0,1.6456705238659035,31.51906200830369,-0.46222399409049375,reports/derivatives_track_h5_profit_lock_priority_short/cost50/PR2026-11-LS28-H5-PROFIT-LOCK-PRIORITY-SHORT/summary.json

@@ -795,9 +795,12 @@ def test_hard_gross_guard_reduces_on_the_next_bar_after_a_mark_drift() -> None:
     assert result.gross_exposure.loc[pd.Timestamp("2026-01-01T03:00:00Z")] <= 0.91
 
 
-def test_hard_gross_guard_must_exceed_target_gross() -> None:
+def test_hard_gross_guard_must_not_be_below_target_gross() -> None:
     with pytest.raises(ValueError, match="hard_gross_exposure"):
         DerivativeBacktestConfig(max_gross_exposure=0.95, hard_gross_exposure=0.90)
+
+    config = DerivativeBacktestConfig(max_gross_exposure=0.95, hard_gross_exposure=0.95)
+    assert config.hard_gross_exposure == config.max_gross_exposure
 
 
 def test_no_trade_band_skips_small_same_side_rebalance() -> None:

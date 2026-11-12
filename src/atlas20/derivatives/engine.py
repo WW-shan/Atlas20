@@ -76,10 +76,10 @@ class DerivativeBacktestConfig:
         if self.hard_gross_exposure is not None:
             if (
                 not np.isfinite(self.hard_gross_exposure)
-                or self.hard_gross_exposure <= self.max_gross_exposure
+                or self.hard_gross_exposure < self.max_gross_exposure
             ):
                 raise ValueError(
-                    "hard_gross_exposure must be finite and greater than max_gross_exposure"
+                    "hard_gross_exposure must be finite and at least max_gross_exposure"
                 )
         if not 0.0 < self.max_margin_utilization <= 1.0:
             raise ValueError("max_margin_utilization must be in (0, 1]")

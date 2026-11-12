@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS27-H5-PROFIT-LOCK-DYNAMIC-SHORT,main,lag0,2.0,2.1475976255638467,109.92189663712261,-0.3829685831688896,reports/derivatives_track_h5_profit_lock_dynamic_short/cost2/PR2026-11-LS27-H5-PROFIT-LOCK-DYNAMIC-SHORT/summary.json

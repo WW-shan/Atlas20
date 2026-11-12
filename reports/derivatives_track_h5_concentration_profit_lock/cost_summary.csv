@@ -1,0 +1,2 @@
+cost_bps,baseline_multiple,candidate_multiple,multiple_ratio,baseline_sharpe,candidate_sharpe,sharpe_delta,baseline_mdd,candidate_mdd,mdd_delta_pp,candidate_liquidations,candidate_max_observed_gross,candidate_gross_breach_hours,candidate_short_opens,candidate_short_stops,candidate_profit_lock_trims,candidate_funding_total
+20,61.91498344979396,60.43923347123893,0.9761648974718422,1.9448357012572255,1.9324896545947863,-0.012346046662439214,-0.3983502122253627,-0.3983502122253627,0.0,0,1.3307778558429908,0,335,29,41,-0.7513862085788543

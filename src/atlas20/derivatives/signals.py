@@ -110,6 +110,7 @@ def trim_extreme_run_single_leader(
     lookback_days: int,
     threshold: float,
     scale: float,
+    min_leader_weight: float = 0.0,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
     """Halve the largest long leg after an extreme trailing run.
 
@@ -123,6 +124,8 @@ def trim_extreme_run_single_leader(
         raise ValueError("threshold must be positive and finite")
     if not np.isfinite(scale) or not 0.0 < scale < 1.0:
         raise ValueError("scale must be finite and in (0, 1)")
+    if not np.isfinite(min_leader_weight) or not 0.0 <= min_leader_weight < 1.0:
+        raise ValueError("min_leader_weight must be finite and in [0, 1)")
 
     price_frame = prices.copy()
     price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
@@ -165,7 +168,10 @@ def trim_extreme_run_single_leader(
                     and current_price > 0.0
                 ):
                     trailing_return = current_price / base_price - 1.0
-                    if trailing_return >= threshold:
+                    if (
+                        trailing_return >= threshold
+                        and leader_weight_before >= float(min_leader_weight) - 1e-12
+                    ):
                         output.loc[leader] = leader_weight_before * float(scale)
                         trimmed = True
 
@@ -180,6 +186,7 @@ def trim_extreme_run_single_leader(
                 "lookback_days": int(lookback_days),
                 "threshold": float(threshold),
                 "scale": float(scale),
+                "min_leader_weight": float(min_leader_weight),
                 "trimmed": trimmed,
                 "gross_before": float(target.sum()),
                 "gross_after": float(output.sum()),
@@ -1174,6 +1181,88 @@ def build_cross_sectional_weak_short_schedule(
     return schedule
 
 
+def route_short_schedule_with_long_exclusions(
+    schedule: Mapping[pd.Timestamp, pd.Series],
+    *,
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    universe: pd.DataFrame,
+    calendar: Iterable[pd.Timestamp],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Forward-fill a short schedule and drop overlaps at every calendar date.
+
+    A weekly short selection can become invalid before the next rebalance when
+    the asset enters the long book or leaves the point-in-time Top20.  The
+    frozen R6 signal exits those legs immediately; this helper applies the
+    same invariant to an already-built short schedule.
+    """
+    normalized: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in schedule.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("short schedule targets must be finite")
+        if (target < 0.0).any():
+            raise ValueError("short schedule targets must be non-negative")
+        normalized[date] = target.astype(float).sort_index()
+
+    long_normalized: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in long_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long targets must be finite")
+        long_normalized[date] = target.astype(float).sort_index()
+
+    dates = sorted({_as_utc(value) for value in calendar})
+    if not dates:
+        return {}
+    short_dates = sorted(normalized)
+    long_dates = sorted(long_normalized)
+    short_state = pd.Series(dtype=float)
+    long_state = pd.Series(dtype=float)
+    short_cursor = 0
+    long_cursor = 0
+    previous: pd.Series | None = None
+    routed: dict[pd.Timestamp, pd.Series] = {}
+    has_universe = not universe.empty
+
+    for date in dates:
+        while short_cursor < len(short_dates) and short_dates[short_cursor] <= date:
+            short_state = normalized[short_dates[short_cursor]].copy()
+            short_cursor += 1
+        while long_cursor < len(long_dates) and long_dates[long_cursor] <= date:
+            long_state = long_normalized[long_dates[long_cursor]].copy()
+            long_cursor += 1
+
+        holdings = {
+            str(asset)
+            for asset, weight in long_state.items()
+            if float(weight) > 1e-15
+        }
+        members = _members_at(universe, date) if has_universe else None
+        keep = short_state.index.difference(pd.Index(sorted(holdings)))
+        if members is not None:
+            eligible_folded = {str(value).casefold() for value in members}
+            keep = pd.Index(
+                [
+                    str(asset)
+                    for asset in keep
+                    if str(asset).casefold() in eligible_folded
+                ],
+                dtype=object,
+            )
+        filtered = short_state.reindex(keep).fillna(0.0).astype(float).sort_index()
+        # Mutate the active sleeve so an early exclusion cannot silently
+        # reappear until the next scheduled rebalance.  This mirrors R6.
+        short_state = filtered.copy()
+        if previous is None or not _target_equal(previous, filtered):
+            routed[date] = filtered
+            previous = filtered.copy()
+    return routed
+
+
 def combine_fixed_risk_short_schedules(
     schedules: Mapping[str, Mapping[pd.Timestamp, pd.Series]],
     *,
@@ -1236,6 +1325,121 @@ def combine_fixed_risk_short_schedules(
             combined_targets[date] = combined
             previous = combined.copy()
     return combined_targets
+
+
+def combine_long_with_priority_short_sleeves(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    priority_short_targets: Mapping[pd.Timestamp, pd.Series],
+    extra_short_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    max_total_gross: float,
+    per_asset_short_cap: float = 0.25,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Fund a priority short first and give only residual gross to extras.
+
+    The long book is never scaled down.  The priority short is scaled only
+    when the total gross budget cannot fund it.  The extra short receives
+    ``max_total_gross - long_gross - funded_priority`` and no more.  Same-asset
+    short weights are capped before the signed book is formed.
+    """
+    if not np.isfinite(max_total_gross) or max_total_gross <= 0.0:
+        raise ValueError("max_total_gross must be positive and finite")
+    if not np.isfinite(per_asset_short_cap) or per_asset_short_cap <= 0.0:
+        raise ValueError("per_asset_short_cap must be positive and finite")
+
+    schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {
+        "long": {},
+        "priority": {},
+        "extra": {},
+    }
+    for name, raw_schedule in (
+        ("long", long_targets),
+        ("priority", priority_short_targets),
+        ("extra", extra_short_targets),
+    ):
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            if (target < 0.0).any():
+                raise ValueError(f"{name}: target weights must be non-negative")
+            schedules[name][date] = target.astype(float).sort_index()
+
+    dates = sorted(set().union(*(set(schedule) for schedule in schedules.values())))
+    states = {name: pd.Series(dtype=float) for name in schedules}
+    cursors = {name: 0 for name in schedules}
+    targets: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+
+    for date in dates:
+        union_index = pd.Index([], dtype=object)
+        for name, schedule in schedules.items():
+            schedule_dates = list(schedule)
+            cursor = cursors[name]
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                states[name] = schedule[schedule_dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+            union_index = union_index.union(states[name].index)
+
+        long = states["long"].reindex(union_index).fillna(0.0)
+        priority = states["priority"].reindex(union_index).fillna(0.0)
+        extra = states["extra"].reindex(union_index).fillna(0.0)
+        long_gross = float(long.sum())
+        priority_requested = float(priority.sum())
+        extra_requested = float(extra.sum())
+        long_scale = (
+            min(1.0, max_total_gross / long_gross)
+            if long_gross > max_total_gross + 1e-12
+            else 1.0
+        )
+        long = long * long_scale
+        scaled_long_gross = long_gross * long_scale
+        available = max(0.0, max_total_gross - scaled_long_gross)
+        priority_scale = (
+            min(1.0, available / priority_requested)
+            if priority_requested > 0.0
+            else 0.0
+        )
+        funded_priority = priority * priority_scale
+        residual = max(
+            0.0,
+            available - float(funded_priority.sum()),
+        )
+        extra_scale = (
+            min(1.0, residual / extra_requested)
+            if extra_requested > 0.0
+            else 0.0
+        )
+        funded_extra = extra * extra_scale
+        short = funded_priority.add(funded_extra, fill_value=0.0)
+        if not short.empty and float(short.max()) > per_asset_short_cap + 1e-12:
+            short = short * (per_asset_short_cap / float(short.max()))
+        combined = long - short
+        combined = combined[combined.abs() > 1e-15]
+        targets[date] = combined
+        audit_rows.append(
+            {
+                "date": date,
+                "long_gross": long_gross,
+                "long_scale": long_scale,
+                "scaled_long_gross": scaled_long_gross,
+                "requested_short_gross": priority_requested + extra_requested,
+                "priority_requested": priority_requested,
+                "priority_scale": priority_scale,
+                "funded_priority_gross": float(funded_priority.sum()),
+                "extra_requested": extra_requested,
+                "extra_scale": extra_scale,
+                "funded_extra_gross": float(funded_extra.sum()),
+                "funded_short_gross": float(short.sum()),
+                "total_gross": scaled_long_gross + float(short.sum()),
+                "net_gross": float(combined.abs().sum()),
+            }
+        )
+    audit = pd.DataFrame(audit_rows).set_index("date")
+    return targets, audit
 
 
 def combine_long_with_cash_budgeted_short(
@@ -1573,9 +1777,11 @@ def build_derivative_targets(
 __all__ = [
     "build_cash_sleeve_targets",
     "build_cross_sectional_weak_short_schedule",
+    "route_short_schedule_with_long_exclusions",
     "build_exit_short_schedule",
     "combine_fixed_risk_short_schedules",
     "combine_long_with_cash_budgeted_short",
+    "combine_long_with_priority_short_sleeves",
     "EXIT_SHORT_HOLDING_DAYS",
     "build_monthly_sector_short_targets",
     "CASH_SLEEVE_H4_WEIGHT",
