@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS33-H5-LS23-RESIDUAL-CARRY-LONG60,main,lag0,2.0,2.23261897417299,124.0467974813493,-0.36066695206994703,reports/derivatives_track_h5_ls23_residual_carry/cost2/PR2026-11-LS33-H5-LS23-RESIDUAL-CARRY-LONG60/summary.json

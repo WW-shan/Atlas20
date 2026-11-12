@@ -678,6 +678,32 @@ def test_ls32_registers_a_two_times_hold_band_funding_carry() -> None:
     }
 
 
+def test_ls33_registers_residual_carry_with_buffer_control() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS33_CANDIDATE_ID == "PR2026-11-LS33-H5-LS23-RESIDUAL-CARRY-LONG60"
+    assert runner.LS33_CONTROL_ID == "PR2026-11-LS33C-H5-LS23-LONG60-CONTROL"
+    assert runner.LS33_CANDIDATE_ID in runner.RESIDUAL_CARRY_TRIALS
+    assert runner.LS33_CONTROL_ID not in runner.RESIDUAL_CARRY_TRIALS
+    for trial_id in (runner.LS33_CANDIDATE_ID, runner.LS33_CONTROL_ID):
+        assert trial_id in runner.LONG_PROFIT_LOCK_TRIALS
+        assert trial_id in runner.SHORT_CANDIDATES
+
+
+def test_ls33_frozen_config_separates_carry_from_buffer_control() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    primary = runner._trial_frozen_config(runner.LS33_CANDIDATE_ID)
+    assert primary["long_buffer"] == 0.60
+    assert primary["non_bear_sleeve"] == "ls12_router_plus_residual_funding_carry"
+    assert primary["funding_carry"] == runner.FUNDING_CARRY_CONFIG
+
+    control = runner._trial_frozen_config(runner.LS33_CONTROL_ID)
+    assert control["long_buffer"] == 0.60
+    assert control["non_bear_sleeve"] == "h5_exit"
+    assert "funding_carry" not in control
+
+
 def test_carry_trial_frozen_config_records_its_actual_rules() -> None:
     import scripts.run_h5_regime_short_router as runner
 

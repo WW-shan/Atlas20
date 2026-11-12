@@ -1625,6 +1625,95 @@ def combine_long_with_signed_sleeve(
     return targets, audit
 
 
+def combine_signed_book_with_residual_sleeve(
+    base_targets: Mapping[pd.Timestamp, pd.Series],
+    sleeve_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    max_total_gross: float,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Add a signed sleeve only when the base book leaves gross headroom.
+
+    The base book has priority and is never scaled down.  A sleeve asset that
+    overlaps any base-book asset on the same date is removed before sizing, so
+    the sleeve cannot create an economic long and short in the same name.
+    """
+    if not np.isfinite(max_total_gross) or max_total_gross <= 0.0:
+        raise ValueError("max_total_gross must be positive and finite")
+
+    schedules: dict[str, dict[pd.Timestamp, pd.Series]] = {
+        "base": {},
+        "sleeve": {},
+    }
+    for name, raw_schedule in (("base", base_targets), ("sleeve", sleeve_targets)):
+        for raw_date, raw_target in raw_schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError(f"{name}: target weights must be finite")
+            schedules[name][date] = target.astype(float).sort_index()
+
+    dates = sorted(set(schedules["base"]) | set(schedules["sleeve"]))
+    states = {name: pd.Series(dtype=float) for name in schedules}
+    cursors = {name: 0 for name in schedules}
+    targets: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for date in dates:
+        union_index = pd.Index([], dtype=object)
+        for name, schedule in schedules.items():
+            schedule_dates = list(schedule)
+            cursor = cursors[name]
+            while cursor < len(schedule_dates) and schedule_dates[cursor] <= date:
+                states[name] = schedule[schedule_dates[cursor]].copy()
+                cursor += 1
+            cursors[name] = cursor
+            union_index = union_index.union(states[name].index)
+
+        base = states["base"].reindex(union_index).fillna(0.0)
+        sleeve = states["sleeve"].reindex(union_index).fillna(0.0)
+        base_assets = set(base.index[base.abs() > 1e-15])
+        if base_assets:
+            sleeve = sleeve.loc[~sleeve.index.isin(base_assets)]
+        sleeve = sleeve[sleeve.abs() > 1e-15]
+
+        base_gross = float(base.abs().sum())
+        if base_gross > max_total_gross + 1e-12:
+            raise ValueError("base target gross exceeds max_total_gross")
+        requested_sleeve_gross = float(sleeve.abs().sum())
+        available = max(0.0, max_total_gross - base_gross)
+        sleeve_scale = (
+            min(1.0, available / requested_sleeve_gross)
+            if requested_sleeve_gross > 0.0
+            else 0.0
+        )
+        funded_sleeve = sleeve * sleeve_scale
+        combined = base.add(funded_sleeve, fill_value=0.0)
+        combined = combined[combined.abs() > 1e-15]
+        funded_sleeve_gross = requested_sleeve_gross * sleeve_scale
+        base_short_gross = float((-base.clip(upper=0.0)).sum())
+        requested_sleeve_short_gross = float((-sleeve.clip(upper=0.0)).sum())
+        funded_sleeve_short_gross = float((-funded_sleeve.clip(upper=0.0)).sum())
+        targets[date] = combined
+        audit_rows.append(
+            {
+                "date": date,
+                "base_gross": base_gross,
+                "base_short_gross": base_short_gross,
+                "requested_sleeve_gross": requested_sleeve_gross,
+                "requested_sleeve_short_gross": requested_sleeve_short_gross,
+                "sleeve_scale": sleeve_scale,
+                "funded_sleeve_gross": funded_sleeve_gross,
+                "funded_sleeve_short_gross": funded_sleeve_short_gross,
+                "requested_short_gross": base_short_gross + requested_sleeve_short_gross,
+                "funded_short_gross": base_short_gross + funded_sleeve_short_gross,
+                "total_gross": base_gross + funded_sleeve_gross,
+                "net_gross": float(combined.abs().sum()),
+            }
+        )
+    audit = pd.DataFrame(audit_rows).set_index("date")
+    return targets, audit
+
+
 def combine_long_with_priority_short_sleeves(
     long_targets: Mapping[pd.Timestamp, pd.Series],
     priority_short_targets: Mapping[pd.Timestamp, pd.Series],
@@ -2083,6 +2172,7 @@ __all__ = [
     "combine_long_with_cash_budgeted_short",
     "combine_long_with_priority_short_sleeves",
     "combine_long_with_signed_sleeve",
+    "combine_signed_book_with_residual_sleeve",
     "EXIT_SHORT_HOLDING_DAYS",
     "build_monthly_sector_short_targets",
     "CASH_SLEEVE_H4_WEIGHT",

@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS33C-H5-LS23-LONG60-CONTROL,main,lag0,20.0,1.9448357012572264,61.91498344979406,-0.39835021222536315,reports/derivatives_track_h5_ls23_residual_carry/control/PR2026-11-LS33C-H5-LS23-LONG60-CONTROL/summary.json

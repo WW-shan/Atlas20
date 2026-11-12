@@ -1773,6 +1773,45 @@ def test_funding_carry_hold_count_must_cover_entry_count() -> None:
         )
 
 
+def test_combine_signed_book_with_residual_sleeve_excludes_overlap_and_caps_gross() -> None:
+    from atlas20.derivatives.signals import combine_signed_book_with_residual_sleeve
+
+    d1 = pd.Timestamp("2026-01-01T00:00:00Z")
+    d2 = pd.Timestamp("2026-01-02T00:00:00Z")
+    base = {
+        d1: pd.Series({"a": 1.35, "b": -0.10}),
+        d2: pd.Series({"b": -0.25}),
+    }
+    sleeve = {
+        d1: pd.Series({"a": 0.0625, "c": 0.0625, "d": -0.0625, "e": 0.0625}),
+        d2: pd.Series({"a": 0.0625, "c": 0.0625, "d": -0.0625, "e": 0.0625}),
+    }
+
+    combined, audit = combine_signed_book_with_residual_sleeve(
+        base,
+        sleeve,
+        max_total_gross=1.50,
+    )
+
+    assert combined[d1]["a"] == pytest.approx(1.35)
+    assert combined[d1]["b"] == pytest.approx(-0.10)
+    assert combined[d1]["c"] == pytest.approx(0.05 / 3.0)
+    assert combined[d1]["d"] == pytest.approx(-0.05 / 3.0)
+    assert combined[d1]["e"] == pytest.approx(0.05 / 3.0)
+    assert audit.loc[d1, "base_gross"] == pytest.approx(1.45)
+    assert audit.loc[d1, "requested_sleeve_gross"] == pytest.approx(0.1875)
+    assert audit.loc[d1, "sleeve_scale"] == pytest.approx(0.05 / 0.1875)
+    assert audit.loc[d1, "total_gross"] == pytest.approx(1.50)
+
+    assert combined[d2]["a"] == pytest.approx(0.0625)
+    assert combined[d2]["b"] == pytest.approx(-0.25)
+    assert combined[d2]["c"] == pytest.approx(0.0625)
+    assert combined[d2]["d"] == pytest.approx(-0.0625)
+    assert combined[d2]["e"] == pytest.approx(0.0625)
+    assert audit.loc[d2, "sleeve_scale"] == pytest.approx(1.0)
+    assert audit.loc[d2, "total_gross"] == pytest.approx(0.50)
+
+
 def test_signed_sleeve_route_drops_a_leg_that_enters_the_long_book() -> None:
     from atlas20.derivatives.signals import route_signed_sleeve_with_long_exclusions
 
