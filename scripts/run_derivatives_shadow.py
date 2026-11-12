@@ -57,10 +57,40 @@ from scripts.run_h5_regime_short_router import (  # noqa: E402
     LS42_SPEC_PATH,
     LS43_CANDIDATE_ID,
     LS43_SPEC_PATH,
+    LS45_CANDIDATE_ID,
+    LS45_SPEC_PATH,
+    LS46_CANDIDATE_ID,
+    LS46_SPEC_PATH,
+    LS47_CANDIDATE_ID,
+    LS47_SPEC_PATH,
+    LS48_CANDIDATE_ID,
+    LS48_SPEC_PATH,
+    LS49_CANDIDATE_ID,
+    LS49_SPEC_PATH,
+    LS50_CANDIDATE_ID,
+    LS50_SPEC_PATH,
+    LS51_CANDIDATE_ID,
+    LS51_SPEC_PATH,
+    LS52_CANDIDATE_ID,
+    LS52_SPEC_PATH,
+    LS53_CANDIDATE_ID,
+    LS53_SPEC_PATH,
+    LS54_CANDIDATE_ID,
+    LS54_SPEC_PATH,
+    LS55_CANDIDATE_ID,
+    LS55_SPEC_PATH,
+    LS56_CANDIDATE_ID,
+    LS56_SPEC_PATH,
+    LS57_CANDIDATE_ID,
+    LS57_SPEC_PATH,
     PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL,
+    REVERSAL_SHORT_CONFIG_BY_TRIAL,
     SHORT_CANDIDATES,
+    STOP_STATE_REVERSAL_SHORT_TRIALS,
+    build_reversal_short_block_windows,
     build_long_targets_for_trial,
     build_short_targets_for_trial,
+    suppress_long_targets_while_reversal_short,
 )
 from scripts.run_phase_momentum import _load_market  # noqa: E402
 from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
@@ -78,6 +108,19 @@ TRIAL_CHOICES = (
     LS23_CANDIDATE_ID,
     LS42_CANDIDATE_ID,
     LS43_CANDIDATE_ID,
+    LS45_CANDIDATE_ID,
+    LS46_CANDIDATE_ID,
+    LS47_CANDIDATE_ID,
+    LS48_CANDIDATE_ID,
+    LS49_CANDIDATE_ID,
+    LS50_CANDIDATE_ID,
+    LS51_CANDIDATE_ID,
+    LS52_CANDIDATE_ID,
+    LS53_CANDIDATE_ID,
+    LS54_CANDIDATE_ID,
+    LS55_CANDIDATE_ID,
+    LS56_CANDIDATE_ID,
+    LS57_CANDIDATE_ID,
 )
 _TARGET_COLUMNS = [
     "signal_date",
@@ -266,7 +309,15 @@ def _cap_short_schedule_at_funding_end(
     """
 
     if funding_last is None:
-        return {}
+        kept: dict[pd.Timestamp, pd.Series] = {}
+        for raw_date, raw_target in schedule.items():
+            date = _as_utc(raw_date)
+            target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+            target.index = target.index.astype(str)
+            if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+                raise ValueError("short targets must be finite")
+            kept[date] = target.astype(float)
+        return dict(sorted(kept.items()))
     cutoff = funding_last.normalize()
     dates = pd.DatetimeIndex([_as_utc(value) for value in calendar]).sort_values()
     kept: dict[pd.Timestamp, pd.Series] = {}
@@ -323,6 +374,32 @@ def _shadow_spec(trial_id: str) -> str:
         return LS42_SPEC_PATH
     if trial_id == LS43_CANDIDATE_ID:
         return LS43_SPEC_PATH
+    if trial_id == LS45_CANDIDATE_ID:
+        return LS45_SPEC_PATH
+    if trial_id == LS46_CANDIDATE_ID:
+        return LS46_SPEC_PATH
+    if trial_id == LS47_CANDIDATE_ID:
+        return LS47_SPEC_PATH
+    if trial_id == LS48_CANDIDATE_ID:
+        return LS48_SPEC_PATH
+    if trial_id == LS49_CANDIDATE_ID:
+        return LS49_SPEC_PATH
+    if trial_id == LS50_CANDIDATE_ID:
+        return LS50_SPEC_PATH
+    if trial_id == LS51_CANDIDATE_ID:
+        return LS51_SPEC_PATH
+    if trial_id == LS52_CANDIDATE_ID:
+        return LS52_SPEC_PATH
+    if trial_id == LS53_CANDIDATE_ID:
+        return LS53_SPEC_PATH
+    if trial_id == LS54_CANDIDATE_ID:
+        return LS54_SPEC_PATH
+    if trial_id == LS55_CANDIDATE_ID:
+        return LS55_SPEC_PATH
+    if trial_id == LS56_CANDIDATE_ID:
+        return LS56_SPEC_PATH
+    if trial_id == LS57_CANDIDATE_ID:
+        return LS57_SPEC_PATH
     if trial_id == BASELINE_ID:
         return "frozen H5 1.25x long-only baseline"
     raise ValueError(f"unsupported shadow trial: {trial_id}")
@@ -481,12 +558,42 @@ def main() -> None:
             mark_candles=marks,
             start_date=str(warmup_start.date()),
             short_funding=funding,
+            profit_lock_audit=profit_lock_audit,
         )
         short_targets = _cap_short_schedule_at_funding_end(
             short_targets,
             calendar=index,
             funding_last=funding_last,
         )
+        if args.trial_id in {
+            LS47_CANDIDATE_ID,
+            LS48_CANDIDATE_ID,
+            LS49_CANDIDATE_ID,
+            LS50_CANDIDATE_ID,
+        }:
+            base_short_targets, _, _, _ = build_short_targets_for_trial(
+                trial_id=LS23_CANDIDATE_ID,
+                market=market,
+                universe=universe,
+                index=index,
+                long_raw=long_raw,
+                long_targets=long_targets,
+                funding=funding,
+                available=available,
+                mark_candles=marks,
+                start_date=str(warmup_start.date()),
+                short_funding=funding,
+            )
+            base_short_targets = _cap_short_schedule_at_funding_end(
+                base_short_targets,
+                calendar=index,
+                funding_last=funding_last,
+            )
+            long_targets = suppress_long_targets_while_reversal_short(
+                long_targets,
+                short_targets,
+                base_short_targets,
+            )
 
     combined, target_audit = combine_long_with_cash_budgeted_short(
         long_targets,
@@ -514,6 +621,30 @@ def main() -> None:
             long_buffer=float(FROZEN_CONFIG["long_buffer"]),
             short_buffer=float(FROZEN_CONFIG["short_buffer"]),
             short_stop_loss_pct=float(FROZEN_CONFIG["short_stop_loss_pct"]),
+            short_stop_reentry_block_windows=(
+                build_reversal_short_block_windows(
+                    profit_lock_audit,
+                    hold_days=int(
+                        REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id]["hold_days"]
+                    ),
+                )
+                if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+                else ()
+            ),
+            short_stop_reentry_rearm_ma_days=(
+                int(REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id]["rearm_ma_days"])
+                if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+                and REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id].get("rearm_ma_days")
+                is not None
+                else None
+            ),
+            short_stop_reentry_rearm_below_stop=bool(
+                REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id].get(
+                    "rearm_below_stop", False
+                )
+                if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+                else False
+            ),
             max_gross_exposure=float(FROZEN_CONFIG["max_total_gross"]),
             rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
             funding_missing_policy=args.funding_missing_policy,
@@ -706,6 +837,15 @@ def main() -> None:
                         if args.trial_id in PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL
                         else {}
                     ),
+                    **(
+                        {
+                            "profit_lock_reversal_short": REVERSAL_SHORT_CONFIG_BY_TRIAL[
+                                args.trial_id
+                            ]
+                        }
+                        if args.trial_id in REVERSAL_SHORT_CONFIG_BY_TRIAL
+                        else {}
+                    ),
                 },
                 "start": str(start),
                 "warmup_start": str(warmup_start),
@@ -766,6 +906,32 @@ def main() -> None:
             if args.trial_id == LS42_CANDIDATE_ID
             else "- frozen long/short book: H5 1.25x + LS43 stronger-7D profit-lock redistribution/regime short"
             if args.trial_id == LS43_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS45 stronger-21D profit-lock redistribution/regime short"
+            if args.trial_id == LS45_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS46 profit-lock reversal short/regime router"
+            if args.trial_id == LS46_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS47 no-reentry reversal short/regime router"
+            if args.trial_id == LS47_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS48 one-shot reversal short/regime router"
+            if args.trial_id == LS48_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS49 MA21-rearmed reversal short/regime router"
+            if args.trial_id == LS49_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS50 below-stop-rearmed reversal short/regime router"
+            if args.trial_id == LS50_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS51 profit-lock skip on 7D-negative leader"
+            if args.trial_id == LS51_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS52 bull-only 7D-negative profit-lock skip"
+            if args.trial_id == LS52_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS53 MA21-confirmed 7D-negative profit-lock skip"
+            if args.trial_id == LS53_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS54 MA21-confirmed skip with stronger-21D redistribution"
+            if args.trial_id == LS54_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS55 75% MA21-confirmed skip with stronger-21D redistribution"
+            if args.trial_id == LS55_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS56 62.5% MA21-confirmed skip with stronger-21D redistribution"
+            if args.trial_id == LS56_CANDIDATE_ID
+            else "- frozen long/short book: H5 1.25x + LS57 MA21 skip gated by non-negative 1D confirmation"
+            if args.trial_id == LS57_CANDIDATE_ID
             else "- frozen long/short book: H5 1.25x baseline"
         ),
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",

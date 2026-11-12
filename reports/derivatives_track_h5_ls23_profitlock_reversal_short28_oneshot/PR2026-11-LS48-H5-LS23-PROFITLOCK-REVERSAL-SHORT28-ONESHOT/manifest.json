@@ -1,0 +1,50 @@
+{
+  "baseline": false,
+  "candidate_id": "PR2026-11-LS48-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-ONESHOT",
+  "construction": "LS47 plus a stop-state rule: if a reversal short is stopped out, that asset cannot be reopened by another routine rebalance within the same 28-day reversal window; a new reversal window can re-arm it, while all other LS47 rules and the 20% short stop remain unchanged",
+  "cost_bps": 20.0,
+  "end_date": "2026-09-21",
+  "frozen_config": {
+    "bear_funding_lookback_settlements": 3,
+    "bear_funding_threshold": -0.0002,
+    "bear_lookback_days": 14,
+    "bear_per_asset_weight": 0.0625,
+    "bear_rebalance_days": 7,
+    "bear_short_count": 4,
+    "btc_ma_window": 200,
+    "exit_funding_lookback_days": 7,
+    "exit_funding_min_assets": 5,
+    "exit_funding_rank_min": 0.6666666666666666,
+    "exit_holding_days": 21,
+    "exit_per_asset_weight": 0.025,
+    "h5_leverage": 1.25,
+    "long_buffer": 0.5,
+    "lookback_days": 21,
+    "max_total_gross": 1.5,
+    "non_bear_sleeve": "h5_exit",
+    "profit_lock_breakdown_exit": {
+      "confirmation_days": 7,
+      "lookback_days": 21,
+      "scale": 0.5,
+      "threshold": 1.0
+    },
+    "profit_lock_reversal_short": {
+      "block_reentry_after_stop": true,
+      "hold_days": 28,
+      "short_weight": 0.2,
+      "suppress_long_reentry": true
+    },
+    "rebalance_no_trade_band": 0.0,
+    "scale": 0.5,
+    "short_buffer": 0.5,
+    "short_stop_loss_pct": 0.2,
+    "threshold": 1.0
+  },
+  "funding_multiplier": 1.0,
+  "funding_source": "binance-proxy",
+  "funding_stress": "none",
+  "mark_source": "bitget_mark",
+  "spec": "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-oneshot-design.md",
+  "start_date": "2022-01-01",
+  "warmup_start_date": "2022-01-01"
+}

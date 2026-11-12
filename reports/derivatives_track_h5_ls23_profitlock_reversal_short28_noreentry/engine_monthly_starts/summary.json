@@ -1,0 +1,11 @@
+{
+  "all_risk_checks": true,
+  "engine_monthly_start_gate_passed": true,
+  "mdd_gate_all": true,
+  "mdd_pass_5pp": 12,
+  "multiple_gate_10_of_12": true,
+  "multiple_wins": 11,
+  "sharpe_gate_10_of_12": true,
+  "sharpe_wins": 12,
+  "start_count": 12
+}

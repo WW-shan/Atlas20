@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS49-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-MA21,main,lag0,20.0,1.9837622081262465,66.33270749195557,-0.3491591194721603,reports/derivatives_track_h5_ls23_profitlock_reversal_short28_ma21/PR2026-11-LS49-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-MA21/summary.json

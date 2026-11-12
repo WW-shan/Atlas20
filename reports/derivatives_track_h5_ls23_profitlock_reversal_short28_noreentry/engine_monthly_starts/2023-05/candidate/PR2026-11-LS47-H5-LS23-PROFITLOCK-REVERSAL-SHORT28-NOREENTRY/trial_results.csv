@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS47-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-NOREENTRY,main,lag0,20.0,2.4639489731413144,59.697662873462775,-0.3108005789122812,reports/derivatives_track_h5_ls23_profitlock_reversal_short28_noreentry/engine_monthly_starts/2023-05/candidate/PR2026-11-LS47-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-NOREENTRY/summary.json

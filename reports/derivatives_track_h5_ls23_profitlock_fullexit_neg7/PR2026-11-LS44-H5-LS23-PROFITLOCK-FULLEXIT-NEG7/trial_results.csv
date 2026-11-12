@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS44-H5-LS23-PROFITLOCK-FULLEXIT-NEG7,main,lag0,20.0,1.9361268678746106,60.5213002570264,-0.39056382434320014,reports/derivatives_track_h5_ls23_profitlock_fullexit_neg7/PR2026-11-LS44-H5-LS23-PROFITLOCK-FULLEXIT-NEG7/summary.json

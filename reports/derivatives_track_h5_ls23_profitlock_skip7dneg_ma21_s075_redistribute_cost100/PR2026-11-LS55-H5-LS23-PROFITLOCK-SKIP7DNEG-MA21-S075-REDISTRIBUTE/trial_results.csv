@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE,main,lag0,100.0,1.405241705225824,16.843054910117207,-0.49879236165334107,reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_s075_redistribute_cost100/PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE/summary.json

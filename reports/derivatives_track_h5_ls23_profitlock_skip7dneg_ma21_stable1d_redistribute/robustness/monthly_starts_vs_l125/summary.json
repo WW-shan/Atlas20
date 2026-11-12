@@ -1,0 +1,87 @@
+{
+  "baseline": "L125_BASELINE",
+  "candidates": [
+    "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG",
+    "LS53_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21",
+    "LS54_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_REDISTRIBUTE",
+    "LS55_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_S075_REDISTRIBUTE",
+    "LS56_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_S0625_REDISTRIBUTE",
+    "LS57_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_STABLE1D_REDISTRIBUTE"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 45,
+      "candidate": "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4064396332120096,
+      "worst_relative_mdd": -0.4064396332120096
+    },
+    {
+      "all_pass": 44,
+      "candidate": "LS53_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21",
+      "mdd_pass": 45,
+      "multiple_pass": 44,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4064396332120096,
+      "worst_relative_mdd": -0.4064396332120096
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS54_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4064396332120096,
+      "worst_relative_mdd": -0.4064396332120096
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS55_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_S075_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40239492271868593,
+      "worst_relative_mdd": -0.40239492271868593
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS56_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_S0625_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4003725674720253,
+      "worst_relative_mdd": -0.4003725674720253
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS57_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_STABLE1D_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    }
+  ]
+}

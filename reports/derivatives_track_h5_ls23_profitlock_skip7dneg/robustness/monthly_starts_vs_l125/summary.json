@@ -1,0 +1,197 @@
+{
+  "baseline": "L125_BASELINE",
+  "candidates": [
+    "LS12_H5_REGIME_SHORT_ROUTER",
+    "LS17_H5_FUNDING_BASKET",
+    "LS18_H5_FUNDING_TILT",
+    "LS19_H5_REVERSAL_PAIR",
+    "LS20_H5_COMMON_GROSS",
+    "LS21_H5_POSITIVE_CARRY_SHORT",
+    "LS22_H5_EXTREME_RUN_PROFIT_LOCK",
+    "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE",
+    "LS43_H5_LS23_PROFITLOCK_STRONGER7",
+    "LS45_H5_LS23_PROFITLOCK_STRONGER21",
+    "LS46_H5_LS23_PROFITLOCK_REVERSAL_SHORT28",
+    "LS47_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_NOREENTRY",
+    "LS48_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_ONESHOT",
+    "LS49_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_MA21",
+    "LS50_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_BELOWSTOP",
+    "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 44,
+      "candidate": "LS12_H5_REGIME_SHORT_ROUTER",
+      "mdd_pass": 45,
+      "multiple_pass": 44,
+      "sharpe_pass": 44,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40643962876770234,
+      "worst_relative_mdd": -0.40643962876770234
+    },
+    {
+      "all_pass": 19,
+      "candidate": "LS17_H5_FUNDING_BASKET",
+      "mdd_pass": 45,
+      "multiple_pass": 19,
+      "sharpe_pass": 44,
+      "slices": 45,
+      "worst_candidate_mdd": -0.37957753323167,
+      "worst_relative_mdd": -0.37957753323167
+    },
+    {
+      "all_pass": 0,
+      "candidate": "LS18_H5_FUNDING_TILT",
+      "mdd_pass": 45,
+      "multiple_pass": 0,
+      "sharpe_pass": 22,
+      "slices": 45,
+      "worst_candidate_mdd": -0.33051834444346573,
+      "worst_relative_mdd": -0.33051834444346573
+    },
+    {
+      "all_pass": 1,
+      "candidate": "LS19_H5_REVERSAL_PAIR",
+      "mdd_pass": 45,
+      "multiple_pass": 9,
+      "sharpe_pass": 1,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40148099959040084,
+      "worst_relative_mdd": -0.40148099959040084
+    },
+    {
+      "all_pass": 11,
+      "candidate": "LS20_H5_COMMON_GROSS",
+      "mdd_pass": 28,
+      "multiple_pass": 11,
+      "sharpe_pass": 18,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40561361404982554,
+      "worst_relative_mdd": -0.40561361404982554
+    },
+    {
+      "all_pass": 43,
+      "candidate": "LS21_H5_POSITIVE_CARRY_SHORT",
+      "mdd_pass": 45,
+      "multiple_pass": 43,
+      "sharpe_pass": 43,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4064396287677009,
+      "worst_relative_mdd": -0.4064396287677009
+    },
+    {
+      "all_pass": 37,
+      "candidate": "LS22_H5_EXTREME_RUN_PROFIT_LOCK",
+      "mdd_pass": 45,
+      "multiple_pass": 37,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.39841739164424916,
+      "worst_relative_mdd": -0.39841739164424916
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40134166606720534,
+      "worst_relative_mdd": -0.40134166606720534
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS43_H5_LS23_PROFITLOCK_STRONGER7",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.40134166606720534,
+      "worst_relative_mdd": -0.40134166606720534
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS45_H5_LS23_PROFITLOCK_STRONGER21",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS46_H5_LS23_PROFITLOCK_REVERSAL_SHORT28",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    },
+    {
+      "all_pass": 42,
+      "candidate": "LS47_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_NOREENTRY",
+      "mdd_pass": 45,
+      "multiple_pass": 42,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    },
+    {
+      "all_pass": 33,
+      "candidate": "LS48_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_ONESHOT",
+      "mdd_pass": 45,
+      "multiple_pass": 33,
+      "sharpe_pass": 42,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    },
+    {
+      "all_pass": 37,
+      "candidate": "LS49_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_MA21",
+      "mdd_pass": 45,
+      "multiple_pass": 37,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    },
+    {
+      "all_pass": 42,
+      "candidate": "LS50_H5_LS23_PROFITLOCK_REVERSAL_SHORT28_BELOWSTOP",
+      "mdd_pass": 45,
+      "multiple_pass": 42,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.4064396332120096,
+      "worst_relative_mdd": -0.4064396332120096
+    }
+  ]
+}

@@ -39,6 +39,11 @@ class DerivativeBacktestConfig:
     short_buffer: float = 0.50
     short_stop_loss_pct: float | None = None
     long_stop_loss_pct: float | None = None
+    short_stop_reentry_block_windows: tuple[
+        tuple[str, pd.Timestamp, pd.Timestamp], ...
+    ] = ()
+    short_stop_reentry_rearm_ma_days: int | None = None
+    short_stop_reentry_rearm_below_stop: bool = False
     max_gross_exposure: float = 1.25
     hard_gross_exposure: float | None = None
     max_margin_utilization: float = 0.85
@@ -74,6 +79,31 @@ class DerivativeBacktestConfig:
             raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
         if self.long_stop_loss_pct is not None and not 0.0 < self.long_stop_loss_pct < 1.0:
             raise ValueError("long_stop_loss_pct must be in (0, 1) when set")
+        for window in self.short_stop_reentry_block_windows:
+            if len(window) != 3:
+                raise ValueError(
+                    "short_stop_reentry_block_windows entries must be "
+                    "(asset, start, end)"
+                )
+            asset, start, end = window
+            if not str(asset):
+                raise ValueError("short_stop_reentry_block_windows asset is empty")
+            try:
+                start_ts = _as_utc(start)
+                end_ts = _as_utc(end)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "short_stop_reentry_block_windows must contain valid timestamps"
+                ) from exc
+            if start_ts >= end_ts:
+                raise ValueError(
+                    "short_stop_reentry_block_windows start must precede end"
+                )
+        if self.short_stop_reentry_rearm_ma_days is not None:
+            if int(self.short_stop_reentry_rearm_ma_days) < 1:
+                raise ValueError("short_stop_reentry_rearm_ma_days must be positive")
+        if not isinstance(self.short_stop_reentry_rearm_below_stop, bool):
+            raise ValueError("short_stop_reentry_rearm_below_stop must be boolean")
         if self.max_gross_exposure <= 0.0:
             raise ValueError("max_gross_exposure must be positive")
         if self.hard_gross_exposure is not None:
@@ -319,6 +349,13 @@ def run_derivative_backtest(
     candles = _validate_candles(mark_candles)
     fills = _validate_candles(market_candles) if market_candles else {}
     target_schedule = _normalise_targets(targets, cfg)
+    reentry_windows: dict[str, list[tuple[pd.Timestamp, pd.Timestamp]]] = {}
+    for asset, start, end in cfg.short_stop_reentry_block_windows:
+        start_ts = _as_utc(start)
+        end_ts = _as_utc(end)
+        reentry_windows.setdefault(str(asset), []).append((start_ts, end_ts))
+    for windows in reentry_windows.values():
+        windows.sort()
     if funding_rates is None:
         funding = pd.DataFrame()
     else:
@@ -386,6 +423,9 @@ def run_derivative_backtest(
     cash = float(cfg.initial_capital)
     positions: dict[str, _Position] = {}
     last_target: pd.Series | None = None
+    blocked_short_reentry: dict[str, tuple[pd.Timestamp, pd.Timestamp]] = {}
+    blocked_short_stop_price: dict[str, float] = {}
+    blocked_short_stop_time: dict[str, pd.Timestamp] = {}
     trades: list[dict[str, object]] = []
     funding_events: list[dict[str, object]] = []
     liquidation_events: list[dict[str, object]] = []
@@ -425,6 +465,52 @@ def run_derivative_backtest(
 
     def mark(asset: str, timestamp: pd.Timestamp, column: str = "close") -> float:
         return float(bar(asset, timestamp)[column])
+
+    daily_close_cache: dict[str, pd.Series] = {}
+    daily_ma_cache: dict[str, tuple[pd.Series, pd.Series]] = {}
+
+    def last_completed_daily_close(
+        asset: str, timestamp: pd.Timestamp
+    ) -> float | None:
+        frame = candles.get(asset)
+        if frame is None or frame.empty:
+            return None
+        if asset not in daily_close_cache:
+            daily_close_cache[asset] = frame["close"].resample("1D").last().dropna()
+        daily_close = daily_close_cache[asset]
+        completed = daily_close.index[daily_close.index < timestamp.normalize()]
+        if completed.empty:
+            return None
+        value = float(daily_close.loc[pd.Timestamp(completed[-1])])
+        return value if np.isfinite(value) else None
+
+    def short_reentry_ma_confirmed(asset: str, timestamp: pd.Timestamp) -> bool:
+        """Return whether the last completed daily close is below its MA."""
+        ma_days = cfg.short_stop_reentry_rearm_ma_days
+        if ma_days is None:
+            return True
+        if asset not in daily_ma_cache:
+            frame = candles.get(asset)
+            if frame is None or frame.empty:
+                return False
+            daily_close = frame["close"].resample("1D").last().dropna()
+            daily_ma = daily_close.rolling(
+                int(ma_days), min_periods=int(ma_days)
+            ).mean()
+            daily_ma_cache[asset] = (daily_close, daily_ma)
+        daily_close, daily_ma = daily_ma_cache[asset]
+        completed = daily_ma.index[daily_ma.index < timestamp.normalize()]
+        if completed.empty:
+            return False
+        last_date = pd.Timestamp(completed[-1])
+        close_value = float(daily_close.loc[last_date])
+        ma_value = float(daily_ma.loc[last_date])
+        return bool(np.isfinite(close_value) and close_value < ma_value)
+
+    def clear_blocked_short_reentry(asset: str) -> None:
+        blocked_short_reentry.pop(asset, None)
+        blocked_short_stop_price.pop(asset, None)
+        blocked_short_stop_time.pop(asset, None)
 
     def fill_price(asset: str, timestamp: pd.Timestamp) -> float:
         """Execution price: Bitget market (last) candle when supplied, else mark."""
@@ -659,6 +745,15 @@ def run_derivative_backtest(
             execution_price,
             reason="stop_loss",
         )
+        active_windows = [
+            window
+            for window in reentry_windows.get(asset, ())
+            if window[0] <= timestamp < window[1]
+        ]
+        if active_windows:
+            blocked_short_reentry[asset] = max(active_windows, key=lambda item: item[0])
+            blocked_short_stop_price[asset] = float(execution_price)
+            blocked_short_stop_time[asset] = timestamp
 
     def open_position(
         asset: str,
@@ -862,6 +957,9 @@ def run_derivative_backtest(
 
     def rebalance(timestamp: pd.Timestamp, target: pd.Series) -> None:
         equity = account_equity(timestamp, column="open")
+        for asset in list(blocked_short_reentry):
+            if float(target.get(asset, 0.0)) >= -1e-15:
+                clear_blocked_short_reentry(asset)
         desired: dict[str, tuple[int, float]] = {}
         for asset, weight in target.items():
             weight = float(weight)
@@ -869,6 +967,44 @@ def run_derivative_backtest(
                 continue
             if asset not in candles:
                 raise ValueError(f"target asset {asset} is absent from mark_candles")
+            side = 1 if weight > 0 else -1
+            blocked_window = blocked_short_reentry.get(asset)
+            if side < 0 and blocked_window is not None:
+                active_windows = [
+                    window
+                    for window in reentry_windows.get(asset, ())
+                    if window[0] <= timestamp < window[1]
+                ]
+                current_window = (
+                    max(active_windows, key=lambda item: item[0])
+                    if active_windows
+                    else None
+                )
+                if current_window is None or current_window[0] > blocked_window[0]:
+                    clear_blocked_short_reentry(asset)
+                elif timestamp < blocked_window[1]:
+                    if (
+                        cfg.short_stop_reentry_rearm_ma_days is not None
+                        and short_reentry_ma_confirmed(asset, timestamp)
+                    ):
+                        clear_blocked_short_reentry(asset)
+                    elif cfg.short_stop_reentry_rearm_below_stop:
+                        stop_price = blocked_short_stop_price.get(asset)
+                        last_close = last_completed_daily_close(asset, timestamp)
+                        if (
+                            stop_price is not None
+                            and last_close is not None
+                            and last_close < stop_price
+                        ):
+                            clear_blocked_short_reentry(asset)
+                        else:
+                            continue
+                    else:
+                        # A stop ends this reversal episode.  Do not reopen the
+                        # same short merely because another asset caused a
+                        # rebalance before the episode's scheduled expiry, or
+                        # before the explicit post-stop confirmation.
+                        continue
             desired[asset] = (1 if weight > 0 else -1, abs(weight) * equity)
         required_margin = sum(
             notional * _margin_ratio(cfg, side) for side, notional in desired.values()

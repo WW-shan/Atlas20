@@ -1,0 +1,18 @@
+{
+  "columns": [
+    "L125_BASELINE",
+    "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG",
+    "LS53_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21",
+    "LS54_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_REDISTRIBUTE",
+    "LS55_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_S075_REDISTRIBUTE"
+  ],
+  "end": "2026-09-20T00:00:00+00:00",
+  "purpose": "LS55 rolling and monthly-start robustness against L125, LS23, LS51, LS54 and the new 75% partial-skip candidate",
+  "rows": 1724,
+  "sources": {
+    "base_matrix": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_redistribute/robustness/candidate_returns.csv",
+    "ls55": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_s075_redistribute/PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE/daily_returns.csv"
+  },
+  "start": "2022-01-01T00:00:00+00:00"
+}

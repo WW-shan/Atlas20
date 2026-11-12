@@ -1334,6 +1334,281 @@ def test_trim_extreme_single_leader_keeps_targets_when_leader_is_below_threshold
     assert bool(audit.iloc[0]["trimmed"]) is False
 
 
+def test_trim_extreme_single_leader_skips_when_7d_confirmation_is_negative() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    prices = pd.DataFrame(
+        {"A": [100.0, 240.0, 220.0], "B": [100.0, 100.0, 100.0]},
+        index=pd.DatetimeIndex(
+            [date - pd.Timedelta(days=21), date - pd.Timedelta(days=7), date]
+        ),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_if_confirmation_negative_days=7,
+    )
+
+    assert adjusted[date].to_dict() == {"A": pytest.approx(0.60), "B": pytest.approx(0.40)}
+    assert bool(audit.iloc[0]["trimmed"]) is False
+    assert bool(audit.iloc[0]["skipped_negative_confirmation"]) is True
+    assert audit.iloc[0]["confirmation_return"] < 0.0
+
+
+def test_trim_extreme_single_leader_skip_requires_bull_regime() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    prices = pd.DataFrame(
+        {"A": [100.0, 240.0, 220.0], "B": [100.0, 100.0, 100.0]},
+        index=pd.DatetimeIndex(
+            [date - pd.Timedelta(days=21), date - pd.Timedelta(days=7), date]
+        ),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+    regime = pd.Series({date: False}, dtype=bool)
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_regime=regime,
+    )
+
+    assert adjusted[date]["A"] == pytest.approx(0.30)
+    assert bool(audit.iloc[0]["trimmed"]) is True
+    assert bool(audit.iloc[0]["skip_negative_confirmation_regime_active"]) is False
+
+
+def test_trim_extreme_single_leader_skip_requires_leader_above_ma21() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-02-01T00:00:00Z")
+    prices = pd.DataFrame(
+        {"A": [100.0, 240.0, 220.0], "B": [100.0, 100.0, 100.0]},
+        index=pd.DatetimeIndex(
+            [date - pd.Timedelta(days=21), date - pd.Timedelta(days=7), date]
+        ),
+    )
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+    )
+
+    # With only three price points, the 21D MA is not defined, so the
+    # conservative path keeps the original half-trim.
+    assert adjusted[date]["A"] == pytest.approx(0.30)
+    assert bool(audit.iloc[0]["trimmed"]) is True
+    assert bool(audit.iloc[0]["skip_negative_confirmation_above_ma_active"]) is False
+
+
+def test_skip_and_redistribute_keeps_full_leader_when_ma21_confirmation_is_true() -> None:
+    from atlas20.derivatives.signals import (
+        trim_extreme_run_single_leader_skip_and_redistribute,
+    )
+
+    index = pd.date_range("2026-01-01", periods=30, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {
+            "A": [100.0] * 29 + [220.0],
+            "B": [100.0] * 30,
+        },
+        index=index,
+    )
+    # The latest price at or before the exact 7-calendar-day cutoff is
+    # index[-8]; index[-7] is only six days before the evaluation date.
+    prices.loc[index[-8], "A"] = 240.0
+    date = index[-1]
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader_skip_and_redistribute(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+        recipient_confirmation_days=21,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+    )
+
+    assert adjusted[date].to_dict() == {
+        "A": pytest.approx(0.60),
+        "B": pytest.approx(0.40),
+    }
+    assert bool(audit.iloc[0]["skipped_negative_confirmation"]) is True
+    assert audit.iloc[0]["confirmation_return"] < 0.0
+
+
+def test_skip_negative_confirmation_can_retain_a_partial_leader_weight() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    index = pd.date_range("2026-01-01", periods=30, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {"A": [100.0] * 29 + [220.0], "B": [100.0] * 30},
+        index=index,
+    )
+    prices.loc[index[-8], "A"] = 240.0
+    date = index[-1]
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_scale=0.75,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+    )
+
+    assert adjusted[date].to_dict() == {
+        "A": pytest.approx(0.45),
+        "B": pytest.approx(0.40),
+    }
+    assert bool(audit.iloc[0]["skipped_negative_confirmation"]) is True
+    assert bool(audit.iloc[0]["trimmed"]) is True
+    assert audit.iloc[0]["leader_weight_after"] == pytest.approx(0.45)
+    assert audit.iloc[0]["skip_scale"] == pytest.approx(0.75)
+
+
+def test_skip_and_redistribute_uses_partial_skip_without_redistribution() -> None:
+    from atlas20.derivatives.signals import (
+        trim_extreme_run_single_leader_skip_and_redistribute,
+    )
+
+    index = pd.date_range("2026-01-01", periods=30, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {"A": [100.0] * 29 + [220.0], "B": [100.0] * 30},
+        index=index,
+    )
+    prices.loc[index[-8], "A"] = 240.0
+    date = index[-1]
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader_skip_and_redistribute(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_scale=0.75,
+        max_asset_weight=0.60,
+        recipient_confirmation_days=21,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+    )
+
+    assert adjusted[date].to_dict() == {
+        "A": pytest.approx(0.45),
+        "B": pytest.approx(0.40),
+    }
+    row = audit.iloc[0]
+    assert bool(row["skipped_negative_confirmation"]) is True
+    assert bool(row["trimmed"]) is True
+    assert row["applied_rule"] == "partial_skip_negative_confirmation"
+    assert row["leader_weight_after"] == pytest.approx(0.45)
+    assert row["gross_after"] == pytest.approx(0.85)
+    assert row["redistributed_weight"] == pytest.approx(0.0)
+    assert row["cash_weight"] == pytest.approx(0.15)
+
+
+@pytest.mark.parametrize("skip_scale", [0.0, -0.1, 1.01])
+def test_skip_scale_must_be_in_unit_interval(skip_scale: float) -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    date = pd.Timestamp("2026-01-30", tz="UTC")
+    with pytest.raises(ValueError, match="skip_scale"):
+        trim_extreme_run_single_leader(
+            {date: pd.Series({"A": 1.0})},
+            pd.DataFrame({"A": [100.0, 200.0]}, index=[date - pd.Timedelta(days=21), date]),
+            lookback_days=21,
+            threshold=1.0,
+            scale=0.5,
+            skip_scale=skip_scale,
+        )
+
+
+def test_skip_negative_confirmation_requires_nonnegative_daily_return() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    index = pd.date_range("2026-01-01", periods=30, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {"A": [100.0] * 29 + [220.0], "B": [100.0] * 30},
+        index=index,
+    )
+    prices.loc[index[-8], "A"] = 240.0
+    prices.loc[index[-2], "A"] = 230.0
+    date = index[-1]
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+        skip_negative_confirmation_min_daily_return=0.0,
+    )
+
+    assert adjusted[date]["A"] == pytest.approx(0.30)
+    row = audit.iloc[0]
+    assert bool(row["skipped_negative_confirmation"]) is False
+    assert bool(row["trimmed"]) is True
+    assert row["confirmation_daily_return"] == pytest.approx(220.0 / 230.0 - 1.0)
+
+
+def test_skip_negative_confirmation_allows_stabilizing_daily_return() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader
+
+    index = pd.date_range("2026-01-01", periods=30, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {"A": [100.0] * 29 + [220.0], "B": [100.0] * 30},
+        index=index,
+    )
+    prices.loc[index[-8], "A"] = 240.0
+    prices.loc[index[-2], "A"] = 210.0
+    date = index[-1]
+    targets = {date: pd.Series({"A": 0.60, "B": 0.40})}
+
+    adjusted, audit = trim_extreme_run_single_leader(
+        targets,
+        prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        skip_if_confirmation_negative_days=7,
+        skip_negative_confirmation_above_ma_days=21,
+        skip_negative_confirmation_min_daily_return=0.0,
+    )
+
+    assert adjusted[date]["A"] == pytest.approx(0.60)
+    row = audit.iloc[0]
+    assert bool(row["skipped_negative_confirmation"]) is True
+    assert bool(row["trimmed"]) is False
+    assert row["confirmation_daily_return"] == pytest.approx(220.0 / 210.0 - 1.0)
+
+
 def test_stateful_profit_lock_holds_half_until_leader_changes() -> None:
     from atlas20.derivatives.signals import trim_extreme_run_single_leader_stateful
 
@@ -2283,3 +2558,94 @@ def test_profit_lock_redistribution_keeps_cash_without_confirmed_recipient() -> 
     assert audit.loc[0, "eligible_recipient_count"] == 0
     assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.0)
     assert audit.loc[0, "cash_weight"] == pytest.approx(0.25)
+
+
+def test_profit_lock_breakdown_exit_closes_leader_when_short_momentum_is_negative() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_breakdown_exit
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base21 = date - pd.Timedelta(days=21)
+    base7 = date - pd.Timedelta(days=7)
+    prices = pd.DataFrame(
+        {"A": [100.0, 300.0, 250.0], "B": [100.0, 100.0, 110.0]},
+        index=pd.DatetimeIndex([base21, base7, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25})}
+
+    adjusted, audit = trim_extreme_run_single_leader_breakdown_exit(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        confirmation_days=7,
+    )
+
+    assert float(adjusted[date]["A"]) == pytest.approx(0.0)
+    assert float(adjusted[date]["B"]) == pytest.approx(0.25)
+    assert audit.loc[0, "full_exit"]
+    assert audit.loc[0, "confirmation_return"] == pytest.approx(-1.0 / 6.0)
+    assert audit.loc[0, "freed_weight"] == pytest.approx(0.50)
+
+
+def test_profit_lock_breakdown_exit_keeps_half_when_short_momentum_is_positive() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_breakdown_exit
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base21 = date - pd.Timedelta(days=21)
+    base7 = date - pd.Timedelta(days=7)
+    prices = pd.DataFrame(
+        {"A": [100.0, 200.0, 250.0], "B": [100.0, 100.0, 110.0]},
+        index=pd.DatetimeIndex([base21, base7, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25})}
+
+    adjusted, audit = trim_extreme_run_single_leader_breakdown_exit(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        confirmation_days=7,
+    )
+
+    assert float(adjusted[date]["A"]) == pytest.approx(0.25)
+    assert float(adjusted[date]["B"]) == pytest.approx(0.25)
+    assert not bool(audit.loc[0, "full_exit"])
+    assert audit.loc[0, "confirmation_return"] == pytest.approx(0.25)
+    assert audit.loc[0, "freed_weight"] == pytest.approx(0.25)
+
+
+def test_profit_lock_redistribution_21d_confirmation_uses_21d_strength() -> None:
+    from atlas20.derivatives.signals import trim_extreme_run_single_leader_redistribute
+
+    date = pd.Timestamp("2026-03-01T00:00:00Z")
+    base21 = date - pd.Timedelta(days=21)
+    base7 = date - pd.Timedelta(days=7)
+    prices = pd.DataFrame(
+        {
+            "A": [100.0, 200.0, 200.0],
+            "B": [100.0, 100.0, 150.0],
+            "C": [100.0, 100.0, 250.0],
+        },
+        index=pd.DatetimeIndex([base21, base7, date]),
+    )
+    targets = {date: pd.Series({"A": 0.50, "B": 0.25, "C": 0.15})}
+
+    adjusted, audit = trim_extreme_run_single_leader_redistribute(
+        targets,
+        prices=prices,
+        lookback_days=21,
+        threshold=1.0,
+        scale=0.5,
+        max_asset_weight=0.60,
+        recipient_confirmation_days=21,
+    )
+
+    weights = adjusted[date]
+    assert float(weights["A"]) == pytest.approx(0.25)
+    assert float(weights["B"]) == pytest.approx(0.25)
+    assert float(weights["C"]) == pytest.approx(0.40)
+    assert audit.loc[0, "eligible_recipient_count"] == 1
+    assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.25)
+    assert audit.loc[0, "cash_weight"] == pytest.approx(0.0)

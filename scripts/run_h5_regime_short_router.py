@@ -37,7 +37,9 @@ from atlas20.derivatives.signals import (  # noqa: E402
     route_short_schedule_with_long_exclusions,
     route_signed_sleeve_with_long_exclusions,
     trim_extreme_run_single_leader,
+    trim_extreme_run_single_leader_breakdown_exit,
     trim_extreme_run_single_leader_redistribute,
+    trim_extreme_run_single_leader_skip_and_redistribute,
     trim_extreme_run_single_leader_stateful,
     tilt_long_targets_away_from_crowded_funding,
     combine_long_with_cash_budgeted_short,
@@ -98,6 +100,20 @@ LS40_CANDIDATE_ID = "PR2026-11-LS40-H5-LS23-INVVOL60"
 LS41_CANDIDATE_ID = "PR2026-11-LS41-H5-LS23-LONGSTOP20"
 LS42_CANDIDATE_ID = "PR2026-11-LS42-H5-LS23-PROFITLOCK-REDISTRIBUTE"
 LS43_CANDIDATE_ID = "PR2026-11-LS43-H5-LS23-PROFITLOCK-STRONGER7"
+LS44_CANDIDATE_ID = "PR2026-11-LS44-H5-LS23-PROFITLOCK-FULLEXIT-NEG7"
+LS45_CANDIDATE_ID = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+LS46_CANDIDATE_ID = "PR2026-11-LS46-H5-LS23-PROFITLOCK-REVERSAL-SHORT28"
+LS47_CANDIDATE_ID = "PR2026-11-LS47-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-NOREENTRY"
+LS48_CANDIDATE_ID = "PR2026-11-LS48-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-ONESHOT"
+LS49_CANDIDATE_ID = "PR2026-11-LS49-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-MA21"
+LS50_CANDIDATE_ID = "PR2026-11-LS50-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-BELOWSTOP"
+LS51_CANDIDATE_ID = "PR2026-11-LS51-H5-LS23-PROFITLOCK-SKIP7DNEG"
+LS52_CANDIDATE_ID = "PR2026-11-LS52-H5-LS23-PROFITLOCK-SKIP7DNEG-BULL"
+LS53_CANDIDATE_ID = "PR2026-11-LS53-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21"
+LS54_CANDIDATE_ID = "PR2026-11-LS54-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-REDISTRIBUTE"
+LS55_CANDIDATE_ID = "PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE"
+LS56_CANDIDATE_ID = "PR2026-11-LS56-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S0625-REDISTRIBUTE"
+LS57_CANDIDATE_ID = "PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE"
 SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-regime-short-router-design.md"
 NO_TRADE_BAND_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-no-trade-band-design.md"
 LS17_SPEC_PATH = "docs/superpowers/specs/2026-11-11-h5-funding-basket-design.md"
@@ -126,6 +142,20 @@ LS40_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-inverse-vol60-design
 LS41_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-long-stop20-design.md"
 LS42_SPEC_PATH = "docs/superpowers/specs/2026-11-12-h5-ls23-profit-lock-redistribute-design.md"
 LS43_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger7-design.md"
+LS44_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-fullexit-neg7-design.md"
+LS45_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger21-design.md"
+LS46_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-design.md"
+LS47_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-noreentry-design.md"
+LS48_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-oneshot-design.md"
+LS49_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-ma21-design.md"
+LS50_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-reversal-short28-belowstop-design.md"
+LS51_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-design.md"
+LS52_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-bull-design.md"
+LS53_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-design.md"
+LS54_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-redistribute-design.md"
+LS55_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-s075-redistribute-design.md"
+LS56_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-s0625-redistribute-design.md"
+LS57_SPEC_PATH = "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-skip7dneg-ma21-stable1d-redistribute-design.md"
 LS31_LONG_BUFFER = 0.60
 LS32_LONG_BUFFER = 0.60
 LS27_MAX_REQUESTED_SHORT_GROSS = 0.50
@@ -154,6 +184,20 @@ SHORT_CANDIDATES = {
     LS41_CANDIDATE_ID: 0.0,
     LS42_CANDIDATE_ID: 0.0,
     LS43_CANDIDATE_ID: 0.0,
+    LS44_CANDIDATE_ID: 0.0,
+    LS45_CANDIDATE_ID: 0.0,
+    LS46_CANDIDATE_ID: 0.0,
+    LS47_CANDIDATE_ID: 0.0,
+    LS48_CANDIDATE_ID: 0.0,
+    LS49_CANDIDATE_ID: 0.0,
+    LS50_CANDIDATE_ID: 0.0,
+    LS51_CANDIDATE_ID: 0.0,
+    LS52_CANDIDATE_ID: 0.0,
+    LS53_CANDIDATE_ID: 0.0,
+    LS54_CANDIDATE_ID: 0.0,
+    LS55_CANDIDATE_ID: 0.0,
+    LS56_CANDIDATE_ID: 0.0,
+    LS57_CANDIDATE_ID: 0.0,
 }
 NON_BEAR_MODE_BY_TRIAL = {LS17_CANDIDATE_ID: "high_funding"}
 LONG_TILT_TRIALS = {LS18_CANDIDATE_ID}
@@ -179,6 +223,31 @@ LONG_PROFIT_LOCK_TRIALS = {
     LS41_CANDIDATE_ID,
     LS42_CANDIDATE_ID,
     LS43_CANDIDATE_ID,
+    LS44_CANDIDATE_ID,
+    LS45_CANDIDATE_ID,
+    LS46_CANDIDATE_ID,
+    LS47_CANDIDATE_ID,
+    LS48_CANDIDATE_ID,
+    LS49_CANDIDATE_ID,
+    LS50_CANDIDATE_ID,
+    LS51_CANDIDATE_ID,
+    LS52_CANDIDATE_ID,
+    LS53_CANDIDATE_ID,
+    LS54_CANDIDATE_ID,
+    LS55_CANDIDATE_ID,
+    LS56_CANDIDATE_ID,
+    LS57_CANDIDATE_ID,
+}
+LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS = {LS51_CANDIDATE_ID}
+LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS = {LS52_CANDIDATE_ID}
+LONG_ABOVE_MA_SKIP_NEGATIVE_CONFIRMATION_TRIALS = {LS53_CANDIDATE_ID}
+LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS |= LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS |= LONG_ABOVE_MA_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+LONG_SKIP_REDISTRIBUTE_TRIALS = {
+    LS54_CANDIDATE_ID,
+    LS55_CANDIDATE_ID,
+    LS56_CANDIDATE_ID,
+    LS57_CANDIDATE_ID,
 }
 LONG_STATEFUL_PROFIT_LOCK_TRIALS = {LS25_CANDIDATE_ID}
 LONG_REARMING_PROFIT_LOCK_TRIALS = {LS26_CANDIDATE_ID}
@@ -191,7 +260,31 @@ MARKET_NEUTRAL_TRIALS = {
 LOW_VOL_PAIR_TRIALS = {LS39_CANDIDATE_ID}
 LONG_INVERSE_VOL_TRIALS = {LS40_CANDIDATE_ID}
 LONG_STOP_TRIALS = {LS41_CANDIDATE_ID}
-PROFIT_LOCK_REDISTRIBUTE_TRIALS = {LS42_CANDIDATE_ID, LS43_CANDIDATE_ID}
+PROFIT_LOCK_REDISTRIBUTE_TRIALS = {
+    LS42_CANDIDATE_ID,
+    LS43_CANDIDATE_ID,
+    LS45_CANDIDATE_ID,
+}
+LONG_BREAKDOWN_EXIT_TRIALS = {
+    LS44_CANDIDATE_ID,
+    LS46_CANDIDATE_ID,
+    LS47_CANDIDATE_ID,
+    LS48_CANDIDATE_ID,
+    LS49_CANDIDATE_ID,
+    LS50_CANDIDATE_ID,
+}
+REVERSAL_SHORT_TRIALS = {
+    LS46_CANDIDATE_ID,
+    LS47_CANDIDATE_ID,
+    LS48_CANDIDATE_ID,
+    LS49_CANDIDATE_ID,
+    LS50_CANDIDATE_ID,
+}
+STOP_STATE_REVERSAL_SHORT_TRIALS = {
+    LS48_CANDIDATE_ID,
+    LS49_CANDIDATE_ID,
+    LS50_CANDIDATE_ID,
+}
 RESIDUAL_CARRY_TRIALS = {
     LS33_CANDIDATE_ID,
     LS34_CANDIDATE_ID,
@@ -269,9 +362,82 @@ LS43_PROFIT_LOCK_CONFIG: dict[str, Any] = {
     **LS42_PROFIT_LOCK_CONFIG,
     "recipient_confirmation_days": 7,
 }
+LS45_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS42_PROFIT_LOCK_CONFIG,
+    "recipient_confirmation_days": 21,
+}
 PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL = {
     LS42_CANDIDATE_ID: LS42_PROFIT_LOCK_CONFIG,
     LS43_CANDIDATE_ID: LS43_PROFIT_LOCK_CONFIG,
+    LS45_CANDIDATE_ID: LS45_PROFIT_LOCK_CONFIG,
+}
+LS44_BREAKDOWN_EXIT_CONFIG: dict[str, Any] = {
+    "lookback_days": 21,
+    "threshold": 1.0,
+    "scale": 0.5,
+    "confirmation_days": 7,
+}
+LS46_REVERSAL_SHORT_CONFIG: dict[str, Any] = {
+    "short_weight": 0.20,
+    "hold_days": 28,
+}
+LS47_REVERSAL_SHORT_CONFIG: dict[str, Any] = {
+    **LS46_REVERSAL_SHORT_CONFIG,
+    "suppress_long_reentry": True,
+}
+LS48_REVERSAL_SHORT_CONFIG: dict[str, Any] = {
+    **LS47_REVERSAL_SHORT_CONFIG,
+    "block_reentry_after_stop": True,
+}
+LS49_REVERSAL_SHORT_CONFIG: dict[str, Any] = {
+    **LS48_REVERSAL_SHORT_CONFIG,
+    "rearm_ma_days": 21,
+}
+LS50_REVERSAL_SHORT_CONFIG: dict[str, Any] = {
+    **LS48_REVERSAL_SHORT_CONFIG,
+    "rearm_below_stop": True,
+}
+LS51_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS22_PROFIT_LOCK_CONFIG,
+    "skip_if_confirmation_negative_days": 7,
+}
+LS52_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS51_PROFIT_LOCK_CONFIG,
+    "skip_negative_confirmation_regime": "btc_above_ma200",
+}
+LS53_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS51_PROFIT_LOCK_CONFIG,
+    "skip_negative_confirmation_above_ma_days": 21,
+}
+LS54_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS45_PROFIT_LOCK_CONFIG,
+    "skip_if_confirmation_negative_days": 7,
+    "skip_negative_confirmation_above_ma_days": 21,
+}
+LS55_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS54_PROFIT_LOCK_CONFIG,
+    "skip_scale": 0.75,
+}
+LS56_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS54_PROFIT_LOCK_CONFIG,
+    "skip_scale": 0.625,
+}
+LS57_PROFIT_LOCK_CONFIG: dict[str, Any] = {
+    **LS54_PROFIT_LOCK_CONFIG,
+    "skip_negative_confirmation_min_daily_return": 0.0,
+}
+LONG_SKIP_REDISTRIBUTE_CONFIG_BY_TRIAL = {
+    LS54_CANDIDATE_ID: LS54_PROFIT_LOCK_CONFIG,
+    LS55_CANDIDATE_ID: LS55_PROFIT_LOCK_CONFIG,
+    LS56_CANDIDATE_ID: LS56_PROFIT_LOCK_CONFIG,
+    LS57_CANDIDATE_ID: LS57_PROFIT_LOCK_CONFIG,
+}
+REVERSAL_SHORT_CONFIG_BY_TRIAL = {
+    LS46_CANDIDATE_ID: LS46_REVERSAL_SHORT_CONFIG,
+    LS47_CANDIDATE_ID: LS47_REVERSAL_SHORT_CONFIG,
+    LS48_CANDIDATE_ID: LS48_REVERSAL_SHORT_CONFIG,
+    LS49_CANDIDATE_ID: LS49_REVERSAL_SHORT_CONFIG,
+    LS50_CANDIDATE_ID: LS50_REVERSAL_SHORT_CONFIG,
 }
 LS40_INVERSE_VOL_CONFIG: dict[str, Any] = {
     "lookback_days": 60,
@@ -354,6 +520,20 @@ def _trial_frozen_config(trial_id: str) -> dict[str, Any]:
         config["profit_lock_redistribution"] = PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[
             trial_id
         ]
+    if trial_id in LONG_SKIP_REDISTRIBUTE_TRIALS:
+        config["profit_lock"] = LONG_SKIP_REDISTRIBUTE_CONFIG_BY_TRIAL[trial_id]
+    elif trial_id in LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
+        config["profit_lock"] = (
+            LS53_PROFIT_LOCK_CONFIG
+            if trial_id in LONG_ABOVE_MA_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+            else LS52_PROFIT_LOCK_CONFIG
+            if trial_id in LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+            else LS51_PROFIT_LOCK_CONFIG
+        )
+    if trial_id in LONG_BREAKDOWN_EXIT_TRIALS:
+        config["profit_lock_breakdown_exit"] = LS44_BREAKDOWN_EXIT_CONFIG
+    if trial_id in REVERSAL_SHORT_TRIALS:
+        config["profit_lock_reversal_short"] = REVERSAL_SHORT_CONFIG_BY_TRIAL[trial_id]
     if trial_id in MARKET_NEUTRAL_TRIALS | RESIDUAL_CARRY_TRIALS:
         config["funding_carry"] = (
             LS32_CARRY_CONFIG
@@ -501,6 +681,82 @@ LS43_CONSTRUCTION = (
     "Frozen LS23 with LS22 profit-lock freed weight redistributed only to "
     "already-held H5 assets whose 7D trailing return is stronger than the "
     "trimmed leader's, pro-rata and capped at 60% NAV; otherwise cash"
+)
+LS44_CONSTRUCTION = (
+    "Frozen LS23 with LS22 profit-lock scale changed from half to full exit "
+    "only when the trimmed leader's own 7D trailing return is negative; "
+    "otherwise the original half-trim remains"
+)
+LS45_CONSTRUCTION = (
+    "Frozen LS23 with LS22 profit-lock freed weight redistributed only to "
+    "already-held H5 assets whose 21D trailing return is stronger than the "
+    "trimmed leader's, pro-rata and capped at 60% NAV; otherwise cash"
+)
+LS46_CONSTRUCTION = (
+    "Frozen LS44 breakdown full exit, with the freed leader leg shorted at "
+    "0.20x total for 28 calendar days; the reversal short has priority over "
+    "the LS12 router while active, and both retain the 20% short stop"
+)
+LS47_CONSTRUCTION = (
+    "LS46 reversal short plus a no-reentry rule: while a reversal short is "
+    "active, the same asset is removed from the H5 long target so a routine "
+    "H5 rebalance cannot immediately close the short; all other LS46 rules "
+    "and the 20% short stop remain unchanged"
+)
+LS48_CONSTRUCTION = (
+    "LS47 plus a stop-state rule: if a reversal short is stopped out, that "
+    "asset cannot be reopened by another routine rebalance within the same "
+    "28-day reversal window; a new reversal window can re-arm it, while all "
+    "other LS47 rules and the 20% short stop remain unchanged"
+)
+LS49_CONSTRUCTION = (
+    "LS48 stop-state rule with a price confirmation: a stopped reversal short "
+    "can be re-armed only after the asset's last completed daily close is "
+    "below its 21-day moving average; otherwise it stays flat until the "
+    "current 28-day window expires or a new full-exit window starts"
+)
+LS50_CONSTRUCTION = (
+    "LS48 stop-state rule with a breakout-retest confirmation: a stopped "
+    "reversal short can be re-armed only after the asset's last completed "
+    "daily close falls back below the actual stop price; otherwise it stays "
+    "flat until the current 28-day window expires or a new window starts"
+)
+LS51_CONSTRUCTION = (
+    "Frozen LS23 profit lock except that a 21D >=100% leader is not trimmed "
+    "when its own 7D trailing return is negative; positive or missing 7D "
+    "confirmation keeps the original half-trim"
+)
+LS52_CONSTRUCTION = (
+    "LS51 skip rule restricted to BTC-above-MA200 bull regimes: in a bear "
+    "regime the original LS22 half-trim remains, so the skipped 7D-negative "
+    "trim is not allowed to add risk during broad downtrends"
+)
+LS53_CONSTRUCTION = (
+    "LS51 skip rule restricted to leaders still above their own 21D moving "
+    "average: a negative 7D pullback that has already lost MA21 receives the "
+    "original LS22 half-trim instead of retaining the full leader weight"
+)
+LS54_CONSTRUCTION = (
+    "LS53 skip rule combined with LS45 redistribution: when a trim is not "
+    "skipped, freed weight is redistributed only to already-held H5 assets "
+    "whose 21D trailing return is stronger than the trimmed leader, capped "
+    "at 60% NAV; skipped events keep the full leader and redistribute nothing"
+)
+LS55_CONSTRUCTION = (
+    "LS54 with the MA21-confirmed 7D-negative skip retaining 75% rather than "
+    "100% of the leader; the unused 25% stays in cash, while non-skipped LS22 "
+    "trims remain at 50% and use the LS45 stronger-21D redistribution"
+)
+LS56_CONSTRUCTION = (
+    "LS54 with the MA21-confirmed 7D-negative skip retaining 62.5% rather "
+    "than 100% of the leader; the unused 37.5% stays in cash, while "
+    "non-skipped LS22 trims remain at 50% and use the LS45 redistribution"
+)
+LS57_CONSTRUCTION = (
+    "LS54 with a latest-day stabilization gate: the MA21-confirmed 7D-negative "
+    "trim is skipped only when the leader's 1D return is non-negative; "
+    "otherwise the original half-trim applies, followed by the LS45 "
+    "stronger-21D redistribution when not skipped"
 )
 LS41_CONSTRUCTION = (
     "Frozen LS23 with a 20% hourly-mark adverse stop on every H5 long leg; "
@@ -1081,6 +1337,29 @@ def build_long_targets_for_trial(
     available: set[str],
     prices: pd.DataFrame | None = None,
 ):
+    if trial_id in LONG_SKIP_REDISTRIBUTE_TRIALS:
+        if prices is None:
+            raise ValueError("profit-lock skip/redistribute requires prices")
+        config = LONG_SKIP_REDISTRIBUTE_CONFIG_BY_TRIAL[trial_id]
+        return trim_extreme_run_single_leader_skip_and_redistribute(
+            long_targets,
+            prices=prices,
+            lookback_days=int(config["lookback_days"]),
+            threshold=float(config["threshold"]),
+            scale=float(config["scale"]),
+            skip_scale=float(config.get("skip_scale", 1.0)),
+            max_asset_weight=float(config["max_asset_weight"]),
+            recipient_confirmation_days=int(config["recipient_confirmation_days"]),
+            skip_if_confirmation_negative_days=int(config["skip_if_confirmation_negative_days"]),
+            skip_negative_confirmation_above_ma_days=int(
+                config["skip_negative_confirmation_above_ma_days"]
+            ),
+            skip_negative_confirmation_min_daily_return=(
+                None
+                if config.get("skip_negative_confirmation_min_daily_return") is None
+                else float(config["skip_negative_confirmation_min_daily_return"])
+            ),
+        )
     if trial_id in PROFIT_LOCK_REDISTRIBUTE_TRIALS:
         if prices is None:
             raise ValueError("profit-lock redistribution requires the point-in-time H5 price panel")
@@ -1088,6 +1367,41 @@ def build_long_targets_for_trial(
             long_targets,
             prices=prices,
             **PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[trial_id],
+        )
+    if trial_id in LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
+        if prices is None:
+            raise ValueError("profit-lock negative-confirmation skip requires prices")
+        regime = None
+        if trial_id in LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
+            if "bitcoin" not in prices.columns:
+                raise ValueError("BTC bull-regime skip requires bitcoin prices")
+            btc = pd.to_numeric(prices["bitcoin"], errors="coerce")
+            regime = (btc > btc.rolling(200, min_periods=200).mean()).rename(
+                "btc_above_ma200"
+            )
+        if trial_id in LONG_ABOVE_MA_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
+            profit_lock_config = LS53_PROFIT_LOCK_CONFIG
+        elif trial_id in LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS:
+            profit_lock_config = {
+                key: value
+                for key, value in LS52_PROFIT_LOCK_CONFIG.items()
+                if key != "skip_negative_confirmation_regime"
+            }
+        else:
+            profit_lock_config = LS51_PROFIT_LOCK_CONFIG
+        return trim_extreme_run_single_leader(
+            long_targets,
+            prices=prices,
+            **profit_lock_config,
+            skip_negative_confirmation_regime=regime,
+        )
+    if trial_id in LONG_BREAKDOWN_EXIT_TRIALS:
+        if prices is None:
+            raise ValueError("profit-lock breakdown exit requires the point-in-time H5 price panel")
+        return trim_extreme_run_single_leader_breakdown_exit(
+            long_targets,
+            prices=prices,
+            **LS44_BREAKDOWN_EXIT_CONFIG,
         )
     if trial_id in LONG_COMMON_GROSS_TRIALS:
         return preserve_relative_weights_on_same_selection(long_targets)
@@ -1173,6 +1487,156 @@ def build_long_targets_for_trial(
     )
 
 
+
+def _forward_fill_short_target(
+    schedule: Mapping[pd.Timestamp, pd.Series],
+    date: pd.Timestamp,
+) -> pd.Series:
+    prior = [stamp for stamp in schedule if stamp <= date]
+    if not prior:
+        return pd.Series(dtype=float)
+    target = pd.to_numeric(pd.Series(schedule[prior[-1]]), errors="coerce")
+    target.index = target.index.astype(str)
+    if target.isna().any() or (target < 0.0).any():
+        raise ValueError("short schedule targets must be finite and non-negative")
+    return target.astype(float).sort_index()
+
+
+def build_reversal_short_schedule(
+    base_short_targets: Mapping[pd.Timestamp, pd.Series],
+    profit_lock_audit: pd.DataFrame,
+    *,
+    hold_days: int,
+    short_weight: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Prioritize profit-lock reversal shorts over the base short router.
+
+    Full-exit profit-lock events become short candidates for ``hold_days``.
+    If several distinct assets overlap, the configured total short weight is
+    split equally across those unique assets.  When no reversal short is
+    active, the last base short target is carried forward.  Scheduling only
+    at event and expiry dates avoids re-opening a stopped leg on every day.
+    """
+    if hold_days < 1:
+        raise ValueError("hold_days must be positive")
+    if not np.isfinite(short_weight) or not 0.0 < short_weight <= 0.25:
+        raise ValueError("short_weight must be finite and in (0, 0.25]")
+    if "full_exit" not in profit_lock_audit.columns:
+        raise ValueError("profit-lock audit is missing full_exit")
+
+    base: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in base_short_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or (target < 0.0).any():
+            raise ValueError("short schedule targets must be finite and non-negative")
+        base[date] = target.astype(float).sort_index()
+    base = dict(sorted(base.items()))
+
+    events: dict[pd.Timestamp, str] = {}
+    for row in profit_lock_audit.itertuples(index=False):
+        if not bool(getattr(row, "full_exit", False)):
+            continue
+        events[_as_utc(getattr(row, "date"))] = str(getattr(row, "leader"))
+    if not events:
+        return base
+
+    expiry_dates = {date + pd.Timedelta(days=hold_days) for date in events}
+    schedule_dates = sorted(set(base) | set(events) | expiry_dates)
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    for date in schedule_dates:
+        active_assets = sorted(
+            {
+                asset
+                for event_date, asset in events.items()
+                if event_date <= date < event_date + pd.Timedelta(days=hold_days)
+            }
+        )
+        if active_assets:
+            weight = float(short_weight) / len(active_assets)
+            schedule[date] = pd.Series(
+                {asset: weight for asset in active_assets}, dtype=float
+            ).sort_index()
+        else:
+            schedule[date] = _forward_fill_short_target(base, date)
+    return schedule
+
+
+def build_reversal_short_block_windows(
+    profit_lock_audit: pd.DataFrame,
+    *,
+    hold_days: int,
+) -> tuple[tuple[str, pd.Timestamp, pd.Timestamp], ...]:
+    """Return execution-time windows for stop-aware reversal short episodes."""
+    if hold_days < 1:
+        raise ValueError("hold_days must be positive")
+    if "full_exit" not in profit_lock_audit.columns:
+        raise ValueError("profit-lock audit is missing full_exit")
+
+    windows: list[tuple[str, pd.Timestamp, pd.Timestamp]] = []
+    for row in profit_lock_audit.itertuples(index=False):
+        if not bool(getattr(row, "full_exit", False)):
+            continue
+        signal_date = _as_utc(getattr(row, "date")).normalize()
+        execution_start = signal_date + pd.Timedelta(days=1, hours=3)
+        execution_end = signal_date + pd.Timedelta(days=hold_days + 1, hours=3)
+        windows.append((str(getattr(row, "leader")), execution_start, execution_end))
+    return tuple(sorted(windows, key=lambda item: (item[0], item[1], item[2])))
+
+
+def suppress_long_targets_while_reversal_short(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    short_targets: Mapping[pd.Timestamp, pd.Series],
+    base_short_targets: Mapping[pd.Timestamp, pd.Series],
+) -> dict[pd.Timestamp, pd.Series]:
+    """Remove an asset from the long book while its reversal short is active."""
+    normalized_long: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in long_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        normalized_long[date] = target.astype(float).sort_index()
+    normalized_long = dict(sorted(normalized_long.items()))
+
+    base: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in base_short_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or (target < 0.0).any():
+            raise ValueError("base short targets must be finite and non-negative")
+        base[date] = target.astype(float).sort_index()
+    base = dict(sorted(base.items()))
+
+    combined_short: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in short_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or (target < 0.0).any():
+            raise ValueError("short targets must be finite and non-negative")
+        combined_short[date] = target.astype(float).sort_index()
+    combined_short = dict(sorted(combined_short.items()))
+
+    dates = sorted(set(normalized_long) | set(combined_short) | set(base))
+    suppressed: dict[pd.Timestamp, pd.Series] = {}
+    for date in dates:
+        long_target = _forward_fill_short_target(normalized_long, date)
+        base_target = _forward_fill_short_target(base, date)
+        short_target = _forward_fill_short_target(combined_short, date)
+        if not _target_equal(short_target.to_dict(), base_target.to_dict()):
+            for asset in short_target.index:
+                if asset in long_target.index:
+                    long_target.loc[asset] = 0.0
+        suppressed[date] = long_target[long_target > 1e-15].sort_index()
+    return suppressed
+
+
 def build_short_targets_for_trial(
     *,
     trial_id: str,
@@ -1186,6 +1650,7 @@ def build_short_targets_for_trial(
     mark_candles: dict[str, pd.DataFrame],
     start_date: str,
     short_funding: pd.DataFrame | None = None,
+    profit_lock_audit: pd.DataFrame | None = None,
 ):
     if trial_id == LS28_CANDIDATE_ID:
         priority, audit, bear, exit_schedule, _ = build_priority_short_schedules(
@@ -1213,7 +1678,7 @@ def build_short_targets_for_trial(
             start_date=start_date,
         )
         return combined, audit, bear, exit_schedule
-    return build_regime_short_schedules(
+    base_short = build_regime_short_schedules(
         market=market,
         universe=universe,
         index=index,
@@ -1233,6 +1698,19 @@ def build_short_targets_for_trial(
         ),
         funding_positive_only=trial_id in CROSS_VENUE_FUNDING_TRIALS,
     )
+    if trial_id in REVERSAL_SHORT_TRIALS:
+        if profit_lock_audit is None:
+            raise ValueError("reversal short requires the profit-lock audit")
+        short_targets, sleeve_audit, bear_schedule, exit_schedule = base_short
+        reversal_config = REVERSAL_SHORT_CONFIG_BY_TRIAL[trial_id]
+        combined = build_reversal_short_schedule(
+            short_targets,
+            profit_lock_audit,
+            short_weight=float(reversal_config["short_weight"]),
+            hold_days=int(reversal_config["hold_days"]),
+        )
+        return combined, sleeve_audit, bear_schedule, exit_schedule
+    return base_short
 
 
 def main() -> None:
@@ -1271,6 +1749,20 @@ def main() -> None:
             LS41_CANDIDATE_ID,
             LS42_CANDIDATE_ID,
             LS43_CANDIDATE_ID,
+            LS44_CANDIDATE_ID,
+            LS45_CANDIDATE_ID,
+            LS46_CANDIDATE_ID,
+            LS47_CANDIDATE_ID,
+            LS48_CANDIDATE_ID,
+            LS49_CANDIDATE_ID,
+            LS50_CANDIDATE_ID,
+            LS51_CANDIDATE_ID,
+            LS52_CANDIDATE_ID,
+            LS53_CANDIDATE_ID,
+            LS54_CANDIDATE_ID,
+            LS55_CANDIDATE_ID,
+            LS56_CANDIDATE_ID,
+            LS57_CANDIDATE_ID,
         ),
         required=True,
     )
@@ -1422,7 +1914,32 @@ def main() -> None:
             mark_candles=mark_candles,
             start_date=args.start_date,
             short_funding=short_funding,
+            profit_lock_audit=long_tilt_audit,
         )
+        if args.trial_id in {
+            LS47_CANDIDATE_ID,
+            LS48_CANDIDATE_ID,
+            LS49_CANDIDATE_ID,
+            LS50_CANDIDATE_ID,
+        }:
+            base_short_targets, _, _, _ = build_short_targets_for_trial(
+                trial_id=LS23_CANDIDATE_ID,
+                market=market,
+                universe=universe,
+                index=index,
+                long_raw=long_raw,
+                long_targets=long_targets,
+                funding=funding,
+                available=available,
+                mark_candles=mark_candles,
+                start_date=args.start_date,
+                short_funding=short_funding,
+            )
+            long_targets = suppress_long_targets_while_reversal_short(
+                long_targets,
+                short_targets,
+                base_short_targets,
+            )
 
     carry_sleeve_audit = pd.DataFrame()
     low_vol_schedule: dict[pd.Timestamp, pd.Series] = {}
@@ -1512,6 +2029,30 @@ def main() -> None:
             float(LS41_LONG_STOP_CONFIG["long_stop_loss_pct"])
             if args.trial_id in LONG_STOP_TRIALS
             else None
+        ),
+        short_stop_reentry_block_windows=(
+            build_reversal_short_block_windows(
+                long_tilt_audit,
+                hold_days=int(
+                    REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id]["hold_days"]
+                ),
+            )
+            if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+            else ()
+        ),
+        short_stop_reentry_rearm_ma_days=(
+            int(REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id]["rearm_ma_days"])
+            if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+            and REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id].get("rearm_ma_days")
+            is not None
+            else None
+        ),
+        short_stop_reentry_rearm_below_stop=bool(
+            REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id].get(
+                "rearm_below_stop", False
+            )
+            if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
+            else False
         ),
         max_gross_exposure=target_total_gross,
         hard_gross_exposure=(
@@ -1660,6 +2201,16 @@ def main() -> None:
             if "redistributed_weight" in long_tilt_audit.columns
             else 0.0
         ),
+        "profit_lock_full_exit_count": (
+            int(long_tilt_audit["full_exit"].fillna(False).sum())
+            if "full_exit" in long_tilt_audit.columns
+            else 0
+        ),
+        "profit_lock_freed_weight_total": (
+            float(long_tilt_audit["freed_weight"].sum())
+            if "freed_weight" in long_tilt_audit.columns
+            else 0.0
+        ),
         "profit_lock_cash_weight_total": (
             float(
                 (
@@ -1805,6 +2356,34 @@ def main() -> None:
                     if args.trial_id == LS42_CANDIDATE_ID
                     else LS43_SPEC_PATH
                     if args.trial_id == LS43_CANDIDATE_ID
+                    else LS44_SPEC_PATH
+                    if args.trial_id == LS44_CANDIDATE_ID
+                    else LS45_SPEC_PATH
+                    if args.trial_id == LS45_CANDIDATE_ID
+                    else LS46_SPEC_PATH
+                    if args.trial_id == LS46_CANDIDATE_ID
+                    else LS47_SPEC_PATH
+                    if args.trial_id == LS47_CANDIDATE_ID
+                    else LS48_SPEC_PATH
+                    if args.trial_id == LS48_CANDIDATE_ID
+                    else LS49_SPEC_PATH
+                    if args.trial_id == LS49_CANDIDATE_ID
+                    else LS50_SPEC_PATH
+                    if args.trial_id == LS50_CANDIDATE_ID
+                    else LS51_SPEC_PATH
+                    if args.trial_id == LS51_CANDIDATE_ID
+                    else LS52_SPEC_PATH
+                    if args.trial_id == LS52_CANDIDATE_ID
+                    else LS53_SPEC_PATH
+                    if args.trial_id == LS53_CANDIDATE_ID
+                    else LS54_SPEC_PATH
+                    if args.trial_id == LS54_CANDIDATE_ID
+                    else LS55_SPEC_PATH
+                    if args.trial_id == LS55_CANDIDATE_ID
+                    else LS56_SPEC_PATH
+                    if args.trial_id == LS56_CANDIDATE_ID
+                    else LS57_SPEC_PATH
+                    if args.trial_id == LS57_CANDIDATE_ID
                     else ""
                 ),
                 "construction": (
@@ -1866,6 +2445,34 @@ def main() -> None:
                     if args.trial_id == LS42_CANDIDATE_ID
                     else LS43_CONSTRUCTION
                     if args.trial_id == LS43_CANDIDATE_ID
+                    else LS44_CONSTRUCTION
+                    if args.trial_id == LS44_CANDIDATE_ID
+                    else LS45_CONSTRUCTION
+                    if args.trial_id == LS45_CANDIDATE_ID
+                    else LS46_CONSTRUCTION
+                    if args.trial_id == LS46_CANDIDATE_ID
+                    else LS47_CONSTRUCTION
+                    if args.trial_id == LS47_CANDIDATE_ID
+                    else LS48_CONSTRUCTION
+                    if args.trial_id == LS48_CANDIDATE_ID
+                    else LS49_CONSTRUCTION
+                    if args.trial_id == LS49_CANDIDATE_ID
+                    else LS50_CONSTRUCTION
+                    if args.trial_id == LS50_CANDIDATE_ID
+                    else LS51_CONSTRUCTION
+                    if args.trial_id == LS51_CANDIDATE_ID
+                    else LS52_CONSTRUCTION
+                    if args.trial_id == LS52_CANDIDATE_ID
+                    else LS53_CONSTRUCTION
+                    if args.trial_id == LS53_CANDIDATE_ID
+                    else LS54_CONSTRUCTION
+                    if args.trial_id == LS54_CANDIDATE_ID
+                    else LS55_CONSTRUCTION
+                    if args.trial_id == LS55_CANDIDATE_ID
+                    else LS56_CONSTRUCTION
+                    if args.trial_id == LS56_CANDIDATE_ID
+                    else LS57_CONSTRUCTION
+                    if args.trial_id == LS57_CANDIDATE_ID
                     else CONSTRUCTION
                 ),
                 "frozen_config": _trial_frozen_config(args.trial_id),

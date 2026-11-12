@@ -210,7 +210,12 @@ def trim_extreme_run_single_leader(
     lookback_days: int,
     threshold: float,
     scale: float,
+    skip_scale: float = 1.0,
     min_leader_weight: float = 0.0,
+    skip_if_confirmation_negative_days: int | None = None,
+    skip_negative_confirmation_regime: pd.Series | None = None,
+    skip_negative_confirmation_above_ma_days: int | None = None,
+    skip_negative_confirmation_min_daily_return: float | None = None,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
     """Halve the largest long leg after an extreme trailing run.
 
@@ -224,8 +229,39 @@ def trim_extreme_run_single_leader(
         raise ValueError("threshold must be positive and finite")
     if not np.isfinite(scale) or not 0.0 < scale < 1.0:
         raise ValueError("scale must be finite and in (0, 1)")
+    if not np.isfinite(skip_scale) or not 0.0 < skip_scale <= 1.0:
+        raise ValueError("skip_scale must be finite and in (0, 1]")
     if not np.isfinite(min_leader_weight) or not 0.0 <= min_leader_weight < 1.0:
         raise ValueError("min_leader_weight must be finite and in [0, 1)")
+    if (
+        skip_if_confirmation_negative_days is not None
+        and skip_if_confirmation_negative_days < 1
+    ):
+        raise ValueError(
+            "skip_if_confirmation_negative_days must be positive when set"
+        )
+    if skip_negative_confirmation_regime is not None:
+        regime = pd.Series(skip_negative_confirmation_regime, dtype=bool).copy()
+        regime.index = pd.DatetimeIndex(
+            [_as_utc(value) for value in regime.index]
+        )
+        regime = regime[~regime.index.duplicated(keep="last")].sort_index()
+    else:
+        regime = None
+    if (
+        skip_negative_confirmation_above_ma_days is not None
+        and skip_negative_confirmation_above_ma_days < 1
+    ):
+        raise ValueError(
+            "skip_negative_confirmation_above_ma_days must be positive when set"
+        )
+    if (
+        skip_negative_confirmation_min_daily_return is not None
+        and not np.isfinite(skip_negative_confirmation_min_daily_return)
+    ):
+        raise ValueError(
+            "skip_negative_confirmation_min_daily_return must be finite when set"
+        )
 
     price_frame = prices.copy()
     price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
@@ -246,11 +282,36 @@ def trim_extreme_run_single_leader(
         leader = ""
         leader_weight_before = 0.0
         trailing_return = float("nan")
+        confirmation_return = float("nan")
+        confirmation_daily_return = float("nan")
+        skipped_negative_confirmation = False
+        skip_regime_active = regime is None
+        if regime is not None and date in regime.index:
+            skip_regime_active = bool(regime.loc[date])
+        skip_above_ma_active = True
         trimmed = False
         output = target.copy()
         if not target.empty:
             leader = str(target.idxmax())
             leader_weight_before = float(target.loc[leader])
+            if skip_negative_confirmation_above_ma_days is not None:
+                skip_above_ma_active = False
+                if leader in price_frame.columns and date in price_frame.index:
+                    leader_ma = price_frame[leader].rolling(
+                        int(skip_negative_confirmation_above_ma_days),
+                        min_periods=int(skip_negative_confirmation_above_ma_days),
+                    ).mean()
+                    current_leader_price = float(
+                        pd.to_numeric(price_frame.at[date, leader], errors="coerce")
+                    )
+                    current_ma = float(
+                        pd.to_numeric(leader_ma.loc[date], errors="coerce")
+                    )
+                    skip_above_ma_active = bool(
+                        np.isfinite(current_leader_price)
+                        and np.isfinite(current_ma)
+                        and current_leader_price > current_ma
+                    )
             base_cutoff = date - pd.Timedelta(days=lookback_days)
             candidates = price_frame.index[price_frame.index <= base_cutoff]
             if (
@@ -268,12 +329,76 @@ def trim_extreme_run_single_leader(
                     and current_price > 0.0
                 ):
                     trailing_return = current_price / base_price - 1.0
+                    if skip_if_confirmation_negative_days is not None:
+                        confirmation_cutoff = date - pd.Timedelta(
+                            days=int(skip_if_confirmation_negative_days)
+                        )
+                        confirmation_candidates = price_frame.index[
+                            price_frame.index <= confirmation_cutoff
+                        ]
+                        if not confirmation_candidates.empty:
+                            confirmation_base_date = pd.Timestamp(
+                                confirmation_candidates[-1]
+                            )
+                            confirmation_base_price = float(
+                                pd.to_numeric(
+                                    price_frame.at[confirmation_base_date, leader],
+                                    errors="coerce",
+                                )
+                            )
+                            if confirmation_base_price > 0.0:
+                                confirmation_return = (
+                                    current_price / confirmation_base_price - 1.0
+                                )
+                    daily_confirmation_active = (
+                        skip_negative_confirmation_min_daily_return is None
+                    )
+                    if skip_negative_confirmation_min_daily_return is not None:
+                        previous_candidates = price_frame.index[price_frame.index < date]
+                        if not previous_candidates.empty:
+                            previous_date = pd.Timestamp(previous_candidates[-1])
+                            previous_price = float(
+                                pd.to_numeric(
+                                    price_frame.at[previous_date, leader],
+                                    errors="coerce",
+                                )
+                            )
+                            if (
+                                np.isfinite(previous_price)
+                                and previous_price > 0.0
+                            ):
+                                confirmation_daily_return = (
+                                    current_price / previous_price - 1.0
+                                )
+                                daily_confirmation_active = bool(
+                                    confirmation_daily_return
+                                    >= float(
+                                        skip_negative_confirmation_min_daily_return
+                                    )
+                                )
+                    skip_condition = (
+                        leader_weight_before >= float(min_leader_weight) - 1e-12
+                        and np.isfinite(confirmation_return)
+                        and confirmation_return < 0.0
+                        and skip_regime_active
+                        and skip_above_ma_active
+                        and daily_confirmation_active
+                    )
                     if (
                         trailing_return >= threshold
                         and leader_weight_before >= float(min_leader_weight) - 1e-12
+                        and not skip_condition
                     ):
                         output.loc[leader] = leader_weight_before * float(scale)
                         trimmed = True
+                    elif (
+                        trailing_return >= threshold
+                        and skip_condition
+                    ):
+                        skipped_negative_confirmation = True
+                        if float(skip_scale) < 1.0 - 1e-15:
+                            output.loc[leader] = leader_weight_before * float(skip_scale)
+                            trimmed = True
 
         adjusted[date] = output
         audit_rows.append(
@@ -283,9 +408,19 @@ def trim_extreme_run_single_leader(
                 "leader_weight_before": leader_weight_before,
                 "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
                 "trailing_return": trailing_return,
+                "confirmation_return": confirmation_return,
+                "confirmation_daily_return": confirmation_daily_return,
+                "skip_if_confirmation_negative_days": skip_if_confirmation_negative_days,
+                "skipped_negative_confirmation": skipped_negative_confirmation,
+                "skip_negative_confirmation_regime_active": skip_regime_active,
+                "skip_negative_confirmation_above_ma_active": skip_above_ma_active,
+                "skip_negative_confirmation_min_daily_return": (
+                    skip_negative_confirmation_min_daily_return
+                ),
                 "lookback_days": int(lookback_days),
                 "threshold": float(threshold),
                 "scale": float(scale),
+                "skip_scale": float(skip_scale),
                 "min_leader_weight": float(min_leader_weight),
                 "trimmed": trimmed,
                 "gross_before": float(target.sum()),
@@ -480,6 +615,224 @@ def trim_extreme_run_single_leader_redistribute(
             }
         )
     return adjusted, pd.DataFrame(audit_rows)
+
+
+def trim_extreme_run_single_leader_skip_and_redistribute(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    prices: pd.DataFrame,
+    *,
+    lookback_days: int,
+    threshold: float,
+    scale: float,
+    skip_scale: float = 1.0,
+    max_asset_weight: float,
+    recipient_confirmation_days: int | None = None,
+    skip_if_confirmation_negative_days: int | None = None,
+    skip_negative_confirmation_above_ma_days: int | None = None,
+    skip_negative_confirmation_min_daily_return: float | None = None,
+    skip_negative_confirmation_regime: pd.Series | None = None,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Compose the LS51 skip state with the LS45 recipient redistribution.
+
+    The skip branch keeps the original leader target and therefore does not
+    redistribute anything.  Every non-skipped trim uses the frozen LS45
+    recipient rule.  This keeps both mechanisms independently auditable.
+    """
+    skipped, skip_audit = trim_extreme_run_single_leader(
+        long_targets,
+        prices,
+        lookback_days=lookback_days,
+        threshold=threshold,
+        scale=scale,
+        skip_scale=skip_scale,
+        skip_if_confirmation_negative_days=skip_if_confirmation_negative_days,
+        skip_negative_confirmation_above_ma_days=skip_negative_confirmation_above_ma_days,
+        skip_negative_confirmation_min_daily_return=(
+            skip_negative_confirmation_min_daily_return
+        ),
+        skip_negative_confirmation_regime=skip_negative_confirmation_regime,
+    )
+    redistributed, redistribute_audit = trim_extreme_run_single_leader_redistribute(
+        long_targets,
+        prices,
+        lookback_days=lookback_days,
+        threshold=threshold,
+        scale=scale,
+        max_asset_weight=max_asset_weight,
+        recipient_confirmation_days=recipient_confirmation_days,
+    )
+    skip_rows = skip_audit.set_index("date")
+    combined = redistribute_audit.copy()
+    combined["skipped_negative_confirmation"] = combined["date"].map(
+        skip_rows["skipped_negative_confirmation"]
+    ).fillna(False).astype(bool)
+    combined["confirmation_return"] = combined["date"].map(
+        skip_rows["confirmation_return"]
+    )
+    combined["confirmation_daily_return"] = combined["date"].map(
+        skip_rows["confirmation_daily_return"]
+    )
+    combined["skip_scale"] = combined["date"].map(skip_rows["skip_scale"])
+    combined["skip_negative_confirmation_regime_active"] = combined["date"].map(
+        skip_rows["skip_negative_confirmation_regime_active"]
+    ).fillna(False).astype(bool)
+    combined["skip_negative_confirmation_above_ma_active"] = combined["date"].map(
+        skip_rows["skip_negative_confirmation_above_ma_active"]
+    ).fillna(False).astype(bool)
+    result: dict[pd.Timestamp, pd.Series] = {}
+    for row_index, row in combined.iterrows():
+        date = _as_utc(row["date"])
+        skipped_confirmation = bool(row["skipped_negative_confirmation"])
+        target = skipped[date] if skipped_confirmation else redistributed[date]
+        result[date] = target
+
+        # The combined row must describe the target that was actually used,
+        # not the counterfactual redistribution branch that was discarded.
+        leader = str(row["leader"]) if str(row["leader"]) else ""
+        leader_weight_after = float(target.get(leader, 0.0)) if leader else 0.0
+        combined.at[row_index, "leader_weight_after"] = leader_weight_after
+        combined.at[row_index, "gross_after"] = float(target.sum())
+        if skipped_confirmation:
+            partial_skip = leader_weight_after < float(row["leader_weight_before"]) - 1e-15
+            combined.at[row_index, "applied_rule"] = (
+                "partial_skip_negative_confirmation"
+                if partial_skip
+                else "skip_negative_confirmation"
+            )
+            combined.at[row_index, "trimmed"] = partial_skip
+            combined.at[row_index, "eligible_recipient_count"] = 0
+            combined.at[row_index, "redistributed_weight"] = 0.0
+            combined.at[row_index, "cash_weight"] = (
+                max(0.0, float(row["gross_before"]) - float(target.sum()))
+                if partial_skip
+                else 0.0
+            )
+        elif bool(row["trimmed"]):
+            combined.at[row_index, "applied_rule"] = "trim_redistribute"
+        else:
+            combined.at[row_index, "applied_rule"] = "no_trim"
+    return result, combined
+
+
+def trim_extreme_run_single_leader_breakdown_exit(
+    long_targets: Mapping[pd.Timestamp, pd.Series],
+    prices: pd.DataFrame,
+    *,
+    lookback_days: int,
+    threshold: float,
+    scale: float,
+    confirmation_days: int,
+) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
+    """Fully exit an extreme leader only when short-term momentum has broken.
+
+    The frozen LS22 rule still triggers on the ``lookback_days`` extreme run.
+    If the leader's shorter ``confirmation_days`` return is negative, the leg
+    is closed rather than halved; otherwise the original scale is retained.
+    Missing confirmation prices fail safe to the original half-trim rule.
+    """
+    if lookback_days < 1:
+        raise ValueError("lookback_days must be positive")
+    if not np.isfinite(threshold) or threshold <= 0.0:
+        raise ValueError("threshold must be positive and finite")
+    if not np.isfinite(scale) or not 0.0 < scale < 1.0:
+        raise ValueError("scale must be finite and in (0, 1)")
+    if confirmation_days < 1:
+        raise ValueError("confirmation_days must be positive")
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame[~price_frame.index.duplicated(keep="last")].sort_index()
+
+    adjusted: dict[pd.Timestamp, pd.Series] = {}
+    audit_rows: list[dict[str, object]] = []
+    for raw_date, raw_target in sorted(long_targets.items()):
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("long target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("long target weights must be non-negative")
+        target = target[target > 1e-15].astype(float).sort_index()
+
+        leader = str(target.idxmax()) if not target.empty else ""
+        leader_weight_before = float(target.loc[leader]) if leader else 0.0
+        trailing_return = float("nan")
+        confirmation_return = float("nan")
+        applied_scale = 1.0
+        trimmed = False
+        full_exit = False
+        freed_weight = 0.0
+        output = target.copy()
+        if leader:
+            base_cutoff = date - pd.Timedelta(days=lookback_days)
+            candidates = price_frame.index[price_frame.index <= base_cutoff]
+            if (
+                leader in price_frame.columns
+                and date in price_frame.index
+                and not candidates.empty
+            ):
+                base_date = pd.Timestamp(candidates[-1])
+                base_price = float(pd.to_numeric(price_frame.at[base_date, leader], errors="coerce"))
+                current_price = float(pd.to_numeric(price_frame.at[date, leader], errors="coerce"))
+                if (
+                    np.isfinite(base_price)
+                    and np.isfinite(current_price)
+                    and base_price > 0.0
+                    and current_price > 0.0
+                ):
+                    trailing_return = current_price / base_price - 1.0
+                    if trailing_return >= threshold:
+                        trimmed = True
+                        confirmation_cutoff = date - pd.Timedelta(days=confirmation_days)
+                        confirmation_candidates = price_frame.index[
+                            price_frame.index <= confirmation_cutoff
+                        ]
+                        if not confirmation_candidates.empty:
+                            confirmation_base_date = pd.Timestamp(
+                                confirmation_candidates[-1]
+                            )
+                            confirmation_base_price = float(
+                                pd.to_numeric(
+                                    price_frame.at[confirmation_base_date, leader],
+                                    errors="coerce",
+                                )
+                            )
+                            if confirmation_base_price > 0.0:
+                                confirmation_return = (
+                                    current_price / confirmation_base_price - 1.0
+                                )
+                        full_exit = bool(
+                            np.isfinite(confirmation_return)
+                            and confirmation_return < 0.0
+                        )
+                        applied_scale = 0.0 if full_exit else float(scale)
+                        output.loc[leader] = leader_weight_before * applied_scale
+                        freed_weight = leader_weight_before - float(output.loc[leader])
+
+        adjusted[date] = output
+        audit_rows.append(
+            {
+                "date": date,
+                "leader": leader,
+                "leader_weight_before": leader_weight_before,
+                "leader_weight_after": float(output.get(leader, 0.0)) if leader else 0.0,
+                "trailing_return": trailing_return,
+                "confirmation_return": confirmation_return,
+                "confirmation_days": int(confirmation_days),
+                "lookback_days": int(lookback_days),
+                "threshold": float(threshold),
+                "scale": float(scale),
+                "applied_scale": applied_scale,
+                "trimmed": trimmed,
+                "full_exit": full_exit,
+                "freed_weight": freed_weight,
+                "gross_before": float(target.sum()),
+                "gross_after": float(output.sum()),
+            }
+        )
+    return adjusted, pd.DataFrame(audit_rows)
+
 
 def trim_extreme_run_single_leader_stateful(
     long_targets: Mapping[pd.Timestamp, pd.Series],

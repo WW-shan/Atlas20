@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21,main,lag0,2.0,2.1114241653484687,94.45077788486444,-0.3756582220585807,reports/derivatives_track_h5_ls23_profitlock_stronger21_cost2/PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21/summary.json

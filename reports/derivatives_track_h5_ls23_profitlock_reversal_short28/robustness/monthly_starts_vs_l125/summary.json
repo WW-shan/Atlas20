@@ -1,0 +1,43 @@
+{
+  "baseline": "L125",
+  "candidates": [
+    "LS23",
+    "LS45",
+    "LS46"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 45,
+      "candidate": "LS23",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS45",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    },
+    {
+      "all_pass": 45,
+      "candidate": "LS46",
+      "mdd_pass": 45,
+      "multiple_pass": 45,
+      "sharpe_pass": 45,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3491591194721596,
+      "worst_relative_mdd": -0.3491591194721596
+    }
+  ]
+}

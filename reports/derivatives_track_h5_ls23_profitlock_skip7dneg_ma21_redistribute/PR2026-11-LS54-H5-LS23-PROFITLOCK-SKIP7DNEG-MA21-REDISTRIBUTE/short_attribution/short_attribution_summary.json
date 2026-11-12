@@ -1,0 +1,13 @@
+{
+  "best_pct_nav": 6.3846605486279255,
+  "episodes": 335,
+  "max_asset_share": 0.23358211040502863,
+  "mean_pct_nav": 0.10080065891896721,
+  "median_pct_nav": 0.00991228367633634,
+  "negative_episodes": 166,
+  "positive_episodes": 169,
+  "top3_share": 0.6194048935305978,
+  "total_net_pnl": 4.612274887098007,
+  "total_pct_nav_sum": 33.768220737854016,
+  "worst_pct_nav": -1.3806937158242012
+}

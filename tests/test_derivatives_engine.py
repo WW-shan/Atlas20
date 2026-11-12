@@ -251,6 +251,133 @@ def test_short_stop_loss_rejects_invalid_percentage() -> None:
         DerivativeBacktestConfig(short_stop_loss_pct=1.0)
 
 
+def test_short_stop_does_not_reopen_within_explicit_reversal_window() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=96, freq="1h", tz="UTC")
+    candles = {
+        "A": _flat_frame(index),
+        "B": _flat_frame(index),
+    }
+    candles["A"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        125.0,
+        100.0,
+        125.0,
+    ]
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"A": -0.50}),
+        pd.Timestamp("2026-01-02T00:00:00Z"): pd.Series({"A": -0.50, "B": 0.01}),
+    }
+    config = DerivativeBacktestConfig(
+        initial_capital=1_000.0,
+        taker_fee_bps=0.0,
+        slippage_bps=0.0,
+        liquidation_slippage_bps=0.0,
+        fee_buffer=0.0,
+        short_stop_loss_pct=0.20,
+        short_stop_reentry_block_windows=(
+            ("A", pd.Timestamp("2026-01-02T03:00:00Z"), pd.Timestamp("2026-01-10T03:00:00Z")),
+        ),
+    )
+
+    result = run_derivative_backtest(candles, targets, config=config)
+
+    a_trades = result.trades[result.trades["asset"] == "A"]
+    assert list(a_trades["action"]) == ["open", "close"]
+    assert list(a_trades["reason"]) == ["rebalance", "stop_loss"]
+    b_trades = result.trades[result.trades["asset"] == "B"]
+    assert list(b_trades["action"]) == ["open"]
+
+
+def test_short_reentry_block_window_validation() -> None:
+    with pytest.raises(ValueError, match="start must precede end"):
+        DerivativeBacktestConfig(
+            short_stop_reentry_block_windows=(
+                ("A", pd.Timestamp("2026-01-02T03:00:00Z"), pd.Timestamp("2026-01-01T03:00:00Z")),
+            )
+        )
+
+
+def test_short_stop_reentry_can_rearm_after_daily_ma_confirmation() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=30 * 24, freq="1h", tz="UTC")
+    candles = {
+        "A": _flat_frame(index),
+        "B": _flat_frame(index),
+    }
+    # Stop on day 22, then keep the close above MA21 for one day and finally
+    # close below it on day 24.  The next target change can then re-arm A.
+    candles["A"].loc["2026-01-22T04:00:00Z", ["open", "high", "low", "close"]] = [
+        100.0,
+        125.0,
+        100.0,
+        110.0,
+    ]
+    candles["A"].loc["2026-01-23T00:00:00Z":"2026-01-24T23:00:00Z", ["open", "high", "low", "close"]] = 105.0
+    candles["A"].loc["2026-01-24T00:00:00Z":"2026-01-24T23:00:00Z", ["open", "high", "low", "close"]] = 90.0
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"A": -0.50}),
+        pd.Timestamp("2026-01-22T00:00:00Z"): pd.Series({"A": -0.50, "B": 0.01}),
+        pd.Timestamp("2026-01-24T00:00:00Z"): pd.Series({"A": -0.50, "B": 0.02}),
+    }
+    config = DerivativeBacktestConfig(
+        initial_capital=1_000.0,
+        taker_fee_bps=0.0,
+        slippage_bps=0.0,
+        liquidation_slippage_bps=0.0,
+        fee_buffer=0.0,
+        short_stop_loss_pct=0.20,
+        short_stop_reentry_block_windows=(
+            ("A", pd.Timestamp("2026-01-22T03:00:00Z"), pd.Timestamp("2026-02-10T03:00:00Z")),
+        ),
+        short_stop_reentry_rearm_ma_days=21,
+    )
+
+    result = run_derivative_backtest(candles, targets, config=config)
+
+    a_trades = result.trades[result.trades["asset"] == "A"]
+    assert list(a_trades["action"]) == ["open", "close", "open"]
+    assert list(a_trades["reason"]) == ["rebalance", "stop_loss", "rebalance"]
+
+
+def test_short_stop_reentry_can_rearm_after_close_falls_below_stop_price() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", periods=30 * 24, freq="1h", tz="UTC")
+    candles = {
+        "A": _flat_frame(index),
+        "B": _flat_frame(index),
+    }
+    candles["A"].loc["2026-01-22T04:00:00Z", ["open", "high", "low", "close"]] = [
+        100.0,
+        130.0,
+        100.0,
+        126.0,
+    ]
+    candles["A"].loc["2026-01-22T05:00:00Z":"2026-01-22T23:00:00Z", ["open", "high", "low", "close"]] = 126.0
+    candles["A"].loc["2026-01-23T00:00:00Z":"2026-01-23T23:00:00Z", ["open", "high", "low", "close"]] = 126.0
+    candles["A"].loc["2026-01-24T00:00:00Z":"2026-01-24T23:00:00Z", ["open", "high", "low", "close"]] = 110.0
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"A": -0.50}),
+        pd.Timestamp("2026-01-22T00:00:00Z"): pd.Series({"A": -0.50, "B": 0.01}),
+        pd.Timestamp("2026-01-24T00:00:00Z"): pd.Series({"A": -0.50, "B": 0.02}),
+    }
+    config = DerivativeBacktestConfig(
+        initial_capital=1_000.0,
+        taker_fee_bps=0.0,
+        slippage_bps=0.0,
+        liquidation_slippage_bps=0.0,
+        fee_buffer=0.0,
+        short_stop_loss_pct=0.20,
+        short_stop_reentry_block_windows=(
+            ("A", pd.Timestamp("2026-01-22T03:00:00Z"), pd.Timestamp("2026-02-10T03:00:00Z")),
+        ),
+        short_stop_reentry_rearm_below_stop=True,
+    )
+
+    result = run_derivative_backtest(candles, targets, config=config)
+
+    a_trades = result.trades[result.trades["asset"] == "A"]
+    assert list(a_trades["action"]) == ["open", "close", "open"]
+    assert list(a_trades["reason"]) == ["rebalance", "stop_loss", "rebalance"]
+
+
 def test_margin_utilization_caps_requested_gross_exposure() -> None:
     index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
     candles = {"BTC": _flat_frame(index)}

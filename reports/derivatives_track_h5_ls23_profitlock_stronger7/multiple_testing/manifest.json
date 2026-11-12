@@ -12,7 +12,7 @@
   "primary": "LS43_H5_LS23_PROFITLOCK_STRONGER7",
   "best_candidate": "LS43_H5_LS23_PROFITLOCK_STRONGER7",
   "trial_summary": "reports/research_trial_inventory/summary.json",
-  "trial_summary_sha256": "ca3c47f21b05c95e4d5de4c2935205cb6aa0fcb751dc2ca5eac4a7fff6688cf7",
+  "trial_summary_sha256": "850c439499698867b9209bcde02f4d3b506b58ad9e0a4bec3d0c50cd8062e78d",
   "trial_scopes": [
     {
       "scope": "family",
@@ -30,7 +30,7 @@
     },
     {
       "scope": "all_trials",
-      "trial_count": 14212,
+      "trial_count": 14226,
       "trial_sharpe_std_per_period": 0.016607499477050355,
       "trial_sharpe_std_annualized": 0.3172858320052806,
       "sharpe_std_source": "top20_2022_trials"

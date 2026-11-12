@@ -113,3 +113,33 @@ def test_shadow_spec_selects_ls42_and_rejects_unknown_trials() -> None:
     assert _shadow_spec(LS43_CANDIDATE_ID) == LS43_SPEC_PATH
     with pytest.raises(ValueError, match="unsupported shadow trial"):
         _shadow_spec("not-a-trial")
+
+
+def test_shadow_spec_selects_ls49_ma21_rearm() -> None:
+    from scripts.run_derivatives_shadow import _shadow_spec
+    from scripts.run_h5_regime_short_router import LS49_CANDIDATE_ID, LS49_SPEC_PATH
+
+    assert _shadow_spec(LS49_CANDIDATE_ID) == LS49_SPEC_PATH
+
+
+def test_shadow_spec_selects_ls50_below_stop_rearm() -> None:
+    from scripts.run_derivatives_shadow import _shadow_spec
+    from scripts.run_h5_regime_short_router import LS50_CANDIDATE_ID, LS50_SPEC_PATH
+
+    assert _shadow_spec(LS50_CANDIDATE_ID) == LS50_SPEC_PATH
+
+
+def test_zero_funding_shadow_keeps_short_schedule() -> None:
+    from scripts.run_derivatives_shadow import _cap_short_schedule_at_funding_end
+
+    calendar = pd.date_range("2026-10-08", periods=3, freq="D", tz="UTC")
+    schedule = {calendar[0]: pd.Series({"bitcoin": 0.20})}
+
+    kept = _cap_short_schedule_at_funding_end(
+        schedule,
+        calendar=calendar,
+        funding_last=None,
+    )
+
+    assert list(kept) == [calendar[0]]
+    assert kept[calendar[0]].to_dict() == {"bitcoin": pytest.approx(0.20)}

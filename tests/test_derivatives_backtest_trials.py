@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pandas as pd
+import pytest
+
 from scripts.run_derivatives_backtest import TRIAL_RULES
 
 
@@ -878,3 +881,347 @@ def test_ls43_stronger_recipient_confirmation_is_frozen() -> None:
     assert runner.LS43_CANDIDATE_ID in runner.SHORT_CANDIDATES
     assert runner.LS43_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
     assert runner.LS43_CANDIDATE_ID in runner.PROFIT_LOCK_REDISTRIBUTE_TRIALS
+
+
+def test_ls44_breakdown_full_exit_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS44_CANDIDATE_ID == "PR2026-11-LS44-H5-LS23-PROFITLOCK-FULLEXIT-NEG7"
+    assert runner.LS44_BREAKDOWN_EXIT_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "confirmation_days": 7,
+    }
+    assert runner.LS44_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS44_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS44_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+
+
+def test_ls45_stronger21_recipient_confirmation_is_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS45_CANDIDATE_ID == "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+    assert runner.LS45_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+    }
+    assert runner.LS45_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS45_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS45_CANDIDATE_ID in runner.PROFIT_LOCK_REDISTRIBUTE_TRIALS
+
+
+def test_ls46_reversal_short_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS46_CANDIDATE_ID == "PR2026-11-LS46-H5-LS23-PROFITLOCK-REVERSAL-SHORT28"
+    assert runner.LS46_REVERSAL_SHORT_CONFIG == {
+        "short_weight": 0.20,
+        "hold_days": 28,
+    }
+    assert runner.LS46_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS46_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS46_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+    assert runner.LS46_CANDIDATE_ID in runner.REVERSAL_SHORT_TRIALS
+
+
+def test_reversal_short_schedule_prioritizes_active_events_then_ls12() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    d0 = pd.Timestamp("2026-01-01T00:00:00Z")
+    d2 = d0 + pd.Timedelta(days=2)
+    d3 = d0 + pd.Timedelta(days=3)
+    d10 = d0 + pd.Timedelta(days=10)
+    base = {
+        d0: pd.Series({"A": 0.25}),
+        d10: pd.Series({"B": 0.25}),
+    }
+    audit = pd.DataFrame(
+        [
+            {"date": d2, "leader": "C", "full_exit": True},
+            {"date": d3, "leader": "D", "full_exit": True},
+            {"date": d3, "leader": "E", "full_exit": False},
+        ]
+    )
+
+    schedule = runner.build_reversal_short_schedule(
+        base,
+        audit,
+        hold_days=5,
+        short_weight=0.20,
+    )
+
+    assert sorted(schedule) == [d0, d2, d3, d0 + pd.Timedelta(days=7), d0 + pd.Timedelta(days=8), d10]
+    assert schedule[d2].to_dict() == {"C": pytest.approx(0.20)}
+    assert schedule[d3].to_dict() == {
+        "C": pytest.approx(0.10),
+        "D": pytest.approx(0.10),
+    }
+    assert schedule[d0 + pd.Timedelta(days=7)].to_dict() == {"D": pytest.approx(0.20)}
+    assert schedule[d0 + pd.Timedelta(days=8)].to_dict() == {"A": pytest.approx(0.25)}
+    assert schedule[d10].to_dict() == {"B": pytest.approx(0.25)}
+
+
+def test_ls47_no_reentry_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS47_CANDIDATE_ID == "PR2026-11-LS47-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-NOREENTRY"
+    assert runner.LS47_REVERSAL_SHORT_CONFIG == {
+        "short_weight": 0.20,
+        "hold_days": 28,
+        "suppress_long_reentry": True,
+    }
+    assert runner.LS47_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS47_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS47_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+    assert runner.LS47_CANDIDATE_ID in runner.REVERSAL_SHORT_TRIALS
+
+
+def test_ls48_oneshot_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS48_CANDIDATE_ID == (
+        "PR2026-11-LS48-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-ONESHOT"
+    )
+    assert runner.LS48_REVERSAL_SHORT_CONFIG == {
+        "short_weight": 0.20,
+        "hold_days": 28,
+        "suppress_long_reentry": True,
+        "block_reentry_after_stop": True,
+    }
+    assert runner.LS48_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS48_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS48_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+    assert runner.LS48_CANDIDATE_ID in runner.REVERSAL_SHORT_TRIALS
+    assert runner.LS48_CANDIDATE_ID in runner.STOP_STATE_REVERSAL_SHORT_TRIALS
+
+
+def test_ls49_ma21_rearm_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS49_CANDIDATE_ID == (
+        "PR2026-11-LS49-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-MA21"
+    )
+    assert runner.LS49_REVERSAL_SHORT_CONFIG == {
+        "short_weight": 0.20,
+        "hold_days": 28,
+        "suppress_long_reentry": True,
+        "block_reentry_after_stop": True,
+        "rearm_ma_days": 21,
+    }
+    assert runner.LS49_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS49_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS49_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+    assert runner.LS49_CANDIDATE_ID in runner.REVERSAL_SHORT_TRIALS
+    assert runner.LS49_CANDIDATE_ID in runner.STOP_STATE_REVERSAL_SHORT_TRIALS
+
+
+def test_ls50_below_stop_rearm_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS50_CANDIDATE_ID == (
+        "PR2026-11-LS50-H5-LS23-PROFITLOCK-REVERSAL-SHORT28-BELOWSTOP"
+    )
+    assert runner.LS50_REVERSAL_SHORT_CONFIG == {
+        "short_weight": 0.20,
+        "hold_days": 28,
+        "suppress_long_reentry": True,
+        "block_reentry_after_stop": True,
+        "rearm_below_stop": True,
+    }
+    assert runner.LS50_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS50_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS50_CANDIDATE_ID in runner.LONG_BREAKDOWN_EXIT_TRIALS
+    assert runner.LS50_CANDIDATE_ID in runner.REVERSAL_SHORT_TRIALS
+    assert runner.LS50_CANDIDATE_ID in runner.STOP_STATE_REVERSAL_SHORT_TRIALS
+
+
+def test_ls51_skip_negative_7d_confirmation_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS51_CANDIDATE_ID == (
+        "PR2026-11-LS51-H5-LS23-PROFITLOCK-SKIP7DNEG"
+    )
+    assert runner.LS51_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "skip_if_confirmation_negative_days": 7,
+    }
+    assert runner.LS51_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS51_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS51_CANDIDATE_ID in runner.LONG_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+    assert runner.LS51_CANDIDATE_ID not in runner.REVERSAL_SHORT_TRIALS
+
+
+def test_ls52_bull_only_skip_negative_7d_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS52_CANDIDATE_ID == (
+        "PR2026-11-LS52-H5-LS23-PROFITLOCK-SKIP7DNEG-BULL"
+    )
+    assert runner.LS52_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_regime": "btc_above_ma200",
+    }
+    assert runner.LS52_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS52_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS52_CANDIDATE_ID in runner.LONG_BULL_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+
+
+def test_ls53_ma21_skip_negative_7d_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS53_CANDIDATE_ID == (
+        "PR2026-11-LS53-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21"
+    )
+    assert runner.LS53_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_above_ma_days": 21,
+    }
+    assert runner.LS53_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS53_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS53_CANDIDATE_ID in runner.LONG_ABOVE_MA_SKIP_NEGATIVE_CONFIRMATION_TRIALS
+
+
+def test_ls54_skip_plus_redistribute_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS54_CANDIDATE_ID == (
+        "PR2026-11-LS54-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-REDISTRIBUTE"
+    )
+    assert runner.LS54_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_above_ma_days": 21,
+    }
+    assert runner.LS54_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS54_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS54_CANDIDATE_ID in runner.LONG_SKIP_REDISTRIBUTE_TRIALS
+
+
+def test_ls55_partial_skip_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS55_CANDIDATE_ID == (
+        "PR2026-11-LS55-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S075-REDISTRIBUTE"
+    )
+    assert runner.LS55_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "skip_scale": 0.75,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_above_ma_days": 21,
+    }
+    assert runner.LS55_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS55_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS55_CANDIDATE_ID in runner.LONG_SKIP_REDISTRIBUTE_TRIALS
+
+
+def test_ls56_partial_skip_midpoint_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS56_CANDIDATE_ID == (
+        "PR2026-11-LS56-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-S0625-REDISTRIBUTE"
+    )
+    assert runner.LS56_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "skip_scale": 0.625,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_above_ma_days": 21,
+    }
+    assert runner.LS56_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS56_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS56_CANDIDATE_ID in runner.LONG_SKIP_REDISTRIBUTE_TRIALS
+
+
+def test_ls57_stabilizing_daily_confirmation_parameters_are_frozen() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    assert runner.LS57_CANDIDATE_ID == (
+        "PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE"
+    )
+    assert runner.LS57_PROFIT_LOCK_CONFIG == {
+        "lookback_days": 21,
+        "threshold": 1.0,
+        "scale": 0.5,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+        "skip_if_confirmation_negative_days": 7,
+        "skip_negative_confirmation_above_ma_days": 21,
+        "skip_negative_confirmation_min_daily_return": 0.0,
+    }
+    assert runner.LS57_CANDIDATE_ID in runner.SHORT_CANDIDATES
+    assert runner.LS57_CANDIDATE_ID in runner.LONG_PROFIT_LOCK_TRIALS
+    assert runner.LS57_CANDIDATE_ID in runner.LONG_SKIP_REDISTRIBUTE_TRIALS
+
+
+def test_reversal_short_block_windows_cover_execution_through_expiry() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    audit = pd.DataFrame(
+        [
+            {"date": pd.Timestamp("2026-10-03", tz="UTC"), "leader": "near", "full_exit": True},
+            {"date": pd.Timestamp("2026-10-04", tz="UTC"), "leader": "near", "full_exit": False},
+        ]
+    )
+
+    windows = runner.build_reversal_short_block_windows(audit, hold_days=28)
+
+    assert windows == (
+        (
+            "near",
+            pd.Timestamp("2026-10-04T03:00:00Z"),
+            pd.Timestamp("2026-11-01T03:00:00Z"),
+        ),
+    )
+
+
+def test_suppress_long_targets_while_reversal_short_removes_active_asset() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    d0 = pd.Timestamp("2026-01-01T00:00:00Z")
+    d2 = d0 + pd.Timedelta(days=2)
+    d7 = d0 + pd.Timedelta(days=7)
+    d10 = d0 + pd.Timedelta(days=10)
+    long_targets = {
+        d0: pd.Series({"C": 0.50}),
+        d10: pd.Series({"C": 0.50}),
+    }
+    base_short = {d0: pd.Series({"B": 0.25})}
+    reversal_short = {
+        d0: pd.Series({"B": 0.25}),
+        d2: pd.Series({"C": 0.20}),
+        d7: pd.Series({"B": 0.25}),
+    }
+
+    suppressed = runner.suppress_long_targets_while_reversal_short(
+        long_targets,
+        reversal_short,
+        base_short,
+    )
+
+    assert suppressed[d0].to_dict() == {"C": pytest.approx(0.50)}
+    assert suppressed[d2].empty
+    assert suppressed[d7].to_dict() == {"C": pytest.approx(0.50)}
+    assert suppressed[d10].to_dict() == {"C": pytest.approx(0.50)}

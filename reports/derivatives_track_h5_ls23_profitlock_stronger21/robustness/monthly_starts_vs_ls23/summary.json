@@ -1,0 +1,21 @@
+{
+  "baseline": "LS23",
+  "candidates": [
+    "LS45"
+  ],
+  "mdd_tolerance": 0.05,
+  "min_days": 365,
+  "starts": 45,
+  "summary": [
+    {
+      "all_pass": 35,
+      "candidate": "LS45",
+      "mdd_pass": 45,
+      "multiple_pass": 35,
+      "sharpe_pass": 35,
+      "slices": 45,
+      "worst_candidate_mdd": -0.3983502122253624,
+      "worst_relative_mdd": -0.3983502122253624
+    }
+  ]
+}

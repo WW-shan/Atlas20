@@ -37,7 +37,7 @@ probability above 0.95 passes.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE | family | 10.0000 | 0.0850 | 1.9583 | 0.1339 | 1.0000 |
 | 1 | LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE | top20_2022_trials | 6,142.0000 | 0.3173 | 1.9583 | 1.1866 | 0.9734 |
-| 2 | LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE | all_trials | 14,211.0000 | 0.3173 | 1.9583 | 1.2519 | 0.9616 |
+| 2 | LS42_H5_LS23_PROFITLOCK_REDISTRIBUTE | all_trials | 14,226.0000 | 0.3173 | 1.9583 | 1.2520 | 0.9616 |
 
 ## White Reality Check
 

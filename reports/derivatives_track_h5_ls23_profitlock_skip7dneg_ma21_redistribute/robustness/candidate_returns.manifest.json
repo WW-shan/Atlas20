@@ -1,0 +1,18 @@
+{
+  "columns": [
+    "L125_BASELINE",
+    "LS23_H5_PROFIT_LOCK_REGIME_SHORT",
+    "LS51_H5_LS23_PROFITLOCK_SKIP7DNEG",
+    "LS53_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21",
+    "LS54_H5_LS23_PROFITLOCK_SKIP7DNEG_MA21_REDISTRIBUTE"
+  ],
+  "end": "2026-09-20T00:00:00+00:00",
+  "purpose": "LS54 calendar, rolling, and path robustness matrix aligned to the frozen 2022-01-01..2026-09-20 return sample",
+  "rows": 1724,
+  "sources": {
+    "baseline_and_existing_candidates": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg/multiple_testing/candidate_returns.csv",
+    "ls53": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21/PR2026-11-LS53-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21/daily_returns.csv",
+    "ls54": "reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_redistribute/PR2026-11-LS54-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-REDISTRIBUTE/daily_returns.csv"
+  },
+  "start": "2022-01-01T00:00:00+00:00"
+}
