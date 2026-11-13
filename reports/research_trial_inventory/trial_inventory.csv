@@ -115,3 +115,4 @@ h5_exit_short_diagnostic_2026_11_11,reports/ (no new configuration),reports/h5_e
 top20_membership_event_diagnostic_2026,reports/ (no new configuration),reports/top20_membership_event_diagnostic_2026/,PIT Top20 entry/exit event diagnostic; no strategy configurations,0,0,0,0,,,,,,False,False,
 ls57_target_gross_2022_2026,reports/ (no new configuration),reports/ls57_target_gross_2022_2026/,frozen LS57 target-gross refresh used as overlay input,0,0,0,0,,,,,,False,False,
 ls57_churn_overlay_stress_2026,reports/ (no new configuration),reports/ls57_churn_overlay_stress_2026/,stress matrix of the same LS76 overlay; no new configuration,0,0,0,0,,,,,,False,False,
+ls57_churn_bitget_executable_2026,reports/ (no new configuration),reports/ls57_churn_bitget_executable_2026/,Bitget mark/funding executable audit of LS79; no new configuration,0,0,0,0,,,,,,False,False,

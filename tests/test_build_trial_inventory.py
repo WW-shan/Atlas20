@@ -431,6 +431,7 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
             "top20_membership_event_diagnostic_2026",
             "ls57_target_gross_2022_2026",
             "ls57_churn_overlay_stress_2026",
+            "ls57_churn_bitget_executable_2026",
         ],
         used,
     ) == []

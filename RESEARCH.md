@@ -4662,5 +4662,32 @@ LS76/LS78 的改进是：不再依赖单个 `m/h`、成本/funding 在合并权�
 funding 覆盖率 100%、并显式披露统计置信不足。下一步只做真实 Bitget mark/fill/funding/margin/
 liquidation 合并与更长 forward OOS；不再扫描 cell 子集、allocation 或 funding threshold。
 
+> **已被 §00.115 supersede 的可执行性结论：** LS79 的“可执行”仅指跨 exchange funding proxy，
+> 不代表当时 Bitget 有 mark/合约。严格 Bitget mark+funding 审计失败，因此 LS79 的 conditional
+> promotion 已撤回；其上表只保留为研究点估计，不得作为 live/shadow promotion 依据。
+
 报告：`reports/ls57_churn_multiphase_ensemble_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls79-churn-multiphase-ensemble-design.md`。
+
+### 00.115 2026-11-13 LS80：LS79 在严格 Bitget mark/funding 币池中失败
+
+LS80 不是新 alpha，而是把 LS79 的空头腿进一步限制为“信号日过去 3 天有 Bitget market mark，
+且过去 7 天有 Binance/Bybit/Bitget funding settlement”。原 LS79 的 34 个短币中，按权重只有
+**85.92%** 的 mark 覆盖；`flow/ftx-token/maker` 完全没有 Bitget mark，`monero/kaspa/canton-network`
+只在样本后段上线。剔除不可执行腿并在事件内重建后，严格币池的 12-cell ensemble standalone
+从 LS79 的 **1.3546x** 掉到 **0.7725x / Sharpe -0.0599 / MDD -57.84%**（20bps）。
+
+合并 LS57 后，25% allocation 在 20bps normal 只有 **69.7688x / 2.0060 / -35.24%**，
+validation **15.2399x / 2.1472**，相对 LS57 几乎贴着门槛；同一 allocation 的 1x adverse
+跌到 **62.9643x / 1.9638 / -35.55%**，validation **14.2124x**。50bps normal 也只有
+65.0316x，低于 LS57。**判定：strict Bitget executable fail；LS79 conditional promotion
+撤回，churn overlay 家族停止。** 不能再用“跨交易所 funding 存在”代替“Bitget 当时可成交 +
+可计 funding”。
+
+这次失败不是参数问题，而是实现可行性问题：之前看起来有效的 sleeve 有相当一部分收益来自
+Bitget 当时没有合约或数据无法闭合的币。下一步转向只使用 Bitget 自己有完整 mark/funding 的
+高流动性标的，且先用真实引擎验证，再讨论 alpha；不再调 churn 的 lookback、币种白名单或
+allocation。
+
+报告：`reports/ls57_churn_bitget_executable_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls80-bitget-executable-churn-ensemble-design.md`。

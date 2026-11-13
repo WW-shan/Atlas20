@@ -1,0 +1,35 @@
+{
+  "allocations": [
+    0.1,
+    0.2,
+    0.25
+  ],
+  "audit_id": "PR2026-11-LS80-BITGET-EXECUTABLE-CHURN-ENSEMBLE",
+  "audited_candidate": "PR2026-11-LS79-LS57-CHURN-MULTIPHASE-ENSEMBLE",
+  "costs_bps": [
+    20.0,
+    50.0,
+    100.0
+  ],
+  "coverage": 1.0,
+  "end_date": "2026-09-20",
+  "funding_lookback_days": 7,
+  "funding_scenarios": [
+    "normal",
+    "adverse_1x",
+    "adverse_2x",
+    "adverse_3x"
+  ],
+  "mark_lookback_days": 3,
+  "orders_sent": false,
+  "selected_allocation": null,
+  "start_date": "2022-01-01",
+  "strict_incomplete_assets": [
+    "monero",
+    "kaspa",
+    "canton-network",
+    "ftx-token",
+    "maker",
+    "flow"
+  ]
+}
