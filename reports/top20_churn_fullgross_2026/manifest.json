@@ -1,0 +1,29 @@
+{
+  "acceptance_checks": {
+    "discovery_sharpe_20_positive": true,
+    "full_mdd_20_no_worse_than_minus_30pct": true,
+    "full_multiple_20_above_one": true,
+    "full_multiple_50_above_one": true,
+    "full_multiple_at_least_1_10x_ls73": true,
+    "full_sharpe_20_above_0_5": false,
+    "pre2022_multiple_at_least_0_92": false,
+    "validation_sharpe_20_positive": true
+  },
+  "acceptance_verdict": "fail",
+  "candidate_family_id": "PR2026-11-LS74-TOP20-CHURN-ALT-WEAK-FULLGROSS",
+  "confirmation_days": 7,
+  "costs_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "end_date": "2026-11-12",
+  "funding_included": false,
+  "gate": "alt_rel_60",
+  "gross_policy": "active-day normalization to 1.0; cash when no active event",
+  "hold_days": 28,
+  "max_gross": 1.0000000000000002,
+  "orders_sent": false,
+  "start_date": "2021-01-01"
+}

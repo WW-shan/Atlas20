@@ -1,0 +1,34 @@
+{
+  "candidate_family_id": "PR2026-11-LS71-TOP20-MEMBERSHIP-EVENT",
+  "confirmation_days": [
+    3,
+    7,
+    14
+  ],
+  "cooldown_days": 30,
+  "end_date": "2026-11-12",
+  "forward_days": [
+    7,
+    14,
+    28,
+    56
+  ],
+  "funding_included": false,
+  "min_same_day_events": 3,
+  "orders_sent": false,
+  "reasons": [
+    "no m/h cell has stable entry-positive and exit-negative BTC excess"
+  ],
+  "sample_windows": {
+    "discovery": [
+      "2022-01-01",
+      "2023-12-31"
+    ],
+    "validation": [
+      "2024-01-01",
+      "2026-11-12"
+    ]
+  },
+  "start_date": "2021-01-01",
+  "verdict": "rejected"
+}

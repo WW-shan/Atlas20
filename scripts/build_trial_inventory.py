@@ -155,6 +155,9 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "git:stop_study",
     "bull_offense_scan",
     f"git:bull_offense_scan@{BULL_SCAN_COMMIT}",
+    "top20_churn_short_2026",
+    "top20_churn_gated_2026",
+    "top20_churn_fullgross_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -197,6 +200,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "phase_momentum_multiple_testing_2022": "re-listing of phase-momentum configurations counted in their own studies",
     "phase_momentum_oos_2026": "out-of-sample tracking of the frozen primary",
     "h5_exit_short_diagnostic_2026_11_11": "forward-return diagnostic of H5 exits (no backtest configuration)",
+    "top20_membership_event_diagnostic_2026": "PIT Top20 entry/exit event diagnostic; no strategy configurations",
 }
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 
@@ -209,6 +213,9 @@ VARIES: dict[str, str] = {
     "intraday_btc_leadlag_phase_tail_2026": "phase-0 UTC, 10% tails, 3.0/3.5 sigma follow-up cells",
     "daily_btc_shock_continuation_2026": "daily BTC shock relative-continuation 4x4x3x2 cells",
     "intraday_down_shock_short_2026": "negative BTC shock weak-tail short 3x2x3 cells",
+    "top20_churn_short_2026": "Top20 entry/exit churn short, BTC-hedged, 3x4 cells",
+    "top20_churn_gated_2026": "frozen Top20 churn short with three pre-registered regime gates",
+    "top20_churn_fullgross_2026": "LS73 alt-weak churn with active-day gross normalized to one",
     "pipeline_latest": "TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only",
     "pipeline_bear_bottom_2022_11_21": "same 27 strategies as pipeline_latest (old panel)",
     "pipeline_five_year_2020_2024": "same 27 strategies as pipeline_latest (old panel)",
@@ -1215,6 +1222,30 @@ def _load_daily_shock_lanes(src: Sources, rec: TrialRecorder) -> None:
             )
 
 
+def _load_top20_churn_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load the LS72/LS73/LS74 Top20 churn studies."""
+    for study in (
+        "top20_churn_short_2026",
+        "top20_churn_gated_2026",
+        "top20_churn_fullgross_2026",
+    ):
+        path = f"reports/{study}/trial_summary.csv"
+        frame = src.csv(path)
+        for _, row in frame.iterrows():
+            rec.add(
+                study,
+                str(row["variant_id"]),
+                ("2021-01-01", "2026-11-12"),
+                20.0,
+                "Top20",
+                float(row["full_sharpe_20"]),
+                source=path,
+                column="full_sharpe_20",
+                family="top20_membership_churn",
+                lineage=study,
+                note="point-in-time Top20 membership churn; BTC-hedged; no funding",
+            )
+
 def collect_trials(
     src: Sources, *, april_commit: str, bull_commit: str
 ) -> tuple[pd.DataFrame, list[UnscoredConfiguration], int]:
@@ -1233,6 +1264,7 @@ def collect_trials(
     _load_residual_horizon_lane(src, rec)
     _load_intraday_leadlag_lane(src, rec)
     _load_daily_shock_lanes(src, rec)
+    _load_top20_churn_lane(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 

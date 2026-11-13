@@ -4493,3 +4493,62 @@ BTC shock lead-lag 里切腿。
 
 报告：`reports/intraday_down_shock_short_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-intraday-down-shock-short-design.md`。
+
+### 00.106 2026-11-13 LS71：PIT Top20 membership event diagnostic（rejected）
+
+LS71 检验新进入/跌出点时间 Top20 的事件收益：要求连续 `m∈{3,7,14}` 日确认、30 日冷却，
+forward 7/14/28/56 日，收益从下一 close 起算。事件级输出有 4,407 行，但预注册的“每个 cell
+至少 3 个同日事件”过滤只留下极少 cell，说明 Top20 边界事件高度分散；唯一留下的 4 个 discovery
+exit cell 也没有稳定方向。
+
+作为补充描述，事件级按日期聚类后，entry 和 exit 在 discovery/validation 的平均 BTC excess
+都没有稳定为正；没有达到进入组合回测的条件。**判定：diagnostic rejected，不新增策略配置。**
+同日过滤的限制保留下，不把事件级均值当成已验证 alpha。
+
+报告：`reports/top20_membership_event_diagnostic_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-top20-membership-event-diagnostic-design.md`。
+
+### 00.107 2026-11-13 LS72：Top20 churn short（2022–2026 为正，2021 失真，rejected standalone）
+
+LS72 把 entry+exit 事件合并成一个 market-neutral book：短事件资产、等名义做多 BTC，m/h 网格
+12 个 cell，成本 2/20/50/100bps，不扣 funding。Discovery 选出的 `CHURN_m7_h28` 在
+**2022–2023 1.0697x / Sharpe 1.2246**、**2024–2026 1.1325x / 1.3552**；把
+**2022–2026 合并为 1.2114x / 1.3027 / -3.18%**，但 **2021 独立负控为 0.7604x /
+-2.6950 / -26.02%**，全期因此为 0.9212x / -0.2542。说明 churn short 更像 alt-weak regime
+下的条件策略，而不是无条件 alpha。
+
+报告：`reports/top20_churn_short_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-top20-churn-short-design.md`。
+
+### 00.108 2026-11-13 LS73：alt-weak 闸门修复 2021 负控（低收益 provisional）
+
+LS73 不重新挑 m/h，只冻结 LS72 `m=7/h=28`，分别测试 `alt_rel_60`、`btc_ma200` 和两者 AND。
+`alt_rel_60` 通过预注册门槛：discovery **1.0400x / Sharpe 0.9978**、validation
+**1.0341x / 0.6509**、2021 **0.9864x / -1.1047**、full **1.0608x / 0.5686 /
+-2.56%**。它把 2021 的 -24% 亏损压到约 -1.4%，但也暴露出收益规模很小：full 5 年只有 6.1%。
+
+return-space 以 10%/20% 加到 LS57，full 仅从 **68.8077x** 到 **69.33x / 69.86x**，Sharpe
+约 1.985–1.989，MDD 约 -39.7% 到 -39.5%。**判定：provisional low-risk sleeve，不是收益
+主引擎。** 不接实盘，下一步只检验能否在不加总 gross 的前提下提高资金利用率。
+
+报告：`reports/top20_churn_gated_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-top20-churn-regime-gate-design.md`。
+
+### 00.109 2026-11-13 LS74：churn full-gross 归一到 1.0（partial overlay candidate）
+
+LS74 只改变 LS73 的仓位利用率：有 active churn tranche 时把当日权重归一到 gross 1.0，没有
+事件时保持现金；总 gross 仍 <=1.0，没有加杠杆。full 从 LS73 的 1.0608x 提升到
+**1.4820x / 0.4530 / -22.65%**，但 full Sharpe 未过 0.5，2021 为 **0.8742x /
+-0.7601 / -22.65%**，因此 standalone 仍 fail。
+
+它的价值在 overlay：LS57 20bps 加 10%/20% 的 return-space sleeve 后为
+**73.4385x / 2.0118 / -38.56%** 和 **78.2480x / 2.0389 / -37.27%**，相对 LS57 的
+68.8077x / 1.9819 / -39.84% 同时提高收益和改善回撤。但这是直接在收益序列上相加，尚未处理
+LS57 已占用的 gross、真实 funding、两腿成交成本和执行冲突。
+
+**判定：partial overlay candidate，不 promotion。** 下一步必须做残差 gross 合并：只在 LS57
+未使用 gross 内开 churn tranche，按统一账户计算成本和 funding；若合并后不能再现
+70x 以上且回撤不明显恶化，就停止这条 overlay 家族。
+
+报告：`reports/top20_churn_fullgross_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-top20-churn-fullgross-design.md`。

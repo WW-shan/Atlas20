@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `acf01db` from 2 uncommitted source file(s): `reports/daily_btc_shock_continuation_2026/trial_summary.csv`, `reports/intraday_down_shock_short_2026/trial_summary.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `2f6c929` from 3 uncommitted source file(s): `reports/top20_churn_fullgross_2026/trial_summary.csv`, `reports/top20_churn_gated_2026/trial_summary.csv`, `reports/top20_churn_short_2026/trial_summary.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,370 | 14,336 | 9,164 | 0.7829 | 0.7027 | 0.03678 |
+| all_trials | 14,386 | 14,352 | 9,180 | 0.7819 | 0.7029 | 0.03679 |
 | top20_2022_trials | 6,189 | 6,174 | 3,877 | 0.4111 | 0.4772 | 0.02498 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -58,6 +58,7 @@ multiple-testing script uses it only for the trial count.
 | phase_momentum | 83 | 81 |
 | residual_factor | 14 | 14 |
 | sector | 647 | 254 |
+| top20_membership_churn | 16 | 0 |
 | topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |
 

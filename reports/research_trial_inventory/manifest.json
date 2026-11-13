@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "acf01db5e3454c413bd60cfcab6868fb71198a7d",
+  "repository_head": "2f6c929c79a87c93821bf1c22452397dfc6c9404",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "ca0792c12ddd645c7b3ef757ebe4af03f1fc1844ff0e677e5791d2b3334481d4",
+  "research_md_sha256": "dc0b3a723e81a1a56faf66e5094476076c5dc047970b7208b704c439d590dba8",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -92,7 +92,10 @@
     "git:stop_scan_trailing",
     "git:stop_study",
     "bull_offense_scan",
-    "git:bull_offense_scan@5b37099"
+    "git:bull_offense_scan@5b37099",
+    "top20_churn_short_2026",
+    "top20_churn_gated_2026",
+    "top20_churn_fullgross_2026"
   ],
   "study_primary_cost_bps": {
     "pipeline_latest": 20.0,
@@ -155,6 +158,9 @@
     "intraday_btc_leadlag_phase_tail_2026": 20.0,
     "daily_btc_shock_continuation_2026": 20.0,
     "intraday_down_shock_short_2026": 12.0,
+    "top20_churn_short_2026": 20.0,
+    "top20_churn_gated_2026": 20.0,
+    "top20_churn_fullgross_2026": 20.0,
     "git:profit_max_search": 20.0,
     "git:profit_max_refine": 20.0,
     "git:sector_lead_v3_scan(bear_bottom)": 20.0,
@@ -164,8 +170,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20802,
-  "rows_at_primary_cost": 18076,
+  "rows_read": 20818,
+  "rows_at_primary_cost": 18092,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -689,7 +695,7 @@
       "sha256": "ae99446189cb4f9f9dae0e9e23f6423cf1e5dfc1381cf784c84fecfdc176da30"
     },
     "reports/daily_btc_shock_continuation_2026/trial_summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "bfe3b495141fc880f964bfa9251006be180d51b20af49f94ff8849217025d7e6"
     },
     "reports/decision_point_ablation_2022/staggered_basket.csv": {
@@ -981,7 +987,7 @@
       "sha256": "bc3ed15ac0a92bb6d6816268935e186a188ecc7bc5c6ea4fcd0084929c43c8c2"
     },
     "reports/intraday_down_shock_short_2026/trial_summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "ac8f02bb47e07805052de62372ee601b53c92381bb2a6d03e4a62b8570a1bb30"
     },
     "reports/latest/strategy_summary.csv": {
@@ -1115,6 +1121,18 @@
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",
       "sha256": "cd48c5408a00e4fbb842ba02fefc175583d6ea768c41ab86a7bb1a9329a32e40"
+    },
+    "reports/top20_churn_fullgross_2026/trial_summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "28c6cda771b5292d9badcb8ac58ae141d55c134eadd330d701627632ab937bb8"
+    },
+    "reports/top20_churn_gated_2026/trial_summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "8c589e461e0dcca1c316902b698d95d73d5e18e377414486007c0b99790abf41"
+    },
+    "reports/top20_churn_short_2026/trial_summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "295c7f692450e22b7098e5e48fc04022b8d3808e06d34d4d8851a81af65b949a"
     },
     "reports/top20_convex_validation/candidate_summary.csv": {
       "origin": "working tree (committed)",

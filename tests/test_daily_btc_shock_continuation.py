@@ -85,6 +85,27 @@ def test_continuation_backtest_charges_entry_and_exit_turnover() -> None:
     assert result.gross_exposure.max() == pytest.approx(1.0)
 
 
+def test_continuation_backtest_can_normalize_active_gross_to_one() -> None:
+    from scripts.run_daily_btc_shock_continuation import backtest_continuation
+
+    index = pd.date_range("2022-01-01", periods=6, freq="D", tz="UTC")
+    returns = pd.DataFrame(0.0, index=index, columns=["a", "b"])
+    targets = pd.DataFrame(0.0, index=index, columns=returns.columns)
+    targets.loc[index[0], ["a", "b"]] = [0.5, -0.5]
+
+    result = backtest_continuation(
+        index=index,
+        returns=returns,
+        targets=targets,
+        horizon=2,
+        cost_bps=0.0,
+        normalize_gross=True,
+    )
+
+    assert result.gross_exposure.max() == pytest.approx(1.0)
+    assert result.gross_exposure.loc[index[2:4]].tolist() == pytest.approx([1.0, 1.0])
+
+
 def test_select_candidate_uses_only_discovery_metrics() -> None:
     from scripts.run_daily_btc_shock_continuation import select_candidate
 

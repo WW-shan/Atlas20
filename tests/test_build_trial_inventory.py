@@ -411,6 +411,9 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
         "intraday_btc_leadlag_phase_tail_2026",
         "daily_btc_shock_continuation_2026",
         "intraday_down_shock_short_2026",
+        "top20_churn_short_2026",
+        "top20_churn_gated_2026",
+        "top20_churn_fullgross_2026",
     }
     assert used.issubset(set(PROCESSING_ORDER))
     assert unclassified_report_dirs(
@@ -421,6 +424,7 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
             "intraday_btc_leadlag_diagnostic_2026",
             "intraday_btc_leadlag_fresh_oos_20261113",
             "daily_btc_shock_leadlag_2026",
+            "top20_membership_event_diagnostic_2026",
         ],
         used,
     ) == []

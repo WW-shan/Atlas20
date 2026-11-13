@@ -1,0 +1,32 @@
+{
+  "acceptance_checks": {
+    "full_mdd_20_no_worse_than_minus_30pct": true,
+    "full_multiple_20_above_one": true,
+    "full_multiple_50_above_one": true,
+    "full_sharpe_20_above_0_5": true,
+    "pre2022_multiple_at_least_0_92": true,
+    "validation_sharpe_20_positive": true,
+    "validation_sharpe_50_positive": true
+  },
+  "acceptance_verdict": "pass",
+  "candidate_family_id": "PR2026-11-LS73-TOP20-CHURN-ALT-WEAK",
+  "confirmation_days": 7,
+  "costs_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "end_date": "2026-11-12",
+  "funding_included": false,
+  "gates": [
+    "alt_rel_60",
+    "btc_ma200",
+    "both"
+  ],
+  "hold_days": 28,
+  "orders_sent": false,
+  "selected_variant": "alt_rel_60",
+  "start_date": "2021-01-01",
+  "trial_count": 3
+}

@@ -233,12 +233,16 @@ def backtest_continuation(
     targets: pd.DataFrame,
     horizon: int,
     cost_bps: float,
+    normalize_gross: bool = False,
 ) -> ContinuationBacktest:
     """Run one signed continuation book with next-close execution and costs."""
     if cost_bps < 0.0 or not np.isfinite(cost_bps):
         raise ValueError("cost_bps must be finite and non-negative")
     dates = _utc_index(index)
     weights = held_phase_weights(dates, targets, horizon=horizon)
+    if normalize_gross:
+        gross = weights.abs().sum(axis=1)
+        weights = weights.div(gross.replace(0.0, np.nan), axis=0).fillna(0.0)
     aligned_returns = returns.reindex(index=dates, columns=weights.columns)
     held = weights.abs() > GROSS_TOLERANCE
     missing = int(aligned_returns.isna().where(held).sum().sum())
