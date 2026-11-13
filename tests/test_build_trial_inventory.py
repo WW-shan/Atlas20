@@ -399,6 +399,29 @@ def test_derivatives_report_dirs_are_excluded_from_the_spot_inventory() -> None:
     ) == []
 
 
+def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
+    from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
+
+    used = {
+        "residual_momentum_screen_2026",
+        "residual_reversal_screen_2022",
+        "residual_horizon_scan_2026",
+        "intraday_btc_leadlag_backtest_2026",
+        "intraday_btc_leadlag_single_event_2026",
+        "intraday_btc_leadlag_phase_tail_2026",
+    }
+    assert used.issubset(set(PROCESSING_ORDER))
+    assert unclassified_report_dirs(
+        [
+            *used,
+            "residual_reversal_screen_pre2022",
+            "residual_reversal_screen_2024_2026",
+            "intraday_btc_leadlag_diagnostic_2026",
+        ],
+        used,
+    ) == []
+
+
 def test_derivative_ledger_rows_do_not_enter_the_spot_top20_scope(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from scripts.build_trial_inventory import _load_preregistered_lane, _unscored_in_scope
 

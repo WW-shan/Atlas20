@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "42e1ee860e40e832592a39d2a8ca903a19159878",
+  "repository_head": "196026b926907318ccc96bb20cddd01a452da78b",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "dfbf8b28871bf267cd7588028cc4bf2b458f2c478df87b86c3c571df8687084e",
+  "research_md_sha256": "8ade8d9e1d5afa9d29ccf7d5d4e0d839807cdf3b9e1eb11f874b06c927235325",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -64,6 +64,12 @@
     "phase_momentum_execution_lag_2022",
     "phase_momentum_execution_timing_30m",
     "phase_momentum_hypotheses_2026_10",
+    "residual_momentum_screen_2026",
+    "residual_reversal_screen_2022",
+    "residual_horizon_scan_2026",
+    "intraday_btc_leadlag_backtest_2026",
+    "intraday_btc_leadlag_single_event_2026",
+    "intraday_btc_leadlag_phase_tail_2026",
     "convex_validation_2022_top50",
     "ctrend_focus_2022_top50",
     "ensemble_ctrend_2022_top50",
@@ -139,6 +145,12 @@
     "phase_momentum_execution_lag_2022": 20.0,
     "phase_momentum_execution_timing_30m": 20.0,
     "phase_momentum_hypotheses_2026_10": 20.0,
+    "residual_momentum_screen_2026": 20.0,
+    "residual_reversal_screen_2022": 20.0,
+    "residual_horizon_scan_2026": 20.0,
+    "intraday_btc_leadlag_backtest_2026": 20.0,
+    "intraday_btc_leadlag_single_event_2026": 20.0,
+    "intraday_btc_leadlag_phase_tail_2026": 20.0,
     "git:profit_max_search": 20.0,
     "git:profit_max_refine": 20.0,
     "git:sector_lead_v3_scan(bear_bottom)": 20.0,
@@ -148,8 +160,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20471,
-  "rows_at_primary_cost": 17933,
+  "rows_read": 20574,
+  "rows_at_primary_cost": 17962,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -761,7 +773,7 @@
       "sha256": "f08d8cf739baec158d10dc3b6061d7cbef235e20170ad7958e8a3f9eeb9b935f"
     },
     "reports/derivatives_track_h5_ls23_dvol75_riskoff/PR2026-11-LS58-H5-LS23-DVOL75-RISKOFF/trial_results.csv": {
-      "origin": "working tree (modified)",
+      "origin": "working tree (committed)",
       "sha256": "5b213f7d9f75dac1f74a7a4a80a231357fee38617a3bcea6945559c513f0127a"
     },
     "reports/derivatives_track_h5_ls23_invvol60/PR2026-11-LS40-H5-LS23-INVVOL60/trial_results.csv": {
@@ -948,6 +960,18 @@
       "origin": "working tree (committed)",
       "sha256": "bcb6ef10db8f34b4cdbc3d2253c7c532ac0f4fa498f601761abc7fb24c5b8b36"
     },
+    "reports/intraday_btc_leadlag_backtest_2026/sample_metrics.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "de0f97df943a9b1373bf5678ad994910f0e909574c521964d0113ed1eaca29bc"
+    },
+    "reports/intraday_btc_leadlag_phase_tail_2026/sample_metrics.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "24f5c41139936ca37eb5abd91dbed45fe32108c81c2614076a4edf5535a4cfde"
+    },
+    "reports/intraday_btc_leadlag_single_event_2026/sample_metrics.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "bc3ed15ac0a92bb6d6816268935e186a188ecc7bc5c6ea4fcd0084929c43c8c2"
+    },
     "reports/latest/strategy_summary.csv": {
       "origin": "working tree (committed)",
       "sha256": "7420792f9d531bb36087b92007619721751198bbe4e48badd0f3706f5e2d47c1"
@@ -1061,8 +1085,20 @@
       "sha256": "0d0e3fda0fa945915805d2fa1b35f8bae967fc4977ed970f6d9d41dd5ba128eb"
     },
     "reports/research_trial_inventory/preregistered_trials.csv": {
-      "origin": "working tree (modified)",
+      "origin": "working tree (committed)",
       "sha256": "f00d517a0328e0984a47fc97665fb98bf7417ddc836234f5391535bc1577f6ea"
+    },
+    "reports/residual_horizon_scan_2026/sample_metrics.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "7d026c4ffc97a340097b7d90e9ca71eb5403daa2261e8d03fcc6cdc0d276b040"
+    },
+    "reports/residual_momentum_screen_2026/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "43206799b3dede9e64431f83fa2c52841005d487b82349d6ec082e2f84ed8f89"
+    },
+    "reports/residual_reversal_screen_2022/summary.csv": {
+      "origin": "working tree (committed)",
+      "sha256": "c661ceafce80ee65d915229b33917cee06557aa0c98d72ce777261b746d7d7da"
     },
     "reports/strategy_evidence_audit_2022/staggered_robustness.csv": {
       "origin": "working tree (committed)",

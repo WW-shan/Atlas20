@@ -119,6 +119,12 @@ TOP20_2022_ORDER: tuple[str, ...] = (
     "phase_momentum_execution_lag_2022",
     "phase_momentum_execution_timing_30m",
     PREREGISTERED_STUDY,
+    "residual_momentum_screen_2026",
+    "residual_reversal_screen_2022",
+    "residual_horizon_scan_2026",
+    "intraday_btc_leadlag_backtest_2026",
+    "intraday_btc_leadlag_single_event_2026",
+    "intraday_btc_leadlag_phase_tail_2026",
 )
 TOP50_2022_ORDER: tuple[str, ...] = (
     "convex_validation_2022_top50",
@@ -153,6 +159,9 @@ PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_
 # Report directories that hold no new configuration (rolling starts,
 # sub-windows, stress windows, audits, live signals, or a re-listing).
 NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
+    "intraday_btc_leadlag_diagnostic_2026": "predictive lead-lag diagnostic; no strategy configurations",
+    "residual_reversal_screen_pre2022": "sensitivity window of LS61 residual reversal",
+    "residual_reversal_screen_2024_2026": "sensitivity window of LS61 residual reversal",
     "convex_validation_2022_top20_validation": "robustness re-runs of Top20 screen cells",
     "ctrend_focus_2022_top50_validation": "robustness re-runs of Top50 focus cells",
     "focus_top_2022_top50": "one Top50 focus cell re-run with daily returns",
@@ -188,6 +197,12 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 
 VARIES: dict[str, str] = {
+    "residual_momentum_screen_2026": "LS60 60D BTC beta + 28D residual momentum, 4x4 Top20 monthly",
+    "residual_reversal_screen_2022": "LS61 same frozen residual score with sign reversed, 4x4 Top20 monthly",
+    "residual_horizon_scan_2026": "63/126/252D formation x skip 0/21D x momentum/reversal, 12 cells",
+    "intraday_btc_leadlag_backtest_2026": "30m BTC shock lead-lag, k/h cells, overlapping 1/h tranches",
+    "intraday_btc_leadlag_single_event_2026": "30m BTC shock lead-lag, one full-gross event per cell",
+    "intraday_btc_leadlag_phase_tail_2026": "phase-0 UTC, 10% tails, 3.0/3.5 sigma follow-up cells",
     "pipeline_latest": "TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only",
     "pipeline_bear_bottom_2022_11_21": "same 27 strategies as pipeline_latest (old panel)",
     "pipeline_five_year_2020_2024": "same 27 strategies as pipeline_latest (old panel)",
@@ -1067,6 +1082,92 @@ def research_md_configurations(research_md: str) -> tuple[list[UnscoredConfigura
     return configurations, anchors
 
 
+def _load_residual_screen_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load the frozen LS60/LS61 residual factor screens."""
+    studies = (
+        (
+            "residual_momentum_screen_2026",
+            "LS60_60B_28D_MOMENTUM_L4",
+            "2022-01-01",
+            "2026-09-21",
+        ),
+        (
+            "residual_reversal_screen_2022",
+            "LS61_60B_28D_REVERSAL_L4",
+            "2022-01-01",
+            "2026-09-21",
+        ),
+    )
+    for study, config_id, start, end in studies:
+        path = f"reports/{study}/summary.csv"
+        frame = src.csv(path)
+        for _, row in frame.iterrows():
+            rec.add(
+                study,
+                config_id,
+                (start, end),
+                float(row["cost_bps"]),
+                "Top20",
+                float(row["sharpe"]),
+                source=path,
+                column="sharpe",
+                family="residual_factor",
+                lineage=study,
+                note="daily Top20 residual screen; no funding",
+            )
+
+
+def _load_residual_horizon_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load the 12-cell LS62 residual horizon/sign scan."""
+    study = "residual_horizon_scan_2026"
+    path = f"reports/{study}/sample_metrics.csv"
+    frame = src.csv(path)
+    full = frame.loc[frame["sample"] == "full"].copy()
+    for config_id, group in full.groupby("variant_id", sort=False):
+        for _, row in group.iterrows():
+            rec.add(
+                study,
+                str(config_id),
+                (str(row["start"]), str(row["end"])),
+                float(row["cost_bps"]),
+                "Top20",
+                float(row["sharpe"]),
+                source=path,
+                column="sharpe (sample=full)",
+                family="residual_factor",
+                lineage=study,
+                note="lookback/skip/direction grid; no funding",
+            )
+
+
+def _load_intraday_leadlag_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load the LS64/LS65/LS66 30m BTC lead-lag backtests."""
+    studies = (
+        "intraday_btc_leadlag_backtest_2026",
+        "intraday_btc_leadlag_single_event_2026",
+        "intraday_btc_leadlag_phase_tail_2026",
+    )
+    for study in studies:
+        path = f"reports/{study}/sample_metrics.csv"
+        frame = src.csv(path)
+        full = frame.loc[frame["sample"] == "full"].copy()
+        for config_id, group in full.groupby("variant_id", sort=False):
+            for _, row in group.iterrows():
+                rec.add(
+                    study,
+                    str(config_id),
+                    ("2022-01-01", "2026-09-30"),
+                    float(row["cost_bps_per_side"]),
+                    "Top20",
+                    float(row["sharpe"]),
+                    source=path,
+                    column="sharpe (sample=full)",
+                    family="intraday_leadlag",
+                    lineage=study,
+                    note="30m BTC shock lead-lag; Binance OHLC proxy; no funding",
+                )
+
+
 def collect_trials(
     src: Sources, *, april_commit: str, bull_commit: str
 ) -> tuple[pd.DataFrame, list[UnscoredConfiguration], int]:
@@ -1081,6 +1182,9 @@ def collect_trials(
     unscored = _load_momentum_event_lane(src, rec)
     _load_phase_momentum_lane(src, rec)
     unscored.extend(_load_preregistered_lane(src, rec))
+    _load_residual_screen_lane(src, rec)
+    _load_residual_horizon_lane(src, rec)
+    _load_intraday_leadlag_lane(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 
