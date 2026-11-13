@@ -4843,3 +4843,22 @@ LS85 不改变 LS57 的 H5、profit-lock 或 short router，只在每个 long ta
 报告：`reports/ls85_asset_trend_filter_2026/`；压力：
 `reports/ls85_asset_trend_filter_2026_adverse/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls85-asset-trend-filter-design.md`。
+
+### 00.121 2026-11-13 LS86：core8 realized-skew / lottery-demand 筛选（rejected）
+
+LS86 固定 core8，使用 30D daily-return realized skewness：skew 最低 2 币做多、最高 2 币做空，
+7D 周频，D+1 03:00 UTC 入场，持有 7D。该机制独立于 momentum/funding/volume，用于检验
+“彩票型资产被高估、低偏度资产获得补偿”的横截面假设。
+
+| 窗口 | n | gross mean | 20bps net mean | 50bps net mean | NW t | hit rate |
+|---|---:|---:|---:|---:|---:|---:|
+| full | 235 | **-0.1515%** | -0.5515% | -1.1515% | -0.26 | 51.06% |
+| discovery | 98 | -0.1802% | -0.5802% | -1.1802% | -0.20 | 50.00% |
+| validation | 137 | -0.1310% | -0.5310% | -1.1310% | -0.17 | 51.82% |
+
+gross spread 在两个样本段都为负，validation t 接近 0；core8 的 realized skew 没有形成可交易的
+lottery-demand 溢价。**判定：rejected。** 不建立 LS87 组合回测，不扫描 20/30/60D skew、
+3/5/7/14D hold、count 或 volatility normalize。
+
+报告：`reports/ls86_realized_skew_screen_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls86-realized-skew-screen.md`。

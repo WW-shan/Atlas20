@@ -1,0 +1,20 @@
+{
+  "end_date": "2026-09-21",
+  "horizon_days": 7,
+  "lookback_days": 30,
+  "orders_sent": false,
+  "placebo_iterations": 2000,
+  "rebalance_days": 7,
+  "screen_id": "PR2026-11-LS86-CORE8-REALIZED-SKEW-SCREEN",
+  "start_date": "2022-01-01",
+  "universe": [
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "ripple",
+    "binancecoin",
+    "dogecoin",
+    "cardano",
+    "avalanche-2"
+  ]
+}
