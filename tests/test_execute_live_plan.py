@@ -65,6 +65,99 @@ def test_live_quote_snapshot_returns_prices_and_execution_warnings() -> None:
     assert any("BTCUSDT" in warning for warning in warnings)
 
 
+def _valid_manifest_payload(**overrides):
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_MANIFEST_TOP_LEVEL,
+        LS45_G125_SPEC,
+    )
+
+    payload = {
+        "tracked_spec": LS45_G125_SPEC,
+        "frozen_config": LS45_G125_FROZEN_CONFIG,
+        **LS45_G125_MANIFEST_TOP_LEVEL,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _manifest_args(**overrides):
+    import argparse
+
+    values = {
+        "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        "max_gross_multiple": 1.25,
+        "long_buffer": 0.50,
+        "short_buffer": 0.50,
+        "short_stop_loss_pct": 0.20,
+        "cost_bps": 20.0,
+        "leverage": 2.0,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+def test_live_manifest_matches_the_pinned_ls45_spec() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_MANIFEST_TOP_LEVEL,
+        LS45_G125_SPEC,
+    )
+
+    manifest = {
+        "tracked_spec": LS45_G125_SPEC,
+        "frozen_config": LS45_G125_FROZEN_CONFIG,
+        **LS45_G125_MANIFEST_TOP_LEVEL,
+    }
+
+    assert execute_live_plan._manifest_spec_issues(manifest, _manifest_args()) == []
+
+
+def test_live_manifest_rejects_a_changed_profit_lock_horizon() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_MANIFEST_TOP_LEVEL,
+        LS45_G125_SPEC,
+    )
+
+    config = {
+        **LS45_G125_FROZEN_CONFIG,
+        "profit_lock_redistribution": {
+            **LS45_G125_FROZEN_CONFIG["profit_lock_redistribution"],
+            "recipient_confirmation_days": 7,
+        },
+    }
+    manifest = {
+        "tracked_spec": LS45_G125_SPEC,
+        "frozen_config": config,
+        **LS45_G125_MANIFEST_TOP_LEVEL,
+    }
+
+    issues = execute_live_plan._manifest_spec_issues(manifest, _manifest_args())
+
+    assert any("profit_lock_redistribution" in issue for issue in issues)
+
+
+def test_live_manifest_rejects_a_non_isolated_venue_leverage() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_MANIFEST_TOP_LEVEL,
+        LS45_G125_SPEC,
+    )
+
+    manifest = {
+        "tracked_spec": LS45_G125_SPEC,
+        "frozen_config": LS45_G125_FROZEN_CONFIG,
+        **LS45_G125_MANIFEST_TOP_LEVEL,
+    }
+
+    issues = execute_live_plan._manifest_spec_issues(
+        manifest, _manifest_args(leverage=3.0)
+    )
+
+    assert any("leverage=3" in issue for issue in issues)
+
+
 def test_unmapped_live_position_fails_closed() -> None:
     with pytest.raises(RuntimeError, match="not in the frozen symbol map"):
         account_state_from_bitget(_PositionClient(), {"near": "NEARUSDT"})  # type: ignore[arg-type]
@@ -716,7 +809,7 @@ def test_live_execution_rejects_a_manifest_without_evaluation_dates(
     execution_hint = signal_date + pd.Timedelta(days=1, hours=3)
     manifest = tmp_path / "manifest.json"
     manifest.write_text(
-        json.dumps({"last_mark": now.isoformat()}),
+        json.dumps(_valid_manifest_payload(last_mark=now.isoformat())),
         encoding="utf-8",
     )
     monkeypatch.setattr(
@@ -751,11 +844,11 @@ def test_live_execution_uses_the_daily_manifest_hint_for_an_unchanged_event_book
     manifest = tmp_path / "manifest.json"
     manifest.write_text(
         json.dumps(
-            {
-                "last_mark": now.isoformat(),
-                "index_end_date": signal_end.isoformat(),
-                "signal_end_date": signal_end.isoformat(),
-            }
+            _valid_manifest_payload(
+                last_mark=now.isoformat(),
+                index_end_date=signal_end.isoformat(),
+                signal_end_date=signal_end.isoformat(),
+            )
         ),
         encoding="utf-8",
     )

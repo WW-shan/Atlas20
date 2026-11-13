@@ -57,7 +57,11 @@ from atlas20.derivatives.account import (  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
+    LS45_G125_FROZEN_CONFIG,
+    LS45_G125_MANIFEST_TOP_LEVEL,
+    LS45_G125_SPEC,
     live_execution_hint_for_signal,
+    manifest_spec_issues,
     manifest_staleness_hours,
 )
 from atlas20.derivatives.live_executor import (  # noqa: E402
@@ -319,6 +323,37 @@ def _effective_execution_hint(
     else:
         normalized = normalized.tz_convert("UTC")
     return pd.Timestamp(live_execution_hint_for_signal(normalized.normalize()))
+
+
+def _manifest_spec_issues(
+    manifest: dict[str, Any], args: argparse.Namespace
+) -> list[str]:
+    """Check that the manifest and live CLI describe the same frozen book."""
+
+    expected_config = dict(LS45_G125_FROZEN_CONFIG)
+    expected_config["long_buffer"] = float(args.long_buffer)
+    expected_config["short_buffer"] = float(args.short_buffer)
+    expected_config["short_stop_loss_pct"] = float(args.short_stop_loss_pct)
+    expected_config["max_total_gross"] = float(args.max_gross_multiple)
+    expected_top_level = dict(LS45_G125_MANIFEST_TOP_LEVEL)
+    expected_top_level["max_total_gross"] = float(args.max_gross_multiple)
+    expected_top_level["cost_bps"] = float(args.cost_bps)
+
+    issues = manifest_spec_issues(
+        manifest,
+        expected_spec=LS45_G125_SPEC,
+        expected_frozen_config=expected_config,
+        expected_top_level=expected_top_level,
+    )
+    if str(args.spec) != LS45_G125_SPEC:
+        issues.append(
+            f"live --spec={args.spec!r}, expected {LS45_G125_SPEC!r}"
+        )
+    if abs(float(args.leverage) - 2.0) > 1e-9:
+        issues.append(
+            f"live leverage={float(args.leverage):g}x, expected 2x isolated"
+        )
+    return issues
 
 
 def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[dict]:
@@ -865,6 +900,13 @@ def _main(args: argparse.Namespace) -> int:
             f"live execution requires the frozen manifest at {args.manifest_file}; "
             "refusing to trade without an evaluated-date and mark-freshness proof"
         )
+    if manifest is not None:
+        manifest_issues = _manifest_spec_issues(manifest, args)
+        if manifest_issues:
+            raise SystemExit(
+                "frozen manifest does not match the current LS45-G125 live "
+                "specification: " + "; ".join(manifest_issues)
+            )
     try:
         execution_hint = _effective_execution_hint(
             signal_end_date=manifest.get("signal_end_date") if manifest else None,

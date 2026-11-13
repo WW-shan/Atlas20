@@ -30,8 +30,10 @@ backstop and still fail closed.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta, timezone
 import json
+import math
 from pathlib import Path
 from typing import Any, cast
 
@@ -54,6 +56,45 @@ PANEL_FILENAME = "panel_daily.csv"
 # The live universe is a point-in-time Top20; a panel with only the old
 # calibration minimum of ten names must not be accepted as an executable panel.
 LIVE_PANEL_MIN_ASSETS = 20
+
+# This is deliberately a pin, not a second source of strategy parameters.  The
+# research wrapper writes the same values into its manifest; a mismatch means
+# the live executor is looking at a different frozen book and must fail closed.
+LS45_G125_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+LS45_G125_FROZEN_CONFIG: dict[str, Any] = {
+    "bear_funding_lookback_settlements": 3,
+    "bear_funding_threshold": -0.0002,
+    "bear_lookback_days": 14,
+    "bear_per_asset_weight": 0.0625,
+    "bear_rebalance_days": 7,
+    "bear_short_count": 4,
+    "btc_ma_window": 200,
+    "exit_funding_lookback_days": 7,
+    "exit_funding_min_assets": 5,
+    "exit_funding_rank_min": 2.0 / 3.0,
+    "exit_holding_days": 21,
+    "exit_per_asset_weight": 0.025,
+    "h5_leverage": 1.25,
+    "long_buffer": 0.50,
+    "max_total_gross": 1.25,
+    "profit_lock_redistribution": {
+        "lookback_days": 21,
+        "max_asset_weight": 0.60,
+        "recipient_confirmation_days": 21,
+        "scale": 0.50,
+        "threshold": 1.0,
+    },
+    "rebalance_no_trade_band": 0.0,
+    "short_buffer": 0.50,
+    "short_stop_loss_pct": 0.20,
+}
+LS45_G125_MANIFEST_TOP_LEVEL: dict[str, Any] = {
+    "allow_incomplete_marks": False,
+    "cost_bps": 20.0,
+    "funding_source": "bitget-exact",
+    "max_total_gross": 1.25,
+    "research_only": True,
+}
 
 
 def as_utc(moment: datetime) -> datetime:
@@ -85,6 +126,79 @@ def live_execution_hint_for_signal(
 
     day = signal_date.date() if isinstance(signal_date, datetime) else signal_date
     return datetime.combine(day + timedelta(days=1), scheduled_utc, tzinfo=timezone.utc)
+
+
+_MISSING = object()
+
+
+def _config_value_equal(actual: object, expected: object) -> bool:
+    """Compare frozen JSON config values without hiding numeric type drift."""
+
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return actual is expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        actual_number = float(actual)
+        expected_number = float(expected)
+        return (
+            math.isfinite(actual_number)
+            and math.isfinite(expected_number)
+            and math.isclose(actual_number, expected_number, rel_tol=1e-12, abs_tol=1e-12)
+        )
+    if isinstance(actual, Mapping) and isinstance(expected, Mapping):
+        if set(actual) != set(expected):
+            return False
+        return all(
+            _config_value_equal(actual[key], expected[key]) for key in expected
+        )
+    if isinstance(actual, (list, tuple)) and isinstance(expected, (list, tuple)):
+        return len(actual) == len(expected) and all(
+            _config_value_equal(left, right) for left, right in zip(actual, expected)
+        )
+    return actual == expected
+
+
+def manifest_spec_issues(
+    manifest: Mapping[str, Any],
+    *,
+    expected_spec: str,
+    expected_frozen_config: Mapping[str, Any],
+    expected_top_level: Mapping[str, Any] | None = None,
+) -> list[str]:
+    """Return every manifest field that does not match the live specification.
+
+    The target ledger and manifest are written by the research wrapper.  A
+    live run must never infer that a file belongs to the current track merely
+    because it sits at the expected path: a stale L125 manifest, a changed
+    profit-lock horizon, or a different gross cap must fail closed.
+    """
+
+    issues: list[str] = []
+    actual_spec = str(manifest.get("tracked_spec") or "")
+    if actual_spec != expected_spec:
+        issues.append(
+            f"tracked_spec={actual_spec!r}, expected {expected_spec!r}"
+        )
+
+    actual_config = manifest.get("frozen_config")
+    if not isinstance(actual_config, Mapping):
+        issues.append("frozen_config is missing or is not an object")
+    else:
+        for key, expected in expected_frozen_config.items():
+            actual = actual_config.get(key, _MISSING)
+            if actual is _MISSING:
+                issues.append(f"frozen_config.{key} is missing")
+            elif not _config_value_equal(actual, expected):
+                issues.append(
+                    f"frozen_config.{key}={actual!r}, expected {expected!r}"
+                )
+
+    for key, expected in (expected_top_level or {}).items():
+        actual = manifest.get(key, _MISSING)
+        if actual is _MISSING:
+            issues.append(f"{key} is missing")
+        elif not _config_value_equal(actual, expected):
+            issues.append(f"{key}={actual!r}, expected {expected!r}")
+    return issues
 
 
 def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:

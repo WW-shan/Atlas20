@@ -3,6 +3,12 @@ from pathlib import Path
 
 import pytest
 
+from atlas20.derivatives.live_chain import (
+    LS45_G125_FROZEN_CONFIG,
+    LS45_G125_MANIFEST_TOP_LEVEL,
+    LS45_G125_SPEC,
+    manifest_spec_issues,
+)
 from scripts.run_h5_regime_short_router import LS45_CANDIDATE_ID
 from scripts.run_ls45_live_signal import build_command
 
@@ -42,3 +48,16 @@ def test_committed_manifest_carries_every_audit_freshness_field() -> None:
         assert key in payload
     assert payload["max_total_gross"] == 1.25
     assert payload["frozen_config"]["max_total_gross"] == 1.25
+
+
+def test_committed_manifest_matches_the_live_spec_pin() -> None:
+    path = Path("reports/ls45_live_g125/manifest.json")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert LS45_G125_SPEC == LS45_CANDIDATE_ID
+    assert manifest_spec_issues(
+        payload,
+        expected_spec=LS45_G125_SPEC,
+        expected_frozen_config=LS45_G125_FROZEN_CONFIG,
+        expected_top_level=LS45_G125_MANIFEST_TOP_LEVEL,
+    ) == []

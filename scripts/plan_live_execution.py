@@ -67,6 +67,7 @@ from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_m
 
 TRACKED_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 DEFAULT_TARGETS_FILE = Path("reports/ls45_live_g125/oos_targets.csv")
+DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_SYMBOL_MAP = Path(
     "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
 )
@@ -87,6 +88,34 @@ def _finite_float(value: object, field: str) -> float:
     if not isfinite(number):
         raise ValueError(f"{field} is not finite: {value!r}")
     return number
+
+
+def manifest_signal_end_date(path: Path) -> pd.Timestamp | None:
+    """Return the manifest's evaluated signal date, or None when absent."""
+
+    manifest_path = Path(path)
+    if not manifest_path.is_file():
+        return None
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"manifest {manifest_path} could not be read: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"manifest {manifest_path} is not a JSON object")
+    raw = payload.get("signal_end_date")
+    if raw in (None, ""):
+        return None
+    try:
+        stamp = pd.Timestamp(raw)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"manifest {manifest_path} has invalid signal_end_date: {raw!r}") from exc
+    if pd.isna(stamp):
+        raise SystemExit(f"manifest {manifest_path} has invalid signal_end_date: {raw!r}")
+    if stamp.tzinfo is None:
+        stamp = stamp.tz_localize("UTC")
+    else:
+        stamp = stamp.tz_convert("UTC")
+    return stamp.normalize()
 
 
 def load_symbol_map(path: Path) -> dict[str, str]:
@@ -372,11 +401,15 @@ def format_execution_plan(
     signal_date: pd.Timestamp,
     execution_hint: pd.Timestamp,
     research_execution_hint: pd.Timestamp | None = None,
+    signal_end_date: pd.Timestamp | None = None,
     spec: str = TRACKED_SPEC,
 ) -> str:
+    event_line = f"最新事件 {signal_date.date()}（UTC）"
+    if signal_end_date is not None:
+        event_line += f" · 数据评估日 {signal_end_date.date()}（UTC）"
     lines = [
         f"Atlas20 实盘执行计划 · {spec}",
-        f"信号日 {signal_date.date()}（UTC）· 建议执行 {execution_hint.strftime('%Y-%m-%d %H:%M')} UTC "
+        f"{event_line} · 建议执行 {execution_hint.strftime('%Y-%m-%d %H:%M')} UTC "
         f"/ 北京 {(execution_hint + pd.Timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')}",
         f"账户权益 {_fmt_money(plan.equity)} USDT（目标名义 "
         f"{_fmt_money(plan.expected_gross_notional)}，保证金 {_fmt_money(plan.expected_margin)}，"
@@ -433,6 +466,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--spec", default=TRACKED_SPEC)
     parser.add_argument("--targets-file", type=Path, default=DEFAULT_TARGETS_FILE)
+    parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--account-file", type=Path, default=None)
     parser.add_argument("--equity", type=float, default=None, help="manual equity for a plan without positions")
@@ -464,7 +498,10 @@ def main() -> None:
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
     signal_date, research_execution_hint, book = load_latest_targets(args.targets_file)
-    execution_hint = pd.Timestamp(live_execution_hint_for_signal(signal_date))
+    signal_end_date = manifest_signal_end_date(args.manifest_file)
+    execution_hint = pd.Timestamp(
+        live_execution_hint_for_signal(signal_end_date or signal_date)
+    )
     targets = {
         str(record["asset"]): float(record["target_weight"])
         for record in book.to_dict("records")
@@ -546,6 +583,7 @@ def main() -> None:
         signal_date=signal_date,
         execution_hint=execution_hint,
         research_execution_hint=research_execution_hint,
+        signal_end_date=signal_end_date,
         spec=args.spec,
     )
     print(message)

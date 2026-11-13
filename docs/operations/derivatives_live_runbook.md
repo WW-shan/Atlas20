@@ -322,7 +322,7 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，当前正常路径为 **27 项硬检查 + 1 项非硬告警**：
+`scripts/audit_live_track.py` 只读，当前正常路径为 **28 项硬检查 + 1 项非硬告警**：
 
 1. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
 2. 账户 API 必需字段完整且有限；
@@ -346,12 +346,13 @@ make audit-live
 19. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
 20. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
 21. 冻结目标 gross 不超过 1.25x；
-22. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
+22. 有符号目标 vs 有符号实际仓位：多头正、空头负；容差为 1 USDT、目标名义 1% 和 1.5 个合约步长三者取大；
 23. 无计划外持仓；
 24. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
 25. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
 26. 账本评估日 = 数据最新可判定日；
-27. journal 信号日 = 冻结账本最新信号日。
+27. manifest 的 `tracked_spec`、冻结参数、成本、funding source 和 gross cap 与当前 LS45-G125 规格完全一致；
+28. journal 信号日 = 冻结账本最新信号日。
 
 另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。若 journal 为空，会先报“台账存在”硬失败并跳过依赖 journal 的检查。
 

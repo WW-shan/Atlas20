@@ -30,6 +30,37 @@ def test_dry_run_plan_displays_the_short_stop() -> None:
     assert "止损 6" in message
 
 
+def test_plan_message_distinguishes_event_date_from_data_evaluation_date() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0),
+        {},
+        {},
+        {},
+    )
+
+    message = format_execution_plan(
+        plan,
+        signal_date=pd.Timestamp("2026-11-06", tz="UTC"),
+        signal_end_date=pd.Timestamp("2026-11-12", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-11-13 01:05", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-11-07 03:00", tz="UTC"),
+    )
+
+    assert "最新事件 2026-11-06" in message
+    assert "数据评估日 2026-11-12" in message
+    assert "建议执行 2026-11-13 01:05" in message
+    assert "研究回测成交口径 2026-11-07 03:00" in message
+
+
+def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
+    from scripts.plan_live_execution import manifest_signal_end_date
+
+    path = tmp_path / "manifest.json"
+    path.write_text('{"signal_end_date": "2026-11-12"}', encoding="utf-8")
+
+    assert manifest_signal_end_date(path) == pd.Timestamp("2026-11-12", tz="UTC")
+
+
 def test_dry_run_plan_separates_live_fast_path_from_research_fill() -> None:
     plan = build_execution_plan(
         AccountState(equity=100.0, available_margin=100.0),

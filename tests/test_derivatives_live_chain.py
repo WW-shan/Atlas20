@@ -27,6 +27,7 @@ from atlas20.derivatives.live_chain import (
     DEFAULT_SCHEDULED_UTC,
     last_completed_utc_day,
     live_execution_hint_for_signal,
+    manifest_spec_issues,
     manifest_staleness_hours,
     panel_end_date,
     panel_lags_last_completed_day,
@@ -156,6 +157,86 @@ def test_manifest_staleness_rejects_a_future_mark() -> None:
     )
 
     assert hours == float("inf")
+
+
+def test_manifest_spec_issues_accepts_the_frozen_ls45_contract() -> None:
+    manifest = {
+        "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        "max_total_gross": 1.25,
+        "cost_bps": 20.0,
+        "funding_source": "bitget-exact",
+        "research_only": True,
+        "frozen_config": {
+            "h5_leverage": 1.25,
+            "max_total_gross": 1.25,
+            "long_buffer": 0.50,
+            "short_buffer": 0.50,
+            "short_stop_loss_pct": 0.20,
+            "rebalance_no_trade_band": 0.0,
+            "profit_lock_redistribution": {
+                "lookback_days": 21,
+                "threshold": 1.0,
+                "scale": 0.5,
+                "max_asset_weight": 0.6,
+                "recipient_confirmation_days": 21,
+            },
+        },
+    }
+
+    issues = manifest_spec_issues(
+        manifest,
+        expected_spec="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        expected_frozen_config=manifest["frozen_config"],
+        expected_top_level={
+            "max_total_gross": 1.25,
+            "cost_bps": 20.0,
+            "funding_source": "bitget-exact",
+            "research_only": True,
+        },
+    )
+
+    assert issues == []
+
+
+def test_manifest_spec_issues_rejects_a_changed_profit_lock_horizon() -> None:
+    manifest = {
+        "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        "frozen_config": {
+            "profit_lock_redistribution": {
+                "lookback_days": 7,
+                "threshold": 1.0,
+                "scale": 0.5,
+                "max_asset_weight": 0.6,
+                "recipient_confirmation_days": 7,
+            }
+        },
+    }
+
+    issues = manifest_spec_issues(
+        manifest,
+        expected_spec="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        expected_frozen_config={
+            "profit_lock_redistribution": {
+                "lookback_days": 21,
+                "threshold": 1.0,
+                "scale": 0.5,
+                "max_asset_weight": 0.6,
+                "recipient_confirmation_days": 21,
+            }
+        },
+    )
+
+    assert any("profit_lock_redistribution" in issue for issue in issues)
+
+
+def test_manifest_spec_issues_rejects_a_different_spec() -> None:
+    issues = manifest_spec_issues(
+        {"tracked_spec": "PR2026-10-D-L125-V2", "frozen_config": {}},
+        expected_spec="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+        expected_frozen_config={},
+    )
+
+    assert any("tracked_spec" in issue for issue in issues)
 
 
 def test_manifest_staleness_fails_closed_without_a_live_mark_timestamp() -> None:

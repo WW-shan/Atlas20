@@ -46,7 +46,13 @@ from atlas20.derivatives.account import (
     isolated_margin_capability_error,
 )  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
-from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    LS45_G125_FROZEN_CONFIG,
+    LS45_G125_MANIFEST_TOP_LEVEL,
+    LS45_G125_SPEC,
+    manifest_spec_issues,
+    manifest_staleness_hours,
+)
 from atlas20.derivatives.live_executor import short_stop_symbol_issue  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
@@ -909,7 +915,11 @@ def main(argv: list[str] | None = None) -> int:
         tolerance = max(1.0, 0.01 * abs(want), 1.5 * float(lot_by_asset.get(asset, 0.0)))
         if abs(got - want) > tolerance:
             off_target.append(f"{asset.upper()} 目标 {want:.2f} vs 实际 {got:.2f}")
-    check("持仓与冻结目标一致（1 个合约步长内）", not off_target, "; ".join(off_target) or "全部吻合")
+    check(
+        "持仓与冻结目标一致（1%/1.5 个合约步长容差）",
+        not off_target,
+        "; ".join(off_target) or "全部吻合",
+    )
 
     orphans = sorted(set(notional_by_asset) - set(targets))
     orphan_notional = sum(notional_by_asset[asset] for asset in orphans)
@@ -952,6 +962,21 @@ def main(argv: list[str] | None = None) -> int:
             "账本已评估到最新可判定日（无跳过）",
             bool(index_end) and index_end == signal_end,
             f"账本评估到 {index_end or '?'} / 数据到 {signal_end or '?'}",
+        )
+        manifest_issues = manifest_spec_issues(
+            manifest,
+            expected_spec=LS45_G125_SPEC,
+            expected_frozen_config=LS45_G125_FROZEN_CONFIG,
+            expected_top_level=LS45_G125_MANIFEST_TOP_LEVEL,
+        )
+        if str(args.spec) != LS45_G125_SPEC:
+            manifest_issues.append(
+                f"audit --spec={args.spec!r}, expected {LS45_G125_SPEC!r}"
+            )
+        check(
+            "manifest 与当前 LS45-G125 冻结规格一致",
+            not manifest_issues,
+            "; ".join(manifest_issues) or "规格、参数与成本口径一致",
         )
     else:
         check("样本外 manifest 存在", False, f"{args.manifest_file} 不存在")
