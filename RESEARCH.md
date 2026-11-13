@@ -5061,3 +5061,37 @@ carry alpha；不能因为 LS82 全样本更高就直接晋级。下一步应做
 
 报告：`reports/ls94_ls82_robustness_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls94-ls82-robustness.md`。
+
+### 00.130 2026-11-13 LS95：LS82 carry sleeve 独立归因（asset-concentrated）
+
+LS95 把 LS82 的 carry sleeve 单独运行（不含 LS57 base），用同一 25% allocation、20bps、Bitget
+mark/market、Binance funding 和 T+1 执行，按 year/asset/side 拆 price/funding/fee PnL。归因日收益
+与 engine 日收益相关性 **0.9948**，通过一致性校验。
+
+独立 sleeve：**1.1662x / Sharpe 0.6596 / MDD -8.70%**。逐年 net PnL（初始 NAV 口径）为
+2022 **-6.68%**、2023 **+15.74%**、2024 **+13.06%**、2025 **-7.59%**、2026 **+3.17%**；
+engine 年收益为 -6.91% / +18.12% / +11.63% / -6.75% / +1.90%。
+
+| 资产 | price PnL | funding PnL | fees | net PnL |
+|---|---:|---:|---:|---:|
+| Cardano | +23.81% | +0.14% | 1.94% | **+22.00%** |
+| Avalanche | +7.21% | +0.43% | 1.79% | +5.85% |
+| BNB | +6.07% | +1.20% | 1.59% | +5.68% |
+| Solana | +4.16% | +0.91% | 1.77% | +3.30% |
+| Ethereum | +2.57% | +0.31% | 1.44% | +1.43% |
+| Bitcoin | +2.13% | -0.09% | 1.77% | +0.27% |
+| XRP | -1.20% | +0.59% | 1.75% | -2.37% |
+| Dogecoin | -17.47% | +0.72% | 1.72% | **-18.47%** |
+
+long 侧 net **+19.08%**，short 侧 net **-1.34%**。Cardano 单一资产贡献超过总 net 的 100%，
+Dogecoin 单一资产回吐超过总 net 的 100%，判定 **asset-concentrated**；long 侧贡献也超过总 net
+的 100%。这不是一个分散的 carry alpha，而是“Cardano 的少数价格路径 + long 侧 funding/趋势暴露”
+在支撑结果。short 腿净贡献为负，不能用“short-only 更差”之外的叙事把它当作独立 alpha。
+
+**判定：asset-concentrated / 不晋级。** LS82 相对 LS57 的改善不能视为稳健的 carry alpha；下一步
+只预注册一个机制假设：carry long 腿加 200D 趋势过滤，避免在下跌趋势中继续做多低 funding 资产；
+不按资产删 DOGE/Cardano，不扫描 MA 20/50/100/200，也不改 short 腿。若该假设仍失败，停止 carry
+家族，转向其他 short/trend 机制。
+
+报告：`reports/ls95_carry_attribution_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls95-carry-attribution.md`。

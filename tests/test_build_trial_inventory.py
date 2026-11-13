@@ -431,6 +431,7 @@ def test_ls84_and_ls93_are_declared_as_no_new_configuration() -> None:
     assert "ls84_volume_reversal_screen_2026" in NO_NEW_CONFIGURATION_DIRS
     assert "ls93_core_satellite_robustness_2026" in NO_NEW_CONFIGURATION_DIRS
     assert "ls94_ls82_robustness_2026" in NO_NEW_CONFIGURATION_DIRS
+    assert "ls95_carry_attribution_2026" in NO_NEW_CONFIGURATION_DIRS
 
 
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:

@@ -1,0 +1,28 @@
+{
+  "allocation": 0.25,
+  "assets": [
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "ripple",
+    "binancecoin",
+    "dogecoin",
+    "cardano",
+    "avalanche-2"
+  ],
+  "carry_schedule": "reports/ls82_core8_carry_risk_2026/carry_schedule.csv",
+  "carry_schedule_sha256": "6b3b6bc7aa40049dc18ace24b99656ba44d9c24ee78e444300656b9bb17af9e1",
+  "classification": "asset-concentrated",
+  "cost_bps": 20.0,
+  "end": "2026-09-21 00:00:00+00:00",
+  "metrics": {
+    "cagr": 0.033115997091438976,
+    "max_drawdown": -0.0870319461295096,
+    "multiple": 1.1662494192458601,
+    "sharpe": 0.6596123181558974
+  },
+  "orders_sent": false,
+  "start": "2022-01-01 00:00:00+00:00",
+  "trial_id": "PR2026-11-LS95-LS82-CARRY-ATTRIBUTION",
+  "validation_correlation": 0.9947803492453594
+}
