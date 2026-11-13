@@ -111,6 +111,7 @@ def combine_residual_basis(
     scale_delta = scale.diff().abs()
     if not scale_delta.empty:
         scale_delta.iloc[0] = abs(float(scale.iloc[0]))
+        scale_delta.iloc[-1] += abs(float(scale.iloc[-1]))
     scale_delta = scale_delta.fillna(0.0)
     scale_cost = scale_delta * float(sleeve_gross) * float(scale_cost_bps) / 10_000.0
     basis_contribution = scale * sleeve

@@ -30,8 +30,9 @@ LS98 的 basis sleeve 结论受跨所 spot 价格和 Binance funding proxy 影�
   把当日未结束价格用于当日收益。
 - Funding proxy：Binance `calc_time` 的 00/08/16 三个 settlement 按日求和；必须每天恰好 3 条，
   否则报错。Funding 索引与同一日 spot/perp 收盘对齐。
-- Funding exact：Bitget `funding/{bitcoin,ethereum}.csv`，仅在 2026-07-11 → 2026-09-20
-  与代理重叠窗口做校验；不把最近数据回填进历史。
+- Funding exact：Bitget `funding/{bitcoin,ethereum}.csv`，仅在最近完整 settlement 窗口做校验；
+  feed 从 2026-07-11 08:00 起，前两天不是完整 3 次 settlement，因此实际校验从 2026-07-13
+  开始；不把最近数据回填进历史。
 - 缺失、重复、非有限价格或 funding 必须记录；不允许用零收益填补价格缺口。
 
 ## 2. 收益与成本

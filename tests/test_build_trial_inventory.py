@@ -485,6 +485,48 @@ def test_ls99_basis_residual_allocations_are_counted_once_per_allocation() -> No
     assert all(row["family"] == "basis_residual" for row in rows)
 
 
+def test_ls100_is_one_same_venue_configuration_despite_diagnostics() -> None:
+    from scripts.build_trial_inventory import PROCESSING_ORDER, same_venue_basis_configurations
+
+    frame = pd.DataFrame(
+        [
+            {"variant": "always-on", "cost_bps": 10.0, "full_sharpe": 3.63},
+            {"variant": "always-on", "cost_bps": 20.0, "full_sharpe": 3.55},
+            {"variant": "btc-only", "cost_bps": 10.0, "full_sharpe": 4.92},
+            {"variant": "eth-only", "cost_bps": 10.0, "full_sharpe": 2.60},
+        ]
+    )
+
+    rows = same_venue_basis_configurations(frame)
+
+    assert "ls100_same_venue_basis_2026" in PROCESSING_ORDER
+    assert len(rows) == 1
+    assert rows[0]["config_id"] == "always-on"
+    assert rows[0]["cost_bps"] == 10.0
+    assert rows[0]["universe"] == "SameVenueBasis"
+    assert rows[0]["family"] == "same_venue_basis"
+
+
+def test_ls101_is_counted_as_a_same_venue_residual_family() -> None:
+    from scripts.build_trial_inventory import PROCESSING_ORDER, same_venue_residual_configurations
+
+    frame = pd.DataFrame(
+        [
+            {"allocation": 0.25, "basis_cost_bps": 10.0, "full_sharpe": 1.996},
+            {"allocation": 0.50, "basis_cost_bps": 10.0, "full_sharpe": 2.005},
+            {"allocation": 1.00, "basis_cost_bps": 10.0, "full_sharpe": 2.011},
+            {"allocation": 1.00, "basis_cost_bps": 20.0, "full_sharpe": 1.987},
+        ]
+    )
+
+    rows = same_venue_residual_configurations(frame)
+
+    assert "ls101_ls57_same_venue_basis_2026" in PROCESSING_ORDER
+    assert [row["config_id"] for row in rows] == ["allocation_025", "allocation_050", "allocation_100"]
+    assert all(row["universe"] == "Derivatives" for row in rows)
+    assert all(row["family"] == "same_venue_basis_residual" for row in rows)
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

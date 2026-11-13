@@ -1,0 +1,52 @@
+{
+  "binance_funding_dir": "/Users/ww/Project/Atlas20/data/raw/binance_funding",
+  "bitget_funding_dir": "/Users/ww/Project/Atlas20/data/raw/bitget_derivatives/funding",
+  "classification": "pass",
+  "costs_bps": [
+    10.0,
+    20.0
+  ],
+  "coverage": {
+    "mark_coverage": 1.0,
+    "max_staleness_hours": 1.0,
+    "rows": 1723,
+    "spot_continuous": true
+  },
+  "end": "2026-09-20 00:00:00+00:00",
+  "exact_funding_window": {
+    "end": "2026-09-20 00:00:00+00:00",
+    "start": "2026-07-13 00:00:00+00:00"
+  },
+  "funding_sources": {
+    "full": "Binance proxy",
+    "reconciliation": "Bitget exact"
+  },
+  "legs_per_asset": 2,
+  "mark_staleness_hours_max": 2.0,
+  "metrics": {
+    "full_mdd_10bps": -0.0081863842517097,
+    "full_multiple_10bps": 1.1550054417119933,
+    "full_multiple_20bps": 1.1526945357671374,
+    "full_sharpe_10bps": 3.6299805405092562,
+    "validation_multiple_10bps": 1.0992136984408996,
+    "validation_sharpe_10bps": 3.3543977058460297
+  },
+  "notional_per_leg": 0.25,
+  "orders_sent": false,
+  "perp_dir": "/Users/ww/Project/Atlas20/data/raw/bitget_derivatives/merged_20261009/candles",
+  "perp_files": {
+    "bitcoin": "e222a71add06135ac78104265a60aa5a48754850dec24dae81ccf904fe870793",
+    "ethereum": "d89c52fb8c2283de52f0cd41b2486b74c414ba203f4e86920d6c41f39225d58b"
+  },
+  "primary_cost_bps": 10.0,
+  "proxy_match": true,
+  "rows": 1723,
+  "spot_dir": "/Users/ww/Project/Atlas20/data/raw/bitget_spot/20261113",
+  "spot_files": {
+    "bitcoin": "2c1145fdeb4046c228e34b7e4c79c1e06883a6839d316c95ee99e585c8205080",
+    "ethereum": "d373cd00b3365baa9ed5563ce40ce7b940efb804c35d36b80a152f21a3a457c0"
+  },
+  "start": "2022-01-02 00:00:00+00:00",
+  "total_gross": 1.0,
+  "trial_id": "PR2026-11-LS100-SAME-VENUE-BASIS"
+}

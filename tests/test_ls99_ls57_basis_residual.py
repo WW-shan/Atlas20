@@ -121,3 +121,20 @@ def test_classify_integration_fails_when_stress_100pct_is_below_baseline() -> No
     )
 
     assert classify_integration(pd.DataFrame(rows), baseline) == "fail"
+
+
+def test_combine_charges_terminal_exit_when_scale_remains_active() -> None:
+    from scripts.run_ls99_ls57_basis_residual import combine_residual_basis
+
+    index = pd.date_range("2024-01-01", periods=2, tz="UTC")
+    result = combine_residual_basis(
+        ls57_returns=pd.Series([0.0, 0.0], index=index),
+        ls57_gross=pd.Series([0.45, 0.45], index=index),
+        basis_returns=pd.Series([0.0, 0.0], index=index),
+        allocation=1.0,
+        gross_cap=1.45,
+        sleeve_gross=1.0,
+        scale_cost_bps=10.0,
+    )
+
+    assert result["combined_return"].tolist() == pytest.approx([-0.001, -0.001])

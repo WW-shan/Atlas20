@@ -1,0 +1,3 @@
+asset,proxy_funding_pnl,exact_funding_pnl,relative_difference,match
+bitcoin,0.012815340000000001,0.010122,0.21016531750230585,True
+ethereum,0.008634990000000002,0.011194,0.2963535568657286,True

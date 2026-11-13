@@ -5181,10 +5181,10 @@ LS98 的毛 basis/funding 日收益进入组合后，LS99 按实际 scale 变化
 | 配置 | 成本 | full 终值/Sharpe/MDD | validation 终值/Sharpe | 最大组合 gross |
 |---|---:|---:|---:|---:|
 | LS57 baseline | 20bps | 68.8077x / 1.9819 / -39.835% | 15.2386x / 2.1079 | — |
-| LS99 25% residual | 10bps | 71.2333x / 1.9960 / -39.734% | 15.6041x / 2.1241 | 1.45x |
-| LS99 50% residual | 10bps | 72.7587x / 2.0047 / -39.842% | 15.8525x / 2.1352 | 1.45x |
-| LS99 100% residual | 10bps | **73.4237x / 2.0086 / -39.972%** | **15.9684x / 2.1412** | 1.45x |
-| LS99 100% residual stress | 20bps | 69.2308x / 1.9853 / -40.549% | 15.3911x / 2.1171 | 1.45x |
+| LS99 25% residual | 10bps | 71.2161x / 1.9959 / -39.733% | 15.6003x / 2.1240 | 1.45x |
+| LS99 50% residual | 10bps | 72.7235x / 2.0045 / -39.842% | 15.8448x / 2.1349 | 1.45x |
+| LS99 100% residual | 10bps | **73.3526x / 2.0083 / -39.972%** | **15.9530x / 2.1406** | 1.45x |
+| LS99 100% residual stress | 20bps | 69.0968x / 1.9846 / -40.549% | 15.3614x / 2.1159 | 1.45x |
 
 100% residual 在 10bps 下同时通过 full 终值、Sharpe、MDD、validation 终值和 validation Sharpe；
 20bps 压力下仍高于 LS57 的 full 终值和 Sharpe。三档 25/50/100% 全部通过预注册主门槛，分类为
@@ -5197,3 +5197,63 @@ study。当前 live track 仍为 `PR2026-10-D-L125-V2`，没有发送任何订�
 
 报告：`reports/ls99_ls57_basis_residual_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls99-ls57-basis-residual.md`。
+
+### 00.135 2026-11-13 LS100：Bitget 同 venue spot-perp basis（研究 proxy pass，不接实盘）
+
+LS100 按预注册 `PR2026-11-LS100-SAME-VENUE-BASIS` 把 LS98 的 spot 价格从 CMC/Binance 换成
+Bitget 公共 `1Dutc` spot 日线，perp 仍用 Bitget mark；每资产 spot/perp 各 0.25x NAV，组合实际
+gross 1.00x。全历史 funding 仍使用 Binance 8h proxy，Bitget 精确 funding 只做最近完整
+settlement 窗口（2026-07-13 → 2026-09-20）的 reconciliation；spot 覆盖连续，mark 覆盖 100%，
+最大 mark staleness 1h。成本按 spot/perp 两腿分别计费，10bps/腿/边为主档，20bps 为压力档。
+
+| 变体 | 成本 | full 终值/Sharpe/MDD | validation 终值/Sharpe |
+|---|---:|---:|---:|
+| always-on BTC+ETH | 10bps | **1.1550x / 3.6300 / -0.819%** | **1.0992x / 3.3544** |
+| always-on BTC+ETH | 20bps | 1.1527x / 3.5486 / -0.819% | 1.0981x / 3.3019 |
+| BTC-only | 10bps | 1.0790x / 4.9221 / -0.278% | 1.0487x / 4.5405 |
+| ETH-only | 10bps | 1.0705x / 2.5959 / -0.714% | 1.0483x / 2.5492 |
+
+always-on 10bps 逐年为 2022 **+1.04%**、2023 **+3.99%**、2024 **+6.48%**、2025 **+2.50%**、
+2026 **+0.72%**，5/5 年为正。资产归因：BTC net **+7.61%**、ETH net **+6.82%**；其中 BTC
+funding **+7.80%**、basis **-0.09%**，ETH funding **+7.06%**、basis **-0.14%**，成本各约
+0.10%。收益仍由 funding 主导，BTC/ETH 双资产和 5/5 年份均未触发集中度门槛。
+
+精确 Bitget funding 与 proxy 在最近窗口的 funding PnL：BTC **0.012815 → 0.010122**（差
+21.0%），ETH **0.008635 → 0.011194**（差 29.6%）；方向一致且都低于 50% 差异门槛，因此
+`proxy_match=True`。但这不等于历史 funding 已闭合：精确数据只有最近约两个月，不能回填
+2022–2026；跨所/USDT 基差、真实 spot 成交、保证金和 liquidation 仍未验证。
+
+**判定：pass under the pre-registered research-proxy gates。** 这是同 venue 价格口径的升级，
+不是 live promotion；LS100 不改 `PR2026-10-D-L125-V2`，也不发送订单。下一步只允许做 LS101：
+把 LS100 sleeve 按 LS99 的 residual-gross 规则并入 LS57，重新过 25/50/100%、10/20bps 和
+full/validation 门槛；在 LS101 通过前不讨论实盘接入。
+
+数据快照：`data/raw/bitget_spot/20261113/`（git-ignored，manifest 记录 SHA-256；抓取脚本
+`scripts/fetch_bitget_spot_daily.py`）；报告：`reports/ls100_same_venue_basis_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls100-same-venue-basis.md`。
+
+### 00.136 2026-11-13 LS101：LS57 + LS100 same-venue basis residual-gross 集成（研究门槛 pass，不接实盘）
+
+LS101 按预注册 `PR2026-11-LS101-LS57-SAME-VENUE-BASIS` 把 LS100 的同 venue spot/perp
+sleeve 并入 LS57 的 residual gross。LS57 规则、target gross、profit-lock、空头、stop 和 T+1 全部
+不变；LS100 在 2022-01-01 尚未建仓，因此该日显式记零 gross，首个完整 sleeve 日是 2022-01-02，
+没有把未来收益回填到 2022-01-01。25/50/100% 三档、10/20bps 两档和 1.45x hard cap 均沿用
+LS99 的预注册规则；scale 的建仓、变化和最终退出都计成本。
+
+| 配置 | 成本 | full 终值/Sharpe/MDD | validation 终值/Sharpe | 最大组合 gross |
+|---|---:|---:|---:|---:|
+| LS57 baseline | 20bps | 68.8077x / 1.9819 / -39.835% | 15.2386x / 2.1079 | — |
+| LS101 25% residual | 10bps | 71.2144x / 1.9960 / -39.731% | 15.5923x / 2.1235 | 1.45x |
+| LS101 50% residual | 10bps | 72.7796x / 2.0050 / -39.825% | 15.8314x / 2.1341 | 1.45x |
+| LS101 100% residual | 10bps | **73.7400x / 2.0110 / -39.951%** | **15.9684x / 2.1406** | 1.45x |
+| LS101 100% residual stress | 20bps | 69.4617x / 1.9873 / -40.529% | 15.3762x / 2.1159 | 1.45x |
+
+三档 10bps 全部通过 full/validation 主门槛，20bps 压力档的 100% 终值和 Sharpe 仍高于 LS57；分类为
+**pass under the pre-registered integration gates**。和 LS99 一样，20bps 压力 MDD 约 -40.53%，
+比 LS57 差约 2.2pp，必须在进入实盘前作为残余风险处理。LS100 的 full-history funding 仍是
+Binance proxy，exact Bitget funding 只覆盖最近完整 settlement 窗口（BTC/ETH 差异分别约 21.0%/29.6%，
+方向一致），所以 LS101 仍不是 live-ready；它只证明同 venue 价格口径没有推翻 residual-gross 结论。
+当前 live track 仍为 `PR2026-10-D-L125-V2`，没有发送任何订单。
+
+报告：`reports/ls101_ls57_same_venue_basis_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls101-ls57-same-venue-basis.md`。

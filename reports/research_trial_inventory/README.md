@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `4205814` from 2 uncommitted source file(s): `reports/ls98_cross_venue_basis_2026/variant_summary.csv`, `reports/ls99_ls57_basis_residual_2026/overlay_summary.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `fc12f52` from 3 uncommitted source file(s): `reports/ls100_same_venue_basis_2026/variant_summary.csv`, `reports/ls101_ls57_same_venue_basis_2026/overlay_summary.csv`, `reports/ls99_ls57_basis_residual_2026/overlay_summary.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,418 | 14,384 | 9,212 | 0.7845 | 0.7044 | 0.03687 |
+| all_trials | 14,422 | 14,388 | 9,216 | 0.7850 | 0.7049 | 0.03690 |
 | top20_2022_trials | 6,201 | 6,186 | 3,889 | 0.4143 | 0.4821 | 0.02523 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -59,6 +59,8 @@ multiple-testing script uses it only for the trial count.
 | leader_momentum | 5761 | 655 |
 | phase_momentum | 83 | 81 |
 | residual_factor | 14 | 14 |
+| same_venue_basis | 1 | 0 |
+| same_venue_basis_residual | 3 | 0 |
 | sector | 647 | 254 |
 | top20_membership_churn | 16 | 0 |
 | top20_membership_churn_overlay | 12 | 12 |

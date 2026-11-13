@@ -173,6 +173,8 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "ls96_carry_trend200_2026",
     "ls98_cross_venue_basis_2026",
     "ls99_ls57_basis_residual_2026",
+    "ls100_same_venue_basis_2026",
+    "ls101_ls57_same_venue_basis_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -199,6 +201,8 @@ DERIVATIVES_ENSEMBLE_STUDIES = frozenset(
 )
 CROSS_VENUE_BASIS_STUDIES: tuple[str, ...] = ("ls98_cross_venue_basis_2026",)
 BASIS_RESIDUAL_STUDIES: tuple[str, ...] = ("ls99_ls57_basis_residual_2026",)
+SAME_VENUE_BASIS_STUDIES: tuple[str, ...] = ("ls100_same_venue_basis_2026",)
+SAME_VENUE_RESIDUAL_STUDIES: tuple[str, ...] = ("ls101_ls57_same_venue_basis_2026",)
 
 # Report directories that hold no new configuration (rolling starts,
 # sub-windows, stress windows, audits, live signals, or a re-listing).
@@ -1122,6 +1126,59 @@ def basis_residual_configurations(frame: pd.DataFrame) -> list[dict[str, object]
     return rows
 
 
+def same_venue_basis_configurations(frame: pd.DataFrame) -> list[dict[str, object]]:
+    """Count LS100's always-on primary only; asset diagnostics are not trials."""
+    required = {"variant", "cost_bps", "full_sharpe"}
+    missing = sorted(required.difference(frame.columns))
+    if missing:
+        raise ValueError(f"LS100 summary missing columns: {missing}")
+    primary = frame.loc[
+        frame["variant"].astype(str).eq("always-on")
+        & np.isclose(frame["cost_bps"].astype(float), 10.0)
+    ]
+    if len(primary) != 1:
+        raise ValueError("LS100 summary must contain exactly one always-on 10bps row")
+    row = primary.iloc[0]
+    return [
+        {
+            "config_id": "always-on",
+            "cost_bps": 10.0,
+            "full_sharpe": float(row["full_sharpe"]),
+            "universe": "SameVenueBasis",
+            "family": "same_venue_basis",
+            "window_start": "2022-01-02",
+            "window_end": "2026-09-20",
+        }
+    ]
+
+
+def same_venue_residual_configurations(frame: pd.DataFrame) -> list[dict[str, object]]:
+    """Count LS101's three primary residual allocations once each."""
+    required = {"allocation", "basis_cost_bps", "full_sharpe"}
+    missing = sorted(required.difference(frame.columns))
+    if missing:
+        raise ValueError(f"LS101 summary missing columns: {missing}")
+    primary = frame.loc[np.isclose(frame["basis_cost_bps"].astype(float), 10.0)].copy()
+    primary["allocation"] = primary["allocation"].astype(float)
+    if primary["allocation"].duplicated().any():
+        raise ValueError("LS101 summary repeats a primary allocation")
+    rows: list[dict[str, object]] = []
+    for _, row in primary.sort_values("allocation").iterrows():
+        allocation = float(row["allocation"])
+        rows.append(
+            {
+                "config_id": f"allocation_{int(round(allocation * 100)):03d}",
+                "cost_bps": 10.0,
+                "full_sharpe": float(row["full_sharpe"]),
+                "universe": "Derivatives",
+                "family": "same_venue_basis_residual",
+                "window_start": "2022-01-01",
+                "window_end": "2026-09-20",
+            }
+        )
+    return rows
+
+
 def _ledger_result_row(ledger: pd.DataFrame, trial_id: str) -> pd.Series | None:
     """The last terminal result row for one preregistered trial, if any."""
     rows = ledger[
@@ -1532,6 +1589,48 @@ def _load_basis_residual_lane(src: Sources, rec: TrialRecorder) -> None:
             )
 
 
+def _load_same_venue_basis_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load LS100's single always-on same-venue basis configuration."""
+    for study in SAME_VENUE_BASIS_STUDIES:
+        path = f"reports/{study}/variant_summary.csv"
+        frame = src.csv(path)
+        for row in same_venue_basis_configurations(frame):
+            rec.add(
+                study,
+                row["config_id"],
+                (str(row["window_start"]), str(row["window_end"])),
+                float(row["cost_bps"]),
+                str(row["universe"]),
+                float(row["full_sharpe"]),
+                source=path,
+                column="full_sharpe",
+                family=str(row["family"]),
+                lineage=study,
+                note="Bitget same-venue spot/perp prices; Binance funding proxy",
+            )
+
+
+def _load_same_venue_residual_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load LS101 residual-gross allocations as one research family."""
+    for study in SAME_VENUE_RESIDUAL_STUDIES:
+        path = f"reports/{study}/overlay_summary.csv"
+        frame = src.csv(path)
+        for row in same_venue_residual_configurations(frame):
+            rec.add(
+                study,
+                row["config_id"],
+                (str(row["window_start"]), str(row["window_end"])),
+                float(row["cost_bps"]),
+                str(row["universe"]),
+                float(row["full_sharpe"]),
+                source=path,
+                column="full_sharpe",
+                family=str(row["family"]),
+                lineage=study,
+                note="LS57 residual gross + LS100 same-venue price basis proxy",
+            )
+
+
 def _load_cross_venue_basis_lane(src: Sources, rec: TrialRecorder) -> None:
     """Load the separate cross-venue spot-perp basis research track."""
     for study in CROSS_VENUE_BASIS_STUDIES:
@@ -1575,6 +1674,8 @@ def collect_trials(
     _load_derivatives_research_lane(src, rec)
     _load_cross_venue_basis_lane(src, rec)
     _load_basis_residual_lane(src, rec)
+    _load_same_venue_basis_lane(src, rec)
+    _load_same_venue_residual_lane(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 
