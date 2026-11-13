@@ -4967,3 +4967,28 @@ LS82/LS88 的低成本档，不能把 maker/低费率假设直接带入 promotio
 `reports/ls91_core_satellite_ensemble_2026_cost50/`、
 `reports/ls91_core_satellite_ensemble_2026_cost100/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls91-core-satellite-ensemble.md`。
+
+### 00.127 2026-11-13 LS92：LS91 core-satellite 的 maker-shadow 成本敏感性（shadow pass）
+
+LS92 不改变 LS91 的 50/25/25 资本分配、子策略规则、universe、funding、mark/fill、stop 或 gross
+cap，只把三个子账户的每边成本从 20bps 重新跑为 **13.0164bps**。13.0164bps 来自 §00.92/§00.95
+的 Bitget 逐笔/L1 maker shadow（25% volume-capacity haircut），不是已验证的 2022–2026 历史
+成交成本。
+
+| 子账户/组合 | 终值 | Sharpe | MDD | validation 终值 | validation Sharpe |
+|---|---:|---:|---:|---:|---:|
+| LS57 @13.0164bps | 65.6712x | 1.9638 | -38.96% | 14.9011x | 2.0925 |
+| LS82 carry @13.0164bps | 73.0767x | 2.0189 | -36.997% | 16.1532x | 2.1621 |
+| LS88 long-only @13.0164bps | 70.4673x | 1.9610 | -38.51% | 15.6631x | 2.0743 |
+| LS89 21D @13.0164bps | 61.7783x | 1.9785 | -35.59% | 13.1031x | 2.0631 |
+| **LS92 50/25/25** | **68.7216x** | **1.9798** | **-38.37%** | **15.4108x** | **2.1078** |
+
+相对同成本 LS57，LS92 提升 **+4.65% 终值**、Sharpe **+0.0160**、MDD 改善约 **0.59pp**，
+validation 终值 **+3.42%**、Sharpe **+0.0153**。这是执行成本假设改善后的 portfolio candidate，
+不是新 alpha；13.0164bps 仍受 2026 单一样本、queue/部分成交/撤单延迟和 ADL 外推限制。
+**判定：shadow pass；不接实盘，不修改当前 `PR2026-10-D-L125-V2`。**
+
+报告：`reports/ls92_core_satellite_maker_shadow_2026/`；子账户：
+`reports/ls92_ls57_maker13_2026/`、`reports/ls92_ls82_maker13_2026/`、
+`reports/ls92_ls88_maker13_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls92-core-satellite-maker-shadow.md`。

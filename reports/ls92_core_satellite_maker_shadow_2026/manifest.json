@@ -1,0 +1,20 @@
+{
+  "common_end": "2026-09-20 00:00:00+00:00",
+  "common_start": "2022-01-01 00:00:00+00:00",
+  "cost_bps": 13.0164,
+  "ensemble_id": "PR2026-11-LS92-LS91-MAKER25-SHADOW",
+  "orders_sent": false,
+  "rebalance": "none",
+  "sources": {
+    "LS57": "reports/ls92_ls57_maker13_2026/daily_base_normal_13.0164.csv",
+    "LS82_CARRY": "reports/ls92_ls82_maker13_2026/daily_normal_13.0164_0.25.csv",
+    "LS88_LONG_CARRY": "reports/ls92_ls88_maker13_2026/daily_normal_13.0164_0.10.csv",
+    "LS89_MA21": "reports/ls92_ls57_maker13_2026/daily_filtered_normal_13.0164.csv"
+  },
+  "weights": {
+    "LS57": 0.5,
+    "LS82_CARRY": 0.25,
+    "LS88_LONG_CARRY": 0.25,
+    "LS89_MA21": 0.0
+  }
+}

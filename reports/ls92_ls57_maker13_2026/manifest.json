@@ -1,0 +1,19 @@
+{
+  "costs_bps": [
+    13.0164
+  ],
+  "end_date": "2026-09-21",
+  "filtered_to_cash": true,
+  "funding_scenarios": [
+    "normal"
+  ],
+  "gross_cap": 1.5,
+  "long_buffer": 0.6,
+  "ma_days": 21,
+  "orders_sent": false,
+  "raw_ledgers_retained": false,
+  "start_date": "2022-01-01",
+  "target_gross": 1.45,
+  "trial_id": "PR2026-11-LS92-LS57-MAKER13-BASE",
+  "warmup_start": "2021-01-01"
+}

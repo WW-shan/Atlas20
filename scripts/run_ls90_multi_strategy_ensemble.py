@@ -28,6 +28,12 @@ VALIDATION_END = pd.Timestamp("2026-09-20", tz="UTC")
 STRATEGY_NAMES = ("LS57", "LS82_CARRY", "LS88_LONG_CARRY", "LS89_MA21")
 
 SOURCES: dict[float, dict[str, Path]] = {
+    13.0164: {
+        "LS57": Path("reports/ls92_ls57_maker13_2026/daily_base_normal_13.0164.csv"),
+        "LS82_CARRY": Path("reports/ls92_ls82_maker13_2026/daily_normal_13.0164_0.25.csv"),
+        "LS88_LONG_CARRY": Path("reports/ls92_ls88_maker13_2026/daily_normal_13.0164_0.10.csv"),
+        "LS89_MA21": Path("reports/ls92_ls57_maker13_2026/daily_filtered_normal_13.0164.csv"),
+    },
     20.0: {
         "LS57": Path("reports/ls89_asset_ma21_exit_2026/daily_base_normal_20.csv"),
         "LS82_CARRY": Path("reports/ls82_core8_carry_risk_2026/daily_normal_20_0.25.csv"),
