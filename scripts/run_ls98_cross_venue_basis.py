@@ -14,7 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
-from typing import Any, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,8 @@ START = pd.Timestamp("2022-01-01", tz="UTC")
 END = pd.Timestamp("2026-09-20", tz="UTC")
 ASSETS = ("bitcoin", "ethereum")
 PERP_SYMBOLS = {"bitcoin": "BTCUSDT", "ethereum": "ETHUSDT"}
-NOTIONAL_PER_LEG = 0.50
+NOTIONAL_PER_LEG = 0.25
+LEGS_PER_ASSET = 2
 COSTS_BPS = (5.0, 10.0, 20.0)
 PRIMARY_COST_BPS = 10.0
 VALIDATION_START = pd.Timestamp("2024-01-01", tz="UTC")
@@ -100,6 +101,13 @@ def positive_funding_positions(
     return positions
 
 
+def basis_gross_exposure(positions: pd.DataFrame) -> pd.Series:
+    """Actual gross including both the spot long and perp short legs."""
+    if (positions < 0.0).to_numpy().any():
+        raise ValueError("basis positions must be non-negative")
+    return (positions.abs().sum(axis=1) * LEGS_PER_ASSET).rename("gross_exposure")
+
+
 def turnover_from_positions(positions: pd.DataFrame) -> pd.DataFrame:
     """One-way turnover by asset, including initial entry and final exit."""
     turnover = positions.diff().abs()
@@ -107,6 +115,14 @@ def turnover_from_positions(positions: pd.DataFrame) -> pd.DataFrame:
         turnover.iloc[0] = positions.iloc[0].abs()
         turnover.iloc[-1] += positions.iloc[-1].abs()
     return turnover.fillna(0.0)
+
+
+def basis_turnover_cost(positions: pd.DataFrame, *, cost_bps: float) -> pd.Series:
+    """Per-day cost for both spot and perp legs, including initial/final exit."""
+    if not np.isfinite(cost_bps) or cost_bps < 0.0:
+        raise ValueError("cost_bps must be finite and non-negative")
+    turnover = turnover_from_positions(positions).sum(axis=1)
+    return (turnover * float(LEGS_PER_ASSET) * float(cost_bps) / 10_000.0).rename("cost")
 
 
 def classify_basis_evidence(
@@ -189,7 +205,12 @@ def _asset_summary(
 ) -> pd.DataFrame:
     basis = positions * (spot_returns - perp_returns)
     carry = positions * funding
-    costs = turnover_from_positions(positions) * float(cost_bps) / 10_000.0
+    costs = (
+        turnover_from_positions(positions)
+        * float(LEGS_PER_ASSET)
+        * float(cost_bps)
+        / 10_000.0
+    )
     frame = pd.DataFrame(
         {
             "asset": list(positions.columns),
@@ -219,9 +240,10 @@ def _report(
         "live signal and does not prove same-venue Bitget execution.",
         "",
         f"- Common sample: {start} → {end} ({rows} daily observations)",
-        "- Per asset: spot long 0.50x NAV + perp short 0.50x NAV; total gross 1.00x",
+        "- Per asset: spot long 0.25x NAV + perp short 0.25x NAV; portfolio gross 1.00x",
         "- Primary cost: 10bps per leg per side; 5/20bps shown as a band",
         "- Funding is a Binance proxy; perp mark is Bitget; spot is a CMC/Binance daily proxy",
+        "- Gross counts both legs; costs are charged on each leg per side",
         "",
         "## Variant summary",
         "",
@@ -295,7 +317,9 @@ def main(argv: list[str] | None = None) -> None:
         )
         turnover = turnover_from_positions(positions[assets]).sum(axis=1)
         for cost in COSTS_BPS:
-            net = pnl["daily_return"] - turnover * float(cost) / 10_000.0
+            net = pnl["daily_return"] - basis_turnover_cost(
+                positions[assets], cost_bps=float(cost)
+            )
             full = _sample_metrics(net)
             validation = _sample_metrics(net, validation=True)
             summary_rows.append(
@@ -307,7 +331,7 @@ def main(argv: list[str] | None = None) -> None:
                     "full_max_drawdown": full["max_drawdown"],
                     "validation_multiple": validation["multiple"],
                     "validation_sharpe": validation["sharpe"],
-                    "mean_gross": float(positions[assets].abs().sum(axis=1).mean()),
+                    "mean_gross": float(basis_gross_exposure(positions[assets]).mean()),
                     "turnover": float(turnover.sum()),
                 }
             )
@@ -355,6 +379,8 @@ def main(argv: list[str] | None = None) -> None:
         "trial_id": TRIAL_ID,
         "assets": list(ASSETS),
         "notional_per_leg": NOTIONAL_PER_LEG,
+        "legs_per_asset": LEGS_PER_ASSET,
+        "total_gross": float(LEGS_PER_ASSET * len(ASSETS) * NOTIONAL_PER_LEG),
         "costs_bps": list(COSTS_BPS),
         "primary_cost_bps": PRIMARY_COST_BPS,
         "start": str(spot.index.min()),

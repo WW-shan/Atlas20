@@ -20,10 +20,10 @@ LS98 给出一个与 LS57 日收益相关性约 0.01、Sharpe >2、MDD <3% 的 B
 ## 1. 冻结规则
 
 - LS57 日收益、target gross 和所有交易规则不变；
-- basis sleeve 固定 BTC/ETH 各 0.50x spot + 0.50x perp，gross 1.00x；
+- basis sleeve 固定 BTC/ETH 每资产 spot 0.25x + perp 0.25x，组合实际 gross 1.00x；
 - `scale = min(1, allocation * max(1.45 - LS57_gross, 0) / 1.00)`；
 - 组合 gross = LS57_gross + scale * 1.00，必须 <=1.45；
-- basis return 已含 10bps/腿/边成本；scale 变化按 10bps 额外计成本；20bps 档为压力；
+- basis gross return 进入组合；spot/perp 两条腿的 scale 变化按每腿每边 10bps 计成本，20bps 档为压力；
 - 不扫描 1.30/1.40/1.50 gross cap，不扫描 30/40/60/80% allocation。
 
 ## 2. 评估标准
@@ -40,3 +40,8 @@ LS98 给出一个与 LS57 日收益相关性约 0.01、Sharpe >2、MDD <3% 的 B
 .venv/bin/python scripts/run_ls99_ls57_basis_residual.py \
   --output-dir reports/ls99_ls57_basis_residual_2026
 ```
+
+## 4. 2026-11-13 修正记录
+
+LS98 的原始 gross 口径曾被误写为每腿 0.50x，实际会把组合抬到 2.00x。LS99 已改用修正后的
+每资产每腿 0.25x、组合 gross 1.00x，并重跑 25/50/100% 和 10/20bps 档；旧 LS99 数字作废。

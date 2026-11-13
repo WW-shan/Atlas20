@@ -5133,22 +5133,27 @@ long/short beta 目标，转向执行/其他 short-trend 机制。
 
 ### 00.133 2026-11-13 LS98：BTC/ETH 跨所 spot-perp basis（funding-dominated，positive research proxy）
 
-LS98 不再做 alt 横截面 carry，而是研究真正的 spot long + perp short：BTC/ETH 各 0.50x NAV
-spot + 0.50x NAV perp short，总 gross 1.00x、无组合杠杆。spot 用 CMC/Binance 日价格代理，
-perp 用 Bitget mark，funding 用 Binance funding proxy；这是跨所研究代理，不是 Bitget 单账户
-可直接复制的 live 策略。
+LS98 不再做 alt 横截面 carry，而是研究真正的 spot long + perp short：BTC/ETH 每资产
+spot long 0.25x NAV + perp short 0.25x NAV，组合实际 gross 1.00x、无组合杠杆。spot 用
+CMC/Binance 日价格代理，perp 用 Bitget mark，funding 用 Binance funding proxy；这是跨所研究
+代理，不是 Bitget 单账户可直接复制的 live 策略。
+
+> **2026-11-13 修正（重要）**：本文旧版把“每腿 0.50x”与“总 gross 1.00x”同时写在一起，实际按
+> 0.50x/资产会把双腿 gross 抬到 2.00x，并且只收了一条腿的成本。现已改为每资产每腿 0.25x，
+> 组合 gross=1.00x；成本按 spot+perp 两条腿分别计费。旧的 1.3365x / 1.2140x 等数字全部作废，
+> 以本次重跑的 1.1555x / 1.1015x 为准。
 
 | 变体 | 成本 | full 终值 | Sharpe | MDD | validation 终值/Sharpe |
 |---|---:|---:|---:|---:|---:|
-| always-on BTC+ETH | 10bps/腿/边 | **1.3365x** | **2.0850** | **-2.50%** | **1.2140x / 2.8458** |
-| always-on BTC+ETH | 20bps/腿/边 | 1.3338x | 2.0692 | -2.50% | 1.2128x / 2.8284 |
-| positive-funding BTC+ETH | 10bps | 1.2990x | 2.1626 | -1.85% | 1.1942x / 2.6840 |
-| BTC-only always-on | 10bps | 1.1666x | 2.5957 | -0.65% | 1.1024x / 3.3265 |
-| ETH-only always-on | 10bps | 1.1465x | 1.4925 | -2.46% | 1.1016x / 2.2371 |
+| always-on BTC+ETH | 10bps/腿/边 | **1.1555x** | **2.0692** | **-1.25%** | **1.1015x / 2.8284** |
+| always-on BTC+ETH | 20bps/腿/边 | 1.1532x | 2.0348 | -1.25% | 1.1004x / 2.7890 |
+| positive-funding BTC+ETH | 10bps | 1.1209x | 1.8557 | -1.31% | 1.0838x / 2.3889 |
+| BTC-only always-on | 10bps | 1.0797x | 2.5766 | -0.33% | 1.0498x / 3.3058 |
+| ETH-only always-on | 10bps | 1.0705x | 1.4809 | -1.23% | 1.0494x / 2.2240 |
 
-always-on 10bps 逐年为 2022 **+1.92%**、2023 **+8.01%**、2024 **+13.39%**、2025 **+5.24%**、
-2026 **+1.74%**，5/5 年为正。资产归因：BTC net **+15.45%**、ETH net **+13.77%**；其中
-BTC funding **+15.61%**、basis **-0.06%**，ETH funding **+14.12%**、basis **-0.26%**，成本各约
+always-on 10bps 逐年为 2022 **+0.93%**、2023 **+3.93%**、2024 **+6.49%**、2025 **+2.59%**、
+2026 **+0.82%**，5/5 年为正。资产归因：BTC net **+7.67%**、ETH net **+6.83%**；其中
+BTC funding **+7.80%**、basis **-0.03%**，ETH funding **+7.06%**、basis **-0.13%**，成本各约
 0.10%。收益几乎全部来自 funding，而不是方向性价格；判定 **funding-dominated**，且不是单一资产。
 
 这是目前第一个同时满足“正收益、Sharpe >2、MDD <3%、5/5 年为正、BTC/ETH 双资产都为正”的
@@ -5176,18 +5181,19 @@ LS98 的毛 basis/funding 日收益进入组合后，LS99 按实际 scale 变化
 | 配置 | 成本 | full 终值/Sharpe/MDD | validation 终值/Sharpe | 最大组合 gross |
 |---|---:|---:|---:|---:|
 | LS57 baseline | 20bps | 68.8077x / 1.9819 / -39.835% | 15.2386x / 2.1079 | — |
-| LS99 25% residual | 10bps | 73.8635x / 2.0107 / -39.591% | 15.9876x / 2.1407 | 1.45x |
-| LS99 50% residual | 10bps | 78.0014x / 2.0326 / -39.597% | 16.6143x / 2.1671 | 1.45x |
-| LS99 100% residual | 10bps | **83.0200x / 2.0571 / -39.529%** | **17.3554x / 2.1978** | 1.45x |
-| LS99 100% residual stress | 20bps | 78.2794x / 2.0339 / -40.111% | 16.7281x / 2.1737 | 1.45x |
+| LS99 25% residual | 10bps | 71.2333x / 1.9960 / -39.734% | 15.6041x / 2.1241 | 1.45x |
+| LS99 50% residual | 10bps | 72.7587x / 2.0047 / -39.842% | 15.8525x / 2.1352 | 1.45x |
+| LS99 100% residual | 10bps | **73.4237x / 2.0086 / -39.972%** | **15.9684x / 2.1412** | 1.45x |
+| LS99 100% residual stress | 20bps | 69.2308x / 1.9853 / -40.549% | 15.3911x / 2.1171 | 1.45x |
 
 100% residual 在 10bps 下同时通过 full 终值、Sharpe、MDD、validation 终值和 validation Sharpe；
 20bps 压力下仍高于 LS57 的 full 终值和 Sharpe。三档 25/50/100% 全部通过预注册主门槛，分类为
-**pass under the pre-registered integration gates**。这不是 live promotion：LS98 的 spot 是
-CMC/Binance 日价格代理、funding 是 Binance proxy、perp mark 是 Bitget，跨所转账、USDT/USD
-基差、保证金、真实 spot 成交和实际 funding 仍未闭合；LS99 的 pass 只说明同一机制值得进入
-同 venue spot/perp 数据和 execution study。当前 live track 仍为 `PR2026-10-D-L125-V2`，没有
-发送任何订单。
+**pass under the pre-registered integration gates**。但 20bps 压力档 MDD 为 -40.549%，比 LS57
+差约 2.20pp；预注册压力门槛只要求终值/Sharpe，因此这不改变 pass 分类，但必须作为进入实盘前的
+残余风险处理。这不是 live promotion：LS98 的 spot 是 CMC/Binance 日价格代理、funding 是
+Binance proxy、perp mark 是 Bitget，跨所转账、USDT/USD 基差、保证金、真实 spot 成交和实际
+funding 仍未闭合；LS99 的 pass 只说明同一机制值得进入同 venue spot/perp 数据和 execution
+study。当前 live track 仍为 `PR2026-10-D-L125-V2`，没有发送任何订单。
 
 报告：`reports/ls99_ls57_basis_residual_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls99-ls57-basis-residual.md`。

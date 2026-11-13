@@ -61,3 +61,48 @@ def test_basis_classification_flags_asset_concentration() -> None:
     )
 
     assert label == "asset-concentrated"
+
+
+def test_default_sleeve_has_one_x_actual_two_leg_gross() -> None:
+    from scripts.run_ls98_cross_venue_basis import ASSETS, NOTIONAL_PER_LEG, basis_gross_exposure
+
+    positions = pd.DataFrame(
+        NOTIONAL_PER_LEG,
+        index=pd.date_range("2024-01-01", periods=2, tz="UTC"),
+        columns=ASSETS,
+    )
+
+    assert NOTIONAL_PER_LEG == pytest.approx(0.25)
+    assert basis_gross_exposure(positions).tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_asset_summary_charges_both_spot_and_perp_legs() -> None:
+    from scripts.run_ls98_cross_venue_basis import _asset_summary
+
+    index = pd.date_range("2024-01-01", periods=3, tz="UTC")
+    spot_returns = pd.DataFrame({"bitcoin": [0.0, 0.0, 0.0]}, index=index)
+    perp_returns = pd.DataFrame({"bitcoin": [0.0, 0.0, 0.0]}, index=index)
+    funding = pd.DataFrame({"bitcoin": [0.0, 0.0, 0.0]}, index=index)
+    positions = pd.DataFrame({"bitcoin": [0.25, 0.25, 0.25]}, index=index)
+
+    result = _asset_summary(
+        spot_returns=spot_returns,
+        perp_returns=perp_returns,
+        funding=funding,
+        positions=positions,
+        cost_bps=10.0,
+    )
+
+    assert result.loc[0, "costs"] == pytest.approx(0.001)
+    assert result.loc[0, "net_pnl"] == pytest.approx(-0.001)
+
+
+def test_turnover_cost_scales_to_both_legs() -> None:
+    from scripts.run_ls98_cross_venue_basis import basis_turnover_cost
+
+    index = pd.date_range("2024-01-01", periods=3, tz="UTC")
+    positions = pd.DataFrame({"bitcoin": [0.25, 0.25, 0.25]}, index=index)
+
+    cost = basis_turnover_cost(positions, cost_bps=10.0)
+
+    assert cost.sum() == pytest.approx(0.001)

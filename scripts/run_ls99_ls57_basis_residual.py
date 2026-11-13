@@ -39,6 +39,7 @@ PRIMARY_COST_BPS = 10.0
 STRESS_COST_BPS = 20.0
 GROSS_CAP = 1.45
 SLEEVE_GROSS = 1.0
+BASIS_LEGS = 2
 DEFAULT_LS57_DIR = PROJECT_ROOT / "reports/ls57_target_gross_2022_2026"
 DEFAULT_BASIS_DIR = PROJECT_ROOT / "reports/ls98_cross_venue_basis_2026"
 
@@ -276,7 +277,7 @@ def _load_basis_gross_returns(path: Path) -> pd.Series:
         raise ValueError(f"{path}: missing basis values")
     if (turnover < 0.0).any():
         raise ValueError(f"{path}: negative turnover")
-    expected_10bps = daily - turnover * PRIMARY_COST_BPS / 10_000.0
+    expected_10bps = daily - turnover * BASIS_LEGS * PRIMARY_COST_BPS / 10_000.0
     if "net_return" in frame.columns:
         reported = pd.Series(
             pd.to_numeric(frame["net_return"], errors="coerce").to_numpy(dtype=float),
@@ -454,6 +455,7 @@ def main(argv: list[str] | None = None) -> None:
         "stress_cost_bps": STRESS_COST_BPS,
         "gross_cap": GROSS_CAP,
         "sleeve_gross": SLEEVE_GROSS,
+        "basis_legs": BASIS_LEGS,
         "baseline": baseline_report,
         "ls57_daily_returns": str(ls57_path),
         "ls57_target_gross": str(ls57_gross_path),

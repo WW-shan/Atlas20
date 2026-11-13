@@ -11,7 +11,8 @@
   ],
   "end": "2026-09-20 00:00:00+00:00",
   "funding_dir": "data/raw/binance_funding",
-  "notional_per_leg": 0.5,
+  "legs_per_asset": 2,
+  "notional_per_leg": 0.25,
   "orders_sent": false,
   "panel": "data/processed/panel_daily.csv",
   "panel_sha256": "f3b2b8947d2afa8203334c95e26f03fed4181ada0d3f904c072a4445f84a8ad8",
@@ -19,5 +20,6 @@
   "primary_cost_bps": 10.0,
   "rows": 1724,
   "start": "2022-01-01 00:00:00+00:00",
+  "total_gross": 1.0,
   "trial_id": "PR2026-11-LS98-CROSS-VENUE-BASIS"
 }

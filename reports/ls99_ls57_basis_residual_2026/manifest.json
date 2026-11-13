@@ -16,9 +16,10 @@
     20.0
   ],
   "basis_daily_returns": "/Users/ww/Project/Atlas20/reports/ls98_cross_venue_basis_2026/daily_returns.csv",
-  "basis_daily_returns_sha256": "bc71ed2a4651d908b24534e873f52e3db4343f35b7bf011ff07e54fc385ffe33",
+  "basis_daily_returns_sha256": "b4e5d4d4a5adb3401cc632071c4f3fc97cc17f97448c188449f7da9054404b54",
+  "basis_legs": 2,
   "basis_manifest": "/Users/ww/Project/Atlas20/reports/ls98_cross_venue_basis_2026/manifest.json",
-  "basis_manifest_sha256": "2fa42b926f0c25ddf5124310160a4cb82e857873260d42c6ad7aa58499b20e90",
+  "basis_manifest_sha256": "5fbe625b236225a2d68d87efeb5853e59f041d51bead32eb7ae9ae8b11c89a6d",
   "classification": "pass",
   "end": "2026-09-20 00:00:00+00:00",
   "gross_cap": 1.45,

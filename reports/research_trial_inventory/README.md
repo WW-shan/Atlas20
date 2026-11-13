@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `6dfb649` from 1 uncommitted source file(s): `reports/ls98_cross_venue_basis_2026/variant_summary.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `4205814` from 2 uncommitted source file(s): `reports/ls98_cross_venue_basis_2026/variant_summary.csv`, `reports/ls99_ls57_basis_residual_2026/overlay_summary.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,415 | 14,381 | 9,209 | 0.7843 | 0.7043 | 0.03686 |
+| all_trials | 14,418 | 14,384 | 9,212 | 0.7845 | 0.7044 | 0.03687 |
 | top20_2022_trials | 6,201 | 6,186 | 3,889 | 0.4143 | 0.4821 | 0.02523 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -47,6 +47,7 @@ multiple-testing script uses it only for the trial count.
 
 | family | all_trials | top20_2022_trials |
 | --- | --- | --- |
+| basis_residual | 3 | 0 |
 | benchmark_timing | 101 | 98 |
 | bull_offense | 792 | 648 |
 | cross_venue_basis | 4 | 0 |

@@ -6,7 +6,7 @@
 | 状态 | 已预注册；research-only；不接实盘 |
 | Trial ID | `PR2026-11-LS98-CROSS-VENUE-BASIS` |
 | 资产 | BTC、ETH |
-| 结构 | long spot + short perp；每资产 spot/perp 各 0.50x NAV，总 gross 1.00x |
+| 结构 | long spot + short perp；每资产 spot/perp 各 0.25x NAV，组合实际 gross 1.00x |
 | 数据 | CMC/Binance spot 日价格（研究代理）；Bitget perp mark；Binance funding proxy |
 | 成本 | 每腿每边 5/10/20bps；主档 10bps，20bps 为压力 |
 | 窗口 | 2022-01-01 → 2026-09-20 |
@@ -22,7 +22,7 @@ alt funding 排序，也不加杠杆。
 
 ## 1. 冻结构造
 
-- 每资产：spot long 0.50x NAV，perp short 0.50x NAV；两资产等权，总 gross 1.00x；
+- 每资产：spot long 0.25x NAV，perp short 0.25x NAV；两资产等权，组合实际 gross 1.00x；
 - perp short 的保证金按 50% 计，组合现金保留 0.25x；不使用额外杠杆；
 - PnL 逐日按 `0.5*(spot_return - perp_mark_return) + 0.5*funding` 计；
 - funding 为正时 short perp 收取，为负时支付；spot 腿不计 funding；
@@ -52,3 +52,9 @@ USDT/USD 基差。任何 live 研究都必须换成同 venue 的真实 spot/perp
 .venv/bin/python scripts/run_ls98_cross_venue_basis.py \
   --output-dir reports/ls98_cross_venue_basis_2026
 ```
+
+## 5. 2026-11-13 修正记录
+
+原文本同时写了“每腿 0.50x”和“总 gross 1.00x”，两者不一致；按 0.50x/资产的实现实际是
+2.00x 双腿 gross，而且只收了一条腿的成本。现统一为每资产每腿 0.25x，组合 gross=1.00x，成本
+按 spot/perp 两条腿分别计费。LS98 和 LS99 已用修正口径重跑，旧数字作废。
