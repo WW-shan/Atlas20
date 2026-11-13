@@ -82,8 +82,10 @@ describe("ReportsExportsTab", () => {
     renderWithQuery(<ReportsExportsTab />);
     await screen.findByText(api.fallbackFeaturedDigest.title);
 
-    fireEvent.click(screen.getByRole("button", { name: "MARKDOWN" }));
+    const markdown = screen.getByRole("button", { name: "MARKDOWN" });
+    fireEvent.click(markdown);
     await waitFor(() => expect((api as unknown as { downloadDigest: ReturnType<typeof vi.fn> }).downloadDigest).toHaveBeenCalledWith("markdown"));
+    await waitFor(() => expect(markdown).not.toBeDisabled());
 
     fireEvent.click(screen.getByRole("button", { name: "DOWNLOAD ALL" }));
     await waitFor(() => expect((api as unknown as { downloadDigest: ReturnType<typeof vi.fn> }).downloadDigest).toHaveBeenCalledWith("bundle"));
