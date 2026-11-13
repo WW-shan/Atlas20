@@ -4798,3 +4798,48 @@ funding settlement 短周期家族停止。
 
 报告：`reports/ls83_funding_settlement_screen_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls83-funding-settlement-screen.md`。
+
+### 00.119 2026-11-13 LS84：core8 高成交量反转筛选（rejected）
+
+LS84 固定 core8，按每日 quote_volume / 过去 20 日 median 计算 volume surprise，只在量能最高
+4 个币中选择 24h return 最低 2 个做多、最高 2 个做空；D+1 03:00 UTC 入场，24h/72h 用
+Bitget market close 出场。该规则检验“高量能单向波动后的过度反应反转”。
+
+| 窗口 | horizon | n | gross mean | 20bps net mean | 50bps net mean | NW t | hit rate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| full | 24h | 1,644 | **-0.1292%** | -0.5292% | -1.1292% | -1.90 | 47.99% |
+| full | 72h | 1,644 | -0.2150% | -0.6150% | -1.2150% | -1.70 | 48.60% |
+| discovery | 24h | 686 | -0.2056% | -0.6056% | -1.2056% | -1.85 | 47.08% |
+| discovery | 72h | 686 | -0.5102% | -0.9102% | -1.5102% | -2.36 | 45.77% |
+| validation | 24h | 958 | -0.0744% | -0.4744% | -1.0744% | -0.87 | 48.64% |
+| validation | 72h | 958 | -0.0036% | -0.4036% | -1.0036% | -0.02 | 50.63% |
+
+24h/72h 方向均为负，validation 不显著；2,000 次高量能组内随机选腿的 placebo p=0.801（24h）
+和 0.502（72h），实际结果没有超过随机选择。**判定：rejected。** 不建立 LS85 组合回测；
+不扫描 volume lookback、top-3/4/5、return 1D/3D/7D、腿数或 horizon。
+
+报告：`reports/ls84_volume_reversal_screen_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls84-volume-reversal-screen.md`。
+
+### 00.120 2026-11-13 LS85：LS57 逐资产 200D 趋势过滤（rejected）
+
+LS85 不改变 LS57 的 H5、profit-lock 或 short router，只在每个 long target event 上检查该资产
+信号日收盘是否低于自身 200D SMA；低于则把该腿降为 0，释放的权重留现金，不重分配。这样直接
+检验“逐资产趋势过滤能否改善逃顶”，而不是继续调整 LS57 的利润保护参数。
+
+同一 strict market-fill 引擎、20bps normal：
+
+| 策略 | 终值 | Sharpe | MDD | validation multiple | validation Sharpe | 强平 |
+|---|---:|---:|---:|---:|---:|---:|
+| LS57 baseline | **58.2059x** | **1.9143** | **-39.83%** | **13.8153x** | **2.0417** | 0 |
+| LS85 200D filter | 30.7807x | 1.7354 | -47.50% | 11.3117x | 1.9376 | 0 |
+
+过滤只触发了 68/661 个事件、累计过滤权重 22.33x NAV，但收益接近腰斩、回撤反而恶化；50bps
+为 18.7131x vs baseline 34.6316x，100bps 为 8.1411x vs 14.5318x；3x two-sided adverse
+下为 17.0906x vs baseline 31.4655x。缺失 MA 的 leg 按预注册规则保留并记录了 35 次。
+**判定：rejected。** 这个 200D 过滤把长期趋势中的反转/回归段错误地当成风险，不能用来逃顶；
+不扫描 50/100/150/250D、不改成部分减仓、不按资产或年份手工筛选。
+
+报告：`reports/ls85_asset_trend_filter_2026/`；压力：
+`reports/ls85_asset_trend_filter_2026_adverse/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls85-asset-trend-filter-design.md`。

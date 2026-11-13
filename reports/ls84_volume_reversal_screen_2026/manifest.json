@@ -1,0 +1,24 @@
+{
+  "end_date": "2026-09-21",
+  "entry_hour_utc": 3,
+  "high_volume_count": 4,
+  "horizons_hours": [
+    24,
+    72
+  ],
+  "lookback_days": 20,
+  "orders_sent": false,
+  "placebo_iterations": 2000,
+  "screen_id": "PR2026-11-LS84-CORE8-VOLUME-REVERSAL-SCREEN",
+  "start_date": "2022-01-01",
+  "universe": [
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "ripple",
+    "binancecoin",
+    "dogecoin",
+    "cardano",
+    "avalanche-2"
+  ]
+}
