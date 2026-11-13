@@ -1,0 +1,47 @@
+{
+  "available_assets": 30,
+  "bar_dir": "data/raw/binance_30m_oos_20261113",
+  "candidate_family_id": "PR2026-11-LS67-INTRADAY-LEADLAG-FRESH-OOS",
+  "costs_per_side": [
+    6.0,
+    12.0,
+    20.0
+  ],
+  "end_date": "2026-11-13",
+  "funding_included": false,
+  "missing_assets": [
+    "matic-network",
+    "monero"
+  ],
+  "oos_start": "2026-10-01",
+  "orders_sent": false,
+  "phase": 0,
+  "start_date": "2026-09-01",
+  "tail": 0.1,
+  "variants": [
+    {
+      "future_bars": 8,
+      "shock_threshold": 3.0,
+      "signal_bars": 2,
+      "variant_id": "LL_P2_8_T30"
+    },
+    {
+      "future_bars": 8,
+      "shock_threshold": 3.5,
+      "signal_bars": 2,
+      "variant_id": "LL_P2_8_T35"
+    },
+    {
+      "future_bars": 8,
+      "shock_threshold": 3.0,
+      "signal_bars": 4,
+      "variant_id": "LL_P4_8_T30"
+    },
+    {
+      "future_bars": 8,
+      "shock_threshold": 3.5,
+      "signal_bars": 4,
+      "variant_id": "LL_P4_8_T35"
+    }
+  ]
+}

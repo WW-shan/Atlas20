@@ -417,6 +417,7 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
             "residual_reversal_screen_pre2022",
             "residual_reversal_screen_2024_2026",
             "intraday_btc_leadlag_diagnostic_2026",
+            "intraday_btc_leadlag_fresh_oos_20261113",
         ],
         used,
     ) == []

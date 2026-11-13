@@ -4403,3 +4403,29 @@ round-trip 的机制，或改用 maker/queue 的真实成交数据，而不是�
 
 报告：`reports/intraday_btc_leadlag_phase_tail_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-intraday-leadlag-phase-tail-design.md`。
+
+### 00.102 2026-11-13 LS67：LS66 fresh OOS 仅 4 个事件，正收益但证据不足
+
+用 2026-09-01 → 2026-11-13 的 **未参与历史筛选** Binance 30m 数据，对 LS66 的四个冻结 cell
+做 fresh OOS；beta warm-up 用 2026-09-01 起，事件必须在 2026-10-01 后入场并完整体退出。
+新 cache 有 30/32 个资产；MATIC（Binance spot pair 已不可用）和 XMR 缺失，未用历史 bar
+拼接、未零填充，报告中显式记录。
+
+| 变体 | 6bps OOS | 12bps OOS | 20bps OOS | 事件数 |
+|---|---:|---:|---:|---:|
+| `LL_P4_8_T35` | **1.0107x / Sharpe 1.4159 / MDD -0.94%** | 1.0059x / 0.8075 / -1.05% | 0.9995x | 4 |
+| `LL_P4_8_T30` | 1.0003x / 0.0725 / -1.54% | 0.9943x | 0.9864x | 5 |
+| `LL_P2_8_T35` | 0.9870x | 0.9847x | 0.9815x | 2 |
+| ensemble | 0.9963x / -1.1095 / -0.76% | 0.9924x | 0.9873x | 13 |
+
+同期 BTC 为 **0.8409x / Sharpe -4.1561**，因此 `LL_P4_8_T35` 的防守方向在 OOS 是对的；
+但 44 天只有 **4 个事件**，12bps 也只剩 0.59% 的毛收益，20bps 已转负。这个窗口不足以把
+LS66 从 watch 升级为 shadow，更不能接实盘。它的价值是：在不改 phase/tail/threshold 的前提下，
+看到了一次方向一致的 live-like 小样本，而不是证明 alpha 稳定。
+
+**判定：保持 watch，不 promotion。** 不再用同一个 6 周窗口调 phase/tail/threshold；后续若要
+提高统计功效，应继续记录新的实时事件，或换成更低单次成本的 maker/queue 执行，而不是把
+4 个事件的 Sharpe 1.42 当成年化能力。
+
+报告：`reports/intraday_btc_leadlag_fresh_oos_20261113/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-leadlag-fresh-oos-design.md`。
