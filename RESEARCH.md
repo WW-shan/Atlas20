@@ -4552,3 +4552,43 @@ LS57 已占用的 gross、真实 funding、两腿成交成本和执行冲突。
 
 报告：`reports/top20_churn_fullgross_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-top20-churn-fullgross-design.md`。
+
+### 00.110 2026-11-13 LS75：LS57 + residual-gross LS74 overlay（partial，通过 gross-budget 诊断）
+
+LS75 首次把 LS57 的真实 `target_gross.csv` 纳入 overlay：每天只允许 LS74 使用
+`1.50 - LS57_total_gross` 的剩余 gross，再按 10%/20%/25% 三档分配；不重算 LS57 或 sleeve
+的选币。LS57 刷新后的平均总 gross 为 **0.534x**，最大 1.30x，因此这个约束不是形式上的。
+
+| allocation | full 终值 | Sharpe | MDD | validation 终值 | validation Sharpe | max combined gross |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10% | 73.6173x | 2.0128 | -38.56% | 15.8284x | 2.1403 | 1.40x |
+| 20% | 78.6296x | 2.0410 | -37.27% | 16.4219x | 2.1698 | 1.50x |
+| 25% | **81.2613x** | **2.0543** | **-36.59%** | **16.7250x** | **2.1836** | 1.50x |
+
+相对 LS57 的 68.8077x / 1.9819 / -39.84%，25% 档提高终值约 **18.1%**、Sharpe 约 +0.072、
+MDD 改善约 3.25pp。**判定：partial overlay candidate，不 promotion。** 这是 return-space
+gross-budget 结果，尚未计 sleeve funding、scale-change 成本和真实 Bitget fill；下一步必须做
+funding-aware 与成本压力版本。
+
+报告：`reports/ls57_churn_overlay_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls57-churn-overlay-design.md`。
+
+### 00.111 2026-11-13 LS76：churn overlay 加入 funding proxy 与 scale-change 成本
+
+LS76 在 LS75 上加入 sleeve 的 Binance 8h funding proxy、按 UTC 日 settlement 汇总，并对
+sleeve scale 每日变化额外收取 20bps 成本；LS57 原有 funding 不重复计。加权 funding 覆盖率为
+**92.60%**，sleeve funding 累计贡献约 -0.0195（25% scale 后约 -0.0049）。
+
+| allocation | full 终值 | Sharpe | MDD | validation 终值 | validation Sharpe | funding coverage |
+|---:|---:|---:|---:|---:|---:|---:|
+| 10% | 73.2946x | 2.0109 | -38.63% | 15.8168x | 2.1397 | 92.60% |
+| 20% | 77.9415x | 2.0372 | -37.42% | 16.3978x | 2.1686 | 92.60% |
+| 25% | **80.3435x** | **2.0494** | **-36.80%** | **16.6928x** | **2.1820** | 92.60% |
+
+在 funding + scale-cost 下仍通过 LS76 预注册门槛，且 25% 档仍比 LS57 高约 16.8%、回撤改善
+约 3.0pp。**判定：funding-aware partial overlay candidate，不接实盘。** 仍缺 Bitget exact
+funding、mark/fill、margin、liquidation 和真正的 target-level 合并；下一步做 3x adverse
+funding 与成本压力，不得把 92.6% proxy 覆盖当作精确历史。
+
+报告：`reports/ls57_churn_overlay_funding_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls57-churn-overlay-funding-design.md`。

@@ -1,0 +1,20 @@
+{
+  "allocations": [
+    0.1,
+    0.2,
+    0.25
+  ],
+  "baseline": {
+    "cagr": 1.4506690720486266,
+    "max_drawdown": -0.39835021222536127,
+    "multiple": 68.80768535710902,
+    "sharpe": 1.981942355080547
+  },
+  "candidate_id": "PR2026-11-LS75-LS57-CHURN-RESIDUAL-GROSS",
+  "end_date": "2026-09-20",
+  "funding_included": false,
+  "gross_cap": 1.5,
+  "orders_sent": false,
+  "selected_allocation": 0.25,
+  "start_date": "2022-01-01"
+}

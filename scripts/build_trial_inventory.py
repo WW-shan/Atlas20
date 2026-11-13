@@ -158,6 +158,8 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "top20_churn_short_2026",
     "top20_churn_gated_2026",
     "top20_churn_fullgross_2026",
+    "ls57_churn_overlay_2026",
+    "ls57_churn_overlay_funding_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -201,6 +203,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "phase_momentum_oos_2026": "out-of-sample tracking of the frozen primary",
     "h5_exit_short_diagnostic_2026_11_11": "forward-return diagnostic of H5 exits (no backtest configuration)",
     "top20_membership_event_diagnostic_2026": "PIT Top20 entry/exit event diagnostic; no strategy configurations",
+    "ls57_target_gross_2022_2026": "frozen LS57 target-gross refresh used as overlay input",
 }
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 
@@ -216,6 +219,8 @@ VARIES: dict[str, str] = {
     "top20_churn_short_2026": "Top20 entry/exit churn short, BTC-hedged, 3x4 cells",
     "top20_churn_gated_2026": "frozen Top20 churn short with three pre-registered regime gates",
     "top20_churn_fullgross_2026": "LS73 alt-weak churn with active-day gross normalized to one",
+    "ls57_churn_overlay_2026": "LS57 + residual-gross churn overlay, 10/20/25% allocations",
+    "ls57_churn_overlay_funding_2026": "LS57 + residual-gross churn overlay with Binance funding proxy",
     "pipeline_latest": "TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only",
     "pipeline_bear_bottom_2022_11_21": "same 27 strategies as pipeline_latest (old panel)",
     "pipeline_five_year_2020_2024": "same 27 strategies as pipeline_latest (old panel)",
@@ -1244,6 +1249,24 @@ def _load_top20_churn_lane(src: Sources, rec: TrialRecorder) -> None:
                 family="top20_membership_churn",
                 lineage=study,
                 note="point-in-time Top20 membership churn; BTC-hedged; no funding",
+            )
+
+    for study in ("ls57_churn_overlay_2026", "ls57_churn_overlay_funding_2026"):
+        path = f"reports/{study}/overlay_summary.csv"
+        frame = src.csv(path)
+        for _, row in frame.iterrows():
+            rec.add(
+                study,
+                f"allocation_{float(row['allocation']):.2f}",
+                ("2022-01-01", "2026-09-20"),
+                20.0,
+                "Top20",
+                float(row["full_sharpe"]),
+                source=path,
+                column="full_sharpe",
+                family="top20_membership_churn_overlay",
+                lineage=study,
+                note="LS57 return-space overlay with residual gross budget",
             )
 
 def collect_trials(
