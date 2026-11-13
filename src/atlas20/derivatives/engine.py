@@ -7,7 +7,8 @@ position with no mark or funding print is a hard error, which is the research
 track's fail-closed data policy.
 
 The execution convention matches the project design: a signal dated ``D`` is
-filled at ``D + execution_lag_days`` at ``execution_hour`` UTC.  Funding is
+filled at ``D + execution_lag_days`` at ``execution_hour:execution_minute``
+UTC.  Funding is
 charged to the position's isolated margin before the hourly liquidation check,
 and liquidation is checked against the hourly high/low mark path, never the
 daily close.
@@ -49,6 +50,8 @@ class DerivativeBacktestConfig:
     max_margin_utilization: float = 0.85
     rebalance_no_trade_band: float = 0.0
     execution_hour: int = 3
+    execution_minute: int = 0
+    execution_price_snap: str = "exact"
     execution_lag_days: int = 1
     funding_missing_policy: str = "error"
     funding_stress: str = "none"
@@ -120,6 +123,10 @@ class DerivativeBacktestConfig:
             raise ValueError("rebalance_no_trade_band must be in [0, 1)")
         if not 0 <= self.execution_hour <= 23:
             raise ValueError("execution_hour must be in [0, 23]")
+        if not 0 <= self.execution_minute <= 59:
+            raise ValueError("execution_minute must be in [0, 59]")
+        if self.execution_price_snap not in {"exact", "floor", "ceil"}:
+            raise ValueError("execution_price_snap must be 'exact', 'floor', or 'ceil'")
         if self.execution_lag_days < 0:
             raise ValueError("execution_lag_days must be non-negative")
         if self.funding_missing_policy not in {"error", "skip", "carry_last", "stress_median"}:
@@ -267,16 +274,36 @@ def _validate_candles(mark_candles: Mapping[str, pd.DataFrame]) -> dict[str, pd.
 def _execution_time(signal_time: pd.Timestamp, config: DerivativeBacktestConfig) -> pd.Timestamp:
     signal_time = _as_utc(signal_time)
     day = signal_time.normalize()
-    return day + pd.Timedelta(days=config.execution_lag_days, hours=config.execution_hour)
+    return day + pd.Timedelta(
+        days=config.execution_lag_days,
+        hours=config.execution_hour,
+        minutes=config.execution_minute,
+    )
 
 
-def _resolve_time(target: pd.Timestamp, index: pd.DatetimeIndex) -> pd.Timestamp:
+def _resolve_time(
+    target: pd.Timestamp,
+    index: pd.DatetimeIndex,
+    *,
+    snap: str,
+) -> pd.Timestamp:
     target = _as_utc(target)
     if target in index:
         return target
+    if snap == "exact":
+        raise ValueError(f"no exact mark candle at execution time {target}")
+    if snap == "floor":
+        earlier = index[index <= target]
+        if earlier.empty or target - earlier[-1] > pd.Timedelta(hours=1):
+            raise ValueError(
+                f"no mark candle at or within one hour before execution time {target}"
+            )
+        return pd.Timestamp(earlier[-1])
     later = index[index >= target]
     if later.empty or later[0] - target > pd.Timedelta(hours=1):
-        raise ValueError(f"no mark candle at or within one hour after execution time {target}")
+        raise ValueError(
+            f"no mark candle at or within one hour after execution time {target}"
+        )
     return pd.Timestamp(later[0])
 
 
@@ -418,7 +445,7 @@ def run_derivative_backtest(
         raise ValueError("no hourly mark candles in the requested evaluation window")
     execution_times: dict[pd.Timestamp, pd.Series] = {}
     for time, target in target_schedule.items():
-        resolved = _resolve_time(time, index)
+        resolved = _resolve_time(time, index, snap=cfg.execution_price_snap)
         if resolved in execution_times:
             # Two signals sliding onto the same hourly bar would silently drop
             # one rebalance, so this is a hard error rather than last-wins.

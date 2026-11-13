@@ -41,11 +41,10 @@ import pandas as pd
 
 from atlas20.data.completeness import assess_last_day
 
-#: The first executable LS45 window, in UTC. The frozen target ledger keeps
-#: its conservative T+1 +3h research hint (03:00 UTC), while live execution uses
-#: the owner-approved early fast path at 09:05 Beijing (01:05 UTC). The preflight
-#: and panel completeness gate are both required before trading.
-DEFAULT_SCHEDULED_UTC = time(1, 5)
+#: The single LS45 execution clock, in UTC: 09:05 Beijing.  Signal ledgers,
+#: backtests, preflight and the live executor all target this same minute.
+LIVE_EXECUTION_UTC = time(1, 5)
+DEFAULT_SCHEDULED_UTC = LIVE_EXECUTION_UTC
 
 #: How long after the fill point a missed run may still be caught up.  Beyond
 #: this the rebalance is skipped and the 19:00 monitor reports the gap, because
@@ -111,6 +110,12 @@ def last_completed_utc_day(now: datetime) -> date:
     return as_utc(now).date() - timedelta(days=1)
 
 
+def execution_utc_text() -> str:
+    """Return the canonical ``HH:MM`` execution clock used in manifests."""
+
+    return LIVE_EXECUTION_UTC.strftime("%H:%M")
+
+
 def live_execution_hint_for_signal(
     signal_date: date | datetime,
     *,
@@ -118,10 +123,9 @@ def live_execution_hint_for_signal(
 ) -> datetime:
     """The UTC timestamp the automated live executor aims at for a signal day.
 
-    The frozen target file keeps the conservative T+1 +3h research
-    ``execution_hint``. Live execution deliberately starts at 09:05 Beijing
-    (01:05 UTC); preflight, reports and the daily executor use this live clock,
-    not the research timestamp.
+    The frozen target ledger and live execution share the same T+1 09:05
+    Beijing (01:05 UTC) clock.  The schedule remains injectable for legacy
+    reproductions, but new LS45 artifacts must use the canonical default.
     """
 
     day = signal_date.date() if isinstance(signal_date, datetime) else signal_date

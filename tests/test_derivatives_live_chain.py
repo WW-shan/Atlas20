@@ -25,6 +25,8 @@ import pytest
 from atlas20.derivatives.live_chain import (
     DEFAULT_CATCHUP_HOURS,
     DEFAULT_SCHEDULED_UTC,
+    LIVE_EXECUTION_UTC,
+    execution_utc_text,
     last_completed_utc_day,
     live_execution_hint_for_signal,
     manifest_spec_issues,
@@ -260,6 +262,12 @@ def test_live_execution_hint_uses_the_ls45_schedule() -> None:
     hint = live_execution_hint_for_signal(datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc))
 
     assert hint == datetime(2026, 10, 17, 1, 5, tzinfo=timezone.utc)
+
+
+def test_live_execution_clock_is_the_single_0105_utc_contract() -> None:
+    assert LIVE_EXECUTION_UTC == time(1, 5)
+    assert DEFAULT_SCHEDULED_UTC == LIVE_EXECUTION_UTC
+    assert execution_utc_text() == "01:05"
 
 
 def test_window_closes_after_the_catchup_budget() -> None:

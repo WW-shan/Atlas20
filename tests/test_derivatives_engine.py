@@ -809,9 +809,55 @@ def test_execution_past_the_last_mark_candle_fails_closed() -> None:
                 slippage_bps=0.0,
                 liquidation_slippage_bps=0.0,
                 fee_buffer=0.0,
+                execution_price_snap="ceil",
             ),
             start_time=pd.Timestamp("2026-01-01T00:00:00Z"),
             end_time=pd.Timestamp("2026-01-05T00:00:00Z"),
+        )
+
+
+def test_0105_execution_floors_to_the_containing_hourly_mark_bar() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-15T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+        ),
+    )
+
+    assert result.trades.iloc[0]["timestamp"] == pd.Timestamp("2026-11-14T01:00:00Z")
+
+
+def test_0105_exact_execution_requires_an_exact_minute_bar() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-15T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    targets = {pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    with pytest.raises(ValueError, match="no exact mark candle"):
+        run_derivative_backtest(
+            candles,
+            targets,
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+                fee_buffer=0.0,
+                execution_hour=1,
+                execution_minute=5,
+                execution_price_snap="exact",
+            ),
         )
 
 
@@ -907,7 +953,10 @@ def test_fill_hour_hole_slides_to_the_next_candle_within_one_hour() -> None:
     result = run_derivative_backtest(
         {"a": frame},
         targets,
-        config=DerivativeBacktestConfig(missing_mark_policy="carry"),
+        config=DerivativeBacktestConfig(
+            missing_mark_policy="carry",
+            execution_price_snap="ceil",
+        ),
     )
 
     opens = result.trades.loc[result.trades["action"] == "open"]
