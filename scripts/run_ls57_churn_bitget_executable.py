@@ -108,6 +108,24 @@ def weighted_mask_coverage(weights: pd.DataFrame, mask: pd.DataFrame) -> float:
     return float(shorts.where(aligned, 0.0).to_numpy().sum()) / denominator
 
 
+def coverage_breakdown(
+    *,
+    original_weights: pd.DataFrame,
+    rebuilt_weights: pd.DataFrame,
+    marks: pd.DataFrame,
+    funding: pd.DataFrame,
+) -> dict[str, float]:
+    """Separate original strict coverage from rebuilt funding coverage."""
+    strict = marks & funding
+    return {
+        "original_mark_weighted_coverage": weighted_mask_coverage(original_weights, marks),
+        "original_funding_weighted_coverage": weighted_mask_coverage(original_weights, funding),
+        "original_strict_weighted_coverage": weighted_mask_coverage(original_weights, strict),
+        "rebuilt_strict_weighted_coverage": weighted_mask_coverage(rebuilt_weights, strict),
+        "rebuilt_funding_coverage": weighted_mask_coverage(rebuilt_weights, funding),
+    }
+
+
 def eligibility_audit(
     original_weights: pd.DataFrame,
     marks: pd.DataFrame,
@@ -202,7 +220,7 @@ def build_ensemble(
 def _report(
     summary: pd.DataFrame,
     standalone: dict[float, Any],
-    coverage: float,
+    coverage: dict[str, float],
     audit: pd.DataFrame,
     baseline: dict[str, float],
     baseline_validation: dict[str, float],
@@ -213,7 +231,12 @@ def _report(
         "",
         f"- LS57 baseline: {baseline['multiple']:.4f}x / Sharpe {baseline['sharpe']:.4f} / MDD {baseline['max_drawdown']:.4%}",
         f"- LS57 validation: {baseline_validation['multiple']:.4f}x / Sharpe {baseline_validation['sharpe']:.4f}",
-        f"- strict Bitget mark+funding short coverage: {coverage:.4%}",
+        "- original LS79 strict Bitget mark+funding weighted short coverage: "
+        f"{coverage['original_strict_weighted_coverage']:.4%}",
+        "- rebuilt strict ensemble mark+funding weighted short coverage: "
+        f"{coverage['rebuilt_strict_weighted_coverage']:.4%}",
+        "- rebuilt strict ensemble funding weighted short coverage: "
+        f"{coverage['rebuilt_funding_coverage']:.4%}",
         f"- names with incomplete strict coverage: {', '.join(strict_missing) if strict_missing else 'none'}",
         "- mark availability: Bitget market mark observed within the prior 3 calendar days",
         "- funding availability: Binance/Bybit/Bitget settlement observed within the prior 7 days",
@@ -357,7 +380,15 @@ def main(argv: list[str] | None = None) -> None:
         available=available,
     )
     ensemble_20 = standalone[20.0]
-    coverage = short_funding_coverage(ensemble_weights, normal_rates)
+    coverage = coverage_breakdown(
+        original_weights=original,
+        rebuilt_weights=ensemble_weights,
+        marks=mark_available,
+        funding=funding_available,
+    )
+    rebuilt_funding_coverage = short_funding_coverage(ensemble_weights, normal_rates)
+    if abs(coverage["rebuilt_funding_coverage"] - rebuilt_funding_coverage) > 1e-12:
+        raise ValueError("rebuilt funding coverage disagrees with short_funding_coverage")
     funding_by_scenario = {
         scenario: _short_funding_return(
             ensemble_weights,
@@ -412,7 +443,7 @@ def main(argv: list[str] | None = None) -> None:
                     and validation["multiple"] > baseline_validation["multiple"]
                     and validation["sharpe"] > baseline_validation["sharpe"]
                     and float(scale_frame["combined_gross"].max()) <= GROSS_CAP + 1e-10
-                    and coverage >= MIN_FUNDING_COVERAGE
+                    and coverage["rebuilt_funding_coverage"] >= MIN_FUNDING_COVERAGE
                 )
                 rows.append(
                     {
@@ -487,7 +518,10 @@ def main(argv: list[str] | None = None) -> None:
         "orders_sent": False,
     }
     files["manifest"].write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"wrote {output_dir}; coverage={coverage:.4f}")
+    print(
+        f"wrote {output_dir}; original_strict={coverage['original_strict_weighted_coverage']:.4f}; "
+        f"rebuilt_funding={coverage['rebuilt_funding_coverage']:.4f}"
+    )
 
 
 if __name__ == "__main__":

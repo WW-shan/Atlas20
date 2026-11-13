@@ -2,7 +2,9 @@
 
 - LS57 baseline: 68.8077x / Sharpe 1.9819 / MDD -39.8350%
 - LS57 validation: 15.2386x / Sharpe 2.1079
-- strict Bitget mark+funding short coverage: 100.0000%
+- original LS79 strict Bitget mark+funding weighted short coverage: 85.9151%
+- rebuilt strict ensemble mark+funding weighted short coverage: 100.0000%
+- rebuilt strict ensemble funding weighted short coverage: 100.0000%
 - names with incomplete strict coverage: monero, kaspa, canton-network, ftx-token, maker, flow
 - mark availability: Bitget market mark observed within the prior 3 calendar days
 - funding availability: Binance/Bybit/Bitget settlement observed within the prior 7 days

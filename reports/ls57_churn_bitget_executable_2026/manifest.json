@@ -11,7 +11,13 @@
     50.0,
     100.0
   ],
-  "coverage": 1.0,
+  "coverage": {
+    "original_funding_weighted_coverage": 1.0,
+    "original_mark_weighted_coverage": 0.8591505275757915,
+    "original_strict_weighted_coverage": 0.8591505275757915,
+    "rebuilt_funding_coverage": 1.0,
+    "rebuilt_strict_weighted_coverage": 1.0
+  },
   "end_date": "2026-09-20",
   "funding_lookback_days": 7,
   "funding_scenarios": [

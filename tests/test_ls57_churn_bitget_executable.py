@@ -73,3 +73,36 @@ def test_eligibility_audit_reports_mark_and_funding_coverage() -> None:
     assert row["mark_coverage"] == pytest.approx(0.5)
     assert row["funding_coverage"] == pytest.approx(1.0)
     assert row["strict_coverage"] == pytest.approx(0.5)
+
+
+def test_coverage_breakdown_separates_original_and_rebuilt_coverage() -> None:
+    from scripts.run_ls57_churn_bitget_executable import coverage_breakdown
+
+    index = pd.DatetimeIndex(["2022-01-01", "2022-01-02"], tz="UTC")
+    original_weights = pd.DataFrame(
+        {"bitcoin": [0.5, 0.5], "near": [-0.5, -0.5], "missing": [-1.0, -1.0]},
+        index=index,
+    )
+    rebuilt_weights = pd.DataFrame(
+        {"bitcoin": [0.5, 0.5], "near": [-0.5, -0.5], "missing": [0.0, 0.0]},
+        index=index,
+    )
+    marks = pd.DataFrame(
+        {"bitcoin": [False, False], "near": [True, True], "missing": [False, False]},
+        index=index,
+    )
+    funding = pd.DataFrame(
+        {"bitcoin": [True, True], "near": [True, True], "missing": [False, False]},
+        index=index,
+    )
+
+    coverage = coverage_breakdown(
+        original_weights=original_weights,
+        rebuilt_weights=rebuilt_weights,
+        marks=marks,
+        funding=funding,
+    )
+
+    assert coverage["original_strict_weighted_coverage"] == pytest.approx(1.0 / 3.0)
+    assert coverage["rebuilt_strict_weighted_coverage"] == pytest.approx(1.0)
+    assert coverage["rebuilt_funding_coverage"] == pytest.approx(1.0)
