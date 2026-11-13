@@ -68,6 +68,7 @@ class OrderFill:
     symbol: str
     action: str
     side: str
+    stop_loss: float | None
     requested_size: float
     filled_size: float
     avg_price: float
@@ -76,10 +77,33 @@ class OrderFill:
     fee_coin: str
     order_id: str
     status: str
+    position_side: str = ""
+    client_oid: str = ""
+    requested_stop_loss: float | None = None
+    stop_trigger_by: str = ""
+    stop_order_type: str = ""
 
     @property
     def is_partial(self) -> bool:
         return self.status != _FILLED
+
+    @property
+    def short_stop_confirmed(self) -> bool:
+        """Whether this fill is a short entry with the required venue stop."""
+
+        if (
+            self.position_side != "short"
+            or self.stop_loss is None
+            or self.requested_stop_loss is None
+        ):
+            return False
+        tolerance = max(1e-9, abs(float(self.requested_stop_loss)) * 1e-8)
+        return (
+            self.stop_loss > 0.0
+            and abs(self.stop_loss - self.requested_stop_loss) <= tolerance
+            and self.stop_trigger_by.lower() == "mark_price"
+            and self.stop_order_type.lower() == "market"
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +111,7 @@ class OrderFill:
             "symbol": self.symbol,
             "action": self.action,
             "side": self.side,
+            "stop_loss": self.stop_loss,
             "requested_size": self.requested_size,
             "filled_size": self.filled_size,
             "avg_price": self.avg_price,
@@ -95,6 +120,11 @@ class OrderFill:
             "fee_coin": self.fee_coin,
             "order_id": self.order_id,
             "status": self.status,
+            "position_side": self.position_side,
+            "client_oid": self.client_oid,
+            "requested_stop_loss": self.requested_stop_loss,
+            "stop_trigger_by": self.stop_trigger_by,
+            "stop_order_type": self.stop_order_type,
         }
 
 
@@ -104,7 +134,7 @@ class ExecutionReport:
 
     signal_date: str
     equity_before: float = 0.0
-    equity_after: float = 0.0
+    equity_after: float | None = None
     available_after: float = 0.0
     balance_after: float = 0.0
     fills: list[OrderFill] = field(default_factory=list)
@@ -117,6 +147,14 @@ class ExecutionReport:
     @property
     def fee_total(self) -> float:
         return sum(fill.fee for fill in self.fills if fill.fee_coin.upper() == "USDT")
+
+    @property
+    def position_value(self) -> float:
+        return sum(
+            abs(_to_float(row.get("total")))
+            * _to_float(row.get("markPrice") or row.get("avgPrice"))
+            for row in self.positions_after
+        )
 
     @property
     def bought_notional(self) -> float:
@@ -133,6 +171,7 @@ class ExecutionReport:
             "equity_after": self.equity_after,
             "available_after": self.available_after,
             "balance_after": self.balance_after,
+            "position_value": self.position_value,
             "fills": [fill.as_dict() for fill in self.fills],
             "failures": list(self.failures),
             "margin_notes": list(self.margin_notes),
@@ -177,6 +216,17 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
+def _signed_position_qty(row: dict[str, Any]) -> float:
+    """Signed quantity from hedge and one-way position payloads."""
+
+    total = _to_float(row.get("total"))
+    if abs(total) <= 1e-12:
+        return 0.0
+    pos_side = str(row.get("posSide") or "").lower()
+    short = pos_side == "short" or (pos_side in {"", "net"} and total < 0.0)
+    return -abs(total) if short else abs(total)
+
+
 def wait_for_fill(
     client: LiveTradingClient,
     *,
@@ -203,6 +253,66 @@ def wait_for_fill(
         sleep(poll_interval_seconds)
 
 
+def _lookup_order_by_client_oid(
+    client: LiveTradingClient,
+    client_oid: str,
+) -> dict[str, Any]:
+    """Best-effort recovery after an ambiguous placement response."""
+
+    if not client_oid:
+        return {}
+    try:
+        payload = client.order_info(client_oid=client_oid)
+    except (BitgetAPIError, ValueError):
+        return {}
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _recovered_order_matches(
+    payload: dict[str, Any],
+    *,
+    symbol: str,
+    side: str,
+    pos_side: str,
+) -> bool:
+    if not payload:
+        return False
+    payload_symbol = str(payload.get("symbol") or "").upper()
+    payload_side = str(payload.get("side") or "").lower()
+    payload_pos_side = str(payload.get("posSide") or "").lower()
+    if payload_symbol and payload_symbol != symbol.upper():
+        return False
+    if payload_side and payload_side != side.lower():
+        return False
+    if payload_pos_side and payload_pos_side not in {pos_side.lower(), "net"}:
+        return False
+    return True
+
+
+def _invalid_margin_modes(positions: list[dict[str, Any]]) -> list[str]:
+    modes = {
+        str(row.get("marginMode") or "").strip().lower()
+        for row in positions
+        if str(row.get("marginMode") or "").strip()
+    }
+    return sorted(mode for mode in modes if mode != MARGIN_MODE_ISOLATED)
+
+
+def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> bool:
+    if requested is None:
+        return False
+    attached = _to_float(payload.get("stopLoss"))
+    trigger = str(payload.get("slTriggerBy") or "").lower()
+    order_type = str(payload.get("slOrderType") or "").lower()
+    tolerance = max(1e-9, abs(float(requested)) * 1e-8)
+    return (
+        attached > 0.0
+        and abs(attached - float(requested)) <= tolerance
+        and trigger == "mark_price"
+        and order_type == "market"
+    )
+
+
 def execute_plan(
     client: LiveTradingClient,
     plan: ExecutionPlan,
@@ -211,12 +321,14 @@ def execute_plan(
     pos_side: str = "long",
     leverage: float = 2.0,
     margin_mode: str = MARGIN_MODE_ISOLATED,
+    require_isolated: bool = False,
+    known_protected_short_symbols: set[str] | None = None,
     hold_mode: str | None = None,
     fill_timeout_seconds: float = 20.0,
     poll_interval_seconds: float = 1.0,
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
-    client_oid_prefix: str = "atlas20",
+    client_oid_prefix: str | None = None,
 ) -> ExecutionReport:
     """Trade ``plan`` on the live account and report the real outcome.
 
@@ -225,6 +337,9 @@ def execute_plan(
     the next daily plan re-reads the account, so a missed leg self-corrects.
     """
 
+    if require_isolated and margin_mode != MARGIN_MODE_ISOLATED:
+        raise ValueError("require_isolated conflicts with a non-isolated margin_mode")
+
     report = ExecutionReport(signal_date=signal_date)
     assets = client.account_assets()
     report.equity_before = _to_float(assets.get("usdtEquity") or assets.get("accountEquity"))
@@ -232,41 +347,66 @@ def execute_plan(
     mode = hold_mode if hold_mode is not None else client.hold_mode()
     hedging = str(mode).lower() == "hedge_mode"
 
+    initial_positions = [dict(row) for row in client.current_positions()]
+    initial_short_qty = {
+        str(row.get("symbol") or "").upper(): abs(_signed_position_qty(row))
+        for row in initial_positions
+        if _signed_position_qty(row) < 0.0
+    }
+    blocked_all_opens = False
+    if require_isolated:
+        initial_invalid_modes = _invalid_margin_modes(initial_positions)
+        if initial_invalid_modes:
+            blocked_all_opens = True
+            report.failures.append(
+                {
+                    "symbol": "*",
+                    "action": "VERIFY",
+                    "side": "-",
+                    "size": "-",
+                    "error": (
+                        "isolated margin required but preflight venue reports "
+                        + ",".join(initial_invalid_modes)
+                        + "; only risk-reducing orders are allowed"
+                    ),
+                }
+            )
+
     isolated_ok = margin_mode == MARGIN_MODE_ISOLATED
-    leverage_done: set[str] = set()
-    stamp = int(time.time() * 1000)
+    leverage_done: set[tuple[str, str]] = set()
+    blocked_open_assets: set[str] = set()
+    prefix = client_oid_prefix or f"atlas20{int(time.time() * 1000):x}"
 
     for index, order in enumerate(plan.orders):
         symbol = order.symbol
+        if blocked_all_opens and not order.reduce_only:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": "open blocked because the account is not fully isolated",
+                }
+            )
+            continue
+        if not order.reduce_only and order.asset in blocked_open_assets:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": (
+                        "opposite-side open was blocked because the prior close failed"
+                    ),
+                }
+            )
+            continue
         order_pos_side = str(order.pos_side or pos_side).lower()
-        if symbol not in leverage_done:
-            # Cap leverage in the *crossed* config first: this venue happily
-            # accepts an isolated leverage config and then still fills the
-            # order crossed, so the fallback path must already be capped.
-            try:
-                client.set_leverage(
-                    symbol,
-                    leverage,
-                    pos_side=order_pos_side,
-                    margin_mode=MARGIN_MODE_CROSSED,
-                    long_leverage=leverage,
-                    short_leverage=leverage,
-                )
-            except (BitgetAPIError, ValueError) as exc:
-                error = f"could not set crossed leverage: {exc}"
-                report.failures.append(
-                    {
-                        "symbol": symbol,
-                        "action": order.action,
-                        "side": order.side,
-                        "size": f"{order.size:.12g}",
-                        "error": error,
-                    }
-                )
-                report.margin_notes.append(f"{symbol}: 全仓杠杆设置失败（{exc}）")
-                continue
-            leverage_done.add(symbol)
-            if isolated_ok:
+        leverage_key = (symbol, order_pos_side)
+        if not order.reduce_only and leverage_key not in leverage_done:
+            if require_isolated:
                 try:
                     client.set_leverage(
                         symbol,
@@ -277,10 +417,60 @@ def execute_plan(
                         short_leverage=leverage,
                     )
                 except BitgetAPIError as exc:
-                    isolated_ok = False
-                    report.margin_notes.append(
-                        f"{symbol}: 逐仓杠杆设置被拒绝（{exc}）→ 按全仓执行"
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": order.action,
+                            "side": order.side,
+                            "size": f"{order.size:.12g}",
+                            "error": f"isolated margin is required but setup failed: {exc}",
+                        }
                     )
+                    report.margin_notes.append(
+                        f"{symbol}: 逐仓杠杆设置被拒绝，规格要求逐仓，已跳过该腿（{exc}）"
+                    )
+                    continue
+                leverage_done.add(leverage_key)
+            else:
+                # Cap the fallback configuration first: this venue can accept an
+                # isolated config and still fill the order in crossed mode.
+                try:
+                    client.set_leverage(
+                        symbol,
+                        leverage,
+                        pos_side=order_pos_side,
+                        margin_mode=MARGIN_MODE_CROSSED,
+                        long_leverage=leverage,
+                        short_leverage=leverage,
+                    )
+                except (BitgetAPIError, ValueError) as exc:
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": order.action,
+                            "side": order.side,
+                            "size": f"{order.size:.12g}",
+                            "error": f"could not set crossed leverage: {exc}",
+                        }
+                    )
+                    report.margin_notes.append(f"{symbol}: 全仓杠杆设置失败（{exc}）")
+                    continue
+                leverage_done.add(leverage_key)
+                if isolated_ok:
+                    try:
+                        client.set_leverage(
+                            symbol,
+                            leverage,
+                            pos_side=order_pos_side,
+                            margin_mode=MARGIN_MODE_ISOLATED,
+                            long_leverage=leverage,
+                            short_leverage=leverage,
+                        )
+                    except BitgetAPIError as exc:
+                        isolated_ok = False
+                        report.margin_notes.append(
+                            f"{symbol}: 逐仓杠杆设置被拒绝（{exc}）→ 按全仓执行"
+                        )
 
         body: dict[str, Any] = {
             "symbol": symbol,
@@ -289,16 +479,25 @@ def execute_plan(
             "order_type": "market",
             "pos_side": order_pos_side if hedging else None,
             "reduce_only": order.reduce_only and not hedging,
-            "client_oid": f"{client_oid_prefix}{stamp}{index}",
+            "client_oid": f"{prefix}{index:02d}",
         }
         if isolated_ok and not order.reduce_only:
             body["margin_mode"] = MARGIN_MODE_ISOLATED
+        if order.stop_loss is not None and not order.reduce_only:
+            body["stop_loss"] = order.stop_loss
+            body["sl_trigger_by"] = "mark_price"
+            body["sl_order_type"] = "market"
 
+        recovered_by_oid = False
         try:
             try:
                 placed = client.place_order(**body)
             except BitgetAPIError as exc:
                 if "margin_mode" in body and is_isolated_unsupported(exc):
+                    if require_isolated:
+                        raise BitgetAPIError(
+                            f"isolated margin is required but order setup failed: {exc}"
+                        ) from exc
                     isolated_ok = False
                     report.margin_notes.append(
                         "逐仓不可用（venue 拒绝 25200 fixedMargin）→ 已按全仓执行"
@@ -306,11 +505,44 @@ def execute_plan(
                     body.pop("margin_mode", None)
                     # fresh clientOid: the rejected attempt never reached the
                     # matching engine, but a reused id would be refused
-                    body["client_oid"] = f"{client_oid_prefix}{stamp}{index}c"
-                    placed = client.place_order(**body)
+                    body["client_oid"] = f"{prefix}{index:02d}c"
+                    try:
+                        placed = client.place_order(**body)
+                    except BitgetAPIError as retry_exc:
+                        recovered = _lookup_order_by_client_oid(
+                            client, str(body["client_oid"])
+                        )
+                        if not _recovered_order_matches(
+                            recovered,
+                            symbol=symbol,
+                            side=order.side,
+                            pos_side=order_pos_side,
+                        ):
+                            raise retry_exc
+                        placed = recovered
+                        recovered_by_oid = True
+                        report.margin_notes.append(
+                            f"{symbol}: 下单响应不明确，已按 clientOid 回查确认"
+                        )
                 else:
-                    raise
+                    recovered = _lookup_order_by_client_oid(
+                        client, str(body["client_oid"])
+                    )
+                    if not _recovered_order_matches(
+                        recovered,
+                        symbol=symbol,
+                        side=order.side,
+                        pos_side=order_pos_side,
+                    ):
+                        raise
+                    placed = recovered
+                    recovered_by_oid = True
+                    report.margin_notes.append(
+                        f"{symbol}: 下单响应不明确，已按 clientOid 回查确认"
+                    )
         except (BitgetAPIError, ValueError) as exc:
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
             report.failures.append(
                 {
                     "symbol": symbol,
@@ -326,7 +558,23 @@ def execute_plan(
 
         order_id = str(placed.get("orderId") or "")
         if not order_id:
+            recovered = _lookup_order_by_client_oid(client, str(body["client_oid"]))
+            if _recovered_order_matches(
+                recovered,
+                symbol=symbol,
+                side=order.side,
+                pos_side=order_pos_side,
+            ):
+                placed = recovered
+                order_id = str(placed.get("orderId") or "")
+                recovered_by_oid = True
+                report.margin_notes.append(
+                    f"{symbol}: 下单响应缺少 orderId，已按 clientOid 回查确认"
+                )
+        if not order_id:
             report.traded = True
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
             report.failures.append(
                 {
                     "symbol": symbol,
@@ -349,13 +597,16 @@ def execute_plan(
         avg_price = _to_float(payload.get("avgPrice"))
         notional = _to_float(payload.get("cumExecValue")) or filled * avg_price
         fee, fee_coin = _fee_from_detail(payload)
+        attached_stop = _to_float(payload.get("stopLoss"))
         status = str(payload.get("orderStatus") or ("filled" if not order_id else ""))
+        stop_confirmed = _short_stop_confirmed(order.stop_loss, payload)
         report.fills.append(
             OrderFill(
                 asset=order.asset,
                 symbol=symbol,
                 action=order.action,
                 side=order.side,
+                stop_loss=attached_stop if attached_stop > 0.0 else None,
                 requested_size=order.size,
                 filled_size=filled,
                 avg_price=avg_price,
@@ -364,10 +615,117 @@ def execute_plan(
                 fee_coin=fee_coin,
                 order_id=order_id,
                 status=status or "unknown",
+                position_side=order_pos_side,
+                client_oid=str(body.get("client_oid") or ""),
+                    requested_stop_loss=order.stop_loss,
+                stop_trigger_by=str(payload.get("slTriggerBy") or ""),
+                stop_order_type=str(payload.get("slOrderType") or ""),
             )
         )
         report.traded = True
+        if recovered_by_oid and status == _FILLED:
+            tolerance = max(1e-9, abs(order.size) * 1e-8)
+            if abs(filled - order.size) > tolerance:
+                if order.action == "CLOSE":
+                    blocked_open_assets.add(order.asset)
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": order.action,
+                        "side": order.side,
+                        "size": f"{order.size:.12g}",
+                        "error": (
+                            "recovered clientOid order filled a different quantity "
+                            f"({filled:.8g} vs requested {order.size:.8g})"
+                        ),
+                    }
+                )
+        if order.stop_loss is not None and not stop_confirmed:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": "short stop loss was not confirmed by the venue",
+                }
+            )
+            if filled > 0.0:
+                close_qty = max(filled, initial_short_qty.get(symbol, 0.0) + filled)
+                close_body: dict[str, Any] = {
+                    "symbol": symbol,
+                    "qty": close_qty,
+                    "side": "buy",
+                    "order_type": "market",
+                    "pos_side": order_pos_side if hedging else None,
+                    "reduce_only": not hedging,
+                    "client_oid": f"{prefix}{index:02d}r",
+                }
+                try:
+                    closed = client.place_order(**close_body)
+                    close_id = str(closed.get("orderId") or "")
+                    if not close_id:
+                        raise BitgetAPIError("venue did not return orderId for emergency close")
+                    close_payload = wait_for_fill(
+                        client,
+                        order_id=close_id,
+                        timeout_seconds=fill_timeout_seconds,
+                        poll_interval_seconds=poll_interval_seconds,
+                        sleep=sleep,
+                        clock=clock,
+                    )
+                    close_filled = _to_float(close_payload.get("cumExecQty"))
+                    close_avg = _to_float(close_payload.get("avgPrice"))
+                    close_notional = _to_float(close_payload.get("cumExecValue")) or (
+                        close_filled * close_avg
+                    )
+                    close_fee, close_fee_coin = _fee_from_detail(close_payload)
+                    close_status = str(close_payload.get("orderStatus") or "unknown")
+                    report.fills.append(
+                        OrderFill(
+                            asset=order.asset,
+                            symbol=symbol,
+                            action="EMERGENCY_CLOSE",
+                            side="buy",
+                            stop_loss=None,
+                            requested_size=close_qty,
+                            filled_size=close_filled,
+                            avg_price=close_avg,
+                            notional=close_notional,
+                            fee=close_fee,
+                            fee_coin=close_fee_coin,
+                            order_id=close_id,
+                            status=close_status,
+                            position_side=order_pos_side,
+                            client_oid=str(close_body["client_oid"]),
+                        )
+                    )
+                    if close_status != _FILLED or close_filled + 1e-12 < close_qty:
+                        report.failures.append(
+                            {
+                                "symbol": symbol,
+                                "action": "EMERGENCY_CLOSE",
+                                "side": "buy",
+                                "size": f"{close_qty:.12g}",
+                                "error": (
+                                    "emergency close did not fully fill "
+                                    f"(status={close_status}, filled {close_filled:.8g}/{close_qty:.8g})"
+                                ),
+                            }
+                        )
+                except (BitgetAPIError, ValueError) as exc:
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": "EMERGENCY_CLOSE",
+                            "side": "buy",
+                            "size": f"{close_qty:.12g}",
+                            "error": f"emergency close failed: {_error_text(exc)}",
+                        }
+                    )
         if status != _FILLED:
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
             error = (
                 "order cancelled by the venue"
                 if status == _CANCELLED
@@ -386,17 +744,144 @@ def execute_plan(
 
     positions = client.current_positions()
     report.positions_after = [dict(row) for row in positions]
-    for row in report.positions_after:
-        row_mode = str(row.get("marginMode") or "")
-        if row_mode:
-            report.margin_mode = row_mode
-            break
+    if known_protected_short_symbols is not None:
+        protected = {str(symbol).upper() for symbol in known_protected_short_symbols}
+        protected.update(
+            fill.symbol.upper()
+            for fill in report.fills
+            if fill.short_stop_confirmed
+            and fill.status == _FILLED
+        )
+        unprotected = [
+            dict(row)
+            for row in report.positions_after
+            if _signed_position_qty(row) < 0.0
+            and str(row.get("symbol") or "").upper() not in protected
+        ]
+        for index, row in enumerate(unprotected):
+            symbol = str(row.get("symbol") or "").upper()
+            qty = abs(_signed_position_qty(row))
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": f"{qty:.12g}",
+                    "error": (
+                        "existing short has no confirmed stop record; emergency close attempted"
+                    ),
+                }
+            )
+            if qty <= 0.0:
+                continue
+            try:
+                closed = client.place_order(
+                    symbol=symbol,
+                    qty=qty,
+                    side="buy",
+                    order_type="market",
+                    pos_side="short" if hedging else None,
+                    reduce_only=not hedging,
+                    client_oid=f"{prefix}u{index:02d}",
+                )
+                close_id = str(closed.get("orderId") or "")
+                if not close_id:
+                    raise BitgetAPIError("venue did not return orderId for stop-gap close")
+                close_payload = wait_for_fill(
+                    client,
+                    order_id=close_id,
+                    timeout_seconds=fill_timeout_seconds,
+                    poll_interval_seconds=poll_interval_seconds,
+                    sleep=sleep,
+                    clock=clock,
+                )
+                close_filled = _to_float(close_payload.get("cumExecQty"))
+                close_avg = _to_float(close_payload.get("avgPrice"))
+                close_notional = _to_float(close_payload.get("cumExecValue")) or (
+                    close_filled * close_avg
+                )
+                close_fee, close_fee_coin = _fee_from_detail(close_payload)
+                close_status = str(close_payload.get("orderStatus") or "unknown")
+                report.fills.append(
+                    OrderFill(
+                        asset=str(row.get("asset") or symbol.removesuffix("USDT")).lower(),
+                        symbol=symbol,
+                        action="EMERGENCY_CLOSE",
+                        side="buy",
+                        stop_loss=None,
+                        requested_size=qty,
+                        filled_size=close_filled,
+                        avg_price=close_avg,
+                        notional=close_notional,
+                        fee=close_fee,
+                        fee_coin=close_fee_coin,
+                        order_id=close_id,
+                        status=close_status,
+                        position_side="short",
+                        client_oid=str(closed.get("clientOid") or f"{prefix}u{index:02d}"),
+                    )
+                )
+                if close_status != _FILLED or close_filled + 1e-12 < qty:
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": "EMERGENCY_CLOSE",
+                            "side": "buy",
+                            "size": f"{qty:.12g}",
+                            "error": (
+                                "stop-gap close did not fully fill "
+                                f"(status={close_status}, filled {close_filled:.8g}/{qty:.8g})"
+                            ),
+                        }
+                    )
+            except (BitgetAPIError, ValueError) as exc:
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": "EMERGENCY_CLOSE",
+                        "side": "buy",
+                        "size": f"{qty:.12g}",
+                        "error": f"stop-gap close failed: {_error_text(exc)}",
+                    }
+                )
+        if unprotected:
+            positions = client.current_positions()
+            report.positions_after = [dict(item) for item in positions]
+    position_modes = {
+        str(row.get("marginMode") or "").lower()
+        for row in report.positions_after
+        if str(row.get("marginMode") or "").strip()
+    }
+    if len(position_modes) == 1:
+        report.margin_mode = next(iter(position_modes))
+    elif position_modes:
+        report.margin_mode = "mixed:" + ",".join(sorted(position_modes))
+    invalid_modes = sorted(
+        mode for mode in position_modes if mode != MARGIN_MODE_ISOLATED
+    )
+    if require_isolated and invalid_modes:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": (
+                    "isolated margin required but venue reports "
+                    + ",".join(invalid_modes)
+                ),
+            }
+        )
 
     # Isolated-margin top-ups only exist for isolated legs.  On a crossed
     # account the venue answers 40731/25200 every single day, which is noise
     # rather than information - so say it once, plainly, and skip the calls.
     if plan.margin_intents:
-        if report.margin_mode and report.margin_mode != MARGIN_MODE_ISOLATED:
+        if report.failures:
+            report.margin_notes.append(
+                f"本轮回调存在失败：跳过 {len(plan.margin_intents)} 笔保证金调整"
+            )
+        elif report.margin_mode and report.margin_mode != MARGIN_MODE_ISOLATED:
             report.margin_notes.append(
                 f"持仓为{report.margin_mode}：跳过 {len(plan.margin_intents)} 笔逐仓保证金调整"
             )
@@ -478,19 +963,26 @@ def format_execution_report(
     # Reconcile by the stamped coin-id asset, never by rebuilding a symbol from
     # that id: CMC's ``tron`` trades as ``TRXUSDT``, not ``TRONUSDT``.
     notional_by_asset: dict[str, float] = {}
+    signed_notional_by_asset: dict[str, float] = {}
     ticker_by_asset: dict[str, str] = {}
     position_notionals: list[tuple[dict[str, Any], str, float]] = []
     for row in positions:
         symbol = str(row.get("symbol") or "")
         asset = str(row.get("asset") or symbol.upper().removesuffix("USDT")).lower()
-        notional = abs(_to_float(row.get("total"))) * _to_float(
-            row.get("markPrice") or row.get("avgPrice")
-        )
+        mark = _to_float(row.get("markPrice") or row.get("avgPrice"))
+        notional = abs(_to_float(row.get("total"))) * mark
         notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + notional
+        signed_notional_by_asset[asset] = (
+            signed_notional_by_asset.get(asset, 0.0) + _signed_position_qty(row) * mark
+        )
         ticker_by_asset[asset] = symbol.upper().removesuffix("USDT") or asset.upper()
         position_notionals.append((row, asset, notional))
     total_notional = sum(notional_by_asset.values())
-    equity = report.equity_after or report.equity_before
+    equity = (
+        report.equity_after
+        if report.equity_after is not None
+        else report.equity_before
+    )
     day_pnl = (
         None
         if prev_equity is None
@@ -519,9 +1011,12 @@ def format_execution_report(
     for fill in report.fills:
         verb = "买入" if fill.side == "buy" else "卖出"
         note = "" if fill.status == _FILLED else f"（{fill.status}）"
+        stop_note = (
+            f" · 止损 {fill.stop_loss:.8g}" if fill.stop_loss is not None else ""
+        )
         lines.append(
             f"  {verb} {fill.asset.upper()} {_qty(fill.filled_size)} 枚 @ {fill.avg_price:.8g}"
-            f" · {_money(fill.notional)} USDT · 费 {fill.fee:.4f}{note}"
+            f" · {_money(fill.notional)} USDT · 费 {fill.fee:.4f}{stop_note}{note}"
         )
     for order in planned_orders or []:
         verb = {
@@ -540,15 +1035,17 @@ def format_execution_report(
         lines.append("  空仓")
     for row, asset, notional in position_notionals:
         symbol = str(row.get("symbol") or "")
-        size = abs(_to_float(row.get("total")))
+        signed_size = _signed_position_qty(row)
+        size = abs(signed_size)
         entry = _to_float(row.get("avgPrice"))
         mark = _to_float(row.get("markPrice") or row.get("avgPrice"))
         upnl = _to_float(row.get("unrealisedPnl"))
         if not upnl:
-            upnl = (mark - entry) * size
+            upnl = (mark - entry) * signed_size
         weight = notional / equity if equity > 0 else 0.0
+        side = "SHORT" if signed_size < 0.0 else "LONG"
         lines.append(
-            f"  {asset.upper()} {_qty(size)} 枚 · "
+            f"  {asset.upper()} {side} {_qty(size)} 枚 · "
             f"{_money(notional)} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
         )
 
@@ -557,10 +1054,10 @@ def format_execution_report(
         for asset in sorted(targets):
             target_weight = float(targets.get(asset, 0.0))
             target_notional = target_weight * equity
-            actual = notional_by_asset.get(asset.lower(), 0.0)
+            actual = signed_notional_by_asset.get(asset.lower(), 0.0)
             gap = actual - target_notional
             lot = float((lot_notional or {}).get(asset, 0.0))
-            tolerance = max(1.0, 0.01 * target_notional, 1.5 * lot)
+            tolerance = max(1.0, 0.01 * abs(target_notional), 1.5 * lot)
             flag = "" if abs(gap) <= tolerance else " ⚠️"
             checks.append(
                 f"{asset.upper()} 目标 {_money(target_notional)} / 实际 {_money(actual)}{flag}"

@@ -40,7 +40,7 @@ def test_format_derivatives_message_labels_utc_close_and_execution() -> None:
         execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
     )
 
-    assert "Atlas20 合约信号 · PR2026-10-D-L125-V2" in message
+    assert "Atlas20 合约信号 · PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21" in message
     assert "信号日线（UTC）: 2026-10-08" in message
     assert "数据收盘: 2026-10-09 00:00 UTC / 北京时间 2026-10-09 08:00" in message
     assert "建议执行: 北京时间 2026-10-09 11:00（UTC 2026-10-09 03:00，T+1 +3h）" in message
@@ -132,6 +132,35 @@ def test_load_latest_targets_rejects_missing_columns(tmp_path) -> None:
         load_latest_targets(path)
 
 
+def test_main_uses_the_execution_hint_from_the_target_ledger(tmp_path, monkeypatch) -> None:
+    from scripts import send_derivatives_signal
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book().copy()
+    frame["signal_date"] = "2026-09-01 00:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 03:00:00+00:00"
+    frame.to_csv(path, index=False)
+    seen: list[pd.Timestamp] = []
+
+    def capture(book, *, signal_date, execution_hint, **kwargs):
+        seen.append(execution_hint)
+        return "signal"
+
+    monkeypatch.setattr(send_derivatives_signal, "format_derivatives_message", capture)
+    send_derivatives_signal.main(
+        [
+            "--targets-file",
+            str(path),
+            "--state-file",
+            str(tmp_path / "state.json"),
+            "--dry-run",
+            "--allow-stale-signal",
+        ]
+    )
+
+    assert seen == [pd.Timestamp("2026-09-02 03:00", tz="UTC")]
+
+
 def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None:
     from scripts import send_derivatives_signal
 
@@ -183,3 +212,4 @@ def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional
     assert "BITCOIN 名义 500.00 USDT（50.00%）· LONG" in message
     assert "合计名义 750.00 USDT（75.00% 权益 gross，上限 125%）" in message
     assert "占用隔离保证金 386.25 USDT" in message
+    assert "空头止损 20% · mark-price" in message

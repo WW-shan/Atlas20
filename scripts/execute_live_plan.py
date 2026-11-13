@@ -10,8 +10,8 @@ Safety rails (all on by default):
 * ``--live`` is required to send orders; without it the run is a dry run that
   still reads the real account and prints the message you would get.
 * a kill-switch file (``--kill-switch``) stops everything if it exists,
-* the signal must be fresh (``--max-signal-age-hours``, default 36) unless
-  ``--allow-stale-signal`` is passed,
+* the target data/manifest must be fresh (``--max-mark-staleness-hours``,
+  default 30) unless ``--allow-stale-signal`` is passed,
 * the account equity must clear ``--equity-floor``,
 * one execution per signal date (recorded in ``--state-file``); a run that
   ended with failures may retry once the next timer fires, and the retry
@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -45,6 +46,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
+from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
 from atlas20.derivatives.live_executor import (  # noqa: E402
     ExecutionReport,
     execute_plan,
@@ -56,9 +58,9 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     load_journal,
     net_capital_flow,
     previous_row,
+    protected_short_symbols,
     upsert_entry,
 )
-from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.derivatives.quotes import (  # noqa: E402
     ExecutionQuote,
     QuoteError,
@@ -82,11 +84,11 @@ from scripts.plan_live_execution import (  # noqa: E402
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
 
-DEFAULT_STATE_FILE = Path("data/derivatives_execution_state.json")
-DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
-DEFAULT_MANIFEST_FILE = Path("reports/derivatives_track_oos_2026/manifest.json")
-DEFAULT_KILL_SWITCH = Path("data/derivatives_execution.KILL")
-DEFAULT_JSON_OUT = Path("reports/derivatives_track_execution/latest.json")
+DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
+DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
+DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
+DEFAULT_KILL_SWITCH = Path("data/ls45_g125_execution.KILL")
+DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/latest.json")
 
 
 def _live_quote_snapshot(
@@ -141,6 +143,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--short-buffer", type=float, default=0.50)
+    parser.add_argument("--short-stop-loss-pct", type=float, default=0.20)
     parser.add_argument("--max-gross-multiple", type=float, default=1.25)
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
@@ -201,14 +204,27 @@ def _journal_entry(
     capital_flow: float,
     warnings: list[str],
 ) -> JournalEntry:
+    equity = (
+        report.equity_after
+        if report.equity_after is not None
+        else report.equity_before
+    )
     positions: list[dict] = []
     position_value = 0.0
     unrealised = 0.0
     funding = 0.0
     for row in report.positions_after:
-        size = abs(float(row.get("total") or 0.0))
+        raw_total = float(row.get("total") or 0.0)
+        size = abs(raw_total)
         if size <= 0.0:
             continue
+        reported_side = str(row.get("posSide") or "").lower()
+        side = (
+            "short"
+            if reported_side == "short"
+            or (reported_side in {"", "net"} and raw_total < 0.0)
+            else "long"
+        )
         mark = float(row.get("markPrice") or row.get("avgPrice") or 0.0)
         notional = size * mark
         position_value += notional
@@ -218,18 +234,19 @@ def _journal_entry(
             {
                 "asset": str(row.get("asset") or "").lower(),
                 "symbol": str(row.get("symbol") or ""),
-                "side": str(row.get("posSide") or "long"),
+                "side": side,
                 "qty": size,
                 "avg_price": float(row.get("avgPrice") or 0.0),
                 "mark_price": mark,
                 "notional": round(notional, 6),
-                "weight": round(notional / report.equity_after, 6)
-                if report.equity_after > 0
-                else 0.0,
+                "weight": (
+                    round((notional if side == "long" else -notional) / equity, 6)
+                    if equity > 0
+                    else 0.0
+                ),
                 "unrealised_pnl": round(float(row.get("unrealisedPnl") or 0.0), 6),
             }
         )
-    equity = report.equity_after
     day_pnl = (
         None
         if prev_equity is None
@@ -267,6 +284,13 @@ def _journal_entry(
                 "avg_price": fill.avg_price,
                 "notional": round(fill.notional, 6),
                 "fee": round(fill.fee, 8),
+                "status": fill.status,
+                "stop_loss": fill.stop_loss,
+                "requested_stop_loss": fill.requested_stop_loss,
+                "position_side": fill.position_side,
+                "client_oid": fill.client_oid,
+                "stop_trigger_by": fill.stop_trigger_by,
+                "stop_order_type": fill.stop_order_type,
             }
             for fill in report.fills
         ],
@@ -331,7 +355,6 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     signal_date, execution_hint, book = load_latest_targets(args.targets_file)
-    live_execution_hint = live_execution_hint_for_signal(signal_date)
     event_age_days = (
         pd.Timestamp.now(tz="UTC").normalize() - pd.Timestamp(signal_date).normalize()
     ).days
@@ -342,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
     freshness_note: str | None = None
     if args.manifest_file.exists():
         manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
-        staleness = float(manifest.get("staleness_hours") or 0.0)
+        staleness = manifest_staleness_hours(manifest, datetime.now(timezone.utc))
         index_end = str(manifest.get("index_end_date") or "")
         signal_end = str(manifest.get("signal_end_date") or "")
         if not args.allow_stale_signal:
@@ -350,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise SystemExit(
                     f"mark tree is {staleness:.1f}h old "
                     f"(> {args.max_mark_staleness_hours:g}h); "
-                    "run make derivatives-oos-data first"
+                    "run make derivatives-live-data first"
                 )
             if index_end and signal_end and index_end < signal_end:
                 raise SystemExit(
@@ -365,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(
             f"no manifest at {args.manifest_file} and the newest book row is "
             f"{event_age_days} days old; refresh the pipeline "
-            "(make derivatives-oos-data derivatives-oos) or pass --allow-stale-signal"
+            "(make derivatives-live-data derivatives-ls45-signal) or pass --allow-stale-signal"
         )
 
     warnings: list[str] = []
@@ -442,6 +465,7 @@ def main(argv: list[str] | None = None) -> int:
         leverage=float(args.leverage),
         long_buffer=float(args.long_buffer),
         short_buffer=float(args.short_buffer),
+        short_stop_loss_pct=float(args.short_stop_loss_pct),
         max_gross_exposure=float(args.max_gross_multiple) * account.equity,
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
@@ -463,6 +487,7 @@ def main(argv: list[str] | None = None) -> int:
     # report, no ledger row.  A second run on the same day still skips.
     run_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"{args.spec}|{signal_date.date()}|{run_day}"
+    client_oid_prefix = "a20" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:20]
     state = _read_state(args.state_file)
     already = state.get("last_key") == key and state.get("last_status") == "ok"
     if already and not args.force and args.live:
@@ -529,15 +554,23 @@ def main(argv: list[str] | None = None) -> int:
             signal_date=str(signal_date.date()),
             leverage=float(args.leverage),
             margin_mode=requested,
+            require_isolated=bool(args.require_isolated),
+            known_protected_short_symbols=protected_short_symbols(journal),
             hold_mode=hold_mode,
+            client_oid_prefix=client_oid_prefix,
         )
         report.positions_after = _stamp_assets(
             report.positions_after, {**symbols_by_asset, **relevant_symbols}
         )
         planned_orders = []
-        if args.require_isolated and report.margin_mode != "isolated":
+        if (
+            args.require_isolated
+            and report.positions_after
+            and report.margin_mode != "isolated"
+        ):
             warnings.append(
-                "REQUIRE-ISOLATED：本账户/key 无法持逐仓，规格未满足（已按全仓成交，请复核）"
+                "REQUIRE-ISOLATED：持仓回读不是 isolated，规格未满足；"
+                "新的 open/increase 已被阻断，请复核并处理现有仓位"
             )
 
     status = "ok" if not report.failures else "partial"
@@ -545,7 +578,7 @@ def main(argv: list[str] | None = None) -> int:
         report,
         signal_date=str(signal_date.date()),
         spec=args.spec,
-        execution_hint=live_execution_hint.strftime("%Y-%m-%d %H:%M UTC"),
+        execution_hint=execution_hint.strftime("%Y-%m-%d %H:%M UTC"),
         targets=targets,
         lot_notional=lot_notional,
         planned_orders=planned_orders,
@@ -585,7 +618,8 @@ def main(argv: list[str] | None = None) -> int:
                 "spec": args.spec,
                 "signal_date": str(signal_date.date()),
                 "execution_hint": str(execution_hint),
-                "live_execution_hint": str(live_execution_hint),
+                "live_execution_hint": str(execution_hint),
+                "client_oid_prefix": client_oid_prefix,
                 "quotes": {
                     asset: quotes[symbol].as_dict()
                     for asset, symbol in relevant_symbols.items()

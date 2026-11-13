@@ -2,9 +2,8 @@
 
 launchd reads ``StartCalendarInterval`` in the host's local time zone, not
 UTC. The checked-in plists target this workstation (Asia/Shanghai, UTC+8). The
-primary fire is now 09:05 Beijing = 01:05 UTC after the measured 00:20 UTC CMC
-publication window, with the old 03:05/03:35/04:35/06:35 UTC fires retained as
-fallback and catch-up. Getting this conversion wrong would silently trade a day
+primary fire is now 11:05 Beijing = 03:05 UTC, matching the LS45 book's
+T+1 +3h hint, with 03:35/04:35/06:35 UTC fires retained as fallback and catch-up. Getting this conversion wrong would silently trade a day
 early, so the schedule is pinned here the same way the refresh and probe jobs
 are; the read-only monitor follows the same rule one window later.
 """
@@ -42,7 +41,7 @@ def _scheduled_utc_time(plist_path: Path) -> tuple[int, int]:
 
 
 def test_derivatives_job_fires_at_documented_utc_time():
-    assert _scheduled_utc_times(EXECUTE_PLIST)[0] == (1, 5)
+    assert _scheduled_utc_times(EXECUTE_PLIST)[0] == (3, 5)
 
 
 def test_monitor_fires_after_the_daily_rebalance():
@@ -53,15 +52,15 @@ def test_monitor_fires_after_the_daily_rebalance():
 
 
 def test_derivatives_job_runs_after_the_daily_refresh():
-    # The early panel refresh fires at 08:30 Beijing (00:30 UTC); the trade
-    # must not fire before the panel has a chance to carry that day.
+    # The panel refresh fires at 08:30 Beijing (00:30 UTC); the trade must
+    # wait until after both the T+1 +3h signal hint and that refresh.
     assert min(_scheduled_utc_times(EXECUTE_PLIST)) > (0, 30)
 
 
 def test_derivatives_job_retries_failed_runs_inside_the_catchup_window():
     times = _scheduled_utc_times(EXECUTE_PLIST)
 
-    assert times == [(1, 5), (1, 35), (3, 5), (3, 35), (4, 35), (6, 35)]
+    assert times == [(3, 5), (3, 35), (4, 35), (6, 35)]
     assert max(times) <= (7, 5)
 
 
@@ -150,10 +149,7 @@ def test_execute_wrapper_sources_credentials_and_runs_the_live_chain():
     assert "bitget.env" in script
     assert "telegram.env" in script
     assert "exit 1" in script
-    assert (
-        "/usr/bin/make derivatives-oos-data derivatives-oos execute-plan-live"
-        in script
-    )
+    assert "/usr/bin/make derivatives-live" in script
     # No secrets may be committed into the wrapper itself.
     assert "ATLAS20_BITGET_API_KEY=" not in script
     assert "ATLAS20_TELEGRAM_BOT_TOKEN=" not in script

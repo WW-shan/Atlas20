@@ -2,10 +2,10 @@
 Description=Run the Atlas20 derivatives Telegram signal once per day
 
 [Timer]
-# 01:05 UTC (09:05 Beijing) is the automated executor's early fill window;
-# 01:35 UTC catches a failed first run.
-OnCalendar=*-*-* 01:05:00 UTC
-OnCalendar=*-*-* 01:35:00 UTC
+# Run after the automated executor instead of racing its signal rebuild.
+# These are fallback notification attempts if the executor's Telegram send failed.
+OnCalendar=*-*-* 03:45:00 UTC
+OnCalendar=*-*-* 04:15:00 UTC
 Persistent=true
 AccuracySec=1min
 Unit=atlas20-derivatives-signal.service

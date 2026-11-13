@@ -1,0 +1,35 @@
+{
+  "client_oid_prefix": "a20a29dd59d11aa48e7e6cf",
+  "execution_hint": "2026-11-07 03:00:00+00:00",
+  "live_execution_hint": "2026-11-07 03:00:00+00:00",
+  "plan": {
+    "equity": 499.68070768,
+    "expected_gross_notional": 0.0,
+    "expected_margin": 0.0,
+    "leverage": 2.0,
+    "margin_intents": [],
+    "orders": [],
+    "signed_target_notional": {},
+    "target_margin_ratio": 0.515,
+    "target_notional": {},
+    "warnings": []
+  },
+  "quotes": {},
+  "report": {
+    "available_after": 499.68070768,
+    "balance_after": 499.68070768,
+    "equity_after": 499.68070768,
+    "equity_before": 499.68070768,
+    "failures": [],
+    "fills": [],
+    "margin_mode": "",
+    "margin_notes": [],
+    "position_value": 0,
+    "positions_after": [],
+    "signal_date": "2026-11-06",
+    "traded": false
+  },
+  "signal_date": "2026-11-06",
+  "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+  "status": "ok"
+}

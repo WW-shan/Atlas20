@@ -39,10 +39,11 @@ import pandas as pd
 
 from atlas20.data.completeness import assess_last_day
 
-#: The first executable T+1 window, in UTC. ops/com.atlas20.derivatives-execute.plist
-#: fires at 09:05 Beijing (01:05 UTC), after the early panel refresh; the
-#: preflight and the panel completeness gate are both required before trading.
-DEFAULT_SCHEDULED_UTC = time(1, 5)
+#: The first executable LS45 window, in UTC. The frozen target ledger uses a
+#: T+1 +3h execution hint (03:00 UTC); ops/com.atlas20.derivatives-execute.plist
+#: fires at 11:05 Beijing (03:05 UTC), five minutes later. The preflight and
+#: panel completeness gate are both required before trading.
+DEFAULT_SCHEDULED_UTC = time(3, 5)
 
 #: How long after the fill point a missed run may still be caught up.  Beyond
 #: this the rebalance is skipped and the 19:00 monitor reports the gap, because
@@ -76,13 +77,33 @@ def live_execution_hint_for_signal(
 ) -> datetime:
     """The UTC timestamp the automated live executor aims at for a signal day.
 
-    The frozen target file keeps its backtest ``execution_hint`` (T+1 +3h).
-    Live execution is intentionally earlier; keeping this conversion in one
-    place prevents a manual plan or alert from advertising the old fill time.
+    The frozen target file carries the authoritative T+1 +3h `execution_hint`.
+    Live scripts read that field directly; this helper remains the schedule
+    fallback for preflight/test callers and must stay five minutes behind it.
     """
 
     day = signal_date.date() if isinstance(signal_date, datetime) else signal_date
     return datetime.combine(day + timedelta(days=1), scheduled_utc, tzinfo=timezone.utc)
+
+
+def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:
+    """Current mark age from the manifest's timestamp, not its build-time value."""
+
+    last_mark = manifest.get("last_mark")
+    if last_mark not in (None, ""):
+        try:
+            stamp = pd.Timestamp(last_mark)
+            if stamp.tzinfo is None:
+                stamp = stamp.tz_localize("UTC")
+            else:
+                stamp = stamp.tz_convert("UTC")
+            return max(0.0, (as_utc(now) - stamp.to_pydatetime()).total_seconds() / 3600.0)
+        except (TypeError, ValueError, OverflowError):
+            return float("inf")
+    try:
+        return float(manifest.get("staleness_hours") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def panel_end_date(panel_path: Path) -> date | None:

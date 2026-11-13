@@ -155,9 +155,9 @@ remain mandatory.
 
 ## Step 2 - Move the fill (implemented)
 
-- `ops/com.atlas20.derivatives-execute.plist` and
-  `ops/systemd/atlas20-derivatives-execute.timer` now fire at 01:05 UTC; the
-  wrapper keeps the old 03:05/03:35/04:35/06:35 UTC retries.
+- **Superseded 2026-11-13:** the L125 01:05 UTC experiment was replaced by the
+  LS45-G125 T+1 +3h schedule. The execute plist/timer now start at 03:05 UTC and
+  retry at 03:35/04:35/06:35 UTC. The earlier 01:05 timing is historical only.
 - The live executor fetches one server-timestamped Bitget ticker snapshot for
   the required symbols. Missing/stale quotes fail closed; wide spreads,
   last/mark divergence and orders larger than the visible top-of-book level are

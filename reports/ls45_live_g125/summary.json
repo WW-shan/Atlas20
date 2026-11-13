@@ -47,7 +47,7 @@
   "sharpe": -0.6064266556391639,
   "short_open_count": 0,
   "short_stop_loss_count": 0,
-  "staleness_hours": 1.8697485975,
+  "staleness_hours": 2.5828946661111107,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
   "warmup_raw_dir": "data/raw/bitget_derivatives/merged_20261009",

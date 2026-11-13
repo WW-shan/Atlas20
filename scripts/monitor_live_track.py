@@ -1,6 +1,6 @@
 """Read-only live health monitor: the check that runs *between* rebalances.
 
-The daily executor already re-reads the real account every day at 09:05
+The daily executor already re-reads the real account every day at 11:05
 Beijing. This script adds the missing piece: a scheduled, read-only probe that
 answers "is anything wrong right now?" without waiting for the next rebalance.
 
@@ -57,6 +57,7 @@ from scripts.audit_live_track import (  # noqa: E402
     DEFAULT_JOURNAL_FILE,
     DEFAULT_MANIFEST_FILE,
     DEFAULT_TARGETS_FILE,
+    _position_signed_notional,
 )
 from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_SYMBOL_MAP,
@@ -69,12 +70,12 @@ from scripts.plan_live_execution import (  # noqa: E402
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, send_telegram_message  # noqa: E402
 
-DEFAULT_STATE_FILE = Path("data/derivatives_execution_state.json")
-DEFAULT_OUT = Path("reports/derivatives_track_live/health.json")
+DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
+DEFAULT_OUT = Path("reports/ls45_live_g125_live/health.json")
 AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_live_track.py"
 SPEC_MAX_GROSS = 1.25
 EXECUTION_FLOOR_USDT = 20.0
-EXECUTION_OVERDUE_UTC_HOUR = 6  # after the 06:35 UTC final fallback has landed
+EXECUTION_OVERDUE_UTC_HOUR = 7  # after the 06:35 UTC final fallback has landed
 MAX_EXECUTION_AGE_HOURS = 36.0
 
 
@@ -180,8 +181,7 @@ def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dic
         asset = by_symbol.get(symbol)
         if asset is None:
             continue
-        price = float(row.get("markPrice") or row.get("avgPrice") or 0.0)
-        out[asset] = abs(float(row.get("total") or 0.0)) * price
+        out[asset] = out.get(asset, 0.0) + _position_signed_notional(row)
     return out
 
 
@@ -281,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             got = actual.get(asset, 0.0)
             # The executor only trades gaps above 5 USDT; anything larger that
             # survives to a monitor run means the rebalance did not land.
-            tolerance = max(5.0, 0.02 * want, 1.5 * lot_notional)
+            tolerance = max(5.0, 0.02 * abs(want), 1.5 * lot_notional)
             if abs(got - want) > tolerance:
                 direction = "低" if got < want else "高"
                 issues.append(

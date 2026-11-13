@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -59,8 +59,27 @@ refresh-data: $(VENV_STAMP)
 	$(PYTHON) scripts/download_data.py --config config/base.yaml
 	$(PYTHON) scripts/build_datasets.py --config config/base.yaml
 
-# Derivatives track daily routine (Ubuntu-friendly: plain make, no launchd).
-# Requires the frozen spec; never used to select parameters.
+# Current LS45-G125 live chain.  The target ledger is produced by the frozen
+# research wrapper from Bitget mark candles; it is never parameter-selected by
+# this target.  Keep the raw directory stable so daily downloads append to one
+# resumable cache and every live artifact points at the same identity.
+DERIVATIVES_LIVE_RAW_DIR ?= data/raw/bitget_derivatives/merged_oos_20261112
+
+derivatives-live-data: $(VENV_STAMP)
+	$(PYTHON) scripts/download_bitget_derivatives_data.py \
+		--output-dir $(DERIVATIVES_LIVE_RAW_DIR) \
+		--start $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)-datetime.timedelta(days=3)).date())") \
+		--end $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=1)).date())") \
+		--types mark
+
+derivatives-ls45-signal: $(VENV_STAMP)
+	$(PYTHON) scripts/run_ls45_live_signal.py
+
+derivatives-live: derivatives-live-data derivatives-ls45-signal
+	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
+
+# Legacy L125 research refresher. The live chain above no longer calls these
+# targets; they remain only for reproducing the previous research track.
 # The start date has to roll: the downloader caches per window start, so a
 # fixed start would mark the window complete once and then never extend the
 # candles again (which silently froze the OOS clock on 2026-10-09).
@@ -93,7 +112,7 @@ execute-plan: $(VENV_STAMP)
 	$(PYTHON) scripts/execute_live_plan.py
 
 execute-plan-live: $(VENV_STAMP)
-	$(PYTHON) scripts/execute_live_plan.py --live --notify $(ARGS)
+	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
 
 # Record an external account transfer without polluting strategy PnL.
 # Usage: make record-capital-flow AMOUNT=400 NOTE='deposit'

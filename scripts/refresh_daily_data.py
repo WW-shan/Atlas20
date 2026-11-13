@@ -2,7 +2,7 @@
 
 ``ops/com.atlas20.daily-refresh.plist`` fires this several times a day: a
 primary run after the UTC close and one or more catch-up runs, the earliest of
-which lands before the 09:05 Beijing trade job.  Two properties matter more
+which lands before the 11:05 Beijing trade job.  Two properties matter more
 than speed here:
 
 * **No overlap.**  A slow primary run must never race the catch-up fire, or

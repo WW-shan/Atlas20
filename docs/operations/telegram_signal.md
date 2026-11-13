@@ -89,62 +89,58 @@ message. Both attempts assume the Ubuntu data-refresh job has completed; adjust
 signal first, so a stale or partial panel makes the attempt fail instead of
 sending a stale message.
 
-## Derivatives track (frozen spec `PR2026-10-D-L125-V2`)
+## Derivatives track (`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`)
 
-The derivatives broadcast is the one that matches the go-live vehicle (Bitget
-USDT-M perpetuals, 1.25x notional, isolated margin, 50% long buffer, T+1 +3h
-fills). It reads the target book written by `scripts/run_derivatives_oos.py`
-and sends one message per signal day with:
+The derivatives broadcast matches the current LS45-G125 Bitget USDT-M track:
+signed long/short target weights, 1.25x gross cap, isolated margin, 50% initial
+buffers per leg, and a 20% mark-price stop on every short entry/increase. It
+reads the frozen target book in `reports/ls45_live_g125/oos_targets.csv` and
+sends one message per signal day with:
 
-- today's `BUY`/`SELL` in **notional USDT** plus the weight change in pp;
-- the post-trade book: notional, weight, and the **reference isolated margin**
-  (notional x 51.5% = 50% buffer + 1% maintenance + 0.5% fee buffer, the same ratio the
-  engine posts, giving the -51.01% liquidation distance) for every leg;
-- the total notional vs the 1.25x cap, margin used, and remaining free margin;
-- the UTC signal date, the UTC close (Beijing 08:00 next day), and the live
-  execution window (T+1 01:05 UTC, i.e. 09:05 Beijing; the backtest still uses
-  the conservative +3h fill);
-- a warning line when the execution time has already passed, so a late run
-  cannot be mistaken for a live order instruction.
+- signed `BUY`/`SELL` notional and weight changes in pp;
+- long and short legs separately labelled, never hidden behind absolute values;
+- reference isolated margin, total gross (`sum(abs(notional))`), and the 1.25x cap;
+- the target ledger's authoritative `execution_hint` (T+1 03:00 UTC, 11:00 Beijing);
+- a warning that the automated executor starts at 03:05 UTC, not the old 01:05 UTC;
+- a short-risk line stating that entries carry a 20% mark-price market stop;
+- a warning when the execution time has already passed.
 
 ```bash
-# preview the message for the latest signal day (no credentials needed)
+# preview the latest LS45 message (no credentials needed)
 make derivatives-signal
 
-# refresh the out-of-sample ledger, then send one message per chat id
-make derivatives-oos-data derivatives-oos derivatives-notify
+# refresh the live mark tree and rebuild the LS45 ledger, then send one message
+make derivatives-live-data derivatives-ls45-signal derivatives-notify
 ```
 
-The message is a notification only: it never places an order, does not know any
-real position, and repeated runs on the same signal day are skipped by the
-`(spec, signal_date)` key in `data/derivatives_telegram_state.json`. If the
-modelled execution is more than `--max-signal-age-hours` (default 36h) in the
-past, the sender refuses to send and exits non-zero — silence plus a failed
-timer means "the pipeline is stale", never "no trade today". Replay an old
-ledger deliberately with `--allow-stale-signal`.
+The message is notification-only: it never places an order, does not know any
+real position, and repeated runs for the same signal day are skipped by the
+`(spec, signal_date)` key in `data/ls45_g125_telegram_state.json`. If the modelled
+execution is more than `--max-signal-age-hours` (default 36h) in the past, the
+sender refuses to send and exits non-zero. Replay an old ledger deliberately
+with `--allow-stale-signal`.
 
-On Ubuntu, install the matching systemd timer, which mirrors the spot timer:
+On Ubuntu, install the derivatives execution timer for real trading. The signal
+timer is only for a notification-only deployment and is mutually exclusive with
+the execution timer:
 
 ```bash
 sudo cp ops/systemd/atlas20-derivatives-signal.service /etc/systemd/system/
 sudo cp ops/systemd/atlas20-derivatives-signal.timer /etc/systemd/system/
-# The signal rebuilds from data/processed/panel_daily.csv, so the host also
-# needs the panel refresh timer; see the deployment section of the runbook.
 sudo cp ops/systemd/atlas20-data-refresh.service /etc/systemd/system/
 sudo cp ops/systemd/atlas20-data-refresh.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
 ```
 
-It fires at 01:05 UTC (09:05 Beijing, the live execution window) and 01:35 UTC
-as a catch-up. It rebuilds the derivatives ledger first, so a stale or partial
-panel fails the run instead of sending a stale message. The timer is mutually
-exclusive with the derivatives execution timer to avoid duplicate messages.
+The signal fallback timer fires at 03:45 and 04:15 UTC, after the 03:05 UTC
+execution attempt, to avoid rebuilding the same ledger concurrently. The real
+execution timer fires at 03:05 / 03:35 / 04:35 / 06:35 UTC.
 
 ## Idempotency
 
 The spot sender records the last successful `(trial_id, as_of)` pair in
 `data/telegram_signal_state.json`; the derivatives sender records
-`(spec, signal_date)` per chat id in `data/derivatives_telegram_state.json`.
+`(spec, signal_date)` per chat id in `data/ls45_g125_telegram_state.json`.
 A repeated timer or manual run for the same day is skipped. State is written only
 after Telegram confirms `ok: true`, so a failed send can be retried safely.

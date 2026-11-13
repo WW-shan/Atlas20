@@ -21,7 +21,7 @@
 
 	    08:30 Beijing (00:30 UTC)  early primary, after the 10-asset probe's
 	                               measured 00:20 CMC publication window
-	    08:50 Beijing (00:50 UTC)  early catch-up, before the 09:05 trade
+	    08:50 Beijing (00:50 UTC)  early catch-up, before the 11:05 trade
 	    10:30 Beijing (02:30 UTC)  legacy primary fallback
 	    10:55 Beijing (02:55 UTC)  legacy pre-trade fallback before 11:05
 	    14:30 Beijing (06:30 UTC)  late catch-up for anything that still failed

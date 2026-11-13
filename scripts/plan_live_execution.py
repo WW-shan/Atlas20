@@ -5,7 +5,7 @@ A real account does not: its equity moves with PnL, deposits and funding, and
 the order sizes only make sense against that equity.  This script is the
 bridge - it combines
 
-* the latest frozen target book (``reports/derivatives_track_oos_2026``),
+* the latest frozen LS45 target book (``reports/ls45_live_g125``),
 * the account state (live Bitget UTA API, a JSON snapshot, or ``--equity``),
 * the real contract specs and last prices,
 
@@ -53,16 +53,17 @@ from atlas20.derivatives.execution import (  # noqa: E402
     PositionState,
     build_execution_plan,
 )
-from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
 
-TRACKED_SPEC = "PR2026-10-D-L125-V2"
-DEFAULT_TARGETS_FILE = Path("reports/derivatives_track_oos_2026/oos_targets.csv")
-DEFAULT_SYMBOL_MAP = Path("data/raw/bitget_derivatives/merged_oos_20261009/symbol_map.csv")
-DEFAULT_STATE_FILE = Path("data/derivatives_execution_state.json")
+TRACKED_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+DEFAULT_TARGETS_FILE = Path("reports/ls45_live_g125/oos_targets.csv")
+DEFAULT_SYMBOL_MAP = Path(
+    "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
+)
+DEFAULT_STATE_FILE = Path("data/ls45_g125_plan_state.json")
 PUBLIC_INSTRUMENTS_URL = "https://api.bitget.com/api/v3/market/instruments"
 PUBLIC_TICKERS_URL = "https://api.bitget.com/api/v3/market/tickers"
 
@@ -234,7 +235,8 @@ def format_execution_plan(
         lines.append(
             f"  {verb} {order.asset.upper()}：{order.side} {order.size:.8g} 枚"
             f"（名义 {_fmt_money(order.notional)} USDT @ {order.price:.8g}"
-            f"{'，reduce-only' if order.reduce_only else ''}）"
+            f"{'，reduce-only' if order.reduce_only else ''}"
+            f"{f'，止损 {order.stop_loss:.8g}' if order.stop_loss is not None else ''}）"
         )
     lines += ["", "保证金调整:"]
     if not plan.margin_intents:
@@ -277,6 +279,12 @@ def main() -> None:
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--short-buffer", type=float, default=0.50)
     parser.add_argument(
+        "--short-stop-loss-pct",
+        type=float,
+        default=0.20,
+        help="attach a mark-price stop this far above each short entry",
+    )
+    parser.add_argument(
         "--max-gross-multiple",
         type=float,
         default=1.25,
@@ -293,8 +301,7 @@ def main() -> None:
     args = parser.parse_args()
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
-    signal_date, _, book = load_latest_targets(args.targets_file)
-    execution_hint = live_execution_hint_for_signal(signal_date)
+    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
     targets = {
         str(record["asset"]): float(record["target_weight"])
         for record in book.to_dict("records")
@@ -351,6 +358,7 @@ def main() -> None:
         leverage=float(args.leverage),
         long_buffer=float(args.long_buffer),
         short_buffer=float(args.short_buffer),
+        short_stop_loss_pct=float(args.short_stop_loss_pct),
         max_gross_exposure=float(args.max_gross_multiple) * account.equity,
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),

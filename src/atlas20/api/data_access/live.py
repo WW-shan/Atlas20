@@ -18,11 +18,11 @@ FROZEN_DSR = "phase_momentum_candidate_eval_h5/deflated_sharpe.csv"
 OOS_MANIFEST = "phase_momentum_oos_2026/manifest.json"
 OOS_SUMMARY = "phase_momentum_oos_2026/oos_summary.csv"
 OOS_BENCHMARK = "phase_momentum_oos_2026/benchmark.csv"
-DERIVATIVES_EXECUTION = "derivatives_track_execution/latest.json"
-DERIVATIVES_HEALTH = "derivatives_track_live/health.json"
-DERIVATIVES_AUDIT = "derivatives_track_live/audit.json"
-DERIVATIVES_EQUIVALENCE = "derivatives_track_live/signal_equivalence.json"
-DERIVATIVES_JOURNAL = "derivatives_track_live/journal.csv"
+DERIVATIVES_EXECUTION = "ls45_live_g125_live/latest.json"
+DERIVATIVES_HEALTH = "ls45_live_g125_live/health.json"
+DERIVATIVES_AUDIT = "ls45_live_g125_live/audit.json"
+DERIVATIVES_EQUIVALENCE = "ls45_live_g125_live/signal_equivalence.json"
+DERIVATIVES_JOURNAL = "ls45_live_g125_live/journal.csv"
 
 _ARTIFACTS: tuple[tuple[str, str, str], ...] = (
     ("spot_signal", "spot", SPOT_SIGNAL),
@@ -263,11 +263,21 @@ def _execution_payload(raw: dict[str, Any]) -> dict[str, Any]:
         "execution_hint": _text(raw.get("execution_hint")),
         "signal_date": _text(raw.get("signal_date")),
         "spec": _text(raw.get("spec")),
-        "equity_before": _number(report.get("equity_before") or plan.get("equity")),
-        "equity_after": _number(report.get("equity_after") or plan.get("equity")),
+        "equity_before": _number(
+            report.get("equity_before")
+            if report.get("equity_before") is not None
+            else plan.get("equity")
+        ),
+        "equity_after": _number(
+            report.get("equity_after")
+            if report.get("equity_after") is not None
+            else plan.get("equity")
+        ),
         "balance_after": _number(report.get("balance_after")),
         "position_value": _number(
-            report.get("position_value") or plan.get("expected_gross_notional")
+            report.get("position_value")
+            if report.get("position_value") is not None
+            else plan.get("expected_gross_notional")
         ),
         "traded": bool(report.get("traded", False)),
         "margin_mode": _text(report.get("margin_mode")),

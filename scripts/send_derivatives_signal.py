@@ -1,15 +1,15 @@
 """Send the frozen Atlas20 derivatives signal to Telegram.
 
 Notification-only: this reads the daily target book written by
-``scripts/run_derivatives_oos.py``, formats one message with the implied
-rebalance in USDT and the post-trade book, and posts it through the Bot API.
-It never places an order and does not know about any real account.
+``scripts/run_ls45_live_signal.py``, formats one message with the signed
+long/short rebalance in USDT and the post-trade book, and posts it through the
+Bot API. It never places an order and does not know about any real account.
 
 The derivatives book differs from the spot signal in units: weights are
-*notional as a fraction of equity*, the frozen spec runs 1.25x notional with
-isolated margin, and the 50% long buffer is the margin actually assigned to
-each leg.  The message therefore shows both the notional and the reference
-isolated margin so the order can be sized without guessing.
+signed notional as a fraction of equity. The LS45-G125 spec caps gross at
+1.25x and assigns a 50% initial isolated buffer to each leg. Short entries and
+increases carry a 20% mark-price stop. The message shows notional, side,
+reference isolated margin and that stop rule so manual execution is explicit.
 """
 
 # ruff: noqa: E402
@@ -31,7 +31,6 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
     _chat_ids,
@@ -39,14 +38,15 @@ from scripts.send_telegram_signal import (  # noqa: E402
     send_telegram_message,
 )
 
-TRACKED_SPEC = "PR2026-10-D-L125-V2"
+TRACKED_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 LEVERAGE = 1.25
 LONG_BUFFER = 0.50
 SHORT_BUFFER = 0.50
+SHORT_STOP_LOSS_PCT = 0.20
 MAINTENANCE_MARGIN_RATE = 0.01
 FEE_BUFFER = 0.005
-DEFAULT_TARGETS_FILE = Path("reports/derivatives_track_oos_2026/oos_targets.csv")
-DEFAULT_STATE_FILE = Path("data/derivatives_telegram_state.json")
+DEFAULT_TARGETS_FILE = Path("reports/ls45_live_g125/oos_targets.csv")
+DEFAULT_STATE_FILE = Path("data/ls45_g125_telegram_state.json")
 CAPITAL_SCALE = 1000.0
 
 
@@ -104,6 +104,7 @@ def format_derivatives_message(
     leverage: float = LEVERAGE,
     long_buffer: float = LONG_BUFFER,
     short_buffer: float = SHORT_BUFFER,
+    short_stop_loss_pct: float = SHORT_STOP_LOSS_PCT,
     now: pd.Timestamp | None = None,
 ) -> str:
     """Format one Telegram message from the derivatives target book."""
@@ -142,6 +143,12 @@ def format_derivatives_message(
         *_close_and_execution_lines(pd.Timestamp(signal_date), pd.Timestamp(execution_hint)),
         f"模式: Bitget 合约 · 名义上限 {leverage:g}x · 每腿隔离保证金 = 名义 × "
         f"{max(long_margin_ratio, short_margin_ratio) * 100:.1f}% · 手动下单",
+    ]
+    if has_short:
+        lines.append(
+            f"风控: 空头止损 {short_stop_loss_pct:.0%} · mark-price · 开/加仓时附带"
+        )
+    lines += [
         "",
         f"今日调仓（按权益 {capital:.2f} USDT）:",
     ]
@@ -235,8 +242,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    signal_date, _, book = load_latest_targets(args.targets_file)
-    execution_hint = live_execution_hint_for_signal(signal_date)
+    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
     raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
     try:
         capital = float(raw_capital)
@@ -264,7 +270,7 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(
             f"signal {signal_date.date()} was meant to execute at {execution_hint} "
             f"({age_hours:.1f}h ago, limit {args.max_signal_age_hours:g}h); refusing to send a "
-            "stale instruction. Refresh the pipeline (make derivatives-oos-data derivatives-oos) "
+            "stale instruction. Refresh the pipeline (make derivatives-live-data derivatives-ls45-signal) "
             "or pass --allow-stale-signal to replay the ledger."
         )
 

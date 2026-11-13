@@ -122,3 +122,32 @@ def test_audit_process_failure_reports_its_exit_code_and_stderr() -> None:
 def test_gross_ratio_is_unknown_when_equity_is_zero() -> None:
     assert _gross_ratio(gross=0.0, equity=0.0) is None
     assert _gross_ratio(gross=25.0, equity=100.0) == 0.25
+
+
+def test_monitor_defaults_belong_to_the_ls45_live_book() -> None:
+    from scripts import monitor_live_track
+
+    assert monitor_live_track.DEFAULT_STATE_FILE == Path(
+        "data/ls45_g125_execution_state.json"
+    )
+    assert monitor_live_track.DEFAULT_OUT == Path(
+        "reports/ls45_live_g125_live/health.json"
+    )
+
+
+def test_monitor_compares_signed_short_notional_to_the_signed_target() -> None:
+    import pytest
+    from scripts import monitor_live_track
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "20", "posSide": "short", "markPrice": "5"},
+        {"symbol": "TRXUSDT", "total": "-10", "posSide": "net", "markPrice": "2"},
+    ]
+
+    actual = monitor_live_track._position_notional(
+        positions,
+        {"near": "NEARUSDT", "tron": "TRXUSDT"},
+    )
+
+    assert actual["near"] == pytest.approx(-100.0)
+    assert actual["tron"] == pytest.approx(-20.0)

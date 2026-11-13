@@ -18,6 +18,8 @@ def _spec(symbol: str = "NEARUSDT", **kwargs) -> ContractSpec:
         "quantity_multiplier": 1.0,
         "min_order_usdt": 5.0,
         "quantity_precision": 0,
+        "price_multiplier": 0.01,
+        "price_precision": 2,
     }
     payload.update(kwargs)
     return ContractSpec(symbol=symbol, **payload)
@@ -336,6 +338,73 @@ def test_long_to_short_flip_closes_then_opens_the_opposite_side() -> None:
     ]
     assert [order.size for order in plan.orders] == [100.0, 100.0]
     assert plan.signed_target_notional["near"] == pytest.approx(-200.0)
+
+
+def test_short_open_carries_the_configured_mark_price_stop() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=1000.0),
+        {"near": -0.25},
+        {"near": _spec()},
+        {"near": 2.0},
+        short_stop_loss_pct=0.20,
+    )
+
+    order = plan.orders[0]
+    assert order.stop_loss == pytest.approx(2.40)
+    assert order.as_dict()["stop_loss"] == pytest.approx(2.40)
+
+
+def test_short_stop_price_is_rounded_up_to_the_instrument_tick() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=1000.0),
+        {"near": -0.25},
+        {"near": _spec()},
+        {"near": 2.01},
+        short_stop_loss_pct=0.20,
+    )
+
+    assert plan.orders[0].stop_loss == pytest.approx(2.42)
+
+
+def test_short_increase_stop_tracks_weighted_entry_price() -> None:
+    position = _short_position(size=50.0, entry=1.8, mark=2.0, margin=51.5)
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=1000.0, positions={"near": position}),
+        {"near": -0.25},
+        {"near": _spec()},
+        {"near": 2.0},
+        short_stop_loss_pct=0.20,
+    )
+
+    order = next(item for item in plan.orders if item.action == "INCREASE")
+    expected_entry = (50.0 * 1.8 + 75.0 * 2.0) / 125.0
+    assert order.stop_loss == pytest.approx(2.31)
+    assert order.stop_loss >= expected_entry * 1.20
+
+
+def test_short_close_does_not_submit_a_new_stop() -> None:
+    position = _short_position(size=100.0, entry=2.0, mark=2.0, margin=103.0)
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=100.0, positions={"near": position}),
+        {},
+        {"near": _spec()},
+        {"near": 2.0},
+        short_stop_loss_pct=0.20,
+    )
+
+    assert plan.orders[0].action == "CLOSE"
+    assert plan.orders[0].stop_loss is None
+
+
+def test_short_stop_loss_rejects_invalid_percentage() -> None:
+    with pytest.raises(ValueError, match="short_stop_loss_pct"):
+        build_execution_plan(
+            AccountState(equity=1000.0, available_margin=1000.0),
+            {"near": -0.25},
+            {"near": _spec()},
+            {"near": 2.0},
+            short_stop_loss_pct=1.0,
+        )
 
 
 def test_max_gross_exposure_scales_signed_long_short_book() -> None:

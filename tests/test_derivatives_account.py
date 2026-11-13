@@ -160,6 +160,32 @@ def test_market_order_omits_price_and_formats_qty() -> None:
     assert "marginMode" not in body
 
 
+def test_market_order_carries_an_attached_short_stop_loss() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    client.place_order(
+        symbol="NEARUSDT",
+        qty=12.5,
+        side="sell",
+        pos_side="short",
+        stop_loss=2.4,
+    )
+
+    body = json.loads(session.calls[0]["data"])
+    assert body["stopLoss"] == "2.4"
+    assert body["slTriggerBy"] == "mark_price"
+    assert body["slOrderType"] == "market"
+
+
+def test_stop_loss_requires_a_positive_price() -> None:
+    session = _FakeSession([])
+    client = _client(session)
+
+    with pytest.raises(ValueError, match="stop_loss"):
+        client.place_order(symbol="NEARUSDT", qty=1.0, side="sell", stop_loss=0.0)
+
+
 def test_limit_order_requires_a_price() -> None:
     session = _FakeSession([])
     client = _client(session)

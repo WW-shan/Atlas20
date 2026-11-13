@@ -200,7 +200,7 @@ fallback_live_research: dict[str, Any] = {
             "status": "ok",
             "execution_hint": "2026-10-09 03:00:00+00:00",
             "signal_date": "2026-10-08",
-            "spec": "PR2026-10-D-L125-V2",
+            "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
             "equity_before": 99.97274716,
             "equity_after": 99.97414715,
             "balance_after": 99.87194716,
@@ -219,7 +219,7 @@ fallback_live_research: dict[str, Any] = {
             "equity": 99.95454715,
             "position_value": 75.1128,
             "signal_date": "2026-10-08",
-            "spec": "PR2026-10-D-L125-V2",
+            "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
             "checks": [],
         },
         "equivalence": {
@@ -232,9 +232,9 @@ fallback_live_research: dict[str, Any] = {
             "events_only_in_backtest": [],
             "events_only_in_live": ["2026-10-08"],
             "overlapping_event_days": 599,
-            "spec": "PR2026-10-D-L125-V2",
-            "trial_id_backtest": "PR2026-10-H5",
-            "trial_id_live": "PR2026-10-H5",
+            "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+            "trial_id_backtest": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+            "trial_id_live": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
         },
         "journal": [
             {

@@ -175,3 +175,34 @@ def test_one_way_negative_position_is_recorded_as_short() -> None:
 
     assert account.positions["near"].side == "short"
     assert account.positions["near"].size == pytest.approx(2.0)
+
+
+def test_journal_records_a_one_way_negative_position_as_a_signed_short() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "total": "-20",
+                "posSide": "net",
+                "avgPrice": "5",
+                "markPrice": "5",
+            }
+        ],
+    )
+
+    entry = execute_live_plan._journal_entry(
+        report,
+        signal_date="2026-11-13",
+        run_at=datetime(2026, 11, 14, 3, 5, tzinfo=timezone.utc),
+        prev_equity=None,
+        capital_flow=0.0,
+        warnings=[],
+    )
+
+    assert entry.positions[0]["side"] == "short"
+    assert entry.positions[0]["qty"] == pytest.approx(20.0)
+    assert entry.positions[0]["weight"] == pytest.approx(-1.0)

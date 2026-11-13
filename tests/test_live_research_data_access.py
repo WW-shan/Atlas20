@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from atlas20.api.data_access.live import load_live_research
+from atlas20.api.data_access.live import _execution_payload, load_live_research
 from atlas20.api.settings import Settings
 
 
@@ -114,7 +114,7 @@ def test_load_live_research_reads_current_spot_and_oos(tmp_path: Path) -> None:
 
 
 def _write_derivatives(root: Path) -> None:
-    execution = root / "derivatives_track_execution"
+    execution = root / "ls45_live_g125_live"
     execution.mkdir()
     (execution / "latest.json").write_text(
         json.dumps(
@@ -122,7 +122,7 @@ def _write_derivatives(root: Path) -> None:
                 "status": "ok",
                 "signal_date": "2026-10-08",
                 "execution_hint": "2026-10-09 03:00:00+00:00",
-                "spec": "PR2026-10-D-L125-V2",
+                "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
                 "plan": {
                     "equity": 99.97,
                     "expected_gross_notional": 75.13,
@@ -143,8 +143,7 @@ def _write_derivatives(root: Path) -> None:
         encoding="utf-8",
     )
 
-    live = root / "derivatives_track_live"
-    live.mkdir()
+    live = execution
     (live / "health.json").write_text(
         json.dumps(
             {
@@ -162,7 +161,7 @@ def _write_derivatives(root: Path) -> None:
                 "equity": 99.95,
                 "position_value": 75.11,
                 "signal_date": "2026-10-08",
-                "spec": "PR2026-10-D-L125-V2",
+                "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
                 "hard_failures": 0,
                 "checks": [
                     {
@@ -188,9 +187,9 @@ def _write_derivatives(root: Path) -> None:
                 "events_only_in_backtest": [],
                 "events_only_in_live": ["2026-10-08"],
                 "overlapping_event_days": 599,
-                "spec": "PR2026-10-D-L125-V2",
-                "trial_id_backtest": "PR2026-10-H5",
-                "trial_id_live": "PR2026-10-H5",
+                "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                "trial_id_backtest": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                "trial_id_live": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
             }
         ),
         encoding="utf-8",
@@ -232,3 +231,19 @@ def test_load_live_research_reports_missing_artifacts_without_fabricating_data(t
         "derivatives_execution",
         "derivatives_health",
     } <= unavailable
+
+
+def test_execution_payload_preserves_observed_zero_values() -> None:
+    payload = _execution_payload(
+        {
+            "plan": {"equity": 100.0, "expected_gross_notional": 50.0},
+            "report": {
+                "equity_before": 100.0,
+                "equity_after": 0.0,
+                "position_value": 0.0,
+            },
+        }
+    )
+
+    assert payload["equity_after"] == 0.0
+    assert payload["position_value"] == 0.0

@@ -37,10 +37,12 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
     load_journal,
     net_capital_flow,
+    protected_short_symbols,
 )
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
@@ -56,9 +58,9 @@ from scripts.plan_live_execution import (  # noqa: E402
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 
-DEFAULT_JOURNAL_FILE = Path("reports/derivatives_track_live/journal.csv")
-DEFAULT_MANIFEST_FILE = Path("reports/derivatives_track_oos_2026/manifest.json")
-DEFAULT_JSON_OUT = Path("reports/derivatives_track_live/audit.json")
+DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
+DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
+DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/audit.json")
 SPEC_MAX_GROSS = 1.25
 
 
@@ -75,6 +77,66 @@ def _fees(row: dict) -> float:
         if isinstance(item, dict):
             total += _num(item.get("fee"))
     return total
+
+
+def _position_signed_qty(row: dict) -> float:
+    """Signed quantity from both hedge and one-way position payloads."""
+
+    total = _num(row.get("total"))
+    if abs(total) <= 1e-12:
+        return 0.0
+    pos_side = str(row.get("posSide") or "").lower()
+    short = pos_side == "short" or (pos_side in {"", "net"} and total < 0.0)
+    return -abs(total) if short else abs(total)
+
+
+def _position_signed_notional(row: dict) -> float:
+    """Signed mark notional, negative for each short leg."""
+
+    mark = _num(row.get("markPrice") or row.get("avgPrice"))
+    return _position_signed_qty(row) * mark
+
+
+def _trade_mismatch(trade: dict, venue: dict) -> str | None:
+    """Return the first reproducibility mismatch for one journaled fill."""
+
+    same_qty = abs(_num(venue.get("cumExecQty")) - _num(trade.get("qty"))) <= 1e-9
+    same_price = abs(_num(venue.get("avgPrice")) - _num(trade.get("avg_price"))) <= 1e-6
+    same_fee = abs(_fees(venue) - _num(trade.get("fee"))) <= 1e-6
+    if not (same_qty and same_price and same_fee):
+        return (
+            f"台账 {trade.get('qty')}/{trade.get('avg_price')}/{trade.get('fee')} "
+            f"vs 交易所 {venue.get('cumExecQty')}/{venue.get('avgPrice')}/{_fees(venue):.8f}"
+        )
+    recorded_stop = trade.get("stop_loss")
+    if recorded_stop is not None:
+        venue_stop = _num(venue.get("stopLoss"))
+        trigger = str(venue.get("slTriggerBy") or "").lower()
+        order_type = str(venue.get("slOrderType") or "").lower()
+        if (
+            abs(venue_stop - _num(recorded_stop)) > 1e-6
+            or trigger != "mark_price"
+            or order_type != "market"
+        ):
+            return (
+                f"止损台账 {_num(recorded_stop):.8g}/mark_price/market vs 交易所 "
+                f"{venue_stop:.8g}/{trigger or 'missing'}/{order_type or 'missing'}"
+            )
+    return None
+
+
+def _short_stop_gaps(journal: pd.DataFrame, positions: list[dict]) -> list[str]:
+    """Open short symbols with no journaled entry that carried a stop."""
+
+    protected = protected_short_symbols(journal)
+    gaps: list[str] = []
+    for row in positions:
+        if _position_signed_qty(row) >= 0.0:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol and symbol not in protected:
+            gaps.append(symbol)
+    return sorted(set(gaps))
 
 
 def _ledger_expected_equity(
@@ -99,7 +161,13 @@ def _ledger_expected_equity(
         if ledger_row is None:
             mismatches.append(f"{symbol} 不在台账里")
             continue
-        expected_equity += abs(_num(row.get("total"))) * (
+        ledger_side = str(ledger_row.get("side") or "").lower()
+        current_side = "short" if _position_signed_qty(row) < 0.0 else "long"
+        if ledger_side in {"long", "short"} and ledger_side != current_side:
+            mismatches.append(
+                f"{symbol} 方向变了：台账 {ledger_side} vs 当前 {current_side}"
+            )
+        expected_equity += _position_signed_qty(row) * (
             _num(row.get("markPrice")) - _num(ledger_row.get("mark_price"))
         )
     if ledger_by_symbol:
@@ -243,6 +311,9 @@ def main(argv: list[str] | None = None) -> int:
     if not journal.empty:
         for _, row in journal.iterrows():
             for trade in json.loads(row["trades"] or "[]"):
+                status = str(trade.get("status") or "filled").lower()
+                if status != "filled":
+                    continue
                 order_id = str(trade.get("order_id"))
                 venue = by_id.get(order_id)
                 if venue is None:
@@ -250,18 +321,20 @@ def main(argv: list[str] | None = None) -> int:
                     if str(row["date"]) >= (checked_at - timedelta(days=args.history_days - 1)).strftime("%Y-%m-%d"):
                         missing.append(order_id)
                     continue
-                same_qty = abs(_num(venue.get("cumExecQty")) - _num(trade.get("qty"))) <= 1e-9
-                same_price = abs(_num(venue.get("avgPrice")) - _num(trade.get("avg_price"))) <= 1e-6
-                same_fee = abs(_fees(venue) - _num(trade.get("fee"))) <= 1e-6
-                if not (same_qty and same_price and same_fee):
-                    mismatched.append(
-                        f"{order_id}: 台账 {trade.get('qty')}/{trade.get('avg_price')}/{trade.get('fee')}"
-                        f" vs 交易所 {venue.get('cumExecQty')}/{venue.get('avgPrice')}/{_fees(venue):.8f}"
-                    )
+                mismatch = _trade_mismatch(trade, venue)
+                if mismatch is not None:
+                    mismatched.append(f"{order_id}: {mismatch}")
     check(
         "台账成交都能在交易所订单历史里对上",
         not missing and not mismatched,
         "; ".join(missing + mismatched) or f"核对 {len(by_id)} 笔订单",
+    )
+
+    stop_gaps = _short_stop_gaps(journal, positions)
+    check(
+        "所有空头仓位都有附带止损的入场成交记录",
+        not stop_gaps,
+        ", ".join(stop_gaps) or "无空头仓，或有止损记录的空头仓",
     )
 
     # -- signal vs book --------------------------------------------------
@@ -273,11 +346,12 @@ def main(argv: list[str] | None = None) -> int:
         return upper.replace("USDT", "").lower()
 
     notional_by_asset: dict[str, float] = {}
+    signed_notional_by_asset: dict[str, float] = {}
     for row in positions:
         asset = asset_of(str(row.get("symbol") or ""))
-        notional_by_asset[asset] = abs(_num(row.get("total"))) * _num(
-            row.get("markPrice") or row.get("avgPrice")
-        )
+        signed = _position_signed_notional(row)
+        notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + abs(signed)
+        signed_notional_by_asset[asset] = signed_notional_by_asset.get(asset, 0.0) + signed
     lot_by_asset = {
         asset: float(spec.min_order_qty or spec.quantity_multiplier)
         * _num(prices.get(relevant[asset].upper()))
@@ -286,8 +360,8 @@ def main(argv: list[str] | None = None) -> int:
     off_target: list[str] = []
     for asset, weight in targets.items():
         want = weight * equity
-        got = notional_by_asset.get(asset, 0.0)
-        tolerance = max(1.0, 0.01 * want, 1.5 * float(lot_by_asset.get(asset, 0.0)))
+        got = signed_notional_by_asset.get(asset, 0.0)
+        tolerance = max(1.0, 0.01 * abs(want), 1.5 * float(lot_by_asset.get(asset, 0.0)))
         if abs(got - want) > tolerance:
             off_target.append(f"{asset.upper()} 目标 {want:.2f} vs 实际 {got:.2f}")
     check("持仓与冻结目标一致（1 个合约步长内）", not off_target, "; ".join(off_target) or "全部吻合")
@@ -315,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
     ).days
     if args.manifest_file.exists():
         manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
-        staleness = float(manifest.get("staleness_hours") or 0.0)
+        staleness = manifest_staleness_hours(manifest, checked_at)
         index_end = str(manifest.get("index_end_date") or "")
         signal_end = str(manifest.get("signal_end_date") or "")
         check(

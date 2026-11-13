@@ -6,9 +6,9 @@
 #
 #   1. decide whether this load may trade at all              (preflight window)
 #   2. repair the point-in-time Top20 panel if it lags        (self-heal)
-#   3. refresh Bitget mark candles and rebuild the book       (derivatives-oos)
+#   3. refresh Bitget mark candles and rebuild the LS45 book  (derivatives-live-data)
 #   4. size the book from the real account equity, place the orders, write the
-#      journal, and push the Telegram report                  (execute-plan-live)
+#      journal, and push the Telegram report                  (derivatives-live)
 #
 # Why a wrapper instead of a ProgramArguments one-liner: launchd does not read
 # ~/.zshrc or any shell rc file, so export statements living in a shell profile
@@ -22,10 +22,10 @@
 # (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
 # checkout and the credentials somewhere else, so both paths are overridable.
 #
-# The primary schedule fires at 09:05 Beijing = 01:05 UTC, about one hour after
-# the 00:00 UTC signal close and after the early 00:30 UTC panel refresh. The
-# old 03:05/03:35/04:35/06:35 UTC fires remain fallbacks; a successful same-day
-# run makes those retries no-ops. macOS loads the job at boot (RunAtLoad) and
+# The primary schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after
+# the LS45 ledger's T+1 +3h execution hint. The 03:35/04:35/06:35 UTC fires
+# remain fallbacks; a successful same-day run makes those retries no-ops.
+# macOS loads the job at boot (RunAtLoad) and
 # systemd replays a missed timer fire (Persistent=true);
 # scripts/live_chain_preflight.py keeps those from turning into a second trade
 # or an out-of-hours one.
@@ -119,6 +119,6 @@ elif [ "$panel_status" -ne 0 ]; then
 fi
 
 # --- 3/4. The chain itself ---------------------------------------------------
-# Refresh the Bitget mark tree before the book is rebuilt; the executor refuses
-# to trade on a stale mark tree, so this order is mandatory.
-/usr/bin/make derivatives-oos-data derivatives-oos execute-plan-live
+# Refresh the Bitget mark tree, rebuild the frozen LS45 ledger, then execute.
+# The executor refuses to trade on stale data, so this order is mandatory.
+/usr/bin/make derivatives-live

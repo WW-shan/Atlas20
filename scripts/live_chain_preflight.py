@@ -45,7 +45,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 
 BLOCKED = 3
 DEFAULT_PANEL = PROJECT_ROOT / "data" / "processed" / "panel_daily.csv"
-DEFAULT_STATE_FILE = PROJECT_ROOT / "data" / "derivatives_execution_state.json"
+DEFAULT_STATE_FILE = PROJECT_ROOT / "data" / "ls45_g125_execution_state.json"
 
 
 def _parse_clock(value: str) -> time:

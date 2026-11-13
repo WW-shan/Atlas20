@@ -1,455 +1,331 @@
-# 衍生品轨（Bitget USDT-M）实盘 Runbook
+# LS45-G125 Bitget USDT-M 实盘 Runbook
 
-> 适用规格：**`PR2026-10-D-L125-V2`** —— H5 多头账本 × 1.25x 名义、**隔离保证金**、
-> 每腿 50% 保证金缓冲、20 bps 成本、T+1 信号；回测保守口径为 +3h，实盘已按 00:30 早盘刷新
-> 和 01:05 UTC 执行优化。规格已冻结，本文只描述**执行**，不允许在实盘中改参数。
+> 当前实盘规格：**`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`**
 >
-> 证据与门槛状态：`RESEARCH.md` §9.8–9.9、`docs/research/derivatives_track_research_2026-10.md` §13。
-> 门槛 #9（pre-2022 压力）为 partial-with-bounding、#10（12 个月样本外）进行中；
-> 其余门槛已通过。**在 #10 满 12 个月之前，仓位上限就是「总资金的 3%」小规模试运行。**
+> - 标的：Bitget **USDT-M 永续**，允许有符号多空账本；
+> - H5 多头 + 利润保护 + 空头路由 + 21D 强持有者再分配；
+> - 目标 **gross 硬上限 1.25x 权益**，实际 gross 可以更低，空仓即 100% cash；
+> - 交易所杠杆配置 **2x isolated**，多空每腿 initial buffer 均为 **50%**；
+> - 空头开/加仓附带 **20% adverse move、mark-price、market stop**；
+> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；实盘主任务在其后 **03:05 UTC** 运行；
+> - 成本口径 20 bps，funding 使用 Bitget exact；
+> - 当前策略书与选择证据：`docs/superpowers/specs/2026-11-13-ls103-live-candidate-selection.md`；
+> - 研究记录：`RESEARCH.md` §00.138；回测产物：`reports/ls45_live_g125/`。
+>
+> 本文只描述执行与恢复，不允许在实盘中临时改参数。运行时代码和状态优先于本文摘要。
 
 ---
 
-## 0. 当前部署：本机 macOS（launchd，2026-10-11 起生效）
+## 1. 当前自动化拓扑
 
-负责人决定**暂不部署 Ubuntu**：自动调仓就跑在这台 Mac 上，用 launchd（系统自带）做定时。
-五个 launchd 任务各管一件事，互不重叠：
+### 1.1 macOS（本机默认）
 
-| launchd 任务 | 本机时间（北京） | 干什么 | 日志 |
+| launchd 任务 | 北京时间 | 作用 | 日志 |
 |---|---|---|---|
-| `com.atlas20.daily-refresh` | 每天 **08:30、08:50**、10:30、10:55、14:30 | 拉 CMC/Binance/Gate 缓存并重建 `panel_daily.csv`（**00:30 / 00:50** / 02:30 / 02:55 / 06:30 UTC）。前两次是早盘快路径，后三次是回退；面板已覆盖最后完整 UTC 日且最后一天完整时脚本直接跳过，下载+构建全程持文件锁 | `~/Library/Logs/atlas20-daily-refresh.log` |
-| `com.atlas20.cmc-probe` | 每天 08:05–11:50 每 15 分钟 | 记录 CMC 何时发布完 D-1 收盘（研究用，不影响交易） | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | 每天 **09:05**，失败重试 **09:35 / 11:05 / 11:35 / 12:35 / 14:35** | **实盘主任务**：刷 mark → 重建冻结账本 → 按真实权益下单 → 写台账 → 发 Telegram；成功当天重试会直接跳过 | `~/Library/Logs/atlas20-derivatives-execute.log` |
-| `com.atlas20.live-monitor` | 每天 **19:00** | **只读巡检**：跑全链路核对 + 仓位偏离 + 名义上限 + 执行新鲜度；**只在异常时发 Telegram**（安静=正常） | `~/Library/Logs/atlas20-live-monitor.log` |
-| `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 重建并给上述运营日志加 macOS `uappnd`（append-only）保护；腾讯柠檬等清理工具无法删除或清空，launchd 仍可正常追加 | `~/Library/Logs/atlas20-log-protect.log` |
+| `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
+| `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
+| `com.atlas20.derivatives-execute` | **11:05**；重试 11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
+| `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
 
-**日志防清理（2026-10-26 起）**：腾讯柠檬在 18:53 清理时误删了 3 个 Atlas20 运营日志，
-随后主任务卡在 `spawn failed`；用 `launchctl bootout` + `bootstrap` 重新加载后恢复。柠檬没有
-稳定、可自动写入的单路径清理排除配置，因此项目改用文件系统级保护：`ops/protect_live_logs.sh`
-把五个 launchd 日志设为用户 append-only。launchd 追加输出不受影响，但普通写截断和 `rm` 会
-返回 `Operation not permitted`。`RunAtLoad=true` 在登录后立即恢复保护，`StartInterval=300`
-每 5 分钟检查一次；若文件被删或 flag 丢失，会自动重建并重新保护。
+主任务入口固定为：
 
-```bash
-# 立即应用（日常由 protect-live-logs 任务自动维护）
-make protect-logs
-
-# 安装/更新保护任务
-cp ops/com.atlas20.protect-live-logs.plist ~/Library/LaunchAgents/
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.protect-live-logs.plist 2>/dev/null || true
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.protect-live-logs.plist
-launchctl print gui/$(id -u)/com.atlas20.protect-live-logs | head -30
+```text
+com.atlas20.derivatives-execute
+  -> ops/run_derivatives_daily.sh
+  -> make derivatives-live
+     -> derivatives-live-data
+     -> derivatives-ls45-signal
+     -> scripts/execute_live_plan.py --live --notify --require-isolated
 ```
 
-> append-only 是保护，不是日志轮转机制。确需清空/归档时，先卸下
-> `com.atlas20.protect-live-logs`，对目标日志执行 `chflags nouappnd <path>`，完成轮转后再安装任务。
-> 如仍希望在腾讯柠檬 GUI 里给项目目录加白名单，可作为额外防线；自动交易日志已不依赖该设置。
+`derivatives-live-data` 使用稳定目录：
 
-主任务的实现：`ops/com.atlas20.derivatives-execute.plist` 调用
-`ops/run_derivatives_daily.sh`，脚本里 `set -a` 加载 `~/.config/atlas20/{bitget,telegram}.env`
-（launchd **不读** shell rc 文件，凭证必须由脚本自己加载；缺文件直接退出 1，不会盲目下单），
-然后执行 `make derivatives-oos-data derivatives-oos execute-plan-live`。调度时点由
-`tests/test_launchd_derivatives_schedule.py` 钉住：09:05 北京 = 01:05 UTC，在模型 T+1
-约一小时成交点之后，且在早盘面板刷新之后。09:35 / 11:05 / 11:35 / 12:35 / 14:35 的重试用于接住
-瞬时接口错误、未成交订单、晚发布数据和部分成交；只要当天状态已是 `ok`，包装脚本会快速跳过。
+```text
+data/raw/bitget_derivatives/merged_oos_20261112/
+```
 
-**重启与自愈（2026-10-16 起）**：plist 的 `RunAtLoad=true`，所以重启/登录时也会跑一次包装脚本；
-包装脚本先用 `scripts/live_chain_preflight.py` 过两道闸：
+下载器每天用滚动窗口追加/修复 mark，不再回退到旧的 `merged_oos_20261009` 实盘源。
 
-1. `--check window`：只允许"01:05 UTC 起 **6 小时**内 **且** 当日 run day 尚未成功"时交易。
-   窗口外、或当日已成交 → 静默退出（exit 3，与真错误区分）；`partial`/失败状态会在当天的
-   11:35、12:35、14:35 重试。
-   这样重启补跑不会重复下单，也不会在信号早已失效时补单；窗口外漏跑由 19:00 巡检告警。
-   注意 `launchctl kickstart` 不带参数，所以它**永远遵守窗口**；要窗口外补做只能跑
-   `ops/run_derivatives_daily.sh --force`。
-2. `--check panel`：`panel_daily.csv` 落后于最后完整 UTC 日，**或最后一天成交/市值覆盖不完整**时，先调用
-   `scripts/refresh_daily_data.py --force --wait-seconds 900` 自愈（会等已在跑的刷新，不与其抢锁），
-   然后**再次**检查；仍然不完整就拒绝进入下单链。这样不会把 CMC 尚未发布完的半天面板当成信号。
-
-2026-10-16 实测故障即此路径：机器 10:34 关机、10:35:17 重启，打断了 10:30 的主刷新，面板停在
-10-14，当时 11:05 的主任务按设计拒绝下单（当日无成交）。现在同样的重启会被 00:50 早盘补跑或主任务自愈接住。
-
-安装 / 检查 / 手动补跑：
+### 1.2 Ubuntu（可选，不能与 macOS 同时跑）
 
 ```bash
-# 安装（一次）
-cp ops/com.atlas20.derivatives-execute.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.derivatives-execute.plist
-launchctl list | grep atlas20
+sudo cp ops/systemd/atlas20-data-refresh.{service,timer} /etc/systemd/system/
+sudo cp ops/systemd/atlas20-derivatives-execute.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execute.timer
+```
 
-# 查看
-launchctl print gui/$(id -u)/com.atlas20.derivatives-execute | head -30
-tail -50 ~/Library/Logs/atlas20-derivatives-execute.log
+- execute timer：03:05 / 03:35 / 04:35 / 06:35 UTC；
+- `Persistent=true`：重启后补跑错过的一次；
+- 补跑仍经过窗口闸和当日幂等闸；
+- 不要同时安装 `atlas20-derivatives-signal.timer` 与 execute timer。signal timer 只给“不下单、只播报”的备用部署使用。
 
-# 手动补跑（幂等：同一天成功后重跑直接跳过）
-launchctl kickstart -k gui/$(id -u)/com.atlas20.derivatives-execute
-ops/run_derivatives_daily.sh
+---
 
-# 窗口外（北京 17:05 之后）仍要补做今天这一次：必须显式 --force。
-# --force 只跳过窗口闸；面板自愈、执行器的所有闸门照旧，当天已成功仍不重复下单。
+## 2. 信号与执行时点
+
+目标账本每行包含权威字段 `execution_hint`。当前 LS45 账本固定为：
+
+```text
+signal_date D 00:00 UTC
+execution_hint D+1 03:00 UTC
+```
+
+计划、Telegram 信号和执行报告都直接读取这个字段，**不再重新计算旧的 01:05 UTC**。
+
+实盘任务在 03:05 UTC 开始，是为了给账本重算、行情读取和交易所请求留 5 分钟；重试点在：
+
+```text
+03:05 UTC = 11:05 北京  primary
+03:35 UTC = 11:35 北京  retry
+04:35 UTC = 12:35 北京  retry
+06:35 UTC = 14:35 北京  final retry
+```
+
+交易窗口从 03:05 UTC 起 6 小时，即最晚到 09:05 UTC / 17:05 北京。窗口外只允许人工显式 `--force` 补做；即使 `--force`，当日已成功、数据不新鲜、风险或对账闸门仍会阻止重复交易。
+
+---
+
+## 3. 自愈、补跑和幂等
+
+`ops/run_derivatives_daily.sh` 在每次 launchd/systemd 启动时按顺序执行：
+
+1. **窗口闸**：`scripts/live_chain_preflight.py --check window`
+   - 03:05 UTC 前退出；
+   - 当日状态已 `ok` 退出；
+   - 超过 6 小时补跑窗口退出；
+   - 退出码 3 表示“设计上不交易”，不是故障。
+2. **面板自愈**：`--check panel`
+   - 面板落后或最后一天不完整时，运行 `refresh_daily_data.py --force --wait-seconds 900`；
+   - 刷新后再次检查，仍不完整就拒绝下单。
+3. **数据与账本**：`make derivatives-live-data derivatives-ls45-signal`
+4. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
+
+执行器自身还有：
+
+- mark 新鲜度硬阈值 30h；
+- 目标账本评估日必须等于数据最新可判定日；
+- 实时 ticker 不得超过 120s、价格必须可用；
+- account equity 不低于 20 USDT；
+- kill switch 文件存在时拒绝一切操作；
+- 每个 run day 只允许一个 `ok`；`partial` 会在后续重试窗口重读账户并自愈；
+- 同一 run day 的 clientOid 稳定；请求超时或缺少 `orderId` 时按 clientOid 回查，避免重启重试
+  把“已接受但响应丢失”的订单再下一遍；
+- 成交、journal、latest.json、通知全部成功后才写 `ok`；
+- journal 或 Telegram 写失败时不会把 run 标记为完成。
+
+kill switch：
+
+```bash
+touch data/ls45_g125_execution.KILL   # 立即阻止新的执行
+rm data/ls45_g125_execution.KILL      # 恢复
+```
+
+注意：kill switch 只阻止新一轮执行，不会自动平仓；已有仓位仍由交易所止损及人工操作管理。
+
+---
+
+## 4. 多空与空头止损
+
+### 4.1 有符号账本
+
+`target_weight > 0` 为多，`target_weight < 0` 为空。执行器：
+
+- 开多：`buy + posSide=long`（hedge）或 `buy`（one-way）；
+- 开空：`sell + posSide=short`（hedge）或 `sell`（one-way）；
+- 平多：`sell`；
+- 平空：`buy`；
+- 方向翻转始终先 `CLOSE`，再 `OPEN`；
+- gross 使用 `Σ abs(signed_notional)`，不是净头寸；
+- 目标 gross 硬上限为账户权益 × 1.25。
+
+### 4.2 空头 20% 止损
+
+空头开/加仓时，订单本身附带：
+
+```text
+stopLoss    = 预计成交后的加权入场价 × 1.20
+slTriggerBy = mark_price
+slOrderType = market
+```
+
+计划器会按现有空头数量、已有入场价和新增订单数量计算预计加权入场价，因此加仓后止损不会停留在旧仓位的价格。
+
+执行器成交后必须从交易所 `order-info` 回读 `stopLoss`：
+
+- 同时核对 `stopLoss / slTriggerBy / slOrderType`，必须等于请求价格、`mark_price`、`market`；
+- 回读一致：把三字段和 `position_side / client_oid / status` 一并记录到 journal；
+- 未确认：立即市价买回平掉该空头（`EMERGENCY_CLOSE`），并把本次 run 标记为 `partial`；
+- 空头加仓的止损未确认时，平掉该 symbol 当前完整空头腿，而不只是新加的数量；
+- 下一次重试会重新读取真实账户，不会重复开仓；
+- `audit-live` 会核对 journal 中带止损的空头成交与交易所订单历史的 `stopLoss / slTriggerBy / slOrderType`。
+
+止损保护按当前空头开仓周期维护。平仓后旧 journal 中的历史 stop 不会继续保护后续重开的空头；
+当前空头若没有完整的当周期入场 stop 记录，会先被 `EMERGENCY_CLOSE`。
+
+空头止损阈值与回测一致：`entry_price × 1.20`，mark price 触发。
+
+---
+
+## 5. 保证金与交易所限制
+
+当前规格要求 **isolated**。自动链使用 `--require-isolated`：
+
+- 逐仓杠杆设置失败：跳过该腿并写失败，不降级为 crossed；
+- 下单时交易所拒绝逐仓：不重试 crossed，直接失败；
+- 执行前持仓回读不是 isolated：阻断全部新开/加仓，只允许 reduce/close；
+- 执行后持仓回读不是 isolated：增加硬失败，状态不会是 `ok`。
+
+生产路径只设置目标方向的 isolated leverage，不要求 crossed leverage 设置成功。
+
+若 API key 是“精英交易/跟单”类型，可能不支持逐仓、`set-margin`、one-way 或持仓模式切换。正确做法是换普通 API key，不是放宽执行器。
+
+保证金路径：
+
+1. symbol 设置 2x isolated；
+2. 成交后交易所自动占用约 50% 名义；
+3. 执行器按计划调用 `set-margin(add/remove)`，把每腿保证金补到约 51.5%；
+4. 交易所拒绝 `set-margin` 时记录 margin note；若持仓模式本身不是 isolated，则按上面的硬失败处理。
+
+---
+
+## 6. 关键文件与状态
+
+| 路径 | 内容 |
+|---|---|
+| `reports/ls45_live_g125/oos_targets.csv` | 冻结的有符号目标账本 |
+| `reports/ls45_live_g125/manifest.json` | 数据覆盖、spec、funding、冻结参数、评估日 |
+| `reports/ls45_live_g125/report.md` | LS45 研究回测报告 |
+| `reports/ls45_live_g125_live/latest.json` | 最近一次真实执行的计划、报价、报告 |
+| `reports/ls45_live_g125_live/journal.csv` | 每日权益、仓位、成交、止损记录、notes |
+| `reports/ls45_live_g125_live/audit.json` | 只读对账输出 |
+| `reports/ls45_live_g125_live/health.json` | 19:00 巡检快照 |
+| `data/ls45_g125_execution_state.json` | 执行幂等状态 |
+| `data/ls45_g125_telegram_state.json` | Telegram 播报幂等状态 |
+| `data/ls45_g125_execution.KILL` | kill switch（存在即停止新执行） |
+| `reports/derivatives_track_live/capital_flows.csv` | 账户级外部资金流；入金/出金不能计为策略 PnL |
+
+`data/` 是本地运行状态，不随 git 部署。迁移机器时必须同步 credentials、`data/ls45_g125_execution_state.json`、`data/ls45_g125_telegram_state.json`、journal 和所需 raw/processed 数据，否则会重复执行或重复播报。
+
+---
+
+## 7. 常用命令
+
+### 7.1 只读检查
+
+```bash
+make audit-live
+make derivatives-signal                 # Telegram 文本 dry-run
+make execution-plan-live                # 读真实账户，只发计划，不下单
+make execute-plan                       # 读真实账户，执行器 dry-run，不下单
+ops/run_live_monitor.sh                 # 只在异常时发 Telegram
+```
+
+### 7.2 手动执行链
+
+```bash
+ops/run_derivatives_daily.sh            # 遵守窗口和幂等
+ops/run_derivatives_daily.sh --force    # 只跳过窗口闸
+```
+
+同日成功后重跑会直接跳过。`--force` 不是“强制重复交易”，只是允许窗口外补跑一次未完成的当日任务。
+
+### 7.3 资金流
+
+任何入金/出金后：
+
+```bash
+make record-capital-flow AMOUNT=400 NOTE='入金'
+make audit-live
+```
+
+资金流从当日 PnL 中剔除；不要把它算成收益或亏损。
+
+---
+
+## 8. `audit-live` 的硬校验
+
+`scripts/audit_live_track.py` 只读，默认检查：
+
+1. `equity = balance + unrealisedPnl`；
+2. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
+3. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
+4. journal PnL 链在剔除 capital flow 后连续；
+5. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
+6. 空头 journal 成交必须记录 `stop_loss`，且交易所回读 `stopLoss / mark_price / market` 一致；
+7. 当前每个空头仓都有附带止损的入场成交记录；
+8. 有符号目标 vs 有符号实际仓位：多头正、空头负；
+9. 无计划外持仓；
+10. gross = `Σ abs(notional)` ≤ 1.25 × equity；
+11. mark 数据 ≤ 30h；
+12. 账本评估日 = 数据最新可判定日；
+13. journal 信号日 = 冻结账本最新信号日。
+
+少一头空头止损、方向搞反、把净仓当成 gross、或把 old L125 账本混入 LS45，都会让 `audit-live` 失败。
+
+---
+
+## 9. 日常监控
+
+每周至少看一次：
+
+| 指标 | 位置 | 动作 |
+|---|---|---|
+| 执行状态 | `reports/ls45_live_g125_live/latest.json` | `status` 必须是 `ok`；`partial` 查 failures |
+| 对账 | `reports/ls45_live_g125_live/audit.json` | `hard_failures = 0` |
+| 巡检 | `reports/ls45_live_g125_live/health.json` | `issues` 为空 |
+| journal | `reports/ls45_live_g125_live/journal.csv` | 每日一行；同日重跑覆盖 |
+| 数据覆盖 | `reports/ls45_live_g125/manifest.json` | `missing_hours = 0`，mark 新鲜 ≤ 30h |
+| 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
+| funding | Bitget 账单 + manifest | 与研究假设明显偏离时记录并复核 |
+
+---
+
+## 10. 故障处置
+
+### 07:05 UTC（15:05 北京）后仍未成功
+
+```bash
+launchctl print gui/$(id -u)/com.atlas20.derivatives-execute
+tail -100 ~/Library/Logs/atlas20-derivatives-execute.log
+make audit-live
+```
+
+若在窗口内，下一次重试会自动补；窗口外需要人工确认后：
+
+```bash
 ops/run_derivatives_daily.sh --force
 ```
 
-> **macOS 睡眠 / 重启**：launchd 的日历任务在机器唤醒后会补跑（若错过），`RunAtLoad=true`
-> 也会在重启后立刻跑一次包装脚本；两种情况都要过上面的窗口闸门——01:05 UTC 起 6 小时内会补做，
-> 更晚则跳过并等 19:00 巡检告警。所以 09:05 合上盖子没关系，但**别让这台 Mac 在这件事上长期离线**。
-> 真停用自动交易时优先放 kill switch：`touch data/derivatives_execution.KILL`（删除文件即恢复），
-> 比卸载任务安全。
->
-> **Ubuntu 路线**（`ops/systemd/*`）仍然保留、随时可用，见下一节；两条路线只装一条，
-> 别在同一个账户上同时跑两套定时器。
+### 全链路核对失败
+
+先看 `audit.json.checks` 和 `monitor` 告警里的具体 check 与数值差异，不要只看退出码。常见原因：
+
+- mark / panel 数据过期；
+- journal 和交易所订单不一致；
+- 空头没有附带止损；
+- 目标账本与数据评估日错位；
+- 外部资金流未记录；
+- 权限或 API key 类型不支持 isolated。
+
+### 出现强平、止损失效或 gross 超限
+
+1. 立即 `touch data/ls45_g125_execution.KILL`；
+2. 人工核对并平掉风险腿；
+3. 修复原因；
+4. 重跑 `make audit-live`；
+5. 在 `RESEARCH.md` 记录事故与恢复；
+6. 经负责人确认后再移除 kill switch。
 
 ---
 
-## 0b. 部署到 Ubuntu 服务器（一次性；数据不会随 git 带过去）
-
-`data/` 全部在 `.gitignore` 里（唯一例外：`data/derivatives_telegram_state.json`，它随 git 走，
-用来跨机器保持"同一天不重复播报"）。**git clone 只带代码，不带数据**。
-
-| 目录 | 大小（本机实测） | 服务器上要不要 | 说明 |
-|---|---:|---|---|
-| `data/raw/`（除 bitget） | ≈750 MB | **要** | CMC 日线（是 PIT Top20 排名的权威来源）+ Binance/Gate 缓存；空缓存时刷新要全量重拉（慢、可能被限流） |
-| `data/raw/bitget_derivatives/merged_*` | 846 MB | 日常**不用**（只有 `merged_oos_*` 4.6 MB 要带） | 那是回测研究用的全历史 mark；日常链只用 OOS 目录 |
-| `data/processed/` | 24 MB | **要** | `panel_daily.csv` + `metadata.csv` 等；信号重算直接读这里 |
-| `data/*telegram_state*.json` | 几 KB | **要** | 幂等状态；少了会在部署当天重复发一次播报 |
-
-**部署顺序**（一步步来）：
-
-```bash
-# 1) 服务器
-sudo mkdir -p /opt/atlas20 /etc/atlas20
-sudo chown "$USER" /opt/atlas20
-git clone <repo> /opt/atlas20 && cd /opt/atlas20
-make setup                       # 建 .venv 装依赖
-
-# 2) 从 Mac 同步数据（在 Mac 上执行；rsync 一次，之后服务器自己增量刷新）
-rsync -avh --progress data/raw/coinmarketcap data/raw/binance data/raw/binance_1h \
-    data/raw/gateio data/raw/coinpaprika data/raw/coingecko <user>@<host>:/opt/atlas20/data/raw/
-rsync -avh data/processed/ <user>@<host>:/opt/atlas20/data/processed/
-rsync -avh data/raw/bitget_derivatives/merged_oos_20261009/ \
-    <user>@<host>:/opt/atlas20/data/raw/bitget_derivatives/merged_oos_20261009/
-
-# 3) 环境文件（token + chat ids；以后再加 Bitget 只读 key）
-sudo install -m 600 /dev/null /etc/atlas20/atlas20.env
-sudo tee /etc/atlas20/atlas20.env >/dev/null <<'ENV'
-ATLAS20_TELEGRAM_BOT_TOKEN=...
-ATLAS20_TELEGRAM_CHAT_ID=1231093599,5582320122
-ENV
-
-# 4) 先手动验证一遍（dry-run，不发消息）
-make refresh-data            # 面板增量刷新（首次约几分钟；装了 timer 后日常走上面的加锁脚本）
-# 窗口外想手动补做一次调仓（只跳过窗口闸，其余闸门照旧）：
-#   ATLAS20_PROJECT_ROOT=/opt/atlas20 ATLAS20_CONFIG_DIR=/etc/atlas20 \
-#     /bin/sh ops/run_derivatives_daily.sh --force
-make derivatives-oos-data derivatives-oos derivatives-signal
-make execution-plan EQUITY=1000
-
-# 5) 装 timer —— 装「面板刷新 + 自动调仓」两个就够；不要装 atlas20-telegram-signal（现货）
-sudo cp ops/systemd/atlas20-data-refresh.{service,timer} /etc/systemd/system/
-sudo cp ops/systemd/atlas20-derivatives-execute.{service,timer} /etc/systemd/system/
-# 可选：只想要「模型播报」、不想真下单时，装这个代替 execute
-# sudo cp ops/systemd/atlas20-derivatives-signal.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execute.timer
-systemctl list-timers 'atlas20-*'
-```
-
-> **两个 timer 不要同时装**：`derivatives-signal`（模型播报）与 `derivatives-execute`（真单 + 真持仓播报）
-> 各发一条消息。要自动下单就只装 execute；信号内容都在 execute 的消息里。
-
-时间线（UTC）：**00:30 早盘刷面板 → 00:50 早盘补刷 → 01:05 合约链 → 01:35 / 03:05 / 03:35 / 04:35 失败重试 → 06:30 晚补刷 → 06:35 最后一次重试**。
-00:50 那次是给"主刷被重启打断或 CMC 晚发布"兜底的：`scripts/refresh_daily_data.py` 在面板已覆盖最后完整 UTC 日且最后一天完整时
-直接跳过，所以正常一天只有 00:30 真下载，另外几次是空转；它全程持锁，不会和慢主刷抢 raw。
-
-和 macOS 一条线同样的三道闸：`derivatives-execute.service` 通过
-`ops/run_derivatives_daily.sh` 进入，先过 **01:05–07:05 UTC 交易窗口 + 当日幂等**，再对面板
-**自愈刷新**，最后才 `make derivatives-oos-data derivatives-oos execute-plan-live`。
-systemd 的 `Persistent=true` 会在开机后补跑错过的 timer —— 这正是 launchd `RunAtLoad` 的等价物，
-补跑同样受窗口闸限制（窗口外静默跳过，19:00 巡检告警）。
-
-**面板冻结时会怎样**：播报内容停在旧信号日，mark 树超过 30h 后执行器拒单、任务退出码变非 0
-——"没消息 + 任务失败 = 管线坏了"，不会静默。
-
----
-
-## 0.1 一句话
-
-每天 10:00（北京）左右收到一条 Telegram 播报：**买什么、卖什么、买多少名义、每腿划多少
-隔离保证金、调仓后的目标持仓**。照着下单，5 分钟完成；其余一切自动化。
-
----
-
-## 1. 账户设置（一次性）
-
-| 项目 | 设定 | 理由 |
-|---|---|---|
-| 交易品种 | Bitget **USDT-M 永续**，仅做多 | 规格冻结为 long-only；开空从未进入候选族 |
-| 保证金模式 | **交易所默认（全仓 crossed）** —— 2026-10-11 负责人决定 | 负责人明确「全仓和杠杆无所谓，只要开的仓位价值对」；跟单 key 也不支持逐仓。**风险由名义上限约束，不再由逐仓保证金率约束** |
-| 每腿保证金 | 不再单独划拨（全仓口径） | 逐仓的「名义 × 51.5%」只是**模型口径**；实盘全仓下不适用，`set-margin` 也不支持 |
-| 名义上限 | 账户权益 × **1.25** | 冻结规格；**这是实盘唯一的仓位约束**，播报里写「仓位价值 / 占权益」 |
-| 杠杆倍数显示 | 以名义为准，不必纠结交易所的杠杆滑杆 | 风险由名义与保证金决定，不由滑杆名字决定 |
-| 资金规模 | 总资金的 **3%** 一个 sleeve | 最深回撤 -42.5% ⇒ 总资金约 -1.27%；隔离保证金理论下限是这 3% 全损 |
-
-**不要做的事**：不要上 >1.25x、不要开空、不要手动换币、不要「补仓摊平」、不要让总名义超过权益。
-
-> **逐仓 → 全仓的影响（2026-10-11 记录）**：模型里的 -51.01% 逐腿强平线在全仓下**不存在**
-> （交易所对全仓持仓的 `liquidationPrice` 返回 0）。全仓下 1.25x 名义要亏到 ≈-78% 才触及账户强平，
-> 所以"−51% 被强平"这件事既不会发生、也不再保护你：单腿亏多少就亏多少，上限是整段 sleeve 全损
-> （= 总资金的 3%）。模型规格本身没改，隔离口径仍是回测口径，二者在 −51% 以内路径一致。
-
-### 1.1 API key 与账户前置条件（2026-10-10 真钱实测，必读）
-
-> 教训：第一次真钱 drill（100 USDT）在"下单"这一步走得通，但**逐仓**根本开不出来 ——
-> 卡点不在代码，在 key 的类型。上实盘前先跑下面的自检，30 秒，别等下单才发现。
-
-**必须用「普通 API key」，不要用「精英交易 / 跟单 API key」**（Bitget 个人中心 → API 管理里是
-两个不同的入口）。官方《Elite Trading API Guide》写明该 key 类型**不支持**：现货、非精英交易对、
-**逐仓保证金**、**单边持仓**、**账户模式切换**。用错 key 的实测症状：
-
-| 症状 | 错误码 | 真实含义 |
-|---|---|---|
-| 下单带 `marginMode=isolated` | `25200 fixedMargin not support` | 该 key 账户不能持逐仓（**与 symbol 无关**） |
-| 不带 `marginMode` 下单 | 成交，但 `marginMode=crossed`、`liquidationPrice=0` | 只能全仓 |
-| `set-margin(add)` | `40731` | 补 51.5% 保证金这步做不了 |
-| `set-hold-mode` / `adjust-account-mode` / `pre-set-leverage` | `40731 This product does not support copy trading` | key 被跟单产品锁死（持仓模式在 Web 端也是灰的） |
-| 现货单 | `40020 Parameter symbol not support copy trading` | key 只服务跟单组合 |
-
-**上实盘前的 4 项自检**（任何一项不过就不要上）：
-
-1. `GET /api/v3/account/settings` → `holdMode` 能改（不是 40731）；
-2. 设 `set-leverage(symbol, 2, marginMode="isolated", pos_side="long")` 后**下一张单**回读
-   `marginMode == "isolated"`（只有配置项变成 isolated 不算数）；
-3. `set-margin(add)` 能补到「名义 × 51.5%」，且 `liquidationPrice` 给出 ≈ −51% 口径的强平价；
-4. 权限里**不应**出现 `copy_futures_order` / `copy_futures_position`（那是跟单 key 的标志）。
-
-**持仓模式差异已被代码吸收**：hedge 账户下 `posSide` 必填、`posSide`+`reduceOnly` 同用报 `25238`；
-单边账户反过来。`close_position()` 会读账户 `holdMode` 自动选正确的写法，平仓请用它，不要手搓。
-
-**账户若有活跃的精英交易组合**：本账户下单可能镜像给跟随者，上实盘前先确认组合状态。
-
----
-
-## 2. 每日流程
-
-### 2.0 全自动（默认路线，2026-10-11 起）
-
-`ops/systemd/atlas20-derivatives-execute.{service,timer}` 每天 **01:05 UTC（北京 09:05）** 跑，
-并在 **01:35 / 03:05 / 03:35 / 04:35 / 06:35 UTC** 重试未成功的当天任务：
-
-```bash
-make derivatives-oos-data derivatives-oos   # 刷 mark + 冻结账本 → 当日目标仓位
-make execute-plan-live                      # = scripts/execute_live_plan.py --live --notify
-```
-
-它做四件事，全部自动：① 按**账户真实权益**把目标仓位换算成"买/卖多少枚"；② 直接市价下单
-（先减后加，和引擎同序）；③ 回读成交均价/手续费/持仓，拼出播报；④ 发 Telegram（同日幂等）。
-
-播报里的每个数字都来自交易所：**今天买了/卖了多少枚、成交均价、手续费、当前每个币的真实持仓
-和占比、可用保证金、目标 vs 实际**。它还会说明「保证金模式」「未完成的单」「被跳过的动作」。
-
-**安全闸**（都在脚本里，出事就停而不是偷偷下单）：
-
-| 闸门 | 行为 |
-|---|---|
-| `data/derivatives_execution.KILL` 存在 | 立刻拒绝交易（删文件即恢复） |
-| mark 树超过 30h（`--max-mark-staleness-hours`），或账本没评估到最新数据日 | 拒绝执行，提示先跑 `make derivatives-oos-data derivatives-oos`；确需补跑加 `--allow-stale-signal` |
-| 账户权益 < `--equity-floor`（默认 20 USDT） | 拒绝交易 |
-| 同一信号日已成功执行 | 直接跳过（`--force` 才能重跑），避免一天重复调仓 |
-| 单笔失败 | 记录进播报并等下一次（次日计划从真实持仓重算，自我修正），exit 1 让 timer 变红 |
-| 逐仓不可用的账户 | 自动退回全仓，并在播报里用 ⚠️ 明写（见 §1.1） |
-
-**只想看不想下单**：`make execute-plan`（dry run，照常读真账户、照常打印播报但不发单、不发消息）。
-
-**每天记账**：每次执行都会往 `reports/derivatives_track_live/journal.csv` 写**一行/天**（同日重跑覆盖，
-不重复计），字段 = 日期、信号日、权益、仓位价值、现金、**外部资金流**、**当日盈亏**、当日收益率、手续费、
-funding、未实现盈亏、持仓明细、成交明细、备注。第二天播报里的「今日/昨日盈亏」就是这张表算出来的。
-配套 `make audit-live`（只读）会把台账和交易所逐项对账：账户恒等式、仓位市值、成交记录、冻结目标、
-总名义上限、PnL 链。
-
-**入金/出金必须单独记账**（2026-11-04 实盘事故）：账户转账会增加/减少权益，但不是策略盈利。任何外部资金
-进出后，先记录到 `reports/derivatives_track_live/capital_flows.csv`，再让执行器重写当天台账：
-
-```bash
-make record-capital-flow AMOUNT=400 NOTE='用户入金；精确到账时间未取得'
-make execute-plan                         # dry run，确认没有误下单
-make execute-plan-live ARGS=--force       # 重写当天台账与播报，不重复交易
-```
-
-`AMOUNT` 正数=入金，负数=出金。`capital_flow` 会从当日盈亏中剔除；收益率分母为
-`上一日权益 + 净资金流`。若只记录资金流而未重写当天台账，`audit-live` 仍可用资金流台账临时对平，
-但下一个执行日会正式写入 `capital_flow`。
-
-**播报风格（2026-10-11 负责人要求）**：只留「总权益 / 仓位价值 / 今日盈亏 / 昨日盈亏 / 今日成交 /
-当前持仓 / 目标 vs 实际」；保证金模式、强平口径、方法论这些不占版面，出问题才出现。
-
-**为什么信号日有时看着是「前几天」？**（2026-10-11 记录）冻结账本不是"每天换一个仓位"，
-而是**事件序列**：只有某个 sleeve 真的换了标的，账本才会多一行。例如 10-08 那行是 `BUY NEAR 0.7768`，
-之后 10-09、10-10 都没有 sleeve 换仓，所以账本最新一行仍然是 10-08 —— **这就是当前信号**，
-持仓继续拿 NEAR 就是对的，不是数据没更新。判断"数据有没有更新"要看两件事，`make audit-live`
-会替你查：① mark 最新到几小时前（门槛 30h）；② 账本评估到的日期 = 数据能判定的最新日期（没有跳日）。
-两个都过，就说明没有漏掉任何变化。
-
-### 2.1 两个只读核对
-
-| 命令 | 查什么 | 期望 |
-|---|---|---|
-| `make audit-live` | 账户恒等式、仓位市值重算、台账成交 vs 交易所订单历史、持仓 vs 冻结目标、无计划外持仓、总名义 ≤1.25x、资本调整后的台账 PnL 链、mark 新鲜度、账本评估日、信号日一致 | 全 ✅ |
-| `make audit-signal` | 用**回测同一套函数**把账本重建两遍（结束日 = 回测终点 vs 今天），逐事件比对 | 重叠事件日 0 不一致、回测有而实盘没有 0 个 |
-
-`make audit-signal` 是"信号到底是不是回测那个信号、有没有前视"的机器证明：2026-10-11 实测
-重叠 599 个事件日全部一致（最大权重差 0），只在实盘侧多出 11 个样本外事件。
-
-### 2.2 手动/半自动（备用）
-
-自动路线的组件也可以单独用：
-
-```bash
-make derivatives-oos-data   # 拉最新 Bitget mark（滚动 3 天窗口，见下），刷新样本外账本
-make derivatives-oos        # 只做记录：信号 → 目标仓位 → 与现货路径对照
-make derivatives-notify     # 只发模型播报（同日幂等，重跑不会重复发）
-```
-
-> **数据新鲜度是硬约束**：下载器按「窗口起点」做增量缓存，所以 Makefile 用**滚动起点**
-> （今天 −3 天 → 明天）。若改成固定起点，窗口会被标记 complete 后永久跳过，样本外时钟
-> 会静默停住（2026-10-09 实际发生过一次，已修复）。`run_derivatives_oos.py` 还会检查
-> 最新 mark 距今不超过 `--max-staleness-hours`（默认 30h），超时直接失败而不是写出一份
-> 冻结的账本；确需回放旧数据时用 `--allow-stale`。信号日同样被封顶在**最近一个已收盘的
-> UTC 日**，避免用未收盘的当日 bar 生成仓位。
-
-定时器在 **01:05 UTC（北京 09:05，早盘执行窗口）** 与 **01:35 UTC（北京 09:35）** 各跑一次；
-第一次成功即发送，同日重跑自动跳过。它和实盘执行 timer 互斥安装，避免同一天重复推送。
-
-手动（只在需要人肉复核时，或者 `derivatives-signal` 路线下）：
-
-1. 对照播报里的「今日调仓」，在 Bitget 下限价/市价单，把每腿名义调到目标值；
-   （如果当天**没有收到**播报：先看 `launchctl list | grep atlas20` 的退出码和
-   `~/Library/Logs/atlas20-derivatives-execute.log` 的尾部，再跑 `make audit-live`。
-   「没消息」不等于「今天不用调仓」。）
-2. 每腿划入 `名义 × 51.5%` 的隔离保证金（≈ 1.94x）；
-3. 播报若带「该执行时点已过去…请勿追单」，就**当天不做**，等次日信号；
-4. 播报里的「参考缩放系数」按你的实际权益换算（模型账本以 1000 USDT 权益计）。
-
-### 2.3 按真实余额计算订单与保证金（计划预览 / 排障用）
-
-上面的播报以 1000 USDT 参考权益计价，实际下单还要自己换算。接入账号后可改为**按余额
-动态计算**，直接给出「买/卖多少枚、名义多少 USDT、保证金加/减多少」：
-
-```bash
-# A. 手动填余额（不接 API，最快）
-make execution-plan EQUITY=500
-
-# B. 用导出的账户快照（JSON schema 见脚本 docstring）
-.venv/bin/python scripts/plan_live_execution.py --account-file account.json --notify
-
-# C. 直连 Bitget UTA API（推荐；只读账户，下单仍然手动）
-export ATLAS20_BITGET_API_KEY=...      # UTA 只读+划转权限即可
-export ATLAS20_BITGET_SECRET_KEY=...
-export ATLAS20_BITGET_PASSPHRASE=...
-export ATLAS20_BITGET_DEMO=1           # 演示盘（paptrading: 1），先在练习账户验证
-make execution-plan-live               # 内部带 --notify，同日幂等
-```
-
-`make execute-plan-live` 是上一条自动路线的入口；下面这几个是**只看不下单**的排障入口。
-计划脚本每天重新读取交易所的 `usdtEquity` / `positionBalance`，因此**不依赖前一天的缓存**，
-下单误差最多持续一天就会在次日计划里自我修正（replay 实测 4.7 年累计偏差 +0.39%，见
-`reports/derivatives_track_live_replay/`）。
-
-**51.5% 保证金怎么落地**（Bitget 只能按杠杆整数倍自动划保证金）：
-
-1. 先把该 symbol 设为 **逐仓 + 2x**（`set-leverage`，自动保证金 ≈ 名义 50%，强平距离 -49.49%）；
-2. 成交后按计划里的「保证金调整 · 追加」用 `set-margin(operation=add)` 补到名义的 **51.5%**
-   （强平距离 -51.01%，= 模型口径）；
-3. 减仓日会自动算出「撤出」金额（`operation=remove`），同样来自交易所的真实
-   `positionBalance`，不是估算值。
-
----
-
-### 2.4 盘中只读巡检（19:00，2026-10-11 起）
-
-`com.atlas20.live-monitor` → `ops/run_live_monitor.sh` →
-`scripts/monitor_live_track.py`。它**只读**（绝不下单、不碰执行器的幂等状态），在每天
-19:00（调仓后 8 小时）检查：
-
-1. `scripts/audit_live_track.py` 的硬校验（账户恒等式、仓位市值、台账 vs 交易所订单历史、
-   持仓 vs 冻结目标、无计划外持仓、1.25x 名义上限、资本调整后的 PnL 链、mark 新鲜度、账本评估日、
-   信号日一致）；告警会直接列出失败的检查项和数值差异，不再只说“链路失败”；
-2. 仓位偏离：实际名义 vs 冻结目标超过执行器 5 USDT 调仓阈值（或目标 2%）即为异常；
-3. 总名义 / 权益 > 1.25x（规格上限）；
-4. 执行新鲜度：`last_status` 必须是 `ok`；当天 06:00 UTC 后还没成功执行，或最近成功执行超过 36h；
-5. 权益低于执行下限 20 USDT。
-
-**通知规则**：正常时**一条消息都不发**（TG 安静 = 健康）；任一异常时发一条简短的
-「🩺 Atlas20 实盘巡检」告警，退出码 1 让 launchd 日志可见。输出快照在
-`reports/derivatives_track_live/health.json`（已被 gitignore）。手动跑：
-
-若 `audit-live` 子进程自身崩溃、没有写出 JSON，巡检会明确显示「账户总价值未知」并把退出码与
-stderr 放进告警/`health.json`；**不会再把它当成 0 权益**。真实权益为 0 时名义倍率显示为
-「比例不可计算」，不会出现 `infx`。
-
-```bash
-ops/run_live_monitor.sh                 # 带 --notify，异常才发
-.venv/bin/python scripts/monitor_live_track.py            # 只看不 notify
-.venv/bin/python scripts/monitor_live_track.py --always-report --notify  # 强制发一条
-```
-
-**它还补了哪些"非调仓时间"的盲区**：调仓执行器在 09:05 和五个重试点读取账户；巡检在 19:00 再读一次，
-能当天发现「调仓没跑」「跑歪了」「持仓被手动平了」「名义超限」「权益跌破下限」这类问题；
-但不能替代执行器本身（它不下单、不修正仓位，只报警）。
-
-## 3. 监控清单（每周 5 分钟）
-
-| 指标 | 在哪里看 | 触发动作 |
-|---|---|---|
-| 样本外账本 vs 模型 | `reports/derivatives_track_oos_2026/report.md` | 日收益应是现货 H5 路径的 1.2–1.32 倍；偏离到 1.0x 以下连续 5 天 → 检查是否漏单 |
-| 强平距离 | 每腿浮亏 + 账户 `mgnRatio` | 全仓口径：`liquidationPrice` 恒为 0，看账户维持保证金率；任一腿浮亏接近 **-35%** → 记录并复核（样本内最坏 -41.14%/-44.35%） |
-| funding 累计成本 | Bitget 账单 + `reports/derivatives_track_funding_calibration/` | 若 30 天累计 funding 超过模型 adverse 假设的 **3 倍** → 暂停开新仓复核 |
-| 数据完整性 | `make derivatives-oos-data` 输出 | 单日缺失窗口 >5% → 当天不调仓，先修数据 |
-| 资产上线/下线 | Bitget 公告 | 若持仓币种被下架 → 立即平仓该腿，其余照常 |
-
-## 4. Kill criteria（预注册，出现即停）
-
-1. **sleeve 回撤 > -45%**（样本内最差 -42.5%，3x funding 口径）→ 全部平仓，回研究；
-2. **发生任何一次强平** → 全部平仓，回研究；
-3. **连续 2 个月跑输同口径样本外模型 5pp 以上** → 暂停，核对成交价/漏单/数据；
-4. **连续 3 周 funding 超过模型 adverse 带 3 倍** → 暂停开新仓；
-5. **数据管线失效超过 5 个交易日** → 冻结调仓（持仓不动），修复后再恢复。
-
-恢复条件：找到并修复原因、在 `RESEARCH.md` 记录，再按 3% sleeve 重新起跑。
-
----
-
-## 5. 小规模试运行（shadow → micro-live）
-
-| 阶段 | 规模 | 时长/条件 | 通过标准 |
-|---|---|---|---|
-| S0 影子 | 0 | 已有 17/365 天 OOS 记录 | 继续累积 |
-| S1 微实盘 | sleeve 的 10% | ≥2 周 | 成交价与播报执行点偏差 <0.5%；无漏单；无强平 |
-| S2 标准 | 100% of 3% sleeve | S1 通过后 | 逐周记录，直到 OOS 满 12 个月再做全量复核 |
-
-任何阶段出现 §4 的 kill criterion 都退回上一阶段。
-
----
-
-## 6. 复现与审计
-
-- **执行逻辑实测（live-fire replay）**：`scripts/replay_live_execution.py` 把引擎 2022-01-01 →
-  2026-09-21 的 534 次调仓 / 1185 笔订单逐笔喂给实盘计划器（`build_execution_plan`）：
-  1185/1185 全部匹配、0 不匹配；再让账户完全按计划器自己的（含真实 Bitget 合约步长与
-  最小下单量的）订单演化 4.7 年，最终 42.7206x vs 引擎 42.5559x（**+0.387%**），逐小时强平
-  检查 **0 次**。报告：`reports/derivatives_track_live_replay/`。
-- **合约量化代价**：1185 笔中 73 笔（6.2%）低于交易所最小下单量（多为零头再平衡，次日自我
-  修正），其余订单名义误差均值 1.29%、p95 6.16%、最大 49.8%（全部是向下取整，不会超仓）。
-
-
-```bash
-make derivatives-oos-data derivatives-oos   # 刷新账本
-make derivatives-signal                     # 干跑：只打印当日播报
-git log --oneline -- reports/derivatives_track_oos_2026   # 每日账本的提交历史
-```
-
-- 每一条实盘播报都由 `scripts/send_derivatives_signal.py` 从冻结账本生成，
-  消息里带 spec id、信号日、执行时点，事后可逐条比对；
-- 账本的每日产物（`oos_daily.csv`、`oos_targets.csv`、`oos_trades.csv`）提交入库，
-  实盘成交单应逐日与 `oos_trades.csv` 对照存档；
-- funding 目前按零计（上界）。实盘请把 Bitget 实际 funding 记入对账表，
-  用来逐步替换这个上界并复核 §3 的 3 倍规则。
+## 11. 研究依据与已知限制
+
+- LS45-G125 在同一 20 bps 口径下：终值 **68.95x**、Sharpe **1.982**、MDD **-39.96%**；
+- L125 基线同口径：40.22x、1.733、-40.65%；
+- LS45 在 100 bps、funding ×1.59、3x long-adverse 压力下仍略优于 LS57；
+- 报告：`reports/ls45_live_candidate_compare/`；
+- 当前选择是研究候选直接进入真实账户测试，不把 12 个月 OOS 或 PBO/DSR 作为额外实盘硬门槛；这不等于声称策略已被长期 OOS 证明；
+- 仍需持续观察：空头实际成交与止损触发、funding、isolated 权限、资产上下架、滑点、数据缺口；
+- 任何参数变更都必须新建 track/spec，不得静默改写本账本。

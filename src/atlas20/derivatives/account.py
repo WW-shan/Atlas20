@@ -366,6 +366,9 @@ class BitgetPrivateClient:
         client_oid: str | None = None,
         margin_mode: str | None = None,
         price: float | None = None,
+        stop_loss: float | None = None,
+        sl_trigger_by: str = "mark_price",
+        sl_order_type: str = "market",
         category: str = UTA_CATEGORY,
     ) -> dict[str, Any]:
         """Place one futures order.  Market orders omit ``price``.
@@ -390,6 +393,10 @@ class BitgetPrivateClient:
             raise ValueError("order_type must be 'limit' or 'market'")
         if qty <= 0.0:
             raise ValueError("qty must be positive")
+        if stop_loss is not None and stop_loss <= 0.0:
+            raise ValueError("stop_loss must be positive")
+        if sl_order_type not in {"market", "limit"}:
+            raise ValueError("sl_order_type must be 'market' or 'limit'")
         body: dict[str, Any] = {
             "category": category,
             "symbol": symbol,
@@ -407,6 +414,10 @@ class BitgetPrivateClient:
             body["price"] = f"{price:.12f}".rstrip("0").rstrip(".")
         if reduce_only:
             body["reduceOnly"] = "yes"
+        if stop_loss is not None:
+            body["stopLoss"] = f"{stop_loss:.12f}".rstrip("0").rstrip(".")
+            body["slTriggerBy"] = sl_trigger_by
+            body["slOrderType"] = sl_order_type
         if client_oid:
             body["clientOid"] = client_oid
         data = self._request("POST", "/api/v3/trade/place-order", body=body)

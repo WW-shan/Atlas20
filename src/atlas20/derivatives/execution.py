@@ -43,6 +43,8 @@ class ContractSpec:
     quantity_multiplier: float = 0.0
     min_order_usdt: float = 0.0
     quantity_precision: int | None = None
+    price_multiplier: float = 0.0
+    price_precision: int | None = None
 
     @classmethod
     def from_bitget_instrument(cls, row: Mapping[str, Any]) -> "ContractSpec":
@@ -58,12 +60,23 @@ class ContractSpec:
             precision = int(precision_value) if precision_value not in (None, "") else None
         except (TypeError, ValueError):
             precision = None
+        price_precision_value = row.get("pricePrecision")
+        try:
+            price_precision = (
+                int(price_precision_value)
+                if price_precision_value not in (None, "")
+                else None
+            )
+        except (TypeError, ValueError):
+            price_precision = None
         return cls(
             symbol=str(row.get("symbol", "")),
             min_order_qty=_float("minOrderQty"),
             quantity_multiplier=_float("quantityMultiplier"),
             min_order_usdt=_float("minOrderAmount"),
             quantity_precision=precision,
+            price_multiplier=_float("priceMultiplier"),
+            price_precision=price_precision,
         )
 
     def round_down_qty(self, qty: float) -> float:
@@ -78,6 +91,19 @@ class ContractSpec:
             scale = 10**self.quantity_precision
             qty = math.floor(qty * scale + 1e-9) / scale
         return max(0.0, qty)
+
+    def round_up_price(self, price: float) -> float:
+        """Round an adverse stop trigger up to the venue price grid."""
+
+        if price <= 0.0:
+            return 0.0
+        step = self.price_multiplier
+        if step > 0.0:
+            price = math.ceil(price / step - 1e-9) * step
+        if self.price_precision is not None:
+            scale = 10**self.price_precision
+            price = math.ceil(price * scale - 1e-9) / scale
+        return price
 
     def minimum_notional(self, *, floor_usdt: float = 0.0) -> float:
         """Smallest order the venue accepts, expressed in USDT."""
@@ -136,6 +162,7 @@ class OrderIntent:
     reduce_only: bool
     reason: str
     pos_side: str = "long"
+    stop_loss: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +176,7 @@ class OrderIntent:
             "reduce_only": self.reduce_only,
             "reason": self.reason,
             "pos_side": self.pos_side,
+            "stop_loss": self.stop_loss,
         }
 
 
@@ -213,6 +241,7 @@ def build_execution_plan(
     maintenance_margin_rate: float = 0.01,
     max_margin_utilization: float = 0.85,
     max_gross_exposure: float | None = None,
+    short_stop_loss_pct: float | None = None,
     taker_fee_rate: float = 0.0006,
     min_rebalance_usdt: float = 0.0,
     min_margin_delta: float = 0.01,
@@ -236,6 +265,8 @@ def build_execution_plan(
         raise ValueError("leverage must be positive")
     if max_gross_exposure is not None and max_gross_exposure <= 0.0:
         raise ValueError("max_gross_exposure must be positive when set")
+    if short_stop_loss_pct is not None and not 0.0 < short_stop_loss_pct < 1.0:
+        raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
     warnings: list[str] = []
     long_margin_ratio = initial_margin_ratio(
@@ -454,6 +485,24 @@ def build_execution_plan(
             notional = size * price
             margin_needed = notional * side_margin_ratio
             fee = notional * taker_fee_rate
+        stop_loss: float | None = None
+        if target_side == "short" and short_stop_loss_pct is not None:
+            existing = positions.get(asset)
+            existing_size = (
+                existing.size
+                if existing is not None and _side(existing) == "short"
+                else 0.0
+            )
+            existing_entry = existing.entry_price if existing_size > 0.0 else 0.0
+            projected_size = existing_size + size
+            projected_entry = (
+                (existing_size * existing_entry + size * price) / projected_size
+                if projected_size > _EPS
+                else price
+            )
+            stop_loss = spec.round_up_price(
+                projected_entry * (1.0 + float(short_stop_loss_pct))
+            )
         orders.append(
             OrderIntent(
                 asset=asset,
@@ -466,6 +515,7 @@ def build_execution_plan(
                 reduce_only=False,
                 reason="rebalance to target",
                 pos_side=target_side,
+                stop_loss=stop_loss,
             )
         )
         _register_trade(

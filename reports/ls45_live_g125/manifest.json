@@ -2,6 +2,7 @@
   "allow_incomplete_marks": false,
   "cost_bps": 20.0,
   "end_date": "2026-11-12 00:00:00+00:00",
+  "engine_end": "2026-11-13 15:00:00+00:00",
   "frozen_config": {
     "bear_funding_lookback_settlements": 3,
     "bear_funding_threshold": -0.0002,
@@ -17,7 +18,7 @@
     "exit_per_asset_weight": 0.025,
     "h5_leverage": 1.25,
     "long_buffer": 0.5,
-    "max_total_gross": 1.5,
+    "max_total_gross": 1.25,
     "profit_lock_redistribution": {
       "lookback_days": 21,
       "max_asset_weight": 0.6,
@@ -31,6 +32,8 @@
   },
   "funding_last": "2026-11-11 16:00:00+00:00",
   "funding_source": "bitget-exact",
+  "index_end_date": "2026-11-12",
+  "last_mark": "2026-11-13 14:00:00+00:00",
   "live_execution": false,
   "mark_coverage": {
     "assets": 88,
@@ -40,9 +43,12 @@
     "missing_hours": 0
   },
   "mark_source": "bitget_mark",
+  "max_total_gross": 1.25,
   "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
   "research_only": true,
+  "signal_end_date": "2026-11-12",
   "spec": "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger21-design.md",
+  "staleness_hours": 2.5828946661111107,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
   "warmup_raw_dir": "data/raw/bitget_derivatives/merged_20261009",

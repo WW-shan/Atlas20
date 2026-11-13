@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -21,3 +22,23 @@ def test_build_command_pins_ls45_and_g125() -> None:
 def test_build_command_rejects_invalid_end_date() -> None:
     with pytest.raises(ValueError, match="end_date"):
         build_command(end_date="not-a-date")
+
+
+def test_committed_manifest_carries_every_audit_freshness_field() -> None:
+    path = Path("reports/ls45_live_g125/manifest.json")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    for key in (
+        "tracked_spec",
+        "end_date",
+        "last_mark",
+        "staleness_hours",
+        "index_end_date",
+        "signal_end_date",
+        "max_total_gross",
+        "research_only",
+        "frozen_config",
+    ):
+        assert key in payload
+    assert payload["max_total_gross"] == 1.25
+    assert payload["frozen_config"]["max_total_gross"] == 1.25

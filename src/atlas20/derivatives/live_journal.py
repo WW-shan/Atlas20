@@ -42,6 +42,7 @@ JOURNAL_COLUMNS = [
 
 CAPITAL_FLOW_COLUMNS = ["timestamp_utc", "amount_usdt", "note"]
 DEFAULT_CAPITAL_FLOWS_FILE = Path("reports/derivatives_track_live/capital_flows.csv")
+_FILLED_STATUS = "filled"
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,157 @@ def load_journal(path: Path) -> pd.DataFrame:
             frame[column] = None
     frame["capital_flow"] = pd.to_numeric(frame["capital_flow"], errors="coerce").fillna(0.0)
     return frame[JOURNAL_COLUMNS]
+
+
+def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
+    """Current short symbols whose whole open cycle carried a venue stop.
+
+    A scan of all historical sells is unsafe: an old protected short could
+    mask a later manual or failed reopen without a stop.  This state machine
+    follows quantity and position snapshots in chronological order so only the
+    *current* short cycle can make a symbol protected.
+    """
+
+    if frame.empty:
+        return set()
+
+    def _records(value: Any) -> list[dict[str, Any]] | None:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return None
+        try:
+            parsed = json.loads(value or "[]")
+        except (TypeError, json.JSONDecodeError):
+            return None
+        if not isinstance(parsed, list):
+            return None
+        return [item for item in parsed if isinstance(item, dict)]
+
+    def _qty(trade: dict[str, Any]) -> float:
+        has_quantity = any(
+            key in trade for key in ("qty", "filled_size", "requested_size")
+        )
+        for key in ("qty", "filled_size", "requested_size"):
+            try:
+                value = abs(float(trade.get(key) or 0.0))
+            except (TypeError, ValueError):
+                value = 0.0
+            if value > 0.0:
+                return value
+        # Legacy test/ledger rows carried only symbol/side/stop.
+        return 0.0 if has_quantity else 1.0
+
+    def _stop_is_confirmed(trade: dict[str, Any]) -> bool:
+        try:
+            stop_loss = float(trade.get("stop_loss") or 0.0)
+        except (TypeError, ValueError):
+            return False
+        if stop_loss <= 0.0:
+            return False
+        requested_raw = trade.get("requested_stop_loss")
+        if requested_raw not in (None, ""):
+            try:
+                requested = float(requested_raw)
+            except (TypeError, ValueError):
+                return False
+            tolerance = max(1e-9, abs(requested) * 1e-8)
+            if abs(stop_loss - requested) > tolerance:
+                return False
+        # Older journal rows did not carry the trigger metadata.  New rows do;
+        # once those keys exist, require the exact venue contract.
+        if "stop_trigger_by" not in trade and "stop_order_type" not in trade:
+            return True
+        return (
+            str(trade.get("stop_trigger_by") or "").lower() == "mark_price"
+            and str(trade.get("stop_order_type") or "").lower() == "market"
+        )
+
+    def _trade_direction(trade: dict[str, Any]) -> tuple[str, str]:
+        explicit = str(trade.get("position_side") or "").lower()
+        side = str(trade.get("side") or "").lower()
+        action = str(trade.get("action") or "").upper()
+        if explicit in {"long", "short"}:
+            return explicit, action
+        if side == "sell" and action in {"OPEN", "INCREASE"}:
+            return "short", action
+        if side == "buy" and action in {"REDUCE", "CLOSE"}:
+            return "short", action
+        if side == "buy" and action in {"OPEN", "INCREASE"}:
+            return "long", action
+        if side == "sell" and action in {"REDUCE", "CLOSE"}:
+            return "long", action
+        # Legacy rows had no action; a stopped sell is a short entry and a buy
+        # is a short reduction for this function's purposes.
+        if side == "sell" and _stop_is_confirmed(trade):
+            return "short", "OPEN"
+        if side == "buy":
+            return "short", "REDUCE"
+        return "", action
+
+    ordered = (
+        frame.sort_values([column for column in ("date", "run_at_utc") if column in frame.columns])
+        if any(column in frame.columns for column in ("date", "run_at_utc"))
+        else frame
+    )
+    short_qty: dict[str, float] = {}
+    protected: dict[str, bool] = {}
+    for _, row in ordered.iterrows():
+        for trade in _records(row.get("trades")) or []:
+            symbol = str(trade.get("symbol") or "").upper()
+            if not symbol:
+                continue
+            status = str(trade.get("status") or "").lower()
+            if status and status != _FILLED_STATUS:
+                continue
+            direction, action = _trade_direction(trade)
+            if direction != "short":
+                continue
+            qty = _qty(trade)
+            if qty <= 0.0:
+                continue
+            current = short_qty.get(symbol, 0.0)
+            if action in {"OPEN", "INCREASE"}:
+                confirmed = _stop_is_confirmed(trade)
+                protected[symbol] = confirmed if current <= 1e-12 else (
+                    protected.get(symbol, False) and confirmed
+                )
+                short_qty[symbol] = current + qty
+            elif action in {"REDUCE", "CLOSE"}:
+                remaining = max(0.0, current - qty)
+                if remaining <= 1e-12:
+                    short_qty.pop(symbol, None)
+                    protected.pop(symbol, None)
+                else:
+                    short_qty[symbol] = remaining
+
+        snapshot = _records(row.get("positions"))
+        if snapshot is None:
+            continue
+        snapshot_qty: dict[str, float] = {}
+        for position in snapshot:
+            symbol = str(position.get("symbol") or "").upper()
+            side = str(position.get("side") or "").lower()
+            try:
+                qty = abs(float(position.get("qty") or position.get("size") or 0.0))
+            except (TypeError, ValueError):
+                qty = 0.0
+            if symbol and side == "short":
+                snapshot_qty[symbol] = qty
+        for symbol in set(short_qty).difference(snapshot_qty):
+            short_qty.pop(symbol, None)
+            protected.pop(symbol, None)
+        for symbol, qty in snapshot_qty.items():
+            if short_qty.get(symbol, 0.0) <= 1e-12:
+                # A short present without a journaled open is unsafe by default.
+                protected[symbol] = False
+                short_qty[symbol] = 1.0
+            elif qty > 1e-12:
+                short_qty[symbol] = qty
+
+    return {
+        symbol
+        for symbol, qty in short_qty.items()
+        if qty > 1e-12 and protected.get(symbol, False)
+    }
 
 
 def previous_row(frame: pd.DataFrame, date: str) -> dict[str, Any] | None:

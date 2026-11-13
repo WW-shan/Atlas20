@@ -5,7 +5,7 @@ UTC. The checked-in plist targets this workstation (Asia/Shanghai, UTC+8), so
 an ``Hour`` of 2 fires at 18:30 UTC on the previous day: before CMC has
 published the last completed day's close, which left the panel a day stale.
 The publication probe now shows 10/10 sample coverage at 00:20 UTC, so an early
-00:30 UTC attempt can safely run before the 01:05 UTC trade window while the
+00:30 UTC attempt can safely run before the 03:05 UTC trade window while the
 old 02:30/02:55/06:30 runs remain as fallbacks.
 """
 
@@ -36,7 +36,7 @@ def test_refresh_runs_at_documented_utc_times():
 
 
 def test_a_catchup_lands_before_the_trade_job_reads_the_panel():
-    """A primary run killed by a reboot must be repaired before 01:05 UTC.
+    """A primary run killed by a reboot must be repaired before 03:05 UTC.
 
     On 2026-10-16 the machine went down mid-refresh at 10:34 Beijing, the panel
     stayed on 10-14, and the trade job failed closed with nothing to trade.

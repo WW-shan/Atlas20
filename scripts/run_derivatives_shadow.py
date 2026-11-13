@@ -3,7 +3,7 @@
 This script rebuilds a frozen long/short target book from point-in-time data,
 records the signed long/short targets, and runs the derivatives research
 engine.  It never creates orders, never touches the live executor, and never
-changes the live ``PR2026-10-D-L125-V2`` track.
+changes the live LS45-G125 track (the explicit wrapper selects that ID).
 
 The default funding source is zero, which is an explicit upper bound because
 the OOS mark tree extends beyond the exact Bitget funding history.  When a
@@ -498,7 +498,7 @@ def main() -> None:
         )
     except ValueError as exc:
         raise SystemExit(
-            f"{exc}. Refresh the OOS marks (make derivatives-oos-data) or pass "
+            f"{exc}. Refresh the OOS marks (make derivatives-live-data) or pass "
             "--allow-stale for a deliberate backfill."
         ) from exc
     end_date = pd.Timestamp(signal_end_day).normalize()
@@ -842,11 +842,18 @@ def main() -> None:
                 "spec": _shadow_spec(args.trial_id),
                 "research_only": True,
                 "live_execution": False,
+                "last_mark": str(last_mark),
+                "staleness_hours": float(staleness_hours),
+                "index_end_date": str(end_date.date()),
+                "signal_end_date": str(end_date.date()),
+                "engine_end": str(engine_end),
+                "max_total_gross": float(max_total_gross),
                 "frozen_config": {
                     **FROZEN_CONFIG,
                     "rebalance_no_trade_band": float(
                         SHORT_CANDIDATES.get(args.trial_id, 0.0)
                     ),
+                    "max_total_gross": float(max_total_gross),
                     **(
                         {
                             "profit_lock_redistribution": PROFIT_LOCK_REDISTRIBUTE_CONFIG_BY_TRIAL[

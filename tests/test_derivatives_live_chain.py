@@ -27,6 +27,7 @@ from atlas20.derivatives.live_chain import (
     DEFAULT_SCHEDULED_UTC,
     last_completed_utc_day,
     live_execution_hint_for_signal,
+    manifest_staleness_hours,
     panel_end_date,
     panel_lags_last_completed_day,
     run_day_already_done,
@@ -111,24 +112,53 @@ def test_run_day_already_done_ignores_a_key_without_a_run_day(tmp_path: Path) ->
     assert run_day_already_done(state, date(2026, 10, 16)) is False
 
 
+def test_preflight_uses_the_ls45_execution_state() -> None:
+    from scripts import live_chain_preflight
+
+    assert live_chain_preflight.DEFAULT_STATE_FILE.name == "ls45_g125_execution_state.json"
+
+
+def test_manifest_staleness_recomputes_from_last_mark() -> None:
+    manifest = {
+        "last_mark": "2026-11-13 14:00:00+00:00",
+        "staleness_hours": 2.4,
+    }
+
+    hours = manifest_staleness_hours(
+        manifest,
+        datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert hours == pytest.approx(10.0)
+
+
+def test_manifest_staleness_fails_closed_on_an_invalid_last_mark() -> None:
+    hours = manifest_staleness_hours(
+        {"last_mark": "not-a-timestamp", "staleness_hours": 1.0},
+        datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert hours == float("inf")
+
+
 def test_window_opens_at_the_fill_time() -> None:
-    before = datetime(2026, 10, 16, 1, 4, tzinfo=timezone.utc)
+    before = datetime(2026, 10, 16, 3, 4, tzinfo=timezone.utc)
     ok, reason = within_run_window(before)
     assert ok is False
     assert "before" in reason
 
-    ok, _ = within_run_window(datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc))
+    ok, _ = within_run_window(datetime(2026, 10, 16, 3, 5, tzinfo=timezone.utc))
     assert ok is True
 
 
-def test_live_execution_hint_uses_the_early_schedule() -> None:
+def test_live_execution_hint_uses_the_ls45_schedule() -> None:
     hint = live_execution_hint_for_signal(datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc))
 
-    assert hint == datetime(2026, 10, 17, 1, 5, tzinfo=timezone.utc)
+    assert hint == datetime(2026, 10, 17, 3, 5, tzinfo=timezone.utc)
 
 
 def test_window_closes_after_the_catchup_budget() -> None:
-    opened = datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc)
+    opened = datetime(2026, 10, 16, 3, 5, tzinfo=timezone.utc)
     inside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS - 0.01)
     assert within_run_window(inside)[0] is True
 
@@ -149,6 +179,6 @@ def test_window_honours_a_shifted_schedule() -> None:
     [(DEFAULT_SCHEDULED_UTC.hour, DEFAULT_SCHEDULED_UTC.minute)],
 )
 def test_default_schedule_matches_the_launchd_job(hour: int, minute: int) -> None:
-    # ops/com.atlas20.derivatives-execute.plist fires at 09:05 Beijing = 01:05
-    # UTC; the gate must not open before the early execution window.
-    assert (hour, minute) == (1, 5)
+    # ops/com.atlas20.derivatives-execute.plist fires at 11:05 Beijing = 03:05
+    # UTC; the gate must not open before the LS45 execution window.
+    assert (hour, minute) == (3, 5)
