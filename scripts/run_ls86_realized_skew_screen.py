@@ -19,6 +19,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.analytics.rolling import rolling_skew  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 from scripts.run_ls83_funding_settlement_screen import newey_west_t  # noqa: E402
 from scripts.run_ls84_volume_reversal_screen import _load_market_data  # noqa: E402
@@ -76,7 +77,7 @@ def build_realized_skew_events(
     close.index = pd.DatetimeIndex([_as_utc(value).normalize() for value in close.index])
     close = close[~close.index.duplicated(keep="last")].sort_index()
     daily_returns = close.pct_change(fill_method=None)
-    skew = daily_returns.rolling(lookback_days, min_periods=lookback_days).skew()
+    skew = rolling_skew(daily_returns, window=lookback_days)
     eligible_dates = skew.dropna(how="any").index
     if eligible_dates.empty:
         return pd.DataFrame()

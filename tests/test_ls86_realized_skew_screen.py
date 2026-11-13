@@ -59,7 +59,8 @@ def test_realized_skew_screen_skips_missing_exit() -> None:
         lookback_days=30,
         horizon_days=7,
     )
-    assert events.empty
+    assert not events.empty
+    assert signal not in set(events["signal_date"])
 
 
 def test_realized_skew_placebo_is_finite() -> None:

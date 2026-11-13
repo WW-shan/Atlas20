@@ -80,4 +80,5 @@ def test_pit_top20_skew_requires_six_eligible_assets() -> None:
         lookback_days=30,
         horizon_days=7,
     )
-    assert events.empty
+    assert not events.empty
+    assert daily_close.index[-1] not in set(events["signal_date"])

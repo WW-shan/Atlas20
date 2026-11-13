@@ -19,6 +19,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.analytics.rolling import rolling_skew  # noqa: E402
 from atlas20.derivatives.data import load_mark_candles  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 from scripts.diagnose_top20_membership_events import membership_matrix  # noqa: E402
@@ -69,9 +70,9 @@ def build_pit_top20_skew_events(
     )
     present_frame = present_frame.reindex(price_frame.index).fillna(False).astype(bool)
     price_frame = price_frame.loc[:, [asset for asset in assets if asset in price_frame.columns]]
-    skew = price_frame.pct_change(fill_method=None).rolling(
-        lookback_days, min_periods=lookback_days
-    ).skew()
+    skew = rolling_skew(
+        price_frame.pct_change(fill_method=None), window=lookback_days
+    )
     hourly = hourly_prices.sort_index()
     anchor = pd.Timestamp(price_frame.index[0]).normalize()
     rows: list[dict[str, Any]] = []
