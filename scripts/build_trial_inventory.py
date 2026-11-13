@@ -170,6 +170,7 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "ls90_multi_strategy_ensemble_2026",
     "ls91_core_satellite_ensemble_2026",
     "ls92_core_satellite_maker_shadow_2026",
+    "ls96_carry_trend200_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -185,6 +186,7 @@ DERIVATIVES_RESEARCH_STUDIES: tuple[str, ...] = (
     "ls90_multi_strategy_ensemble_2026",
     "ls91_core_satellite_ensemble_2026",
     "ls92_core_satellite_maker_shadow_2026",
+    "ls96_carry_trend200_2026",
 )
 DERIVATIVES_ENSEMBLE_STUDIES = frozenset(
     {
@@ -283,6 +285,7 @@ VARIES: dict[str, str] = {
     "ls90_multi_strategy_ensemble_2026": "four real-engine candidates, equal initial capital, no rebalance",
     "ls91_core_satellite_ensemble_2026": "50% LS57 + 25% LS82 + 25% LS88, no rebalance",
     "ls92_core_satellite_maker_shadow_2026": "LS91 core-satellite at 13.0164bps maker-shadow cost",
+    "ls96_carry_trend200_2026": "LS82 carry long leg filtered by its own 200D SMA",
     "ls81_core_major_funding_carry_2026": "LS57 + core8 PIT funding carry, 10/20/25% residual allocations",
     "ls82_core8_carry_risk_2026": "LS57 + core8 PIT funding carry risk package at 60% long buffer and 1.45x target gross",
     "ls57_churn_overlay_2026": "LS57 + residual-gross churn overlay, 10/20/25% allocations",

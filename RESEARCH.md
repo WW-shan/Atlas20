@@ -5016,7 +5016,7 @@ LS57 比较；不重新拟合、不扫描权重、不改变 live track。两个�
   的总 log excess 2.5% 分位为 **-5.28% / -6.72%**，为正概率 **81.78% / 73.00%**。
 - CSCV/PBO 为 **0.4892 / 0.6515**；Reality Check 对零的 p=**0.0030 / 0.0034**，但对 LS57
   超额的 p=**0.4891 / 0.5613**，不能证明组合优于 LS57。
-- 项目级 DSR 在纳入 LS81-LS92 的 12 个真实引擎衍生品组合后，all_trials N=14,410 下为
+- 项目级 DSR 在纳入 LS81-LS92 的 12 个真实引擎衍生品组合和 LS96 后，all_trials N=14,411 下为
   **0.5754 / 0.5200**；Top20/2022 N=6,201 下为 **0.6705 / 0.6181**，均低于 0.95。新增组合的
   universe 记为 `Derivatives`，不改变 Top20/2022 scope；更早的衍生品代理试验若继续加入，分母只会更大。
 - 增量贡献约 **60.7% 来自 LS82、39.3% 来自 LS88**，不是单一 sleeve 垄断；但子账户相关性
@@ -5095,3 +5095,27 @@ Dogecoin 单一资产回吐超过总 net 的 100%，判定 **asset-concentrated*
 
 报告：`reports/ls95_carry_attribution_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls95-carry-attribution.md`。
+
+### 00.131 2026-11-13 LS96：carry long 腿 200D 趋势过滤（20bps 对比 LS82 fail）
+
+LS96 固定 LS82 的 25% residual、60% long buffer、1.45x target gross、7D rebalance、2 low + 2 high
+和 short 腿，只要求 long 候选最近一个已完成日收盘高于自身 200D SMA；不合格的 long 不补位，
+short 腿不变。结果是 long observations 从 LS82 的 442 降到 **273**，空仓比例上升。
+
+| 成本 | LS96 full 终值/Sharpe/MDD | LS82 full | LS96 validation 终值/Sharpe | LS82 validation |
+|---:|---:|---:|---:|---:|
+| 13.0164bps | 71.9695x / 1.9974 / -37.75% | **73.0767x / 2.0189 / -36.997%** | 15.8038x / 2.1442 | **16.1532x / 2.1621** |
+| 20bps | 61.7535x / 1.9349 / -38.73% | **62.1228x / 1.9519 / -37.978%** | 14.3179x / 2.0772 | **14.5712x / 2.0921** |
+| 50bps | **31.9567x / 1.6653 / -42.78%** | 30.8855x / 1.6629 / -42.03% | 9.3618x / 1.7882 | 9.3515x / 1.7896 |
+| 100bps | **10.6152x / 1.2134 / -50.24%** | 9.5926x / 1.1784 / -49.50% | 4.5990x / 1.3025 | 4.4527x / 1.2814 |
+
+趋势过滤在 50/100bps 略微提高终值和 Sharpe，但在当前主档 20bps 和 13.0164bps 都低于 LS82；
+20bps MDD 也比 LS82 差约 0.76pp。它不是“收益提升”的升级，只是把低成本档的收益换成高成本档的
+一点韧性。0 次强平、0 gross breach、mark carry 最长 1h，风险包本身有效。
+
+**判定：rejected for the current 20bps primary.** 不扫描 20/50/100/150/250D，不按资产删
+DOGE/Cardano，不把 long 权重转给 short。carry-trend 家族降级；当前 live track 仍为
+`PR2026-10-D-L125-V2`。下一组研究转向与 carry 不同的 short/trend 机制。
+
+报告：`reports/ls96_carry_trend200_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls96-carry-trend200.md`。

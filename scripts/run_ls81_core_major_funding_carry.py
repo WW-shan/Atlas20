@@ -124,6 +124,39 @@ def _mark_available(
     return bool(len(later) and later[0] - execution_time <= pd.Timedelta(hours=1))
 
 
+def build_asset_trend_filter(
+    mark_candles: Mapping[str, pd.DataFrame],
+    *,
+    ma_days: int,
+) -> Callable[[str, pd.Timestamp], bool]:
+    """Return a strict completed-daily-close trend filter for carry long legs."""
+    if ma_days < 1:
+        raise ValueError("ma_days must be positive")
+    daily: dict[str, tuple[pd.Series, pd.Series]] = {}
+    for asset, frame in mark_candles.items():
+        if frame.empty or "close" not in frame.columns:
+            continue
+        close = pd.to_numeric(frame["close"], errors="coerce").resample("1D").last().dropna()
+        if close.empty:
+            continue
+        daily[str(asset)] = (close, close.rolling(ma_days, min_periods=ma_days).mean())
+
+    def is_above(asset: str, date: pd.Timestamp) -> bool:
+        values = daily.get(str(asset))
+        if values is None:
+            return False
+        close, sma = values
+        normalized = _as_utc(date).normalize()
+        completed = close.index[close.index < normalized]
+        if len(completed) == 0:
+            return False
+        last_date = completed[-1]
+        average = sma.get(last_date, float("nan"))
+        return bool(pd.notna(average) and float(close.loc[last_date]) > float(average))
+
+    return is_above
+
+
 def build_pit_funding_carry_schedule(
     *,
     funding_rates: pd.DataFrame,
@@ -139,6 +172,7 @@ def build_pit_funding_carry_schedule(
     per_asset_weight: float = 0.25,
     long_enabled: bool = True,
     short_enabled: bool = True,
+    long_trend_ok: Callable[[str, pd.Timestamp], bool] | None = None,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
     """Build a strict-PIT core-major low/high funding carry schedule.
 
@@ -212,7 +246,15 @@ def build_pit_funding_carry_schedule(
             continue
 
         ranked = sorted(scores.items(), key=lambda item: (item[1], item[0]))
-        long_assets = {asset for asset, _ in ranked[:count]} if long_enabled else set()
+        if long_enabled:
+            eligible_longs = [
+                asset
+                for asset, _ in ranked
+                if long_trend_ok is None or long_trend_ok(asset, date)
+            ]
+            long_assets = set(eligible_longs[:count])
+        else:
+            long_assets = set()
         short_assets = {asset for asset, _ in ranked[-count:]} if short_enabled else set()
         target = pd.Series(dtype=float)
         for asset in sorted(long_assets):
@@ -375,6 +417,23 @@ def _summary_row(
     }
 
 
+def candidate_passes_reference(
+    candidate: Mapping[str, Any],
+    reference: Mapping[str, Any],
+    *,
+    max_mdd_slippage: float = 0.01,
+) -> bool:
+    """Compare a candidate with a saved candidate on the same frozen metrics."""
+    return bool(
+        float(candidate["full_multiple"]) >= float(reference["full_multiple"])
+        and float(candidate["full_sharpe"]) > float(reference["full_sharpe"])
+        and float(candidate["full_max_drawdown"])
+        >= float(reference["full_max_drawdown"]) - float(max_mdd_slippage)
+        and float(candidate["validation_multiple"]) >= float(reference["validation_multiple"])
+        and float(candidate["validation_sharpe"]) >= float(reference["validation_sharpe"])
+    )
+
+
 def _report(
     summary: pd.DataFrame,
     schedule_audit: pd.DataFrame,
@@ -385,6 +444,8 @@ def _report(
     market_count: int,
     start_date: str,
     end_date: str,
+    reference: Mapping[str, Any] | None = None,
+    reference_label: str = "reference",
 ) -> str:
     selected = schedule_audit.loc[schedule_audit["selected_side"].isin(["long", "short"])]
     lines = [
@@ -447,25 +508,40 @@ def _report(
         else:
             base_row = base.iloc[0]
             best = candidate.sort_values(["full_multiple", "full_sharpe"], ascending=False).iloc[0]
-            passed = (
-                best["full_multiple"] > base_row["full_multiple"]
-                and best["full_sharpe"] > base_row["full_sharpe"]
-                and best["full_max_drawdown"] >= base_row["full_max_drawdown"] - 0.01
-                and best["validation_multiple"] > base_row["validation_multiple"]
-                and best["validation_sharpe"] > base_row["validation_sharpe"]
-                and best["liquidation_count"] == 0
-                and best["gross_breach_hours"] == 0
-                and best["mark_carry_max_hours"] <= 3.0
-            )
             lines.append(
                 f"Best pre-registered 20bps allocation: {best['allocation']:.0%}; "
                 f"full {best['full_multiple']:.4f}x / Sharpe {best['full_sharpe']:.4f} / "
                 f"MDD {best['full_max_drawdown']:.4%}; validation "
                 f"{best['validation_multiple']:.4f}x / Sharpe {best['validation_sharpe']:.4f}."
             )
-            lines.append(
-                "Primary 20bps normal gate: **PASS**." if passed else "Primary 20bps normal gate: **FAIL**."
-            )
+            if reference is not None:
+                passed = candidate_passes_reference(best, reference)
+                lines.append(
+                    f"Saved reference {reference_label}: {float(reference['full_multiple']):.4f}x / "
+                    f"Sharpe {float(reference['full_sharpe']):.4f} / MDD "
+                    f"{float(reference['full_max_drawdown']):.4%}; validation "
+                    f"{float(reference['validation_multiple']):.4f}x / Sharpe "
+                    f"{float(reference['validation_sharpe']):.4f}."
+                )
+                lines.append(
+                    "Pre-registered reference comparison: **PASS**."
+                    if passed
+                    else "Pre-registered reference comparison: **FAIL**."
+                )
+            else:
+                passed = (
+                    best["full_multiple"] > base_row["full_multiple"]
+                    and best["full_sharpe"] > base_row["full_sharpe"]
+                    and best["full_max_drawdown"] >= base_row["full_max_drawdown"] - 0.01
+                    and best["validation_multiple"] > base_row["validation_multiple"]
+                    and best["validation_sharpe"] > base_row["validation_sharpe"]
+                    and best["liquidation_count"] == 0
+                    and best["gross_breach_hours"] == 0
+                    and best["mark_carry_max_hours"] <= 3.0
+                )
+                lines.append(
+                    "Primary 20bps normal gate: **PASS**." if passed else "Primary 20bps normal gate: **FAIL**."
+                )
             if passed:
                 lines.append(
                     "This is not a live promotion. Cost, adverse-funding, rolling, bootstrap and "
@@ -494,6 +570,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--allocations", default="0.10,0.20,0.25")
     parser.add_argument("--funding-scenarios", default="normal")
     parser.add_argument("--carry-side", choices=("both", "long-only", "short-only"), default="both")
+    parser.add_argument(
+        "--carry-long-trend-ma",
+        type=int,
+        default=0,
+        help="require carry long candidates above their own completed N-day SMA; 0 disables",
+    )
     parser.add_argument("--long-buffer", type=float, default=float(FROZEN_CONFIG["long_buffer"]))
     parser.add_argument("--target-gross", type=float, default=float(FROZEN_CONFIG["max_total_gross"]))
     parser.add_argument("--funding-source", choices=("binance-proxy", "bitget-exact"), default="binance-proxy")
@@ -507,6 +589,13 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="retain per-run funding and trade ledgers; disabled by default to keep reports lean",
     )
+    parser.add_argument(
+        "--reference-run-summary",
+        type=Path,
+        default=None,
+        help="optional saved run_summary.csv for a pre-registered candidate comparison",
+    )
+    parser.add_argument("--reference-label", default="reference")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     configure_logging("ERROR")
@@ -546,6 +635,11 @@ def main(argv: list[str] | None = None) -> None:
         candle_type="market",
     )
     trade_available = set(mark_candles).intersection(market_candles)
+    long_trend_ok = (
+        build_asset_trend_filter(mark_candles, ma_days=args.carry_long_trend_ma)
+        if args.carry_long_trend_ma > 0
+        else None
+    )
     restricted, dropped = _restrict_targets(long_raw, trade_available, market_candles)
     long_targets = scale_long_targets(
         restricted,
@@ -615,6 +709,7 @@ def main(argv: list[str] | None = None) -> None:
         per_asset_weight=0.25,
         long_enabled=long_enabled,
         short_enabled=short_enabled,
+        long_trend_ok=long_trend_ok,
     )
     raw_sleeve_gross = max(
         (float(target.abs().sum()) for target in carry_schedule.values()),
@@ -701,6 +796,8 @@ def main(argv: list[str] | None = None) -> None:
                     label = f"extended10 {allocation:.0%} residual"
                 if args.carry_side != "both":
                     label = f"{args.variant} {args.carry_side} {allocation:.0%} gross"
+                if args.carry_long_trend_ma > 0:
+                    label = f"{label} longMA{args.carry_long_trend_ma}"
                 summary_rows.append(
                     _summary_row(
                         label=label,
@@ -730,6 +827,19 @@ def main(argv: list[str] | None = None) -> None:
                     )
 
     summary = pd.DataFrame(summary_rows)
+    reference_row: pd.Series | None = None
+    if args.reference_run_summary is not None:
+        reference_summary = pd.read_csv(args.reference_run_summary)
+        reference_candidates = reference_summary.loc[
+            (~reference_summary["base"].astype(bool))
+            & (pd.to_numeric(reference_summary["cost_bps"], errors="coerce") == 20.0)
+            & (reference_summary["funding_scenario"].astype(str) == "normal")
+        ]
+        if reference_candidates.empty:
+            raise SystemExit(
+                f"reference summary has no 20bps normal candidate: {args.reference_run_summary}"
+            )
+        reference_row = reference_candidates.iloc[0]
     output_dir = ensure_dir(args.output_dir)
     summary.to_csv(output_dir / "run_summary.csv", index=False)
     schedule_audit.to_csv(output_dir / "funding_schedule_audit.csv", index=False)
@@ -744,6 +854,7 @@ def main(argv: list[str] | None = None) -> None:
         "trial_id": args.trial_id,
         "variant": args.variant,
         "carry_side": args.carry_side,
+        "carry_long_trend_ma": args.carry_long_trend_ma,
         "raw_sleeve_gross": raw_sleeve_gross,
         "core_assets": list(core_assets),
         "warmup_start": args.warmup_start,
@@ -763,6 +874,10 @@ def main(argv: list[str] | None = None) -> None:
         "long_buffer": float(args.long_buffer),
         "orders_sent": False,
         "raw_ledgers_retained": bool(args.save_raw_ledgers),
+        "reference_run_summary": (
+            str(args.reference_run_summary) if args.reference_run_summary is not None else None
+        ),
+        "reference_label": args.reference_label if args.reference_run_summary is not None else None,
     }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
@@ -778,6 +893,8 @@ def main(argv: list[str] | None = None) -> None:
             market_count=len(market_candles),
             start_date=args.start_date,
             end_date=args.end_date,
+            reference=reference_row,
+            reference_label=args.reference_label,
         ),
         encoding="utf-8",
     )

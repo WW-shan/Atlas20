@@ -434,6 +434,13 @@ def test_ls84_and_ls93_are_declared_as_no_new_configuration() -> None:
     assert "ls95_carry_attribution_2026" in NO_NEW_CONFIGURATION_DIRS
 
 
+def test_ls96_is_a_derivatives_research_study() -> None:
+    from scripts.build_trial_inventory import DERIVATIVES_RESEARCH_STUDIES, PROCESSING_ORDER
+
+    assert "ls96_carry_trend200_2026" in DERIVATIVES_RESEARCH_STUDIES
+    assert "ls96_carry_trend200_2026" in PROCESSING_ORDER
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

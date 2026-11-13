@@ -36,7 +36,7 @@
   "seed": 93,
   "trial_id": "PR2026-11-LS93-LS92-ROBUSTNESS",
   "trial_summary": "reports/research_trial_inventory/summary.json",
-  "trial_summary_sha256": "b0fd4356d859f0e06f711b2329efec9a22037309912c926ad80aae56c0aa3381",
+  "trial_summary_sha256": "53e15e43ccb1e780d7bada49dcadab6323e10727e5aee694f91227acb59943d0",
   "weights": {
     "LS57": 0.5,
     "LS82_CARRY": 0.25,

@@ -139,3 +139,106 @@ def test_pit_funding_carry_can_be_long_only() -> None:
 
     target = schedule[pd.Timestamp("2022-01-08", tz="UTC")]
     assert target.to_dict() == {"a": 0.25, "b": 0.25}
+
+
+def test_pit_funding_carry_trend_filter_skips_ineligible_low_funding_longs() -> None:
+    from scripts.run_ls81_core_major_funding_carry import build_pit_funding_carry_schedule
+
+    dates = pd.date_range("2022-01-01", "2022-01-15", freq="1D", tz="UTC")
+    assets = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    funding = pd.DataFrame(
+        {asset: [index / 1000.0] * len(dates) for index, asset in enumerate(assets)},
+        index=dates,
+    )
+
+    schedule, _ = build_pit_funding_carry_schedule(
+        funding_rates=funding,
+        calendar=dates,
+        assets=assets,
+        rebalance_days=7,
+        lookback_days=7,
+        min_settlements=3,
+        min_assets=6,
+        count=2,
+        per_asset_weight=0.25,
+        long_trend_ok=lambda asset, date: asset not in {"a", "b"},
+    )
+
+    signal = pd.Timestamp("2022-01-08", tz="UTC")
+    assert schedule[signal].to_dict() == {
+        "c": 0.25,
+        "d": 0.25,
+        "g": -0.25,
+        "h": -0.25,
+    }
+
+
+def test_pit_funding_carry_trend_filter_can_leave_long_side_empty() -> None:
+    from scripts.run_ls81_core_major_funding_carry import build_pit_funding_carry_schedule
+
+    dates = pd.date_range("2022-01-01", "2022-01-15", freq="1D", tz="UTC")
+    assets = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    funding = pd.DataFrame(
+        {asset: [index / 1000.0] * len(dates) for index, asset in enumerate(assets)},
+        index=dates,
+    )
+
+    schedule, _ = build_pit_funding_carry_schedule(
+        funding_rates=funding,
+        calendar=dates,
+        assets=assets,
+        rebalance_days=7,
+        lookback_days=7,
+        min_settlements=3,
+        min_assets=6,
+        count=2,
+        per_asset_weight=0.25,
+        long_trend_ok=lambda asset, date: False,
+    )
+
+    signal = pd.Timestamp("2022-01-08", tz="UTC")
+    assert schedule[signal].to_dict() == {"g": -0.25, "h": -0.25}
+
+
+def test_asset_trend_filter_uses_only_completed_daily_closes() -> None:
+    from scripts.run_ls81_core_major_funding_carry import build_asset_trend_filter
+
+    index = pd.date_range("2024-01-01", periods=4 * 24, freq="h", tz="UTC")
+    close = pd.Series(1.0, index=index)
+    close.loc[close.index >= pd.Timestamp("2024-01-04", tz="UTC")] = 2.0
+    filter_fn = build_asset_trend_filter(
+        {"a": pd.DataFrame({"close": close})},
+        ma_days=3,
+    )
+
+    assert filter_fn("a", pd.Timestamp("2024-01-04", tz="UTC")) is False
+    assert filter_fn("a", pd.Timestamp("2024-01-05", tz="UTC")) is True
+
+
+def test_reference_comparison_requires_candidate_to_beat_the_saved_candidate() -> None:
+    from scripts.run_ls81_core_major_funding_carry import candidate_passes_reference
+
+    reference = {
+        "full_multiple": 62.0,
+        "full_sharpe": 1.95,
+        "full_max_drawdown": -0.38,
+        "validation_multiple": 14.5,
+        "validation_sharpe": 2.09,
+    }
+    weaker = {
+        "full_multiple": 61.7,
+        "full_sharpe": 1.93,
+        "full_max_drawdown": -0.387,
+        "validation_multiple": 14.3,
+        "validation_sharpe": 2.07,
+    }
+    stronger = {
+        "full_multiple": 63.0,
+        "full_sharpe": 1.96,
+        "full_max_drawdown": -0.38,
+        "validation_multiple": 14.6,
+        "validation_sharpe": 2.10,
+    }
+
+    assert candidate_passes_reference(weaker, reference) is False
+    assert candidate_passes_reference(stronger, reference) is True
