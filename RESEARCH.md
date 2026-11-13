@@ -5119,3 +5119,13 @@ DOGE/Cardano，不把 long 权重转给 short。carry-trend 家族降级；当�
 
 报告：`reports/ls96_carry_trend200_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls96-carry-trend200.md`。
+
+### 00.132 2026-11-13 LS97 quick diagnostic：beta-neutral carry 不成立（not a counted trial）
+
+在 LS95 的归因之后又做了一个不入 trial 台账的快速诊断：用 60D rolling BTC beta 把 carry 的
+long/short 两腿做成等 beta 暴露、总 gross <=1.0，检查“short 腿亏损是否只是未对冲的 beta”。
+价格-only 近似下，原始 dollar-neutral carry 为 **1.0263x / Sharpe 0.1294 / MDD -10.64%**；
+beta-neutral 版本为 **0.9999x / Sharpe 0.1083 / MDD -38.90%**，且平均 gross 从 0.224 升到
+0.879、单资产权重上限触及 40%，风险反而更差。这个诊断没有进入正式引擎、没有新配置、没有
+promotion 含义；结论是 beta-neutral carry 不值得继续，下一步不扫描 beta 窗口、leg cap 或
+long/short beta 目标，转向执行/其他 short-trend 机制。
