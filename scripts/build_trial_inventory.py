@@ -125,6 +125,8 @@ TOP20_2022_ORDER: tuple[str, ...] = (
     "intraday_btc_leadlag_backtest_2026",
     "intraday_btc_leadlag_single_event_2026",
     "intraday_btc_leadlag_phase_tail_2026",
+    "daily_btc_shock_continuation_2026",
+    "intraday_down_shock_short_2026",
 )
 TOP50_2022_ORDER: tuple[str, ...] = (
     "convex_validation_2022_top50",
@@ -205,6 +207,8 @@ VARIES: dict[str, str] = {
     "intraday_btc_leadlag_backtest_2026": "30m BTC shock lead-lag, k/h cells, overlapping 1/h tranches",
     "intraday_btc_leadlag_single_event_2026": "30m BTC shock lead-lag, one full-gross event per cell",
     "intraday_btc_leadlag_phase_tail_2026": "phase-0 UTC, 10% tails, 3.0/3.5 sigma follow-up cells",
+    "daily_btc_shock_continuation_2026": "daily BTC shock relative-continuation 4x4x3x2 cells",
+    "intraday_down_shock_short_2026": "negative BTC shock weak-tail short 3x2x3 cells",
     "pipeline_latest": "TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only",
     "pipeline_bear_bottom_2022_11_21": "same 27 strategies as pipeline_latest (old panel)",
     "pipeline_five_year_2020_2024": "same 27 strategies as pipeline_latest (old panel)",
@@ -1170,6 +1174,47 @@ def _load_intraday_leadlag_lane(src: Sources, rec: TrialRecorder) -> None:
                 )
 
 
+def _load_daily_shock_lanes(src: Sources, rec: TrialRecorder) -> None:
+    """Load the LS69 continuation and LS70 short-only families."""
+    continuation_study = "daily_btc_shock_continuation_2026"
+    continuation_path = f"reports/{continuation_study}/trial_summary.csv"
+    continuation = src.csv(continuation_path)
+    for _, row in continuation.iterrows():
+        for cost, column in ((20.0, "full_sharpe_20"), (50.0, "full_sharpe_50")):
+            rec.add(
+                continuation_study,
+                str(row["variant_id"]),
+                ("2021-01-01", "2026-11-12"),
+                cost,
+                "Top20",
+                float(row[column]),
+                source=continuation_path,
+                column=column,
+                family="daily_shock_continuation",
+                lineage=continuation_study,
+                note="daily BTC shock relative continuation; all phases; no funding",
+            )
+
+    short_study = "intraday_down_shock_short_2026"
+    short_path = f"reports/{short_study}/trial_summary.csv"
+    short = src.csv(short_path)
+    for _, row in short.iterrows():
+        for cost, column in ((6.0, "full_sharpe_6"), (12.0, "full_sharpe_12")):
+            rec.add(
+                short_study,
+                str(row["variant_id"]),
+                ("2022-01-01", "2026-09-30"),
+                cost,
+                "Top20",
+                float(row[column]),
+                source=short_path,
+                column=column,
+                family="intraday_down_shock_short",
+                lineage=short_study,
+                note="negative BTC shock weak-tail short; Binance 30m proxy; no funding",
+            )
+
+
 def collect_trials(
     src: Sources, *, april_commit: str, bull_commit: str
 ) -> tuple[pd.DataFrame, list[UnscoredConfiguration], int]:
@@ -1187,6 +1232,7 @@ def collect_trials(
     _load_residual_screen_lane(src, rec)
     _load_residual_horizon_lane(src, rec)
     _load_intraday_leadlag_lane(src, rec)
+    _load_daily_shock_lanes(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 

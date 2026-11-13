@@ -4451,3 +4451,45 @@ cell **全部**是负 contrarian spread，说明相对落后后的短期表现�
 
 报告：`reports/daily_btc_shock_leadlag_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-daily-btc-shock-leadlag-design.md`。
+
+### 00.104 2026-11-13 LS69：日频 BTC shock relative continuation 仍未通过独立样本（rejected）
+
+LS68 的 reversal 失败后，反向的 continuation 只能作为新假设单独注册。LS69 冻结
+`k/h ∈ {1,3,5,10}`、shock bucket `all/|z|≥2.0/|z|≥2.5`、10%/20% 两端、96 个 cell；
+每个信号按 `1/h` tranche 持有，所有 phase 等权，信号后下一收盘才执行，组合 gross 不超过 1.0。
+选参只看 2022–2023 discovery，2021 是独立样本，2024–2026 不参与选参。
+
+Discovery 规则选出的 cell 是 `BTC_CONT_k3_h3_abs_z_ge_2_5_tail20`。它的 20bps
+discovery **1.1289x / Sharpe 1.1694**、validation **1.0651x / 0.4370**，但独立 2021
+只有 **0.9801x / -1.0794**；full 为 **1.1785x / 0.5933 / -6.99%**，而同期 BTC 是
+**2.4288x / 0.5500 / -76.63%**。所以不能通过“Sharpe 略高”把它包装成收益策略。
+
+96 个 cell 中，discovery Sharpe20 为正的有 57 个，但 validation 只剩 42 个，2021 只剩 33 个；
+pre-2022 是这次唯一没有被 LS68 使用的独立窗口。return-space 把该 sleeve 以 10%/20% 加到
+LS57：full 从 68.8077x 仅升到 **70.0355x / 71.2760x**，MDD 几乎不变，但收益增量太小，
+不符合当前“收益明显提升”的目标。
+
+**判定：rejected。** 不扫描 phase、k/h、tail、bucket 或 overlay 权重；不修改实盘。保留的有效
+信息是：日频 relative gap 更像 continuation 而不是 reversal，但这个方向在单资产极端和 2021
+样本上不稳定，不能直接当 alpha。
+
+报告：`reports/daily_btc_shock_continuation_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-daily-btc-shock-continuation-design.md`。
+
+### 00.105 2026-11-13 LS70：intraday 下行 shock 的弱尾空头也不成立（rejected）
+
+LS64/LS65 的 long-short 成本失败后，LS70 检验“只保留弱资产空头腿”是否更有效。信号冻结为
+negative BTC shock `z≤-2.5/-3.0`、弱 10% relative gap、k∈{1,2,4} 根 30m bar、h∈{4,8,16}
+根 bar，18 个 cell，一次只允许一个 active event；6/12/20bps 每边，不扣 funding。
+
+结果在 discovery 就没有一个 cell 同时满足 6bps 与 12bps Sharpe 为正：只有 2/18 的 discovery
+6bps Sharpe 为正，validation 和 full 都是 **0/18** 为正。最好的 discovery cell
+`SHORT_DOWN_k2_t30_h4` 在 full 只有 **0.5157x / -0.3700 / -60.78%**；18 个 cell 的 full
+全部亏损，说明短腿本身没有足够 gross alpha，LS64/LS65 的问题不是“多头腿拖累”可以解释的。
+
+**判定：rejected。** 不扫描 threshold、k/h、tail、phase 或 overlay 权重；不接空头实盘，也不把
+它作为 LS57 的 crash hedge。该结果意味着下一个方向必须换机制或数据源，而不是继续从同一个
+BTC shock lead-lag 里切腿。
+
+报告：`reports/intraday_down_shock_short_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-down-shock-short-design.md`。

@@ -1,0 +1,41 @@
+{
+  "acceptance_checks": {},
+  "acceptance_verdict": "fail",
+  "beta_clip": [
+    0.0,
+    4.0
+  ],
+  "beta_window_bars": 1440,
+  "candidate_family_id": "PR2026-11-LS70-DOWN-SHOCK-WEAK-SHORT",
+  "costs_bps_per_side": [
+    6.0,
+    12.0,
+    20.0
+  ],
+  "end_date": "2026-09-30",
+  "funding_included": false,
+  "hold_bars": [
+    4,
+    8,
+    16
+  ],
+  "min_beta_observations": 960,
+  "min_cross_section": 8,
+  "oos_end_date": "2026-11-13",
+  "oos_evaluation_start": "2026-10-01",
+  "oos_start_date": "2026-09-01",
+  "orders_sent": false,
+  "selected_variant": null,
+  "shock_thresholds": [
+    2.5,
+    3.0
+  ],
+  "signal_bars": [
+    1,
+    2,
+    4
+  ],
+  "start_date": "2022-01-01",
+  "tail_fraction": 0.1,
+  "trial_count": 18
+}
