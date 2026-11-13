@@ -5,7 +5,7 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `fc12f52` from 3 uncommitted source file(s): `reports/ls100_same_venue_basis_2026/variant_summary.csv`, `reports/ls101_ls57_same_venue_basis_2026/overlay_summary.csv`, `reports/ls99_ls57_basis_residual_2026/overlay_summary.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `e769702`; every source file is committed.
 
 ## Totals
 

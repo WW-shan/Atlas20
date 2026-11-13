@@ -1,0 +1,41 @@
+{
+  "baseline": {
+    "full_max_drawdown": -0.39835021222536127,
+    "full_multiple": 68.80768535710902,
+    "full_sharpe": 1.981942355080547
+  },
+  "best_year": 2024,
+  "checks": {
+    "best_year_removed": true,
+    "cost_010": true,
+    "cost_020": true,
+    "cost_050": false,
+    "cost_100": false,
+    "finite": true,
+    "gross_cap": true,
+    "monthly_mdd_delta": true,
+    "monthly_win_rate": true,
+    "rolling_mdd_delta": true,
+    "rolling_win_rate": true,
+    "rolling_worst_terminal": true,
+    "yearly_4_of_5": true
+  },
+  "classification": "robustness-fail",
+  "costs_bps": [
+    10.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "ls100_daily_returns_sha256": "03b5b0e3c1d7f3afabef9fb74cf8ecc6b21588cf9a003226f4a97d7c6bfb93df",
+  "ls100_manifest_sha256": "6f9065f8320fa1bec9c23c0f27e2a5bdcc27ba5f2be3abf26aa128af53e0f076",
+  "ls57_daily_returns_sha256": "ba3a1db0870f98d490ae8cf5055755dfc1fbd7050f83ff8e7cb0adbc3892d5ea",
+  "ls57_target_gross_sha256": "93ec5028724ea1fde0595710d61d02c8cc1e6f4488625bb2e431158689b21cff",
+  "max_gross": 1.45,
+  "orders_sent": false,
+  "rolling_window": 365,
+  "start": "2022-01-01 00:00:00+00:00",
+  "trial_id": "PR2026-11-LS102-LS101-ROBUSTNESS",
+  "yearly_wins": 5
+}

@@ -527,6 +527,12 @@ def test_ls101_is_counted_as_a_same_venue_residual_family() -> None:
     assert all(row["family"] == "same_venue_basis_residual" for row in rows)
 
 
+def test_ls102_robustness_audit_is_not_a_new_configuration() -> None:
+    from scripts.build_trial_inventory import NO_NEW_CONFIGURATION_DIRS
+
+    assert "ls102_ls101_robustness_2026" in NO_NEW_CONFIGURATION_DIRS
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

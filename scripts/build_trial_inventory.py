@@ -247,6 +247,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "ls57_target_gross_2022_2026": "frozen LS57 target-gross refresh used as overlay input",
     "ls57_churn_overlay_stress_2026": "stress matrix of the same LS76 overlay; no new configuration",
     "ls57_churn_bitget_executable_2026": "Bitget mark/funding executable audit of LS79; no new configuration",
+    "ls102_ls101_robustness_2026": "LS101 cost/year/rolling/monthly-start robustness audit; no new configuration",
     "ls83_funding_settlement_screen_2026": "core8 funding-settlement event screen; no portfolio configuration",
     "ls84_volume_reversal_screen_2026": "core8 high-volume reversal event screen; no portfolio configuration",
     "ls86_realized_skew_screen_2026": "core8 realized-skew event screen; no portfolio configuration",

@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "fc12f52c79574a393672a32e0fa3603cec936166",
+  "repository_head": "e7697028e7365e1cc6c5538ba9af38be21ba2451",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "e4ff7438c24728b1b8dd7e74a2c579c6cdedec48dae377a8ff947139cfbec486",
+  "research_md_sha256": "5cafb1abf2c0169d2e7fffd2f647f8d48a8bb85f5569693f9f2ceb1daaacca9e",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -1029,11 +1029,11 @@
       "sha256": "7420792f9d531bb36087b92007619721751198bbe4e48badd0f3706f5e2d47c1"
     },
     "reports/ls100_same_venue_basis_2026/variant_summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "6e042d19ea3f33e5de924fc1579646af60b1465e0fa1a12d1646b4a0857081ee"
     },
     "reports/ls101_ls57_same_venue_basis_2026/overlay_summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "41524a5bf57b1f18b25528128f0b172ba806a06f65935acc60765b59448f7fd0"
     },
     "reports/ls57_churn_multiphase_ensemble_2026/overlay_summary.csv": {
@@ -1093,7 +1093,7 @@
       "sha256": "84612de6fccb0e86496724c7c464ff9601539d8442853a5516df23b7940ac208"
     },
     "reports/ls99_ls57_basis_residual_2026/overlay_summary.csv": {
-      "origin": "working tree (modified)",
+      "origin": "working tree (committed)",
       "sha256": "66ced63082577123075e4efe1bce2d89b62d4a7ec534f16682d49b314f762765"
     },
     "reports/momentum_event_breadth_overlay_2022/blend_sensitivity.csv": {

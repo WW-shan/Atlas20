@@ -129,6 +129,7 @@ top20_membership_event_diagnostic_2026,reports/ (no new configuration),reports/t
 ls57_target_gross_2022_2026,reports/ (no new configuration),reports/ls57_target_gross_2022_2026/,frozen LS57 target-gross refresh used as overlay input,0,0,0,0,,,,,,False,False,
 ls57_churn_overlay_stress_2026,reports/ (no new configuration),reports/ls57_churn_overlay_stress_2026/,stress matrix of the same LS76 overlay; no new configuration,0,0,0,0,,,,,,False,False,
 ls57_churn_bitget_executable_2026,reports/ (no new configuration),reports/ls57_churn_bitget_executable_2026/,Bitget mark/funding executable audit of LS79; no new configuration,0,0,0,0,,,,,,False,False,
+ls102_ls101_robustness_2026,reports/ (no new configuration),reports/ls102_ls101_robustness_2026/,LS101 cost/year/rolling/monthly-start robustness audit; no new configuration,0,0,0,0,,,,,,False,False,
 ls83_funding_settlement_screen_2026,reports/ (no new configuration),reports/ls83_funding_settlement_screen_2026/,core8 funding-settlement event screen; no portfolio configuration,0,0,0,0,,,,,,False,False,
 ls84_volume_reversal_screen_2026,reports/ (no new configuration),reports/ls84_volume_reversal_screen_2026/,core8 high-volume reversal event screen; no portfolio configuration,0,0,0,0,,,,,,False,False,
 ls86_realized_skew_screen_2026,reports/ (no new configuration),reports/ls86_realized_skew_screen_2026/,core8 realized-skew event screen; no portfolio configuration,0,0,0,0,,,,,,False,False,

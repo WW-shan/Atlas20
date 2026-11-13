@@ -5257,3 +5257,24 @@ Binance proxy，exact Bitget funding 只覆盖最近完整 settlement 窗口（B
 
 报告：`reports/ls101_ls57_same_venue_basis_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls101-ls57-same-venue-basis.md`。
+
+### 00.137 2026-11-13 LS102：LS101 稳健性审计（robustness-fail，成本敏感）
+
+LS102 不改变 LS101 的 100% residual、25% long buffer、1.45x gross cap 或 LS57 规则，只对
+LS101 的 basis sleeve 逐腿成本做 10/20/50/100bps 压力，并拆年度、最佳年份、365 天滚动窗口和
+54 个月度起点。10/20bps 仍高于 LS57：**73.7400x / 2.0110 / -39.951%** 和
+**69.4617x / 1.9873 / -40.529%**；但在 50bps 降到 **58.0510x / 1.9159 / -42.230%**，100bps
+降到 **43.0234x / 1.7958 / -44.964%**，两者都低于 LS57 的 68.8077x / 1.9819 / -39.835%。
+
+低成本的其余检查通过：5/5 年 LS101 高于 LS57，删除最佳年份 2024 后仍高于 LS57；365 天滚动
+窗口胜率 **94.19%**，最差终值落后仅 **0.774%**、MDD 差值最多 **0.815pp**；54 个月度起点胜率
+**98.15%**，最差终值落后 **0.12%**、MDD 差值最多 **0.485pp**；最大 gross **1.45x**，无缺失值。
+因此失败点不是单年或单窗口，而是**执行成本**：basis sleeve 的净收益太薄，50/100bps 下增量
+被成本吃掉并反过来拖累组合。
+
+**判定：robustness-fail，不接实盘。** 不通过扫描 allocation、gross cap、资产或成本假设救结果。
+后续若继续，应优先降低真实 spot/perp 执行成本、取得完整 Bitget funding history 或设计
+更厚的同 venue basis 机制；LS101 只保留为低成本研究候选，不修改 `PR2026-10-D-L125-V2`。
+
+报告：`reports/ls102_ls101_robustness_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls102-ls101-robustness.md`。
