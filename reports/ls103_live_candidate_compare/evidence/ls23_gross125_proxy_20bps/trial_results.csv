@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT,main,lag0,20.0,1.9426381837942757,61.67995917192101,-0.39956564727970145,reports/ls103_live_candidate_compare/ls23_gross125_proxy_20bps/PR2026-11-LS23-H5-PROFIT-LOCK-REGIME-SHORT/summary.json

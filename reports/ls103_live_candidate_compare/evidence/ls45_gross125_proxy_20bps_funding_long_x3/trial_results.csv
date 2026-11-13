@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21,main,lag0,20.0,1.8574903392654036,50.59320739211003,-0.41834081965465186,reports/ls103_live_candidate_compare/ls45_gross125_proxy_20bps_funding_long_x3/PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21/summary.json

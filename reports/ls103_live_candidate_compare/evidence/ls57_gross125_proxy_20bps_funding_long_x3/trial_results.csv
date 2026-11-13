@@ -1,0 +1,2 @@
+trial_id,window,fill,cost_bps,sharpe,multiple,max_drawdown,source
+PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE,main,lag0,20.0,1.8547264432373494,50.28451890255056,-0.41834081965465186,reports/ls103_live_candidate_compare/ls57_gross125_proxy_20bps_funding_long_x3/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/summary.json
