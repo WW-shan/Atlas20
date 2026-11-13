@@ -140,6 +140,37 @@ def test_state_is_not_marked_complete_when_notification_fails(tmp_path: Path) ->
     assert not state_path.exists()
 
 
+def test_persisted_state_records_the_bitget_account_fingerprint(tmp_path: Path) -> None:
+    entry = JournalEntry(
+        date="2026-10-31",
+        run_at_utc="2026-10-31T03:06:16+00:00",
+        signal_date="2026-10-30",
+        equity=100.0,
+        position_value=0.0,
+        cash=100.0,
+        day_pnl=0.0,
+        day_return=0.0,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+    )
+    state_path = tmp_path / "state.json"
+
+    execute_live_plan._persist_run_result(
+        json_out=tmp_path / "latest.json",
+        payload={"status": "ok"},
+        journal_file=tmp_path / "journal.csv",
+        entry=entry,
+        state_file=state_path,
+        key="SPEC|2026-10-30|2026-10-31",
+        status="ok",
+        report=ExecutionReport(signal_date="2026-10-30"),
+        account_fp="account-fingerprint",
+    )
+
+    assert json.loads(state_path.read_text(encoding="utf-8"))["account_fingerprint"] == "account-fingerprint"
+
+
 def test_same_day_retry_preserves_the_earlier_filled_trade(tmp_path: Path) -> None:
     from atlas20.derivatives.live_journal import load_journal
 
@@ -823,6 +854,15 @@ def test_execution_attempt_prefix_changes_only_after_a_run_was_persisted() -> No
 
     assert crashed == first
     assert retried != first
+
+
+def test_execution_attempt_prefix_is_scoped_to_the_bitget_account() -> None:
+    key = "SPEC|2026-11-13|2026-11-14"
+
+    account_a = execute_live_plan._attempt_client_oid_prefix(key, {"runs": []}, account_fp="account-a")
+    account_b = execute_live_plan._attempt_client_oid_prefix(key, {"runs": []}, account_fp="account-b")
+
+    assert account_a != account_b
 
 
 def test_live_executor_fatal_error_writes_json_and_notifies(tmp_path, monkeypatch) -> None:

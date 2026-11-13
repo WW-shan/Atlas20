@@ -11,6 +11,8 @@ from atlas20.derivatives.account import (
     BitgetCredentials,
     BitgetCredentialsError,
     BitgetPrivateClient,
+    account_fingerprint,
+    account_state_binding_issue,
     sign_request,
 )
 from atlas20.derivatives.bitget import BitgetAPIError
@@ -112,6 +114,21 @@ def test_isolated_capability_accepts_a_normal_trading_account() -> None:
     )
 
 
+def test_isolated_capability_accepts_a_trader_label_without_copy_permissions() -> None:
+    from atlas20.derivatives.account import isolated_margin_capability_error
+
+    assert (
+        isolated_margin_capability_error(
+            {
+                "permType": "read_and_write",
+                "permissions": ["uta_trade", "uta_mgt"],
+                "traderType": "trader",
+            }
+        )
+        is None
+    )
+
+
 def test_account_info_exposes_api_key_permissions_and_trader_type() -> None:
     payload = {
         "permType": "read_and_write",
@@ -123,6 +140,25 @@ def test_account_info_exposes_api_key_permissions_and_trader_type() -> None:
 
     assert client.account_info() == payload
     assert "/api/v3/account/info" in session.calls[0]["url"]
+
+
+def test_account_fingerprint_is_stable_and_does_not_expose_the_user_id() -> None:
+    fingerprint = account_fingerprint({"userId": "8886176695"})
+
+    assert fingerprint == "cb05dac7a33ea24f"
+    assert "8886176695" not in fingerprint
+
+
+def test_account_state_binding_rejects_a_different_or_unbound_legacy_account() -> None:
+    fingerprint = account_fingerprint({"userId": "8886176695"})
+
+    assert account_state_binding_issue({"account_fingerprint": fingerprint}, fingerprint) is None
+    assert "different" in str(
+        account_state_binding_issue({"account_fingerprint": "old-account"}, fingerprint)
+    )
+    assert "not bound" in str(
+        account_state_binding_issue({"runs": [{"key": "legacy"}]}, fingerprint)
+    )
 
 
 def test_non_demo_requests_omit_the_paper_header() -> None:

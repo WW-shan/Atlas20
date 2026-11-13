@@ -1,10 +1,10 @@
 {
-  "client_oid_prefix": "a20f10720a64bdc0153f37e",
+  "client_oid_prefix": "account-migration-cb05dac7a33ea24f",
   "event_execution_hint": "2026-11-07 03:00:00+00:00",
-  "execution_hint": "2026-11-13 01:05:00+00:00",
-  "live_execution_hint": "2026-11-13 01:05:00+00:00",
+  "execution_hint": "2026-11-14 01:05:00+00:00",
+  "live_execution_hint": "2026-11-14 01:05:00+00:00",
   "plan": {
-    "equity": 499.47894032,
+    "equity": 499.62960765,
     "expected_gross_notional": 0.0,
     "expected_margin": 0.0,
     "leverage": 2.0,
@@ -17,15 +17,15 @@
   },
   "quotes": {},
   "report": {
-    "available_after": 499.47894032,
-    "balance_after": 499.47894032,
-    "equity_after": 499.47894032,
-    "equity_before": 499.47894032,
+    "available_after": 499.45972246,
+    "balance_after": 499.45972246,
+    "equity_after": 499.62960765,
+    "equity_before": 499.62960765,
     "failures": [],
     "fills": [],
     "margin_mode": "",
     "margin_notes": [
-      "the API key belongs to a copy-trading/elite trader; Bitget rejects isolated futures orders for this account type; risk-reducing close remains allowed"
+      "account migration baseline after isolated long/short/stop/margin drills; drill PnL excluded from strategy PnL"
     ],
     "position_value": 0,
     "positions_after": [],

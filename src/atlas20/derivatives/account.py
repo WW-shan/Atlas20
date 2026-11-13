@@ -43,26 +43,48 @@ UTA_CATEGORY = "USDT-FUTURES"
 MARK_PRICE_TRIGGER = "mark"
 
 
+def account_fingerprint(account_info: Mapping[str, Any]) -> str:
+    """Stable non-secret fingerprint for one Bitget trading account."""
+
+    user_id = str(account_info.get("userId") or account_info.get("accountId") or "").strip()
+    if not user_id:
+        raise ValueError("Bitget account info has no stable userId/accountId")
+    return hashlib.sha256(f"atlas20:bitget-user:{user_id}".encode("utf-8")).hexdigest()[:16]
+
+
+def account_state_binding_issue(
+    state: Mapping[str, Any], current_fingerprint: str
+) -> str | None:
+    """Reject legacy or cross-account execution state before placing risk."""
+
+    stored = str(state.get("account_fingerprint") or "").strip()
+    has_history = bool(state.get("last_key")) or bool(state.get("runs"))
+    if stored and stored != current_fingerprint:
+        return "execution state belongs to a different Bitget account"
+    if has_history and not stored:
+        return "execution state is not bound to a Bitget account"
+    return None
+
+
 def isolated_margin_capability_error(account_info: Mapping[str, Any]) -> str | None:
     """Known Bitget account classifications that reject isolated futures.
 
     Copy-trading / elite-trader APIs can persist an isolated symbol config and
-    still reject the order with ``25200 fixedMargin not support``.  Fail from
-    account metadata before an order is attempted.
+    still reject the order with ``25200 fixedMargin not support``.  The
+    ``traderType`` label alone is not decisive: a normal trading account can
+    still carry ``traderType=trader`` after its copy-trading role is removed.
+    The copy-futures permissions are the account capability that matters.
     """
 
     permissions_raw = account_info.get("permissions")
     if not isinstance(permissions_raw, list):
         return "could not verify isolated-margin capability: account permissions are missing"
     permissions = {str(item).strip().lower() for item in permissions_raw}
-    trader_type = str(account_info.get("traderType") or "").strip().lower()
     perm_type = str(account_info.get("permType") or "").strip().lower()
-    if trader_type == "trader" or any(
-        permission.startswith("copy_futures_") for permission in permissions
-    ):
+    if any(permission.startswith("copy_futures_") for permission in permissions):
         return (
-            "the API key belongs to a copy-trading/elite trader; Bitget rejects "
-            "isolated futures orders for this account type"
+            "the API key carries copy-trading/elite futures permissions; "
+            "Bitget rejects isolated futures orders for this account type"
         )
     if perm_type == "read_only":
         return "the API key is read-only"
@@ -765,6 +787,8 @@ __all__ = [
     "BitgetCredentialsError",
     "BitgetPrivateClient",
     "MARK_PRICE_TRIGGER",
+    "account_fingerprint",
+    "account_state_binding_issue",
     "isolated_margin_capability_error",
     "UTA_CATEGORY",
     "_format_leverage",

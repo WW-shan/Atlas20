@@ -421,6 +421,21 @@ def test_account_audit_rejects_missing_or_non_numeric_core_fields() -> None:
     assert any("balance" in issue for issue in issues)
 
 
+def test_usdt_equivalent_balance_includes_non_usdt_collateral() -> None:
+    from scripts.audit_live_track import _usdt_equivalent_balance
+
+    balance = _usdt_equivalent_balance(
+        {
+            "assets": [
+                {"coin": "USDT", "equity": "499.45972246", "usdValue": "498.97250755"},
+                {"coin": "BGB", "equity": "0.10349572", "usdValue": "0.16973777"},
+            ]
+        }
+    )
+
+    assert balance == pytest.approx(499.62946023)
+
+
 def test_position_audit_rejects_an_invalid_total_and_mark_price() -> None:
     from scripts.audit_live_track import _position_data_issues
 

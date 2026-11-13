@@ -48,7 +48,12 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.account import (  # noqa: E402
+    BitgetCredentials,
+    BitgetPrivateClient,
+    account_fingerprint,
+    account_state_binding_issue,
+)
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
@@ -206,7 +211,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _attempt_client_oid_prefix(key: str, state: dict[str, Any]) -> str:
+def _attempt_client_oid_prefix(
+    key: str, state: dict[str, Any], *, account_fp: str = ""
+) -> str:
     """Fresh clientOid namespace only after a completed attempt was persisted.
 
     A crash before the state write must reuse the deterministic prefix so the
@@ -226,6 +233,8 @@ def _attempt_client_oid_prefix(key: str, state: dict[str, Any]) -> str:
         else 0
     )
     seed = key if prior_attempts == 0 else f"{key}|attempt={prior_attempts + 1}"
+    if account_fp:
+        seed = f"{account_fp}|{seed}"
     return "a20" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
 
 
@@ -658,8 +667,17 @@ def _journal_entry(
     )
 
 
-def _write_state(path: Path, key: str, status: str, report: ExecutionReport) -> None:
+def _write_state(
+    path: Path,
+    key: str,
+    status: str,
+    report: ExecutionReport,
+    *,
+    account_fp: str = "",
+) -> None:
     state = _read_state(path)
+    if account_fp:
+        state["account_fingerprint"] = account_fp
     state["last_key"] = key
     state["last_status"] = status
     state["last_run_at"] = datetime.now(timezone.utc).isoformat()
@@ -784,6 +802,7 @@ def _persist_run_result(
     key: str,
     status: str,
     report: ExecutionReport,
+    account_fp: str = "",
     notify: Callable[[], None] | None = None,
 ) -> None:
     """Persist artifacts in an order that never marks an unwritten run as done."""
@@ -800,7 +819,7 @@ def _persist_run_result(
     upsert_entry(journal_file, entry)
     if notify is not None:
         notify()
-    _write_state(state_file, key, status, report)
+    _write_state(state_file, key, status, report, account_fp=account_fp)
 
 
 def _acquire_execution_lock(path: Path) -> TextIO | None:
@@ -933,6 +952,7 @@ def _main(args: argparse.Namespace) -> int:
     specs = specs_from_instruments(rows, relevant_symbols)
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
+    account_fp = account_fingerprint(client.account_info())
     account = account_state_from_bitget(client, {**symbols_by_asset, **relevant_symbols})
     missing_specs = missing_contract_specs(
         specs,
@@ -1017,11 +1037,16 @@ def _main(args: argparse.Namespace) -> int:
     run_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"{args.spec}|{signal_date.date()}|{run_day}"
     state = _read_state(args.state_file)
+    binding_issue = account_state_binding_issue(state, account_fp)
+    if binding_issue is not None:
+        raise SystemExit(
+            f"{binding_issue}; archive and reset the old execution state before trading"
+        )
     already = state.get("last_key") == key and state.get("last_status") == "ok"
     if already and not args.force and args.live:
         print(f"already executed {key} (status ok); nothing to do")
         return 0
-    client_oid_prefix = _attempt_client_oid_prefix(key, state)
+    client_oid_prefix = _attempt_client_oid_prefix(key, state, account_fp=account_fp)
 
     lot_notional = {
         asset: float(spec.min_order_qty or spec.quantity_multiplier) * prices_by_asset[asset]
@@ -1236,6 +1261,7 @@ def _main(args: argparse.Namespace) -> int:
             key=key,
             status=status,
             report=report,
+            account_fp=account_fp,
             notify=notify_report if args.notify else None,
         )
         print(f"journal updated: {args.journal_file} ({entry.date})")

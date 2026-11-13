@@ -1,0 +1,41 @@
+{
+  "account_classification": {
+    "copy_futures_permissions": [],
+    "permType": "read_and_write",
+    "permissions": [
+      "uta_mgt",
+      "uta_trade"
+    ],
+    "traderType": "trader"
+  },
+  "account_fingerprint": "cb05dac7a33ea24f",
+  "baseline": {
+    "available": 499.45972246,
+    "balance": 499.45972246,
+    "equity": 499.62960765,
+    "ordinary_orders": 0,
+    "positions": 0,
+    "strategy_orders": 0
+  },
+  "drill_order_ids": [
+    "1505252581428019200",
+    "1505252669453877248",
+    "1505253359156838400",
+    "1505253364949172224",
+    "1505253376307347456",
+    "1505253382380699648"
+  ],
+  "drills": {
+    "isolated_margin_add_remove": "ok",
+    "long_isolated_open_close": "ok",
+    "short_close_removed_strategy_stop": "ok",
+    "short_increase_2_to_4": "ok",
+    "short_isolated_open_with_mark_market_stop": "ok",
+    "short_partial_reduce_4_to_2_with_stop_resize": "ok",
+    "short_stop_normalized_to_one_full_position_order": "ok"
+  },
+  "final_ordinary_orders": [],
+  "final_positions": [],
+  "final_strategy_orders": [],
+  "generated_at": "2026-11-13T21:47:36.092024+00:00"
+}

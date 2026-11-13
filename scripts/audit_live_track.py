@@ -4,7 +4,7 @@ Answers one question: *can every number in the daily report be reproduced
 from an independent source?*  It re-reads the exchange, the frozen target
 book and the local ledger, then checks
 
-1. the account identity ``usdtEquity == balance + unrealisedPnl``,
+1. the account identity ``usdtEquity == USDT-equivalent collateral + unrealisedPnl``,
 2. ``positionValue == Σ |size| × markPrice`` across open legs,
 3. every trade in the ledger exists in the venue's order history with the
    same quantity, average price and fee,
@@ -41,6 +41,8 @@ from atlas20.derivatives.account import (
     MARK_PRICE_TRIGGER,
     BitgetCredentials,
     BitgetPrivateClient,
+    account_fingerprint,
+    account_state_binding_issue,
     isolated_margin_capability_error,
 )  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
@@ -73,6 +75,7 @@ DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
 DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/audit.json")
 DEFAULT_DRILL_REGISTRY = Path("reports/ls45_live_g125_live/venue_drill_order_registry.json")
+DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
 SPEC_MAX_GROSS = 1.25
 SPEC_VENUE_LEVERAGE = 2.0
 SPEC_MIN_MARGIN_RATIO = 0.45
@@ -192,6 +195,29 @@ def _account_data_issues(assets: dict) -> list[str]:
             if issue:
                 issues.append(issue)
     return issues
+
+
+def _usdt_equivalent_balance(assets: dict) -> float:
+    """Collateral expressed in the account's USDT-equity convention.
+
+    Unified multi-assets accounts can hold BGB or another coin alongside USDT.
+    USDT rows contribute their ``equity`` one-for-one; other coins contribute
+    their venue-provided ``usdValue``.  Treating only the USDT row as the whole
+    balance produces a false identity failure on an otherwise valid account.
+    """
+
+    total = 0.0
+    for row in assets.get("assets") or []:
+        if not isinstance(row, dict):
+            continue
+        coin = str(row.get("coin") or "").upper()
+        if coin == "USDT":
+            total += _num(row.get("equity"))
+            if row.get("equity") in (None, ""):
+                total += _num(row.get("balance"))
+        else:
+            total += _num(row.get("usdValue"))
+    return total
 
 
 def _position_data_issues(positions: list[dict]) -> list[str]:
@@ -589,6 +615,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--drill-registry", type=Path, default=DEFAULT_DRILL_REGISTRY)
+    parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     args = parser.parse_args(argv)
     checked_at = datetime.now(timezone.utc)
 
@@ -617,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
         {},
     )
     equity = _num(assets.get("usdtEquity"))
-    balance = _num(usdt_row.get("balance"))
+    balance = _usdt_equivalent_balance(assets)
     unrealised = _num(assets.get("usdtUnrealisedPnl"))
     reported_position_value = _num(assets.get("positionValue"))
     mark_notional = sum(
@@ -679,7 +706,7 @@ def main(argv: list[str] | None = None) -> int:
             ", ".join(pending_issues) or "0 笔",
         )
     check(
-        "账户恒等式 equity = balance + uPnL",
+        "账户恒等式 equity = USDT 等值抵押品 + uPnL",
         abs(equity - (balance + unrealised)) <= 0.02,
         f"{equity:.4f} vs {balance:.4f} + {unrealised:.4f} = {balance + unrealised:.4f}",
     )
@@ -707,14 +734,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         account_info = client.account_info()
+        current_account_fingerprint = account_fingerprint(account_info)
     except (BitgetAPIError, ValueError) as exc:
         capability_error = f"查询 API key/账户分类失败：{exc}"
+        current_account_fingerprint = None
     else:
         capability_error = isolated_margin_capability_error(account_info)
     check(
         "API key 具备逐仓合约交易能力（或未见已知限制）",
         capability_error is None,
         capability_error or "未发现 copy-trading/elite 或只读限制",
+    )
+    state: dict = {}
+    if current_account_fingerprint is None:
+        binding_issue = "无法从账户信息计算指纹"
+    elif not args.state_file.exists():
+        binding_issue = f"执行状态文件不存在：{args.state_file}"
+    else:
+        try:
+            raw_state = json.loads(args.state_file.read_text(encoding="utf-8"))
+            if not isinstance(raw_state, dict):
+                raise ValueError("state is not an object")
+            state = raw_state
+            binding_issue = account_state_binding_issue(state, current_account_fingerprint)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            binding_issue = f"执行状态文件不可读：{exc}"
+    check(
+        "执行状态绑定当前 Bitget 账户",
+        binding_issue is None,
+        binding_issue or "账户指纹一致",
     )
 
     # -- ledger vs venue -------------------------------------------------

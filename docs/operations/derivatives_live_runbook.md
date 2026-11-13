@@ -218,33 +218,30 @@ Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动�
 
 若 API key 是“精英交易/跟单”类型，可能不支持逐仓、`set-margin`、one-way 或持仓模式切换。正确做法是换普通 API key，不是放宽执行器。
 
-**2026-11-14 真钱 venue drill（当前 key）：**
+**2026-11-14 账户迁移与当前 key 真钱 venue drill：**
 
-- `GET /api/v3/account/info`：`traderType=trader`，权限含
-  `copy_futures_order` / `copy_futures_position`；
-- 第一笔 `2 NEARUSDT` 多头按 `marginMode=isolated` 下单被交易所拒绝：
-  `25200 fixedMargin not support`，未成交、未留仓；
-- 同一 key 的 crossed-mode 极小 drill（每腿约 7 USDT）成功验证：
-  `buy + posSide=long`、`sell + posSide=short`、方向回读正确、各自立即平仓；
-- 空头订单附带 `stopLoss=entry×1.20`、`slTriggerBy=mark`、
-  `slOrderType=market`，交易所策略单回读 `status=pending`；平仓后策略单消失；
-- 真实空头 2 → 4 加仓后交易所保留两张各 `qty=2` 的策略单；4 → 2 部分减仓后仍保留两张。
-  执行器已用 `modify-strategy-order` + `cancel-strategy-order` 验证可归一为一张
-  `qty=4`，再在部分减仓后缩为 `qty=2`，全程无 emergency close；最终清仓后策略单为 0；
-- 当前版本再次用 2 NEAR 做 crossed 多头/空头真实开平：多空成交、方向回读、
-  空头 `stopLoss=entry×1.20` 的 mark/market 策略单、平仓后 0 仓位/0 普通挂单/0 策略单
-  均通过；这不是 isolated 规格的替代证据；
-- 证据：`reports/ls45_live_g125_live/venue_capability_drill.json`、
-  `reports/ls45_live_g125_live/venue_capability_drill_crossed.json`、
-  `reports/ls45_live_g125_live/venue_dual_side_drill.json`、
-  `reports/ls45_live_g125_live/venue_strategy_order_normalization_drill.json`、
-  `reports/ls45_live_g125_live/venue_short_stop_reconciliation_drill.json`；
+- 旧 elite/copy 账户已关闭，API 返回 `40037 Apikey does not exist`；旧账户的
+  drill 报告已归到 `reports/archive/ls45_live_elite_20261113/`，不再作为当前账户证据；
+- 新账户指纹 `cb05dac7a33ea24f`，`accountMode=unified`、`assetMode=multi_assets`；
+  `traderType=trader`，但权限只有 `uta_trade` / `uta_mgt`，**没有**
+  `copy_futures_*`；
+- `traderType=trader` 本身不是 isolated 禁用条件；真正阻断的是 copy-futures 权限。
+  该判断已由 `tests/test_derivatives_account.py` 固定；
+- 2 NEAR 多头：2x isolated 开仓、方向/保证金/杠杆回读、立即平仓，通过；
+- 2 NEAR 空头：2x isolated 开仓，附带 `stopLoss=entry×1.20`、`slTriggerBy=mark`、
+  `slOrderType=market`；交易所策略单回读通过；
+- 空头 2 → 4 加仓后出现两张 `qty=2` 策略单，执行器归一为一张 `qty=4`；
+  4 → 2 部分减仓后缩为 `qty=2`；清仓后策略单自动消失，全程无 emergency close；
+- `set-margin(add/remove)` 在 isolated 短仓上往返成功，保证金余额回读一致；
+- 所有演练完成后为 0 持仓、0 普通挂单、0 策略单；演练后权益
+  **499.6296 USDT**，作为新账户 journal baseline；
+- 证据：`reports/ls45_live_g125_live/account_migration.json`；
   精确 drill `orderId` 登记在
-  `reports/ls45_live_g125_live/venue_drill_order_registry.json`（当前 50 笔），不混入生产 journal。
+  `reports/ls45_live_g125_live/venue_drill_order_registry.json`（当前 6 笔），
+  不混入生产 journal。
 
-因此当前账户能在 crossed 下正常多空成交，但**不满足当前 isolated 规格**。执行器和
-`audit-live` 已改为从 `/account/info` 预检该限制：会阻止新开/加仓，但仍允许 reduce/close。
-解除阻塞只能换普通 API key，或由负责人明确决定把实盘规格改为 crossed。
+当前账户已在真实交易所验证满足 isolated 规格。执行状态文件带账户指纹；
+`audit-live` 会拒绝旧账户或未绑定的 legacy state。
 
 保证金路径：
 
@@ -266,13 +263,17 @@ Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动�
 | `reports/ls45_live_g125_live/journal.csv` | 每日权益、仓位、成交、止损记录、notes |
 | `reports/ls45_live_g125_live/audit.json` | 只读对账输出 |
 | `reports/ls45_live_g125_live/health.json` | 19:00 巡检快照 |
+| `reports/ls45_live_g125_live/account_migration.json` | 当前账户迁移、baseline 与 isolated 演练证据 |
 | `data/ls45_g125_execution_state.json` | 执行幂等状态 |
 | `data/ls45_g125_telegram_state.json` | Telegram 播报幂等状态 |
 | `data/ls45_g125_execution.KILL` | kill switch（存在即停止新执行） |
 | `data/ls45_g125_execution.lock` | 进程级执行锁；OS 在进程退出时自动释放 |
 | `reports/derivatives_track_live/capital_flows.csv` | 账户级外部资金流；入金/出金不能计为策略 PnL |
 
-`data/` 是本地运行状态，不随 git 部署。迁移机器时必须同步 credentials、`data/ls45_g125_execution_state.json`、`data/ls45_g125_telegram_state.json`、journal 和所需 raw/processed 数据，否则会重复执行或重复播报。
+`data/` 是本地运行状态，不随 git 部署。**同一账户**迁移机器时必须同步 credentials、
+`data/ls45_g125_execution_state.json`、`data/ls45_g125_telegram_state.json`、journal 和
+所需 raw/processed 数据，否则会重复执行或重复播报。换 Bitget 账户时必须归档旧 state/journal
+并建立新 baseline，不能让旧账户的 `account_fingerprint` 混入新账户。
 
 ---
 
@@ -321,7 +322,7 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，当前正常路径为 **26 项硬检查 + 1 项非硬告警**：
+`scripts/audit_live_track.py` 只读，当前正常路径为 **27 项硬检查 + 1 项非硬告警**：
 
 1. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
 2. 账户 API 必需字段完整且有限；
@@ -329,26 +330,28 @@ make audit-live
 4. 持仓 API 必需字段完整、方向合法且标记价有限；
 5. 当前没有未成交普通订单；
 6. 同一合约没有重复或反向对冲腿；
-7. `equity = balance + unrealisedPnl`；
+7. `equity = USDT-equivalent collateral + unrealisedPnl`；multi-assets 账户的非 USDT
+   抵押品按交易所 `usdValue` 计入；
 8. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
 9. 所有持仓合约都能在冻结 symbol map 中唯一映射；
 10. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
 11. API key/账户分类未命中 copy-trading/elite 逐仓限制；
-12. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
-13. journal PnL 链在剔除 capital flow 后连续；
-14. journal `funding_total` 等于持仓未变化区间的累计资金费差；
-15. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
-16. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
-17. 空头 journal 入场必须记录已确认止损；
-18. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
-19. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
-20. 冻结目标 gross 不超过 1.25x；
-21. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
-22. 无计划外持仓；
-23. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
-24. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
-25. 账本评估日 = 数据最新可判定日；
-26. journal 信号日 = 冻结账本最新信号日。
+12. 执行状态带账户指纹，且与当前 Bitget 账户一致；旧/未绑定 legacy state 失败；
+13. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
+14. journal PnL 链在剔除 capital flow 后连续；
+15. journal `funding_total` 等于持仓未变化区间的累计资金费差；
+16. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
+17. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
+18. 空头 journal 入场必须记录已确认止损；
+19. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
+20. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
+21. 冻结目标 gross 不超过 1.25x；
+22. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
+23. 无计划外持仓；
+24. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
+25. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
+26. 账本评估日 = 数据最新可判定日；
+27. journal 信号日 = 冻结账本最新信号日。
 
 另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。若 journal 为空，会先报“台账存在”硬失败并跳过依赖 journal 的检查。
 

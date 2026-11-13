@@ -1,4 +1,1 @@
 timestamp_utc,amount_usdt,note
-2026-11-04 11:00:00+00:00,400.0,用户报告入金 400 USDT；精确到账时间未取得，19:00 北京巡检已观察到权益增加
-2026-11-13 19:56:16.525604+00:00,-0.181795,venue capability and short-stop reconciliation drills: fees/slippage excluded from strategy PnL
-2026-11-13 20:27:15+00:00,-0.01997268,current-version NEAR crossed long/short drill; excluded from strategy PnL

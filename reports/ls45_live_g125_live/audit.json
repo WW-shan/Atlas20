@@ -1,9 +1,9 @@
 {
-  "checked_at": "2026-11-13T20:50:00.932106+00:00",
+  "checked_at": "2026-11-13T21:52:03.496848+00:00",
   "checks": [
     {
       "check": "venue drill 订单登记表可读",
-      "detail": "50 笔已登记；仅这些精确 orderId 不进入生产台账核对",
+      "detail": "6 笔已登记；仅这些精确 orderId 不进入生产台账核对",
       "hard": true,
       "ok": true
     },
@@ -15,7 +15,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 499.48 USDT",
+      "detail": "权益 499.63 USDT",
       "hard": true,
       "ok": true
     },
@@ -38,8 +38,8 @@
       "ok": true
     },
     {
-      "check": "账户恒等式 equity = balance + uPnL",
-      "detail": "499.4789 vs 499.4789 + 0.0000 = 499.4789",
+      "check": "账户恒等式 equity = USDT 等值抵押品 + uPnL",
+      "detail": "499.6297 vs 499.6295 + 0.0000 = 499.6295",
       "hard": true,
       "ok": true
     },
@@ -63,13 +63,19 @@
     },
     {
       "check": "API key 具备逐仓合约交易能力（或未见已知限制）",
-      "detail": "the API key belongs to a copy-trading/elite trader; Bitget rejects isolated futures orders for this account type",
+      "detail": "未发现 copy-trading/elite 或只读限制",
       "hard": true,
-      "ok": false
+      "ok": true
+    },
+    {
+      "check": "执行状态绑定当前 Bitget 账户",
+      "detail": "账户指纹一致",
+      "hard": true,
+      "ok": true
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-13 equity=499.4789；折算后应为 499.4789，交易所 499.4789",
+      "detail": "台账 2026-11-13 equity=499.6296；折算后应为 499.6296，交易所 499.6297",
       "hard": true,
       "ok": true
     },
@@ -87,7 +93,7 @@
     },
     {
       "check": "台账成交都能在交易所订单历史里对上",
-      "detail": "核对 39 笔订单",
+      "detail": "核对 6 笔订单",
       "hard": true,
       "ok": true
     },
@@ -135,13 +141,13 @@
     },
     {
       "check": "总名义 <= 1.25x 权益（规格上限）",
-      "detail": "gross 0.00 / equity 499.48 = 0.000x",
+      "detail": "gross 0.00 / equity 499.63 = 0.000x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-13 14:00:00+00:00（6.8h 前）",
+      "detail": "最新 mark 2026-11-13 14:00:00+00:00（7.9h 前）",
       "hard": true,
       "ok": true
     },
@@ -164,8 +170,8 @@
       "ok": true
     }
   ],
-  "equity": 499.47894032,
-  "hard_failures": 1,
+  "equity": 499.62966232,
+  "hard_failures": 0,
   "position_value": 0,
   "signal_date": "2026-11-06",
   "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
