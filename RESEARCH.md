@@ -4928,3 +4928,42 @@ Sharpe 1.6868 / MDD -40.24%，baseline 31.4655x / 1.6633 / -43.76%，仍是 risk
 报告：`reports/ls89_asset_ma21_exit_2026/`；压力：
 `reports/ls89_asset_ma21_exit_2026_adverse/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls89-asset-ma21-exit-design.md`。
+
+### 00.125 2026-11-13 LS90：四个真实引擎候选的等资本组合（validation fail）
+
+LS90 把 LS57 60%/1.45x、LS82 market-neutral carry、LS88 long-only carry、LS89 21D exit 四个
+已保存真实引擎子账户按初始资本 25% 等权，买入后不调仓；每个子账户的 20bps 成本已内含，不做
+免费每日再平衡。
+
+| 组合 | full 终值 | Sharpe | MDD | validation 终值 | validation Sharpe |
+|---|---:|---:|---:|---:|---:|
+| LS57 | 58.2059x | 1.9143 | -39.83% | 13.8153x | 2.0417 |
+| LS90 四等权 | **59.1295x** | **1.9322** | **-38.42%** | 13.7014x | **2.0492** |
+
+LS90 full 和 Sharpe/MDD 改善，但 validation multiple 13.7014x 低于 LS57 的 13.8153x，预注册
+门槛失败。子账户相关性显示四个 sleeve 高度同源，不能把它当作独立 alpha 组合。**判定：
+validation fail，不 promotion。** 不通过调 20/30/40% 权重救结果。
+
+报告：`reports/ls90_multi_strategy_ensemble_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls90-multi-strategy-ensemble.md`。
+
+### 00.126 2026-11-13 LS91：LS57 核心 + carry 卫星（20bps pass；50/100bps fail）
+
+LS91 把 LS90 的角色拆开：50% LS57、25% LS82 market-neutral carry、25% LS88 low-funding long；
+LS89 是 risk-only overlay，权重固定 0。仍是无再平衡的子账户组合，不增加总 gross。
+
+| 成本 | LS57 终值/Sharpe/MDD | LS91 终值/Sharpe/MDD | LS57 validation | LS91 validation |
+|---:|---:|---:|---:|---:|
+| 20bps | 58.2059x / 1.9143 / -39.83% | **60.0002x / 1.9242 / -39.28%** | 13.8153x / 2.0417 | **14.1470x / 2.0505** |
+| 50bps | 34.6316x / 1.7012 / -43.44% | 33.5719x / 1.6862 / -43.02% | 9.9768x / 1.8223 | 9.8181x / 1.8050 |
+| 100bps | 14.5318x / 1.3440 / -49.42% | 12.8555x / 1.2920 / -49.41% | 5.7885x / 1.4535 | 5.3831x / 1.3994 |
+
+LS91 首次通过 20bps full/validation 主门槛，但 50bps 终值和 Sharpe 已低于 LS57，100bps 明显
+落后；这是**成本敏感的 20bps portfolio candidate，不是可晋级策略**。组合的收益增量来自
+LS82/LS88 的低成本档，不能把 maker/低费率假设直接带入 promotion。**判定：conditional；
+不接实盘，不修改当前 `PR2026-10-D-L125-V2`。**
+
+报告：`reports/ls91_core_satellite_ensemble_2026/`；成本：
+`reports/ls91_core_satellite_ensemble_2026_cost50/`、
+`reports/ls91_core_satellite_ensemble_2026_cost100/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls91-core-satellite-ensemble.md`。
