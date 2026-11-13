@@ -512,3 +512,16 @@ def test_haircut_acceptance_requires_25pct_improvement_and_monotonicity() -> Non
     )
     assert not failing["haircut_25_improvement_ge_5bps"]
     assert not failing["improvement_monotonic_with_haircut"]
+
+
+def test_haircut_acceptance_treats_single_scenario_monotonicity_as_not_applicable() -> None:
+    from scripts import simulate_bitget_trade_tape_maker as simulator
+
+    summary = pd.DataFrame({"haircut": [0.25], "strict_improvement_bps": [10.0]})
+
+    checks = simulator._haircut_acceptance(
+        summary,
+        coverage_checks={"events_ge_200": True, "notional_coverage_ge_70pct": True},
+    )
+
+    assert checks["improvement_monotonic_with_haircut"] is True

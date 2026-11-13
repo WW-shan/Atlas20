@@ -1,0 +1,2 @@
+haircut,events,requested_notional,strict_maker_fill_rate,strict_effective_cost_bps,strict_improvement_bps,strict_effective_cost_p05_bps,strict_effective_cost_p95_bps,strict_guard_notional_share,strict_guard_event_share,strict_full_fill_share,strict_timeout_event_share,passes_5bps_improvement
+0.25,622,338807.96176617965,0.7657434284528744,9.59851859491105,10.40148140508895,-3.000000000001358,51.09772987604082,0.23425657154712562,0.2540192926045016,0.7459807073954984,0.0,True

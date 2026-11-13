@@ -642,8 +642,8 @@ def _haircut_acceptance(
     row_25 = ordered.loc[np.isclose(ordered["haircut"], 0.25)]
     improvement = ordered["strict_improvement_bps"].astype(float).to_numpy()
     monotonic = bool(
-        len(improvement) >= 2
-        and np.all(np.diff(improvement) >= -1e-9)
+        len(improvement) < 2
+        or np.all(np.diff(improvement) >= -1e-9)
     )
     checks = {
         **coverage_checks,

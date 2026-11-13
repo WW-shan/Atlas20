@@ -1,0 +1,63 @@
+event_index,timestamp,asset,symbol,position_side,action,exec_side,requested_notional,venue_min_trade_usdt,reason,date,error
+0,2024-07-05 03:00:00+00:00,uniswap,UNIUSDT,short,close,buy,33.3538184041,5.0,rebalance,2024-07-05,no depth file
+1,2024-07-07 03:00:00+00:00,ethereum,ETHUSDT,short,open,sell,138.47743211245407,5.0,rebalance,2024-07-07,no depth file
+2,2024-07-07 03:00:00+00:00,litecoin,LTCUSDT,short,open,sell,138.47743211245407,5.0,rebalance,2024-07-07,no depth file
+3,2024-07-07 03:00:00+00:00,pepe,PEPEUSDT,short,open,sell,138.47743211245407,5.0,rebalance,2024-07-07,no depth file
+4,2024-07-07 03:00:00+00:00,uniswap,UNIUSDT,short,open,sell,138.47743211245407,5.0,rebalance,2024-07-07,no depth file
+14,2024-07-19 03:00:00+00:00,ripple,XRPUSDT,long,close,sell,1052.9895344793997,5.0,rebalance,2024-07-19,no trades in execution window
+39,2024-07-31 03:00:00+00:00,ripple,XRPUSDT,long,increase,buy,81.65658047072876,5.0,rebalance,2024-07-31,no trades in execution window
+46,2024-08-04 03:00:00+00:00,solana,SOLUSDT,short,close,buy,42.8601454224234,5.0,rebalance,2024-08-04,no trades in execution window
+49,2024-08-04 03:00:00+00:00,pepe,PEPEUSDT,short,open,sell,118.64469862258389,5.0,rebalance,2024-08-04,no trades in execution window
+68,2024-09-01 03:00:00+00:00,ethereum,ETHUSDT,short,open,sell,116.5812316160805,5.0,rebalance,2024-09-01,no trades in execution window
+164,2024-11-07 03:00:00+00:00,dogecoin,DOGEUSDT,long,increase,buy,1162.9126302467917,5.0,rebalance,2024-11-07,no trades in execution window
+167,2024-11-11 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,1054.9325821554353,5.0,rebalance,2024-11-11,no trades in execution window
+171,2024-11-12 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,1541.2911086488582,5.0,rebalance,2024-11-12,no trades in execution window
+174,2024-11-13 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,179.63744759704724,5.0,rebalance,2024-11-13,no trades in execution window
+177,2024-11-14 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,38.048652301792195,5.0,rebalance,2024-11-14,no trades in execution window
+184,2024-11-21 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,45.74033797123325,5.0,rebalance,2024-11-21,no trades in execution window
+189,2024-11-23 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,284.48791495395,5.0,rebalance,2024-11-23,no trades in execution window
+192,2024-11-24 03:00:00+00:00,dogecoin,DOGEUSDT,long,reduce,sell,128.78828014600754,5.0,rebalance,2024-11-24,no trades in execution window
+193,2024-11-24 03:00:00+00:00,stellar,XLMUSDT,long,reduce,sell,404.38004428415155,5.0,rebalance,2024-11-24,no trades in execution window
+197,2024-11-26 03:00:00+00:00,stellar,XLMUSDT,long,reduce,sell,230.0061777947539,5.0,rebalance,2024-11-26,no depth file
+214,2024-12-10 03:00:00+00:00,ripple,XRPUSDT,long,open,buy,168.8067040539713,5.0,rebalance,2024-12-10,no trades in execution window
+223,2024-12-13 03:00:00+00:00,ripple,XRPUSDT,long,close,sell,140.82909311391805,5.0,rebalance,2024-12-13,no trades in execution window
+224,2024-12-13 03:00:00+00:00,hedera-hashgraph,HBARUSDT,long,increase,buy,47.92292797428675,5.0,rebalance,2024-12-13,no trades in execution window
+239,2024-12-26 03:00:00+00:00,bitget-token,BGBUSDT,long,open,buy,64.06170850343109,5.0,rebalance,2024-12-26,no trades in execution window
+242,2024-12-27 03:00:00+00:00,bitget-token,BGBUSDT,long,reduce,sell,31.163853359616052,5.0,rebalance,2024-12-27,no trades in execution window
+244,2024-12-29 03:00:00+00:00,bitget-token,BGBUSDT,long,increase,buy,22.93094159587495,5.0,rebalance,2024-12-29,no trades in execution window
+255,2025-01-02 03:00:00+00:00,stellar,XLMUSDT,short,close,buy,144.3081828274322,5.0,rebalance,2025-01-02,no trades in execution window
+257,2025-01-02 03:00:00+00:00,bitget-token,BGBUSDT,long,increase,buy,341.8221013810604,5.0,rebalance,2025-01-02,no trades in execution window
+260,2025-01-03 03:00:00+00:00,ripple,XRPUSDT,long,open,buy,802.1562889863592,5.0,rebalance,2025-01-03,no trades in execution window
+264,2025-01-05 03:00:00+00:00,ripple,XRPUSDT,long,reduce,sell,248.22250263260003,5.0,rebalance,2025-01-05,no trades in execution window
+267,2025-01-06 03:00:00+00:00,ripple,XRPUSDT,long,close,sell,271.9950006747877,5.0,rebalance,2025-01-06,no trades in execution window
+269,2025-01-06 03:00:00+00:00,bitget-token,BGBUSDT,long,open,buy,260.0699950395353,5.0,rebalance,2025-01-06,no trades in execution window
+270,2025-01-07 03:00:00+00:00,hedera-hashgraph,HBARUSDT,long,reduce,sell,21.67209963691685,5.0,rebalance,2025-01-07,no trades in execution window
+273,2025-01-08 03:00:00+00:00,hedera-hashgraph,HBARUSDT,long,reduce,sell,422.74627222378456,5.0,rebalance,2025-01-08,no trades in execution window
+274,2025-01-08 03:00:00+00:00,sui,SUIUSDT,long,reduce,sell,858.2560735429532,5.0,rebalance,2025-01-08,no trades in execution window
+287,2025-01-16 03:00:00+00:00,bitget-token,BGBUSDT,long,close,sell,774.5418713554907,5.0,rebalance,2025-01-16,no depth file
+290,2025-01-17 03:00:00+00:00,bitget-token,BGBUSDT,long,open,buy,806.1877078332772,5.0,rebalance,2025-01-17,no depth snapshot within max age
+302,2025-01-21 03:00:00+00:00,ripple,XRPUSDT,long,reduce,sell,5.7254508120509,5.0,rebalance,2025-01-21,no trades in execution window
+334,2025-02-06 03:00:00+00:00,ripple,XRPUSDT,long,close,sell,170.2987234116536,5.0,rebalance,2025-02-06,no trades in execution window
+337,2025-02-06 03:00:00+00:00,ripple,XRPUSDT,short,open,sell,103.67408823000521,5.0,rebalance,2025-02-06,no trades in execution window
+344,2025-02-09 03:00:00+00:00,bitcoin,BTCUSDT,long,increase,buy,212.9709302758644,5.0,rebalance,2025-02-09,no trades in execution window
+350,2025-02-11 03:00:00+00:00,bitcoin,BTCUSDT,long,reduce,sell,219.97802668994197,5.0,rebalance,2025-02-11,no trades in execution window
+358,2025-02-13 03:00:00+00:00,bitget-token,BGBUSDT,long,reduce,sell,100.84975100451965,5.0,rebalance,2025-02-13,no trades in execution window
+399,2025-04-06 03:00:00+00:00,ripple,XRPUSDT,short,increase,sell,9.015451476044,5.0,rebalance,2025-04-06,no trades in execution window
+412,2025-04-23 04:00:00+00:00,ethereum,ETHUSDT,short,close,buy,274.2856992843388,5.0,rebalance,2025-04-23,no trades in execution window
+417,2025-04-24 03:00:00+00:00,sui,SUIUSDT,long,open,buy,712.7952408641822,5.0,rebalance,2025-04-24,no trades in execution window
+421,2025-05-04 03:00:00+00:00,sui,SUIUSDT,long,increase,buy,327.20013740417573,5.0,rebalance,2025-05-04,no trades in execution window
+431,2025-05-10 03:00:00+00:00,sui,SUIUSDT,long,increase,buy,146.72133025375044,5.0,rebalance,2025-05-10,no trades in execution window
+433,2025-05-11 03:00:00+00:00,sui,SUIUSDT,long,increase,buy,174.2756734312558,5.0,rebalance,2025-05-11,no trades in execution window
+438,2025-05-15 03:00:00+00:00,ethereum,ETHUSDT,long,open,buy,203.83081636425555,5.0,rebalance,2025-05-15,no trades in execution window
+440,2025-05-16 03:00:00+00:00,ethereum,ETHUSDT,long,increase,buy,422.8496195364733,5.0,rebalance,2025-05-16,no trades in execution window
+443,2025-05-17 03:00:00+00:00,ethereum,ETHUSDT,long,increase,buy,416.07019034702006,5.0,rebalance,2025-05-17,no trades in execution window
+455,2025-05-22 03:00:00+00:00,ethereum,ETHUSDT,long,reduce,sell,375.5191253020928,5.0,rebalance,2025-05-22,no trades in execution window
+457,2025-05-23 03:00:00+00:00,ethereum,ETHUSDT,long,reduce,sell,435.7117976068514,5.0,rebalance,2025-05-23,no trades in execution window
+459,2025-05-23 03:00:00+00:00,sui,SUIUSDT,short,increase,sell,14.04031504364125,5.0,rebalance,2025-05-23,no trades in execution window
+462,2025-05-28 03:00:00+00:00,hyperliquid,HYPEUSDT,long,increase,buy,651.4923544296502,5.0,rebalance,2025-05-28,no trades in execution window
+464,2025-05-30 03:00:00+00:00,hyperliquid,HYPEUSDT,long,increase,buy,449.36655409066793,5.0,rebalance,2025-05-30,no trades in execution window
+465,2025-05-31 03:00:00+00:00,hyperliquid,HYPEUSDT,long,reduce,sell,1885.114538439497,5.0,rebalance,2025-05-31,no trades in execution window
+533,2025-08-04 03:00:00+00:00,hedera-hashgraph,HBARUSDT,long,reduce,sell,652.9730564969216,5.0,rebalance,2025-08-04,no depth file
+551,2025-08-09 03:00:00+00:00,ethereum,ETHUSDT,long,open,buy,787.0922309862773,5.0,rebalance,2025-08-09,no trades in execution window
+562,2025-08-11 03:00:00+00:00,ethereum,ETHUSDT,long,increase,buy,832.1036439205487,5.0,rebalance,2025-08-11,no trades in execution window
+566,2025-08-12 03:00:00+00:00,ethereum,ETHUSDT,long,increase,buy,1476.3667323881923,5.0,rebalance,2025-08-12,no trades in execution window

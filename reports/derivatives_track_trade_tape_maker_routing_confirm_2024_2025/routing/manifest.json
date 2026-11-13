@@ -1,0 +1,32 @@
+{
+  "acceptance_checks": {
+    "baseline_improvement_ge_5bps": true,
+    "events_ge_300": true,
+    "ex_top_asset_ge_5bps": true,
+    "long_open_baseline_not_profitable": false,
+    "month_breadth_ge_70pct": true,
+    "notional_coverage_ge_70pct": true,
+    "routed_gain_ge_0_5bps": false,
+    "routed_improvement_ge_5bps": true
+  },
+  "acceptance_verdict": "fail",
+  "baseline_cost_bps": 20.0,
+  "baseline_improvement_bps": 10.40148140508895,
+  "events_covered": 622,
+  "events_path": "reports/derivatives_track_trade_tape_maker_routing_confirm_2024_2025/events.csv",
+  "ex_top_asset_improvement_bps": 6.920167721450304,
+  "expected_notional": 362676.9212754792,
+  "haircut": 0.25,
+  "long_open_baseline_improvement_bps": 15.236598777542481,
+  "months": 18,
+  "months_ge_5bps": 13,
+  "notional_coverage": 0.9341867152027318,
+  "orders_sent": false,
+  "read_only": true,
+  "requested_notional": 338807.96176617965,
+  "route_action": "open",
+  "route_position_side": "long",
+  "routed_improvement_bps": 7.693344107732582,
+  "routing_gain_bps": -2.7081372973563678,
+  "top_savings_asset": "avalanche-2"
+}
