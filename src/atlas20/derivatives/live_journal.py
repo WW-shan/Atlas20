@@ -112,17 +112,18 @@ def load_journal(path: Path) -> pd.DataFrame:
     return frame[JOURNAL_COLUMNS]
 
 
-def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
+def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
     """Current short symbols whose whole open cycle carried a venue stop.
 
     A scan of all historical sells is unsafe: an old protected short could
     mask a later manual or failed reopen without a stop.  This state machine
     follows quantity and position snapshots in chronological order so only the
-    *current* short cycle can make a symbol protected.
+    *current* short cycle can make a symbol protected.  The returned value is
+    the most recent confirmed stop price for that short cycle.
     """
 
     if frame.empty:
-        return set()
+        return {}
 
     def _records(value: Any) -> list[dict[str, Any]] | None:
         if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -170,9 +171,15 @@ def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
         if "stop_trigger_by" not in trade and "stop_order_type" not in trade:
             return True
         return (
-            str(trade.get("stop_trigger_by") or "").lower() == "mark_price"
+            str(trade.get("stop_trigger_by") or "").lower() == "mark"
             and str(trade.get("stop_order_type") or "").lower() == "market"
         )
+
+    def _stop_price(trade: dict[str, Any]) -> float:
+        try:
+            return float(trade.get("stop_loss") or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def _trade_direction(trade: dict[str, Any]) -> tuple[str, str]:
         explicit = str(trade.get("position_side") or "").lower()
@@ -203,6 +210,7 @@ def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
     )
     short_qty: dict[str, float] = {}
     protected: dict[str, bool] = {}
+    stops: dict[str, float] = {}
     for _, row in ordered.iterrows():
         for trade in _records(row.get("trades")) or []:
             symbol = str(trade.get("symbol") or "").upper()
@@ -223,12 +231,17 @@ def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
                 protected[symbol] = confirmed if current <= 1e-12 else (
                     protected.get(symbol, False) and confirmed
                 )
+                if protected[symbol]:
+                    stops[symbol] = _stop_price(trade)
+                else:
+                    stops.pop(symbol, None)
                 short_qty[symbol] = current + qty
             elif action in {"REDUCE", "CLOSE"}:
                 remaining = max(0.0, current - qty)
                 if remaining <= 1e-12:
                     short_qty.pop(symbol, None)
                     protected.pop(symbol, None)
+                    stops.pop(symbol, None)
                 else:
                     short_qty[symbol] = remaining
 
@@ -248,19 +261,35 @@ def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
         for symbol in set(short_qty).difference(snapshot_qty):
             short_qty.pop(symbol, None)
             protected.pop(symbol, None)
+            stops.pop(symbol, None)
         for symbol, qty in snapshot_qty.items():
             if short_qty.get(symbol, 0.0) <= 1e-12:
                 # A short present without a journaled open is unsafe by default.
                 protected[symbol] = False
+                stops.pop(symbol, None)
                 short_qty[symbol] = 1.0
             elif qty > 1e-12:
                 short_qty[symbol] = qty
 
     return {
-        symbol
+        symbol: stops[symbol]
         for symbol, qty in short_qty.items()
-        if qty > 1e-12 and protected.get(symbol, False)
+        if qty > 1e-12
+        and protected.get(symbol, False)
+        and stops.get(symbol, 0.0) > 0.0
     }
+
+
+def protected_short_stops(frame: pd.DataFrame) -> dict[str, float]:
+    """Most recent confirmed stop price for every still-open protected short."""
+
+    return _current_short_protected_stops(frame)
+
+
+def protected_short_symbols(frame: pd.DataFrame) -> set[str]:
+    """Current short symbols whose whole open cycle carried a venue stop."""
+
+    return set(_current_short_protected_stops(frame))
 
 
 def previous_row(frame: pd.DataFrame, date: str) -> dict[str, Any] | None:
@@ -303,7 +332,12 @@ def load_capital_flows(path: Path) -> pd.DataFrame:
     if missing:
         raise ValueError(f"capital flows file is missing columns: {sorted(missing)}")
     frame = frame.loc[:, CAPITAL_FLOW_COLUMNS].copy()
-    frame["timestamp_utc"] = pd.to_datetime(frame["timestamp_utc"], utc=True, errors="coerce")
+    frame["timestamp_utc"] = pd.to_datetime(
+        frame["timestamp_utc"],
+        utc=True,
+        format="mixed",
+        errors="coerce",
+    )
     frame["amount_usdt"] = pd.to_numeric(frame["amount_usdt"], errors="coerce")
     if frame["timestamp_utc"].isna().any() or not frame["amount_usdt"].map(isfinite).all():
         raise ValueError("capital flows contain an invalid timestamp or amount")

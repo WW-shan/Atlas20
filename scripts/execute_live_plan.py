@@ -51,7 +51,10 @@ for path in (PROJECT_ROOT, SRC_DIR):
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
-from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    live_execution_hint_for_signal,
+    manifest_staleness_hours,
+)
 from atlas20.derivatives.live_executor import (  # noqa: E402
     ExecutionReport,
     execute_plan,
@@ -63,7 +66,7 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     load_journal,
     net_capital_flow,
     previous_row,
-    protected_short_symbols,
+    protected_short_stops,
     upsert_entry,
 )
 from atlas20.derivatives.quotes import (  # noqa: E402
@@ -203,6 +206,54 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _attempt_client_oid_prefix(key: str, state: dict[str, Any]) -> str:
+    """Fresh clientOid namespace only after a completed attempt was persisted.
+
+    A crash before the state write must reuse the deterministic prefix so the
+    next process can recover fills from order history.  Once a partial attempt
+    has been recorded, however, reusing the same venue idempotency keys can
+    prevent the scheduled retry from placing the missing order.
+    """
+
+    runs = state.get("runs")
+    prior_attempts = (
+        sum(
+            1
+            for row in runs
+            if isinstance(row, dict) and str(row.get("key") or "") == key
+        )
+        if isinstance(runs, list)
+        else 0
+    )
+    seed = key if prior_attempts == 0 else f"{key}|attempt={prior_attempts + 1}"
+    return "a20" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
+
+
+def _apply_equity_floor(
+    plan: Any,
+    *,
+    floor_usdt: float,
+) -> tuple[Any, list[Any]]:
+    """Keep exits enabled but suppress new/increased exposure below the floor."""
+
+    blocked = [order for order in plan.orders if not order.reduce_only]
+    if plan.equity >= floor_usdt or not blocked:
+        return plan, []
+    filtered = replace(
+        plan,
+        orders=[order for order in plan.orders if order.reduce_only],
+        margin_intents=[],
+        warnings=[
+            *plan.warnings,
+            (
+                f"account equity {plan.equity:.2f} USDT is below the "
+                f"{floor_usdt:.2f} USDT floor; only risk-reducing orders are allowed"
+            ),
+        ],
+    )
+    return filtered, blocked
+
+
 def _execution_window_error(
     *,
     execution_hint: datetime | pd.Timestamp,
@@ -258,7 +309,7 @@ def _effective_execution_hint(
         normalized = normalized.tz_localize("UTC")
     else:
         normalized = normalized.tz_convert("UTC")
-    return normalized.normalize() + pd.Timedelta(days=1, hours=3)
+    return pd.Timestamp(live_execution_hint_for_signal(normalized.normalize()))
 
 
 def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[dict]:
@@ -652,6 +703,39 @@ def _decoded_notes(raw: Any) -> list[str]:
     return notes
 
 
+def _capital_flow_for_run(
+    journal: pd.DataFrame,
+    capital_flows_file: Path,
+    *,
+    run_at: datetime,
+) -> float:
+    """Total external flow for a run day, including an earlier same-day retry.
+
+    A retry replaces the day's journal row, so it must not re-add deposits that
+    the first row already accounted for.  The first same-day run carries the
+    flow since the previous daily row; later runs carry that amount plus only
+    the new flow after their predecessor's ``run_at_utc``.
+    """
+
+    day = run_at.date().isoformat()
+    same_day = journal.loc[journal["date"].astype(str) == day] if not journal.empty else journal
+    carried = 0.0
+    after: datetime | str | None = None
+    if not same_day.empty:
+        prior = same_day.sort_values("run_at_utc").iloc[-1].to_dict()
+        carried = float(prior.get("capital_flow") or 0.0)
+        after = prior.get("run_at_utc")
+    else:
+        prior_day = previous_row(journal, day)
+        if prior_day is not None:
+            after = prior_day.get("run_at_utc")
+    return carried + net_capital_flow(
+        capital_flows_file,
+        after=after,
+        through=run_at,
+    )
+
+
 def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> JournalEntry:
     """Keep every same-day execution while refreshing the end-of-day snapshot."""
 
@@ -679,7 +763,14 @@ def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> Jo
         fees += fee
 
     prior_notes = _decoded_notes(previous.get("notes"))
-    notes = list(dict.fromkeys([str(note) for note in prior_notes + current.notes]))
+    # A retry refreshes volatile run facts instead of appending every observed
+    # value.  Keeping both old and new capital-flow/freshness notes makes the
+    # row look as if cash was deposited twice or the data moved backwards.
+    volatile_prefixes = ("外部资金流 ", "数据管线:")
+    stable_prior = [
+        note for note in prior_notes if not any(note.startswith(prefix) for prefix in volatile_prefixes)
+    ]
+    notes = list(dict.fromkeys([*stable_prior, *current.notes]))
     return replace(current, fees_today=round(fees, 8), trades=trades, notes=notes)
 
 
@@ -750,6 +841,11 @@ def _main(args: argparse.Namespace) -> int:
         if not isinstance(payload, dict):
             raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
         manifest = payload
+    if args.live and manifest is None:
+        raise SystemExit(
+            f"live execution requires the frozen manifest at {args.manifest_file}; "
+            "refusing to trade without an evaluated-date and mark-freshness proof"
+        )
     try:
         execution_hint = _effective_execution_hint(
             signal_end_date=manifest.get("signal_end_date") if manifest else None,
@@ -846,12 +942,10 @@ def _main(args: argparse.Namespace) -> int:
         raise SystemExit(
             "no Bitget contract spec for required asset(s): " + ", ".join(missing_specs)
         )
-    if account.equity < args.equity_floor:
-        raise SystemExit(
-            f"account equity {account.equity:.2f} USDT is below the "
-            f"{args.equity_floor:.2f} USDT floor; refusing to trade"
-        )
-    required_assets = set(targets) | set(account.positions)
+    # A held leg that is absent from the target book only needs to be closed.
+    # Its venue mark is a safe size/price fallback if the public ticker is
+    # unavailable; requiring a fresh public quote here could block the exit.
+    required_assets = set(targets)
     required_symbols = {
         str(relevant_symbols[asset]).upper()
         for asset in required_assets
@@ -894,9 +988,16 @@ def _main(args: argparse.Namespace) -> int:
         long_buffer=float(args.long_buffer),
         short_buffer=float(args.short_buffer),
         short_stop_loss_pct=float(args.short_stop_loss_pct),
-        max_gross_exposure=float(args.max_gross_multiple) * account.equity,
+        max_gross_exposure=(
+            float(args.max_gross_multiple) * account.equity
+            if account.equity > 0.0
+            else None
+        ),
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
+    )
+    plan, floor_blocked_orders = _apply_equity_floor(
+        plan, floor_usdt=float(args.equity_floor)
     )
     if quotes:
         warnings.extend(
@@ -915,12 +1016,12 @@ def _main(args: argparse.Namespace) -> int:
     # report, no ledger row.  A second run on the same day still skips.
     run_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     key = f"{args.spec}|{signal_date.date()}|{run_day}"
-    client_oid_prefix = "a20" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:20]
     state = _read_state(args.state_file)
     already = state.get("last_key") == key and state.get("last_status") == "ok"
     if already and not args.force and args.live:
         print(f"already executed {key} (status ok); nothing to do")
         return 0
+    client_oid_prefix = _attempt_client_oid_prefix(key, state)
 
     lot_notional = {
         asset: float(spec.min_order_qty or spec.quantity_multiplier) * prices_by_asset[asset]
@@ -932,10 +1033,10 @@ def _main(args: argparse.Namespace) -> int:
     journal = load_journal(args.journal_file)
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
     prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
-    capital_flow = net_capital_flow(
+    capital_flow = _capital_flow_for_run(
+        journal,
         args.capital_flows_file,
-        after=previous.get("run_at_utc") if previous else None,
-        through=run_at,
+        run_at=run_at,
     )
     if abs(capital_flow) > 0.005:
         warnings.append(f"外部资金流 {capital_flow:+.2f} USDT（已从盈亏中剔除）")
@@ -983,13 +1084,27 @@ def _main(args: argparse.Namespace) -> int:
             leverage=float(args.leverage),
             margin_mode=requested,
             require_isolated=bool(args.require_isolated),
-            known_protected_short_symbols=protected_short_symbols(journal),
+            known_protected_short_stops=protected_short_stops(journal),
+            symbol_assets=symbol_to_asset_index({**symbols_by_asset, **relevant_symbols}),
             hold_mode=hold_mode,
             client_oid_prefix=client_oid_prefix,
         )
         report.positions_after = _stamp_assets(
             report.positions_after, {**symbols_by_asset, **relevant_symbols}
         )
+        for order in floor_blocked_orders:
+            report.failures.append(
+                {
+                    "symbol": order.symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": (
+                        f"new risk blocked because equity {account.equity:.2f} USDT "
+                        f"is below the {float(args.equity_floor):.2f} USDT floor"
+                    ),
+                }
+            )
         planned_orders = []
         if (
             args.require_isolated

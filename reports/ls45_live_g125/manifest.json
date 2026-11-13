@@ -48,7 +48,7 @@
   "research_only": true,
   "signal_end_date": "2026-11-12",
   "spec": "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger21-design.md",
-  "staleness_hours": 2.5828946661111107,
+  "staleness_hours": 6.806833876944444,
   "start": "2026-09-22 00:00:00+00:00",
   "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
   "warmup_raw_dir": "data/raw/bitget_derivatives/merged_20261009",

@@ -21,15 +21,15 @@
 
 	    08:30 Beijing (00:30 UTC)  early primary, after the 10-asset probe's
 	                               measured 00:20 CMC publication window
-	    08:50 Beijing (00:50 UTC)  early catch-up, before the 11:05 trade
+	    08:50 Beijing (00:50 UTC)  early catch-up, before the 09:05 trade
 	    10:30 Beijing (02:30 UTC)  legacy primary fallback
-	    10:55 Beijing (02:55 UTC)  legacy pre-trade fallback before 11:05
+	    10:55 Beijing (02:55 UTC)  legacy fallback before the 11:05 retry
 	    14:30 Beijing (06:30 UTC)  late catch-up for anything that still failed
 
 	  The pre-trade catch-up is what makes a shutdown in the middle of the
 	  primary run survivable: on 2026-10-16 the machine went down at 10:34 and
-	  killed the primary mid-write, so the panel stayed on 10-14 and the 11:05
-	  trade job failed closed.  With this fire the panel is repaired 10 minutes
+	  killed the primary mid-write, so the panel stayed on 10-14 and the legacy
+	  11:05 trade job failed closed.  With this fire the panel is repaired 10 minutes
 	  before the trade, and the trade job can also repair it itself.
 
 	  Both the download and the build write through temp files, and the lock is

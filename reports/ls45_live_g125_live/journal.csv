@@ -1,2 +1,2 @@
 date,run_at_utc,signal_date,equity,position_value,cash,capital_flow,day_pnl,day_return,fees_today,funding_total,unrealised_pnl,positions,trades,notes
-2026-11-13,2026-11-13T17:06:53.133537+00:00,2026-11-06,499.680708,0.0,499.680708,400.0,,,0,0.0,0.0,[],[],"[""外部资金流 +400.00 USDT（已从盈亏中剔除）"", ""数据管线: mark 最新 2026-11-13 14:00:00+00:00（3.1h 前）、账本评估到 2026-11-12、信号事件 2026-11-06（7 天前）""]"
+2026-11-13,2026-11-13T20:47:47.872340+00:00,2026-11-06,499.47894,0.0,499.47894,399.798232,,,0.0,0.0,0.0,[],[],"[""the API key belongs to a copy-trading/elite trader; Bitget rejects isolated futures orders for this account type; risk-reducing close remains allowed"", ""外部资金流 +399.80 USDT（已从盈亏中剔除）"", ""数据管线: mark 最新 2026-11-13 14:00:00+00:00（6.8h 前）、账本评估到 2026-11-12、信号事件 2026-11-06（7 天前）""]"

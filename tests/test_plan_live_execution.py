@@ -30,6 +30,25 @@ def test_dry_run_plan_displays_the_short_stop() -> None:
     assert "止损 6" in message
 
 
+def test_dry_run_plan_separates_live_fast_path_from_research_fill() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0),
+        {"near": 0.4},
+        {"near": ContractSpec("NEARUSDT", min_order_qty=1.0, quantity_multiplier=1.0)},
+        {"near": 5.0},
+    )
+
+    message = format_execution_plan(
+        plan,
+        signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-11-14 01:05", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-11-14 03:00", tz="UTC"),
+    )
+
+    assert "建议执行 2026-11-14 01:05 UTC / 北京 2026-11-14 09:05" in message
+    assert "研究回测成交口径 2026-11-14 03:00 UTC / 北京 2026-11-14 11:00" in message
+
+
 def test_execute_cli_defaults_to_the_ls45_short_stop() -> None:
     args = execute_live_plan.parse_args([])
 

@@ -71,6 +71,7 @@ class _FakeLiveClient:
         cancel_error: str | None = None,
         strategy_orders: list[dict[str, Any]] | None = None,
         order_history_rows: list[dict[str, Any]] | None = None,
+        account_info_value: dict[str, Any] | None = None,
     ) -> None:
         self.hold_mode_value = hold_mode
         self.assets = assets or {
@@ -92,6 +93,11 @@ class _FakeLiveClient:
         self.cancel_error = cancel_error
         self.strategy_orders = list(strategy_orders or [])
         self.order_history_rows = list(order_history_rows or [])
+        self.account_info_value = account_info_value or {
+            "permType": "read_and_write",
+            "permissions": ["uta_trade", "uta_mgt"],
+            "traderType": "user",
+        }
         self.placed: list[dict[str, Any]] = []
         self.cancelled: list[dict[str, Any]] = []
         self.symbol_configs: dict[tuple[str, str], dict[str, Any]] = {}
@@ -102,6 +108,9 @@ class _FakeLiveClient:
     # -- protocol -----------------------------------------------------
     def account_assets(self) -> dict[str, Any]:
         return self.assets
+
+    def account_info(self) -> dict[str, Any]:
+        return dict(self.account_info_value)
 
     def current_positions(self, **kwargs: Any) -> list[dict[str, Any]]:
         return list(self.positions)
@@ -190,6 +199,28 @@ class _FakeLiveClient:
     def unfilled_strategy_orders(self, **kwargs: Any) -> list[dict[str, Any]]:
         return [dict(row) for row in self.strategy_orders]
 
+    def modify_strategy_order(self, **kwargs: Any) -> dict[str, Any]:
+        order_id = str(kwargs.get("order_id") or "")
+        for row in self.strategy_orders:
+            if str(row.get("orderId") or "") != order_id:
+                continue
+            if kwargs.get("qty") is not None:
+                row["qty"] = f"{float(kwargs['qty']):.12g}"
+            if kwargs.get("stop_loss") is not None:
+                row["stopLoss"] = f"{float(kwargs['stop_loss']):.12g}"
+            row["slTriggerBy"] = str(kwargs.get("sl_trigger_by") or row.get("slTriggerBy") or "")
+            row["slOrderType"] = str(kwargs.get("sl_order_type") or row.get("slOrderType") or "")
+            return {"orderId": order_id}
+        raise BitgetAPIError(f"strategy order {order_id} not found")
+
+    def cancel_strategy_order(self, **kwargs: Any) -> dict[str, Any]:
+        order_id = str(kwargs.get("order_id") or "")
+        for index, row in enumerate(self.strategy_orders):
+            if str(row.get("orderId") or "") == order_id:
+                self.strategy_orders.pop(index)
+                return {"orderId": order_id}
+        raise BitgetAPIError(f"strategy order {order_id} not found")
+
     def order_history(self, **kwargs: Any) -> list[dict[str, Any]]:
         return [dict(row) for row in self.order_history_rows]
 
@@ -227,6 +258,74 @@ def _run(client: _FakeLiveClient, plan, **kwargs: Any) -> ExecutionReport:
         clock=lambda: 0.0,
         **kwargs,
     )
+
+
+def test_require_isolated_blocks_an_elite_copy_trader_before_placing_an_open() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        account_info_value={
+            "permType": "read_and_write",
+            "permissions": [
+                "copy_futures_order",
+                "copy_futures_position",
+                "uta_trade",
+                "uta_mgt",
+            ],
+            "traderType": "trader",
+        },
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=0.4),
+        require_isolated=True,
+        margin_mode="isolated",
+    )
+
+    assert client.placed == []
+    assert any("copy-trading/elite" in row["error"] for row in report.failures)
+
+
+def test_elite_copy_trader_block_does_not_prevent_a_risk_reducing_close() -> None:
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="long",
+        size=20.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=51.5,
+    )
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        account_info_value={
+            "permType": "read_and_write",
+            "permissions": ["copy_futures_order", "uta_trade", "uta_mgt"],
+            "traderType": "trader",
+        },
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "long",
+                "marginMode": "isolated",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=0.0, position=position),
+        require_isolated=True,
+        margin_mode="isolated",
+    )
+
+    assert report.failures == []
+    assert len(client.placed) == 1
+    assert client.placed[0]["side"] == "sell"
 
 
 def test_execute_plan_reports_the_venue_fill_and_the_real_book() -> None:
@@ -461,6 +560,7 @@ def test_crossed_leverage_failure_blocks_the_order() -> None:
 def test_is_isolated_unsupported_matches_the_live_error_shapes() -> None:
     assert is_isolated_unsupported(BitgetAPIError("... 25200 fixedMargin not support ..."))
     assert is_isolated_unsupported(BitgetAPIError("... 40731 This product does not support copy trading"))
+    assert is_isolated_unsupported(BitgetAPIError("... 25200 FIXEDMARGIN NOT SUPPORT ..."))
     assert not is_isolated_unsupported(BitgetAPIError("... 25238 posSide and reduceOnly ..."))
 
 
@@ -633,6 +733,23 @@ def test_report_does_not_replace_zero_equity_with_the_before_value() -> None:
 
     assert "总权益 0.00 USDT" in message
     assert "总权益 100.00 USDT" not in message
+
+
+def test_report_shows_margin_and_capability_notes() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=499.64,
+        equity_after=499.64,
+        margin_notes=[
+            "the API key belongs to a copy-trading/elite trader; "
+            "risk-reducing close remains allowed"
+        ],
+    )
+
+    message = format_execution_report(report, signal_date="2026-11-13", spec="SPEC")
+
+    assert "提示:" in message
+    assert "copy-trading/elite trader" in message
 
 
 def test_report_flags_an_orphan_position() -> None:
@@ -809,7 +926,7 @@ def test_hedge_mode_short_open_attaches_a_mark_price_stop() -> None:
 
     order = client.placed[0]
     assert order["stop_loss"] == pytest.approx(6.0)
-    assert order["sl_trigger_by"] == "mark_price"
+    assert order["sl_trigger_by"] == "mark"
     assert order["sl_order_type"] == "market"
     assert report.fills[0].stop_loss == pytest.approx(6.0)
 
@@ -1293,14 +1410,15 @@ def test_plan_execution_never_turns_zero_equity_into_another_field() -> None:
         assets={
             "usdtEquity": 0,
             "accountEquity": 100,
-            "assets": [{"coin": "USDT", "available": "0"}],
+            "assets": [{"coin": "USDT", "available": "0", "balance": "0"}],
         },
     )
 
-    with pytest.raises(ValueError, match="usdtEquity"):
-        _run(client, _plan())
+    report = _run(client, _plan())
 
     assert client.placed == []
+    assert report.equity_before == 0.0
+    assert any("non-positive" in item["error"] for item in report.failures)
 
 
 def test_final_account_snapshot_rejects_a_missing_balance() -> None:
@@ -1490,6 +1608,46 @@ def test_manual_unfilled_order_on_any_symbol_blocks_the_whole_plan() -> None:
     assert any("unrelated unfilled order" in item["error"] for item in report.failures)
 
 
+def test_recovered_fill_uses_the_canonical_asset_mapping() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_history_rows=[
+            {
+                "orderId": "recovered-trx",
+                "clientOid": "a20dailyrecoveredtrx",
+                "symbol": "TRXUSDT",
+                "side": "buy",
+                "posSide": "long",
+                "orderStatus": "filled",
+                "cumExecQty": "10",
+                "avgPrice": "1",
+                "cumExecValue": "10",
+                "feeDetail": [{"fee": "0.01", "feeCoin": "USDT"}],
+            }
+        ],
+    )
+    empty_plan = ExecutionPlan(
+        equity=100.0,
+        leverage=2.0,
+        target_margin_ratio=0.5,
+        orders=[],
+        margin_intents=[],
+        warnings=[],
+        target_notional={"tron": 10.0},
+        expected_gross_notional=10.0,
+        expected_margin=5.0,
+    )
+
+    report = _run(
+        client,
+        empty_plan,
+        client_oid_prefix="a20daily",
+        symbol_assets={"TRXUSDT": "tron"},
+    )
+
+    assert report.fills[0].asset == "tron"
+
+
 def test_executor_recovers_a_fill_that_landed_before_the_journal_write() -> None:
     client = _FakeLiveClient(
         reject_isolated_orders=False,
@@ -1646,11 +1804,14 @@ def test_a_live_mark_market_strategy_stop_preserves_an_existing_short() -> None:
         ],
         strategy_orders=[
             {
+                "orderId": "stop-20",
                 "symbol": "NEARUSDT",
                 "posSide": "short",
                 "orderStatus": "live",
+                "side": "buy",
+                "qty": "20",
                 "stopLoss": "6",
-                "slTriggerBy": "mark_price",
+                "slTriggerBy": "mark",
                 "slOrderType": "market",
             }
         ],
@@ -1664,3 +1825,289 @@ def test_a_live_mark_market_strategy_stop_preserves_an_existing_short() -> None:
 
     assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
     assert not report.failures
+
+
+def test_a_modified_live_stop_is_restored_and_duplicates_are_removed() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-correct",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "10",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            },
+            {
+                "orderId": "stop-wrong",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "10",
+                "stopLoss": "5.5",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_stops={"NEARUSDT": 6.0},
+    )
+
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert not report.failures
+    assert len(client.strategy_orders) == 1
+    assert client.strategy_orders[0]["qty"] == "20"
+    assert client.strategy_orders[0]["stopLoss"] == "6"
+
+
+def test_one_way_net_strategy_stop_preserves_an_existing_short() -> None:
+    client = _FakeLiveClient(
+        hold_mode="one_way_mode",
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "-20",
+                "posSide": "net",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-net",
+                "symbol": "NEARUSDT",
+                "posSide": "net",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "20",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_stops={"NEARUSDT": 6.0},
+    )
+
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert not report.failures
+    assert len(client.strategy_orders) == 1
+    assert client.strategy_orders[0]["qty"] == "20"
+    assert client.strategy_orders[0]["stopLoss"] == "6"
+
+
+def test_multiple_stop_orders_can_cover_an_increased_short() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "4",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-old",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "2",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            },
+            {
+                "orderId": "stop-new",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "2",
+                "stopLoss": "6.0004",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            },
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.2, position=_short_position(size=4.0)),
+        known_protected_short_stops={"NEARUSDT": 6.0004},
+    )
+
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert not report.failures
+    assert len(client.strategy_orders) == 1
+    assert client.strategy_orders[0]["qty"] == "4"
+    assert client.strategy_orders[0]["stopLoss"] == "6.0004"
+
+
+def test_a_single_partial_stop_does_not_cover_an_increased_short() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "4",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-partial",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "2",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.2, position=_short_position(size=4.0)),
+        known_protected_short_stops={"NEARUSDT": 6.0},
+    )
+
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert not report.failures
+    assert len(client.strategy_orders) == 1
+    assert client.strategy_orders[0]["qty"] == "4"
+    assert client.strategy_orders[0]["stopLoss"] == "6"
+
+
+def test_an_unrelated_strategy_order_blocks_normalization_and_closes_the_short() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "4",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-good",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "4",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            },
+            {
+                "orderId": "strategy-extra",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "4",
+                "takeProfit": "4",
+                "tpTriggerBy": "mark",
+                "tpOrderType": "market",
+            },
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.2, position=_short_position(size=4.0)),
+        known_protected_short_stops={"NEARUSDT": 6.0},
+    )
+
+    assert any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert any("unexpected strategy order" in item["error"] for item in report.failures)
+
+
+def test_orphan_strategy_order_blocks_a_new_open_before_money_moves() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        strategy_orders=[
+            {
+                "orderId": "orphan-tp",
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "status": "pending",
+                "side": "sell",
+                "qty": "4",
+                "takeProfit": "6",
+                "tpTriggerBy": "mark",
+                "tpOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(client, _plan())
+
+    assert client.placed == []
+    assert any(
+        "strategy order" in item["error"] and "no open" in item["error"]
+        for item in report.failures
+    )
+
+
+def test_strategy_order_query_failure_still_allows_a_risk_reducing_close() -> None:
+    class _StrategyQueryFails(_FakeLiveClient):
+        def unfilled_strategy_orders(self, **kwargs: Any) -> list[dict[str, Any]]:
+            raise BitgetAPIError("strategy endpoint unavailable")
+
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="long",
+        size=20.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=51.5,
+    )
+    client = _StrategyQueryFails(reject_isolated_orders=False)
+
+    report = _run(client, _plan(weight=0.0, position=position))
+
+    assert [row["side"] for row in client.placed] == ["sell"]
+    assert report.failures == []
+    assert any("strategy" in note for note in report.margin_notes)

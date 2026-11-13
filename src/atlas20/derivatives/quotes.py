@@ -16,6 +16,8 @@ from typing import Any
 import pandas as pd
 import requests
 
+from atlas20.derivatives.http import get_json_with_retries
+
 BITGET_TICKERS_URL = "https://api.bitget.com/api/v3/market/tickers"
 _SUCCESS_CODES = {"0", "00000"}
 
@@ -97,6 +99,11 @@ def _quote_from_row(row: Mapping[str, Any], received_at: pd.Timestamp) -> Execut
         observed = _timestamp_ms(row.get("ts"))
     except (TypeError, ValueError, OverflowError):
         return None
+    # A ticker timestamp materially ahead of the signed server response is not
+    # a usable execution quote; accepting it would make ``age_seconds`` clamp
+    # to zero and let corrupted time data pass the freshness gate.
+    if observed > received_at + pd.Timedelta(seconds=60):
+        return None
     if (
         last is None
         or mark is None
@@ -130,17 +137,15 @@ def fetch_execution_quotes(
     """Fetch one server-timestamped quote snapshot for the requested symbols."""
 
     wanted = {str(symbol).strip().upper() for symbol in symbols if str(symbol).strip()}
-    response = session.get(
-        url,
-        params={"category": "USDT-FUTURES"},
-        timeout=timeout_seconds,
-    )
-    if not bool(getattr(response, "ok", False)):
-        raise QuoteError(f"Bitget tickers HTTP {getattr(response, 'status_code', 'unknown')}")
     try:
-        payload = response.json()
-    except ValueError as exc:
-        raise QuoteError("Bitget tickers returned non-JSON payload") from exc
+        payload = get_json_with_retries(
+            session,
+            url,
+            params={"category": "USDT-FUTURES"},
+            timeout_seconds=timeout_seconds,
+        )
+    except (requests.RequestException, ValueError) as exc:
+        raise QuoteError(f"Bitget tickers request failed: {exc}") from exc
     if not isinstance(payload, dict):
         raise QuoteError("Bitget tickers returned an unexpected payload")
     code = str(payload.get("code", ""))

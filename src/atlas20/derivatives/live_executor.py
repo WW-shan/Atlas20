@@ -26,6 +26,7 @@ Venue quirks this module absorbs (all observed live on 2026-10-10):
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -33,7 +34,11 @@ from math import isfinite
 import time
 from typing import Any, Callable, Protocol
 
-from atlas20.derivatives.account import UTA_CATEGORY
+from atlas20.derivatives.account import (
+    MARK_PRICE_TRIGGER,
+    UTA_CATEGORY,
+    isolated_margin_capability_error,
+)
 from atlas20.derivatives.bitget import BitgetAPIError
 from atlas20.derivatives.execution import ExecutionPlan
 
@@ -49,6 +54,8 @@ class LiveTradingClient(Protocol):
     the executor needs (a protocol so tests can inject a fake)."""
 
     def account_assets(self) -> dict[str, Any]: ...
+
+    def account_info(self) -> dict[str, Any]: ...
 
     def current_positions(self, **kwargs: Any) -> list[dict[str, Any]]: ...
 
@@ -69,6 +76,10 @@ class LiveTradingClient(Protocol):
     def cancel_order(self, **kwargs: Any) -> dict[str, Any]: ...
 
     def unfilled_strategy_orders(self, **kwargs: Any) -> list[dict[str, Any]]: ...
+
+    def modify_strategy_order(self, **kwargs: Any) -> dict[str, Any]: ...
+
+    def cancel_strategy_order(self, **kwargs: Any) -> dict[str, Any]: ...
 
     def order_history(self, **kwargs: Any) -> list[dict[str, Any]]: ...
 
@@ -114,7 +125,7 @@ class OrderFill:
         return (
             self.stop_loss > 0.0
             and abs(self.stop_loss - self.requested_stop_loss) <= tolerance
-            and self.stop_trigger_by.lower() == "mark_price"
+            and self.stop_trigger_by.lower() == MARK_PRICE_TRIGGER
             and self.stop_order_type.lower() == "market"
         )
 
@@ -201,8 +212,8 @@ def _error_text(error: Exception) -> str:
 def is_isolated_unsupported(error: Exception) -> bool:
     """True when the venue says this key/account cannot hold isolated futures."""
 
-    text = _error_text(error)
-    return any(marker in text for marker in _ISOLATED_UNSUPPORTED_MARKERS)
+    text = _error_text(error).lower()
+    return any(marker.lower() in text for marker in _ISOLATED_UNSUPPORTED_MARKERS)
 
 
 def _fee_from_detail(payload: dict[str, Any]) -> tuple[float, str]:
@@ -246,12 +257,12 @@ def _required_float(value: Any, field: str, *, positive: bool = False) -> float:
 
 
 def _account_equity(assets: dict[str, Any]) -> float:
-    """Read equity with explicit precedence; zero must not fall through."""
+    """Read equity with explicit precedence; non-positive still permits exits."""
 
     if assets.get("usdtEquity") is not None:
-        return _required_float(assets.get("usdtEquity"), "account usdtEquity", positive=True)
+        return _required_float(assets.get("usdtEquity"), "account usdtEquity")
     if assets.get("accountEquity") is not None:
-        return _required_float(assets.get("accountEquity"), "account accountEquity", positive=True)
+        return _required_float(assets.get("accountEquity"), "account accountEquity")
     raise ValueError("account assets contain neither usdtEquity nor accountEquity")
 
 
@@ -409,12 +420,24 @@ def _history_fill_action(row: dict[str, Any], positions: list[dict[str, Any]]) -
     return "OPEN" if side in {"buy", "sell"} else "UNKNOWN"
 
 
+def _asset_for_symbol(
+    symbol: str,
+    symbol_assets: Mapping[str, str] | None,
+) -> str:
+    """Resolve a venue symbol through the frozen asset map when available."""
+
+    upper = str(symbol).strip().upper()
+    mapped = (symbol_assets or {}).get(upper)
+    return str(mapped or upper.removesuffix("USDT") or upper).lower()
+
+
 def _recover_fills_from_order_history(
     client: LiveTradingClient,
     *,
     client_oid_prefix: str,
     report: ExecutionReport,
     positions: list[dict[str, Any]],
+    symbol_assets: Mapping[str, str] | None = None,
 ) -> None:
     """Recover fills that landed before a crash or lost response reached the CSV."""
 
@@ -494,7 +517,7 @@ def _recover_fills_from_order_history(
         stop = _to_float(row.get("stopLoss"))
         report.fills.append(
             OrderFill(
-                asset=symbol.removesuffix("USDT").lower(),
+                asset=_asset_for_symbol(symbol, symbol_assets),
                 symbol=symbol,
                 action=action,
                 side=str(row.get("side") or "").lower(),
@@ -643,6 +666,73 @@ def _preflight_unfilled_orders(
     return not blocked
 
 
+def _preflight_strategy_orders(
+    client: LiveTradingClient,
+    *,
+    positions: list[dict[str, Any]],
+    report: ExecutionReport,
+    required_for_opens: bool,
+) -> bool:
+    """Verify that pending TPSL orders cannot ambush a new entry.
+
+    An active strategy order is only expected as a mark-price market stop for
+    an open short.  Anything else blocks *new risk* but must not prevent a
+    risk-reducing close from being attempted.
+    """
+
+    try:
+        rows = client.unfilled_strategy_orders(category=UTA_CATEGORY)
+    except (BitgetAPIError, ValueError) as exc:
+        detail = f"could not query strategy orders: {_error_text(exc)}"
+        if required_for_opens:
+            report.failures.append(
+                {
+                    "symbol": "*",
+                    "action": "VERIFY",
+                    "side": "-",
+                    "size": "-",
+                    "error": detail + "; new opens are blocked",
+                }
+            )
+        else:
+            report.margin_notes.append(detail + "; no new risk was requested")
+        return False
+
+    positions_by_symbol = {
+        str(row.get("symbol") or "").upper(): _signed_position_qty(row)
+        for row in positions
+        if str(row.get("symbol") or "")
+    }
+    ok = True
+    for row in rows:
+        if _terminal_strategy_order(row):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        order_id = str(row.get("orderId") or row.get("clientOid") or "<unknown>")
+        signed_qty = positions_by_symbol.get(symbol, 0.0)
+        if abs(signed_qty) <= 1e-12:
+            issue = f"strategy order {order_id} exists with no open position"
+        elif signed_qty > 0.0:
+            issue = f"strategy order {order_id} is attached to a long position"
+        elif _short_stop_values(row) is None:
+            issue = (
+                f"strategy order {order_id} is not a short mark-price market stop"
+            )
+        else:
+            continue
+        ok = False
+        report.failures.append(
+            {
+                "symbol": symbol or "*",
+                "action": "VERIFY",
+                "side": "short" if signed_qty < 0.0 else "-",
+                "size": str(row.get("qty") or "-"),
+                "error": issue + "; new opens are blocked",
+            }
+        )
+    return ok
+
+
 def _leverage_readback_error(
     client: LiveTradingClient,
     *,
@@ -691,36 +781,236 @@ def _leverage_readback_error(
     )
 
 
+def _terminal_strategy_order(row: dict[str, Any]) -> bool:
+    status = str(row.get("orderStatus") or row.get("status") or "").lower()
+    return status in {"cancelled", "canceled", "filled", "triggered", "failed"}
+
+
+def _short_stop_values(row: dict[str, Any]) -> tuple[float, float] | None:
+    """Quantity and trigger price for one valid short-side mark stop."""
+
+    if str(row.get("posSide") or "").lower() not in {"", "short", "net"}:
+        return None
+    if str(row.get("side") or "").lower() != "buy":
+        return None
+    trigger = str(row.get("slTriggerBy") or row.get("triggerBy") or "").lower()
+    order_type = str(
+        row.get("slOrderType") or row.get("orderType") or row.get("type") or ""
+    ).lower()
+    if trigger != MARK_PRICE_TRIGGER or order_type != "market":
+        return None
+    try:
+        qty = float(row.get("qty") or row.get("quantity") or row.get("size") or 0.0)
+        stop = float(
+            row.get("stopLoss")
+            or row.get("slTriggerPrice")
+            or row.get("triggerPrice")
+            or 0.0
+        )
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(qty) or qty <= 0.0 or not isfinite(stop) or stop <= 0.0:
+        return None
+    return qty, stop
+
+
+def short_stop_symbol_issue(
+    position: dict[str, Any],
+    strategy_orders: list[dict[str, Any]],
+    *,
+    expected_stop: float | None = None,
+) -> str | None:
+    """Explain why the live stop orders do not protect one short position."""
+
+    symbol = str(position.get("symbol") or "").upper()
+    active = [
+        row
+        for row in strategy_orders
+        if str(row.get("symbol") or "").upper() == symbol
+        and not _terminal_strategy_order(row)
+    ]
+    if not active:
+        return "no active strategy stop"
+
+    parsed: list[tuple[float, float]] = []
+    for row in active:
+        values = _short_stop_values(row)
+        if values is None:
+            order_id = str(row.get("orderId") or row.get("clientOid") or "<unknown>")
+            return f"unexpected strategy order {order_id}"
+        parsed.append(values)
+
+    position_qty = abs(_signed_position_qty(position))
+    stop_qty = sum(qty for qty, _ in parsed)
+    qty_tolerance = max(1e-9, position_qty * 1e-6)
+    if stop_qty + qty_tolerance < position_qty:
+        return f"stop quantity {stop_qty:.8g} < position {position_qty:.8g}"
+    if stop_qty - qty_tolerance > position_qty:
+        return f"stop quantity {stop_qty:.8g} > position {position_qty:.8g}"
+
+    if expected_stop is not None and expected_stop > 0.0:
+        weighted_stop = sum(qty * stop for qty, stop in parsed) / stop_qty
+        # Multiple increase orders leave multiple exchange stops.  Each was
+        # rounded independently, so compare their quantity-weighted protection
+        # to the latest weighted-entry stop with a small rounding allowance.
+        tolerance = max(1e-9, float(expected_stop) * 0.0005)
+        if weighted_stop + tolerance < float(expected_stop):
+            return (
+                f"weighted stop {weighted_stop:.8g} < expected "
+                f"{float(expected_stop):.8g}"
+            )
+    return None
+
+
 def _venue_stop_protected_symbols(
     strategy_orders: list[dict[str, Any]],
-    short_symbols: set[str],
-) -> set[str]:
+    positions: list[dict[str, Any]],
+    *,
+    expected_stops: dict[str, float] | None = None,
+) -> tuple[set[str], dict[str, str]]:
+    wanted = {
+        str(symbol).upper(): float(stop)
+        for symbol, stop in (expected_stops or {}).items()
+    }
     protected: set[str] = set()
-    for row in strategy_orders:
-        symbol = str(row.get("symbol") or "").upper()
-        if symbol not in short_symbols:
+    reasons: dict[str, str] = {}
+    for position in positions:
+        if _signed_position_qty(position) >= 0.0:
             continue
-        if str(row.get("posSide") or "").lower() not in {"", "short"}:
-            continue
-        status = str(row.get("orderStatus") or row.get("status") or "").lower()
-        if status in {"cancelled", "canceled", "filled", "triggered", "failed"}:
-            continue
-        try:
-            stop = float(
-                row.get("stopLoss")
-                or row.get("slTriggerPrice")
-                or row.get("triggerPrice")
-                or 0.0
-            )
-        except (TypeError, ValueError):
-            continue
-        trigger = str(row.get("slTriggerBy") or row.get("triggerBy") or "").lower()
-        order_type = str(
-            row.get("slOrderType") or row.get("orderType") or row.get("type") or ""
-        ).lower()
-        if isfinite(stop) and stop > 0.0 and trigger == "mark_price" and order_type == "market":
+        symbol = str(position.get("symbol") or "").upper()
+        issue = short_stop_symbol_issue(
+            position,
+            strategy_orders,
+            expected_stop=wanted.get(symbol),
+        )
+        if issue is None:
             protected.add(symbol)
-    return protected
+        else:
+            reasons[symbol] = issue
+    return protected, reasons
+
+
+def _reconcile_short_stop_orders(
+    client: LiveTradingClient,
+    report: ExecutionReport,
+    positions: list[dict[str, Any]],
+    *,
+    expected_stops: dict[str, float],
+) -> tuple[list[dict[str, Any]] | None, str | None]:
+    """Collapse per-order exchange stops into one full-position stop per short."""
+
+    try:
+        strategy_orders = client.unfilled_strategy_orders(category=UTA_CATEGORY)
+    except (BitgetAPIError, ValueError) as exc:
+        return None, _error_text(exc)
+
+    changed = False
+    for position in positions:
+        if _signed_position_qty(position) >= 0.0:
+            continue
+        symbol = str(position.get("symbol") or "").upper()
+        expected = expected_stops.get(symbol)
+        if expected is None or expected <= 0.0:
+            continue
+        active = [
+            row
+            for row in strategy_orders
+            if str(row.get("symbol") or "").upper() == symbol
+            and not _terminal_strategy_order(row)
+        ]
+        if not active:
+            continue
+        parsed: list[tuple[dict[str, Any], float, float]] = []
+        invalid = False
+        for row in active:
+            values = _short_stop_values(row)
+            if values is None:
+                invalid = True
+                break
+            parsed.append((row, values[0], values[1]))
+        if invalid:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": (
+                        "unexpected strategy order prevents stop normalization; "
+                        "risk-reducing close required"
+                    ),
+                }
+            )
+            continue
+
+        keeper, keeper_qty, keeper_stop = min(
+            parsed,
+            key=lambda item: (
+                abs(item[2] - float(expected)),
+                -int(item[0].get("createdTime") or 0),
+            ),
+        )
+        keeper_id = str(keeper.get("orderId") or "")
+        if not keeper_id:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": "stop normalization found no strategy orderId",
+                }
+            )
+            continue
+        position_qty = abs(_signed_position_qty(position))
+        tolerance = max(1e-9, float(expected) * 1e-8)
+        symbol_changed = False
+        try:
+            if (
+                abs(keeper_qty - position_qty) > max(1e-9, position_qty * 1e-8)
+                or abs(keeper_stop - float(expected)) > tolerance
+            ):
+                client.modify_strategy_order(
+                    order_id=keeper_id,
+                    qty=position_qty,
+                    stop_loss=float(expected),
+                    sl_trigger_by=MARK_PRICE_TRIGGER,
+                    sl_order_type="market",
+                )
+                changed = True
+                symbol_changed = True
+            cancelled = 0
+            for row, _, _ in parsed:
+                order_id = str(row.get("orderId") or "")
+                if not order_id or order_id == keeper_id:
+                    continue
+                client.cancel_strategy_order(order_id=order_id)
+                cancelled += 1
+                changed = True
+                symbol_changed = True
+        except (BitgetAPIError, ValueError) as exc:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": f"{position_qty:.12g}",
+                    "error": f"could not normalize short stop orders: {_error_text(exc)}",
+                }
+            )
+            continue
+        if symbol_changed:
+            report.margin_notes.append(
+                f"{symbol}: 止损策略单已归一为 {position_qty:.8g} 张 @ "
+                f"{float(expected):.8g}，取消 {cancelled} 张重复单"
+            )
+
+    if not changed:
+        return strategy_orders, None
+    try:
+        return client.unfilled_strategy_orders(category=UTA_CATEGORY), None
+    except (BitgetAPIError, ValueError) as exc:
+        return None, _error_text(exc)
 
 
 def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> bool:
@@ -733,7 +1023,7 @@ def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> b
     return (
         attached > 0.0
         and abs(attached - float(requested)) <= tolerance
-        and trigger == "mark_price"
+        and trigger == MARK_PRICE_TRIGGER
         and order_type == "market"
     )
 
@@ -748,6 +1038,8 @@ def execute_plan(
     margin_mode: str = MARGIN_MODE_ISOLATED,
     require_isolated: bool = False,
     known_protected_short_symbols: set[str] | None = None,
+    known_protected_short_stops: dict[str, float] | None = None,
+    symbol_assets: Mapping[str, str] | None = None,
     hold_mode: str | None = None,
     fill_timeout_seconds: float = 20.0,
     poll_interval_seconds: float = 1.0,
@@ -778,9 +1070,30 @@ def execute_plan(
         for row in initial_positions
         if _signed_position_qty(row) < 0.0
     }
+    has_open_orders = any(not order.reduce_only for order in plan.orders)
     prefix = client_oid_prefix or f"atlas20{int(time.time() * 1000):x}"
+    strategy_preflight_ok = _preflight_strategy_orders(
+        client,
+        positions=initial_positions,
+        report=report,
+        required_for_opens=has_open_orders,
+    )
     preflight_ok = _preflight_unfilled_orders(client, report=report)
-    blocked_all_opens = False
+    nonpositive_equity_blocks_opens = has_open_orders and report.equity_before <= 0.0
+    if nonpositive_equity_blocks_opens:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": (
+                    f"account equity {report.equity_before:.2f} USDT is non-positive; "
+                    "new opens are blocked and only risk-reducing orders may proceed"
+                ),
+            }
+        )
+    blocked_all_opens = not strategy_preflight_ok or nonpositive_equity_blocks_opens
     if require_isolated:
         initial_invalid_modes = _invalid_margin_modes(initial_positions)
         if initial_invalid_modes:
@@ -798,6 +1111,24 @@ def execute_plan(
                     ),
                 }
             )
+        try:
+            capability_error = isolated_margin_capability_error(client.account_info())
+        except (BitgetAPIError, ValueError) as exc:
+            capability_error = f"could not verify isolated-margin capability: {exc}"
+        if capability_error is not None:
+            blocked_all_opens = True
+            if has_open_orders:
+                report.failures.append(
+                    {
+                        "symbol": "*",
+                        "action": "VERIFY",
+                        "side": "-",
+                        "size": "-",
+                        "error": capability_error + "; only risk-reducing orders are allowed",
+                    }
+                )
+            else:
+                report.margin_notes.append(capability_error + "; risk-reducing close remains allowed")
 
     isolated_ok = margin_mode == MARGIN_MODE_ISOLATED
     leverage_done: set[tuple[str, str]] = set()
@@ -952,7 +1283,7 @@ def execute_plan(
             body["margin_mode"] = MARGIN_MODE_ISOLATED
         if order.stop_loss is not None and not order.reduce_only:
             body["stop_loss"] = order.stop_loss
-            body["sl_trigger_by"] = "mark_price"
+            body["sl_trigger_by"] = MARK_PRICE_TRIGGER
             body["sl_order_type"] = "market"
 
         try:
@@ -1302,6 +1633,7 @@ def execute_plan(
         client_oid_prefix=prefix,
         report=report,
         positions=report.positions_after,
+        symbol_assets=symbol_assets,
     )
     open_short_symbols = {
         str(row.get("symbol") or "").upper()
@@ -1315,28 +1647,50 @@ def execute_plan(
             str(symbol).upper()
             for symbol in (known_protected_short_symbols or set())
         }
+        journal_expected_stops = {
+            str(symbol).upper(): float(stop)
+            for symbol, stop in (known_protected_short_stops or {}).items()
+            if isfinite(float(stop)) and float(stop) > 0.0
+        }
+        journal_protected.update(journal_expected_stops)
         recent_confirmed = {
             fill.symbol.upper()
             for fill in report.fills
             if fill.short_stop_confirmed and fill.status == _FILLED
         }
-        try:
-            strategy_orders = client.unfilled_strategy_orders(category=UTA_CATEGORY)
-        except (BitgetAPIError, ValueError) as exc:
+        recent_expected_stops = {
+            fill.symbol.upper(): float(fill.stop_loss)
+            for fill in report.fills
+            if fill.short_stop_confirmed
+            and fill.status == _FILLED
+            and fill.stop_loss is not None
+        }
+        expected_stops = {**journal_expected_stops, **recent_expected_stops}
+        strategy_orders, strategy_error = _reconcile_short_stop_orders(
+            client,
+            report,
+            report.positions_after,
+            expected_stops=expected_stops,
+        )
+        if strategy_error is not None:
             venue_protected: set[str] = set()
+            venue_reasons = {
+                symbol: "strategy order query failed" for symbol in open_short_symbols
+            }
             report.failures.append(
                 {
                     "symbol": "*",
                     "action": "VERIFY",
                     "side": "short",
                     "size": "-",
-                    "error": f"could not verify live short stop orders: {_error_text(exc)}",
+                    "error": f"could not verify live short stop orders: {strategy_error}",
                 }
             )
         else:
-            venue_protected = _venue_stop_protected_symbols(
+            venue_protected, venue_reasons = _venue_stop_protected_symbols(
                 strategy_orders,
-                open_short_symbols,
+                report.positions_after,
+                expected_stops=expected_stops,
             )
         protected = venue_protected & (recent_confirmed | journal_protected)
         unprotected = [
@@ -1355,7 +1709,9 @@ def execute_plan(
                     "side": "short",
                     "size": f"{qty:.12g}",
                     "error": (
-                        "existing short has no live venue stop; emergency close attempted"
+                        "existing short has no live venue stop: "
+                        f"{venue_reasons.get(symbol, 'stop coverage not proven')}; "
+                        "emergency close attempted"
                     ),
                 }
             )
@@ -1399,7 +1755,9 @@ def execute_plan(
                 close_status = str(close_payload.get("orderStatus") or "unknown")
                 report.fills.append(
                     OrderFill(
-                        asset=str(row.get("asset") or symbol.removesuffix("USDT")).lower(),
+                        asset=str(
+                            row.get("asset") or _asset_for_symbol(symbol, symbol_assets)
+                        ).lower(),
                         symbol=symbol,
                         action="EMERGENCY_CLOSE",
                         side="buy",
@@ -1693,7 +2051,8 @@ def format_execution_report(
                 f"  {failure['symbol']} {failure['action']} {failure['side']}"
                 f" {failure['size']}: {failure['error'][:100]}"
             )
-    if warnings:
+    notes = list(report.margin_notes) + list(warnings or [])
+    if notes:
         lines += ["", "提示:"]
-        lines += [f"  - {warning}" for warning in warnings]
+        lines += [f"  - {note}" for note in notes]
     return "\n".join(lines)

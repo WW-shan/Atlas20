@@ -47,13 +47,19 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.account import (  # noqa: E402
+    BitgetCredentials,
+    BitgetPrivateClient,
+    UTA_CATEGORY,
+)
 from atlas20.derivatives.execution import (  # noqa: E402
     AccountState,
     ContractSpec,
     PositionState,
     build_execution_plan,
 )
+from atlas20.derivatives.http import get_json_with_retries  # noqa: E402
+from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -240,21 +246,36 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
     return AccountState(equity=equity, available_margin=available, positions=positions)
 
 
-def fetch_public_instruments(session: requests.Session) -> list[dict]:
-    response = session.get(
-        PUBLIC_INSTRUMENTS_URL, params={"category": "USDT-FUTURES"}, timeout=30
+def _public_payload(session: requests.Session, url: str) -> dict:
+    payload = get_json_with_retries(
+        session,
+        url,
+        params={"category": "USDT-FUTURES"},
+        timeout_seconds=30.0,
     )
-    response.raise_for_status()
-    return list(response.json().get("data") or [])
+    code = str(payload.get("code", ""))
+    if code not in {"0", "00000"}:
+        raise ValueError(f"Bitget {url} error {code}: {payload.get('msg', '')}")
+    return payload
+
+
+def fetch_public_instruments(session: requests.Session) -> list[dict]:
+    payload = _public_payload(session, PUBLIC_INSTRUMENTS_URL)
+    data = payload.get("data") or []
+    if not isinstance(data, list):
+        raise ValueError("Bitget instruments data is not a list")
+    return [dict(row) for row in data if isinstance(row, dict)]
 
 
 def fetch_public_prices(session: requests.Session) -> dict[str, float]:
     """Last price by Bitget symbol from the public UTA tickers endpoint."""
 
-    response = session.get(PUBLIC_TICKERS_URL, params={"category": "USDT-FUTURES"}, timeout=30)
-    response.raise_for_status()
+    payload = _public_payload(session, PUBLIC_TICKERS_URL)
+    data = payload.get("data") or []
+    if not isinstance(data, list):
+        raise ValueError("Bitget tickers data is not a list")
     prices: dict[str, float] = {}
-    for row in response.json().get("data") or []:
+    for row in data:
         if not isinstance(row, dict):
             continue
         symbol = str(row.get("symbol", "")).upper()
@@ -288,12 +309,41 @@ def spec_symbol_universe(
 
 
 def specs_from_instruments(rows: list[dict], symbols_by_asset: dict[str, str]) -> dict[str, ContractSpec]:
-    by_symbol = {str(row.get("symbol", "")).upper(): row for row in rows}
+    """Return only complete, online perpetual specs from the venue snapshot.
+
+    A symbol present but offline, non-perpetual or missing a required quantity
+    grid must fail the live preflight instead of becoming a zero-step contract
+    that appears tradeable.
+    """
+
+    by_symbol = {
+        str(row.get("symbol", "")).upper(): row
+        for row in rows
+        if isinstance(row, dict)
+    }
     specs: dict[str, ContractSpec] = {}
     for asset, symbol in symbols_by_asset.items():
         row = by_symbol.get(symbol.upper())
-        if row is not None:
-            specs[asset] = ContractSpec.from_bitget_instrument(row)
+        if row is None:
+            continue
+        if str(row.get("status") or "").strip().lower() != "online":
+            continue
+        if str(row.get("type") or "").strip().lower() != "perpetual":
+            continue
+        category = str(row.get("category") or UTA_CATEGORY).strip().upper()
+        if category != UTA_CATEGORY:
+            continue
+        spec = ContractSpec.from_bitget_instrument(row)
+        if (
+            spec.quantity_multiplier <= 0.0
+            or spec.min_order_qty <= 0.0
+            or spec.min_order_usdt <= 0.0
+            or spec.price_multiplier <= 0.0
+            or spec.quantity_precision is None
+            or spec.price_precision is None
+        ):
+            continue
+        specs[asset] = spec
     return specs
 
 
@@ -321,6 +371,7 @@ def format_execution_plan(
     *,
     signal_date: pd.Timestamp,
     execution_hint: pd.Timestamp,
+    research_execution_hint: pd.Timestamp | None = None,
     spec: str = TRACKED_SPEC,
 ) -> str:
     lines = [
@@ -333,6 +384,13 @@ def format_execution_plan(
         "",
         "今日调仓:",
     ]
+    if research_execution_hint is not None:
+        lines.insert(
+            2,
+            "研究回测成交口径 "
+            f"{research_execution_hint.strftime('%Y-%m-%d %H:%M')} UTC "
+            f"/ 北京 {(research_execution_hint + pd.Timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')}",
+        )
     if not plan.orders:
         lines.append("  无需调仓（已与目标一致或在最小下单量以内）")
     for order in plan.orders:
@@ -405,7 +463,8 @@ def main() -> None:
     args = parser.parse_args()
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, research_execution_hint, book = load_latest_targets(args.targets_file)
+    execution_hint = pd.Timestamp(live_execution_hint_for_signal(signal_date))
     targets = {
         str(record["asset"]): float(record["target_weight"])
         for record in book.to_dict("records")
@@ -483,7 +542,11 @@ def main() -> None:
         min_rebalance_usdt=float(args.min_rebalance_usdt),
     )
     message = format_execution_plan(
-        plan, signal_date=signal_date, execution_hint=execution_hint, spec=args.spec
+        plan,
+        signal_date=signal_date,
+        execution_hint=execution_hint,
+        research_execution_hint=research_execution_hint,
+        spec=args.spec,
     )
     print(message)
 
@@ -496,6 +559,7 @@ def main() -> None:
                     "spec": args.spec,
                     "signal_date": str(signal_date.date()),
                     "execution_hint": str(execution_hint),
+                    "research_execution_hint": str(research_execution_hint),
                     "plan": plan.as_dict(),
                 },
                 indent=2,

@@ -1,9 +1,8 @@
 # Atlas20 Execution Latency Operations
 
-> **Historical note (2026-11-13):** the +1h fill experiment below is no longer
-> the live default. The current LS45-G125 production chain keeps T+1 +3h and
-> starts at 03:05 UTC; see “Current live schedule” before applying any
-> historical recommendation in this document.
+> **Live note (2026-11-14):** the owner approved the +1h5m live fast path for
+> the current LS45-G125 track. The **research** fill convention remains T+1 +3h;
+> live execution starts at 01:05 UTC. See “Current live schedule”.
 
 How to shorten the gap between the 00:00 UTC signal close and the live fill, and
 why that is the one remaining compliant lever on the frozen champion.
@@ -33,24 +32,23 @@ needs the owner's sign-off.
 on the selection history, not on execution. Only data no trial has seen can move
 them. This work is operational; the champion stays provisional either way.
 
-## Current live schedule (2026-11-13)
+## Current live schedule (2026-11-14)
 
-The production track is now LS45-G125. It keeps the frozen T+1 +3h research
-convention: the target weights come from the latest event row, while the
-**daily execution timestamp** comes from the manifest's latest completed data
-day plus T+1 +3h. That distinction matters because the event book can stay
-unchanged for many days while the executor still reconciles and journals every
-day.
+The production track is LS45-G125. Research still fills at T+1 +3h, while live
+execution deliberately uses T+1 **01:05 UTC** (+1h5m) after the early panel
+refresh. Target weights come from the latest event row; the daily execution
+timestamp comes from the manifest's latest completed data day plus one day and
+01:05 UTC. That distinction matters because the event book can stay unchanged
+for many days while the executor still reconciles and journals every day.
 
 | UTC | What happens | Where |
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
 | 00:30 / 00:50 | early panel refresh and catch-up | `ops/com.atlas20.daily-refresh.plist`, `scripts/refresh_daily_data.py` |
-| 03:05 / 03:35 / 04:35 / 06:35 | primary live chain and retries | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
+| 01:05 / 01:35 / 03:05 / 03:35 / 04:35 / 06:35 | primary live chain and retries | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
 | 06:30 | late panel catch-up | `scripts/refresh_daily_data.py` |
 
-The 01:05/01:35 early-fill experiment documented below is historical. It was
-superseded on 2026-11-13 and must not be used to infer the current schedule.
+The later 03:05/03:35/04:35/06:35 fires are fallbacks, not the primary schedule.
 
 Before every order the wrapper now checks both the panel date and the
 finished-last-day volume/market-cap coverage. If either is stale or partial it
@@ -169,9 +167,9 @@ remain mandatory.
 
 ## Step 2 - Move the fill (implemented)
 
-- **Superseded 2026-11-13:** the L125 01:05 UTC experiment was replaced by the
-  LS45-G125 T+1 +3h schedule. The execute plist/timer now start at 03:05 UTC and
-  retry at 03:35/04:35/06:35 UTC. The earlier 01:05 timing is historical only.
+- **Live 2026-11-14:** LS45-G125 now starts at 01:05 UTC and retries at
+  01:35/03:05/03:35/04:35/06:35 UTC. Research reporting keeps the conservative
+  +3h timestamp.
 - The live executor fetches one server-timestamped Bitget ticker snapshot for
   the required symbols. Missing/stale quotes fail closed; wide spreads,
   last/mark divergence and orders larger than the visible top-of-book level are
@@ -195,9 +193,9 @@ data reproduce the historical daily snapshot". Concretely, for every new day:
 
 ## Rollback
 
-Only the refresh and order schedules changed. Reverting the two launchd/systemd
-calendars to the old 02:30/03:05 path restores the previous +3h chain; no
-strategy, universe, cost or execution-rule state moves.
+Only the refresh and order schedules changed. Reverting the launchd/systemd
+execute calendars to 03:05 UTC restores the old live timing; the strategy,
+universe, research +3h reporting and cost state do not move.
 
 ## Record
 

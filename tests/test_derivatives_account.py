@@ -82,6 +82,49 @@ def test_headers_carry_credentials_and_the_demo_flag() -> None:
     )
 
 
+def test_isolated_capability_detects_a_copy_trading_elite_account() -> None:
+    from atlas20.derivatives.account import isolated_margin_capability_error
+
+    error = isolated_margin_capability_error(
+        {
+            "permType": "read_and_write",
+            "permissions": ["copy_futures_order", "copy_futures_position", "uta_trade"],
+            "traderType": "trader",
+        }
+    )
+
+    assert error is not None
+    assert "copy-trading/elite" in error
+
+
+def test_isolated_capability_accepts_a_normal_trading_account() -> None:
+    from atlas20.derivatives.account import isolated_margin_capability_error
+
+    assert (
+        isolated_margin_capability_error(
+            {
+                "permType": "read_and_write",
+                "permissions": ["uta_trade", "uta_mgt"],
+                "traderType": "user",
+            }
+        )
+        is None
+    )
+
+
+def test_account_info_exposes_api_key_permissions_and_trader_type() -> None:
+    payload = {
+        "permType": "read_and_write",
+        "permissions": ["copy_futures_order", "uta_trade", "uta_mgt"],
+        "traderType": "trader",
+    }
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": payload})])
+    client = _client(session)
+
+    assert client.account_info() == payload
+    assert "/api/v3/account/info" in session.calls[0]["url"]
+
+
 def test_non_demo_requests_omit_the_paper_header() -> None:
     session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
     client = _client(session, now_seconds=1_700_000_000.0)
@@ -174,7 +217,7 @@ def test_market_order_carries_an_attached_short_stop_loss() -> None:
 
     body = json.loads(session.calls[0]["data"])
     assert body["stopLoss"] == "2.4"
-    assert body["slTriggerBy"] == "mark_price"
+    assert body["slTriggerBy"] == "mark"
     assert body["slOrderType"] == "market"
 
 
@@ -184,6 +227,20 @@ def test_stop_loss_requires_a_positive_price() -> None:
 
     with pytest.raises(ValueError, match="stop_loss"):
         client.place_order(symbol="NEARUSDT", qty=1.0, side="sell", stop_loss=0.0)
+
+
+def test_stop_loss_rejects_the_legacy_bitget_v2_trigger_enum() -> None:
+    session = _FakeSession([])
+    client = _client(session)
+
+    with pytest.raises(ValueError, match="sl_trigger_by"):
+        client.place_order(
+            symbol="NEARUSDT",
+            qty=1.0,
+            side="sell",
+            stop_loss=6.0,
+            sl_trigger_by="mark_price",
+        )
 
 
 def test_limit_order_requires_a_price() -> None:
@@ -404,6 +461,39 @@ def test_cancel_order_uses_one_identifier_and_the_futures_category() -> None:
     assert body == {"category": "USDT-FUTURES", "orderId": "123"}
 
 
+def test_modify_strategy_order_updates_qty_and_mark_stop() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {"orderId": "s1"}})])
+    client = _client(session)
+
+    result = client.modify_strategy_order(
+        order_id="s1",
+        qty=4.0,
+        stop_loss=6.25,
+    )
+
+    assert result == {"orderId": "s1"}
+    assert "/api/v3/trade/modify-strategy-order" in session.calls[0]["url"]
+    body = json.loads(session.calls[0]["data"])
+    assert body == {
+        "orderId": "s1",
+        "qty": "4",
+        "stopLoss": "6.25",
+        "slTriggerBy": "mark",
+        "slOrderType": "market",
+    }
+
+
+def test_cancel_strategy_order_uses_only_its_exact_identity() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": None})])
+    client = _client(session)
+
+    client.cancel_strategy_order(order_id="s1")
+
+    assert "/api/v3/trade/cancel-strategy-order" in session.calls[0]["url"]
+    body = json.loads(session.calls[0]["data"])
+    assert body == {"orderId": "s1"}
+
+
 def test_order_history_all_splits_queries_into_thirty_day_windows() -> None:
     session = _FakeSession(
         [
@@ -492,7 +582,7 @@ def test_unfilled_strategy_orders_accepts_the_v3_list_payload() -> None:
                             "symbol": "NEARUSDT",
                             "posSide": "short",
                             "stopLoss": "6",
-                            "slTriggerBy": "mark_price",
+                            "slTriggerBy": "mark",
                             "slOrderType": "market",
                         }
                     ],

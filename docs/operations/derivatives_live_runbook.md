@@ -7,9 +7,10 @@
 > - 目标 **gross 硬上限 1.25x 权益**，实际 gross 可以更低，空仓即 100% cash；
 > - 交易所杠杆配置 **2x isolated**，多空每腿 initial buffer 均为 **50%**；
 > - 空头开/加仓附带 **20% adverse move、mark-price、market stop**；
-> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；事件账本保留自己的 `execution_hint`，
->   每日执行时点则取 manifest 最新已完成数据日 `signal_end_date + T+1 +3h`；
-> - 实盘主任务在其后 **03:05 UTC** 运行；
+> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；事件账本保留自己的 `execution_hint`；
+> - 实盘采用负责人批准的早盘快路径：manifest 最新完成日 **T+1 01:05 UTC**
+>   （北京 09:05，约为收盘后 +1h5m），目标权重仍取最新事件行；
+> - 实盘主任务在 **01:05 UTC** 运行；
 > - 成本口径 20 bps，funding 使用 Bitget exact；
 > - 当前策略书与选择证据：`docs/superpowers/specs/2026-11-13-ls103-live-candidate-selection.md`；
 > - 研究记录：`RESEARCH.md` §00.138；回测产物：`reports/ls45_live_g125/`。
@@ -26,7 +27,7 @@
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | **11:05**；重试 11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
 | `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
@@ -59,7 +60,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execute.timer
 ```
 
-- execute timer：03:05 / 03:35 / 04:35 / 06:35 UTC；
+- execute timer：01:05 / 01:35 / 03:05 / 03:35 / 04:35 / 06:35 UTC；
 - `Persistent=true`：重启后补跑错过的一次；
 - 补跑仍经过窗口闸和当日幂等闸；
 - 不要同时安装 `atlas20-derivatives-signal.timer` 与 execute timer。signal timer 只给“不下单、只播报”的备用部署使用。
@@ -75,28 +76,33 @@ signal_date D 00:00 UTC
 execution_hint D+1 03:00 UTC
 ```
 
-这个字段描述**该事件行**的 T+1 +3h 通知时点，Telegram 事件信号继续读取它。
-每日自动执行不能直接拿它当窗口：如果账本连续多日没有新事件，它会被误判为
-“数天前的任务已过期”。执行器改为从 manifest 的最新已完成数据日计算：
+这个字段描述**该事件行**的研究回测成交口径（T+1 +3h）。Telegram 会同时显示
+研究口径和实盘快路径，避免把 11:00 误认为真实下单时间。每日自动执行不能直接
+拿事件行当窗口：如果账本连续多日没有新事件，它会被误判为“数天前的任务已过期”。
+执行器改为从 manifest 的最新已完成数据日计算：
 
 ```text
-daily_execution_hint = manifest.signal_end_date + 1 day + 3 hours
+daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
+                     = signal_end_date + T+1 01:05 UTC
 ```
 
 目标权重仍取最新事件行；止损校验、账户对账和 journal 则每天都按
 `daily_execution_hint` 运行。因此事件信号可以显示旧信号日，但定时任务不会
 因为“今天没有新交易事件”而失效。
 
-实盘任务在 03:05 UTC 开始，是为了给账本重算、行情读取和交易所请求留 5 分钟；重试点在：
+实盘主任务在 01:05 UTC 开始，早于研究回测的 +3h 成交口径，但信号仍只使用
+D 日收盘及之前的数据。重试点在：
 
 ```text
-03:05 UTC = 11:05 北京  primary
-03:35 UTC = 11:35 北京  retry
-04:35 UTC = 12:35 北京  retry
+01:05 UTC = 09:05 北京  primary
+01:35 UTC = 09:35 北京  retry
+03:05 UTC = 11:05 北京  fallback
+03:35 UTC = 11:35 北京  fallback
+04:35 UTC = 12:35 北京  fallback
 06:35 UTC = 14:35 北京  final retry
 ```
 
-交易窗口从 03:05 UTC 起 6 小时，即最晚到 09:05 UTC / 17:05 北京。窗口外只允许人工显式 `--force` 补做；即使 `--force`，当日已成功、数据不新鲜、风险或对账闸门仍会阻止重复交易。
+交易窗口从 01:05 UTC 起 6 小时，即最晚到 07:05 UTC / 15:05 北京。窗口外只允许人工显式 `--force` 补做；即使 `--force`，当日已成功、数据不新鲜、风险或对账闸门仍会阻止重复交易。
 
 ---
 
@@ -105,7 +111,7 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 3 hours
 `ops/run_derivatives_daily.sh` 在每次 launchd/systemd 启动时按顺序执行：
 
 1. **窗口闸**：`scripts/live_chain_preflight.py --check window`
-   - 03:05 UTC 前退出；
+   - 01:05 UTC 前退出；
    - 当日状态已 `ok` 退出；
    - 超过 6 小时补跑窗口退出；
    - 退出码 3 表示“设计上不交易”，不是故障。
@@ -167,7 +173,7 @@ rm data/ls45_g125_execution.KILL      # 恢复
 
 ```text
 stopLoss    = 预计成交后的加权入场价 × 1.20
-slTriggerBy = mark_price
+slTriggerBy = mark
 slOrderType = market
 ```
 
@@ -175,12 +181,22 @@ slOrderType = market
 
 执行器成交后必须从交易所 `order-info` 回读 `stopLoss`：
 
-- 同时核对 `stopLoss / slTriggerBy / slOrderType`，必须等于请求价格、`mark_price`、`market`；
+- 同时核对 `stopLoss / slTriggerBy / slOrderType`，必须等于请求价格、`mark`、`market`（UI 文案仍称 mark-price）；
 - 回读一致：把三字段和 `position_side / client_oid / status` 一并记录到 journal；
 - 未确认：立即市价买回平掉该空头（`EMERGENCY_CLOSE`），并把本次 run 标记为 `partial`；
 - 空头加仓的止损未确认时，平掉该 symbol 当前完整空头腿，而不只是新加的数量；
 - 下一次重试会重新读取真实账户，不会重复开仓；
 - `audit-live` 会核对 journal 中带止损的空头成交与交易所订单历史的 `stopLoss / slTriggerBy / slOrderType`。
+
+Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动合并：
+
+- 空头 2 → 4 加仓后，交易所会同时保留旧 `qty=2` 和新 `qty=2` 两张止损策略单；
+- 空头 4 → 2 部分减仓后，交易所不会自动把两张策略单缩成一张，仍可能保留总 `qty=4`；
+- 因此每轮执行在最终验仓前会把当前空头归一为**一张策略单**：`qty = 当前空头数量`，
+  `stopLoss = 最新加权入场价 × 1.20`（向上取整），`slTriggerBy=mark`，`slOrderType=market`；
+- 归一使用 Bitget `modify-strategy-order` 调整保留单，再用 `cancel-strategy-order` 取消重复单；
+- 若同一 symbol 出现无法识别的策略单，不猜测、不修改，直接按空头止损未证实处理并 emergency close；
+- 归一后重新查询交易所；必须恰好一张、数量等于当前仓位、价格等于目标止损，否则本次 run 为 `partial`。
 
 止损保护按当前空头开仓周期维护。平仓后旧 journal 中的历史 stop 不会继续保护后续重开的空头；
 当前空头若没有完整的当周期入场 stop 记录，会先被 `EMERGENCY_CLOSE`。
@@ -201,6 +217,34 @@ slOrderType = market
 生产路径只设置目标方向的 isolated leverage，不要求 crossed leverage 设置成功。
 
 若 API key 是“精英交易/跟单”类型，可能不支持逐仓、`set-margin`、one-way 或持仓模式切换。正确做法是换普通 API key，不是放宽执行器。
+
+**2026-11-14 真钱 venue drill（当前 key）：**
+
+- `GET /api/v3/account/info`：`traderType=trader`，权限含
+  `copy_futures_order` / `copy_futures_position`；
+- 第一笔 `2 NEARUSDT` 多头按 `marginMode=isolated` 下单被交易所拒绝：
+  `25200 fixedMargin not support`，未成交、未留仓；
+- 同一 key 的 crossed-mode 极小 drill（每腿约 7 USDT）成功验证：
+  `buy + posSide=long`、`sell + posSide=short`、方向回读正确、各自立即平仓；
+- 空头订单附带 `stopLoss=entry×1.20`、`slTriggerBy=mark`、
+  `slOrderType=market`，交易所策略单回读 `status=pending`；平仓后策略单消失；
+- 真实空头 2 → 4 加仓后交易所保留两张各 `qty=2` 的策略单；4 → 2 部分减仓后仍保留两张。
+  执行器已用 `modify-strategy-order` + `cancel-strategy-order` 验证可归一为一张
+  `qty=4`，再在部分减仓后缩为 `qty=2`，全程无 emergency close；最终清仓后策略单为 0；
+- 当前版本再次用 2 NEAR 做 crossed 多头/空头真实开平：多空成交、方向回读、
+  空头 `stopLoss=entry×1.20` 的 mark/market 策略单、平仓后 0 仓位/0 普通挂单/0 策略单
+  均通过；这不是 isolated 规格的替代证据；
+- 证据：`reports/ls45_live_g125_live/venue_capability_drill.json`、
+  `reports/ls45_live_g125_live/venue_capability_drill_crossed.json`、
+  `reports/ls45_live_g125_live/venue_dual_side_drill.json`、
+  `reports/ls45_live_g125_live/venue_strategy_order_normalization_drill.json`、
+  `reports/ls45_live_g125_live/venue_short_stop_reconciliation_drill.json`；
+  精确 drill `orderId` 登记在
+  `reports/ls45_live_g125_live/venue_drill_order_registry.json`（当前 50 笔），不混入生产 journal。
+
+因此当前账户能在 crossed 下正常多空成交，但**不满足当前 isolated 规格**。执行器和
+`audit-live` 已改为从 `/account/info` 预检该限制：会阻止新开/加仓，但仍允许 reduce/close。
+解除阻塞只能换普通 API key，或由负责人明确决定把实盘规格改为 crossed。
 
 保证金路径：
 
@@ -252,6 +296,15 @@ ops/run_derivatives_daily.sh --force    # 只跳过窗口闸
 ```
 
 同日成功后重跑会直接跳过。`--force` 不是“强制重复交易”，只是允许窗口外补跑一次未完成的当日任务。
+进程在状态落盘前崩溃时，同日重试复用确定性 `clientOid`，以便从订单历史恢复已成交订单；
+若前一次失败已经写入 state，则下一次 attempt 使用新的确定性前缀，避免交易所把新补单误判为旧幂等键。
+失败重试按前一次同日 journal 的 `run_at_utc` 只追加新的外部资金流；旧资金流/数据新鲜度提示会被本轮提示替换，不会重复记账。
+来自公网的瞬时连接、TLS 或 429/5xx 会做有限次指数退避；响应成功但内容无效仍然 fail closed。
+
+权益跌到 20 USDT 以下或非正数时，执行器不再整体拒绝运行：它会抑制所有新开/加仓和保证金追加，
+但仍允许 reduce/close、止损核对、记账和告警。这样不会因为“余额太小”把现有风险锁在仓位里。
+任何已存在的异常策略单（例如无持仓的 TP/SL、long 上的策略单、short 上非 mark/market stop）
+都会在真实下单前阻断新风险；策略单接口不可用时，开仓同样 fail closed，减仓/平仓仍继续。
 
 ### 7.3 资金流
 
@@ -268,33 +321,38 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，当前默认 21 项检查，包含：
+`scripts/audit_live_track.py` 只读，当前正常路径为 **26 项硬检查 + 1 项非硬告警**：
 
-1. `equity = balance + unrealisedPnl`；
-2. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
-3. 账户 API 必需字段完整且有限（equity / uPnL / positionValue / USDT balance/available）；
+1. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
+2. 账户 API 必需字段完整且有限；
+3. 账户权益不低于执行下限 20 USDT；
 4. 持仓 API 必需字段完整、方向合法且标记价有限；
-5. 所有持仓合约都能在冻结 symbol map 中唯一映射；
-6. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
-7. journal 存在；
-8. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
-9. journal PnL 链在剔除 capital flow 后连续；
-10. journal `funding_total` 等于持仓未变化区间的累计资金费差；
-11. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
-12. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
-13. 空头 journal 入场必须记录已确认止损；
-14. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
-15. 冻结目标 gross 不超过 1.25x；
-16. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
-17. 无计划外持仓；
-18. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
-19. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
-20. 账本评估日 = 数据最新可判定日；
-21. journal 信号日 = 冻结账本最新信号日。
+5. 当前没有未成交普通订单；
+6. 同一合约没有重复或反向对冲腿；
+7. `equity = balance + unrealisedPnl`；
+8. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
+9. 所有持仓合约都能在冻结 symbol map 中唯一映射；
+10. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
+11. API key/账户分类未命中 copy-trading/elite 逐仓限制；
+12. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
+13. journal PnL 链在剔除 capital flow 后连续；
+14. journal `funding_total` 等于持仓未变化区间的累计资金费差；
+15. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
+16. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
+17. 空头 journal 入场必须记录已确认止损；
+18. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
+19. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
+20. 冻结目标 gross 不超过 1.25x；
+21. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
+22. 无计划外持仓；
+23. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
+24. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
+25. 账本评估日 = 数据最新可判定日；
+26. journal 信号日 = 冻结账本最新信号日。
 
-另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。
+另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。若 journal 为空，会先报“台账存在”硬失败并跳过依赖 journal 的检查。
 
-少一头空头止损、方向搞反、把净仓当成 gross、或把 old L125 账本混入 LS45，都会让 `audit-live` 失败。
+少一头空头止损、方向搞反、把净仓当成 gross、把 old L125 账本混入 LS45，或出现未成交普通单/重复对冲腿，都会让 `audit-live` 失败。
 
 ---
 
@@ -316,7 +374,7 @@ make audit-live
 
 ## 10. 故障处置
 
-### 09:05 UTC（17:05 北京）后仍未成功
+### 07:05 UTC（15:05 北京）后仍未成功
 
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.derivatives-execute

@@ -40,6 +40,33 @@ import requests
 from atlas20.derivatives.bitget import BITGET_BASE_URL, BitgetAPIError
 
 UTA_CATEGORY = "USDT-FUTURES"
+MARK_PRICE_TRIGGER = "mark"
+
+
+def isolated_margin_capability_error(account_info: Mapping[str, Any]) -> str | None:
+    """Known Bitget account classifications that reject isolated futures.
+
+    Copy-trading / elite-trader APIs can persist an isolated symbol config and
+    still reject the order with ``25200 fixedMargin not support``.  Fail from
+    account metadata before an order is attempted.
+    """
+
+    permissions_raw = account_info.get("permissions")
+    if not isinstance(permissions_raw, list):
+        return "could not verify isolated-margin capability: account permissions are missing"
+    permissions = {str(item).strip().lower() for item in permissions_raw}
+    trader_type = str(account_info.get("traderType") or "").strip().lower()
+    perm_type = str(account_info.get("permType") or "").strip().lower()
+    if trader_type == "trader" or any(
+        permission.startswith("copy_futures_") for permission in permissions
+    ):
+        return (
+            "the API key belongs to a copy-trading/elite trader; Bitget rejects "
+            "isolated futures orders for this account type"
+        )
+    if perm_type == "read_only":
+        return "the API key is read-only"
+    return None
 
 
 def _format_leverage(value: int | float) -> str:
@@ -221,6 +248,14 @@ class BitgetPrivateClient:
 
     # -- account state -------------------------------------------------
 
+    def account_info(self) -> dict[str, Any]:
+        """API-key permissions and trader/account classification."""
+
+        data = self._request("GET", "/api/v3/account/info")
+        if not isinstance(data, dict):
+            raise BitgetAPIError("Bitget account info payload is not an object")
+        return dict(data)
+
     def account_assets(self) -> dict[str, Any]:
         """Unified-account equity and margin summary."""
 
@@ -399,7 +434,7 @@ class BitgetPrivateClient:
         margin_mode: str | None = None,
         price: float | None = None,
         stop_loss: float | None = None,
-        sl_trigger_by: str = "mark_price",
+        sl_trigger_by: str = MARK_PRICE_TRIGGER,
         sl_order_type: str = "market",
         category: str = UTA_CATEGORY,
     ) -> dict[str, Any]:
@@ -427,6 +462,8 @@ class BitgetPrivateClient:
             raise ValueError("qty must be positive")
         if stop_loss is not None and stop_loss <= 0.0:
             raise ValueError("stop_loss must be positive")
+        if sl_trigger_by != MARK_PRICE_TRIGGER:
+            raise ValueError(f"sl_trigger_by must be {MARK_PRICE_TRIGGER!r}")
         if sl_order_type not in {"market", "limit"}:
             raise ValueError("sl_order_type must be 'market' or 'limit'")
         body: dict[str, Any] = {
@@ -491,6 +528,58 @@ class BitgetPrivateClient:
         else:
             body["clientOid"] = client_oid
         data = self._request("POST", "/api/v3/trade/cancel-order", body=body)
+        return dict(data) if isinstance(data, dict) else {}
+
+    def modify_strategy_order(
+        self,
+        *,
+        order_id: str | None = None,
+        client_oid: str | None = None,
+        qty: float | None = None,
+        stop_loss: float | None = None,
+        sl_trigger_by: str = MARK_PRICE_TRIGGER,
+        sl_order_type: str = "market",
+    ) -> dict[str, Any]:
+        """Modify one pending TPSL/strategy order by exact venue identity."""
+
+        if bool(order_id) == bool(client_oid):
+            raise ValueError("order_id or client_oid (exactly one) is required")
+        if qty is None and stop_loss is None:
+            raise ValueError("qty or stop_loss is required")
+        if qty is not None and qty <= 0.0:
+            raise ValueError("qty must be positive")
+        if stop_loss is not None and stop_loss <= 0.0:
+            raise ValueError("stop_loss must be positive")
+        if sl_trigger_by != MARK_PRICE_TRIGGER:
+            raise ValueError(f"sl_trigger_by must be {MARK_PRICE_TRIGGER!r}")
+        if sl_order_type not in {"market", "limit"}:
+            raise ValueError("sl_order_type must be 'market' or 'limit'")
+        body: dict[str, Any] = {}
+        if order_id:
+            body["orderId"] = order_id
+        else:
+            body["clientOid"] = client_oid
+        if qty is not None:
+            body["qty"] = f"{qty:.12f}".rstrip("0").rstrip(".")
+        if stop_loss is not None:
+            body["stopLoss"] = f"{stop_loss:.12f}".rstrip("0").rstrip(".")
+            body["slTriggerBy"] = sl_trigger_by
+            body["slOrderType"] = sl_order_type
+        data = self._request("POST", "/api/v3/trade/modify-strategy-order", body=body)
+        return dict(data) if isinstance(data, dict) else {}
+
+    def cancel_strategy_order(
+        self,
+        *,
+        order_id: str | None = None,
+        client_oid: str | None = None,
+    ) -> dict[str, Any]:
+        """Cancel one exact pending strategy order."""
+
+        if bool(order_id) == bool(client_oid):
+            raise ValueError("order_id or client_oid (exactly one) is required")
+        body = {"orderId": order_id} if order_id else {"clientOid": client_oid}
+        data = self._request("POST", "/api/v3/trade/cancel-strategy-order", body=body)
         return dict(data) if isinstance(data, dict) else {}
 
     @staticmethod
@@ -675,6 +764,8 @@ __all__ = [
     "BitgetCredentials",
     "BitgetCredentialsError",
     "BitgetPrivateClient",
+    "MARK_PRICE_TRIGGER",
+    "isolated_margin_capability_error",
     "UTA_CATEGORY",
     "_format_leverage",
     "sign_request",

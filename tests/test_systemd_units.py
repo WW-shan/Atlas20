@@ -27,7 +27,7 @@ def test_data_refresh_timer_precedes_the_signal_attempts() -> None:
 
 
 def test_data_refresh_catchup_lands_before_the_rebalance() -> None:
-    """A primary run a reboot killed must be repaired before 03:05 UTC."""
+    """A primary run a reboot killed must be repaired before 01:05 UTC."""
 
     timer = (ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer").read_text(encoding="utf-8")
 
@@ -66,9 +66,8 @@ def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> No
         ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer"
     ).read_text(encoding="utf-8")
 
-    for clock in ("03:05:00", "03:35:00", "04:35:00", "06:35:00"):
+    for clock in ("01:05:00", "01:35:00", "03:05:00", "03:35:00", "04:35:00", "06:35:00"):
         assert f"OnCalendar=*-*-* {clock} UTC" in timer
-    assert "OnCalendar=*-*-* 01:05:00 UTC" not in timer
     assert "OnCalendar=*-*-* 09:05:00 UTC" not in timer
 
 

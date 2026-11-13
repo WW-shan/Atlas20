@@ -1,0 +1,37 @@
+{
+  "final": {
+    "positions": 0,
+    "strategy_orders": 0,
+    "unfilled_orders": 0
+  },
+  "finished_at": "2026-11-13T20:27:29.905828+00:00",
+  "margin_mode": "crossed",
+  "note": "Crossed-only execution-path drill. Production remains isolated and is blocked by the elite/copy-trading API key until a normal key is used.",
+  "price": 3.5361,
+  "recorded_external_flow_usdt": -0.0199726800000235,
+  "started_at": "2026-11-14T04:27:00+08:00",
+  "status": "ok",
+  "symbol": "NEARUSDT",
+  "tests": [
+    {
+      "close_order_id": "1505233829860851712",
+      "filled_qty": 2.0,
+      "name": "long_open_and_close",
+      "open_order_id": "1505233824160792576",
+      "position_side": "long",
+      "status": "ok"
+    },
+    {
+      "close_order_id": "1505233842687033344",
+      "filled_qty": 2.0,
+      "name": "short_open_and_close",
+      "open_order_id": "1505233835439276032",
+      "position_side": "short",
+      "status": "ok",
+      "stop_loss": 4.2434,
+      "stop_order_type": "market",
+      "stop_trigger_by": "mark",
+      "strategy_order_id": "1505233835478474808"
+    }
+  ]
+}

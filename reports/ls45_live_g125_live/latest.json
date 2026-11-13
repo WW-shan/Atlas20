@@ -1,9 +1,10 @@
 {
-  "client_oid_prefix": "a20a29dd59d11aa48e7e6cf",
-  "execution_hint": "2026-11-07 03:00:00+00:00",
-  "live_execution_hint": "2026-11-07 03:00:00+00:00",
+  "client_oid_prefix": "a20f10720a64bdc0153f37e",
+  "event_execution_hint": "2026-11-07 03:00:00+00:00",
+  "execution_hint": "2026-11-13 01:05:00+00:00",
+  "live_execution_hint": "2026-11-13 01:05:00+00:00",
   "plan": {
-    "equity": 499.68070768,
+    "equity": 499.47894032,
     "expected_gross_notional": 0.0,
     "expected_margin": 0.0,
     "leverage": 2.0,
@@ -16,14 +17,16 @@
   },
   "quotes": {},
   "report": {
-    "available_after": 499.68070768,
-    "balance_after": 499.68070768,
-    "equity_after": 499.68070768,
-    "equity_before": 499.68070768,
+    "available_after": 499.47894032,
+    "balance_after": 499.47894032,
+    "equity_after": 499.47894032,
+    "equity_before": 499.47894032,
     "failures": [],
     "fills": [],
     "margin_mode": "",
-    "margin_notes": [],
+    "margin_notes": [
+      "the API key belongs to a copy-trading/elite trader; Bitget rejects isolated futures orders for this account type; risk-reducing close remains allowed"
+    ],
     "position_value": 0,
     "positions_after": [],
     "signal_date": "2026-11-06",

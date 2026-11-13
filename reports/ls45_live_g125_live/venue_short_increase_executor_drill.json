@@ -1,0 +1,253 @@
+{
+  "finished_at": "2026-11-13T19:39:37.556463+00:00",
+  "note": "This run captured the pre-fix false emergency close when Bitget left two per-order stops after a short increase. The executor was subsequently changed to normalize strategy stops; the final passing evidence is in venue_short_stop_reconciliation_drill.json.",
+  "order_ids": [
+    "1505221828656873472",
+    "1505221842347081728",
+    "1505221847313137664"
+  ],
+  "positions_after_close": [],
+  "reference_price": 3.5426,
+  "regular_orders_after_close": [],
+  "started_at": "2026-11-13T19:39:28.004471+00:00",
+  "status": "incident_pre_fix",
+  "steps": [
+    {
+      "label": "open_short_2",
+      "planned": [
+        {
+          "action": "OPEN",
+          "asset": "near",
+          "notional": 7.0852,
+          "pos_side": "short",
+          "price": 3.5426,
+          "reason": "rebalance to target",
+          "reduce_only": false,
+          "side": "sell",
+          "size": 2.0,
+          "stop_loss": 4.2512,
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "positions": [
+        {
+          "available": "2",
+          "avgPrice": "3.5429",
+          "breakEvenPrice": "3.5386",
+          "cashDividend": "0",
+          "category": "USDT-FUTURES",
+          "closeFeeTotal": "0",
+          "createdTime": "1794598770300",
+          "curRealisedPnl": "0",
+          "frozen": "0",
+          "holdMode": "hedge_mode",
+          "leverage": "2",
+          "liquidationPrice": "255.13",
+          "marginCoin": "USDT",
+          "marginMode": "crossed",
+          "markPrice": "3.5429",
+          "mmr": "0.0066",
+          "openFeeTotal": "-0.00425148",
+          "posSide": "short",
+          "positionBalance": "3.54715148",
+          "positionStatus": "normal",
+          "profitRate": "0",
+          "symbol": "NEARUSDT",
+          "total": "2",
+          "totalFunding": "0",
+          "unrealisedPnl": "0",
+          "updatedTime": "1794598770300"
+        }
+      ],
+      "report": {
+        "available_after": 499.60245132,
+        "balance_after": 499.60245132,
+        "equity_after": 499.60245132,
+        "equity_before": 499.6067028,
+        "failures": [],
+        "fills": [
+          {
+            "action": "OPEN",
+            "asset": "near",
+            "avg_price": 3.5429,
+            "client_oid": "a20shortincopen1a1d66c0d84oafd0498b241c5849",
+            "fee": 0.00425148,
+            "fee_coin": "USDT",
+            "filled_size": 2.0,
+            "notional": 7.0858,
+            "order_id": "1505221828656873472",
+            "position_side": "short",
+            "requested_size": 2.0,
+            "requested_stop_loss": 4.2512,
+            "side": "sell",
+            "status": "filled",
+            "stop_loss": 4.2512,
+            "stop_order_type": "market",
+            "stop_trigger_by": "mark",
+            "symbol": "NEARUSDT"
+          }
+        ],
+        "margin_mode": "crossed",
+        "margin_notes": [
+          "持仓为crossed：跳过 1 笔逐仓保证金调整"
+        ],
+        "position_value": 7.0864,
+        "positions_after": [
+          {
+            "available": "2",
+            "avgPrice": "3.5429",
+            "breakEvenPrice": "3.5386",
+            "cashDividend": "0",
+            "category": "USDT-FUTURES",
+            "closeFeeTotal": "0",
+            "createdTime": "1794598770300",
+            "curRealisedPnl": "0",
+            "frozen": "0",
+            "holdMode": "hedge_mode",
+            "leverage": "2",
+            "liquidationPrice": "255.13",
+            "marginCoin": "USDT",
+            "marginMode": "crossed",
+            "markPrice": "3.5432",
+            "mmr": "0.0066",
+            "openFeeTotal": "-0.00425148",
+            "posSide": "short",
+            "positionBalance": "3.54745184",
+            "positionStatus": "normal",
+            "profitRate": "-0.0001691354885313",
+            "symbol": "NEARUSDT",
+            "total": "2",
+            "totalFunding": "0",
+            "unrealisedPnl": "-0.0006",
+            "updatedTime": "1794598770300"
+          }
+        ],
+        "signal_date": "2026-11-13",
+        "traded": true
+      },
+      "strategy_orders": [
+        {
+          "category": "USDT-FUTURES",
+          "clientOid": "1505221828700266554",
+          "createdTime": "1794598770308",
+          "icebergParams": null,
+          "marginMode": "crossed",
+          "ocoParams": null,
+          "orderId": "1505221828700266554",
+          "posSide": "short",
+          "qty": "2",
+          "side": "buy",
+          "slLimitPrice": "",
+          "slOrderType": "market",
+          "slTriggerBy": "mark",
+          "status": "pending",
+          "stopLoss": "4.2512",
+          "symbol": "NEARUSDT",
+          "takeProfit": "",
+          "tpLimitPrice": "",
+          "tpOrderType": "market",
+          "tpTriggerBy": "market",
+          "trailingStopParams": null,
+          "triggerBy": null,
+          "triggerOrderPrice": null,
+          "triggerOrderType": null,
+          "triggerPrice": null,
+          "twapParams": null,
+          "type": "tpsl",
+          "updatedTime": "1794598770323"
+        }
+      ]
+    },
+    {
+      "label": "increase_short_2",
+      "planned": [
+        {
+          "action": "INCREASE",
+          "asset": "near",
+          "notional": 7.0852,
+          "pos_side": "short",
+          "price": 3.5426,
+          "reason": "rebalance to target",
+          "reduce_only": false,
+          "side": "sell",
+          "size": 2.0,
+          "stop_loss": 4.2513,
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "positions": [],
+      "report": {
+        "available_after": 499.59109844,
+        "balance_after": 499.59109844,
+        "equity_after": 499.59109844,
+        "equity_before": 499.60245132,
+        "failures": [
+          {
+            "action": "VERIFY",
+            "error": "existing short has no live venue stop; emergency close attempted",
+            "side": "short",
+            "size": "4",
+            "symbol": "NEARUSDT"
+          }
+        ],
+        "fills": [
+          {
+            "action": "INCREASE",
+            "asset": "near",
+            "avg_price": 3.5426,
+            "client_oid": "a20shortincadd1a1d66c0d84ob454eda559dbadd1",
+            "fee": 0.00425112,
+            "fee_coin": "USDT",
+            "filled_size": 2.0,
+            "notional": 7.0852,
+            "order_id": "1505221842347081728",
+            "position_side": "short",
+            "requested_size": 2.0,
+            "requested_stop_loss": 4.2513,
+            "side": "sell",
+            "status": "filled",
+            "stop_loss": 4.2513,
+            "stop_order_type": "market",
+            "stop_trigger_by": "mark",
+            "symbol": "NEARUSDT"
+          },
+          {
+            "action": "EMERGENCY_CLOSE",
+            "asset": "near",
+            "avg_price": 3.5424,
+            "client_oid": "a20shortincadd1a1d66c0d84uec229d23758fe737",
+            "fee": 0.00850176,
+            "fee_coin": "USDT",
+            "filled_size": 4.0,
+            "notional": 14.1696,
+            "order_id": "1505221847313137664",
+            "position_side": "short",
+            "requested_size": 4.0,
+            "requested_stop_loss": null,
+            "side": "buy",
+            "status": "filled",
+            "stop_loss": null,
+            "stop_order_type": "",
+            "stop_trigger_by": "",
+            "symbol": "NEARUSDT"
+          }
+        ],
+        "margin_mode": "",
+        "margin_notes": [
+          "本轮回调存在失败：跳过 1 笔保证金调整"
+        ],
+        "position_value": 0,
+        "positions_after": [],
+        "signal_date": "2026-11-13",
+        "traded": true
+      },
+      "strategy_orders": []
+    }
+  ],
+  "strategy_order_ids": [
+    "1505221828700266554"
+  ],
+  "strategy_orders_after_close": [],
+  "superseded_by": "venue_short_stop_reconciliation_drill.json",
+  "symbol": "NEARUSDT"
+}

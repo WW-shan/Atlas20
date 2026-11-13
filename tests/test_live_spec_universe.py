@@ -25,10 +25,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INSTRUMENTS = [
     {
         "symbol": "NEARUSDT",
+        "status": "online",
+        "type": "perpetual",
         "minOrderQty": "1",
         "quantityMultiplier": "1",
         "minOrderAmount": "5",
         "quantityPrecision": "0",
+        "priceMultiplier": "0.01",
+        "pricePrecision": "2",
     }
 ]
 SYMBOL_MAP = {"near": "NEARUSDT"}
@@ -94,6 +98,18 @@ def test_every_live_script_resolves_the_full_spec_universe(script: str) -> None:
     source = (PROJECT_ROOT / "scripts" / script).read_text(encoding="utf-8")
 
     assert "spec_symbol_universe" in source, f"{script} must resolve specs for held legs too"
+
+
+def test_offline_contract_is_not_accepted_as_tradeable() -> None:
+    rows = [{**INSTRUMENTS[0], "status": "offline"}]
+
+    assert specs_from_instruments(rows, {"near": "NEARUSDT"}) == {}
+
+
+def test_contract_without_a_quantity_step_is_not_accepted() -> None:
+    rows = [{**INSTRUMENTS[0], "quantityMultiplier": "0"}]
+
+    assert specs_from_instruments(rows, {"near": "NEARUSDT"}) == {}
 
 
 def test_missing_contract_spec_is_a_hard_live_error_not_a_dropped_target() -> None:

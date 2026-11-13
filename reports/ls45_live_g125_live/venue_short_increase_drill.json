@@ -1,0 +1,56 @@
+{
+  "close_order": {
+    "amount": "0",
+    "avgPrice": "3.5429",
+    "cancelReason": "",
+    "category": "USDT-FUTURES",
+    "clientOid": "a20probeclose1a1d6698e6c",
+    "createdTime": "1794598606187",
+    "cumExecQty": "2",
+    "cumExecValue": "7.0858",
+    "delegateType": "follower_delegate",
+    "execType": "normal",
+    "feeDetail": [
+      {
+        "fee": "0.00425148",
+        "feeCoin": "USDT"
+      }
+    ],
+    "holdMode": "hedge_mode",
+    "marginMode": "crossed",
+    "orderId": "1505221140325449728",
+    "orderStatus": "filled",
+    "orderType": "market",
+    "posSide": "short",
+    "price": "",
+    "qty": "2",
+    "rTokenTimeInForce": "",
+    "reduceOnly": "NO",
+    "side": "buy",
+    "slLimitPrice": null,
+    "slOrderType": null,
+    "slTriggerBy": null,
+    "stopLoss": null,
+    "stpMode": "none",
+    "symbol": "NEARUSDT",
+    "takeProfit": null,
+    "timeInForce": "ioc",
+    "tpLimitPrice": null,
+    "tpOrderType": null,
+    "tpTriggerBy": null,
+    "tradeSide": "close_short",
+    "updatedTime": "1794598606189",
+    "venue": ""
+  },
+  "finished_at": "2026-11-13T19:36:47.792417+00:00",
+  "order_ids": [
+    "1505221133186744320",
+    "1505221140325449728"
+  ],
+  "positions_after_close": [],
+  "started_at": "2026-11-13T19:36:42.622735+00:00",
+  "status": "ok",
+  "steps": [],
+  "strategy_orders_after_close": [],
+  "symbol": "NEARUSDT"
+}

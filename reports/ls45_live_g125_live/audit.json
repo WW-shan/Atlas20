@@ -1,9 +1,45 @@
 {
-  "checked_at": "2026-11-13T17:07:02.295385+00:00",
+  "checked_at": "2026-11-13T20:50:00.932106+00:00",
   "checks": [
     {
+      "check": "venue drill 订单登记表可读",
+      "detail": "50 笔已登记；仅这些精确 orderId 不进入生产台账核对",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账户 API 必需字段完整且有限",
+      "detail": "全部有效",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账户权益 >= 执行下限 20.00 USDT",
+      "detail": "权益 499.48 USDT",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "持仓 API 必需字段完整且有限",
+      "detail": "全部有效",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "同一合约没有重复或反向对冲腿",
+      "detail": "无重复或反向腿",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前无未成交普通订单",
+      "detail": "0 笔",
+      "hard": true,
+      "ok": true
+    },
+    {
       "check": "账户恒等式 equity = balance + uPnL",
-      "detail": "499.6807 vs 499.6807 + 0.0000 = 499.6807",
+      "detail": "499.4789 vs 499.4789 + 0.0000 = 499.4789",
       "hard": true,
       "ok": true
     },
@@ -14,8 +50,26 @@
       "ok": true
     },
     {
+      "check": "所有持仓合约都在冻结映射中",
+      "detail": "全部有唯一映射",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "每腿逐仓、2x 杠杆与保证金缓冲符合规格",
+      "detail": "无持仓，或全部符合",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "API key 具备逐仓合约交易能力（或未见已知限制）",
+      "detail": "the API key belongs to a copy-trading/elite trader; Bitget rejects isolated futures orders for this account type",
+      "hard": true,
+      "ok": false
+    },
+    {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-13 equity=499.6807；折算后应为 499.6807，交易所 499.6807",
+      "detail": "台账 2026-11-13 equity=499.4789；折算后应为 499.4789，交易所 499.4789",
       "hard": true,
       "ok": true
     },
@@ -26,14 +80,38 @@
       "ok": true
     },
     {
-      "check": "台账成交都能在交易所订单历史里对上",
-      "detail": "核对 0 笔订单",
+      "check": "资金费按累计差记账",
+      "detail": "持仓未变化区间全部一致",
       "hard": true,
       "ok": true
     },
     {
-      "check": "所有空头仓位都有附带止损的入场成交记录",
-      "detail": "无空头仓，或有止损记录的空头仓",
+      "check": "台账成交都能在交易所订单历史里对上",
+      "detail": "核对 39 笔订单",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "交易所已成交的 Atlas20 订单都已记账",
+      "detail": "无漏记成交",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "空头入场成交记录包含已确认止损",
+      "detail": "无空头仓，或入场记录带止损",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前空头仓位都有交易所可见的止损保护",
+      "detail": "无缺口（当前未触发策略单 0 笔）",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "策略单都对应预期的当前空头止损",
+      "detail": "无孤立策略单",
       "hard": true,
       "ok": true
     },
@@ -50,14 +128,20 @@
       "ok": true
     },
     {
+      "check": "冻结目标 gross <= 1.25x（规格上限）",
+      "detail": "目标 gross 0.0000x",
+      "hard": true,
+      "ok": true
+    },
+    {
       "check": "总名义 <= 1.25x 权益（规格上限）",
-      "detail": "gross 0.00 / equity 499.68 = 0.000x",
+      "detail": "gross 0.00 / equity 499.48 = 0.000x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-13 14:00:00+00:00（3.1h 前）",
+      "detail": "最新 mark 2026-11-13 14:00:00+00:00（6.8h 前）",
       "hard": true,
       "ok": true
     },
@@ -80,8 +164,8 @@
       "ok": true
     }
   ],
-  "equity": 499.68070768,
-  "hard_failures": 0,
+  "equity": 499.47894032,
+  "hard_failures": 1,
   "position_value": 0,
   "signal_date": "2026-11-06",
   "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"

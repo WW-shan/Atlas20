@@ -1,0 +1,256 @@
+{
+  "orders": [
+    {
+      "client_oid": "a20drillxlong1a1d6460a5aoa17763387d89c832",
+      "order_id": "1505211374031192064",
+      "purpose": "crossed-mode long open drill"
+    },
+    {
+      "client_oid": "a20drillxcloselong1a1d6461363oa7b1f5e779031399",
+      "order_id": "1505211383044751360",
+      "purpose": "crossed-mode long close drill"
+    },
+    {
+      "client_oid": "a20trig1794596409803",
+      "order_id": "1505211928522375168",
+      "purpose": "mark-trigger short open probe"
+    },
+    {
+      "client_oid": "1505211933647814657",
+      "order_id": "1505211933647814656",
+      "purpose": "mark-trigger short close probe"
+    },
+    {
+      "client_oid": "a20fixedlong1a1d6498823oa17763387d89c832",
+      "order_id": "1505212333281099776",
+      "purpose": "full-chain long open drill"
+    },
+    {
+      "client_oid": "a20fixedcloselong1a1d6499132oa7b1f5e779031399",
+      "order_id": "1505212342651174912",
+      "purpose": "full-chain long close drill"
+    },
+    {
+      "client_oid": "a20fixedshort1a1d6499aaeoafd0498b241c5849",
+      "order_id": "1505212353111769088",
+      "purpose": "full-chain short open drill"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505212353150967896",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "a20fixedcloseshort1a1d649a4dfoded9082059a1e02b",
+      "order_id": "1505212363324899328",
+      "purpose": "full-chain short close drill"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221133186744320",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221140325449728",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221385952280576",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221481330753536",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221598842568704",
+      "purpose": "short open/increase production-executor drill and cleanup"
+    },
+    {
+      "client_oid": "1505221598885961739",
+      "order_id": "1505221598885961739",
+      "purpose": "short increase attached stop drill"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221619453378560",
+      "purpose": "short open/increase production-executor drill and cleanup"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221828656873472",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221828700266554",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221842347081728",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505221847313137664",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "1505221940464435200",
+      "order_id": "1505221940464435200",
+      "purpose": "raw short increase stop-semantics drill and cleanup"
+    },
+    {
+      "client_oid": "1505221940503633985",
+      "order_id": "1505221940503633985",
+      "purpose": "raw short increase stop-semantics drill and cleanup"
+    },
+    {
+      "client_oid": "1505221949528326144",
+      "order_id": "1505221949528326144",
+      "purpose": "raw short increase stop-semantics drill and cleanup"
+    },
+    {
+      "client_oid": "1505221949567524927",
+      "order_id": "1505221949567524927",
+      "purpose": "raw short increase stop-semantics drill and cleanup"
+    },
+    {
+      "client_oid": "1505221959389134848",
+      "order_id": "1505221959389134848",
+      "purpose": "raw short increase stop-semantics drill and cleanup"
+    },
+    {
+      "client_oid": "1505223037081993216",
+      "order_id": "1505223037081993216",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223037129580576",
+      "order_id": "1505223037129580576",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223051778834432",
+      "order_id": "1505223051778834432",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223051818033259",
+      "order_id": "1505223051818033259",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223058280005632",
+      "order_id": "1505223058280005632",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223067582971904",
+      "order_id": "1505223067582971904",
+      "purpose": "short increase and partial-reduce stop semantics drill"
+    },
+    {
+      "client_oid": "1505223781667422208",
+      "order_id": "1505223781667422208",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "1505223781710815237",
+      "order_id": "1505223781710815237",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "1505223788629966848",
+      "order_id": "1505223788629966848",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "1505223788673359943",
+      "order_id": "1505223788673359943",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "1505223806665474048",
+      "order_id": "1505223806665474048",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "1505223820703809536",
+      "order_id": "1505223820703809536",
+      "purpose": "strategy-order normalization drill"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505225025534410752",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505225042504564736",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "",
+      "order_id": "1505225057239154688",
+      "purpose": "controlled venue drill order (exact id registry)"
+    },
+    {
+      "client_oid": "1505225193348513792",
+      "order_id": "1505225193348513792",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "1505225193387712584",
+      "order_id": "1505225193387712584",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "1505225208829689856",
+      "order_id": "1505225208829689856",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "1505225208873082903",
+      "order_id": "1505225208873082903",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "1505225223878852608",
+      "order_id": "1505225223878852608",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "1505225235996196864",
+      "order_id": "1505225235996196864",
+      "purpose": "live short stop normalization drill"
+    },
+    {
+      "client_oid": "a20verdlongoa17763387d89c832",
+      "order_id": "1505233824160792576",
+      "purpose": "2026-11-14 current-version crossed long open drill"
+    },
+    {
+      "client_oid": "a20verifylongclose1794601631521",
+      "order_id": "1505233829860851712",
+      "purpose": "2026-11-14 current-version crossed long close drill"
+    },
+    {
+      "client_oid": "a20verdshtoafd0498b241c5849",
+      "order_id": "1505233835439276032",
+      "purpose": "2026-11-14 current-version crossed short open drill"
+    },
+    {
+      "client_oid": "a20verifyshortclose1794601634573",
+      "order_id": "1505233842687033344",
+      "purpose": "2026-11-14 current-version crossed short close drill"
+    }
+  ],
+  "purpose": "Exact orders created by the 2026-11-14 venue capability drill. They are immediately flattened test legs and intentionally excluded from the production LS45 journal.",
+  "version": 1
+}

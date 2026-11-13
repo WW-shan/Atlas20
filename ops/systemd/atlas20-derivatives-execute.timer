@@ -2,10 +2,12 @@
 Description=Run and retry the Atlas20 derivatives rebalance inside the daily window
 
 [Timer]
-# 03:05 UTC (11:05 Beijing) is five minutes after the LS45 ledger's T+1 +3h
-# execution hint. The later 03:35/04:35/06:35 UTC fires are fallbacks for a
-# late provider, reboot, or transient API/order failure. A successful same-day
-# run makes each retry a quick no-op through the state gate.
+# 09:05 Beijing = 01:05 UTC is the owner-approved live fast path after the
+# 08:30/08:50 Beijing panel refresh and catch-up. The later 01:35/03:05/03:35/
+# 04:35/06:35 UTC fires are fallbacks for a late provider, reboot, or transient
+# API/order failure. A successful same-day run makes each retry a quick no-op.
+OnCalendar=*-*-* 01:05:00 UTC
+OnCalendar=*-*-* 01:35:00 UTC
 OnCalendar=*-*-* 03:05:00 UTC
 OnCalendar=*-*-* 03:35:00 UTC
 OnCalendar=*-*-* 04:35:00 UTC

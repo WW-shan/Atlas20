@@ -22,10 +22,10 @@
 # (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
 # checkout and the credentials somewhere else, so both paths are overridable.
 #
-# The primary schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after
-# the manifest-derived T+1 +3h daily execution time. The event book itself may
-# be unchanged for several days. The 03:35/04:35/06:35 UTC fires
-# remain fallbacks; a successful same-day run makes those retries no-ops.
+# The primary schedule fires at 09:05 Beijing = 01:05 UTC, the owner-approved
+# live fast path after the 08:30/08:50 Beijing panel refresh and catch-up. The
+# 01:35/03:05/03:35/04:35/06:35 UTC fires remain fallbacks; a successful same-day
+# run makes those retries no-ops.
 # macOS loads the job at boot (RunAtLoad) and
 # systemd replays a missed timer fire (Persistent=true);
 # scripts/live_chain_preflight.py keeps those from turning into a second trade

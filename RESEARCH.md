@@ -5327,8 +5327,8 @@ LS23 的部分集中在 2024、51 天 exact OOS 低于 L125，以及真实 fundi
 - live default 切到 `PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`；目标账本、manifest、symbol map、
   journal、audit、health、API 读取路径均为 `reports/ls45_live_g125*`，不再混用旧 L125 路径；
 - 目标权重改为有符号：正数开多、负数开空；gross 使用 `Σ abs(signed_notional)`，硬上限 1.25x；
-- 开/加空仓时按预计加权入场价附带 `20% · mark_price · market` 止损；止损价按 Bitget
-  `priceMultiplier / pricePrecision` 向上取整，确保不弱于 20%；
+- 开/加空仓时按预计加权入场价附带 20% 标记价格市价止损（Bitget API 枚举为
+  `slTriggerBy=mark`）；止损价按 `priceMultiplier / pricePrecision` 向上取整，确保不弱于 20%；
 - 成交后从 `order-info` 同时回读 `stopLoss / slTriggerBy / slOrderType`；任一字段、价格或类型
   不一致时立即市价平掉当前完整空头腿（`EMERGENCY_CLOSE`），本次 run 标记 `partial`，不写 `ok`；
 - isolated 是生产硬约束：Makefile live 链固定传 `--require-isolated`；任一腿逐仓设置失败、下单被
@@ -5342,8 +5342,8 @@ LS23 的部分集中在 2024、51 天 exact OOS 低于 L125，以及真实 fundi
   clientOid 回查，恢复到的成交数量必须与当前 intent 一致，否则保持 `partial` 交由后续重试；
 - 空头止损保护按 journal 的当前开仓周期维护，而不是扫描任意历史 sell：平仓后旧 stop 不再
   掩盖后续手工或失败重开的无止损空头；
-- 账本执行提示直接读取 `execution_hint`（T+1 03:00 UTC），自动任务在 03:05 UTC 起跑，重试
-  03:35 / 04:35 / 06:35 UTC；旧 01:05 UTC 路径已从当前 live 调度、状态和文档移除；
+- 该里程碑曾把自动任务设为 03:05 UTC 起跑（03:35 / 04:35 / 06:35 UTC 重试）；这组 live
+  调度已被 §00.140 的 01:05 UTC 快路径取代，研究回测成交口径仍是 03:00 UTC；
 - manifest 写入 `last_mark / staleness_hours / index_end_date / signal_end_date / max_total_gross`；
   执行前和 audit 都从 `last_mark` 重新计算当前年龄，避免把生成时 staleness 当成当前值；
 - `audit-live` 现在核对有符号仓位、gross、成交与止损字段，并要求每个当前空头都存在带 stop 的
@@ -5361,3 +5361,58 @@ LS23 的部分集中在 2024、51 天 exact OOS 低于 L125，以及真实 fundi
 **残余风险**：当前账本全现金，真实空头 entry + attached stop 尚未由真钱成交路径触发；其 schema、
 回读、失败时 emergency-close 和审计路径由测试与官方订单字段验证。第一次真实空头出现时是首要
 live probe，必须检查 journal 的 `stop_loss` 与 Bitget 订单历史的 `stopLoss / slTriggerBy / slOrderType`。
+
+### 00.140 2026-11-14 LS45-G125：09:05 北京快路径、全标的与多空链路复核
+
+本节不新增 alpha 试验，也不把更早执行时点包装成已完成的 OOS 结论。负责人要求把实盘从
+11:05 北京提前到 09:05 北京；研究回测仍保留 **T+1 +3h = 03:00 UTC**，实盘快路径改为
+**T+1 +1h5m = 01:05 UTC**。
+
+- launchd 主任务实际加载为北京时间 **09:05 / 09:35 / 11:05 / 11:35 / 12:35 / 14:35**；
+  09:05 是首次执行，后五个仅为窗口内重试。systemd 同步为 01:05 / 01:35 / 03:05 / 03:35 /
+  04:35 / 06:35 UTC；
+- 回测、日报和 Telegram 明确分开显示两个时间：实盘 01:05 UTC、研究成交口径 03:00 UTC；
+  当前没有“01:05 快路径优于 03:00 研究口径”的 OOS 证据，不能把提前执行解释成 alpha；
+- 冻结 symbol map 共 **87 个唯一 Bitget USDT-M 合约**。2026-11-14 公共快照逐一核对：
+  87/87 `online`、87/87 `perpetual`、87/87 支持 2x、87/87 数量/价格步长与最小下单量完整、
+  87/87 有新鲜 ticker；对每个标的分别构造多头 `buy/long`、空头 `sell/short`、空头 20% mark
+  stop、以及反向持仓的 `CLOSE -> OPEN` 翻仓计划，均通过；
+- 历史 LS45 研究成交涉及 **38 个资产**，全部在当前冻结映射中；其中 **31 个资产、1323 笔空头成交**，
+  说明多空路径不是只存在于当前 51 天 live OOS（该窗口恰好没有空头目标）；
+- 真钱 venue drill 使用每腿约 7 USDT 的 NEAR：crossed 模式多头和空头开仓、持仓方向回读、
+  立即平仓均成功；空头 `posSide=short`、`stopLoss=entry×1.20`、`slTriggerBy=mark`、
+  `slOrderType=market` 由交易所 `order-info` 回读确认，策略单 `status=pending`，平仓后消失；
+- 真钱 drill 进一步发现 Bitget 的策略止损按入场/加仓订单保留，而不是合并成一张：
+  2→4 加仓会留下两张 `qty=2` 止损单；4→2 部分减仓后交易所也不会自动缩小策略单。
+  执行器现在会在验仓前把每个空头归一为一张 `qty=当前空头`、`stopLoss=最新加权入场×1.20` 的
+  mark/market 策略单：`modify-strategy-order` 调整保留单，`cancel-strategy-order` 删除重复单；
+  若存在无法识别的策略单则不修改并 emergency close。真实 2→4→2→清仓 drill 全程无失败，
+  最终 `0 仓位 / 0 普通挂单 / 0 策略单`；
+- 同一 key 的真实 isolated 多头被 Bitget 拒绝 `25200 fixedMargin not support`，未成交、未留仓。
+  `/api/v3/account/info` 显示 `traderType=trader` 且权限含 `copy_futures_order` /
+  `copy_futures_position`，属于跟单/精英账户限制。生产执行器保持 `--require-isolated`，不会静默改为
+  crossed；当前 `audit-live` 为 26 项硬检查 + 1 项非硬告警，仅此 1 项硬失败；
+- 当前账户复核为 **0 持仓、0 普通未成交单、0 策略单**；journal 最新权益与交易所按实时标记价折算
+  一致，冻结目标为 100% cash；
+- `audit-live` 新增检查：任何普通未成交单、重复/反向对冲腿、止损价格被篡改、孤立策略单都会硬失败；
+  执行器对已有空头的交易所止损也会核对 journal 当前周期的精确 stop 价格，价格不一致即按无保护
+  空头处理并尝试 emergency close；
+- 本轮复核又补了四个故障边界：同日重跑只累加前一行之后的新外部资金流并在 journal 中替换旧资金流提示；未来 mark、未来 ticker 和未来 panel 日期都 fail closed；恢复成交按冻结 symbol map 还原 CMC asset id（TRX -> tron），不再用 `TRXUSDT.removesuffix("USDT")` 推断；公网 Bitget GET 对连接/TLS/429/5xx 做有限次指数退避重试，成功但无效的 JSON 仍立即失败；
+- 最终门禁又修了三个风险顺序问题：权益为 0/负数或低于 20 USDT 时，计划器抑制新开/加仓、停止保证金追加，但仍允许 reduce/close；已写入 state 的失败 attempt 会换新的确定性 `clientOid` 前缀，未落状态的崩溃仍复用旧前缀以恢复成交；交易前检查账户级策略单，无持仓 TP/SL、long 策略单或非 mark/market short stop 会阻断新风险，查询失败时开仓 fail closed、减仓/平仓继续；
+- 同日重跑不会重复计算入金，也不会把旧 `数据管线`/`外部资金流` 提示堆在 journal 里；账户资金流与 `audit-live` 的权益折算继续一致；
+- `audit-signal` 仍为冻结账本 68 行 / 重建账本 68 行 / 31 个重叠信号日 / 0 差异。
+
+**验证证据**：`reports/ls45_live_g125_live/venue_capability_drill.json`、
+`venue_capability_drill_crossed.json`、`venue_dual_side_drill.json`、
+`venue_short_increase_raw_drill.json`、`venue_short_increase_partial_reduce_drill.json`、
+`venue_strategy_order_normalization_drill.json`、`venue_short_stop_reconciliation_drill.json`、
+`venue_drill_order_registry.json`（50 个精确 drill orderId）、`venue_symbol_audit.json`、`audit.json`。
+截至本节，Python 全量测试 **2159 passed / 1 skipped**、前端 **249 passed**，Ruff、Mypy、前端
+lint/typecheck/build 均在最终修订后重新执行；真实 `audit-live` 仍只剩当前 API key 的 isolated
+权限这一项外部硬失败。
+
+**残余风险 / 阻塞**：当前 API key 不支持 isolated，任何新开/加仓都会 fail closed，必须换普通
+API key，或由负责人明确批准把规格改为 crossed；真实 isolated 成交、逐仓保证金调整和真实空头加仓
+尚未在本 key 上完成。全量 87 标的在 500 USDT 单腿测试中均满足交易所数量上限，但部分标的单腿
+500 USDT 会超过可见盘口第一档深度，市场单可能吃到更深的滑点；实盘仍需按实际目标权重和
+`orderbook_warnings` 复核。

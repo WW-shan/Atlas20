@@ -7,6 +7,7 @@ import json
 import pytest
 import pandas as pd
 
+from atlas20.derivatives.execution import ExecutionPlan, MarginIntent, OrderIntent
 from atlas20.derivatives.live_executor import ExecutionReport, OrderFill
 from atlas20.derivatives.live_journal import JournalEntry
 from scripts import execute_live_plan
@@ -204,6 +205,93 @@ def test_same_day_retry_preserves_the_earlier_filled_trade(tmp_path: Path) -> No
     assert json.loads(row["trades"])[0]["order_id"] == "order-1"
     assert row["fees_today"] == pytest.approx(0.06)
     assert json.loads(row["notes"]) == ["first attempt", "retry completed"]
+
+
+def test_same_day_retry_carries_prior_flow_and_adds_only_new_flow(tmp_path: Path) -> None:
+    from atlas20.derivatives.live_journal import append_capital_flow, load_journal, upsert_entry
+
+    journal_path = tmp_path / "journal.csv"
+    flow_path = tmp_path / "capital_flows.csv"
+    append_capital_flow(
+        flow_path,
+        timestamp_utc="2026-11-04T10:00:00+00:00",
+        amount_usdt=400.0,
+        note="deposit",
+    )
+    upsert_entry(
+        journal_path,
+        JournalEntry(
+            date="2026-11-04",
+            run_at_utc="2026-11-04T11:00:00+00:00",
+            signal_date="2026-11-03",
+            equity=500.0,
+            position_value=0.0,
+            cash=500.0,
+            day_pnl=None,
+            day_return=None,
+            fees_today=0.0,
+            funding_total=0.0,
+            unrealised_pnl=0.0,
+            capital_flow=400.0,
+            notes=["外部资金流 +400.00 USDT（已从盈亏中剔除）"],
+        ),
+    )
+    append_capital_flow(
+        flow_path,
+        timestamp_utc="2026-11-04T12:00:00+00:00",
+        amount_usdt=25.0,
+        note="deposit",
+    )
+
+    journal = load_journal(journal_path)
+    flow = execute_live_plan._capital_flow_for_run(
+        journal,
+        flow_path,
+        run_at=datetime(2026, 11, 4, 13, 0, tzinfo=timezone.utc),
+    )
+
+    assert flow == pytest.approx(425.0)
+
+
+def test_same_day_retry_replaces_stale_capital_flow_note() -> None:
+    previous = JournalEntry(
+        date="2026-11-04",
+        run_at_utc="2026-11-04T11:00:00+00:00",
+        signal_date="2026-11-03",
+        equity=500.0,
+        position_value=0.0,
+        cash=500.0,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        capital_flow=400.0,
+        notes=["外部资金流 +400.00 USDT（已从盈亏中剔除）", "first attempt"],
+    )
+    current = JournalEntry(
+        date="2026-11-04",
+        run_at_utc="2026-11-04T13:00:00+00:00",
+        signal_date="2026-11-03",
+        equity=525.0,
+        position_value=0.0,
+        cash=525.0,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        capital_flow=425.0,
+        notes=["外部资金流 +425.00 USDT（已从盈亏中剔除）", "retry"],
+    )
+
+    merged = execute_live_plan._merge_same_day_entry(previous.as_row(), current)
+
+    assert merged.notes == [
+        "first attempt",
+        "外部资金流 +425.00 USDT（已从盈亏中剔除）",
+        "retry",
+    ]
 
 
 def test_external_deposit_is_excluded_from_daily_pnl() -> None:
@@ -557,6 +645,36 @@ def test_execution_window_requires_explicit_permission_after_six_hours() -> None
     ) is None
 
 
+def test_live_execution_requires_a_manifest_even_for_a_recent_event_book(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from scripts import execute_live_plan
+
+    now = datetime.now(timezone.utc)
+    signal_date = pd.Timestamp(now - pd.Timedelta(hours=3))
+    event_hint = signal_date + pd.Timedelta(days=1, hours=3)
+    monkeypatch.setattr(
+        execute_live_plan,
+        "load_latest_targets",
+        lambda _: (
+            signal_date,
+            event_hint,
+            pd.DataFrame([{"asset": "near", "target_weight": 0.0}]),
+        ),
+    )
+    args = execute_live_plan.parse_args(
+        [
+            "--live",
+            "--manifest-file",
+            str(tmp_path / "missing-manifest.json"),
+            "--allow-late-execution",
+        ]
+    )
+
+    with pytest.raises(SystemExit, match="manifest"):
+        execute_live_plan._main(args)
+
+
 def test_live_execution_rejects_a_manifest_without_evaluation_dates(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -632,7 +750,7 @@ def test_live_execution_uses_the_daily_manifest_hint_for_an_unchanged_event_book
         execute_live_plan._main(args)
 
     assert seen == [
-        pd.Timestamp(signal_end, tz="UTC") + pd.Timedelta(days=1, hours=3)
+        pd.Timestamp(signal_end, tz="UTC") + pd.Timedelta(days=1, hours=1, minutes=5)
     ]
 
 
@@ -650,6 +768,61 @@ def test_execution_lock_allows_only_one_live_process(tmp_path) -> None:
     third = _acquire_execution_lock(path)
     assert third is not None
     _release_execution_lock(third)
+
+
+def _attempt_order(action: str, reduce_only: bool) -> OrderIntent:
+    return OrderIntent(
+        asset="near",
+        symbol="NEARUSDT",
+        action=action,
+        side="sell" if reduce_only else "buy",
+        size=1.0,
+        price=5.0,
+        notional=5.0,
+        reduce_only=reduce_only,
+        reason="test",
+    )
+
+
+def test_equity_floor_keeps_risk_reducing_orders_and_blocks_new_risk() -> None:
+    close = _attempt_order("CLOSE", True)
+    increase = _attempt_order("INCREASE", False)
+    plan = ExecutionPlan(
+        equity=10.0,
+        leverage=2.0,
+        target_margin_ratio=0.515,
+        orders=[close, increase],
+        margin_intents=[
+            MarginIntent("near", "NEARUSDT", "long", "add", 1.0, "test")
+        ],
+        warnings=[],
+        target_notional={"near": 50.0},
+        expected_gross_notional=50.0,
+        expected_margin=25.75,
+    )
+
+    filtered, blocked = execute_live_plan._apply_equity_floor(plan, floor_usdt=20.0)
+
+    assert filtered.orders == [close]
+    assert filtered.margin_intents == []
+    assert blocked == [increase]
+    assert any("below" in warning and "risk-reducing" in warning for warning in filtered.warnings)
+
+
+def test_execution_attempt_prefix_changes_only_after_a_run_was_persisted() -> None:
+    key = "SPEC|2026-11-13|2026-11-14"
+    first = execute_live_plan._attempt_client_oid_prefix(key, {"runs": []})
+    crashed = execute_live_plan._attempt_client_oid_prefix(
+        key,
+        {"runs": [{"key": "OTHER|2026-11-13|2026-11-14", "status": "partial"}]},
+    )
+    retried = execute_live_plan._attempt_client_oid_prefix(
+        key,
+        {"runs": [{"key": key, "status": "partial"}]},
+    )
+
+    assert crashed == first
+    assert retried != first
 
 
 def test_live_executor_fatal_error_writes_json_and_notifies(tmp_path, monkeypatch) -> None:

@@ -259,16 +259,22 @@ def build_execution_plan(
     replay harness compares against the historical trade ledger.
     """
 
-    if account.equity <= 0.0:
-        raise ValueError("account equity must be positive")
+    if not math.isfinite(account.equity):
+        raise ValueError("account equity must be finite")
     if leverage <= 0.0:
         raise ValueError("leverage must be positive")
-    if max_gross_exposure is not None and max_gross_exposure <= 0.0:
-        raise ValueError("max_gross_exposure must be positive when set")
+    if max_gross_exposure is not None and max_gross_exposure < 0.0:
+        raise ValueError("max_gross_exposure must be non-negative when set")
     if short_stop_loss_pct is not None and not 0.0 < short_stop_loss_pct < 1.0:
         raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
     warnings: list[str] = []
+    risk_reducing_only = account.equity <= 0.0
+    if risk_reducing_only:
+        warnings.append(
+            "account equity is non-positive: new target exposure is suppressed; "
+            "risk-reducing closes remain enabled"
+        )
     long_margin_ratio = initial_margin_ratio(
         "long",
         maintenance_margin_rate=maintenance_margin_rate,
@@ -288,6 +294,8 @@ def build_execution_plan(
 
     desired_signed: dict[str, float] = {}
     for asset, raw_weight in targets.items():
+        if risk_reducing_only:
+            break
         weight = float(raw_weight)
         if abs(weight) <= _EPS:
             continue

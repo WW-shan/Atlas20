@@ -80,6 +80,12 @@ def test_panel_that_carries_the_last_completed_day_is_current(tmp_path: Path) ->
     assert panel_lags_last_completed_day(panel, NOW) is False
 
 
+def test_panel_ahead_of_the_last_completed_day_is_treated_as_stale(tmp_path: Path) -> None:
+    panel = _write_panel(tmp_path / "panel_daily.csv", ["2026-10-15", "2026-10-16"])
+
+    assert panel_lags_last_completed_day(panel, NOW) is True
+
+
 def test_missing_panel_counts_as_lagging(tmp_path: Path) -> None:
     assert panel_lags_last_completed_day(tmp_path / "absent.csv", NOW) is True
 
@@ -141,6 +147,17 @@ def test_manifest_staleness_fails_closed_on_an_invalid_last_mark() -> None:
     assert hours == float("inf")
 
 
+def test_manifest_staleness_rejects_a_future_mark() -> None:
+    now = datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc)
+
+    hours = manifest_staleness_hours(
+        {"last_mark": "2026-11-14 01:00:00+00:00"},
+        now,
+    )
+
+    assert hours == float("inf")
+
+
 def test_manifest_staleness_fails_closed_without_a_live_mark_timestamp() -> None:
     now = datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc)
 
@@ -149,23 +166,23 @@ def test_manifest_staleness_fails_closed_without_a_live_mark_timestamp() -> None
 
 
 def test_window_opens_at_the_fill_time() -> None:
-    before = datetime(2026, 10, 16, 3, 4, tzinfo=timezone.utc)
+    before = datetime(2026, 10, 16, 1, 4, tzinfo=timezone.utc)
     ok, reason = within_run_window(before)
     assert ok is False
     assert "before" in reason
 
-    ok, _ = within_run_window(datetime(2026, 10, 16, 3, 5, tzinfo=timezone.utc))
+    ok, _ = within_run_window(datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc))
     assert ok is True
 
 
 def test_live_execution_hint_uses_the_ls45_schedule() -> None:
     hint = live_execution_hint_for_signal(datetime(2026, 10, 16, 0, 0, tzinfo=timezone.utc))
 
-    assert hint == datetime(2026, 10, 17, 3, 5, tzinfo=timezone.utc)
+    assert hint == datetime(2026, 10, 17, 1, 5, tzinfo=timezone.utc)
 
 
 def test_window_closes_after_the_catchup_budget() -> None:
-    opened = datetime(2026, 10, 16, 3, 5, tzinfo=timezone.utc)
+    opened = datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc)
     inside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS - 0.01)
     assert within_run_window(inside)[0] is True
 
@@ -186,6 +203,6 @@ def test_window_honours_a_shifted_schedule() -> None:
     [(DEFAULT_SCHEDULED_UTC.hour, DEFAULT_SCHEDULED_UTC.minute)],
 )
 def test_default_schedule_matches_the_launchd_job(hour: int, minute: int) -> None:
-    # ops/com.atlas20.derivatives-execute.plist fires at 11:05 Beijing = 03:05
+    # ops/com.atlas20.derivatives-execute.plist fires at 09:05 Beijing = 01:05
     # UTC; the gate must not open before the LS45 execution window.
-    assert (hour, minute) == (3, 5)
+    assert (hour, minute) == (1, 5)

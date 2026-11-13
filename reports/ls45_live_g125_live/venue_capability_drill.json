@@ -1,0 +1,40 @@
+{
+  "finished_at": "2026-11-13T18:57:36.117350+00:00",
+  "price": 3.5148,
+  "started_at": "2026-11-13T18:57:33.568301+00:00",
+  "symbol": "NEARUSDT",
+  "tests": [
+    {
+      "failures": [
+        {
+          "action": "OPEN",
+          "error": "isolated margin is required but order setup failed: Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25200\",\"msg\":\"fixedMargin not support  validation error\",\"requestTime\":1794596255185,\"data\":null}",
+          "side": "buy",
+          "size": "2",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "fills": [],
+      "label": "long",
+      "margin_mode": "",
+      "margin_notes": [
+        "NEARUSDT: isolated margin is required but order setup failed: Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25200\",\"msg\":\"fixedMargin not support  validation error\",\"requestTime\":1794596255185,\"data\":null}",
+        "本轮回调存在失败：跳过 1 笔保证金调整"
+      ],
+      "plan_order": {
+        "action": "OPEN",
+        "asset": "near",
+        "notional": 7.0296,
+        "pos_side": "long",
+        "price": 3.5148,
+        "reason": "rebalance to target",
+        "reduce_only": false,
+        "side": "buy",
+        "size": 2.0,
+        "stop_loss": null,
+        "symbol": "NEARUSDT"
+      },
+      "positions_after": []
+    }
+  ]
+}

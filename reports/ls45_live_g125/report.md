@@ -5,7 +5,7 @@
 - frozen long/short book: H5 1.25x + LS45 stronger-21D profit-lock redistribution/regime short
 - cost: 20 bps; capital reference: 1,000 units
 - funding: bitget-exact (available through 2026-11-11 16:00:00+00:00; stale shorts flattened)
-- last mark: 2026-11-13 14:00:00+00:00; staleness: 2.6h
+- last mark: 2026-11-13 14:00:00+00:00; staleness: 6.8h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - mark coverage: 0 missing hours; 88 assets checked; max gap 1.0h
 

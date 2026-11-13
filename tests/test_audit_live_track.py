@@ -5,14 +5,27 @@ import json
 import pandas as pd
 import pytest
 
-from atlas20.derivatives.live_journal import JournalEntry, protected_short_symbols
+from atlas20.derivatives.live_journal import (
+    JournalEntry,
+    protected_short_stops,
+    protected_short_symbols,
+)
 from scripts.audit_live_track import (
+    _execution_floor_issue,
     _ledger_expected_equity,
+    _orphan_strategy_order_issues,
     _pnl_chain_errors,
     _position_signed_notional,
+    _position_side_issues,
     _short_stop_gaps,
     _trade_mismatch,
+    _unfilled_order_issues,
 )
+
+
+def test_execution_floor_issue_rejects_equity_below_the_live_minimum() -> None:
+    assert _execution_floor_issue(20.0, floor_usdt=20.0) is None
+    assert "执行下限" in str(_execution_floor_issue(19.99, floor_usdt=20.0))
 
 
 def _entry(
@@ -131,6 +144,7 @@ def test_protected_short_symbols_requires_a_recorded_stop() -> None:
     )
 
     assert protected_short_symbols(journal) == {"NEARUSDT"}
+    assert protected_short_stops(journal) == {"NEARUSDT": 6.0}
 
 
 def test_protected_short_symbols_survives_a_quiet_hold_day() -> None:
@@ -147,7 +161,7 @@ def test_protected_short_symbols_survives_a_quiet_hold_day() -> None:
                             "side": "sell",
                             "qty": 10.0,
                             "stop_loss": 6.0,
-                            "stop_trigger_by": "mark_price",
+                            "stop_trigger_by": "mark",
                             "stop_order_type": "market",
                         }
                     ]
@@ -183,7 +197,7 @@ def test_old_stop_does_not_mask_an_unprotected_reopened_short() -> None:
                             "side": "sell",
                             "qty": 10.0,
                             "stop_loss": 6.0,
-                            "stop_trigger_by": "mark_price",
+                            "stop_trigger_by": "mark",
                             "stop_order_type": "market",
                         }
                     ]
@@ -265,7 +279,7 @@ def test_short_stop_must_match_the_requested_stop_price() -> None:
                             "qty": 10.0,
                             "requested_stop_loss": 5.5,
                             "stop_loss": 6.0,
-                            "stop_trigger_by": "mark_price",
+                            "stop_trigger_by": "mark",
                             "stop_order_type": "market",
                         }
                     ]
@@ -295,7 +309,7 @@ def test_unfilled_short_order_does_not_create_stop_protection() -> None:
                             "qty": 0.0,
                             "status": "live",
                             "stop_loss": 6.0,
-                            "stop_trigger_by": "mark_price",
+                            "stop_trigger_by": "mark",
                             "stop_order_type": "market",
                         }
                     ]
@@ -319,7 +333,7 @@ def test_trade_mismatch_checks_the_attached_short_stop() -> None:
         "avgPrice": "5",
         "feeDetail": [{"fee": "0.03"}],
         "stopLoss": "6",
-        "slTriggerBy": "mark_price",
+        "slTriggerBy": "mark",
         "slOrderType": "market",
     }
     assert _trade_mismatch(trade, venue) is None
@@ -423,6 +437,20 @@ def test_position_audit_rejects_an_invalid_total_and_mark_price() -> None:
     assert any("SOLUSDT" in issue and "posSide" in issue for issue in issues)
 
 
+def test_position_audit_rejects_duplicate_or_opposite_hedge_legs() -> None:
+    issues = _position_side_issues(
+        [
+            {"symbol": "NEARUSDT", "total": "10", "posSide": "long", "markPrice": "5"},
+            {"symbol": "NEARUSDT", "total": "2", "posSide": "short", "markPrice": "5"},
+            {"symbol": "SOLUSDT", "total": "3", "posSide": "long", "markPrice": "100"},
+            {"symbol": "SOLUSDT", "total": "4", "posSide": "long", "markPrice": "100"},
+        ]
+    )
+
+    assert "NEARUSDT:long+short" in issues
+    assert "SOLUSDT:duplicate-long" in issues
+
+
 def test_venue_stop_coverage_requires_a_live_mark_market_stop_per_short() -> None:
     from scripts.audit_live_track import _venue_short_stop_gaps
 
@@ -434,8 +462,10 @@ def test_venue_stop_coverage_requires_a_live_mark_market_stop_per_short() -> Non
         {
             "symbol": "NEARUSDT",
             "posSide": "short",
+            "side": "buy",
+            "qty": "10",
             "stopLoss": "6",
-            "slTriggerBy": "mark_price",
+            "slTriggerBy": "mark",
             "slOrderType": "market",
         }
     ]
@@ -446,6 +476,8 @@ def test_venue_stop_coverage_requires_a_live_mark_market_stop_per_short() -> Non
         {
             "symbol": "SOLUSDT",
             "posSide": "short",
+            "side": "buy",
+            "qty": "10",
             "stopLoss": "6",
             "slTriggerBy": "last_price",
             "slOrderType": "market",
@@ -453,6 +485,156 @@ def test_venue_stop_coverage_requires_a_live_mark_market_stop_per_short() -> Non
     )
     assert _venue_short_stop_gaps(positions, strategy_orders) == ["SOLUSDT"]
 
+
+def test_venue_stop_coverage_rejects_a_modified_stop_price() -> None:
+    from scripts.audit_live_track import _venue_short_stop_gaps
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "10", "posSide": "short", "markPrice": "5"}
+    ]
+    strategy_orders = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "10",
+            "stopLoss": "5.5",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        }
+    ]
+
+    assert _venue_short_stop_gaps(
+        positions,
+        strategy_orders,
+        expected_stops={"NEARUSDT": 6.0},
+    ) == ["NEARUSDT"]
+
+
+def test_venue_stop_coverage_accepts_one_way_net_position_side() -> None:
+    from scripts.audit_live_track import _venue_short_stop_gaps
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "-10", "posSide": "net", "markPrice": "5"}
+    ]
+    strategy_orders = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "net",
+            "side": "buy",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        }
+    ]
+
+    assert _venue_short_stop_gaps(
+        positions,
+        strategy_orders,
+        expected_stops={"NEARUSDT": 6.0},
+    ) == []
+
+
+def test_multiple_exchange_stops_must_collectively_cover_the_short() -> None:
+    from scripts.audit_live_track import _venue_short_stop_gaps
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "4", "posSide": "short", "markPrice": "3.545"}
+    ]
+    full = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "2",
+            "stopLoss": "4.2538",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "2",
+            "stopLoss": "4.2542",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+    ]
+
+    assert _venue_short_stop_gaps(
+        positions,
+        full,
+        expected_stops={"NEARUSDT": 4.2542},
+    ) == []
+    assert _venue_short_stop_gaps(
+        positions,
+        full[:1],
+        expected_stops={"NEARUSDT": 4.2542},
+    ) == ["NEARUSDT"]
+    assert _venue_short_stop_gaps(
+        positions,
+        [{**full[0], "stopLoss": "4.2542"}],
+        expected_stops={"NEARUSDT": 4.2542},
+    ) == ["NEARUSDT"]
+
+
+def test_orphan_strategy_orders_are_not_silently_accepted() -> None:
+    positions = [
+        {"symbol": "NEARUSDT", "total": "10", "posSide": "short", "markPrice": "5"}
+    ]
+    strategy_orders = [
+        {
+            "orderId": "expected",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+        {
+            "orderId": "orphan",
+            "symbol": "SOLUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "10",
+            "stopLoss": "100",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+    ]
+
+    issues = _orphan_strategy_order_issues(
+        positions,
+        strategy_orders,
+    )
+
+    assert issues == ["SOLUSDT:orphan"]
+
+
+def test_any_pending_regular_order_fails_the_full_chain_audit() -> None:
+    assert _unfilled_order_issues([]) == []
+    assert _unfilled_order_issues(
+        [
+            {
+                "symbol": "NEARUSDT",
+                "orderId": "123",
+                "clientOid": "manual",
+                "side": "buy",
+                "qty": "2",
+                "cumExecQty": "0",
+            }
+        ]
+    ) == ["NEARUSDT:123:manual:buy:0/2"]
 
 def test_funding_delta_check_rejects_repeating_a_cumulative_snapshot() -> None:
     from scripts.audit_live_track import _funding_delta_errors
@@ -487,6 +669,35 @@ def test_funding_delta_check_rejects_repeating_a_cumulative_snapshot() -> None:
 
     journal.loc[1, "funding_total"] = -0.03
     assert _funding_delta_errors(journal) == []
+
+
+def test_registered_venue_drill_orders_are_not_reported_as_missing_journal(tmp_path) -> None:
+    from scripts.audit_live_track import _load_drill_order_ids, _unjournaled_order_ids
+
+    registry = tmp_path / "drill.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "orders": [
+                    {
+                        "order_id": "2",
+                        "client_oid": "a20fixeddrill",
+                        "purpose": "venue capability drill",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    history = [
+        {"orderId": "2", "clientOid": "a20fixeddrill", "orderStatus": "filled", "cumExecQty": "3"},
+    ]
+
+    assert _load_drill_order_ids(registry) == {"2"}
+    assert (
+        _unjournaled_order_ids(history, pd.DataFrame(), ignored_order_ids={"2"})
+        == []
+    )
 
 
 def test_every_filled_strategy_order_must_appear_in_the_journal() -> None:

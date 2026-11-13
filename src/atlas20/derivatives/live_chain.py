@@ -9,7 +9,7 @@ turns two ordinary events into a silently skipped rebalance:
 * a shutdown or reboot in the middle of the panel refresh leaves
   ``data/processed/panel_daily.csv`` a day behind while the Bitget marks keep
   moving (this happened on 2026-10-16: the machine went down at 10:34, the
-  panel stayed on 10-14, and the 11:05 trade job failed closed);
+  panel stayed on 10-14, and the legacy 11:05 trade job failed closed);
 * the machine can simply be off at the scheduled fire time, so the day is
   never attempted at all.
 
@@ -39,11 +39,11 @@ import pandas as pd
 
 from atlas20.data.completeness import assess_last_day
 
-#: The first executable LS45 window, in UTC. The frozen target ledger uses a
-#: T+1 +3h execution hint (03:00 UTC); ops/com.atlas20.derivatives-execute.plist
-#: fires at 11:05 Beijing (03:05 UTC), five minutes later. The preflight and
-#: panel completeness gate are both required before trading.
-DEFAULT_SCHEDULED_UTC = time(3, 5)
+#: The first executable LS45 window, in UTC. The frozen target ledger keeps
+#: its conservative T+1 +3h research hint (03:00 UTC), while live execution uses
+#: the owner-approved early fast path at 09:05 Beijing (01:05 UTC). The preflight
+#: and panel completeness gate are both required before trading.
+DEFAULT_SCHEDULED_UTC = time(1, 5)
 
 #: How long after the fill point a missed run may still be caught up.  Beyond
 #: this the rebalance is skipped and the 19:00 monitor reports the gap, because
@@ -77,9 +77,10 @@ def live_execution_hint_for_signal(
 ) -> datetime:
     """The UTC timestamp the automated live executor aims at for a signal day.
 
-    The frozen target file carries the authoritative T+1 +3h `execution_hint`.
-    Live scripts read that field directly; this helper remains the schedule
-    fallback for preflight/test callers and must stay five minutes behind it.
+    The frozen target file keeps the conservative T+1 +3h research
+    ``execution_hint``. Live execution deliberately starts at 09:05 Beijing
+    (01:05 UTC); preflight, reports and the daily executor use this live clock,
+    not the research timestamp.
     """
 
     day = signal_date.date() if isinstance(signal_date, datetime) else signal_date
@@ -101,7 +102,12 @@ def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:
                 stamp = stamp.tz_localize("UTC")
             else:
                 stamp = stamp.tz_convert("UTC")
-            return max(0.0, (as_utc(now) - stamp.to_pydatetime()).total_seconds() / 3600.0)
+            age_seconds = (as_utc(now) - stamp.to_pydatetime()).total_seconds()
+            # A small negative value is clock skew; a materially future mark is
+            # corrupt data and must not be accepted as zero age.
+            if age_seconds < -60.0:
+                return float("inf")
+            return max(0.0, age_seconds / 3600.0)
         except (TypeError, ValueError, OverflowError):
             return float("inf")
     return float("inf")
@@ -126,12 +132,16 @@ def panel_end_date(panel_path: Path) -> date | None:
 
 
 def panel_lags_last_completed_day(panel_path: Path, now: datetime) -> bool:
-    """True when the panel is missing the last completed UTC day."""
+    """True unless the panel ends exactly at the last completed UTC day.
+
+    A future date is not treated as "ahead of schedule": it is corrupt or
+    timezone-shifted data and must be rebuilt/fail closed before any trade.
+    """
 
     end = panel_end_date(panel_path)
     if end is None:
         return True
-    return end < last_completed_utc_day(now)
+    return end != last_completed_utc_day(now)
 
 
 def panel_completeness(panel_path: Path) -> tuple[bool, str]:

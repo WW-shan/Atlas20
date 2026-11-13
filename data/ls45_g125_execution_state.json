@@ -1,6 +1,6 @@
 {
   "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
-  "last_run_at": "2026-11-13T17:06:54.518617+00:00",
+  "last_run_at": "2026-11-13T20:47:52.181957+00:00",
   "last_status": "ok",
   "runs": [
     {
@@ -22,6 +22,34 @@
       "fills": [],
       "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
       "ran_at": "2026-11-13T17:06:54.518617+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
+      "ran_at": "2026-11-13T20:11:50.168188+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
+      "ran_at": "2026-11-13T20:15:03.336425+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
+      "ran_at": "2026-11-13T20:29:56.323590+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-06|2026-11-13",
+      "ran_at": "2026-11-13T20:47:52.181957+00:00",
       "status": "ok"
     }
   ]

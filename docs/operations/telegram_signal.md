@@ -100,8 +100,8 @@ sends one message per signal day with:
 - signed `BUY`/`SELL` notional and weight changes in pp;
 - long and short legs separately labelled, never hidden behind absolute values;
 - reference isolated margin, total gross (`sum(abs(notional))`), and the 1.25x cap;
-- the target ledger's authoritative `execution_hint` (T+1 03:00 UTC, 11:00 Beijing);
-- a warning that the automated executor starts at 03:05 UTC, not the old 01:05 UTC;
+- the live fast-path execution time (T+1 01:05 UTC, 09:05 Beijing);
+- the target ledger's research `execution_hint` (T+1 03:00 UTC) shown separately;
 - a short-risk line stating that entries carry a 20% mark-price market stop;
 - a warning when the execution time has already passed.
 
@@ -133,9 +133,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
 ```
 
-The signal fallback timer fires at 03:45 and 04:15 UTC, after the 03:05 UTC
-execution attempt, to avoid rebuilding the same ledger concurrently. The real
-execution timer fires at 03:05 / 03:35 / 04:35 / 06:35 UTC.
+The signal fallback timer fires at 03:45 and 04:15 UTC, after the 01:05 UTC
+primary execution attempt, and is mutually exclusive with the execution timer.
+The real execution timer fires at 01:05 / 01:35 / 03:05 / 03:35 / 04:35 /
+06:35 UTC.
 
 ## Idempotency
 

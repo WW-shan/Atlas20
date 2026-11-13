@@ -246,9 +246,25 @@ def test_all_cash_target_closes_every_leg() -> None:
     assert len(plan.orders) == 2
 
 
-def test_negative_equity_is_rejected() -> None:
-    with pytest.raises(ValueError, match="equity must be positive"):
-        build_execution_plan(AccountState(equity=0.0, available_margin=0.0), {}, {}, {})
+def test_zero_equity_suppresses_new_targets_and_closes_the_held_leg() -> None:
+    position = _position(size=100.0, entry=2.0, mark=2.0, margin=100.0)
+    plan = build_execution_plan(
+        AccountState(equity=0.0, available_margin=0.0, positions={"near": position}),
+        {"near": 0.5},
+        {"near": _spec()},
+        {"near": 2.0},
+    )
+
+    assert [(order.action, order.reduce_only) for order in plan.orders] == [("CLOSE", True)]
+    assert plan.signed_target_notional == {}
+    assert any("risk-reducing" in warning.lower() for warning in plan.warnings)
+
+
+def test_non_finite_equity_is_rejected() -> None:
+    with pytest.raises(ValueError, match="finite"):
+        build_execution_plan(
+            AccountState(equity=float("nan"), available_margin=0.0), {}, {}, {}
+        )
 
 
 def test_mirror_engine_reproduces_an_engine_style_rebalance() -> None:

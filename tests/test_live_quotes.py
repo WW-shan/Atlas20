@@ -129,6 +129,15 @@ def test_fetch_execution_quotes_rejects_an_error_payload() -> None:
         fetch_execution_quotes(session, {"BTCUSDT"})
 
 
+def test_fetch_execution_quotes_rejects_a_materially_future_ticker() -> None:
+    payload = _payload()
+    payload["data"][0]["ts"] = str(1_800_000_061_000)
+
+    quotes = fetch_execution_quotes(_Session(payload), {"BTCUSDT"})
+
+    assert "BTCUSDT" not in quotes
+
+
 def test_fetch_execution_quotes_rejects_non_finite_prices() -> None:
     payload = _payload()
     payload["data"][0]["lastPrice"] = "inf"

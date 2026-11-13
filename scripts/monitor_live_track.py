@@ -1,7 +1,7 @@
 """Read-only live health monitor: the check that runs *between* rebalances.
 
-The daily executor already re-reads the real account every day at 11:05
-Beijing. This script adds the missing piece: a scheduled, read-only probe that
+The daily executor already re-reads the real account every day at 09:05
+Beijing (the owner-approved live fast path; research fill remains +3h). This script adds the missing piece: a scheduled, read-only probe that
 answers "is anything wrong right now?" without waiting for the next rebalance.
 
 It never places orders and never touches the executor's idempotency state. It

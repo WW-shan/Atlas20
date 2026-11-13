@@ -183,6 +183,22 @@ def test_loading_non_finite_capital_flow_rejects_the_ledger(tmp_path: Path, amou
         load_capital_flows(path)
 
 
+def test_capital_flows_accept_mixed_timestamp_precision(tmp_path: Path) -> None:
+    path = tmp_path / "capital_flows.csv"
+    path.write_text(
+        "timestamp_utc,amount_usdt,note\n"
+        "2026-11-04 11:00:00+00:00,400.0,deposit\n"
+        "2026-11-13 19:56:16.525604+00:00,-0.18,drill fees\n",
+        encoding="utf-8",
+    )
+
+    frame = load_capital_flows(path)
+
+    assert len(frame) == 2
+    assert frame["timestamp_utc"].notna().all()
+    assert frame["amount_usdt"].tolist() == pytest.approx([400.0, -0.18])
+
+
 def test_journal_rejects_a_non_numeric_capital_flow_instead_of_zeroing_it(tmp_path: Path) -> None:
     path = tmp_path / "journal.csv"
     path.write_text(

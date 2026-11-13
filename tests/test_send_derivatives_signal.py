@@ -92,6 +92,21 @@ def test_format_derivatives_message_shows_the_early_execution_lag() -> None:
     assert "UTC 2026-10-09 01:05，T+1 +1h5m" in message
 
 
+def test_format_derivatives_message_separates_live_and_research_execution() -> None:
+    from scripts.send_derivatives_signal import format_derivatives_message
+
+    message = format_derivatives_message(
+        _book(),
+        signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+    )
+
+    assert "建议执行: 北京时间 2026-10-09 09:05（UTC 2026-10-09 01:05，T+1 +1h5m）" in message
+    assert "研究回测成交口径: 03:00 UTC" in message
+    assert "T+1 +3h" in message
+
+
 def test_format_derivatives_message_reports_no_trade_when_book_is_unchanged() -> None:
     from scripts.send_derivatives_signal import format_derivatives_message
 
@@ -136,7 +151,7 @@ def test_load_latest_targets_rejects_missing_columns(tmp_path) -> None:
         load_latest_targets(path)
 
 
-def test_main_uses_the_execution_hint_from_the_target_ledger(tmp_path, monkeypatch) -> None:
+def test_main_uses_the_live_fast_path_and_keeps_the_research_hint(tmp_path, monkeypatch) -> None:
     from scripts import send_derivatives_signal
 
     path = tmp_path / "oos_targets.csv"
@@ -144,10 +159,10 @@ def test_main_uses_the_execution_hint_from_the_target_ledger(tmp_path, monkeypat
     frame["signal_date"] = "2026-09-01 00:00:00+00:00"
     frame["execution_hint"] = "2026-09-02 03:00:00+00:00"
     frame.to_csv(path, index=False)
-    seen: list[pd.Timestamp] = []
+    seen: list[tuple[pd.Timestamp, pd.Timestamp]] = []
 
-    def capture(book, *, signal_date, execution_hint, **kwargs):
-        seen.append(execution_hint)
+    def capture(book, *, signal_date, execution_hint, research_execution_hint, **kwargs):
+        seen.append((execution_hint, research_execution_hint))
         return "signal"
 
     monkeypatch.setattr(send_derivatives_signal, "format_derivatives_message", capture)
@@ -162,7 +177,12 @@ def test_main_uses_the_execution_hint_from_the_target_ledger(tmp_path, monkeypat
         ]
     )
 
-    assert seen == [pd.Timestamp("2026-09-02 03:00", tz="UTC")]
+    assert seen == [
+        (
+            pd.Timestamp("2026-09-02 01:05", tz="UTC"),
+            pd.Timestamp("2026-09-02 03:00", tz="UTC"),
+        )
+    ]
 
 
 def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None:

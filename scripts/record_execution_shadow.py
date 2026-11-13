@@ -5,7 +5,7 @@ frozen target book and captures server-timestamped Bitget top-of-book quotes
 at a short interval. The resulting JSONL is intended to validate maker-first
 fills against real quotes rather than mark-candle proxies.
 
-Run it around the execution window (for example 03:05 UTC) and keep the output
+Run it around the execution window (for example 01:05 UTC) and keep the output
 as research evidence. It is not part of the live executor.
 """
 

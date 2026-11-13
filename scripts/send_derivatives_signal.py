@@ -32,6 +32,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
 from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
 from atlas20.logging_utils import atomic_write_text  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
@@ -110,21 +111,38 @@ def load_latest_targets(path: Path) -> tuple[pd.Timestamp, pd.Timestamp, pd.Data
     return latest, execution_hint, book
 
 
-def _close_and_execution_lines(signal_date: pd.Timestamp, execution_hint: pd.Timestamp) -> list[str]:
-    close_utc = signal_date + pd.Timedelta(days=1)
-    close_local = close_utc + pd.Timedelta(hours=8)
-    execution_local = execution_hint + pd.Timedelta(hours=8)
-    lag_minutes = int((execution_hint - close_utc).total_seconds() // 60)
-    lag_label = (
+def _lag_label(close_utc: pd.Timestamp, execution: pd.Timestamp) -> str:
+    lag_minutes = int((execution - close_utc).total_seconds() // 60)
+    return (
         f"T+1 +{lag_minutes // 60}h"
         if lag_minutes % 60 == 0
         else f"T+1 +{lag_minutes // 60}h{lag_minutes % 60}m"
     )
-    return [
+
+
+def _close_and_execution_lines(
+    signal_date: pd.Timestamp,
+    execution_hint: pd.Timestamp,
+    research_execution_hint: pd.Timestamp | None = None,
+) -> list[str]:
+    close_utc = signal_date + pd.Timedelta(days=1)
+    close_local = close_utc + pd.Timedelta(hours=8)
+    execution_local = execution_hint + pd.Timedelta(hours=8)
+    lines = [
         f"信号日线（UTC）: {signal_date.date()}（{signal_date.date()} 00:00→24:00 UTC）",
         f"数据收盘: {close_utc.strftime('%Y-%m-%d %H:%M')} UTC / 北京时间 {close_local.strftime('%Y-%m-%d %H:%M')}",
-        f"建议执行: 北京时间 {execution_local.strftime('%Y-%m-%d %H:%M')}（UTC {execution_hint.strftime('%Y-%m-%d %H:%M')}，{lag_label}）",
+        f"建议执行: 北京时间 {execution_local.strftime('%Y-%m-%d %H:%M')}"
+        f"（UTC {execution_hint.strftime('%Y-%m-%d %H:%M')}，"
+        f"{_lag_label(close_utc, execution_hint)}）",
     ]
+    if research_execution_hint is not None:
+        research_local = research_execution_hint + pd.Timedelta(hours=8)
+        lines.append(
+            f"研究回测成交口径: {research_execution_hint.strftime('%H:%M')} UTC"
+            f"（{_lag_label(close_utc, research_execution_hint)}；"
+            f"北京时间 {research_local.strftime('%H:%M')}）"
+        )
+    return lines
 
 
 def format_derivatives_message(
@@ -132,6 +150,7 @@ def format_derivatives_message(
     *,
     signal_date: pd.Timestamp,
     execution_hint: pd.Timestamp,
+    research_execution_hint: pd.Timestamp | None = None,
     capital: float = CAPITAL_SCALE,
     spec: str = TRACKED_SPEC,
     leverage: float = LEVERAGE,
@@ -173,7 +192,11 @@ def format_derivatives_message(
 
     lines = [
         f"Atlas20 合约信号 · {spec}",
-        *_close_and_execution_lines(pd.Timestamp(signal_date), pd.Timestamp(execution_hint)),
+        *_close_and_execution_lines(
+            pd.Timestamp(signal_date),
+            pd.Timestamp(execution_hint),
+            None if research_execution_hint is None else pd.Timestamp(research_execution_hint),
+        ),
         f"模式: Bitget 合约 · 名义上限 {leverage:g}x · 每腿隔离保证金 = 名义 × "
         f"{max(long_margin_ratio, short_margin_ratio) * 100:.1f}% · 手动下单",
     ]
@@ -274,7 +297,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, research_execution_hint, book = load_latest_targets(args.targets_file)
+    execution_hint = pd.Timestamp(live_execution_hint_for_signal(signal_date))
     raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
     try:
         capital = float(raw_capital)
@@ -287,6 +311,7 @@ def main(argv: list[str] | None = None) -> None:
         book,
         signal_date=signal_date,
         execution_hint=execution_hint,
+        research_execution_hint=research_execution_hint,
         capital=capital,
         spec=args.spec,
         now=pd.Timestamp.now(tz="UTC"),
