@@ -1,8 +1,8 @@
 # PR2026-11-LS91-LS57-CORE-CARRY-SATELLITE
 
-- Equal initial capital: 25% to each real-engine subaccount
+- Capital weights: 50.0% LS57 + 25.0% LS82_CARRY + 25.0% LS88_LONG_CARRY + 0.0% LS89_MA21
+- Cost assumption: 20bps per side, using the matching saved engine returns
 - No cross-account rebalancing; each subaccount compounds independently
-- 20bps is primary; 50/100bps use their corresponding saved engine returns
 
 ## Portfolio results
 

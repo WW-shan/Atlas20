@@ -1,8 +1,8 @@
 # PR2026-11-LS90-REAL-ENGINE-FUND-OF-FUNDS
 
-- Equal initial capital: 25% to each real-engine subaccount
+- Capital weights: 25.0% LS57 + 25.0% LS82_CARRY + 25.0% LS88_LONG_CARRY + 25.0% LS89_MA21
+- Cost assumption: 20bps per side, using the matching saved engine returns
 - No cross-account rebalancing; each subaccount compounds independently
-- 20bps is primary; 50/100bps use their corresponding saved engine returns
 
 ## Portfolio results
 
@@ -12,7 +12,7 @@
 | 1 | LS82_CARRY | 20.0000 | 62.1228 | 1.9519 | -0.3798 | 14.5712 | 2.0921 |
 | 2 | LS88_LONG_CARRY | 20.0000 | 61.4661 | 1.9062 | -0.3941 | 14.3776 | 2.0185 |
 | 3 | LS89_MA21 | 20.0000 | 54.7231 | 1.9275 | -0.3648 | 12.1321 | 2.0093 |
-| 4 | LS90 | 20.0000 | 59.1295 | 1.9322 | -0.3842 | 13.7014 | 2.0492 |
+| 4 | PR2026-11-LS90-REAL-ENGINE-FUND-OF-FUNDS | 20.0000 | 59.1295 | 1.9322 | -0.3842 | 13.7014 | 2.0492 |
 
 ## Subaccounts (20bps)
 
@@ -34,7 +34,7 @@
 
 ## Decision
 
-20bps LS57: 58.2059x / 1.9143 / -39.8304%; LS90: 59.1295x / 1.9322 / -38.4162%.
+20bps LS57: 58.2059x / 1.9143 / -39.8304%; PR2026-11-LS90-REAL-ENGINE-FUND-OF-FUNDS: 59.1295x / 1.9322 / -38.4162%.
 Primary ensemble gate: **FAIL**.
 
 Research output only; no orders sent.

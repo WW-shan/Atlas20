@@ -1,8 +1,8 @@
 # PR2026-11-LS92-LS91-MAKER25-SHADOW
 
-- Equal initial capital: 25% to each real-engine subaccount
+- Capital weights: 50.0% LS57 + 25.0% LS82_CARRY + 25.0% LS88_LONG_CARRY + 0.0% LS89_MA21
+- Cost assumption: 13.0164bps per side, using the matching saved engine returns
 - No cross-account rebalancing; each subaccount compounds independently
-- 20bps is primary; 50/100bps use their corresponding saved engine returns
 
 ## Portfolio results
 
@@ -14,7 +14,7 @@
 | 3 | LS89_MA21 | 13.0164 | 61.7783 | 1.9785 | -0.3559 | 13.1031 | 2.0631 |
 | 4 | PR2026-11-LS92-LS91-MAKER25-SHADOW | 13.0164 | 68.7216 | 1.9797 | -0.3837 | 15.4108 | 2.1078 |
 
-## Subaccounts (20bps)
+## Subaccounts (13.0164bps)
 
 | index | portfolio | cost_bps | full_multiple | full_sharpe | full_max_drawdown | validation_multiple | validation_sharpe |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -23,7 +23,7 @@
 | 2 | LS88_LONG_CARRY | 13.0164 | 70.4673 | 1.9610 | -0.3851 | 15.6631 | 2.0743 |
 | 3 | LS89_MA21 | 13.0164 | 61.7783 | 1.9785 | -0.3559 | 13.1031 | 2.0631 |
 
-## Return correlations (20bps)
+## Return correlations (13.0164bps)
 
 | index | index | LS57 | LS82_CARRY | LS88_LONG_CARRY | LS89_MA21 |
 | --- | --- | --- | --- | --- | --- |
@@ -34,6 +34,8 @@
 
 ## Decision
 
-20bps portfolio comparison is incomplete.
+13.0164bps LS57: 65.6712x / 1.9638 / -38.9592%; PR2026-11-LS92-LS91-MAKER25-SHADOW: 68.7216x / 1.9797 / -38.3694%.
+Primary ensemble gate: **PASS**.
+This is a portfolio candidate only; no live promotion.
 
 Research output only; no orders sent.

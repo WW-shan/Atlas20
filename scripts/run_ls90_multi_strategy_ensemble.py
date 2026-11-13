@@ -1,4 +1,4 @@
-"""Equal-capital, no-rebalance ensemble of four real-engine research candidates."""
+"""Fixed-initial-capital, no-rebalance ensemble of real-engine research candidates."""
 
 # ruff: noqa: E402
 
@@ -108,48 +108,54 @@ def _report(
     correlations: pd.DataFrame,
     *,
     trial_id: str,
+    weights: Mapping[str, float],
+    cost_bps: float,
 ) -> str:
+    cost_label = f"{cost_bps:g}bps"
+    weight_label = " + ".join(
+        f"{float(weight):.1%} {name}" for name, weight in weights.items()
+    )
     lines = [
         f"# {trial_id}",
         "",
-        "- Equal initial capital: 25% to each real-engine subaccount",
+        f"- Capital weights: {weight_label}",
+        f"- Cost assumption: {cost_label} per side, using the matching saved engine returns",
         "- No cross-account rebalancing; each subaccount compounds independently",
-        "- 20bps is primary; 50/100bps use their corresponding saved engine returns",
         "",
         "## Portfolio results",
         "",
         dataframe_to_markdown(summary.reset_index(drop=True)),
         "",
-        "## Subaccounts (20bps)",
+        f"## Subaccounts ({cost_label})",
         "",
         dataframe_to_markdown(subaccounts.reset_index(drop=True)),
         "",
-        "## Return correlations (20bps)",
+        f"## Return correlations ({cost_label})",
         "",
         dataframe_to_markdown(correlations.reset_index()),
         "",
         "## Decision",
         "",
     ]
-    base20 = summary.loc[(summary["portfolio"] == "LS57") & (summary["cost_bps"] == 20.0)]
-    ensemble20 = summary.loc[
-        (summary["portfolio"] == trial_id) & (summary["cost_bps"] == 20.0)
+    base = summary.loc[(summary["portfolio"] == "LS57") & (summary["cost_bps"] == cost_bps)]
+    ensemble = summary.loc[
+        (summary["portfolio"] == trial_id) & (summary["cost_bps"] == cost_bps)
     ]
-    if base20.empty or ensemble20.empty:
-        lines.append("20bps portfolio comparison is incomplete.")
+    if base.empty or ensemble.empty:
+        lines.append(f"{cost_label} portfolio comparison is incomplete.")
     else:
-        base = base20.iloc[0]
-        candidate = ensemble20.iloc[0]
+        base_row = base.iloc[0]
+        candidate = ensemble.iloc[0]
         passed = (
-            candidate["full_multiple"] >= base["full_multiple"]
-            and candidate["full_sharpe"] > base["full_sharpe"]
-            and candidate["full_max_drawdown"] >= base["full_max_drawdown"] - 0.01
-            and candidate["validation_multiple"] >= base["validation_multiple"]
-            and candidate["validation_sharpe"] >= base["validation_sharpe"]
+            candidate["full_multiple"] >= base_row["full_multiple"]
+            and candidate["full_sharpe"] > base_row["full_sharpe"]
+            and candidate["full_max_drawdown"] >= base_row["full_max_drawdown"] - 0.01
+            and candidate["validation_multiple"] >= base_row["validation_multiple"]
+            and candidate["validation_sharpe"] >= base_row["validation_sharpe"]
         )
         lines.append(
-            f"20bps LS57: {base['full_multiple']:.4f}x / {base['full_sharpe']:.4f} / "
-            f"{base['full_max_drawdown']:.4%}; {trial_id}: {candidate['full_multiple']:.4f}x / "
+            f"{cost_label} LS57: {base_row['full_multiple']:.4f}x / {base_row['full_sharpe']:.4f} / "
+            f"{base_row['full_max_drawdown']:.4%}; {trial_id}: {candidate['full_multiple']:.4f}x / "
             f"{candidate['full_sharpe']:.4f} / {candidate['full_max_drawdown']:.4%}."
         )
         lines.append("Primary ensemble gate: **PASS**." if passed else "Primary ensemble gate: **FAIL**.")
@@ -234,7 +240,14 @@ def main(argv: list[str] | None = None) -> None:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     (output_dir / "report.md").write_text(
-        _report(summary, subaccounts, correlations, trial_id=args.trial_id),
+        _report(
+            summary,
+            subaccounts,
+            correlations,
+            trial_id=args.trial_id,
+            weights=weights,
+            cost_bps=args.cost_bps,
+        ),
         encoding="utf-8",
     )
     print(summary.to_string(index=False))
