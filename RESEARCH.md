@@ -5189,7 +5189,7 @@ LS98 的毛 basis/funding 日收益进入组合后，LS99 按实际 scale 变化
 100% residual 在 10bps 下同时通过 full 终值、Sharpe、MDD、validation 终值和 validation Sharpe；
 20bps 压力下仍高于 LS57 的 full 终值和 Sharpe。三档 25/50/100% 全部通过预注册主门槛，分类为
 **pass under the pre-registered integration gates**。但 20bps 压力档 MDD 为 -40.549%，比 LS57
-差约 2.20pp；预注册压力门槛只要求终值/Sharpe，因此这不改变 pass 分类，但必须作为进入实盘前的
+差约 0.714pp；预注册压力门槛只要求终值/Sharpe，因此这不改变 pass 分类，但必须作为进入实盘前的
 残余风险处理。这不是 live promotion：LS98 的 spot 是 CMC/Binance 日价格代理、funding 是
 Binance proxy、perp mark 是 Bitget，跨所转账、USDT/USD 基差、保证金、真实 spot 成交和实际
 funding 仍未闭合；LS99 的 pass 只说明同一机制值得进入同 venue spot/perp 数据和 execution
@@ -5250,7 +5250,7 @@ LS99 的预注册规则；scale 的建仓、变化和最终退出都计成本。
 
 三档 10bps 全部通过 full/validation 主门槛，20bps 压力档的 100% 终值和 Sharpe 仍高于 LS57；分类为
 **pass under the pre-registered integration gates**。和 LS99 一样，20bps 压力 MDD 约 -40.53%，
-比 LS57 差约 2.2pp，必须在进入实盘前作为残余风险处理。LS100 的 full-history funding 仍是
+比 LS57 差约 0.694pp，必须在进入实盘前作为残余风险处理。LS100 的 full-history funding 仍是
 Binance proxy，exact Bitget funding 只覆盖最近完整 settlement 窗口（BTC/ETH 差异分别约 21.0%/29.6%，
 方向一致），所以 LS101 仍不是 live-ready；它只证明同 venue 价格口径没有推翻 residual-gross 结论。
 当前 live track 仍为 `PR2026-10-D-L125-V2`，没有发送任何订单。
