@@ -1,0 +1,142 @@
+{
+  "allocations": [
+    0.1,
+    0.2,
+    0.25
+  ],
+  "alt_short_leg": "perpetual",
+  "baseline": {
+    "cagr": 1.4506690720486266,
+    "max_drawdown": -0.39835021222536127,
+    "multiple": 68.80768535710902,
+    "sharpe": 1.981942355080547
+  },
+  "baseline_validation": {
+    "cagr": 1.7215633406193867,
+    "max_drawdown": -0.3231061669679841,
+    "multiple": 15.238577595049632,
+    "sharpe": 2.1078633990581066
+  },
+  "btc_leg": "spot",
+  "candidate_id": "PR2026-11-LS79-LS57-CHURN-MULTIPHASE-ENSEMBLE",
+  "costs_bps": [
+    20.0,
+    50.0,
+    100.0
+  ],
+  "diagnostic_allocation": 0.25,
+  "end_date": "2026-09-20",
+  "funding_coverage": 1.0,
+  "funding_scenarios": [
+    "normal",
+    "adverse_1x",
+    "adverse_2x",
+    "adverse_3x"
+  ],
+  "gross_cap": 1.5,
+  "max_ensemble_gross": 1.0000000000000002,
+  "missing_return_observations": 0,
+  "orders_sent": false,
+  "pre2022_price_only": [
+    {
+      "cagr": -0.07383738449658184,
+      "cost_bps": 20.0,
+      "funding_included": false,
+      "max_drawdown": -0.23501951682638333,
+      "mean_gross": 0.4246575342465753,
+      "missing_return_observations": 0,
+      "multiple": 0.9263572708037562,
+      "note": "2021 price-only negative control; funding availability absent",
+      "sharpe": -0.28957445781513574,
+      "turnover": 13.106822991822993
+    },
+    {
+      "cagr": -0.10960450963715673,
+      "cost_bps": 50.0,
+      "funding_included": false,
+      "max_drawdown": -0.25304849175176014,
+      "mean_gross": 0.4246575342465753,
+      "missing_return_observations": 0,
+      "multiple": 0.8906787288447298,
+      "note": "2021 price-only negative control; funding availability absent",
+      "sharpe": -0.4901420187393939,
+      "turnover": 13.106822991822993
+    },
+    {
+      "cagr": -0.1662769962405629,
+      "cost_bps": 100.0,
+      "funding_included": false,
+      "max_drawdown": -0.28220667302711355,
+      "mean_gross": 0.4246575342465753,
+      "missing_return_observations": 0,
+      "multiple": 0.8341384933226091,
+      "note": "2021 price-only negative control; funding availability absent",
+      "sharpe": -0.8233618587639168,
+      "turnover": 13.106822991822993
+    }
+  ],
+  "robustness": [
+    {
+      "annualized_excess_sharpe": 0.45336506732311666,
+      "best_year_excess_multiple": 0.236906341513758,
+      "bootstrap_probability_positive": 0.8684,
+      "bootstrap_total_log_excess_ci_2_5": -0.10780149709279425,
+      "bootstrap_total_log_excess_ci_97_5": 0.38077520155717,
+      "bootstrap_total_log_excess_median": 0.1362233826672074,
+      "mean_daily_excess": 7.540948131360632e-05,
+      "median_rolling_365_excess_multiple": 0.14998428111048012,
+      "newey_west_t_63": 1.0392093910534106,
+      "rolling_365_outperform_share": 0.7777777777777778,
+      "rolling_365_windows": 1359,
+      "scenario": "normal",
+      "worst_leave_one_year_excess_multiple": 1.1643728586958915,
+      "worst_leave_one_year_excess_sharpe": 0.027075766416211344,
+      "worst_rolling_365_excess_multiple": -0.2441392237780331,
+      "worst_year_excess_multiple": -0.0722398609573438,
+      "years_outperforming": 3,
+      "years_total": 5
+    },
+    {
+      "annualized_excess_sharpe": 0.06935359355594266,
+      "best_year_excess_multiple": 0.14113173182558603,
+      "bootstrap_probability_positive": 0.5918,
+      "bootstrap_total_log_excess_ci_2_5": -0.21416525175538426,
+      "bootstrap_total_log_excess_ci_97_5": 0.2637354165948299,
+      "bootstrap_total_log_excess_median": 0.028303725959957518,
+      "mean_daily_excess": 1.152845639880392e-05,
+      "median_rolling_365_excess_multiple": 0.057053704161051044,
+      "newey_west_t_63": 0.16109133197697134,
+      "rolling_365_outperform_share": 0.7056659308314938,
+      "rolling_365_windows": 1359,
+      "scenario": "adverse_1x",
+      "worst_leave_one_year_excess_multiple": -1.1275093950962614,
+      "worst_leave_one_year_excess_sharpe": -0.00891932084509639,
+      "worst_rolling_365_excess_multiple": -0.309164137484387,
+      "worst_year_excess_multiple": -0.12921172658355307,
+      "years_outperforming": 3,
+      "years_total": 5
+    }
+  ],
+  "selected_allocation": 0.25,
+  "standalone": {
+    "cagr": 0.06640592522380784,
+    "max_drawdown": -0.4349426210455327,
+    "multiple": 1.3545958273769434,
+    "sharpe": 0.3867513877296362
+  },
+  "start_date": "2022-01-01",
+  "variants": [
+    "m3_h7",
+    "m3_h14",
+    "m3_h28",
+    "m3_h56",
+    "m7_h7",
+    "m7_h14",
+    "m7_h28",
+    "m7_h56",
+    "m14_h7",
+    "m14_h14",
+    "m14_h28",
+    "m14_h56"
+  ]
+}

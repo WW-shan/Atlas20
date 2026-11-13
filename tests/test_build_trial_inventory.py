@@ -417,6 +417,7 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
         "ls57_churn_overlay_2026",
         "ls57_churn_overlay_funding_2026",
         "ls57_churn_spot_btc_short_alt_2026",
+        "ls57_churn_multiphase_ensemble_2026",
     }
     assert used.issubset(set(PROCESSING_ORDER))
     assert unclassified_report_dirs(

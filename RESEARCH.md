@@ -4631,3 +4631,36 @@ validation 未通过，LS78 stress fail，不 promotion。**
 
 报告：`reports/ls57_churn_spot_btc_short_alt_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls57-churn-spot-btc-short-alt-design.md`。
+
+### 00.114 2026-11-13 LS79：12-cell 多相位 churn ensemble 通过点估计门槛，但统计置信仍弱
+
+LS79 不再只挑 discovery 排名第一的 `m7_h28`，而是把 LS72 已注册的 `m∈{3,7,14} ×
+h∈{7,14,28,56}` 全部 12 个 cell 在当日等权。每个 cell 先生成 `alt_rel_60` gated target，再套用
+LS74 active-day gross=1 与 LS78 可执行 alt 永续空头币池；ensemble 权重是所有 active cell 归一
+权重之和 / active cell 数，所以总 gross 始终 <=1。成本、funding、residual scale 都在合成后的
+权重上重新计算，不是把 12 条收益率直接相加。
+
+25% allocation 在 20bps normal 为 **79.0382x / 2.0503 / -35.23%**，相对 LS57 的 68.8077x
+提高约 **14.86%**、Sharpe +0.0683、MDD 改善约 4.61pp；validation 为
+**16.9096x / 2.2056**。20bps **1x adverse** 仍有 **70.8376x / 2.0054 / -35.53%**，
+validation **15.6768x / 2.1538**，同时超过 LS57；20% allocation 也通过两个口径。50bps
+normal 25% 为 **73.4390x / 2.0198 / -35.54%**。但 100bps normal 降到
+**64.9718x**，2x/3x adverse 分别降到 **64.7120x / 59.1154x**，均未通过。
+
+这个结果不是无条件的“更强策略”：
+
+- ensemble standalone 20bps 只有 **1.3546x / Sharpe 0.3868 / MDD -43.49%**，必须依附 LS57；
+- 单币最大空头权重占比 **11.72%（MONERO）**，没有单一币垄断，但前 5 名仍占约 37.7%；
+- 2021 price-only 负控为 **0.9264x / Sharpe -0.2896 / MDD -23.50%**，说明 sleeve 不是全天候；
+- 逐年只有 3/5 年跑赢 LS57；normal 留一年后仍全部为正（最小 excess multiple 约 +1.16），
+  365 天滚动窗口 77.78% 跑赢、median excess +15.00%，但 worst rolling 为 -24.41%；
+- normal 的 Newey-West(63) t 仅 **1.04**，circular block bootstrap 的 95% total log excess CI
+  为 **[-10.78%, +38.08%]**，包含 0；1x adverse 的 CI 更宽且 t 仅 0.16。
+
+**判定：LS79 是 conditional overlay candidate，不是 promotion，也不是已证明 robust。** 它相对
+LS76/LS78 的改进是：不再依赖单个 `m/h`、成本/funding 在合并权重上重算、可执行币池和
+funding 覆盖率 100%、并显式披露统计置信不足。下一步只做真实 Bitget mark/fill/funding/margin/
+liquidation 合并与更长 forward OOS；不再扫描 cell 子集、allocation 或 funding threshold。
+
+报告：`reports/ls57_churn_multiphase_ensemble_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls79-churn-multiphase-ensemble-design.md`。

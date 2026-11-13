@@ -161,6 +161,7 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "ls57_churn_overlay_2026",
     "ls57_churn_overlay_funding_2026",
     "ls57_churn_spot_btc_short_alt_2026",
+    "ls57_churn_multiphase_ensemble_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -224,6 +225,7 @@ VARIES: dict[str, str] = {
     "ls57_churn_overlay_2026": "LS57 + residual-gross churn overlay, 10/20/25% allocations",
     "ls57_churn_overlay_funding_2026": "LS57 + residual-gross churn overlay with Binance funding proxy",
     "ls57_churn_spot_btc_short_alt_2026": "LS57 + executable alt-perp-short / BTC-spot churn overlay, 10/20/25% allocations",
+    "ls57_churn_multiphase_ensemble_2026": "LS57 + all-12-cell executable churn ensemble, 10/20/25% residual gross",
     "pipeline_latest": "TOP20_MOM / TOP20_SECTOR top-N x frequency x regime; EQ/BTC/ETH bull_only",
     "pipeline_bear_bottom_2022_11_21": "same 27 strategies as pipeline_latest (old panel)",
     "pipeline_five_year_2020_2024": "same 27 strategies as pipeline_latest (old panel)",
@@ -1271,6 +1273,28 @@ def _load_top20_churn_lane(src: Sources, rec: TrialRecorder) -> None:
                 lineage=study,
                 note="LS57 return-space overlay with residual gross budget",
             )
+
+    study = "ls57_churn_multiphase_ensemble_2026"
+    path = f"reports/{study}/overlay_summary.csv"
+    frame = src.csv(path)
+    normal = frame.loc[
+        (frame["sleeve_cost_bps"] == 20.0)
+        & (frame["funding_scenario"] == "normal")
+    ]
+    for _, row in normal.iterrows():
+        rec.add(
+            study,
+            f"allocation_{float(row['allocation']):.2f}",
+            ("2022-01-01", "2026-09-20"),
+            20.0,
+            "Top20",
+            float(row["full_sharpe"]),
+            source=path,
+            column="full_sharpe",
+            family="top20_membership_churn_overlay",
+            lineage=study,
+            note="all-12-cell executable churn ensemble, alt perp short + BTC spot",
+        )
 
     study = "ls57_churn_spot_btc_short_alt_2026"
     path = f"reports/{study}/stress_summary.csv"

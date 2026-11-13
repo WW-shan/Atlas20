@@ -5,18 +5,18 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `fe7ffbd` from 1 uncommitted source file(s): `reports/ls57_churn_spot_btc_short_alt_2026/stress_summary.csv`. `manifest.json` records the SHA-256 of every source.
+Built at commit `d06f598` from 1 uncommitted source file(s): `reports/ls57_churn_multiphase_ensemble_2026/overlay_summary.csv`. `manifest.json` records the SHA-256 of every source.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,395 | 14,361 | 9,189 | 0.7827 | 0.7034 | 0.03682 |
-| top20_2022_trials | 6,198 | 6,183 | 3,886 | 0.4135 | 0.4809 | 0.02517 |
+| all_trials | 14,398 | 14,364 | 9,192 | 0.7830 | 0.7036 | 0.03683 |
+| top20_2022_trials | 6,201 | 6,186 | 3,889 | 0.4143 | 0.4821 | 0.02523 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
-start 2022-01-01, cost nearest 20 bps. Its 6,183 Sharpe ratios come from
-3,886 distinct return streams; configurations inside one study
+start 2022-01-01, cost nearest 20 bps. Its 6,186 Sharpe ratios come from
+3,889 distinct return streams; configurations inside one study
 that happen to give identical returns (liquidity tiers that never bind, stops
 that never fire) count separately. The `all_trials` Sharpe dispersion mixes
 windows (the April 2022-11-21 studies have Sharpe ratios near 2), so the
@@ -59,7 +59,7 @@ multiple-testing script uses it only for the trial count.
 | residual_factor | 14 | 14 |
 | sector | 647 | 254 |
 | top20_membership_churn | 16 | 0 |
-| top20_membership_churn_overlay | 9 | 9 |
+| top20_membership_churn_overlay | 12 | 12 |
 | topN_momentum | 75 | 60 |
 | tsmom | 1440 | 720 |
 
