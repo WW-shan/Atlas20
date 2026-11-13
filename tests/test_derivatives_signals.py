@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -2649,3 +2650,140 @@ def test_profit_lock_redistribution_21d_confirmation_uses_21d_strength() -> None
     assert audit.loc[0, "eligible_recipient_count"] == 1
     assert audit.loc[0, "redistributed_weight"] == pytest.approx(0.25)
     assert audit.loc[0, "cash_weight"] == pytest.approx(0.0)
+
+
+def test_cross_sectional_residual_momentum_selects_high_residual_winners() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_residual_momentum_schedule
+
+    index = pd.date_range("2025-01-01", periods=75, freq="D", tz="UTC")
+    market_log_returns = pd.Series(
+        0.002 + 0.008 * np.sin(np.arange(len(index))), index=index, dtype=float
+    )
+    residual_log_returns = {
+        "bitcoin": 0.0,
+        "A": 0.006,
+        "B": 0.004,
+        "C": 0.003,
+        "D": 0.002,
+        "E": 0.001,
+        "F": 0.0,
+        "G": -0.002,
+        "H": -0.004,
+    }
+    growth = list(residual_log_returns)
+    prices = pd.DataFrame(
+        {
+            asset: 100.0
+            * np.exp((market_log_returns + residual).cumsum())
+            for asset, residual in residual_log_returns.items()
+        },
+        index=index,
+    )
+    universe = pd.DataFrame(
+        {"rebalance_date": [index[-1]] * len(growth), "coin_id": growth}
+    )
+    h5 = {index[-1]: pd.Series({"bitcoin": 0.5})}
+
+    schedule = build_cross_sectional_residual_momentum_schedule(
+        prices,
+        universe,
+        h5,
+        calendar=[index[-1]],
+        eligible=set(growth),
+        beta_lookback_days=60,
+        min_beta_observations=45,
+        momentum_lookback_days=28,
+        rebalance_days=28,
+        count=2,
+        per_asset_weight=0.05,
+        min_assets=4,
+        anchor=index[-1],
+    )
+
+    assert schedule[index[-1]].to_dict() == {
+        "A": pytest.approx(0.05),
+        "B": pytest.approx(0.05),
+        "G": pytest.approx(-0.05),
+        "H": pytest.approx(-0.05),
+    }
+
+
+def test_cross_sectional_residual_momentum_fails_closed_without_market_factor() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_residual_momentum_schedule
+
+    index = pd.date_range("2025-01-01", periods=75, freq="D", tz="UTC")
+    prices = pd.DataFrame(
+        {
+            "A": np.linspace(100.0, 120.0, len(index)),
+            "B": np.linspace(100.0, 90.0, len(index)),
+        },
+        index=index,
+    )
+    universe = pd.DataFrame(
+        {"rebalance_date": [index[-1], index[-1]], "coin_id": ["A", "B"]}
+    )
+
+    schedule = build_cross_sectional_residual_momentum_schedule(
+        prices,
+        universe,
+        {},
+        calendar=[index[-1]],
+        eligible={"A", "B"},
+        count=1,
+        min_assets=2,
+        anchor=index[-1],
+    )
+
+    assert schedule[index[-1]].empty
+
+
+def test_cross_sectional_residual_reversal_flips_the_signed_sleeve() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_residual_momentum_schedule
+
+    index = pd.date_range("2025-01-01", periods=75, freq="D", tz="UTC")
+    market_log_returns = pd.Series(
+        0.002 + 0.008 * np.sin(np.arange(len(index))), index=index, dtype=float
+    )
+    residual_log_returns = {
+        "bitcoin": 0.0,
+        "A": 0.006,
+        "B": 0.004,
+        "C": 0.003,
+        "D": 0.002,
+        "E": 0.001,
+        "F": 0.0,
+        "G": -0.002,
+        "H": -0.004,
+    }
+    prices = pd.DataFrame(
+        {
+            asset: 100.0 * np.exp((market_log_returns + residual).cumsum())
+            for asset, residual in residual_log_returns.items()
+        },
+        index=index,
+    )
+    universe = pd.DataFrame(
+        {
+            "rebalance_date": [index[-1]] * len(residual_log_returns),
+            "coin_id": list(residual_log_returns),
+        }
+    )
+
+    schedule = build_cross_sectional_residual_momentum_schedule(
+        prices,
+        universe,
+        {},
+        calendar=[index[-1]],
+        eligible=set(residual_log_returns),
+        count=2,
+        min_assets=4,
+        anchor=index[-1],
+        direction=-1,
+    )
+
+    assert schedule[index[-1]].to_dict() == {
+        "A": pytest.approx(-0.025),
+        "B": pytest.approx(-0.025),
+        "G": pytest.approx(0.025),
+        "H": pytest.approx(0.025),
+    }

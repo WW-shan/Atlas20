@@ -4267,3 +4267,60 @@ EX4 的 2026 真实逐笔样本给出 25% volume-capacity haircut 下加权有�
 
 报告：`reports/derivatives_track_h5_ls23_profitlock_skip7dneg_ma21_stable1d_redistribute_cost130164/PR2026-11-LS57-H5-LS23-PROFITLOCK-SKIP7DNEG-MA21-STABLE1D-REDISTRIBUTE/report.md`；
 Spec：`docs/superpowers/specs/2026-11-13-ls57-maker25-cost-translation-design.md`。
+
+### 00.96 2026-11-13 LS60：PIT Top20 短周期 residual momentum 筛查失败
+
+本轮首次独立检验 strict PIT CMC Top20 内的 residual momentum：用 60D BTC beta 去除市场共同
+波动，按 28D residual return 排序，做多最强 4 个、做空最弱 4 个，每腿 12.5% NAV，gross
+固定 1.0x，T+1 生效并按换手收费；不计 funding，也不接实盘。主样本
+2022-01-01 → 2026-09-21 共 62 个有效 rebalance。
+
+| 成本 | 终值 | Sharpe | MDD |
+|---|---:|---:|---:|
+| 2bps | 0.6365x | -0.1389 | -50.48% |
+| 20bps | **0.5346x** | **-0.2515** | **-57.04%** |
+| 50bps | 0.3992x | -0.4385 | -67.63% |
+| 100bps | 0.2446x | -0.7444 | -79.97% |
+
+同期 BTC buy-and-hold 为 1.8161x / 0.5026 / -66.89%。LS60 在 2bps 已经亏损，成本不是主因；
+年份收益为 2022 -19.27%、2023 +6.39%、2024 -36.18%、2025 +7.72%、2026 YTD -9.46%，
+前后半段都为负。组合平均净 beta 约 -0.036，但逐日绝对净 beta 均值为 0.147，说明它不是
+完全 beta-neutral，不过解释不了全部亏损。
+
+资产贡献分解补上了原报告遗漏的规格要求：FTX token +0.262、BCH +0.241、ATOM +0.214，而
+NEAR -0.283、LUNA -0.248、XLM -0.246。亏损不是单一资产故障，但赢家和输家贡献都很集中，
+说明该构造对少数跳跃式残差事件敏感。贡献 CSV 现在写入
+`asset_contributions.csv`，报告只摘录最大正负项。
+
+**判定：该冻结配置 rejected。** 不接实盘，不修改 LS57/L125-V2。此失败只否定
+`60D beta + 28D residual momentum` 这一格，不终止 residual-factor 研究；后续假设重新登记。
+
+报告：`reports/residual_momentum_screen_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-residual-momentum-screen-design.md`。
+
+### 00.97 2026-11-13 LS61：同口径 residual reversal 三段样本均不合格
+
+LS60 的 20bps Sharpe 为负，因此把同一信号的符号翻转，检验“低 residual 赢家继续赢、高
+residual 输家继续输”的反向假设。参数、资产数、gross、T+1 和成本口径完全冻结，只把方向
+翻成 low-minus-high；主确认样本为 2020-09-03 → 2021-12-31。按 owner 的最新要求，即使主确认
+失败也继续跑完 2022–2026 与 2024–2026，避免用旧 stop rule 阻断研究记录。
+
+| 样本 | 20bps 终值 | 20bps Sharpe | 20bps MDD | 2bps Sharpe |
+|---|---:|---:|---:|---:|
+| 2020-09→2021-12 | 0.6632x | -0.5237 | -49.78% | -0.4510 |
+| 2022-01→2026-09 | 0.7463x | 0.0012 | -61.66% | 0.1138 |
+| 2024-01→2026-09 | 1.1837x | 0.3734 | -35.78% | 0.5255 |
+
+主样本的逐年收益为 2022 -17.75%、2023 -17.16%、2024 +34.51%、2025 -18.83%、
+2026 YTD +0.32%，完全依赖 2024；2024–2026 子样本又由 2024 的 +51.56% 支配，2026 YTD
+为 -23.77%。同期 BTC 在 2024–2026 为 1.9608x / 0.7554 / -53.06%，LS61 仍明显落后。
+资产贡献同样集中：NEAR +0.244、XLM +0.217、SOL +0.124，说明结果不是宽基因子。
+
+**判定：rejected。** residual momentum 与 residual reversal 在独立和主样本之间没有稳定符号，
+同一 28D 因子不能直接改成方向性空头或多头 sleeve。下一步改为检验更经典、经济含义更明确的
+11M-1M residual momentum（跳过最近一个月），并把 discovery 与 validation 分开；不把
+LS61 的 2024 单年反弹当成可交易边缘。
+
+报告：`reports/residual_reversal_screen_pre2022/`、
+`reports/residual_reversal_screen_2022/`、`reports/residual_reversal_screen_2024_2026/`；
+Spec：`docs/superpowers/specs/2026-11-13-residual-reversal-screen-design.md`。

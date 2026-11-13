@@ -1,0 +1,328 @@
+{
+  "acceptance_checks": {
+    "both_halves_positive": false,
+    "mdd_20_ge_minus_40": false,
+    "multiple_20_gt_1": false,
+    "multiple_50_gt_1": false,
+    "positive_years_ge_80pct": false,
+    "sharpe_20_ge_0_8": false,
+    "sharpe_50_ge_0_5": false
+  },
+  "acceptance_verdict": "fail",
+  "asset_contributions": [
+    {
+      "absolute_share": 0.08199067614538384,
+      "asset": "ftx-token",
+      "cumulative_contribution": 0.26163745182522197
+    },
+    {
+      "absolute_share": 0.07564463995677707,
+      "asset": "bitcoin-cash",
+      "cumulative_contribution": 0.24138684754146647
+    },
+    {
+      "absolute_share": 0.06697684333302333,
+      "asset": "cosmos",
+      "cumulative_contribution": 0.21372735833860942
+    },
+    {
+      "absolute_share": 0.04743173305561795,
+      "asset": "tron",
+      "cumulative_contribution": 0.15135767084443932
+    },
+    {
+      "absolute_share": 0.03987718239526216,
+      "asset": "zcash",
+      "cumulative_contribution": 0.1272506201725402
+    },
+    {
+      "absolute_share": 0.03885690383947372,
+      "asset": "ripple",
+      "cumulative_contribution": 0.12399484654024247
+    },
+    {
+      "absolute_share": 0.02318930451874561,
+      "asset": "the-open-network",
+      "cumulative_contribution": 0.07399854262849978
+    },
+    {
+      "absolute_share": 0.02264828885800569,
+      "asset": "monero",
+      "cumulative_contribution": 0.07227212731485438
+    },
+    {
+      "absolute_share": 0.015551985935658404,
+      "asset": "matic-network",
+      "cumulative_contribution": 0.049627374261584783
+    },
+    {
+      "absolute_share": 0.012869072848010839,
+      "asset": "chainlink",
+      "cumulative_contribution": 0.04106602830468639
+    },
+    {
+      "absolute_share": 0.009315110312013158,
+      "asset": "ethereum",
+      "cumulative_contribution": 0.02972510826943811
+    },
+    {
+      "absolute_share": 0.009113147304983655,
+      "asset": "internet-computer",
+      "cumulative_contribution": 0.02908063149468311
+    },
+    {
+      "absolute_share": 0.007269639955388334,
+      "asset": "avalanche-2",
+      "cumulative_contribution": 0.023197882528033148
+    },
+    {
+      "absolute_share": 0.006832662679531282,
+      "asset": "sui",
+      "cumulative_contribution": 0.02180346030424224
+    },
+    {
+      "absolute_share": 0.003691209989544932,
+      "asset": "algorand",
+      "cumulative_contribution": 0.011778885371110742
+    },
+    {
+      "absolute_share": 0.003422672964040072,
+      "asset": "filecoin",
+      "cumulative_contribution": 0.010921966677706701
+    },
+    {
+      "absolute_share": 0.0024653726288575047,
+      "asset": "bitget-token",
+      "cumulative_contribution": 0.007867160544818147
+    },
+    {
+      "absolute_share": 0.002152183377156689,
+      "asset": "hyperliquid",
+      "cumulative_contribution": 0.006867753763384221
+    },
+    {
+      "absolute_share": 0.0002482811838207806,
+      "asset": "immutable-x",
+      "cumulative_contribution": -0.0007922810168784766
+    },
+    {
+      "absolute_share": 0.0007171822224685395,
+      "asset": "ethereum-classic",
+      "cumulative_contribution": -0.0022885739940514266
+    },
+    {
+      "absolute_share": 0.005302702623588543,
+      "asset": "mantle",
+      "cumulative_contribution": -0.016921260653620512
+    },
+    {
+      "absolute_share": 0.005790726179750464,
+      "asset": "lido-dao",
+      "cumulative_contribution": -0.01847857479795663
+    },
+    {
+      "absolute_share": 0.006755382102475871,
+      "asset": "solana",
+      "cumulative_contribution": -0.02155685307758018
+    },
+    {
+      "absolute_share": 0.008486861923679548,
+      "asset": "world-liberty-financial",
+      "cumulative_contribution": -0.027082115090339254
+    },
+    {
+      "absolute_share": 0.00884922816969935,
+      "asset": "okb",
+      "cumulative_contribution": -0.02823844878208709
+    },
+    {
+      "absolute_share": 0.009150553764680588,
+      "asset": "kaspa",
+      "cumulative_contribution": -0.02919999788189956
+    },
+    {
+      "absolute_share": 0.009965599536938456,
+      "asset": "bittensor",
+      "cumulative_contribution": -0.03180086067508284
+    },
+    {
+      "absolute_share": 0.011025541819718591,
+      "asset": "dogecoin",
+      "cumulative_contribution": -0.03518320377781156
+    },
+    {
+      "absolute_share": 0.012379865576935599,
+      "asset": "shiba-inu",
+      "cumulative_contribution": -0.039504936850927194
+    },
+    {
+      "absolute_share": 0.015051403229693075,
+      "asset": "aptos",
+      "cumulative_contribution": -0.048029983073051244
+    },
+    {
+      "absolute_share": 0.015595992271447041,
+      "asset": "hedera-hashgraph",
+      "cumulative_contribution": -0.04976780127232791
+    },
+    {
+      "absolute_share": 0.01579206500197325,
+      "asset": "crypto-com-chain",
+      "cumulative_contribution": -0.0503934818008837
+    },
+    {
+      "absolute_share": 0.016708145212383053,
+      "asset": "uniswap",
+      "cumulative_contribution": -0.053316751899231685
+    },
+    {
+      "absolute_share": 0.021080915488538198,
+      "asset": "litecoin",
+      "cumulative_contribution": -0.0672705394060166
+    },
+    {
+      "absolute_share": 0.024751565127661475,
+      "asset": "polkadot",
+      "cumulative_contribution": -0.07898381539389189
+    },
+    {
+      "absolute_share": 0.024817052339124863,
+      "asset": "cardano",
+      "cumulative_contribution": -0.07919278924238217
+    },
+    {
+      "absolute_share": 0.03499839661506786,
+      "asset": "pepe",
+      "cumulative_contribution": -0.11168210507372882
+    },
+    {
+      "absolute_share": 0.039561298841576206,
+      "asset": "binancecoin",
+      "cumulative_contribution": -0.1262426157024546
+    },
+    {
+      "absolute_share": 0.07705950127428685,
+      "asset": "stellar",
+      "cumulative_contribution": -0.24590175981201462
+    },
+    {
+      "absolute_share": 0.07784502919982063,
+      "asset": "terra-luna",
+      "cumulative_contribution": -0.24840842928269669
+    },
+    {
+      "absolute_share": 0.08876808019719702,
+      "asset": "near",
+      "cumulative_contribution": -0.2832645783409504
+    }
+  ],
+  "beta_lookback_days": 60,
+  "candidate_id": "PR2026-11-LS60-RESIDUAL-MOMENTUM-SCREEN",
+  "costs_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "count": 4,
+  "direction": 1,
+  "end_date": "2026-09-21",
+  "factor_events": 62,
+  "first_half_return": -0.2616099617042984,
+  "funding_included": false,
+  "max_gross": {
+    "100.0": 1.0,
+    "2.0": 1.0,
+    "20.0": 1.0,
+    "50.0": 1.0
+  },
+  "metrics": [
+    {
+      "cagr": -0.09121442673180724,
+      "cost_bps": 2.0,
+      "max_drawdown": -0.5047989134303386,
+      "multiple": 0.636504321518437,
+      "sharpe": -0.13885258889689062,
+      "strategy": "cost_2bps"
+    },
+    {
+      "cagr": -0.12417407246504586,
+      "cost_bps": 20.0,
+      "max_drawdown": -0.5703792653700828,
+      "multiple": 0.5345922934277503,
+      "sharpe": -0.2515160486174686,
+      "strategy": "cost_20bps"
+    },
+    {
+      "cagr": -0.17667059838855903,
+      "cost_bps": 50.0,
+      "max_drawdown": -0.6763172676946831,
+      "multiple": 0.39923622646187795,
+      "sharpe": -0.43850394835395795,
+      "strategy": "cost_50bps"
+    },
+    {
+      "cagr": -0.25776914940825224,
+      "cost_bps": 100.0,
+      "max_drawdown": -0.7996609456460271,
+      "multiple": 0.24463492736252967,
+      "sharpe": -0.74441045601248,
+      "strategy": "cost_100bps"
+    },
+    {
+      "cagr": 0.13465309680471216,
+      "cost_bps": 0.0,
+      "max_drawdown": -0.6689381488321311,
+      "multiple": 1.8160768274560162,
+      "sharpe": 0.502570010376257,
+      "strategy": "bitcoin_buy_hold"
+    }
+  ],
+  "min_assets": 8,
+  "min_beta_observations": 45,
+  "missing_return_observations": {
+    "100.0": 1,
+    "2.0": 1,
+    "20.0": 1,
+    "50.0": 1
+  },
+  "momentum_lookback_days": 28,
+  "orders_sent": false,
+  "per_asset_weight": 0.125,
+  "rebalance_days": 28,
+  "second_half_return": -0.27600283630362055,
+  "start_date": "2022-01-01",
+  "turnover": {
+    "100.0": 97.0,
+    "2.0": 97.0,
+    "20.0": 97.0,
+    "50.0": 97.0
+  },
+  "yearly": [
+    {
+      "bitcoin": -0.6529963979069706,
+      "strategy_20bps": -0.19270956595591326,
+      "year": 2022
+    },
+    {
+      "bitcoin": 1.5541741949459387,
+      "strategy_20bps": 0.06387973243020251,
+      "year": 2023
+    },
+    {
+      "bitcoin": 1.2105475550097968,
+      "strategy_20bps": -0.361818068457056,
+      "year": 2024
+    },
+    {
+      "bitcoin": -0.06336752914187327,
+      "strategy_20bps": 0.0771924042695955,
+      "year": 2025
+    },
+    {
+      "bitcoin": -0.01035223272214647,
+      "strategy_20bps": -0.09455397694294199,
+      "year": 2026
+    }
+  ]
+}

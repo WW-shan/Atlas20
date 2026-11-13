@@ -1314,6 +1314,177 @@ def build_cross_sectional_reversal_pair_schedule(
 
 
 
+def build_cross_sectional_residual_momentum_schedule(
+    prices: pd.DataFrame,
+    universe: pd.DataFrame,
+    h5_targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    calendar: Iterable[pd.Timestamp],
+    eligible: Set[str] | None,
+    trade_available: Callable[[str, pd.Timestamp], bool] | None = None,
+    market_asset: str = "bitcoin",
+    beta_lookback_days: int = 60,
+    min_beta_observations: int = 45,
+    momentum_lookback_days: int = 28,
+    rebalance_days: int = 28,
+    count: int = 4,
+    per_asset_weight: float = 0.025,
+    min_assets: int = 8,
+    anchor: object | None = None,
+    direction: int = 1,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Build a monthly residual-momentum or residual-reversal sleeve.
+
+    Residual returns are measured against the configured market asset with a
+    point-in-time rolling beta. The signal is the sum of the most recent
+    residual daily log returns; it does not use returns after ``date``.
+    """
+    if beta_lookback_days < 2:
+        raise ValueError("beta_lookback_days must be at least two")
+    if not 2 <= min_beta_observations <= beta_lookback_days:
+        raise ValueError("min_beta_observations must be between two and beta_lookback_days")
+    if momentum_lookback_days < 1:
+        raise ValueError("momentum_lookback_days must be positive")
+    if momentum_lookback_days > beta_lookback_days:
+        raise ValueError("momentum_lookback_days cannot exceed beta_lookback_days")
+    if direction not in (-1, 1):
+        raise ValueError("direction must be -1 or 1")
+    if rebalance_days < 1:
+        raise ValueError("rebalance_days must be positive")
+    if count < 1:
+        raise ValueError("count must be positive")
+    if min_assets < 2 * count:
+        raise ValueError("min_assets must be at least two times count")
+    if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
+        raise ValueError("per_asset_weight must be positive and finite")
+
+    evaluation_dates = sorted({_as_utc(value) for value in calendar})
+    if not evaluation_dates:
+        return {}
+    rebalance_anchor = _as_utc(anchor) if anchor is not None else evaluation_dates[0]
+
+    normalized_h5: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in h5_targets.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce")
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy(dtype=float)).all():
+            raise ValueError("h5 target weights must be finite")
+        if (target < 0.0).any():
+            raise ValueError("h5 target weights must be non-negative")
+        normalized_h5[date] = target.astype(float)
+    h5_dates = sorted(normalized_h5)
+
+    price_frame = prices.copy()
+    price_frame.index = pd.DatetimeIndex([_as_utc(value) for value in price_frame.index])
+    price_frame = price_frame[~price_frame.index.duplicated(keep="last")].sort_index()
+    market_columns = [
+        column
+        for column in price_frame.columns
+        if str(column).casefold() == str(market_asset).casefold()
+    ]
+    market_column = market_columns[0] if len(market_columns) == 1 else None
+
+    schedule: dict[pd.Timestamp, pd.Series] = {}
+    long_weights = pd.Series(dtype=float)
+    cursor = 0
+    for date in evaluation_dates:
+        while cursor < len(h5_dates) and h5_dates[cursor] <= date:
+            long_weights = normalized_h5[h5_dates[cursor]]
+            cursor += 1
+        if date < rebalance_anchor:
+            continue
+        if (date.normalize() - rebalance_anchor.normalize()).days % rebalance_days:
+            continue
+
+        empty = pd.Series(dtype=float)
+        if market_column is None or date not in price_frame.index:
+            schedule[date] = empty
+            continue
+        window_start = date - pd.Timedelta(days=beta_lookback_days)
+        window = price_frame.loc[
+            (price_frame.index >= window_start) & (price_frame.index <= date)
+        ]
+        if len(window) <= min_beta_observations:
+            schedule[date] = empty
+            continue
+        log_returns = np.log(window.where(window > 0.0)).diff().replace(
+            [np.inf, -np.inf], np.nan
+        )
+        market_returns = pd.to_numeric(
+            log_returns[market_column], errors="coerce"
+        ).dropna()
+        if len(market_returns) < min_beta_observations:
+            schedule[date] = empty
+            continue
+        market_var = float(market_returns.var(ddof=1))
+        if not np.isfinite(market_var) or market_var <= 0.0:
+            schedule[date] = empty
+            continue
+
+        held = {
+            str(asset).casefold()
+            for asset in long_weights.loc[long_weights > 1e-15].index
+        }
+        members = _members_at(universe, date)
+        if eligible is not None:
+            eligible_folded = {str(value).casefold() for value in eligible}
+            members = {
+                member for member in members if member.casefold() in eligible_folded
+            }
+        members = {
+            member
+            for member in members
+            if member.casefold() not in held
+            and str(member) != str(market_column)
+        }
+        scores: dict[str, float] = {}
+        for member in sorted(members, key=str.casefold):
+            columns = [
+                column
+                for column in window.columns
+                if str(column).casefold() == str(member).casefold()
+            ]
+            if len(columns) != 1:
+                continue
+            if trade_available is not None and not trade_available(member, date):
+                continue
+            asset_returns = pd.to_numeric(
+                log_returns[columns[0]], errors="coerce"
+            )
+            aligned = pd.concat(
+                [asset_returns.rename("asset"), market_returns.rename("market")],
+                axis=1,
+                join="inner",
+            ).dropna()
+            if len(aligned) < min_beta_observations:
+                continue
+            beta = float(
+                aligned["asset"].cov(aligned["market"]) / aligned["market"].var(ddof=1)
+            )
+            if not np.isfinite(beta):
+                continue
+            residual = aligned["asset"] - beta * aligned["market"]
+            recent = residual.dropna().tail(momentum_lookback_days)
+            if len(recent) < momentum_lookback_days:
+                continue
+            scores[str(member)] = float(recent.sum())
+        if len(scores) < max(min_assets, 2 * count):
+            schedule[date] = empty
+            continue
+        ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0].casefold()))
+        winners = [asset for asset, _ in ranked[:count]]
+        losers = [asset for asset, _ in ranked[-count:]]
+        schedule[date] = pd.Series(
+            {
+                **{asset: float(direction * per_asset_weight) for asset in winners},
+                **{asset: -float(direction * per_asset_weight) for asset in losers},
+            },
+            dtype=float,
+        ).sort_index()
+    return schedule
+
+
 def build_cross_sectional_volatility_pair_schedule(
     prices: pd.DataFrame,
     universe: pd.DataFrame,
@@ -2956,6 +3127,7 @@ def build_derivative_targets(
 __all__ = [
     "build_cash_sleeve_targets",
     "build_cross_sectional_funding_carry_schedule",
+    "build_cross_sectional_residual_momentum_schedule",
     "build_cross_sectional_weak_short_schedule",
     "route_short_schedule_with_long_exclusions",
     "route_signed_sleeve_with_long_exclusions",

@@ -1,0 +1,263 @@
+{
+  "acceptance_checks": {
+    "both_halves_positive": false,
+    "mdd_20_ge_minus_40": false,
+    "multiple_20_gt_1": false,
+    "multiple_50_gt_1": false,
+    "positive_years_ge_80pct": false,
+    "sharpe_20_ge_0_8": false,
+    "sharpe_50_ge_0_5": false
+  },
+  "acceptance_verdict": "fail",
+  "asset_contributions": [
+    {
+      "absolute_share": 0.06725118047740049,
+      "asset": "stellar",
+      "cumulative_contribution": 0.1428220214529798
+    },
+    {
+      "absolute_share": 0.05412793350763605,
+      "asset": "eos",
+      "cumulative_contribution": 0.11495204732102687
+    },
+    {
+      "absolute_share": 0.05394436671631439,
+      "asset": "ripple",
+      "cumulative_contribution": 0.11456220464433205
+    },
+    {
+      "absolute_share": 0.051288484659785555,
+      "asset": "monero",
+      "cumulative_contribution": 0.10892188069222516
+    },
+    {
+      "absolute_share": 0.03343520084834731,
+      "asset": "matic-network",
+      "cumulative_contribution": 0.07100667882628564
+    },
+    {
+      "absolute_share": 0.031242713416318485,
+      "asset": "bitcoin-cash",
+      "cumulative_contribution": 0.06635047078904774
+    },
+    {
+      "absolute_share": 0.027855073281467635,
+      "asset": "elrond-erd-2",
+      "cumulative_contribution": 0.05915610470387199
+    },
+    {
+      "absolute_share": 0.02588148719176755,
+      "asset": "shiba-inu",
+      "cumulative_contribution": 0.05496477969155983
+    },
+    {
+      "absolute_share": 0.024458465857237852,
+      "asset": "ethereum-classic",
+      "cumulative_contribution": 0.05194269469430768
+    },
+    {
+      "absolute_share": 0.02393768684728928,
+      "asset": "avalanche-2",
+      "cumulative_contribution": 0.0508367109717449
+    },
+    {
+      "absolute_share": 0.019085192772084293,
+      "asset": "decentraland",
+      "cumulative_contribution": 0.040531419555451045
+    },
+    {
+      "absolute_share": 0.01833497309099135,
+      "asset": "theta-token",
+      "cumulative_contribution": 0.03893817032730537
+    },
+    {
+      "absolute_share": 0.010911734890947466,
+      "asset": "chainlink",
+      "cumulative_contribution": 0.023173363257286375
+    },
+    {
+      "absolute_share": 0.00037111739748235906,
+      "asset": "internet-computer",
+      "cumulative_contribution": 0.0007881458218062243
+    },
+    {
+      "absolute_share": 0.0001236636145265495,
+      "asset": "vechain",
+      "cumulative_contribution": -0.00026262568599519365
+    },
+    {
+      "absolute_share": 0.000336085238302278,
+      "asset": "litecoin",
+      "cumulative_contribution": -0.000713747666198486
+    },
+    {
+      "absolute_share": 0.0005515758740559962,
+      "asset": "crypto-com-chain",
+      "cumulative_contribution": -0.0011713873386035856
+    },
+    {
+      "absolute_share": 0.004987313840125349,
+      "asset": "near",
+      "cumulative_contribution": -0.010591609533255567
+    },
+    {
+      "absolute_share": 0.008220001855916738,
+      "asset": "solana",
+      "cumulative_contribution": -0.017456902214583306
+    },
+    {
+      "absolute_share": 0.009330437251048273,
+      "asset": "tron",
+      "cumulative_contribution": -0.019815145247639346
+    },
+    {
+      "absolute_share": 0.009729069590968337,
+      "asset": "algorand",
+      "cumulative_contribution": -0.020661724834789452
+    },
+    {
+      "absolute_share": 0.019415800144841098,
+      "asset": "cosmos",
+      "cumulative_contribution": -0.04123353382243039
+    },
+    {
+      "absolute_share": 0.02001825625289403,
+      "asset": "dogecoin",
+      "cumulative_contribution": -0.04251297603560804
+    },
+    {
+      "absolute_share": 0.021590325378284782,
+      "asset": "ethereum",
+      "cumulative_contribution": -0.04585159535438084
+    },
+    {
+      "absolute_share": 0.043083037858378075,
+      "asset": "cardano",
+      "cumulative_contribution": -0.09149588919612461
+    },
+    {
+      "absolute_share": 0.048710393669202455,
+      "asset": "filecoin",
+      "cumulative_contribution": -0.10344676242439746
+    },
+    {
+      "absolute_share": 0.051993957200172046,
+      "asset": "binancecoin",
+      "cumulative_contribution": -0.11042009995889553
+    },
+    {
+      "absolute_share": 0.05876897804019242,
+      "asset": "aave",
+      "cumulative_contribution": -0.12480828117577307
+    },
+    {
+      "absolute_share": 0.06661135737672183,
+      "asset": "polkadot",
+      "cumulative_contribution": -0.1414632225744687
+    },
+    {
+      "absolute_share": 0.075847938801162,
+      "asset": "terra-luna",
+      "cumulative_contribution": -0.1610790452409109
+    },
+    {
+      "absolute_share": 0.11855619705813758,
+      "asset": "uniswap",
+      "cumulative_contribution": -0.25177901115521845
+    }
+  ],
+  "beta_lookback_days": 60,
+  "candidate_id": "PR2026-11-LS61-RESIDUAL-REVERSAL-SCREEN",
+  "costs_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "count": 4,
+  "direction": -1,
+  "end_date": "2021-12-31",
+  "factor_events": 14,
+  "first_half_return": -0.3080867004385349,
+  "funding_included": false,
+  "max_gross": {
+    "100.0": 1.0,
+    "2.0": 1.0,
+    "20.0": 1.0,
+    "50.0": 1.0
+  },
+  "metrics": [
+    {
+      "cagr": -0.24246706803684748,
+      "cost_bps": 2.0,
+      "max_drawdown": -0.48280778738057206,
+      "multiple": 0.6919633748571712,
+      "sharpe": -0.4510348742482234,
+      "strategy": "cost_2bps"
+    },
+    {
+      "cagr": -0.2663299173632757,
+      "cost_bps": 20.0,
+      "max_drawdown": -0.49784170807717154,
+      "multiple": 0.6632089662712103,
+      "sharpe": -0.5236962161650917,
+      "strategy": "cost_20bps"
+    },
+    {
+      "cagr": -0.3045987075521257,
+      "cost_bps": 50.0,
+      "max_drawdown": -0.5220385620578447,
+      "multiple": 0.6177317762098633,
+      "sharpe": -0.6429164728296952,
+      "strategy": "cost_50bps"
+    },
+    {
+      "cagr": -0.36439693365445547,
+      "cost_bps": 100.0,
+      "max_drawdown": -0.5600758362031826,
+      "multiple": 0.5483012326538516,
+      "sharpe": -0.8353936768949857,
+      "strategy": "cost_100bps"
+    },
+    {
+      "cagr": 2.119211180076835,
+      "cost_bps": 0.0,
+      "max_drawdown": -0.5306185104836727,
+      "multiple": 4.519776004727765,
+      "sharpe": 1.8913117161339987,
+      "strategy": "bitcoin_buy_hold"
+    }
+  ],
+  "min_assets": 8,
+  "min_beta_observations": 45,
+  "missing_return_observations": {
+    "100.0": 0,
+    "2.0": 0,
+    "20.0": 0,
+    "50.0": 0
+  },
+  "momentum_lookback_days": 28,
+  "orders_sent": false,
+  "per_asset_weight": 0.125,
+  "rebalance_days": 28,
+  "second_half_return": -0.04148544811676169,
+  "start_date": "2020-09-03",
+  "turnover": {
+    "100.0": 23.0,
+    "2.0": 23.0,
+    "20.0": 23.0,
+    "50.0": 23.0
+  },
+  "yearly": [
+    {
+      "bitcoin": 1.8307349909944803,
+      "strategy_20bps": -0.1709122747054106,
+      "year": 2020
+    },
+    {
+      "bitcoin": 0.5966793144207048,
+      "strategy_20bps": -0.20007383291609904,
+      "year": 2021
+    }
+  ]
+}
