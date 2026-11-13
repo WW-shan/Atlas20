@@ -1,0 +1,13 @@
+variant_id,lookback_days,skip_days,direction,factor_events,turnover_20,max_gross_20,missing_return_observations_20,realized_beta_full
+residual_L63_S0_momentum,63,0,1,64,69.5,1.0,1,-0.0210953512349636
+residual_L63_S0_reversal,63,0,-1,64,69.5,1.0,1,0.02017296551282581
+residual_L63_S21_momentum,63,21,1,64,72.0,1.0,0,-0.009915473374602085
+residual_L63_S21_reversal,63,21,-1,64,72.0,1.0,0,0.009085873374903929
+residual_L126_S0_momentum,126,0,1,64,53.25,1.0,0,-0.02112440319936647
+residual_L126_S0_reversal,126,0,-1,64,53.25,1.0,0,0.020324775445114695
+residual_L126_S21_momentum,126,21,1,64,56.0,1.0,0,-0.002543305965631284
+residual_L126_S21_reversal,126,21,-1,64,56.0,1.0,0,0.0018644529740601222
+residual_L252_S0_momentum,252,0,1,64,44.0,1.0,1,0.007831249984748673
+residual_L252_S0_reversal,252,0,-1,64,44.0,1.0,1,-0.00828708913126505
+residual_L252_S21_momentum,252,21,1,64,45.5,1.0,0,0.000884327192347671
+residual_L252_S21_reversal,252,21,-1,64,45.5,1.0,0,-0.0014464278064799058

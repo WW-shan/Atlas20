@@ -1,0 +1,186 @@
+{
+  "best_discovery_variant": "residual_L126_S21_reversal",
+  "beta_lookback_days": 120,
+  "candidate_family_id": "PR2026-11-LS62-RESIDUAL-HORIZON-SCAN",
+  "costs_bps": [
+    2.0,
+    20.0,
+    50.0,
+    100.0
+  ],
+  "count": 4,
+  "directions": [
+    1,
+    -1
+  ],
+  "end_date": "2026-11-12",
+  "funding_included": false,
+  "lookbacks": [
+    63,
+    126,
+    252
+  ],
+  "min_assets": 8,
+  "min_beta_observations": 90,
+  "orders_sent": false,
+  "per_asset_weight": 0.125,
+  "rebalance_days": 28,
+  "samples": {
+    "discovery": [
+      "2022-01-01",
+      "2023-12-31"
+    ],
+    "full": [
+      "2022-01-01",
+      "2026-11-12"
+    ],
+    "latest": [
+      "2026-09-22",
+      "2026-11-12"
+    ],
+    "validation": [
+      "2024-01-01",
+      "2026-09-21"
+    ]
+  },
+  "skips": [
+    0,
+    21
+  ],
+  "start_date": "2022-01-01",
+  "trial_log": [
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 63,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 1,
+      "realized_beta_full": -0.0210953512349636,
+      "skip_days": 0,
+      "turnover_20": 69.5,
+      "variant_id": "residual_L63_S0_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 63,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 1,
+      "realized_beta_full": 0.02017296551282581,
+      "skip_days": 0,
+      "turnover_20": 69.5,
+      "variant_id": "residual_L63_S0_reversal"
+    },
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 63,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": -0.009915473374602085,
+      "skip_days": 21,
+      "turnover_20": 72.0,
+      "variant_id": "residual_L63_S21_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 63,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": 0.009085873374903929,
+      "skip_days": 21,
+      "turnover_20": 72.0,
+      "variant_id": "residual_L63_S21_reversal"
+    },
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 126,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": -0.02112440319936647,
+      "skip_days": 0,
+      "turnover_20": 53.25,
+      "variant_id": "residual_L126_S0_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 126,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": 0.020324775445114695,
+      "skip_days": 0,
+      "turnover_20": 53.25,
+      "variant_id": "residual_L126_S0_reversal"
+    },
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 126,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": -0.002543305965631284,
+      "skip_days": 21,
+      "turnover_20": 56.0,
+      "variant_id": "residual_L126_S21_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 126,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": 0.0018644529740601222,
+      "skip_days": 21,
+      "turnover_20": 56.0,
+      "variant_id": "residual_L126_S21_reversal"
+    },
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 252,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 1,
+      "realized_beta_full": 0.007831249984748673,
+      "skip_days": 0,
+      "turnover_20": 44.0,
+      "variant_id": "residual_L252_S0_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 252,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 1,
+      "realized_beta_full": -0.00828708913126505,
+      "skip_days": 0,
+      "turnover_20": 44.0,
+      "variant_id": "residual_L252_S0_reversal"
+    },
+    {
+      "direction": 1,
+      "factor_events": 64,
+      "lookback_days": 252,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": 0.000884327192347671,
+      "skip_days": 21,
+      "turnover_20": 45.5,
+      "variant_id": "residual_L252_S21_momentum"
+    },
+    {
+      "direction": -1,
+      "factor_events": 64,
+      "lookback_days": 252,
+      "max_gross_20": 1.0,
+      "missing_return_observations_20": 0,
+      "realized_beta_full": -0.0014464278064799058,
+      "skip_days": 21,
+      "turnover_20": 45.5,
+      "variant_id": "residual_L252_S21_reversal"
+    }
+  ],
+  "variant_count": 12
+}

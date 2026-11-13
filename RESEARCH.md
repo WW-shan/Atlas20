@@ -4324,3 +4324,82 @@ LS61 的 2024 单年反弹当成可交易边缘。
 报告：`reports/residual_reversal_screen_pre2022/`、
 `reports/residual_reversal_screen_2022/`、`reports/residual_reversal_screen_2024_2026/`；
 Spec：`docs/superpowers/specs/2026-11-13-residual-reversal-screen-design.md`。
+
+### 00.98 2026-11-13 LS63：30m BTC shock lead-lag 有预测相关，但存在 phase 选择偏差
+
+在 Binance 30m 的 32 个可用 PIT Top20 资产上，先做纯预测诊断：用 30D rolling BTC beta 去掉
+市场冲击，计算 BTC shock 后的 relative gap，并检验 gap 与下一段 beta-adjusted residual 的
+cross-sectional rank IC。样本 2022-01-01 → 2026-09-30，共 **83,230 根 30m bar**；discovery
+2022–2023，validation 2024–2026-09。
+
+48 个 `(signal window 1/2/4/8 bars) × (future horizon 1/2/4/8) × (shock bucket all/1.5σ/2.5σ)`
+cell 中有 **41/48** 个在 discovery 和 validation 同时出现负 IC、正 contrarian spread。最显眼的
+`k=4,h=8,|z|>=2.5` discovery spread **20.07bps**、validation **18.57bps**；`k=2,h=4,|z|>=2.5`
+分别为 **11.91 / 3.55bps**。这看起来像可交易 lead-lag，但诊断脚本最初误把 30m bar reindex 到
+日频，只得到 1,734 根 bar；修复后才是完整 83,230 根。该工程 bug 已由测试和报告固定。
+
+更重要的是，诊断的非重叠抽样固定从 bar 0 开始，相当于暗含一个未登记的 30m/2h/4h time-of-day
+phase。后续 phase 分解显示 edge 对 phase 很敏感，因此这一节只能作为**发现线索**，不能当作
+独立可交易结论。
+
+报告：`reports/intraday_btc_leadlag_diagnostic_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-btc-leadlag-diagnostic-design.md`。
+
+### 00.99 2026-11-13 LS64：重叠 tranche lead-lag backtest 被集群信号和费用吃掉（rejected）
+
+LS64 把诊断转成可执行组合：每根 bar 在 `|z|>=2.5` 时可开一个 `1/h` gross tranche，最多 h 个
+同时活跃，long low-gap / short high-gap，下一根 open 入场，逐 30m open→close 记账，成本
+6/12/20bps per side。四个 cell 加 ensemble 全部 rejected。
+
+| 变体 | 6bps full 终值 | 6bps Sharpe | 6bps MDD | 12bps full 终值 |
+|---|---:|---:|---:|---:|
+| `LL_4_8`（最好） | 0.7800x | -1.6144 | -23.16% | 0.5197x |
+| `LL_2_8` | 0.7334x | -2.2439 | -27.33% | 0.4944x |
+| `LL_2_4` | 0.5426x | -2.9473 | -46.38% | 0.2465x |
+| `LL_1_4` | 0.5691x | -2.6943 | -43.69% | 0.2716x |
+| ensemble | 0.6490x | -2.8253 | -35.56% | 0.3626x |
+
+原因很清楚：每根 bar 都允许开仓会把同一次 BTC shock 拆成许多重叠、陈旧、相关的信号；平均
+active gross 只有约 **3%**，但 4 年多累计 turnover 达 **657–1,315x**，成本超过 gross alpha。
+这说明“信号有预测相关”不等于“这个执行结构能赚钱”。
+
+报告：`reports/intraday_btc_leadlag_backtest_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-btc-leadlag-backtest-design.md`。
+
+### 00.100 2026-11-13 LS65：单事件 full-gross lead-lag 仍然失败（rejected）
+
+LS65 试图消除重叠：一次 BTC shock 只做一个 full-gross 事件，持有 h 根 bar，期间跳过新信号。
+四个 cell 仍然全部失败。最好的 `LL_4_8` 在 6bps full 为 **0.3754x / -1.9178 / -67.75%**，
+12bps 仅 **0.1071x**；ensemble 6bps **0.2380x / -2.9309 / -77.12%**。事件数约 1,044–1,785，
+平均 gross 8.6%–12.7%，但单事件平均 gross PnL 只有约 **0.5–2.9bps**，低于一次 round-trip
+的 12bps。单事件并没有把预测 edge 提升到成本之上。
+
+报告：`reports/intraday_btc_leadlag_single_event_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-leadlag-single-event-design.md`。
+
+### 00.101 2026-11-13 LS66：phase-0 / 10% tail / 3.0–3.5σ follow-up 仅为 watch
+
+在 LS63–LS65 的 phase 诊断后，登记一个明确带选择偏差的 follow-up：固定 phase-0 UTC 日程，
+tail 10%，阈值 3.0/3.5σ，k=2/4、h=8，单事件 full gross。`LL_P4_8_T35` 是唯一接近可用的 cell：
+
+| 口径 | 终值 | Sharpe | MDD | 事件数 |
+|---|---:|---:|---:|---:|
+| 6bps/side full | **1.5548x** | **0.9612** | **-4.28%** | 134 |
+| 12bps/side full | 1.3240x | 0.6331 | -4.28% | 134 |
+| 20bps/side full | 1.0685x | 0.1857 | -8.40% | 134 |
+
+ensemble 在 6bps 为 1.2225x / 0.4679 / -7.75%，12bps 为 1.0109x / 0.0690 / -11.94%。它只有
+约 **28 个事件/年**、平均 active gross **1.3%**，并非高收益策略；且 phase、tail、threshold 都是
+在前一轮结果之后才确定，validation 不能算 fresh OOS。
+
+把它作为低相关 sleeve 与 LS57 日收益做资金混合：相关性只有 **0.018**，但 2.5%/5%/10%/20%
+配置把 LS57 的 68.8077x 降到 63.5039x/58.5666x/49.7051x/35.4896x，只把 Sharpe 从 1.9814
+抬到 1.9860/1.9909/2.0012/2.0247，MDD 从 -39.84% 改善到 -39.00/-38.16/-36.45/-32.92%。
+这符合它的防守属性，但不符合 owner 当前“收益提升”的目标。
+
+**判定：watch，不接实盘、不并入 LS57。** 这条研究线的可复用结论是：真正的 intraday
+lead-lag 在高费率和 phase 不确定下没有足够净 edge；继续研究时应优先寻找更高频且能降低单次
+round-trip 的机制，或改用 maker/queue 的真实成交数据，而不是拿 phase-0 的 1.55x 当实盘信号。
+
+报告：`reports/intraday_btc_leadlag_phase_tail_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-intraday-leadlag-phase-tail-design.md`。

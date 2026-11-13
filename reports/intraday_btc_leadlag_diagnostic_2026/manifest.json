@@ -1,0 +1,66 @@
+{
+  "assets": [
+    "aptos",
+    "avalanche-2",
+    "binancecoin",
+    "bitcoin-cash",
+    "bittensor",
+    "cardano",
+    "celestia",
+    "chainlink",
+    "dogecoin",
+    "ethereum",
+    "ethereum-classic",
+    "filecoin",
+    "hedera-hashgraph",
+    "immutable-x",
+    "internet-computer",
+    "litecoin",
+    "matic-network",
+    "monero",
+    "near",
+    "optimism",
+    "pepe",
+    "ripple",
+    "shiba-inu",
+    "solana",
+    "stellar",
+    "sui",
+    "terra-luna",
+    "the-open-network",
+    "tron",
+    "uniswap",
+    "zcash"
+  ],
+  "bars": 83230,
+  "beta_clip": [
+    0.0,
+    4.0
+  ],
+  "beta_window_bars": 1440,
+  "candidate_family_id": "PR2026-11-LS63-INTRADAY-BTC-LEADLAG-DIAGNOSTIC",
+  "costs_included": false,
+  "end_date": "2026-09-30",
+  "future_horizons": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "min_beta_observations": 960,
+  "min_cross_section": 8,
+  "orders_sent": false,
+  "shock_buckets": [
+    "all",
+    "abs_z_ge_1_5",
+    "abs_z_ge_2_5"
+  ],
+  "signal_windows": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "start_date": "2022-01-01",
+  "summaries": 144
+}

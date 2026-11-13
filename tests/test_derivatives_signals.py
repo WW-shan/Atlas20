@@ -2787,3 +2787,52 @@ def test_cross_sectional_residual_reversal_flips_the_signed_sleeve() -> None:
         "G": pytest.approx(0.025),
         "H": pytest.approx(0.025),
     }
+
+
+def test_cross_sectional_residual_momentum_can_skip_recent_observations() -> None:
+    from atlas20.derivatives.signals import build_cross_sectional_residual_momentum_schedule
+
+    index = pd.date_range("2025-01-01", periods=160, freq="D", tz="UTC")
+    market_log_returns = pd.Series(
+        0.001 * np.sin(np.arange(len(index)) * 0.37),
+        index=index,
+        dtype=float,
+    )
+    residual_a = np.full(len(index), 0.005)
+    residual_b = np.full(len(index), -0.005)
+    residual_a[-21:] = -0.02
+    residual_b[-21:] = 0.02
+    prices = pd.DataFrame(
+        {
+            "bitcoin": 100.0 * np.exp(market_log_returns.cumsum()),
+            "A": 100.0 * np.exp((market_log_returns + residual_a).cumsum()),
+            "B": 100.0 * np.exp((market_log_returns + residual_b).cumsum()),
+        },
+        index=index,
+    )
+    universe = pd.DataFrame(
+        {"rebalance_date": [index[-1], index[-1]], "coin_id": ["A", "B"]}
+    )
+
+    common = dict(
+        calendar=[index[-1]],
+        eligible={"A", "B"},
+        beta_lookback_days=120,
+        min_beta_observations=90,
+        momentum_lookback_days=63,
+        count=1,
+        per_asset_weight=0.1,
+        min_assets=2,
+        anchor=index[-1],
+    )
+    with_skip = build_cross_sectional_residual_momentum_schedule(
+        prices, universe, {}, skip_days=21, **common
+    )
+    without_skip = build_cross_sectional_residual_momentum_schedule(
+        prices, universe, {}, skip_days=0, **common
+    )
+
+    assert with_skip[index[-1]]["A"] == pytest.approx(0.1)
+    assert with_skip[index[-1]]["B"] == pytest.approx(-0.1)
+    assert without_skip[index[-1]]["A"] == pytest.approx(-0.1)
+    assert without_skip[index[-1]]["B"] == pytest.approx(0.1)

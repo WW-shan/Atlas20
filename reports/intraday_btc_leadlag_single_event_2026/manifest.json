@@ -1,0 +1,73 @@
+{
+  "asset_count": 31,
+  "assets": [
+    "aptos",
+    "avalanche-2",
+    "binancecoin",
+    "bitcoin-cash",
+    "bittensor",
+    "cardano",
+    "celestia",
+    "chainlink",
+    "dogecoin",
+    "ethereum",
+    "ethereum-classic",
+    "filecoin",
+    "hedera-hashgraph",
+    "immutable-x",
+    "internet-computer",
+    "litecoin",
+    "matic-network",
+    "monero",
+    "near",
+    "optimism",
+    "pepe",
+    "ripple",
+    "shiba-inu",
+    "solana",
+    "stellar",
+    "sui",
+    "terra-luna",
+    "the-open-network",
+    "tron",
+    "uniswap",
+    "zcash"
+  ],
+  "bar_count": 83230,
+  "base_cost_per_side": 6.0,
+  "candidate_family_id": "PR2026-11-LS65-INTRADAY-BTC-LEADLAG-SINGLE",
+  "costs_per_side": [
+    6.0,
+    12.0,
+    20.0
+  ],
+  "end_date": "2026-09-30",
+  "ensemble": true,
+  "funding_included": false,
+  "orders_sent": false,
+  "quantile": 0.2,
+  "shock_threshold": 2.5,
+  "start_date": "2022-01-01",
+  "variants": [
+    {
+      "future_bars": 4,
+      "signal_bars": 1,
+      "variant_id": "LL_1_4"
+    },
+    {
+      "future_bars": 4,
+      "signal_bars": 2,
+      "variant_id": "LL_2_4"
+    },
+    {
+      "future_bars": 8,
+      "signal_bars": 2,
+      "variant_id": "LL_2_8"
+    },
+    {
+      "future_bars": 8,
+      "signal_bars": 4,
+      "variant_id": "LL_4_8"
+    }
+  ]
+}

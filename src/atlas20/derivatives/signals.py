@@ -1326,6 +1326,7 @@ def build_cross_sectional_residual_momentum_schedule(
     beta_lookback_days: int = 60,
     min_beta_observations: int = 45,
     momentum_lookback_days: int = 28,
+    skip_days: int = 0,
     rebalance_days: int = 28,
     count: int = 4,
     per_asset_weight: float = 0.025,
@@ -1336,8 +1337,10 @@ def build_cross_sectional_residual_momentum_schedule(
     """Build a monthly residual-momentum or residual-reversal sleeve.
 
     Residual returns are measured against the configured market asset with a
-    point-in-time rolling beta. The signal is the sum of the most recent
-    residual daily log returns; it does not use returns after ``date``.
+    point-in-time rolling beta. The signal sums residual daily log returns over
+    the requested formation window and can skip the most recent observations,
+    as in the classic 12-1 residual-momentum construction. It does not use
+    returns after ``date``.
     """
     if beta_lookback_days < 2:
         raise ValueError("beta_lookback_days must be at least two")
@@ -1345,8 +1348,8 @@ def build_cross_sectional_residual_momentum_schedule(
         raise ValueError("min_beta_observations must be between two and beta_lookback_days")
     if momentum_lookback_days < 1:
         raise ValueError("momentum_lookback_days must be positive")
-    if momentum_lookback_days > beta_lookback_days:
-        raise ValueError("momentum_lookback_days cannot exceed beta_lookback_days")
+    if skip_days < 0:
+        raise ValueError("skip_days must be non-negative")
     if direction not in (-1, 1):
         raise ValueError("direction must be -1 or 1")
     if rebalance_days < 1:
@@ -1401,7 +1404,16 @@ def build_cross_sectional_residual_momentum_schedule(
         if market_column is None or date not in price_frame.index:
             schedule[date] = empty
             continue
-        window_start = date - pd.Timedelta(days=beta_lookback_days)
+        # Beta is estimated only on the configured trailing beta window. The
+        # formation window can be longer (for example 252 observations with a
+        # 21-observation skip), so retain enough history to resolve that many
+        # observations even when the panel has occasional provider gaps.
+        formation_observations = momentum_lookback_days + skip_days
+        history_days = max(
+            beta_lookback_days,
+            int(np.ceil(formation_observations * 1.6)) + 10,
+        )
+        window_start = date - pd.Timedelta(days=history_days)
         window = price_frame.loc[
             (price_frame.index >= window_start) & (price_frame.index <= date)
         ]
@@ -1411,8 +1423,10 @@ def build_cross_sectional_residual_momentum_schedule(
         log_returns = np.log(window.where(window > 0.0)).diff().replace(
             [np.inf, -np.inf], np.nan
         )
+        beta_window_start = date - pd.Timedelta(days=beta_lookback_days)
+        beta_log_returns = log_returns.loc[log_returns.index >= beta_window_start]
         market_returns = pd.to_numeric(
-            log_returns[market_column], errors="coerce"
+            beta_log_returns[market_column], errors="coerce"
         ).dropna()
         if len(market_returns) < min_beta_observations:
             schedule[date] = empty
@@ -1450,7 +1464,7 @@ def build_cross_sectional_residual_momentum_schedule(
             if trade_available is not None and not trade_available(member, date):
                 continue
             asset_returns = pd.to_numeric(
-                log_returns[columns[0]], errors="coerce"
+                beta_log_returns[columns[0]], errors="coerce"
             )
             aligned = pd.concat(
                 [asset_returns.rename("asset"), market_returns.rename("market")],
@@ -1464,8 +1478,32 @@ def build_cross_sectional_residual_momentum_schedule(
             )
             if not np.isfinite(beta):
                 continue
-            residual = aligned["asset"] - beta * aligned["market"]
-            recent = residual.dropna().tail(momentum_lookback_days)
+            full_asset_returns = pd.to_numeric(
+                log_returns[columns[0]], errors="coerce"
+            )
+            # ``market_returns`` above is beta-window-limited; use the full
+            # market history for residual scoring while retaining the beta
+            # estimated on its own window.
+            full_market_returns = pd.to_numeric(
+                log_returns[market_column], errors="coerce"
+            )
+            full_aligned = pd.concat(
+                [
+                    full_asset_returns.rename("asset"),
+                    full_market_returns.rename("market"),
+                ],
+                axis=1,
+                join="inner",
+            ).dropna()
+            full_residual = (
+                full_aligned["asset"] - beta * full_aligned["market"]
+            )
+            if skip_days:
+                recent = full_residual.iloc[
+                    -(momentum_lookback_days + skip_days) : -skip_days
+                ]
+            else:
+                recent = full_residual.tail(momentum_lookback_days)
             if len(recent) < momentum_lookback_days:
                 continue
             scores[str(member)] = float(recent.sum())
