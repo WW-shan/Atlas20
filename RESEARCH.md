@@ -4691,3 +4691,110 @@ allocation。
 
 报告：`reports/ls57_churn_bitget_executable_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls80-bitget-executable-churn-ensemble-design.md`。
+
+
+### 00.116 2026-11-13 LS81：LS57 + core8 PIT funding carry（rejected）
+
+LS81 在冻结 LS57 上只增加一个固定的 8 币主力组（BTC/ETH/SOL/XRP/BNB/DOGE/ADA/AVAX）
+funding carry：按信号日之前 7D 的 Binance funding settlement，最低 2 币做多、最高 2 币做空，
+每腿 25% NAV（sleeve 原始 gross 1.0x），只在 LS57 base book 的 residual gross 内按 10/20/25%
+缩放。信号使用严格 PIT（排除信号日当天 settlement），base 已持有的资产从 carry 候选中剔除，
+Bitget mark 做标记/强平，Bitget market candle 做成交，missing mark carry 上限 3h。
+
+同一套严格 market-fill 引擎下的 20bps normal 结果：
+
+| 策略 | 终值 | Sharpe | MDD | 强平 | gross breach hours | max observed gross |
+|---|---:|---:|---:|---:|---:|---:|
+| LS57 baseline | 58.2059x | 1.9143 | -39.83% | 0 | 0 | 1.3306x |
+| LS81 10% | 60.2890x | 1.9332 | -39.11% | 1 | 0 | 1.3943x |
+| LS81 20% | 61.5485x | 1.9439 | -38.38% | 1 | 0 | 1.4978x |
+| LS81 25% | **62.0545x** | **1.9475** | **-38.07%** | **1** | **59** | **1.5163x** |
+
+25% validation 为 14.6803x / Sharpe 2.0921，baseline validation 为 13.8153x / Sharpe 2.0417；
+表面上 full/validation 都赢，但风险门禁已经失败，因此不能作为 promotion。强平事件是
+**SOL long 2022-05-12 07:00 UTC**：entry 81.0926、theoretical liquidation 39.5079、50% long
+buffer 下在 2022-05 崩盘中被强平。低 funding 的“carry long”在压力期会主动买入下跌最快的
+资产，市场中性 sleeve 仍然保留了每条腿的孤立保证金风险。
+
+成本和 funding 压力直接否定了这个方向：
+
+| 成本 | LS57 baseline | LS81 10% | LS81 20% | LS81 25% |
+|---:|---:|---:|---:|---:|
+| 50bps 终值 | 34.6316x | 33.3424x | 31.7118x | 30.8170x |
+| 100bps 终值 | 14.5318x | 12.3804x | 10.4567x | 9.5522x |
+| 20bps + 1x two-sided adverse | 50.1759x | 48.7861x | 46.7593x | 45.6780x |
+| 20bps + 3x two-sided adverse | 31.4655x | 27.7030x | 24.0513x | 22.3633x |
+
+扩展 10 币（加 LINK/DOT）在 20bps normal 也没有改善：10% 为 58.0311x / Sharpe 1.9191，
+20% 为 56.9244x，25% 为 57.4495x；因此不是 core8 名单偶然太窄，而是该 carry 机制的成本与
+尾部风险不匹配。
+
+**判定：rejected。** 不通过调 allocation、core8 名单、funding lookback、腿数或止损来救这个
+结果；LS81 不接实盘，不修改当前 `PR2026-10-D-L125-V2`。后续如果继续做 carry，必须把它作为
+新的 risk-first trial（例如显式 long buffer/leg stop 或只做 short carry），不能用本次结果做
+事后参数选择。
+
+报告：`reports/ls81_core_major_funding_carry_2026/`；
+敏感性：`reports/ls81_core_major_funding_carry_2026_cost50_100/`、
+`reports/ls81_core_major_funding_carry_2026_adverse/`、
+`reports/ls81_core_major_funding_carry_2026_extended10/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls81-core-major-funding-carry-design.md`。
+
+### 00.117 2026-11-13 LS82：core8 carry 的风险包修复（risk pass；cost/adverse fail）
+
+LS82 不改变 LS81 的 core8、PIT funding、腿数、权重或 25% allocation，只把 long buffer 从 50%
+提高到 60%，把目标 gross 从 1.50x 降到 1.45x，hard cap 仍为 1.50x。这样可以在同一基线臂上
+隔离“孤立保证金/漂移”风险，而不是用事后改币池或 funding lookback 救 LS81。
+
+20bps normal：
+
+| 策略 | 终值 | Sharpe | MDD | 强平 | gross breach hours | max observed gross |
+|---|---:|---:|---:|---:|---:|---:|
+| LS57 baseline 60%/1.45x | 58.2059x | 1.9143 | -39.83% | 0 | 0 | 1.3306x |
+| LS82 core8 25% | **62.1228x** | **1.9519** | **-37.98%** | **0** | **0** | **1.4545x** |
+
+LS82 的 validation 为 **14.5712x / Sharpe 2.0921**，baseline 为 13.8153x / 2.0417。风险包
+确实消除了 2022-05 SOL long 强平和 25% 的 gross breach；mark carry 最长 1h。这个结果说明
+LS81 的失败可以被显式保证金/漂移缓冲修复，不能说明 carry alpha 在成本后有效。
+
+成本与 adverse funding 仍然失败：
+
+| 场景 | baseline | LS82 25% |
+|---|---:|---:|
+| 50bps normal | 34.6316x / 1.7012 / -43.44% | 30.8855x / 1.6629 / -42.03% |
+| 100bps normal | 14.5318x / 1.3440 / -49.42% | 9.5926x / 1.1784 / -49.50% |
+| 20bps + 1x two-sided adverse | 50.1759x / 1.8533 / -41.23% | 45.7220x / 1.8250 / -39.75% |
+| 20bps + 3x two-sided adverse | 31.4655x / 1.6633 / -43.76% | 22.3991x / 1.5309 / -43.22% |
+
+**判定：risk fix 成功，alpha/cost fail；LS82 不晋级。** 不能再用 50/55/60/65% buffer、1.40/
+1.45x target gross、allocation 或其他 carry 参数救同一个结果。core8 funding carry 家族停止，
+后续研究转向独立信息源；实盘仍为 `PR2026-10-D-L125-V2`，不修改。
+
+报告：`reports/ls82_core8_carry_risk_2026/`；
+成本敏感性：`reports/ls82_core8_carry_risk_2026_cost50_100/`；
+funding 压力：`reports/ls82_core8_carry_risk_2026_adverse/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls82-core8-carry-risk-design.md`。
+
+### 00.118 2026-11-13 LS83：core8 funding settlement 短周期事件筛选（rejected）
+
+LS83 检验一个与 7D carry 不同的短期机制：在每日 00:00 UTC funding settlement 已知后，
+按 Binance funding 横截面最低 2 币做多、最高 2 币做空，事件后 1h 用 Bitget market close 入场，
+分别持有 8h 和 24h。固定 core8，不扫描 settlement hour、horizon、count 或阈值。
+
+| 窗口 | horizon | n | gross mean | 20bps net mean | 50bps net mean | NW t | hit rate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| full | 8h | 1,666 | **0.0015%** | **-0.3985%** | -0.9985% | 0.05 | 51.62% |
+| full | 24h | 1,666 | 0.0469% | -0.3531% | -0.9531% | 0.76 | 51.32% |
+| discovery | 8h | 704 | -0.0490% | -0.4490% | -1.0490% | -0.81 | 51.14% |
+| discovery | 24h | 704 | 0.0868% | -0.3132% | -0.9132% | 0.84 | 52.70% |
+| validation | 8h | 962 | 0.0385% | -0.3615% | -0.9615% | 1.06 | 51.98% |
+| validation | 24h | 962 | 0.0177% | -0.3823% | -0.9823% | 0.24 | 50.31% |
+
+8h 是主 horizon，validation gross spread 不足以覆盖 20bps 完成一次多空组合的入场+出场成本；
+24h 辅助 horizon 也不显著。2,000 次事件内 funding 随机错配 placebo 的 p95 spread 高于或接近
+实际值，validation 8h placebo p=0.157，不能支持可交易 edge。**判定：rejected。** 不建立
+LS84 组合回测，不扫描 08/16 UTC、1h/3h/7h、3 币/4 币、funding 阈值或 only-positive 条件；
+funding settlement 短周期家族停止。
+
+报告：`reports/ls83_funding_settlement_screen_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls83-funding-settlement-screen.md`。

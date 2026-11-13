@@ -118,6 +118,36 @@ def test_short_adverse_does_not_let_long_funding_income_offset_the_stress() -> N
     assert result.funding.iloc[0]["amount"] == pytest.approx(0.0)
 
 
+def test_two_sided_adverse_funding_charges_long_and_short_positions() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index), "ETH": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001], "ETH": [-0.001]},
+        index=pd.DatetimeIndex(["2026-01-02T04:00:00Z"]),
+    )
+    targets = {
+        pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 0.5, "ETH": -0.5})
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_stress="two-sided-adverse",
+            funding_multiplier=3.0,
+        ),
+    )
+
+    assert result.funding["amount"].sum() == pytest.approx(-3.0)
+    assert result.equity_curve.iloc[-1] == pytest.approx(997.0)
+
+
 @pytest.mark.parametrize("stress", ["unknown", "long_adverse", ""])
 def test_funding_stress_rejects_unknown_values(stress: str) -> None:
     with pytest.raises(ValueError, match="funding_stress"):

@@ -208,6 +208,12 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "ls57_target_gross_2022_2026": "frozen LS57 target-gross refresh used as overlay input",
     "ls57_churn_overlay_stress_2026": "stress matrix of the same LS76 overlay; no new configuration",
     "ls57_churn_bitget_executable_2026": "Bitget mark/funding executable audit of LS79; no new configuration",
+    "ls83_funding_settlement_screen_2026": "core8 funding-settlement event screen; no portfolio configuration",
+    "ls81_core_major_funding_carry_2026_cost50_100": "cost sensitivity of LS81 core8 funding carry",
+    "ls81_core_major_funding_carry_2026_adverse": "adverse funding sensitivity of LS81 core8 funding carry",
+    "ls81_core_major_funding_carry_2026_extended10": "extended-universe sensitivity of LS81 core8 funding carry",
+    "ls82_core8_carry_risk_2026_cost50_100": "cost sensitivity of LS82 risk-first core8 carry",
+    "ls82_core8_carry_risk_2026_adverse": "adverse funding sensitivity of LS82 risk-first core8 carry",
 }
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 
@@ -223,6 +229,9 @@ VARIES: dict[str, str] = {
     "top20_churn_short_2026": "Top20 entry/exit churn short, BTC-hedged, 3x4 cells",
     "top20_churn_gated_2026": "frozen Top20 churn short with three pre-registered regime gates",
     "top20_churn_fullgross_2026": "LS73 alt-weak churn with active-day gross normalized to one",
+    "ls83_funding_settlement_screen_2026": "core8 funding-settlement 8h/24h event screen",
+    "ls81_core_major_funding_carry_2026": "LS57 + core8 PIT funding carry, 10/20/25% residual allocations",
+    "ls82_core8_carry_risk_2026": "LS57 + core8 PIT funding carry risk package at 60% long buffer and 1.45x target gross",
     "ls57_churn_overlay_2026": "LS57 + residual-gross churn overlay, 10/20/25% allocations",
     "ls57_churn_overlay_funding_2026": "LS57 + residual-gross churn overlay with Binance funding proxy",
     "ls57_churn_spot_btc_short_alt_2026": "LS57 + executable alt-perp-short / BTC-spot churn overlay, 10/20/25% allocations",

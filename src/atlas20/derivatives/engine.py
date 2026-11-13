@@ -127,9 +127,15 @@ class DerivativeBacktestConfig:
                 "funding_missing_policy must be 'error', 'skip', 'carry_last', "
                 "or 'stress_median'"
             )
-        if self.funding_stress not in {"none", "long-adverse", "short-adverse"}:
+        if self.funding_stress not in {
+            "none",
+            "long-adverse",
+            "short-adverse",
+            "two-sided-adverse",
+        }:
             raise ValueError(
-                "funding_stress must be 'none', 'long-adverse', or 'short-adverse'"
+                "funding_stress must be 'none', 'long-adverse', 'short-adverse', "
+                "or 'two-sided-adverse'"
             )
         if not np.isfinite(self.funding_multiplier) or self.funding_multiplier < 0.0:
             raise ValueError("funding_multiplier must be finite and non-negative")
@@ -385,6 +391,8 @@ def run_derivative_backtest(
         adverse_rates = funding.where(funding > 0.0)
         if cfg.funding_stress == "short-adverse":
             adverse_rates = funding.where(funding < 0.0)
+        elif cfg.funding_stress == "two-sided-adverse":
+            adverse_rates = funding.abs()
         adverse_median = adverse_rates.median(axis=1, skipna=True).ffill()
 
     index = pd.DatetimeIndex(
@@ -1156,6 +1164,8 @@ def run_derivative_backtest(
                     rate = max(rate, 0.0)
                 elif cfg.funding_stress == "short-adverse" and position.side < 0:
                     rate = min(rate, 0.0)
+                elif cfg.funding_stress == "two-sided-adverse":
+                    rate = abs(rate) if position.side > 0 else -abs(rate)
                 elif cfg.funding_stress != "none":
                     # A side-specific stress must not let income on the other
                     # side offset the adverse funding being tested.

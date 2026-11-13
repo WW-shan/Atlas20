@@ -1,0 +1,38 @@
+{
+  "allocations": [
+    0.25
+  ],
+  "core_assets": [
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "ripple",
+    "binancecoin",
+    "dogecoin",
+    "cardano",
+    "avalanche-2"
+  ],
+  "costs_bps": [
+    50.0,
+    100.0
+  ],
+  "end_date": "2026-09-21",
+  "fill_source": "bitget_market",
+  "funding_missing_policy": "skip",
+  "funding_scenarios": [
+    "normal"
+  ],
+  "funding_source": "binance-proxy",
+  "gross_cap": 1.5,
+  "long_buffer": 0.6,
+  "mark_source": "bitget_mark",
+  "missing_mark_max_carry_hours": 3,
+  "missing_mark_policy": "carry",
+  "orders_sent": false,
+  "raw_ledgers_retained": false,
+  "start_date": "2022-01-01",
+  "target_gross": 1.45,
+  "trial_id": "PR2026-11-LS82-LS57-CORE8-CARRY-RISK",
+  "variant": "core8",
+  "warmup_start": "2021-01-01"
+}

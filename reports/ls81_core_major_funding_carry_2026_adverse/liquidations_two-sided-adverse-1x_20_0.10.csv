@@ -1,0 +1,2 @@
+trigger_timestamp,asset,side,entry_price,liquidation_price,execution_price,quantity,margin_before,bad_debt
+2022-05-12 07:00:00+00:00,solana,long,81.0926,39.97605672024342,39.9560686918833,0.0003152302693796866,0.01308719564532581,0.0

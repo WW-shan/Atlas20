@@ -1,0 +1,23 @@
+{
+  "end_date": "2026-09-21",
+  "entry_delay_hours": 1,
+  "horizons_hours": [
+    8,
+    24
+  ],
+  "orders_sent": false,
+  "placebo_iterations": 2000,
+  "screen_id": "PR2026-11-LS83-CORE8-FUNDING-SETTLEMENT-SCREEN",
+  "settlement_hour_utc": 0,
+  "start_date": "2022-01-01",
+  "universe": [
+    "bitcoin",
+    "ethereum",
+    "solana",
+    "ripple",
+    "binancecoin",
+    "dogecoin",
+    "cardano",
+    "avalanche-2"
+  ]
+}
