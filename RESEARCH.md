@@ -5016,7 +5016,8 @@ LS57 比较；不重新拟合、不扫描权重、不改变 live track。两个�
   的总 log excess 2.5% 分位为 **-5.28% / -6.72%**，为正概率 **81.78% / 73.00%**。
 - CSCV/PBO 为 **0.4892 / 0.6515**；Reality Check 对零的 p=**0.0030 / 0.0034**，但对 LS57
   超额的 p=**0.4891 / 0.5613**，不能证明组合优于 LS57。
-- 项目级 DSR 在纳入 LS81-LS92 的 12 个真实引擎衍生品组合和 LS96 后，all_trials N=14,411 下为
+- 项目级 DSR 在纳入 LS81-LS92 的 12 个真实引擎衍生品组合、LS96 和 LS98 的 4 个 basis 变体后，
+  all_trials N=14,415 下为
   **0.5754 / 0.5200**；Top20/2022 N=6,201 下为 **0.6705 / 0.6181**，均低于 0.95。新增组合的
   universe 记为 `Derivatives`，不改变 Top20/2022 scope；更早的衍生品代理试验若继续加入，分母只会更大。
 - 增量贡献约 **60.7% 来自 LS82、39.3% 来自 LS88**，不是单一 sleeve 垄断；但子账户相关性
@@ -5129,3 +5130,32 @@ beta-neutral 版本为 **0.9999x / Sharpe 0.1083 / MDD -38.90%**，且平均 gro
 0.879、单资产权重上限触及 40%，风险反而更差。这个诊断没有进入正式引擎、没有新配置、没有
 promotion 含义；结论是 beta-neutral carry 不值得继续，下一步不扫描 beta 窗口、leg cap 或
 long/short beta 目标，转向执行/其他 short-trend 机制。
+
+### 00.133 2026-11-13 LS98：BTC/ETH 跨所 spot-perp basis（funding-dominated，positive research proxy）
+
+LS98 不再做 alt 横截面 carry，而是研究真正的 spot long + perp short：BTC/ETH 各 0.50x NAV
+spot + 0.50x NAV perp short，总 gross 1.00x、无组合杠杆。spot 用 CMC/Binance 日价格代理，
+perp 用 Bitget mark，funding 用 Binance funding proxy；这是跨所研究代理，不是 Bitget 单账户
+可直接复制的 live 策略。
+
+| 变体 | 成本 | full 终值 | Sharpe | MDD | validation 终值/Sharpe |
+|---|---:|---:|---:|---:|---:|
+| always-on BTC+ETH | 10bps/腿/边 | **1.3365x** | **2.0850** | **-2.50%** | **1.2140x / 2.8458** |
+| always-on BTC+ETH | 20bps/腿/边 | 1.3338x | 2.0692 | -2.50% | 1.2128x / 2.8284 |
+| positive-funding BTC+ETH | 10bps | 1.2990x | 2.1626 | -1.85% | 1.1942x / 2.6840 |
+| BTC-only always-on | 10bps | 1.1666x | 2.5957 | -0.65% | 1.1024x / 3.3265 |
+| ETH-only always-on | 10bps | 1.1465x | 1.4925 | -2.46% | 1.1016x / 2.2371 |
+
+always-on 10bps 逐年为 2022 **+1.92%**、2023 **+8.01%**、2024 **+13.39%**、2025 **+5.24%**、
+2026 **+1.74%**，5/5 年为正。资产归因：BTC net **+15.45%**、ETH net **+13.77%**；其中
+BTC funding **+15.61%**、basis **-0.06%**，ETH funding **+14.12%**、basis **-0.26%**，成本各约
+0.10%。收益几乎全部来自 funding，而不是方向性价格；判定 **funding-dominated**，且不是单一资产。
+
+这是目前第一个同时满足“正收益、Sharpe >2、MDD <3%、5/5 年为正、BTC/ETH 双资产都为正”的
+独立 sleeve。它不能直接接实盘：spot 不是 Bitget 同 venue tape，funding 是 Binance proxy，
+跨所转账、USDT/USD 基差、保证金和真实 spot 成交都未闭合。下一步只做 LS57 的 residual-gross
+集成研究：25/50/100% residual 三档，要求总 gross <=1.45/1.50 且不降低 LS57 的终值和 Sharpe；
+通过后再谈同 venue 数据和真实小单。
+
+报告：`reports/ls98_cross_venue_basis_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls98-cross-venue-basis.md`。

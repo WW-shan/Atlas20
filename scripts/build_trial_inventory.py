@@ -171,6 +171,7 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "ls91_core_satellite_ensemble_2026",
     "ls92_core_satellite_maker_shadow_2026",
     "ls96_carry_trend200_2026",
+    "ls98_cross_venue_basis_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
 
@@ -195,6 +196,7 @@ DERIVATIVES_ENSEMBLE_STUDIES = frozenset(
         "ls92_core_satellite_maker_shadow_2026",
     }
 )
+CROSS_VENUE_BASIS_STUDIES: tuple[str, ...] = ("ls98_cross_venue_basis_2026",)
 
 # Report directories that hold no new configuration (rolling starts,
 # sub-windows, stress windows, audits, live signals, or a re-listing).
@@ -286,6 +288,7 @@ VARIES: dict[str, str] = {
     "ls91_core_satellite_ensemble_2026": "50% LS57 + 25% LS82 + 25% LS88, no rebalance",
     "ls92_core_satellite_maker_shadow_2026": "LS91 core-satellite at 13.0164bps maker-shadow cost",
     "ls96_carry_trend200_2026": "LS82 carry long leg filtered by its own 200D SMA",
+    "ls98_cross_venue_basis_2026": "BTC/ETH long spot + short perp basis proxy",
     "ls81_core_major_funding_carry_2026": "LS57 + core8 PIT funding carry, 10/20/25% residual allocations",
     "ls82_core8_carry_risk_2026": "LS57 + core8 PIT funding carry risk package at 60% long buffer and 1.45x target gross",
     "ls57_churn_overlay_2026": "LS57 + residual-gross churn overlay, 10/20/25% allocations",
@@ -1061,6 +1064,28 @@ def derivative_research_configurations(
     return rows
 
 
+def cross_venue_basis_configurations(frame: pd.DataFrame) -> list[dict[str, object]]:
+    """Return the pre-registered BTC/ETH basis variants as a separate track."""
+    required = {"variant", "cost_bps", "full_sharpe"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"cross-venue basis summary missing columns: {missing}")
+    rows: list[dict[str, object]] = []
+    for _, row in frame.iterrows():
+        rows.append(
+            {
+                "config_id": str(row["variant"]),
+                "cost_bps": float(row["cost_bps"]),
+                "full_sharpe": float(row["full_sharpe"]),
+                "universe": "CrossVenueBasis",
+                "family": "cross_venue_basis",
+                "window_start": "2022-01-01",
+                "window_end": "2026-09-20",
+            }
+        )
+    return rows
+
+
 def _ledger_result_row(ledger: pd.DataFrame, trial_id: str) -> pd.Series | None:
     """The last terminal result row for one preregistered trial, if any."""
     rows = ledger[
@@ -1450,6 +1475,27 @@ def _load_derivatives_research_lane(src: Sources, rec: TrialRecorder) -> None:
             )
 
 
+def _load_cross_venue_basis_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load the separate cross-venue spot-perp basis research track."""
+    for study in CROSS_VENUE_BASIS_STUDIES:
+        path = f"reports/{study}/variant_summary.csv"
+        frame = src.csv(path)
+        for row in cross_venue_basis_configurations(frame):
+            rec.add(
+                study,
+                row["config_id"],
+                (str(row["window_start"]), str(row["window_end"])),
+                float(row["cost_bps"]),
+                str(row["universe"]),
+                float(row["full_sharpe"]),
+                source=path,
+                column="full_sharpe",
+                family=str(row["family"]),
+                lineage=study,
+                note="cross-venue spot/perp basis research proxy",
+            )
+
+
 def collect_trials(
     src: Sources, *, april_commit: str, bull_commit: str
 ) -> tuple[pd.DataFrame, list[UnscoredConfiguration], int]:
@@ -1470,6 +1516,7 @@ def collect_trials(
     _load_daily_shock_lanes(src, rec)
     _load_top20_churn_lane(src, rec)
     _load_derivatives_research_lane(src, rec)
+    _load_cross_venue_basis_lane(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 

@@ -1,12 +1,12 @@
 {
   "script": "scripts/build_trial_inventory.py",
-  "repository_head": "7f4f0b976773c2f2c5f30f9381f473890e399601",
+  "repository_head": "6dfb6493f8d9c37393f6c785cb4807c6a4672a42",
   "april_commit": "9d71d1e^",
   "april_commit_resolved": "6cde10c9777fe12474dc5b8832a0cd01d34379c5",
   "bull_scan_commit": "5b37099",
   "bull_scan_commit_resolved": "5b37099e11fed77a01afdee7d465b152245dd49e",
   "research_md": "RESEARCH.md",
-  "research_md_sha256": "fd73fa243317651f2cbc633c75cb055a2551d4967685c727a463d5778486508d",
+  "research_md_sha256": "7648f5546a8bb77e4fc5885f17072357b30fd82138e903d988b6597cbaff2c2a",
   "research_md_anchors_found": {
     "无 BTC 闸门只有 10.80x": true,
     "MA50/confirm1–3": true,
@@ -108,7 +108,8 @@
     "ls90_multi_strategy_ensemble_2026",
     "ls91_core_satellite_ensemble_2026",
     "ls92_core_satellite_maker_shadow_2026",
-    "ls96_carry_trend200_2026"
+    "ls96_carry_trend200_2026",
+    "ls98_cross_venue_basis_2026"
   ],
   "study_primary_cost_bps": {
     "pipeline_latest": 20.0,
@@ -187,6 +188,7 @@
     "ls91_core_satellite_ensemble_2026": 20.0,
     "ls92_core_satellite_maker_shadow_2026": 13.0164,
     "ls96_carry_trend200_2026": 20.0,
+    "ls98_cross_venue_basis_2026": 20.0,
     "git:profit_max_search": 20.0,
     "git:profit_max_refine": 20.0,
     "git:sector_lead_v3_scan(bear_bottom)": 20.0,
@@ -196,8 +198,8 @@
     "git:stop_scan_trailing": 20.0,
     "git:stop_study": 20.0
   },
-  "rows_read": 20850,
-  "rows_at_primary_cost": 18117,
+  "rows_read": 20862,
+  "rows_at_primary_cost": 18121,
   "repeated_rows_skipped": 56,
   "unscored_configurations": [
     {
@@ -1069,8 +1071,12 @@
       "sha256": "09b4ff1a2e53191f0bbd0aca6a66965a5852289d02085eeb4731981475617a5e"
     },
     "reports/ls96_carry_trend200_2026/run_summary.csv": {
-      "origin": "working tree (untracked)",
+      "origin": "working tree (committed)",
       "sha256": "8dcb88137af9597bb4e11ecc0603fd7a83e44bdfdc8d320205047ccb1400b4cd"
+    },
+    "reports/ls98_cross_venue_basis_2026/variant_summary.csv": {
+      "origin": "working tree (untracked)",
+      "sha256": "64a40e4e262bd3686d99a18890bf9c2ef377d71a98d2e2528783332b058e35b7"
     },
     "reports/momentum_event_breadth_overlay_2022/blend_sensitivity.csv": {
       "origin": "working tree (committed)",

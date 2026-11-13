@@ -441,6 +441,25 @@ def test_ls96_is_a_derivatives_research_study() -> None:
     assert "ls96_carry_trend200_2026" in PROCESSING_ORDER
 
 
+def test_cross_venue_basis_variants_are_counted_as_a_separate_track() -> None:
+    from scripts.build_trial_inventory import cross_venue_basis_configurations
+
+    frame = pd.DataFrame(
+        [
+            {"variant": "always-on", "cost_bps": 10.0, "full_sharpe": 2.0},
+            {"variant": "positive-funding", "cost_bps": 10.0, "full_sharpe": 2.1},
+            {"variant": "btc-only", "cost_bps": 10.0, "full_sharpe": 2.5},
+            {"variant": "eth-only", "cost_bps": 10.0, "full_sharpe": 1.5},
+        ]
+    )
+
+    rows = cross_venue_basis_configurations(frame)
+
+    assert len(rows) == 4
+    assert all(row["universe"] == "CrossVenueBasis" for row in rows)
+    assert all(row["family"] == "cross_venue_basis" for row in rows)
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

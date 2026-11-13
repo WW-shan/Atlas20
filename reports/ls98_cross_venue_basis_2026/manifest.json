@@ -1,0 +1,23 @@
+{
+  "assets": [
+    "bitcoin",
+    "ethereum"
+  ],
+  "classification": "funding-dominated",
+  "costs_bps": [
+    5.0,
+    10.0,
+    20.0
+  ],
+  "end": "2026-09-20 00:00:00+00:00",
+  "funding_dir": "data/raw/binance_funding",
+  "notional_per_leg": 0.5,
+  "orders_sent": false,
+  "panel": "data/processed/panel_daily.csv",
+  "panel_sha256": "f3b2b8947d2afa8203334c95e26f03fed4181ada0d3f904c072a4445f84a8ad8",
+  "perp_dir": "data/raw/bitget_derivatives/merged_20261009/candles",
+  "primary_cost_bps": 10.0,
+  "rows": 1724,
+  "start": "2022-01-01 00:00:00+00:00",
+  "trial_id": "PR2026-11-LS98-CROSS-VENUE-BASIS"
+}
