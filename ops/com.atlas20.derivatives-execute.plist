@@ -16,8 +16,8 @@
 	  this order. ops/run_derivatives_daily.sh sources the credentials outside
 	  the repo, because launchd does not read shell rc files.
 
-	  Schedule: 11:05 Beijing = 03:05 UTC, five minutes after the LS45
-	  ledger's T+1 +3h execution hint. Retries at 11:35, 12:35 and 14:35
+	  Schedule: 11:05 Beijing = 03:05 UTC, five minutes after the daily
+	  manifest-derived T+1 +3h execution time. Retries at 11:35, 12:35 and 14:35
 	  Beijing repair a transient API/order or late-provider failure without
 	  waiting until tomorrow; the wrapper's same-day success gate makes these
 	  retries no-ops after a good run.

@@ -87,7 +87,11 @@ def live_execution_hint_for_signal(
 
 
 def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:
-    """Current mark age from the manifest's timestamp, not its build-time value."""
+    """Current mark age from the manifest's timestamp, not its build-time value.
+
+    A recorded build-time staleness cannot prove how old the mark is *now*, so
+    a missing or malformed live timestamp is unknown rather than fresh.
+    """
 
     last_mark = manifest.get("last_mark")
     if last_mark not in (None, ""):
@@ -100,10 +104,7 @@ def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:
             return max(0.0, (as_utc(now) - stamp.to_pydatetime()).total_seconds() / 3600.0)
         except (TypeError, ValueError, OverflowError):
             return float("inf")
-    try:
-        return float(manifest.get("staleness_hours") or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
+    return float("inf")
 
 
 def panel_end_date(panel_path: Path) -> date | None:

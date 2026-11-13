@@ -11,7 +11,7 @@ needs attention** - the daily rebalance report stays the only routine message.
 
 Checks:
 
-1. the 12-item live audit (venue vs ledger, target alignment, gross cap, mark
+1. the full live audit (venue vs ledger, target alignment, gross cap, mark
    freshness, ...) - any hard failure is an alert;
 2. position drift vs the frozen target beyond what the 5 USDT rebalance
    threshold would correct on the next run;
@@ -51,21 +51,25 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     load_journal,
     net_capital_flow,
 )
-from atlas20.logging_utils import ensure_dir  # noqa: E402
+from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.audit_live_track import (  # noqa: E402
     DEFAULT_JOURNAL_FILE,
     DEFAULT_MANIFEST_FILE,
     DEFAULT_TARGETS_FILE,
     _position_signed_notional,
+    _unknown_position_symbols,
 )
 from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_SYMBOL_MAP,
     fetch_public_instruments,
     fetch_public_prices,
     load_symbol_map,
+    missing_contract_specs,
     spec_symbol_universe,
     specs_from_instruments,
+    symbol_to_asset_index,
+    target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, send_telegram_message  # noqa: E402
@@ -156,13 +160,16 @@ def _run_audit(capital_flows_file: Path) -> tuple[int, dict, str]:
 
     with tempfile.TemporaryDirectory(prefix="atlas20-monitor-") as tmp:
         json_out = Path(tmp) / "audit.json"
-        proc = subprocess.run(
-            _audit_command(json_out, capital_flows_file),
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
+        try:
+            proc = subprocess.run(
+                _audit_command(json_out, capital_flows_file),
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return 124, {}, f"audit timed out after {exc.timeout:g}s"
         payload: dict = {}
         stderr = proc.stderr.strip()
         if json_out.exists():
@@ -174,7 +181,7 @@ def _run_audit(capital_flows_file: Path) -> tuple[int, dict, str]:
 
 
 def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dict[str, float]:
-    by_symbol = {str(sym).upper(): asset for asset, sym in symbol_map.items()}
+    by_symbol = symbol_to_asset_index(symbol_map)
     out: dict[str, float] = {}
     for row in positions:
         symbol = str(row.get("symbol") or "").upper()
@@ -230,8 +237,7 @@ def _ledger_change(
     return equity - float(latest["equity"]) - flow
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def _main(args: argparse.Namespace) -> int:
     now = datetime.now(timezone.utc)
 
     audit_exit, audit, audit_stderr = _run_audit(args.capital_flows_file)
@@ -257,6 +263,21 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     issues: list[str] = []
+    target_gross = target_gross_weight(targets)
+    if target_gross > SPEC_MAX_GROSS + 1e-9:
+        issues.append(
+            f"冻结目标 gross {target_gross:.2f}x 超过规格上限 {SPEC_MAX_GROSS:.2f}x"
+        )
+    missing_specs = missing_contract_specs(specs, set(targets))
+    if missing_specs:
+        issues.append(
+            "冻结目标缺少 Bitget 合约规格: " + ", ".join(missing_specs)
+        )
+    unknown_symbols = _unknown_position_symbols(positions, symbol_map)
+    if unknown_symbols:
+        issues.append(
+            "存在无法唯一映射到冻结资产的持仓: " + ", ".join(unknown_symbols)
+        )
     if audit_exit != 0 or audit_failures or equity is None or gross is None:
         issues.append(
             _audit_failure_details(
@@ -328,7 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         "checked_at": now.isoformat(),
     }
     ensure_dir(args.out.parent)
-    args.out.write_text(json.dumps(flags, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(args.out, json.dumps(flags, indent=2, ensure_ascii=False))
 
     equity_line = (
         f"账户总价值: {equity:.2f} USDT"
@@ -368,6 +389,49 @@ def main(argv: list[str] | None = None) -> int:
             print("monitor: no telegram credentials in environment; alert not sent", file=sys.stderr)
 
     return 1 if issues else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        return _main(args)
+    except Exception as exc:
+        now = datetime.now(timezone.utc)
+        issue = f"巡检进程异常：{type(exc).__name__}: {exc}"
+        flags = {
+            "audit_exit": None,
+            "audit_stderr": None,
+            "equity": None,
+            "position_value": None,
+            "issues": [issue],
+            "checked_at": now.isoformat(),
+        }
+        ensure_dir(args.out.parent)
+        atomic_write_text(args.out, json.dumps(flags, indent=2, ensure_ascii=False))
+        message = "\n".join(
+            [
+                "🩺 Atlas20 实盘巡检",
+                "账户总价值: 未知（巡检进程异常）",
+                "仓位价值: 未知（巡检进程异常）",
+                "",
+                "⚠️ 需要处理:",
+                f"• {issue}",
+            ]
+        )
+        if not args.quiet:
+            print(message)
+        if args.notify:
+            token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN", "")
+            chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
+            if token and chat_ids:
+                for chat_id in chat_ids:
+                    send_telegram_message(message, token=token, chat_id=chat_id)
+            else:
+                print(
+                    "monitor: no telegram credentials in environment; alert not sent",
+                    file=sys.stderr,
+                )
+        return 1
 
 
 if __name__ == "__main__":

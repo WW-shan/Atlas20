@@ -1,5 +1,10 @@
 # Atlas20 Execution Latency Operations
 
+> **Historical note (2026-11-13):** the +1h fill experiment below is no longer
+> the live default. The current LS45-G125 production chain keeps T+1 +3h and
+> starts at 03:05 UTC; see “Current live schedule” before applying any
+> historical recommendation in this document.
+
 How to shorten the gap between the 00:00 UTC signal close and the live fill, and
 why that is the one remaining compliant lever on the frozen champion.
 
@@ -28,17 +33,24 @@ needs the owner's sign-off.
 on the selection history, not on execution. Only data no trial has seen can move
 them. This work is operational; the champion stays provisional either way.
 
-## Implemented live schedule (2026-11-10)
+## Current live schedule (2026-11-13)
 
-The early path is now the primary chain; the old timing remains the fallback:
+The production track is now LS45-G125. It keeps the frozen T+1 +3h research
+convention: the target weights come from the latest event row, while the
+**daily execution timestamp** comes from the manifest's latest completed data
+day plus T+1 +3h. That distinction matters because the event book can stay
+unchanged for many days while the executor still reconciles and journals every
+day.
 
 | UTC | What happens | Where |
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
 | 00:30 / 00:50 | early panel refresh and catch-up | `ops/com.atlas20.daily-refresh.plist`, `scripts/refresh_daily_data.py` |
-| 01:05 / 01:35 | early live chain and first retry | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
-| 03:05 / 03:35 / 04:35 / 06:35 | legacy fallback retries | same wrapper, bounded by the 01:05-07:05 UTC window |
+| 03:05 / 03:35 / 04:35 / 06:35 | primary live chain and retries | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
 | 06:30 | late panel catch-up | `scripts/refresh_daily_data.py` |
+
+The 01:05/01:35 early-fill experiment documented below is historical. It was
+superseded on 2026-11-13 and must not be used to infer the current schedule.
 
 Before every order the wrapper now checks both the panel date and the
 finished-last-day volume/market-cap coverage. If either is stale or partial it
@@ -50,13 +62,15 @@ the execution report.
 
 ## The previous chain
 
+This table records the earlier L125 timing for comparison:
+
 | UTC | What happens | Where |
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
 | 02:30 | former panel refresh (now a fallback) | `src/atlas20/api/scheduler.py`, `ops/com.atlas20.daily-refresh.plist` |
 | ~02:30-03:00 | `download_and_cache_raw_data` pulls each coin's CMC tail, cross-checks, rebuilds `data/processed/panel_daily.csv` | `src/atlas20/data/processor.py` |
 | after that | `scripts/run_derivatives_oos.py` writes the frozen target snapshot | live wrapper |
-| ~03:00 | former order fill; the backtest still models +3h as its conservative protocol | `reports/phase_momentum_execution_lag_2022/` |
+| ~03:00 | former order fill; the backtest models +3h as its conservative protocol | `reports/phase_momentum_execution_lag_2022/` |
 | 06:30 | conditional catch-up refresh | `daily_refresh_catchup_offset_hours` |
 
 ## The real bottleneck
@@ -120,7 +134,7 @@ Cost: 16 runs/day at the default 10-asset sample is 160 CoinMarketCap requests
 per day, about 1.5x a normal daily refresh. Raise the sample for a sharper
 coverage estimate; lower it if the provider rate-limits.
 
-**Decision rule.** Let `T90` be the earliest UTC time by which >=90% of the
+**Historical decision rule.** Let `T90` be the earliest UTC time by which >=90% of the
 sample carries D-1 on >=90% of days (the P90 across days):
 
 | `T90` | Action |

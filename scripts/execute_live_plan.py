@@ -27,13 +27,17 @@ futures; the fallback is printed in the message, never hidden.
 from __future__ import annotations
 
 import argparse
+from contextlib import suppress
+from dataclasses import replace
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import json
+from math import isfinite
 import os
 from pathlib import Path
 import sys
-from typing import Any, Callable
+from typing import Any, Callable, TextIO
 
 import pandas as pd
 import requests
@@ -45,6 +49,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
 from atlas20.derivatives.live_executor import (  # noqa: E402
@@ -69,7 +74,7 @@ from atlas20.derivatives.quotes import (  # noqa: E402
     quote_warnings,
     require_fresh_quotes,
 )
-from atlas20.logging_utils import ensure_dir  # noqa: E402
+from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_SYMBOL_MAP,
@@ -78,8 +83,11 @@ from scripts.plan_live_execution import (  # noqa: E402
     account_state_from_bitget,
     fetch_public_instruments,
     load_symbol_map,
+    missing_contract_specs,
     spec_symbol_universe,
     specs_from_instruments,
+    symbol_to_asset_index,
+    target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
@@ -89,6 +97,7 @@ DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
 DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_KILL_SWITCH = Path("data/ls45_g125_execution.KILL")
 DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/latest.json")
+DEFAULT_LOCK_FILE = Path("data/ls45_g125_execution.lock")
 
 
 def _live_quote_snapshot(
@@ -126,6 +135,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--notify", action="store_true", help="send the report to Telegram")
     parser.add_argument("--force", action="store_true", help="ignore same-day idempotency")
     parser.add_argument("--allow-stale-signal", action="store_true")
+    parser.add_argument(
+        "--allow-late-execution",
+        action="store_true",
+        help="allow a manual catch-up after the normal execution window",
+    )
+    parser.add_argument(
+        "--catchup-hours",
+        type=float,
+        default=6.0,
+        help="hours after execution_hint during which a normal run is allowed",
+    )
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument(
         "--max-mark-staleness-hours",
@@ -177,15 +197,74 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--capital-flows-file", type=Path, default=DEFAULT_CAPITAL_FLOWS_FILE)
     parser.add_argument("--kill-switch", type=Path, default=DEFAULT_KILL_SWITCH)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
+    parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK_FILE)
     parser.add_argument("--instruments-file", type=Path, default=None)
     parser.add_argument("--prices-file", type=Path, default=None)
     return parser.parse_args(argv)
 
 
+def _execution_window_error(
+    *,
+    execution_hint: datetime | pd.Timestamp,
+    now: datetime | pd.Timestamp,
+    catchup_hours: float,
+    allow_late: bool,
+) -> str | None:
+    """Return why the plan may not execute now, or ``None`` when allowed."""
+
+    hint = pd.Timestamp(execution_hint)
+    current = pd.Timestamp(now)
+    if hint.tzinfo is None:
+        hint = hint.tz_localize("UTC")
+    else:
+        hint = hint.tz_convert("UTC")
+    if current.tzinfo is None:
+        current = current.tz_localize("UTC")
+    else:
+        current = current.tz_convert("UTC")
+    if catchup_hours < 0.0:
+        raise ValueError("catchup_hours must be non-negative")
+    if current < hint:
+        return (
+            f"target execution time {hint.isoformat()} is not due yet "
+            f"(now {current.isoformat()})"
+        )
+    late_after = hint + pd.Timedelta(hours=float(catchup_hours))
+    if current > late_after and not allow_late:
+        return (
+            f"target execution time {hint.isoformat()} is more than "
+            f"{catchup_hours:g}h old (now {current.isoformat()}); use an explicit "
+            "manual late catch-up only after reviewing the venue state"
+        )
+    return None
+
+
+def _effective_execution_hint(
+    *,
+    signal_end_date: object,
+    event_execution_hint: pd.Timestamp,
+) -> pd.Timestamp:
+    """Daily execution time for an event book whose latest row may be old."""
+
+    if signal_end_date in (None, ""):
+        return pd.Timestamp(event_execution_hint)
+    try:
+        normalized = pd.Timestamp(signal_end_date)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"manifest signal_end_date is invalid: {signal_end_date!r}") from exc
+    if pd.isna(normalized):
+        raise ValueError(f"manifest signal_end_date is invalid: {signal_end_date!r}")
+    if normalized.tzinfo is None:
+        normalized = normalized.tz_localize("UTC")
+    else:
+        normalized = normalized.tz_convert("UTC")
+    return normalized.normalize() + pd.Timedelta(days=1, hours=3)
+
+
 def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[dict]:
     """Add the model's asset id to each venue position row."""
 
-    by_symbol = {str(symbol).upper(): asset for asset, symbol in symbols_by_asset.items()}
+    by_symbol = symbol_to_asset_index(symbols_by_asset)
     stamped: list[dict] = []
     for row in rows:
         record = dict(row)
@@ -193,6 +272,155 @@ def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[di
         record.setdefault("asset", by_symbol.get(symbol, symbol.replace("USDT", "")))
         stamped.append(record)
     return stamped
+
+
+def _closed_funding_from_history(
+    history: list[dict[str, Any]],
+    *,
+    previous: dict[str, Any] | None,
+    current_positions: list[dict[str, Any]],
+    fills: list[Any],
+    previous_run_at: datetime | str,
+    run_at: datetime | str,
+) -> tuple[dict[str, float], list[str]]:
+    """Match closed cycles to their final cumulative funding.
+
+    The current-position payload only covers legs that still exist.  When a
+    cycle disappears (or flips side), its final ``totalFunding`` is available
+    from position history.  Only cycles whose close falls in the daily window
+    are attributed here.
+    """
+
+    if previous is None:
+        return {}, []
+    try:
+        prior_positions = json.loads(previous.get("positions") or "[]")
+    except (TypeError, json.JSONDecodeError):
+        prior_positions = []
+    if not isinstance(prior_positions, list):
+        return {}, ["资金费归因不完整：上一行 positions 不是数组"]
+
+    current_by_symbol: dict[str, str] = {}
+    for row in current_positions:
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        pos_side = str(row.get("posSide") or "").lower()
+        raw_total = row.get("total")
+        try:
+            total = float(raw_total)
+        except (TypeError, ValueError):
+            total = 0.0
+        if abs(total) <= 1e-12:
+            continue
+        current_by_symbol[symbol] = (
+            "short" if pos_side == "short" or (pos_side in {"", "net"} and total < 0) else "long"
+        )
+
+    previous_by_symbol: dict[str, dict[str, Any]] = {}
+    for row in prior_positions:
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        previous_by_symbol[symbol] = row
+    candidates: set[str] = set()
+    for symbol, row in previous_by_symbol.items():
+        prior_side = str(row.get("side") or "").lower()
+        if symbol not in current_by_symbol or current_by_symbol[symbol] != prior_side:
+            candidates.add(symbol)
+    for fill in fills:
+        action = str(
+            getattr(fill, "action", "") if not isinstance(fill, dict) else fill.get("action") or ""
+        ).upper()
+        if action != "CLOSE":
+            continue
+        symbol = str(
+            getattr(fill, "symbol", "") if not isinstance(fill, dict) else fill.get("symbol") or ""
+        ).upper()
+        if symbol:
+            candidates.add(symbol)
+    if not candidates:
+        return {}, []
+
+    start = pd.Timestamp(previous_run_at)
+    end = pd.Timestamp(run_at)
+    if start.tzinfo is None:
+        start = start.tz_localize("UTC")
+    else:
+        start = start.tz_convert("UTC")
+    if end.tzinfo is None:
+        end = end.tz_localize("UTC")
+    else:
+        end = end.tz_convert("UTC")
+
+    funding: dict[str, float] = {}
+    matched: set[str] = set()
+    notes: list[str] = []
+    seen_positions: set[str] = set()
+    for row in history:
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        position_id = str(row.get("positionId") or "")
+        identity = position_id or "|".join(
+            str(row.get(key) or "")
+            for key in ("symbol", "posSide", "createdTime", "updatedTime", "totalFunding")
+        )
+        if identity in seen_positions:
+            continue
+        seen_positions.add(identity)
+        try:
+            updated_ms = int(row.get("updatedTime"))
+        except (TypeError, ValueError):
+            updated = pd.NaT
+        else:
+            updated = pd.to_datetime(updated_ms, unit="ms", utc=True, errors="coerce")
+        if pd.isna(updated) or not (start < updated <= end):
+            continue
+        try:
+            amount = float(row.get("totalFunding"))
+        except (TypeError, ValueError):
+            amount = float("nan")
+        if not isfinite(amount):
+            notes.append(f"资金费归因不完整：{symbol} 平仓历史 totalFunding 非法")
+            continue
+        prior = previous_by_symbol.get(symbol)
+        carries_previous_cycle = False
+        prior_funding: float | None = None
+        if prior is not None:
+            prior_side = str(prior.get("side") or "").lower()
+            row_side = str(row.get("posSide") or "").lower()
+            try:
+                created_ms = int(row.get("createdTime"))
+            except (TypeError, ValueError):
+                created_ms = -1
+            try:
+                candidate_funding = float(prior.get("funding_cumulative"))
+            except (TypeError, ValueError):
+                candidate_funding = float("nan")
+            if isfinite(candidate_funding):
+                prior_funding = candidate_funding
+            carries_previous_cycle = (
+                prior_side == row_side
+                and created_ms >= 0
+                and created_ms <= int(start.timestamp() * 1000)
+            )
+        contribution = amount
+        if carries_previous_cycle:
+            if prior_funding is None:
+                notes.append(
+                    f"资金费归因不完整：{symbol} 跨日周期缺少上次累计基线，已按完整累计值计入"
+                )
+            else:
+                contribution = amount - prior_funding
+        funding[symbol] = funding.get(symbol, 0.0) + contribution
+        matched.add(symbol)
+
+    for symbol in sorted(candidates - matched):
+        notes.append(f"资金费归因不完整：{symbol} 当日平仓周期未在持仓历史中匹配到")
+    return funding, notes
 
 
 def _journal_entry(
@@ -203,6 +431,8 @@ def _journal_entry(
     prev_equity: float | None,
     capital_flow: float,
     warnings: list[str],
+    previous: dict[str, Any] | None = None,
+    closed_position_funding: dict[str, float] | None = None,
 ) -> JournalEntry:
     equity = (
         report.equity_after
@@ -213,8 +443,32 @@ def _journal_entry(
     position_value = 0.0
     unrealised = 0.0
     funding = 0.0
+    funding_notes: list[str] = []
+    previous_by_symbol: dict[str, dict[str, Any]] = {}
+    if previous is not None:
+        try:
+            parsed_previous = json.loads(previous.get("positions") or "[]")
+        except (TypeError, json.JSONDecodeError):
+            parsed_previous = []
+        if isinstance(parsed_previous, list):
+            previous_by_symbol = {
+                str(item.get("symbol") or "").upper(): item
+                for item in parsed_previous
+                if isinstance(item, dict) and item.get("symbol")
+            }
+    reset_symbols = {
+        str(fill.symbol).upper()
+        for fill in report.fills
+        if str(fill.action).upper() == "CLOSE"
+    }
     for row in report.positions_after:
-        raw_total = float(row.get("total") or 0.0)
+        try:
+            raw_total = float(row.get("total"))
+        except (TypeError, ValueError):
+            funding_notes.append(
+                f"资金费归因不完整：{row.get('symbol') or '<unknown>'} 的持仓数量非法"
+            )
+            continue
         size = abs(raw_total)
         if size <= 0.0:
             continue
@@ -229,7 +483,46 @@ def _journal_entry(
         notional = size * mark
         position_value += notional
         unrealised += float(row.get("unrealisedPnl") or 0.0)
-        funding += float(row.get("totalFunding") or 0.0)
+        symbol = str(row.get("symbol") or "").upper()
+        funding_cumulative: float | None = None
+        raw_funding = row.get("totalFunding")
+        if raw_funding not in (None, ""):
+            try:
+                parsed_funding = float(raw_funding)
+            except (TypeError, ValueError):
+                parsed_funding = float("nan")
+            if isfinite(parsed_funding):
+                funding_cumulative = parsed_funding
+            else:
+                funding_notes.append(f"资金费归因不完整：{symbol} totalFunding 非法")
+        else:
+            funding_notes.append(f"资金费归因不完整：{symbol} 缺少 totalFunding")
+
+        funding_delta = 0.0
+        if funding_cumulative is not None:
+            prior = previous_by_symbol.get(symbol)
+            same_cycle = (
+                prior is not None
+                and str(prior.get("side") or "").lower() == side
+                and symbol not in reset_symbols
+            )
+            prior_funding: float | None = None
+            if same_cycle:
+                try:
+                    candidate = float(prior.get("funding_cumulative"))
+                except (TypeError, ValueError):
+                    candidate = float("nan")
+                if isfinite(candidate):
+                    prior_funding = candidate
+            if same_cycle and prior_funding is not None:
+                funding_delta = funding_cumulative - prior_funding
+            else:
+                funding_delta = funding_cumulative
+                if same_cycle:
+                    funding_notes.append(
+                        f"资金费基线未知：{symbol} 首次记录累计值 {funding_cumulative:+.8f}"
+                    )
+            funding += funding_delta
         positions.append(
             {
                 "asset": str(row.get("asset") or "").lower(),
@@ -245,8 +538,24 @@ def _journal_entry(
                     else 0.0
                 ),
                 "unrealised_pnl": round(float(row.get("unrealisedPnl") or 0.0), 6),
+                "funding_cumulative": (
+                    round(funding_cumulative, 8)
+                    if funding_cumulative is not None
+                    else None
+                ),
             }
         )
+    if closed_position_funding:
+        for symbol, amount in sorted(closed_position_funding.items()):
+            try:
+                daily_amount = float(amount)
+            except (TypeError, ValueError):
+                funding_notes.append(f"资金费归因不完整：{symbol} 平仓资金费非法")
+                continue
+            if not isfinite(daily_amount):
+                funding_notes.append(f"资金费归因不完整：{symbol} 平仓资金费非有限值")
+                continue
+            funding += daily_amount
     day_pnl = (
         None
         if prev_equity is None
@@ -294,7 +603,7 @@ def _journal_entry(
             }
             for fill in report.fills
         ],
-        notes=[*report.margin_notes, *warnings],
+        notes=[*report.margin_notes, *warnings, *funding_notes],
     )
 
 
@@ -316,8 +625,62 @@ def _write_state(path: Path, key: str, status: str, report: ExecutionReport) -> 
         }
     )
     state["runs"] = runs[-40:]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(state, indent=2, sort_keys=True))
+
+
+def _decoded_trade_rows(raw: Any, *, field: str) -> list[dict[str, Any]]:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return []
+    try:
+        rows = json.loads(raw or "[]")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"journal {field} is not valid JSON") from exc
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise ValueError(f"journal {field} is not an array of objects")
+    return [dict(row) for row in rows]
+
+
+def _decoded_notes(raw: Any) -> list[str]:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return []
+    try:
+        notes = json.loads(raw or "[]")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("journal notes is not valid JSON") from exc
+    if not isinstance(notes, list) or any(not isinstance(note, str) for note in notes):
+        raise ValueError("journal notes is not an array of strings")
+    return notes
+
+
+def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> JournalEntry:
+    """Keep every same-day execution while refreshing the end-of-day snapshot."""
+
+    prior_trades = _decoded_trade_rows(previous.get("trades"), field="trades")
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    anonymous: list[dict[str, Any]] = []
+    for trade in [*prior_trades, *current.trades]:
+        order_id = str(trade.get("order_id") or "")
+        client_oid = str(trade.get("client_oid") or "")
+        if order_id:
+            merged[("order", order_id)] = trade
+        elif client_oid:
+            merged[("client", client_oid)] = trade
+        else:
+            anonymous.append(trade)
+    trades = [*merged.values(), *anonymous]
+    fees = 0.0
+    for trade in trades:
+        try:
+            fee = float(trade.get("fee") or 0.0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("journal trade fee is not numeric") from exc
+        if not isfinite(fee):
+            raise ValueError("journal trade fee is not finite")
+        fees += fee
+
+    prior_notes = _decoded_notes(previous.get("notes"))
+    notes = list(dict.fromkeys([str(note) for note in prior_notes + current.notes]))
+    return replace(current, fees_today=round(fees, 8), trades=trades, notes=notes)
 
 
 def _persist_run_result(
@@ -334,10 +697,14 @@ def _persist_run_result(
 ) -> None:
     """Persist artifacts in an order that never marks an unwritten run as done."""
 
-    output = ensure_dir(json_out.parent)
-    (output / json_out.name).write_text(
+    journal = load_journal(journal_file)
+    same_day = journal.loc[journal["date"].astype(str) == entry.date]
+    if not same_day.empty:
+        entry = _merge_same_day_entry(same_day.iloc[-1].to_dict(), entry)
+    ensure_dir(json_out.parent)
+    atomic_write_text(
+        json_out,
         json.dumps(payload, indent=2, sort_keys=True, default=str),
-        encoding="utf-8",
     )
     upsert_entry(journal_file, entry)
     if notify is not None:
@@ -345,16 +712,59 @@ def _persist_run_result(
     _write_state(state_file, key, status, report)
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def _acquire_execution_lock(path: Path) -> TextIO | None:
+    """Take a non-blocking process lock; the OS releases it on process death."""
 
+    ensure_dir(path.parent)
+    handle = path.open("a+", encoding="utf-8")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        return None
+    handle.seek(0)
+    handle.truncate()
+    handle.write(str(os.getpid()))
+    handle.flush()
+    os.fsync(handle.fileno())
+    return handle
+
+
+def _release_execution_lock(handle: TextIO) -> None:
+    with suppress(OSError):
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    handle.close()
+
+
+def _main(args: argparse.Namespace) -> int:
     if args.kill_switch.exists():
         raise SystemExit(
             f"kill switch present at {args.kill_switch}; refusing to trade "
             "(delete the file to resume)"
         )
 
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, event_execution_hint, book = load_latest_targets(args.targets_file)
+    manifest: dict[str, Any] | None = None
+    if args.manifest_file.exists():
+        payload = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
+        manifest = payload
+    try:
+        execution_hint = _effective_execution_hint(
+            signal_end_date=manifest.get("signal_end_date") if manifest else None,
+            event_execution_hint=event_execution_hint,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    timing_error = _execution_window_error(
+        execution_hint=execution_hint,
+        now=datetime.now(timezone.utc),
+        catchup_hours=float(args.catchup_hours),
+        allow_late=bool(args.allow_late_execution),
+    )
+    if timing_error is not None:
+        raise SystemExit(timing_error)
     event_age_days = (
         pd.Timestamp.now(tz="UTC").normalize() - pd.Timestamp(signal_date).normalize()
     ).days
@@ -363,8 +773,7 @@ def main(argv: list[str] | None = None) -> int:
     # sleeve changes its pick.  A book dated days ago is therefore normal -
     # what must be current is the data behind it.  Guard that instead.
     freshness_note: str | None = None
-    if args.manifest_file.exists():
-        manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+    if manifest is not None:
         staleness = manifest_staleness_hours(manifest, datetime.now(timezone.utc))
         index_end = str(manifest.get("index_end_date") or "")
         signal_end = str(manifest.get("signal_end_date") or "")
@@ -375,10 +784,15 @@ def main(argv: list[str] | None = None) -> int:
                     f"(> {args.max_mark_staleness_hours:g}h); "
                     "run make derivatives-live-data first"
                 )
-            if index_end and signal_end and index_end < signal_end:
+            if not index_end or not signal_end:
+                raise SystemExit(
+                    f"manifest {args.manifest_file} is missing index_end_date or "
+                    "signal_end_date; refusing to trade without an evaluated-date proof"
+                )
+            if index_end != signal_end:
                 raise SystemExit(
                     f"target book was only evaluated through {index_end} while data "
-                    f"reaches {signal_end}; run make derivatives-oos first"
+                    f"reaches {signal_end}; refresh the LS45 signal first"
                 )
         freshness_note = (
             f"数据管线: mark 最新 {manifest.get('last_mark')}（{staleness:.1f}h 前）、"
@@ -403,6 +817,12 @@ def main(argv: list[str] | None = None) -> int:
         for record in book.to_dict("records")
         if abs(float(record["target_weight"])) > 0.0
     }
+    gross_weight = target_gross_weight(targets)
+    if gross_weight > float(args.max_gross_multiple) + 1e-9:
+        raise SystemExit(
+            f"frozen target gross {gross_weight:.6f}x exceeds the "
+            f"{float(args.max_gross_multiple):g}x spec cap"
+        )
     symbols_by_asset = load_symbol_map(args.symbol_map)
     # Resolve the venue contract for every asset the account can hold, not just
     # today's targets: a "go to cash" book has no targets at all and the close
@@ -418,6 +838,14 @@ def main(argv: list[str] | None = None) -> int:
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
     account = account_state_from_bitget(client, {**symbols_by_asset, **relevant_symbols})
+    missing_specs = missing_contract_specs(
+        specs,
+        set(targets).union(account.positions),
+    )
+    if missing_specs:
+        raise SystemExit(
+            "no Bitget contract spec for required asset(s): " + ", ".join(missing_specs)
+        )
     if account.equity < args.equity_floor:
         raise SystemExit(
             f"account equity {account.equity:.2f} USDT is below the "
@@ -604,6 +1032,61 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Notified execution report {key} to {chat_id}")
 
     if args.live:
+        closed_funding: dict[str, float] = {}
+        funding_notes: list[str] = []
+        needs_closed_funding = False
+        if previous is not None:
+            try:
+                prior_positions = json.loads(previous.get("positions") or "[]")
+            except (TypeError, json.JSONDecodeError):
+                prior_positions = []
+            current_sides = {
+                str(row.get("symbol") or "").upper(): (
+                    "short"
+                    if str(row.get("posSide") or "").lower() == "short"
+                    or (
+                        str(row.get("posSide") or "").lower() in {"", "net"}
+                        and float(row.get("total") or 0.0) < 0.0
+                    )
+                    else "long"
+                )
+                for row in report.positions_after
+                if str(row.get("symbol") or "")
+                and abs(float(row.get("total") or 0.0)) > 1e-12
+            }
+            for prior in prior_positions if isinstance(prior_positions, list) else []:
+                if not isinstance(prior, dict):
+                    continue
+                prior_symbol = str(prior.get("symbol") or "").upper()
+                prior_side = str(prior.get("side") or "").lower()
+                if prior_symbol and current_sides.get(prior_symbol) != prior_side:
+                    needs_closed_funding = True
+                    break
+            needs_closed_funding = needs_closed_funding or any(
+                str(fill.action).upper() == "CLOSE" for fill in report.fills
+            )
+        if needs_closed_funding and previous is not None and previous.get("run_at_utc"):
+            try:
+                previous_at = pd.Timestamp(previous["run_at_utc"])
+                start_ms = int((previous_at - pd.Timedelta(hours=1)).timestamp() * 1000)
+                end_ms = int((run_at + pd.Timedelta(hours=1)).timestamp() * 1000)
+                history = client.position_history(
+                    start_time_ms=start_ms,
+                    end_time_ms=end_ms,
+                )
+                closed_funding, funding_notes = _closed_funding_from_history(
+                    history,
+                    previous=previous,
+                    current_positions=report.positions_after,
+                    fills=report.fills,
+                    previous_run_at=previous_at,
+                    run_at=run_at,
+                )
+            except (BitgetAPIError, ValueError, OSError) as exc:
+                funding_notes.append(
+                    f"资金费归因不完整：读取平仓持仓历史失败（{exc}）"
+                )
+        notes.extend(funding_notes)
         entry = _journal_entry(
             report,
             signal_date=str(signal_date.date()),
@@ -611,6 +1094,8 @@ def main(argv: list[str] | None = None) -> int:
             prev_equity=prev_equity,
             capital_flow=capital_flow,
             warnings=notes,
+            previous=previous,
+            closed_position_funding=closed_funding,
         )
         _persist_run_result(
             json_out=args.json_out,
@@ -619,6 +1104,7 @@ def main(argv: list[str] | None = None) -> int:
                 "signal_date": str(signal_date.date()),
                 "execution_hint": str(execution_hint),
                 "live_execution_hint": str(execution_hint),
+                "event_execution_hint": str(event_execution_hint),
                 "client_oid_prefix": client_oid_prefix,
                 "quotes": {
                     asset: quotes[symbol].as_dict()
@@ -645,6 +1131,94 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{len(report.failures)} order(s) failed; state written as {status}")
         return 1
     return 0
+
+
+def _handle_fatal_execution(args: argparse.Namespace, exc: BaseException) -> int:
+    """Persist and notify a pre-report execution failure without marking done."""
+
+    now = datetime.now(timezone.utc)
+    detail = str(exc) or type(exc).__name__
+    message = "\n".join(
+        [
+            "🚨 Atlas20 实盘执行失败",
+            f"规格: {args.spec}",
+            f"时间: {now.isoformat()}",
+            f"错误: {type(exc).__name__}: {detail}",
+            "执行状态未标记为完成；下一次窗口内重试仍可继续。",
+        ]
+    )
+    if args.live:
+        payload = {
+            "spec": args.spec,
+            "status": "error",
+            "occurred_at": now.isoformat(),
+            "error_type": type(exc).__name__,
+            "error": detail,
+        }
+        try:
+            ensure_dir(args.json_out.parent)
+            atomic_write_text(
+                args.json_out,
+                json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
+            )
+        except OSError as persist_exc:
+            print(
+                f"could not persist fatal execution report: {persist_exc}",
+                file=sys.stderr,
+            )
+    print(message)
+    if args.notify:
+        token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN", "")
+        chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
+        if token and chat_ids:
+            api_base = os.environ.get(
+                "ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org"
+            )
+            for chat_id in chat_ids:
+                try:
+                    send_telegram_message(
+                        message,
+                        token=token,
+                        chat_id=chat_id,
+                        api_base=api_base,
+                    )
+                except Exception as notify_exc:
+                    print(
+                        f"could not send fatal Telegram alert: {notify_exc}",
+                        file=sys.stderr,
+                    )
+        else:
+            print(
+                "no Telegram credentials available for fatal alert",
+                file=sys.stderr,
+            )
+    return 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    lock: TextIO | None = None
+    if args.live:
+        try:
+            lock = _acquire_execution_lock(args.lock_file)
+        except Exception as exc:
+            return _handle_fatal_execution(args, exc)
+        if lock is None:
+            print(f"another Atlas20 execution process holds {args.lock_file}; nothing to do")
+            return 0
+    try:
+        try:
+            return _main(args)
+        except SystemExit as exc:
+            code = exc.code
+            if code in (None, 0):
+                return 0
+            return _handle_fatal_execution(args, exc)
+        except Exception as exc:
+            return _handle_fatal_execution(args, exc)
+    finally:
+        if lock is not None:
+            _release_execution_lock(lock)
 
 
 if __name__ == "__main__":

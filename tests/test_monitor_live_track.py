@@ -151,3 +151,43 @@ def test_monitor_compares_signed_short_notional_to_the_signed_target() -> None:
 
     assert actual["near"] == pytest.approx(-100.0)
     assert actual["tron"] == pytest.approx(-20.0)
+
+
+def test_audit_timeout_becomes_a_diagnostic_instead_of_an_unhandled_exception(tmp_path, monkeypatch) -> None:
+    import subprocess
+    from scripts import monitor_live_track
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="audit", timeout=180)
+
+    monkeypatch.setattr(monitor_live_track.subprocess, "run", timeout)
+
+    code, payload, stderr = monitor_live_track._run_audit(tmp_path / "flows.csv")
+
+    assert code == 124
+    assert payload == {}
+    assert "timed out" in stderr
+
+
+def test_monitor_unexpected_failure_is_written_and_notified(tmp_path, monkeypatch) -> None:
+    from scripts import monitor_live_track
+
+    monkeypatch.setenv("ATLAS20_TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "123")
+    sent: list[str] = []
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("venue unavailable")
+
+    def capture(message, **kwargs):
+        sent.append(message)
+
+    monkeypatch.setattr(monitor_live_track, "_run_audit", fail)
+    monkeypatch.setattr(monitor_live_track, "send_telegram_message", capture)
+    out = tmp_path / "health.json"
+
+    code = monitor_live_track.main(["--notify", "--quiet", "--out", str(out)])
+
+    assert code == 1
+    assert sent and "venue unavailable" in sent[0]
+    assert json.loads(out.read_text(encoding="utf-8"))["issues"]

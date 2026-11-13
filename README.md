@@ -9,19 +9,35 @@
 [![React](https://img.shields.io/badge/web-React%2FVite-61dafb)](apps/web)
 [![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ed)](docker-compose.yml)
 
-Atlas20 Rotation is a production-minded crypto research console for testing
-whether point-in-time top-20 non-stablecoin rotation can outperform BTC
-buy-and-hold and top-20 equal weight benchmarks.
+Atlas20 Rotation is a production-minded crypto research and derivatives
+execution system for point-in-time top-20 non-stablecoin rotation research,
+paper/live reconciliation, and controlled Bitget USDT-M execution.
 
 It is built like an operational research system, not a notebook dump: public
 data ingestion, reproducible backtests, FastAPI services, a queued worker,
 Prometheus metrics, OpenAPI contracts, Docker Compose deployment, GHCR images,
 and a React/Vite console for reviewing results.
 
-> Research only. Atlas20 does not provide financial advice and does not execute
-> trades.
+> Atlas20 contains an explicitly gated live derivatives executor. It does not
+> provide financial advice; research tracks and live tracks are named and
+> reported separately, and live promotion still requires owner approval.
 
-## Current Research Conclusion
+## Current Live Track and Research Record
+
+The current live default is **`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`**
+on Bitget USDT-M: a signed long/short H5 book, 1.25x maximum gross notional,
+2x isolated leverage per leg with a 50% initial buffer, and a 20%
+mark-price market stop on every short entry/increase. The execution convention
+is T+1 +3h; the daily automation starts at 03:05 UTC. The target book may be
+100% cash, and today's daily run still reconciles even when the latest strategy
+event is several days old.
+
+The current live decision is a direct owner-approved live test, not a claim of
+long-run out-of-sample validation. `RESEARCH.md` section 00.138 is the
+authoritative research record; the implementation and recovery rules are in
+[`docs/operations/derivatives_live_runbook.md`](docs/operations/derivatives_live_runbook.md).
+
+### Historical H5 spot-long phase (superseded for live)
 
 The authoritative conclusion is in `RESEARCH.md` (sections 00 and 00.13, 2026-10-08). The current
 frozen specification is **H5** (`PR2026-10-H5`): a strict point-in-time Top20, no-leverage
@@ -315,7 +331,7 @@ npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.n
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 1,538 Python tests plus
+Current local verification for this release line covers 2,119 Python tests plus
 249 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
 Ruff, plus Python and frontend dependency audits.
 
@@ -331,6 +347,8 @@ Ruff, plus Python and frontend dependency audits.
 | Reports | Markdown, CSV, PNG, PDF fallback, zip bundle, manifest verification |
 | Deployment | Dockerfile, `apps/web/Dockerfile`, Docker Compose, GHCR image references |
 | Security | API key/JWT hooks, prod settings gates, report path validation, log redaction |
+| Live derivatives | frozen signed target book, isolated 2x legs, live short stops, reconciliation, atomic journal/state, same-day retry recovery |
+| Workstation uptime | launchd execute/monitor jobs plus `com.atlas20.keep-awake` (`caffeinate -dimsu`) so sleep does not silently miss the window |
 
 See `docs/operations/` for backup, storage, logging, worker, security, and load
 testing notes. The strategy's go-live checklist, the Deflated-Sharpe horizon analysis and the

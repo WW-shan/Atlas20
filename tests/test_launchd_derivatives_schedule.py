@@ -170,7 +170,7 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     """Only a human may drop the window; the scheduled fires must obey it.
 
     The window gate would otherwise make the documented manual catch-up
-    (`ops/run_derivatives_daily.sh`) a silent no-op outside 01:05-07:05 UTC.
+    (`ops/run_derivatives_daily.sh`) a silent no-op outside 03:05-09:05 UTC.
     """
 
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
@@ -178,6 +178,22 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
 
     assert '[ "${1:-}" = "--force" ]' in script
     assert "live_chain_preflight.py --check window --force" in script
+    assert "--allow-late-execution" in script
     # launchd passes the wrapper path and nothing else, so every scheduled or
     # RunAtLoad fire goes through the window.
     assert len(payload["ProgramArguments"]) == 2
+
+
+KEEP_AWAKE_PLIST = PROJECT_ROOT / "ops" / "com.atlas20.keep-awake.plist"
+
+
+def test_keep_awake_agent_is_a_login_persistent_system_sleep_guard():
+    payload = plistlib.loads(KEEP_AWAKE_PLIST.read_bytes())
+
+    assert payload["Label"] == "com.atlas20.keep-awake"
+    assert payload["ProgramArguments"] == ["/usr/bin/caffeinate", "-dimsu"]
+    assert payload["RunAtLoad"] is True
+    assert payload["KeepAlive"] is True
+    assert payload["ThrottleInterval"] == 30
+    assert payload["StandardOutPath"] == payload["StandardErrorPath"]
+    assert payload["StandardOutPath"].endswith("Library/Logs/atlas20-keep-awake.log")

@@ -254,22 +254,22 @@ def robustness_diagnostics(
     overlay_rolling = _rolling_365(overlay)
     baseline_rolling = _rolling_365(baseline)
     rolling = pd.concat({"overlay": overlay_rolling, "baseline": baseline_rolling}, axis=1).dropna()
-    rolling["excess_multiple_365d"] = (
+    rolling[("", "excess_multiple_365d")] = (
         rolling[("overlay", "rolling_multiple_365d")]
         - rolling[("baseline", "rolling_multiple_365d")]
     )
-    rolling["excess_sharpe_365d"] = (
+    rolling[("", "excess_sharpe_365d")] = (
         rolling[("overlay", "rolling_sharpe_365d")]
         - rolling[("baseline", "rolling_sharpe_365d")]
     )
-    rolling = rolling.reset_index().rename(columns={rolling.index.name or "index": "date"})
-    rolling.insert(0, "scenario", scenario)
     rolling.columns = [
         "_|_".join(str(part) for part in column if part)
         if isinstance(column, tuple)
         else str(column)
         for column in rolling.columns
     ]
+    rolling = rolling.reset_index().rename(columns={rolling.index.name or "index": "date"})
+    rolling.insert(0, "scenario", scenario)
 
     log_excess = np.log1p(overlay.clip(lower=-0.999999)) - np.log1p(
         baseline.clip(lower=-0.999999)

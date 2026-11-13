@@ -13,6 +13,7 @@ second one, so day-over-day PnL never double counts.
 
 from __future__ import annotations
 
+import io
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,6 +22,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from atlas20.logging_utils import atomic_write_text
 
 JOURNAL_COLUMNS = [
     "date",
@@ -89,10 +92,23 @@ def load_journal(path: Path) -> pd.DataFrame:
     if not Path(path).exists():
         return pd.DataFrame(columns=JOURNAL_COLUMNS)
     frame = pd.read_csv(path)
+    had_capital_flow = "capital_flow" in frame.columns
     for column in JOURNAL_COLUMNS:
         if column not in frame.columns:
             frame[column] = None
-    frame["capital_flow"] = pd.to_numeric(frame["capital_flow"], errors="coerce").fillna(0.0)
+    dates = frame["date"].astype(str).str.strip()
+    if (dates == "").any() or dates.str.lower().eq("nan").any():
+        raise ValueError("journal contains a missing date")
+    duplicated = dates[dates.duplicated()].unique().tolist()
+    if duplicated:
+        raise ValueError(f"journal contains duplicate date(s): {', '.join(duplicated)}")
+    if had_capital_flow:
+        parsed_flow = pd.to_numeric(frame["capital_flow"], errors="coerce")
+        if parsed_flow.isna().any():
+            raise ValueError("journal capital_flow contains a missing or non-numeric value")
+        frame["capital_flow"] = parsed_flow.astype(float)
+    else:
+        frame["capital_flow"] = 0.0
     return frame[JOURNAL_COLUMNS]
 
 
@@ -334,8 +350,9 @@ def append_capital_flow(
         columns=CAPITAL_FLOW_COLUMNS,
     )
     frame = pd.concat([frame, row], ignore_index=True).sort_values("timestamp_utc")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, index=False)
+    buffer = io.StringIO()
+    frame.to_csv(buffer, index=False)
+    atomic_write_text(path, buffer.getvalue())
     return frame.reset_index(drop=True)
 
 
@@ -348,6 +365,7 @@ def upsert_entry(path: Path, entry: JournalEntry) -> pd.DataFrame:
         frame = frame[frame["date"].astype(str) != str(entry.date)]
     frame = pd.concat([frame, row], ignore_index=True) if not frame.empty else row
     frame = frame.sort_values("date").reset_index(drop=True)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, index=False)
+    buffer = io.StringIO()
+    frame.to_csv(buffer, index=False)
+    atomic_write_text(path, buffer.getvalue())
     return frame

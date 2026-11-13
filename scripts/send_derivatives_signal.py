@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+from math import isfinite
 import os
 from pathlib import Path
 import sys
@@ -32,6 +33,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
+from atlas20.logging_utils import atomic_write_text  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
     _chat_ids,
     _read_state,
@@ -70,11 +72,42 @@ def load_latest_targets(path: Path) -> tuple[pd.Timestamp, pd.Timestamp, pd.Data
         raise SystemExit(f"targets file {path} is missing columns: {missing}")
     if frame.empty:
         raise SystemExit(f"targets file {path} has no rows")
-    frame["signal_date"] = pd.to_datetime(frame["signal_date"], utc=True, format="mixed")
-    frame["execution_hint"] = pd.to_datetime(frame["execution_hint"], utc=True, format="mixed")
+    frame["signal_date"] = pd.to_datetime(
+        frame["signal_date"], utc=True, format="mixed", errors="coerce"
+    )
+    frame["execution_hint"] = pd.to_datetime(
+        frame["execution_hint"], utc=True, format="mixed", errors="coerce"
+    )
+    if frame["signal_date"].isna().any() or frame["execution_hint"].isna().any():
+        raise SystemExit(f"targets file {path} contains an invalid signal_date or execution_hint")
     latest = frame["signal_date"].max()
     book = frame.loc[frame["signal_date"] == latest].copy()
-    return latest, pd.Timestamp(book["execution_hint"].iloc[0]), book
+    hints = book["execution_hint"].drop_duplicates()
+    if len(hints) != 1:
+        raise SystemExit(
+            f"targets file {path} has inconsistent execution_hint values on {latest.date()}"
+        )
+    execution_hint = pd.Timestamp(hints.iloc[0])
+    expected_hint = latest + pd.Timedelta(days=1, hours=3)
+    if execution_hint != expected_hint:
+        raise SystemExit(
+            f"targets file {path} must use the current T+1 +3h execution_hint "
+            f"{expected_hint.isoformat()}, got {execution_hint.isoformat()}"
+        )
+    assets = book["asset"].astype(str).str.strip().str.lower()
+    if (assets == "").any() or assets.duplicated().any():
+        raise SystemExit(f"targets file {path} has an empty or duplicate asset on {latest.date()}")
+    book["asset"] = assets
+    for column in ("target_weight", "change_weight"):
+        parsed = pd.to_numeric(book[column], errors="coerce")
+        invalid = parsed.isna() | ~parsed.map(isfinite)
+        if invalid.any():
+            rows = ", ".join(book.loc[invalid, "asset"].astype(str).tolist())
+            raise SystemExit(
+                f"targets file {path} has a non-finite {column} for: {rows}"
+            )
+        book[column] = parsed.astype(float)
+    return latest, execution_hint, book
 
 
 def _close_and_execution_lines(signal_date: pd.Timestamp, execution_hint: pd.Timestamp) -> list[str]:
@@ -212,8 +245,7 @@ def _mark_sent(path: Path, chat_id: str, *, spec: str, signal_date: pd.Timestamp
     state["trial_id"] = spec
     state["signal_date"] = str(pd.Timestamp(signal_date).date())
     state["sent_at"] = datetime.now(timezone.utc).isoformat()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(state, indent=2, sort_keys=True))
 
 
 def main(argv: list[str] | None = None) -> None:

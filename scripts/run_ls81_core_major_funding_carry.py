@@ -256,11 +256,12 @@ def build_pit_funding_carry_schedule(
         else:
             long_assets = set()
         short_assets = {asset for asset, _ in ranked[-count:]} if short_enabled else set()
-        target = pd.Series(dtype=float)
+        weights: dict[str, float] = {}
         for asset in sorted(long_assets):
-            target.at[asset] = per_asset_weight
+            weights[asset] = per_asset_weight
         for asset in sorted(short_assets):
-            target.at[asset] = -per_asset_weight
+            weights[asset] = -per_asset_weight
+        target = pd.Series(weights, dtype=float)
         schedule[date] = target.sort_index()
         for asset, score in sorted(scores.items()):
             side = "long" if asset in long_assets else "short" if asset in short_assets else "none"

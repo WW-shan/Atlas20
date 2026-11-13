@@ -679,6 +679,7 @@ def trim_extreme_run_single_leader_skip_and_redistribute(
     combined["skip_negative_confirmation_above_ma_active"] = combined["date"].map(
         skip_rows["skip_negative_confirmation_above_ma_active"]
     ).fillna(False).astype(bool)
+    combined["applied_rule"] = ""
     result: dict[pd.Timestamp, pd.Series] = {}
     for row_index, row in combined.iterrows():
         date = _as_utc(row["date"])

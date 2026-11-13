@@ -141,6 +141,13 @@ def test_manifest_staleness_fails_closed_on_an_invalid_last_mark() -> None:
     assert hours == float("inf")
 
 
+def test_manifest_staleness_fails_closed_without_a_live_mark_timestamp() -> None:
+    now = datetime(2026, 11, 14, 0, 0, tzinfo=timezone.utc)
+
+    assert manifest_staleness_hours({}, now) == float("inf")
+    assert manifest_staleness_hours({"staleness_hours": "not-a-number"}, now) == float("inf")
+
+
 def test_window_opens_at_the_fill_time() -> None:
     before = datetime(2026, 10, 16, 3, 4, tzinfo=timezone.utc)
     ok, reason = within_run_window(before)

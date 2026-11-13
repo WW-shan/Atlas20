@@ -23,7 +23,8 @@
 # checkout and the credentials somewhere else, so both paths are overridable.
 #
 # The primary schedule fires at 11:05 Beijing = 03:05 UTC, five minutes after
-# the LS45 ledger's T+1 +3h execution hint. The 03:35/04:35/06:35 UTC fires
+# the manifest-derived T+1 +3h daily execution time. The event book itself may
+# be unchanged for several days. The 03:35/04:35/06:35 UTC fires
 # remain fallbacks; a successful same-day run makes those retries no-ops.
 # macOS loads the job at boot (RunAtLoad) and
 # systemd replays a missed timer fire (Persistent=true);
@@ -73,9 +74,11 @@ cd "$PROJECT_ROOT"
 # idempotency still refuses a second trade.  Neither launchd nor systemd ever
 # passes an argument, so the scheduled and boot-replay fires always obey the
 # window.
+make_args=""
 window_status=0
 if [ "${1:-}" = "--force" ]; then
   .venv/bin/python scripts/live_chain_preflight.py --check window --force || window_status=$?
+  make_args="ARGS=--allow-late-execution"
 else
   .venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
 fi
@@ -121,4 +124,6 @@ fi
 # --- 3/4. The chain itself ---------------------------------------------------
 # Refresh the Bitget mark tree, rebuild the frozen LS45 ledger, then execute.
 # The executor refuses to trade on stale data, so this order is mandatory.
-/usr/bin/make derivatives-live
+# A human `--force` catch-up also passes the executor's explicit late-window
+# acknowledgement; scheduled fires never receive that argument.
+/usr/bin/make derivatives-live $make_args

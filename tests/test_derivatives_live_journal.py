@@ -181,3 +181,30 @@ def test_loading_non_finite_capital_flow_rejects_the_ledger(tmp_path: Path, amou
 
     with pytest.raises(ValueError, match="invalid timestamp or amount"):
         load_capital_flows(path)
+
+
+def test_journal_rejects_a_non_numeric_capital_flow_instead_of_zeroing_it(tmp_path: Path) -> None:
+    path = tmp_path / "journal.csv"
+    path.write_text(
+        "date,run_at_utc,signal_date,equity,position_value,cash,capital_flow,"
+        "day_pnl,day_return,fees_today,funding_total,unrealised_pnl,positions,trades,notes\n"
+        "2026-10-31,2026-10-31T03:06:00+00:00,2026-10-30,99.68,0,99.68,oops,"
+        "0,0,0,0,0,[],[],[]\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="capital_flow"):
+        load_journal(path)
+
+
+def test_journal_rejects_duplicate_dates(tmp_path: Path) -> None:
+    path = tmp_path / "journal.csv"
+    upsert_entry(path, _entry("2026-10-31", 100.0, 0.0))
+    frame = load_journal(path)
+    duplicate = frame.copy()
+    duplicate.to_csv(path, index=False)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(duplicate.to_csv(index=False, header=False))
+
+    with pytest.raises(ValueError, match="duplicate date"):
+        load_journal(path)

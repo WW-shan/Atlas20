@@ -29,7 +29,7 @@ def _panel(last_day: pd.Timestamp, *, coins: int = 30, days: int = 40, noise: bo
     caps = rng.uniform(1e9, 1e12, coins)
     rows = []
     for position, day in enumerate(dates):
-        weekend = 0.75 if day.dayofweek >= 5 else 1.0
+        weekend = 0.75 if day.day_of_week >= 5 else 1.0
         market = float(rng.lognormal(0.0, 0.1)) if noise else 1.0
         for coin in range(coins):
             idiosyncratic = float(rng.lognormal(0.0, 0.25)) if noise else 1.0

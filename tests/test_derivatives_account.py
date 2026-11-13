@@ -365,3 +365,144 @@ def test_fractional_leverage_keeps_its_decimals() -> None:
     client.set_leverage("NEARUSDT", 1.25)
 
     assert json.loads(session.calls[0]["data"])["leverage"] == "1.25"
+
+
+def test_unfilled_orders_follow_cursor_until_exhausted() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": {"list": [{"orderId": "1"}], "cursor": "next-1"},
+                }
+            ),
+            _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": {"list": [{"orderId": "2"}], "cursor": None},
+                }
+            ),
+        ]
+    )
+    client = _client(session)
+
+    rows = client.unfilled_orders(category="USDT-FUTURES", symbol="NEARUSDT")
+
+    assert [row["orderId"] for row in rows] == ["1", "2"]
+    assert "cursor=next-1" in session.calls[1]["url"]
+
+
+def test_cancel_order_uses_one_identifier_and_the_futures_category() -> None:
+    session = _FakeSession(
+        [_FakeResponse({"code": "00000", "data": {"orderId": "123"}})]
+    )
+    client = _client(session)
+
+    client.cancel_order(order_id="123", category="USDT-FUTURES")
+
+    body = json.loads(session.calls[0]["data"])
+    assert body == {"category": "USDT-FUTURES", "orderId": "123"}
+
+
+def test_order_history_all_splits_queries_into_thirty_day_windows() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse(
+                {"code": "00000", "data": {"list": [{"orderId": "old"}], "cursor": None}}
+            ),
+            _FakeResponse(
+                {"code": "00000", "data": {"list": [{"orderId": "middle"}], "cursor": None}}
+            ),
+            _FakeResponse(
+                {"code": "00000", "data": {"list": [{"orderId": "new"}], "cursor": None}}
+            ),
+        ]
+    )
+    client = _client(session)
+    end_ms = 1_800_000_000_000
+    start_ms = end_ms - 61 * 86_400_000
+
+    rows = client.order_history_all(start_time_ms=start_ms, end_time_ms=end_ms)
+
+    assert [row["orderId"] for row in rows] == ["old", "middle", "new"]
+    assert len(session.calls) == 3
+    assert all("/api/v3/trade/history-orders" in call["url"] for call in session.calls)
+
+
+def test_order_history_rejects_an_identifier_pair() -> None:
+    session = _FakeSession([])
+    client = _client(session)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        client.order_info(order_id="1", client_oid="both")
+
+
+def test_position_history_uses_the_v3_endpoint_and_cursor_pages() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": {
+                        "list": [
+                            {
+                                "symbol": "NEARUSDT",
+                                "posSide": "long",
+                                "totalFunding": "-0.04",
+                            }
+                        ],
+                        "cursor": None,
+                    },
+                }
+            )
+        ]
+    )
+    client = _client(session)
+
+    rows = client.position_history(start_time_ms=1000, end_time_ms=2000)
+
+    assert rows[0]["symbol"] == "NEARUSDT"
+    assert "/api/v3/position/history-position" in session.calls[0]["url"]
+
+
+def test_current_positions_rejects_a_malformed_success_payload() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    with pytest.raises(BitgetAPIError, match="current-position"):
+        client.current_positions()
+
+
+def test_account_settings_missing_hold_mode_fails_closed() -> None:
+    session = _FakeSession([_FakeResponse({"code": "00000", "data": {}})])
+    client = _client(session)
+
+    with pytest.raises(BitgetAPIError, match="holdMode"):
+        client.hold_mode()
+
+
+def test_unfilled_strategy_orders_accepts_the_v3_list_payload() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": [
+                        {
+                            "symbol": "NEARUSDT",
+                            "posSide": "short",
+                            "stopLoss": "6",
+                            "slTriggerBy": "mark_price",
+                            "slOrderType": "market",
+                        }
+                    ],
+                }
+            )
+        ]
+    )
+    client = _client(session)
+
+    rows = client.unfilled_strategy_orders()
+
+    assert rows[0]["symbol"] == "NEARUSDT"
+    assert "/api/v3/trade/unfilled-strategy-orders" in session.calls[0]["url"]

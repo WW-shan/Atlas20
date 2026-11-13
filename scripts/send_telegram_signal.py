@@ -21,6 +21,8 @@ from typing import Any
 
 import requests
 
+from atlas20.logging_utils import atomic_write_text
+
 
 def _weight_map(raw: object) -> dict[str, float]:
     if not isinstance(raw, Mapping):
@@ -184,8 +186,7 @@ def _mark_sent(path: Path, chat_id: str, payload: Mapping[str, Any]) -> None:
     state["trial_id"] = payload.get("trial_id")
     state["as_of"] = payload.get("as_of")
     state["sent_at"] = datetime.now(timezone.utc).isoformat()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(state, indent=2, sort_keys=True))
 
 
 def _load_signal(path: Path) -> dict[str, Any]:

@@ -40,3 +40,15 @@ def test_configure_logging_serializes_exception_traceback(capsys):
     assert "Traceback" in payload["exception"]
     assert "RuntimeError: sensitive-free failure" in payload["exception"]
     assert "exc_info" not in payload
+
+
+def test_atomic_write_text_replaces_a_complete_file(tmp_path) -> None:
+    from atlas20.logging_utils import atomic_write_text
+
+    path = tmp_path / "state.json"
+    path.write_text("old", encoding="utf-8")
+
+    atomic_write_text(path, "new\n")
+
+    assert path.read_text(encoding="utf-8") == "new\n"
+    assert list(tmp_path.iterdir()) == [path]

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta, timezone
+from math import isfinite
 import json
 from pathlib import Path
 import sys
@@ -37,6 +38,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.live_chain import manifest_staleness_hours  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
@@ -44,7 +46,7 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     net_capital_flow,
     protected_short_symbols,
 )
-from atlas20.logging_utils import ensure_dir  # noqa: E402
+from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_SYMBOL_MAP,
@@ -55,6 +57,8 @@ from scripts.plan_live_execution import (  # noqa: E402
     load_symbol_map,
     spec_symbol_universe,
     specs_from_instruments,
+    symbol_to_asset_index,
+    target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 
@@ -62,6 +66,8 @@ DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
 DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/audit.json")
 SPEC_MAX_GROSS = 1.25
+SPEC_VENUE_LEVERAGE = 2.0
+SPEC_MIN_MARGIN_RATIO = 0.45
 
 
 def _num(value: object) -> float:
@@ -69,6 +75,127 @@ def _num(value: object) -> float:
         return float(value or 0.0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _unknown_position_symbols(
+    positions: list[dict],
+    symbols_by_asset: dict[str, str],
+) -> list[str]:
+    index = symbol_to_asset_index(symbols_by_asset)
+    return sorted(
+        {
+            str(row.get("symbol") or "").upper()
+            for row in positions
+            if str(row.get("symbol") or "").upper() not in index
+        }
+    )
+
+
+def _position_risk_issues(positions: list[dict]) -> list[str]:
+    """Check venue margin mode, leverage and the per-leg initial buffer."""
+
+    issues: list[str] = []
+    for row in positions:
+        qty = _position_signed_qty(row)
+        if abs(qty) <= 1e-12:
+            continue
+        symbol = str(row.get("symbol") or "").upper() or "<missing-symbol>"
+        mode = str(row.get("marginMode") or "").strip().lower()
+        if mode != "isolated":
+            issues.append(f"{symbol}: marginMode={mode or 'missing'}，要求 isolated")
+
+        pos_side = str(row.get("posSide") or "").lower()
+        raw_leverage = row.get("leverage")
+        if raw_leverage in (None, ""):
+            raw_leverage = (
+                row.get("shortLeverage")
+                if pos_side == "short"
+                else row.get("longLeverage")
+            )
+        leverage = _num(raw_leverage)
+        if leverage <= 0.0:
+            issues.append(f"{symbol}: leverage 缺失或非法 ({raw_leverage!r})")
+        elif abs(leverage - SPEC_VENUE_LEVERAGE) > 1e-9:
+            issues.append(
+                f"{symbol}: leverage={leverage:g}，要求 {SPEC_VENUE_LEVERAGE:g}x"
+            )
+
+        mark = _num(row.get("markPrice") or row.get("avgPrice"))
+        notional = abs(qty) * mark
+        raw_margin = row.get("positionBalance")
+        if raw_margin in (None, ""):
+            raw_margin = row.get("marginSize")
+        if raw_margin in (None, ""):
+            raw_margin = row.get("isolatedMargin")
+        margin = _num(raw_margin)
+        if notional <= 0.0:
+            issues.append(f"{symbol}: 无法计算名义价值 (qty={qty:g}, mark={mark:g})")
+        elif margin <= 0.0:
+            issues.append(f"{symbol}: positionBalance 缺失或为零")
+        else:
+            ratio = margin / notional
+            if ratio + 1e-9 < SPEC_MIN_MARGIN_RATIO:
+                issues.append(
+                    f"{symbol}: margin buffer {ratio:.3%} < {SPEC_MIN_MARGIN_RATIO:.0%}"
+                )
+    return issues
+
+
+def _finite_number_issue(value: object, field: str) -> str | None:
+    if value is None or value == "":
+        return f"{field} 缺失"
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return f"{field} 非法 ({value!r})"
+    if not isfinite(number):
+        return f"{field} 非有限值 ({value!r})"
+    return None
+
+
+def _account_data_issues(assets: dict) -> list[str]:
+    issues: list[str] = []
+    for key in ("usdtEquity", "usdtUnrealisedPnl", "positionValue"):
+        issue = _finite_number_issue(assets.get(key), key)
+        if issue:
+            issues.append(issue)
+    usdt_row = next(
+        (
+            row
+            for row in assets.get("assets") or []
+            if isinstance(row, dict) and str(row.get("coin", "")).upper() == "USDT"
+        ),
+        None,
+    )
+    if usdt_row is None:
+        issues.append("USDT asset row 缺失")
+    else:
+        for key in ("balance", "available"):
+            issue = _finite_number_issue(usdt_row.get(key), f"USDT {key}")
+            if issue:
+                issues.append(issue)
+    return issues
+
+
+def _position_data_issues(positions: list[dict]) -> list[str]:
+    issues: list[str] = []
+    for row in positions:
+        symbol = str(row.get("symbol") or "").upper() or "<missing-symbol>"
+        issue = _finite_number_issue(row.get("total"), f"{symbol} total")
+        if issue:
+            issues.append(issue)
+            continue
+        total = float(row.get("total"))
+        if abs(total) <= 1e-12:
+            continue
+        pos_side = str(row.get("posSide") or "").strip().lower()
+        if pos_side not in {"", "long", "short", "net"}:
+            issues.append(f"{symbol} posSide 非法 ({pos_side!r})")
+        mark_value = row.get("markPrice", row.get("avgPrice"))
+        issue = _finite_number_issue(mark_value, f"{symbol} markPrice")
+        if issue:
+            issues.append(issue)
+    return issues
 
 
 def _fees(row: dict) -> float:
@@ -139,6 +266,73 @@ def _short_stop_gaps(journal: pd.DataFrame, positions: list[dict]) -> list[str]:
     return sorted(set(gaps))
 
 
+def _venue_short_stop_gaps(
+    positions: list[dict],
+    strategy_orders: list[dict],
+) -> list[str]:
+    """Open shorts without a currently visible mark-price market stop order."""
+
+    open_shorts = {
+        str(row.get("symbol") or "").upper()
+        for row in positions
+        if _position_signed_qty(row) < 0.0 and str(row.get("symbol") or "")
+    }
+    protected: set[str] = set()
+    for row in strategy_orders:
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol not in open_shorts:
+            continue
+        if str(row.get("posSide") or "").lower() not in {"", "short"}:
+            continue
+        status = str(row.get("orderStatus") or row.get("status") or "").lower()
+        if status in {"cancelled", "canceled", "filled", "triggered", "failed"}:
+            continue
+        stop = _num(
+            row.get("stopLoss")
+            or row.get("slTriggerPrice")
+            or row.get("triggerPrice")
+        )
+        trigger = str(row.get("slTriggerBy") or row.get("triggerBy") or "").lower()
+        order_type = str(
+            row.get("slOrderType") or row.get("orderType") or row.get("type") or ""
+        ).lower()
+        if stop > 0.0 and trigger == "mark_price" and order_type == "market":
+            protected.add(symbol)
+    return sorted(open_shorts - protected)
+
+
+def _unjournaled_order_ids(
+    history: list[dict],
+    journal: pd.DataFrame,
+) -> list[str]:
+    """Filled/partially filled Atlas20 orders missing from the local ledger."""
+
+    journaled: set[str] = set()
+    if not journal.empty:
+        for value in journal["trades"]:
+            try:
+                trades = json.loads(value or "[]")
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(trades, list):
+                continue
+            for trade in trades:
+                if isinstance(trade, dict) and trade.get("order_id"):
+                    journaled.add(str(trade["order_id"]))
+    missing: list[str] = []
+    for row in history:
+        client_oid = str(row.get("clientOid") or "")
+        if not client_oid.startswith(("a20", "atlas20")):
+            continue
+        qty = _num(row.get("cumExecQty"))
+        if qty <= 1e-12:
+            continue
+        order_id = str(row.get("orderId") or "")
+        if order_id and order_id not in journaled:
+            missing.append(order_id)
+    return sorted(set(missing))
+
+
 def _ledger_expected_equity(
     last: dict,
     *,
@@ -198,6 +392,74 @@ def _pnl_chain_errors(journal: pd.DataFrame) -> list[str]:
     return errors
 
 
+def _funding_delta_errors(journal: pd.DataFrame) -> list[str]:
+    """Validate funding attribution on unchanged open-position cycles."""
+
+    if len(journal) < 2:
+        return []
+    frame = journal.sort_values("date").reset_index(drop=True)
+    errors: list[str] = []
+
+    def positions(value: object) -> dict[str, dict] | None:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return None
+        try:
+            parsed = json.loads(value or "[]")
+        except (TypeError, json.JSONDecodeError):
+            return None
+        if not isinstance(parsed, list):
+            return None
+        rows: dict[str, dict] = {}
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            symbol = str(item.get("symbol") or "").upper()
+            if not symbol:
+                continue
+            try:
+                qty = abs(float(item.get("qty") or item.get("size") or 0.0))
+            except (TypeError, ValueError):
+                return None
+            if qty > 1e-12:
+                rows[symbol] = item
+        return rows
+
+    for index in range(1, len(frame)):
+        previous = positions(frame.loc[index - 1, "positions"])
+        current = positions(frame.loc[index, "positions"])
+        if previous is None or current is None or set(previous) != set(current):
+            continue
+        expected = 0.0
+        complete = True
+        for symbol in current:
+            if str(previous[symbol].get("side") or "").lower() != str(
+                current[symbol].get("side") or ""
+            ).lower():
+                complete = False
+                break
+            previous_raw = previous[symbol].get("funding_cumulative")
+            current_raw = current[symbol].get("funding_cumulative")
+            try:
+                previous_funding = float(previous_raw)
+                current_funding = float(current_raw)
+            except (TypeError, ValueError):
+                complete = False
+                break
+            if not isfinite(previous_funding) or not isfinite(current_funding):
+                complete = False
+                break
+            expected += current_funding - previous_funding
+        if not complete:
+            continue
+        recorded = _num(frame.loc[index, "funding_total"])
+        if abs(recorded - expected) > 1e-6:
+            errors.append(
+                f"{frame.loc[index, 'date']}: 资金费 funding_total {recorded:+.8f} "
+                f"vs 累计差重算 {expected:+.8f}"
+            )
+    return errors
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--spec", default=TRACKED_SPEC)
@@ -221,6 +483,7 @@ def main(argv: list[str] | None = None) -> int:
         for record in book.to_dict("records")
         if abs(float(record["target_weight"])) > 0.0
     }
+    target_gross = target_gross_weight(targets)
     relevant = spec_symbol_universe(symbol_map, targets)
     session = requests.Session()
     prices = fetch_public_prices(session)
@@ -248,6 +511,18 @@ def main(argv: list[str] | None = None) -> int:
     def check(name: str, ok: bool, detail: str, *, hard: bool = True) -> None:
         checks.append({"check": name, "ok": bool(ok), "hard": hard, "detail": detail})
 
+    account_issues = _account_data_issues(assets)
+    check(
+        "账户 API 必需字段完整且有限",
+        not account_issues,
+        "；".join(account_issues) or "全部有效",
+    )
+    position_issues = _position_data_issues(positions)
+    check(
+        "持仓 API 必需字段完整且有限",
+        not position_issues,
+        "；".join(position_issues) or "全部有效",
+    )
     check(
         "账户恒等式 equity = balance + uPnL",
         abs(equity - (balance + unrealised)) <= 0.02,
@@ -260,6 +535,20 @@ def main(argv: list[str] | None = None) -> int:
         abs(reported_position_value - mark_notional) <= max(0.05, 0.003 * mark_notional),
         f"交易所 {reported_position_value:.4f} vs 重算 {mark_notional:.4f}"
         f"（两次请求的标记价差 {abs(reported_position_value - mark_notional):.4f}）",
+    )
+
+    known_symbols = symbol_to_asset_index(symbol_map)
+    unknown_symbols = _unknown_position_symbols(positions, symbol_map)
+    check(
+        "所有持仓合约都在冻结映射中",
+        not unknown_symbols,
+        ", ".join(unknown_symbols) or "全部有唯一映射",
+    )
+    risk_issues = _position_risk_issues(positions)
+    check(
+        "每腿逐仓、2x 杠杆与保证金缓冲符合规格",
+        not risk_issues,
+        "；".join(risk_issues) or "无持仓，或全部符合",
     )
 
     # -- ledger vs venue -------------------------------------------------
@@ -297,11 +586,22 @@ def main(argv: list[str] | None = None) -> int:
         chain_ok = not chain_errors
         detail = "；".join(chain_errors) or f"{max(len(journal) - 1, 0)} 个相邻日全部一致"
         check("台账 PnL 链一致", chain_ok, detail)
+        funding_errors = _funding_delta_errors(journal)
+        check(
+            "资金费按累计差记账",
+            not funding_errors,
+            "；".join(funding_errors) or "持仓未变化区间全部一致",
+        )
 
     # -- trades vs venue order history -----------------------------------
     now_ms = int(checked_at.timestamp() * 1000)
-    history = client.order_history(
-        start_time_ms=now_ms - int(args.history_days) * 86_400_000,
+    history_start_ms = now_ms - int(args.history_days) * 86_400_000
+    if not journal.empty:
+        journal_start = pd.to_datetime(journal["date"].min(), utc=True, errors="coerce")
+        if not pd.isna(journal_start):
+            history_start_ms = max(history_start_ms, int(journal_start.timestamp() * 1000))
+    history = client.order_history_all(
+        start_time_ms=history_start_ms,
         end_time_ms=now_ms,
         limit=100,
     )
@@ -329,21 +629,36 @@ def main(argv: list[str] | None = None) -> int:
         not missing and not mismatched,
         "; ".join(missing + mismatched) or f"核对 {len(by_id)} 笔订单",
     )
+    unjournaled = _unjournaled_order_ids(history, journal)
+    check(
+        "交易所已成交的 Atlas20 订单都已记账",
+        not unjournaled,
+        ", ".join(unjournaled) or "无漏记成交",
+    )
 
     stop_gaps = _short_stop_gaps(journal, positions)
     check(
-        "所有空头仓位都有附带止损的入场成交记录",
+        "空头入场成交记录包含已确认止损",
         not stop_gaps,
-        ", ".join(stop_gaps) or "无空头仓，或有止损记录的空头仓",
+        ", ".join(stop_gaps) or "无空头仓，或入场记录带止损",
     )
+    try:
+        strategy_orders = client.unfilled_strategy_orders()
+    except (BitgetAPIError, ValueError) as exc:
+        check("交易所空头止损策略单可查询", False, f"查询失败：{exc}")
+    else:
+        venue_stop_gaps = _venue_short_stop_gaps(positions, strategy_orders)
+        check(
+            "当前空头仓位都有交易所可见的止损保护",
+            not venue_stop_gaps,
+            ", ".join(venue_stop_gaps)
+            or f"无缺口（当前未触发策略单 {len(strategy_orders)} 笔）",
+        )
 
     # -- signal vs book --------------------------------------------------
     def asset_of(symbol: str) -> str:
         upper = symbol.upper()
-        for asset, symbol_name in symbol_map.items():
-            if symbol_name.upper() == upper:
-                return asset
-        return upper.replace("USDT", "").lower()
+        return known_symbols.get(upper, upper.replace("USDT", "").lower())
 
     notional_by_asset: dict[str, float] = {}
     signed_notional_by_asset: dict[str, float] = {}
@@ -372,6 +687,12 @@ def main(argv: list[str] | None = None) -> int:
         "无计划外持仓",
         orphan_notional <= 1.0,
         ", ".join(f"{asset.upper()} {notional_by_asset[asset]:.2f}" for asset in orphans) or "无",
+    )
+
+    check(
+        f"冻结目标 gross <= {SPEC_MAX_GROSS:.2f}x（规格上限）",
+        target_gross <= SPEC_MAX_GROSS + 1e-9,
+        f"目标 gross {target_gross:.4f}x",
     )
 
     gross = sum(notional_by_asset.values())
@@ -428,8 +749,9 @@ def main(argv: list[str] | None = None) -> int:
     print("")
     print(f"结论: {'全部通过' if not hard_failures else f'{len(hard_failures)} 项硬校验失败'}")
 
-    output = ensure_dir(args.json_out.parent)
-    (output / args.json_out.name).write_text(
+    ensure_dir(args.json_out.parent)
+    atomic_write_text(
+        args.json_out,
         json.dumps(
             {
                 "spec": args.spec,
@@ -444,7 +766,6 @@ def main(argv: list[str] | None = None) -> int:
             sort_keys=True,
             ensure_ascii=False,
         ),
-        encoding="utf-8",
     )
     return 1 if hard_failures else 0
 

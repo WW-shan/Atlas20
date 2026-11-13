@@ -7,7 +7,9 @@
 > - 目标 **gross 硬上限 1.25x 权益**，实际 gross 可以更低，空仓即 100% cash；
 > - 交易所杠杆配置 **2x isolated**，多空每腿 initial buffer 均为 **50%**；
 > - 空头开/加仓附带 **20% adverse move、mark-price、market stop**；
-> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；实盘主任务在其后 **03:05 UTC** 运行；
+> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；事件账本保留自己的 `execution_hint`，
+>   每日执行时点则取 manifest 最新已完成数据日 `signal_end_date + T+1 +3h`；
+> - 实盘主任务在其后 **03:05 UTC** 运行；
 > - 成本口径 20 bps，funding 使用 Bitget exact；
 > - 当前策略书与选择证据：`docs/superpowers/specs/2026-11-13-ls103-live-candidate-selection.md`；
 > - 研究记录：`RESEARCH.md` §00.138；回测产物：`reports/ls45_live_g125/`。
@@ -27,6 +29,7 @@
 | `com.atlas20.derivatives-execute` | **11:05**；重试 11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
+| `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
 
 主任务入口固定为：
 
@@ -65,14 +68,24 @@ sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execu
 
 ## 2. 信号与执行时点
 
-目标账本每行包含权威字段 `execution_hint`。当前 LS45 账本固定为：
+事件账本每行包含权威字段 `execution_hint`。当前 LS45 账本固定为：
 
 ```text
 signal_date D 00:00 UTC
 execution_hint D+1 03:00 UTC
 ```
 
-计划、Telegram 信号和执行报告都直接读取这个字段，**不再重新计算旧的 01:05 UTC**。
+这个字段描述**该事件行**的 T+1 +3h 通知时点，Telegram 事件信号继续读取它。
+每日自动执行不能直接拿它当窗口：如果账本连续多日没有新事件，它会被误判为
+“数天前的任务已过期”。执行器改为从 manifest 的最新已完成数据日计算：
+
+```text
+daily_execution_hint = manifest.signal_end_date + 1 day + 3 hours
+```
+
+目标权重仍取最新事件行；止损校验、账户对账和 journal 则每天都按
+`daily_execution_hint` 运行。因此事件信号可以显示旧信号日，但定时任务不会
+因为“今天没有新交易事件”而失效。
 
 实盘任务在 03:05 UTC 开始，是为了给账本重算、行情读取和交易所请求留 5 分钟；重试点在：
 
@@ -104,6 +117,7 @@ execution_hint D+1 03:00 UTC
 
 执行器自身还有：
 
+- 持有 `data/ls45_g125_execution.lock` 的进程级 `flock`；另一个实例直接退出；
 - mark 新鲜度硬阈值 30h；
 - 目标账本评估日必须等于数据最新可判定日；
 - 实时 ticker 不得超过 120s、价格必须可用；
@@ -112,8 +126,15 @@ execution_hint D+1 03:00 UTC
 - 每个 run day 只允许一个 `ok`；`partial` 会在后续重试窗口重读账户并自愈；
 - 同一 run day 的 clientOid 稳定；请求超时或缺少 `orderId` 时按 clientOid 回查，避免重启重试
   把“已接受但响应丢失”的订单再下一遍；
+- clientOid 按订单业务身份做稳定哈希，不再使用“当前订单数组下标”；前面订单成交后，
+  下一轮计划不会因为序号左移而撞上已成交订单的 clientOid；
+- 同日重试会按 `orderId/clientOid` 合并已有成交，而不会用当前轮的空 `trades` 覆盖当日已落账成交；
+- 若订单已在交易所成交、但进程在写 journal 前崩溃，下一轮会从当日 `order-history`
+  找回当前 prefix 的成交并补入 journal；
+- journal/state/latest/audit/monitor/capital-flow 写入均为同目录临时文件 + `fsync` + `os.replace`；
 - 成交、journal、latest.json、通知全部成功后才写 `ok`；
-- journal 或 Telegram 写失败时不会把 run 标记为完成。
+- journal 或 Telegram 写失败时不会把 run 标记为完成，下一轮可以继续；
+- 未捕获的顶层异常会写 `latest.json(status=error)` 并尝试发 Telegram 告警，不写 `ok`。
 
 kill switch：
 
@@ -204,6 +225,7 @@ slOrderType = market
 | `data/ls45_g125_execution_state.json` | 执行幂等状态 |
 | `data/ls45_g125_telegram_state.json` | Telegram 播报幂等状态 |
 | `data/ls45_g125_execution.KILL` | kill switch（存在即停止新执行） |
+| `data/ls45_g125_execution.lock` | 进程级执行锁；OS 在进程退出时自动释放 |
 | `reports/derivatives_track_live/capital_flows.csv` | 账户级外部资金流；入金/出金不能计为策略 PnL |
 
 `data/` 是本地运行状态，不随 git 部署。迁移机器时必须同步 credentials、`data/ls45_g125_execution_state.json`、`data/ls45_g125_telegram_state.json`、journal 和所需 raw/processed 数据，否则会重复执行或重复播报。
@@ -246,21 +268,31 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，默认检查：
+`scripts/audit_live_track.py` 只读，当前默认 21 项检查，包含：
 
 1. `equity = balance + unrealisedPnl`；
 2. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
-3. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
-4. journal PnL 链在剔除 capital flow 后连续；
-5. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
-6. 空头 journal 成交必须记录 `stop_loss`，且交易所回读 `stopLoss / mark_price / market` 一致；
-7. 当前每个空头仓都有附带止损的入场成交记录；
-8. 有符号目标 vs 有符号实际仓位：多头正、空头负；
-9. 无计划外持仓；
-10. gross = `Σ abs(notional)` ≤ 1.25 × equity；
-11. mark 数据 ≤ 30h；
-12. 账本评估日 = 数据最新可判定日；
-13. journal 信号日 = 冻结账本最新信号日。
+3. 账户 API 必需字段完整且有限（equity / uPnL / positionValue / USDT balance/available）；
+4. 持仓 API 必需字段完整、方向合法且标记价有限；
+5. 所有持仓合约都能在冻结 symbol map 中唯一映射；
+6. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
+7. journal 存在；
+8. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
+9. journal PnL 链在剔除 capital flow 后连续；
+10. journal `funding_total` 等于持仓未变化区间的累计资金费差；
+11. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
+12. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
+13. 空头 journal 入场必须记录已确认止损；
+14. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
+15. 冻结目标 gross 不超过 1.25x；
+16. 有符号目标 vs 有符号实际仓位：多头正、空头负，误差不超过 1 个合约步长；
+17. 无计划外持仓；
+18. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
+19. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
+20. 账本评估日 = 数据最新可判定日；
+21. journal 信号日 = 冻结账本最新信号日。
+
+另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。
 
 少一头空头止损、方向搞反、把净仓当成 gross、或把 old L125 账本混入 LS45，都会让 `audit-live` 失败。
 
@@ -278,13 +310,13 @@ make audit-live
 | journal | `reports/ls45_live_g125_live/journal.csv` | 每日一行；同日重跑覆盖 |
 | 数据覆盖 | `reports/ls45_live_g125/manifest.json` | `missing_hours = 0`，mark 新鲜 ≤ 30h |
 | 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
-| funding | Bitget 账单 + manifest | 与研究假设明显偏离时记录并复核 |
+| funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属 |
 
 ---
 
 ## 10. 故障处置
 
-### 07:05 UTC（15:05 北京）后仍未成功
+### 09:05 UTC（17:05 北京）后仍未成功
 
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.derivatives-execute

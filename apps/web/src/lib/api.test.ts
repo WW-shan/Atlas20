@@ -149,6 +149,10 @@ describe("qk registry", () => {
     expect(qk.liveResearch()).toEqual(["live-research"]);
     expect(fallbackLiveResearch.spot?.trial_id).toBe("PR2026-10-H5");
     expect(fallbackLiveResearch.derivatives?.health.status).toBe("healthy");
+    expect(fallbackLiveResearch.derivatives?.execution.spec).toBe(
+      "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+    );
+    expect(fallbackLiveResearch.derivatives?.execution.position_value).toBe(0);
   });
 });
 

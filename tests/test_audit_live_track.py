@@ -357,3 +357,162 @@ def test_open_short_requires_a_recorded_stop_trade() -> None:
         [{"symbol": "NEARUSDT", "side": "sell", "stop_loss": None}]
     )
     assert _short_stop_gaps(journal, positions) == ["NEARUSDT"]
+
+
+def test_position_risk_checks_require_isolated_two_x_and_the_margin_buffer() -> None:
+    from scripts.audit_live_track import _position_risk_issues
+
+    positions = [
+        {
+            "symbol": "NEARUSDT",
+            "total": "20",
+            "posSide": "long",
+            "markPrice": "5",
+            "marginMode": "isolated",
+            "leverage": "2",
+            "positionBalance": "51.5",
+        }
+    ]
+    assert _position_risk_issues(positions) == []
+
+    positions[0]["marginMode"] = "crossed"
+    positions[0]["leverage"] = "3"
+    positions[0]["positionBalance"] = "40"
+    issues = _position_risk_issues(positions)
+    assert any("marginMode" in issue for issue in issues)
+    assert any("leverage" in issue for issue in issues)
+    assert any("margin" in issue for issue in issues)
+
+
+def test_unknown_position_symbols_cannot_be_silently_dropped() -> None:
+    from scripts.audit_live_track import _unknown_position_symbols
+
+    assert _unknown_position_symbols(
+        [{"symbol": "NEARUSDT"}, {"symbol": "MYSTERYUSDT"}],
+        {"near": "NEARUSDT"},
+    ) == ["MYSTERYUSDT"]
+
+
+def test_account_audit_rejects_missing_or_non_numeric_core_fields() -> None:
+    from scripts.audit_live_track import _account_data_issues
+
+    issues = _account_data_issues(
+        {
+            "usdtEquity": "bad",
+            "assets": [{"coin": "USDT", "balance": None}],
+        }
+    )
+
+    assert any("usdtEquity" in issue for issue in issues)
+    assert any("balance" in issue for issue in issues)
+
+
+def test_position_audit_rejects_an_invalid_total_and_mark_price() -> None:
+    from scripts.audit_live_track import _position_data_issues
+
+    issues = _position_data_issues(
+        [
+            {"symbol": "NEARUSDT", "total": "bad", "markPrice": "5"},
+            {"symbol": "TRXUSDT", "total": "10", "markPrice": "nan"},
+            {"symbol": "SOLUSDT", "total": "10", "posSide": "side_typo", "markPrice": "5"},
+        ]
+    )
+
+    assert any("NEARUSDT" in issue and "total" in issue for issue in issues)
+    assert any("TRXUSDT" in issue and "markPrice" in issue for issue in issues)
+    assert any("SOLUSDT" in issue and "posSide" in issue for issue in issues)
+
+
+def test_venue_stop_coverage_requires_a_live_mark_market_stop_per_short() -> None:
+    from scripts.audit_live_track import _venue_short_stop_gaps
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "10", "posSide": "short", "markPrice": "5"},
+        {"symbol": "SOLUSDT", "total": "10", "posSide": "short", "markPrice": "5"},
+    ]
+    strategy_orders = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "stopLoss": "6",
+            "slTriggerBy": "mark_price",
+            "slOrderType": "market",
+        }
+    ]
+
+    assert _venue_short_stop_gaps(positions, strategy_orders) == ["SOLUSDT"]
+
+    strategy_orders.append(
+        {
+            "symbol": "SOLUSDT",
+            "posSide": "short",
+            "stopLoss": "6",
+            "slTriggerBy": "last_price",
+            "slOrderType": "market",
+        }
+    )
+    assert _venue_short_stop_gaps(positions, strategy_orders) == ["SOLUSDT"]
+
+
+def test_funding_delta_check_rejects_repeating_a_cumulative_snapshot() -> None:
+    from scripts.audit_live_track import _funding_delta_errors
+
+    positions_before = [
+        {
+            "symbol": "NEARUSDT",
+            "side": "long",
+            "qty": 20.0,
+            "funding_cumulative": -0.10,
+        }
+    ]
+    positions_after = [
+        {
+            "symbol": "NEARUSDT",
+            "side": "long",
+            "qty": 20.0,
+            "funding_cumulative": -0.13,
+        }
+    ]
+    journal = pd.DataFrame(
+        [
+            {"date": "2026-11-03", "positions": json.dumps(positions_before), "funding_total": 0.0},
+            {"date": "2026-11-04", "positions": json.dumps(positions_after), "funding_total": -0.13},
+        ]
+    )
+
+    errors = _funding_delta_errors(journal)
+
+    assert len(errors) == 1
+    assert "资金费" in errors[0]
+
+    journal.loc[1, "funding_total"] = -0.03
+    assert _funding_delta_errors(journal) == []
+
+
+def test_every_filled_strategy_order_must_appear_in_the_journal() -> None:
+    from scripts.audit_live_track import _unjournaled_order_ids
+
+    journal = pd.DataFrame(
+        [
+            {
+                "date": "2026-11-13",
+                "trades": json.dumps(
+                    [
+                        {
+                            "order_id": "1",
+                            "qty": 2.0,
+                            "status": "filled",
+                        }
+                    ]
+                ),
+            }
+        ]
+    )
+    history = [
+        {"orderId": "1", "clientOid": "a20one", "orderStatus": "filled", "cumExecQty": "2"},
+        {"orderId": "2", "clientOid": "a20two", "orderStatus": "filled", "cumExecQty": "3"},
+        {"orderId": "3", "clientOid": "manual", "orderStatus": "filled", "cumExecQty": "4"},
+        {"orderId": "4", "clientOid": "a20zero", "orderStatus": "cancelled", "cumExecQty": "0"},
+    ]
+
+    assert _unjournaled_order_ids(history, journal) == ["2"]

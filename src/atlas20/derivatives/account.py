@@ -243,14 +243,41 @@ class BitgetPrivateClient:
             "/api/v3/position/current-position",
             params={"category": category, "symbol": symbol, "posSide": pos_side},
         )
-        rows: Any
         if isinstance(data, dict):
-            rows = data.get("list") or []
+            if "list" not in data:
+                raise BitgetAPIError("Bitget current-position payload has no list")
+            rows = data.get("list")
+            if rows is None:
+                rows = []
         elif isinstance(data, list):
             rows = data
         else:
-            rows = []
+            raise BitgetAPIError("Bitget current-position payload is not a list or object")
+        if not isinstance(rows, list):
+            raise BitgetAPIError("Bitget current-position list is not an array")
         return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def position_history(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        symbol: str | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Closed position cycles with their final cumulative funding."""
+
+        return self._cursor_all(
+            "/api/v3/position/history-position",
+            params={
+                "category": category,
+                "symbol": symbol,
+                "startTime": start_time_ms,
+                "endTime": end_time_ms,
+                "limit": int(limit),
+            },
+        )
 
     # -- account / position settings -----------------------------------
 
@@ -345,12 +372,17 @@ class BitgetPrivateClient:
         """Account-level settings: ``accountLevel``, ``holdMode``, symbol configs."""
 
         data = self._request("GET", "/api/v3/account/settings")
-        return dict(data) if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            raise BitgetAPIError("Bitget account settings payload is not an object")
+        return dict(data)
 
     def hold_mode(self) -> str:
         """``hedge_mode`` or ``one_way_mode`` as reported by the venue."""
 
-        return str(self.account_settings().get("holdMode") or "")
+        mode = str(self.account_settings().get("holdMode") or "").strip().lower()
+        if mode not in {"hedge_mode", "one_way_mode"}:
+            raise BitgetAPIError(f"Bitget account settings have invalid holdMode {mode!r}")
+        return mode
 
     # -- orders ---------------------------------------------------------
 
@@ -433,14 +465,115 @@ class BitgetPrivateClient:
     ) -> dict[str, Any]:
         """Order detail: real filled qty, average price, fee and status."""
 
-        if not order_id and not client_oid:
-            raise ValueError("order_id or client_oid is required")
+        if bool(order_id) == bool(client_oid):
+            raise ValueError("order_id or client_oid (exactly one) is required")
         data = self._request(
             "GET",
             "/api/v3/trade/order-info",
             params={"orderId": order_id, "clientOid": client_oid},
         )
         return dict(data) if isinstance(data, dict) else {}
+
+    def cancel_order(
+        self,
+        *,
+        order_id: str | None = None,
+        client_oid: str | None = None,
+        category: str = UTA_CATEGORY,
+    ) -> dict[str, Any]:
+        """Cancel one unfilled or partially filled order."""
+
+        if bool(order_id) == bool(client_oid):
+            raise ValueError("order_id or client_oid (exactly one) is required")
+        body: dict[str, Any] = {"category": category}
+        if order_id:
+            body["orderId"] = order_id
+        else:
+            body["clientOid"] = client_oid
+        data = self._request("POST", "/api/v3/trade/cancel-order", body=body)
+        return dict(data) if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _cursor_rows(data: Any) -> tuple[list[dict[str, Any]], str | None]:
+        if isinstance(data, dict):
+            if "list" not in data:
+                raise BitgetAPIError("Bitget paginated payload has no list")
+            rows = data.get("list")
+            if rows is None:
+                rows = []
+            cursor = data.get("cursor")
+        elif isinstance(data, list):
+            rows = data
+            cursor = None
+        else:
+            raise BitgetAPIError("Bitget paginated payload is not a list or object")
+        if not isinstance(rows, list):
+            raise BitgetAPIError("Bitget paginated list is not an array")
+        return (
+            [dict(row) for row in rows if isinstance(row, dict)],
+            str(cursor) if cursor not in (None, "") else None,
+        )
+
+    def _cursor_all(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any],
+        max_pages: int = 20,
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        for _ in range(max_pages):
+            page_params = dict(params)
+            if cursor is not None:
+                page_params["cursor"] = cursor
+            page, next_cursor = self._cursor_rows(
+                self._request("GET", path, params=page_params)
+            )
+            rows.extend(page)
+            if next_cursor is None:
+                return rows
+            if next_cursor in seen_cursors or next_cursor == cursor:
+                raise BitgetAPIError(f"Bitget {path} returned a repeated cursor")
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+        raise BitgetAPIError(f"Bitget {path} exceeded {max_pages} cursor pages")
+
+    def unfilled_orders(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        symbol: str | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Open or partially filled orders, following every cursor page."""
+
+        return self._cursor_all(
+            "/api/v3/trade/unfilled-orders",
+            params={
+                "category": category,
+                "symbol": symbol,
+                "startTime": start_time_ms,
+                "endTime": end_time_ms,
+                "limit": int(limit),
+            },
+        )
+
+    def unfilled_strategy_orders(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        strategy_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Open TPSL/strategy orders, including live position stops."""
+
+        return self._cursor_all(
+            "/api/v3/trade/unfilled-strategy-orders",
+            params={"category": category, "type": strategy_type},
+        )
 
     def order_history(
         self,
@@ -451,10 +584,9 @@ class BitgetPrivateClient:
         end_time_ms: int | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        """Recent orders with fills and fees (30-day windows, 90-day window)."""
+        """Recent orders with fills and fees for one <=30-day query window."""
 
-        data = self._request(
-            "GET",
+        return self._cursor_all(
             "/api/v3/trade/history-orders",
             params={
                 "category": category,
@@ -464,14 +596,44 @@ class BitgetPrivateClient:
                 "limit": int(limit),
             },
         )
-        rows: Any
-        if isinstance(data, dict):
-            rows = data.get("list") or []
-        elif isinstance(data, list):
-            rows = data
-        else:
-            rows = []
-        return [dict(row) for row in rows if isinstance(row, dict)]
+
+    def order_history_all(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        symbol: str | None = None,
+        start_time_ms: int,
+        end_time_ms: int,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Query up to 90 days, respecting Bitget's 30-day per-query limit."""
+
+        if end_time_ms <= start_time_ms:
+            raise ValueError("end_time_ms must be greater than start_time_ms")
+        window_ms = 30 * 86_400_000
+        rows: list[dict[str, Any]] = []
+        cursor_start = start_time_ms
+        while cursor_start < end_time_ms:
+            cursor_end = min(cursor_start + window_ms, end_time_ms)
+            rows.extend(
+                self.order_history(
+                    category=category,
+                    symbol=symbol,
+                    start_time_ms=cursor_start,
+                    end_time_ms=cursor_end,
+                    limit=limit,
+                )
+            )
+            cursor_start = cursor_end
+        by_id: dict[str, dict[str, Any]] = {}
+        unidentified: list[dict[str, Any]] = []
+        for row in rows:
+            order_id = str(row.get("orderId") or "")
+            if order_id:
+                by_id[order_id] = row
+            else:
+                unidentified.append(row)
+        return [*by_id.values(), *unidentified]
 
     def close_position(
         self,

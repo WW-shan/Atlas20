@@ -112,13 +112,17 @@ def test_load_latest_targets_picks_last_signal_date(tmp_path) -> None:
     from scripts.send_derivatives_signal import load_latest_targets
 
     path = tmp_path / "oos_targets.csv"
-    frame = pd.concat([_book(), _book().assign(signal_date="2026-10-09 00:00:00+00:00")])
+    second = _book().assign(
+        signal_date="2026-10-09 00:00:00+00:00",
+        execution_hint="2026-10-10 03:00:00+00:00",
+    )
+    frame = pd.concat([_book(), second])
     frame.to_csv(path, index=False)
 
     signal_date, execution_hint, book = load_latest_targets(path)
 
     assert signal_date == pd.Timestamp("2026-10-09", tz="UTC")
-    assert execution_hint == pd.Timestamp("2026-10-09 03:00", tz="UTC")
+    assert execution_hint == pd.Timestamp("2026-10-10 03:00", tz="UTC")
     assert len(book) == 2
 
 
@@ -213,3 +217,55 @@ def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional
     assert "合计名义 750.00 USDT（75.00% 权益 gross，上限 125%）" in message
     assert "占用隔离保证金 386.25 USDT" in message
     assert "空头止损 20% · mark-price" in message
+
+
+def test_load_latest_targets_rejects_duplicate_assets(tmp_path) -> None:
+    from scripts.send_derivatives_signal import load_latest_targets
+
+    path = tmp_path / "oos_targets.csv"
+    pd.concat([_book(), _book().iloc[[0]]]).to_csv(path, index=False)
+
+    with pytest.raises(SystemExit, match="duplicate asset"):
+        load_latest_targets(path)
+
+    frame = _book()
+    frame.loc[1, "asset"] = "NEAR"
+    frame.to_csv(path, index=False)
+    with pytest.raises(SystemExit, match="duplicate asset"):
+        load_latest_targets(path)
+
+
+def test_load_latest_targets_rejects_inconsistent_execution_hints(tmp_path) -> None:
+    from scripts.send_derivatives_signal import load_latest_targets
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book()
+    frame.loc[1, "execution_hint"] = "2026-10-09 04:00:00+00:00"
+    frame.to_csv(path, index=False)
+
+    with pytest.raises(SystemExit, match="execution_hint"):
+        load_latest_targets(path)
+
+
+def test_load_latest_targets_rejects_a_non_finite_weight(tmp_path) -> None:
+    from scripts.send_derivatives_signal import load_latest_targets
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book()
+    frame.loc[0, "target_weight"] = float("nan")
+    frame.to_csv(path, index=False)
+
+    with pytest.raises(SystemExit, match="target_weight"):
+        load_latest_targets(path)
+
+
+def test_load_latest_targets_requires_the_current_t_plus_one_plus_three_hour_hint(tmp_path) -> None:
+    from scripts.send_derivatives_signal import load_latest_targets
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book()
+    frame["execution_hint"] = "2026-10-09 01:05:00+00:00"
+    frame.to_csv(path, index=False)
+
+    with pytest.raises(SystemExit, match="T\\+1 \\+3h"):
+        load_latest_targets(path)

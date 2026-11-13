@@ -6,9 +6,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_readme_presents_atlas20_as_engineered_research_console():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    normalized = " ".join(readme.split())
 
     required_phrases = [
-        "production-minded crypto research console",
+        "production-minded crypto research and derivatives execution system",
         "FastAPI",
         "React/Vite",
         "worker",
@@ -19,10 +20,11 @@ def test_readme_presents_atlas20_as_engineered_research_console():
         "pytest",
         "Vitest",
         "mypy",
-        "Research only",
+        "gated live derivatives executor",
+        "provide financial advice",
     ]
     for phrase in required_phrases:
-        assert phrase in readme
+        assert phrase in normalized
 
     assert "```mermaid" in readme
     assert "## Why It Stands Out" in readme
@@ -40,7 +42,7 @@ def test_changelog_has_v022_release_prep_entry():
 def test_readme_quality_gate_counts_match_current_suite():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "1,538 Python tests plus" in readme
+    assert "2,119 Python tests plus" in readme
     assert "249 Vitest tests" in readme
 
 

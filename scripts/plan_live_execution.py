@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+from math import isfinite
 from pathlib import Path
 import sys
 from typing import Iterable
@@ -53,7 +54,7 @@ from atlas20.derivatives.execution import (  # noqa: E402
     PositionState,
     build_execution_plan,
 )
-from atlas20.logging_utils import ensure_dir  # noqa: E402
+from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
 from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
@@ -68,14 +69,89 @@ PUBLIC_INSTRUMENTS_URL = "https://api.bitget.com/api/v3/market/instruments"
 PUBLIC_TICKERS_URL = "https://api.bitget.com/api/v3/market/tickers"
 
 
+def _finite_float(value: object, field: str) -> float:
+    """Parse one required numeric venue field without a silent zero fallback."""
+
+    if value is None or value == "":
+        raise ValueError(f"{field} is missing")
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} is not numeric: {value!r}") from exc
+    if not isfinite(number):
+        raise ValueError(f"{field} is not finite: {value!r}")
+    return number
+
+
 def load_symbol_map(path: Path) -> dict[str, str]:
+    """Load the live asset -> contract map, excluding unusable rows.
+
+    A rebrand can leave two CMC ids pointing at one exchange contract
+    (MATIC/POL).  A venue position only identifies the contract, so the
+    reverse mapping must have exactly one canonical asset.  Prefer the row
+    whose reason is ``direct`` and drop alias-only duplicates; if that still
+    leaves an ambiguity, fail closed rather than silently choosing one.
+    Missing contracts have an empty symbol and must never become ``"NAN"``.
+    """
+
     frame = pd.read_csv(path)
     if not {"coin_id", "bitget_symbol"}.issubset(frame.columns):
         raise SystemExit(f"symbol map {path} needs coin_id and bitget_symbol columns")
-    return {
-        str(record["coin_id"]): str(record["bitget_symbol"]).upper()
-        for record in frame.to_dict("records")
-    }
+    if "reason" not in frame.columns:
+        frame["reason"] = ""
+
+    by_symbol: dict[str, list[dict[str, object]]] = {}
+    seen_coin_ids: set[str] = set()
+    for record in frame.to_dict("records"):
+        coin_id = str(record.get("coin_id") or "").strip()
+        if not coin_id or coin_id.lower() == "nan":
+            continue
+        raw_symbol = record.get("bitget_symbol")
+        if raw_symbol is None or pd.isna(raw_symbol):
+            continue
+        symbol = str(raw_symbol).strip().upper()
+        if not symbol or symbol == "NAN":
+            continue
+        if coin_id in seen_coin_ids:
+            raise SystemExit(f"symbol map {path} contains duplicate coin_id {coin_id!r}")
+        seen_coin_ids.add(coin_id)
+        by_symbol.setdefault(symbol, []).append(record)
+
+    mapped: dict[str, str] = {}
+    for symbol, candidates in by_symbol.items():
+        direct = [
+            record
+            for record in candidates
+            if str(record.get("reason") or "").strip().lower() == "direct"
+        ]
+        eligible = direct or candidates
+        if len(eligible) != 1:
+            ids = ", ".join(sorted(str(record.get("coin_id")) for record in eligible))
+            raise SystemExit(
+                f"symbol map {path} maps {symbol} ambiguously to {len(eligible)} coin ids: {ids}"
+            )
+        coin_id = str(eligible[0].get("coin_id") or "").strip()
+        if coin_id in mapped:
+            raise SystemExit(f"symbol map {path} assigns multiple symbols to coin_id {coin_id!r}")
+        mapped[coin_id] = symbol
+    return mapped
+
+
+def symbol_to_asset_index(symbols_by_asset: dict[str, str]) -> dict[str, str]:
+    """Return a fail-closed venue symbol -> model asset index."""
+
+    index: dict[str, str] = {}
+    for asset, raw_symbol in symbols_by_asset.items():
+        symbol = str(raw_symbol).strip().upper()
+        if not symbol:
+            continue
+        previous = index.get(symbol)
+        if previous is not None and previous != asset:
+            raise ValueError(
+                f"venue symbol {symbol} maps to multiple assets: {previous}, {asset}"
+            )
+        index[symbol] = asset
+    return index
 
 
 def load_account_file(path: Path) -> AccountState:
@@ -107,14 +183,21 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
         str(row.get("coin", "")).upper(): row for row in assets.get("assets", []) if isinstance(row, dict)
     }
     usdt = coin_rows.get("USDT", {})
-    equity = float(assets.get("usdtEquity") or assets.get("accountEquity") or 0.0)
-    available = float(usdt.get("available") or 0.0)
-    by_symbol = {symbol.upper(): asset for asset, symbol in symbols_by_asset.items()}
+    if assets.get("usdtEquity") is not None:
+        equity = _finite_float(assets.get("usdtEquity"), "account usdtEquity")
+    elif assets.get("accountEquity") is not None:
+        equity = _finite_float(assets.get("accountEquity"), "account accountEquity")
+    else:
+        raise ValueError("account assets contain neither usdtEquity nor accountEquity")
+    available = _finite_float(usdt.get("available"), "USDT available")
+    by_symbol = symbol_to_asset_index(symbols_by_asset)
     positions: dict[str, PositionState] = {}
     unknown: set[str] = set()
     for row in client.current_positions():
-        symbol = str(row.get("symbol", "")).upper()
-        raw_total = float(row.get("total") or 0.0)
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            raise ValueError("venue position row has no symbol")
+        raw_total = _finite_float(row.get("total"), f"{symbol} total")
         total = abs(raw_total)
         if total <= 0.0:
             continue
@@ -128,19 +211,26 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
                 "need explicit review before planning"
             )
         reported_side = str(row.get("posSide") or "").lower()
+        if reported_side not in {"", "long", "short", "net"}:
+            raise ValueError(f"{symbol} posSide is invalid: {reported_side!r}")
         side = (
             "short"
             if reported_side == "short" or (reported_side in {"", "net"} and raw_total < 0.0)
             else "long"
         )
+        margin_value = row.get("positionBalance")
+        if margin_value is None:
+            margin_value = row.get("marginSize")
+        if margin_value is None:
+            margin_value = row.get("isolatedMargin")
         positions[asset] = PositionState(
             asset=asset,
             symbol=symbol,
             side=side or "long",
             size=total,
-            entry_price=float(row.get("avgPrice") or 0.0),
-            mark_price=float(row.get("markPrice") or 0.0),
-            margin=float(row.get("positionBalance") or 0.0),
+            entry_price=_finite_float(row.get("avgPrice"), f"{symbol} avgPrice"),
+            mark_price=_finite_float(row.get("markPrice"), f"{symbol} markPrice"),
+            margin=_finite_float(margin_value, f"{symbol} positionBalance"),
         )
     if unknown:
         raise RuntimeError(
@@ -207,6 +297,21 @@ def specs_from_instruments(rows: list[dict], symbols_by_asset: dict[str, str]) -
     return specs
 
 
+def target_gross_weight(targets: dict[str, float]) -> float:
+    """Signed target weights summed as gross exposure."""
+
+    return float(sum(abs(float(weight)) for weight in targets.values()))
+
+
+def missing_contract_specs(
+    specs: dict[str, ContractSpec],
+    required_assets: Iterable[str],
+) -> list[str]:
+    """Required assets with no venue contract spec; live code must fail."""
+
+    return sorted({str(asset) for asset in required_assets}.difference(specs))
+
+
 def _fmt_money(value: float) -> str:
     return f"{value:,.2f}"
 
@@ -263,8 +368,7 @@ def _mark_plan_sent(path: Path, chat_id: str, key: str) -> None:
     state["sent_keys"] = sent_keys
     state["last_sent_key"] = key
     state["sent_at"] = datetime.now(timezone.utc).isoformat()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(state, indent=2, sort_keys=True))
 
 
 def main() -> None:
@@ -307,6 +411,12 @@ def main() -> None:
         for record in book.to_dict("records")
         if abs(float(record["target_weight"])) > 0.0
     }
+    gross_weight = target_gross_weight(targets)
+    if gross_weight > float(args.max_gross_multiple) + 1e-9:
+        raise SystemExit(
+            f"frozen target gross {gross_weight:.6f}x exceeds the "
+            f"{float(args.max_gross_multiple):g}x spec cap"
+        )
     relevant_symbols = spec_symbol_universe(symbols_by_asset, targets)
 
     session = requests.Session()
@@ -336,6 +446,15 @@ def main() -> None:
         account = AccountState(equity=float(args.equity), available_margin=float(args.equity))
     else:
         raise SystemExit("provide --live, --account-file or --equity to size the plan")
+
+    missing_specs = missing_contract_specs(
+        specs,
+        set(targets).union(account.positions),
+    )
+    if missing_specs:
+        raise SystemExit(
+            "no Bitget contract spec for required asset(s): " + ", ".join(missing_specs)
+        )
 
     missing_prices = [
         asset for asset in targets if prices.get(relevant_symbols[asset].upper(), 0.0) <= 0.0
@@ -369,8 +488,9 @@ def main() -> None:
     print(message)
 
     if args.json_out is not None:
-        output = ensure_dir(Path(args.json_out).parent)
-        (output / Path(args.json_out).name).write_text(
+        ensure_dir(Path(args.json_out).parent)
+        atomic_write_text(
+            args.json_out,
             json.dumps(
                 {
                     "spec": args.spec,
@@ -382,7 +502,6 @@ def main() -> None:
                 sort_keys=True,
                 default=str,
             ),
-            encoding="utf-8",
         )
 
     if args.notify:

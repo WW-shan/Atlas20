@@ -94,3 +94,11 @@ def test_every_live_script_resolves_the_full_spec_universe(script: str) -> None:
     source = (PROJECT_ROOT / "scripts" / script).read_text(encoding="utf-8")
 
     assert "spec_symbol_universe" in source, f"{script} must resolve specs for held legs too"
+
+
+def test_missing_contract_spec_is_a_hard_live_error_not_a_dropped_target() -> None:
+    from scripts.plan_live_execution import missing_contract_specs
+
+    specs = specs_from_instruments(INSTRUMENTS, {"near": "NEARUSDT"})
+
+    assert missing_contract_specs(specs, {"near", "tron"}) == ["tron"]

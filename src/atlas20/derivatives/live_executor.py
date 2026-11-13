@@ -28,9 +28,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+import hashlib
+from math import isfinite
 import time
 from typing import Any, Callable, Protocol
 
+from atlas20.derivatives.account import UTA_CATEGORY
 from atlas20.derivatives.bitget import BitgetAPIError
 from atlas20.derivatives.execution import ExecutionPlan
 
@@ -51,6 +54,8 @@ class LiveTradingClient(Protocol):
 
     def hold_mode(self) -> str: ...
 
+    def account_settings(self) -> dict[str, Any]: ...
+
     def set_leverage(self, symbol: str, leverage: float, **kwargs: Any) -> Any: ...
 
     def set_margin(self, symbol: str, amount: float, **kwargs: Any) -> Any: ...
@@ -58,6 +63,14 @@ class LiveTradingClient(Protocol):
     def place_order(self, **kwargs: Any) -> dict[str, Any]: ...
 
     def order_info(self, **kwargs: Any) -> dict[str, Any]: ...
+
+    def unfilled_orders(self, **kwargs: Any) -> list[dict[str, Any]]: ...
+
+    def cancel_order(self, **kwargs: Any) -> dict[str, Any]: ...
+
+    def unfilled_strategy_orders(self, **kwargs: Any) -> list[dict[str, Any]]: ...
+
+    def order_history(self, **kwargs: Any) -> list[dict[str, Any]]: ...
 
 
 @dataclass(frozen=True)
@@ -216,13 +229,46 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
+def _required_float(value: Any, field: str, *, positive: bool = False) -> float:
+    """Parse one required exchange field; invalid data must stop trading."""
+
+    if value is None or value == "":
+        raise ValueError(f"{field} is missing")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} is not numeric: {value!r}") from exc
+    if not isfinite(number):
+        raise ValueError(f"{field} is not finite: {value!r}")
+    if positive and number <= 0.0:
+        raise ValueError(f"{field} must be positive, got {number!r}")
+    return number
+
+
+def _account_equity(assets: dict[str, Any]) -> float:
+    """Read equity with explicit precedence; zero must not fall through."""
+
+    if assets.get("usdtEquity") is not None:
+        return _required_float(assets.get("usdtEquity"), "account usdtEquity", positive=True)
+    if assets.get("accountEquity") is not None:
+        return _required_float(assets.get("accountEquity"), "account accountEquity", positive=True)
+    raise ValueError("account assets contain neither usdtEquity nor accountEquity")
+
+
 def _signed_position_qty(row: dict[str, Any]) -> float:
     """Signed quantity from hedge and one-way position payloads."""
 
-    total = _to_float(row.get("total"))
+    total = _required_float(
+        row.get("total"),
+        f"{str(row.get('symbol') or '<unknown>')} position total",
+    )
     if abs(total) <= 1e-12:
         return 0.0
-    pos_side = str(row.get("posSide") or "").lower()
+    pos_side = str(row.get("posSide") or "").strip().lower()
+    if pos_side not in {"", "long", "short", "net"}:
+        raise ValueError(
+            f"{str(row.get('symbol') or '<unknown>')} posSide is invalid: {pos_side!r}"
+        )
     short = pos_side == "short" or (pos_side in {"", "net"} and total < 0.0)
     return -abs(total) if short else abs(total)
 
@@ -291,11 +337,390 @@ def _recovered_order_matches(
 
 def _invalid_margin_modes(positions: list[dict[str, Any]]) -> list[str]:
     modes = {
-        str(row.get("marginMode") or "").strip().lower()
+        str(row.get("marginMode") or "").strip().lower() or "<missing>"
         for row in positions
-        if str(row.get("marginMode") or "").strip()
+        if abs(_signed_position_qty(row)) > 1e-12
     }
     return sorted(mode for mode in modes if mode != MARGIN_MODE_ISOLATED)
+
+
+def _is_terminal_order_status(status: str) -> bool:
+    return status.lower() in {_FILLED, _CANCELLED, "canceled"}
+
+
+def _client_oid(
+    prefix: str,
+    *,
+    purpose: str,
+    symbol: str,
+    action: str,
+    side: str,
+    pos_side: str,
+    reduce_only: bool,
+) -> str:
+    """Stable, compact idempotency key for one logical order."""
+
+    tag = {
+        "order": "o",
+        "fallback": "f",
+        "stop-close": "r",
+        "gap-close": "u",
+    }[purpose]
+    identity = "|".join(
+        (
+            purpose,
+            symbol.upper(),
+            action.upper(),
+            side.lower(),
+            pos_side.lower(),
+            "reduce" if reduce_only else "open",
+        )
+    )
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}{tag}{digest}"
+
+
+def _history_fill_action(row: dict[str, Any], positions: list[dict[str, Any]]) -> str:
+    side = str(row.get("side") or "").lower()
+    pos_side = str(row.get("posSide") or "").lower()
+    if pos_side == "long":
+        return "OPEN" if side == "buy" else "REDUCE"
+    if pos_side == "short":
+        return "OPEN" if side == "sell" else "REDUCE"
+    reduce_only = str(row.get("reduceOnly") or "").upper() in {"YES", "TRUE", "1"}
+    if reduce_only:
+        return "REDUCE"
+    symbol = str(row.get("symbol") or "").upper()
+    current = next(
+        (
+            item
+            for item in positions
+            if str(item.get("symbol") or "").upper() == symbol
+            and abs(_signed_position_qty(item)) > 1e-12
+        ),
+        None,
+    )
+    if current is not None:
+        current_short = _signed_position_qty(current) < 0.0
+        if side == "buy":
+            return "REDUCE" if current_short else "OPEN"
+        if side == "sell":
+            return "OPEN" if current_short else "REDUCE"
+    return "OPEN" if side in {"buy", "sell"} else "UNKNOWN"
+
+
+def _recover_fills_from_order_history(
+    client: LiveTradingClient,
+    *,
+    client_oid_prefix: str,
+    report: ExecutionReport,
+    positions: list[dict[str, Any]],
+) -> None:
+    """Recover fills that landed before a crash or lost response reached the CSV."""
+
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=2)
+    try:
+        rows = client.order_history(
+            start_time_ms=int(start.timestamp() * 1000),
+            end_time_ms=int(end.timestamp() * 1000),
+            limit=100,
+        )
+    except (BitgetAPIError, ValueError) as exc:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": f"could not recover current-run fills from order history: {_error_text(exc)}",
+            }
+        )
+        return
+
+    known_order_ids = {fill.order_id for fill in report.fills if fill.order_id}
+    for row in rows:
+        client_oid = str(row.get("clientOid") or "")
+        if not client_oid.startswith(client_oid_prefix):
+            continue
+        order_id = str(row.get("orderId") or "")
+        if not order_id or order_id in known_order_ids:
+            continue
+        try:
+            filled = _required_float(row.get("cumExecQty"), "recovered cumExecQty")
+        except ValueError as exc:
+            report.failures.append(
+                {
+                    "symbol": str(row.get("symbol") or "*"),
+                    "action": "VERIFY",
+                    "side": str(row.get("side") or "-"),
+                    "size": str(row.get("qty") or "-"),
+                    "error": f"order-history fill could not be recovered: {exc}",
+                }
+            )
+            continue
+        if filled <= 0.0:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        try:
+            avg_price = _required_float(row.get("avgPrice"), "recovered avgPrice", positive=True)
+        except ValueError as exc:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": str(row.get("side") or "-"),
+                    "size": f"{filled:.12g}",
+                    "error": f"order-history fill could not be recovered: {exc}",
+                }
+            )
+            continue
+        try:
+            notional = _required_float(
+                row.get("cumExecValue"),
+                "recovered cumExecValue",
+                positive=True,
+            )
+        except ValueError:
+            notional = filled * avg_price
+        fee, fee_coin = _fee_from_detail(row)
+        status = str(row.get("orderStatus") or "unknown")
+        action = _history_fill_action(row, positions)
+        requested_raw = row.get("qty")
+        try:
+            requested = _required_float(requested_raw, "recovered requested qty", positive=True)
+        except ValueError:
+            requested = filled
+        stop = _to_float(row.get("stopLoss"))
+        report.fills.append(
+            OrderFill(
+                asset=symbol.removesuffix("USDT").lower(),
+                symbol=symbol,
+                action=action,
+                side=str(row.get("side") or "").lower(),
+                stop_loss=stop if stop > 0.0 else None,
+                requested_size=requested,
+                filled_size=filled,
+                avg_price=avg_price,
+                notional=notional,
+                fee=fee,
+                fee_coin=fee_coin,
+                order_id=order_id,
+                status=status,
+                position_side=str(row.get("posSide") or "").lower(),
+                client_oid=client_oid,
+                requested_stop_loss=stop if stop > 0.0 else None,
+                stop_trigger_by=str(row.get("slTriggerBy") or ""),
+                stop_order_type=str(row.get("slOrderType") or ""),
+            )
+        )
+        known_order_ids.add(order_id)
+        report.traded = True
+        report.margin_notes.append(
+            f"{symbol}: 已从交易所订单历史恢复本次未落账成交 {order_id}"
+        )
+        if status != _FILLED or filled + 1e-12 < requested:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": action,
+                    "side": str(row.get("side") or "-"),
+                    "size": f"{requested:.12g}",
+                    "error": (
+                        "recovered order did not fully fill "
+                        f"(status={status}, filled {filled:.8g}/{requested:.8g})"
+                    ),
+                }
+            )
+
+
+def _preflight_unfilled_orders(
+    client: LiveTradingClient,
+    *,
+    report: ExecutionReport,
+) -> bool:
+    """Cancel Atlas20's stale zero-fill orders; block on anything else.
+
+    The query is account-wide, not limited to today's target symbols: a stale
+    order from an older plan can still fill after that asset has left the new
+    book.  Unknown/manual open orders are never cancelled.  A partially filled
+    stale order is cancelled when possible but still blocks the plan because
+    its economic effect must be reconciled first.
+    """
+
+    blocked = False
+    try:
+        rows = client.unfilled_orders(category=UTA_CATEGORY)
+    except (BitgetAPIError, ValueError) as exc:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": f"could not query unfilled orders before trading: {_error_text(exc)}",
+            }
+        )
+        return False
+    for row in rows:
+        symbol = str(row.get("symbol") or "").upper() or "<missing-symbol>"
+        order_id = str(row.get("orderId") or "")
+        client_oid = str(row.get("clientOid") or "")
+        try:
+            filled = _required_float(row.get("cumExecQty"), "unfilled order cumExecQty")
+            fill_error = ""
+        except ValueError as exc:
+            filled = float("nan")
+            fill_error = str(exc)
+        own_order = bool(client_oid) and client_oid.startswith(("a20", "atlas20"))
+        if not own_order:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": str(row.get("side") or "-"),
+                    "size": str(row.get("qty") or "-"),
+                    "error": (
+                        "an unrelated unfilled order exists on this symbol; "
+                        f"clientOid={client_oid or '<missing>'}, orderId={order_id or '<missing>'}"
+                    ),
+                }
+            )
+            blocked = True
+            continue
+
+        cancel_error = ""
+        if order_id or client_oid:
+            try:
+                client.cancel_order(
+                    category=UTA_CATEGORY,
+                    order_id=order_id or None,
+                    client_oid=None if order_id else client_oid,
+                )
+            except (BitgetAPIError, ValueError) as exc:
+                cancel_error = _error_text(exc)
+        else:
+            cancel_error = "unfilled order has neither orderId nor clientOid"
+
+        final_status = str(row.get("orderStatus") or "")
+        if order_id:
+            try:
+                after = client.order_info(order_id=order_id)
+                final_status = str(after.get("orderStatus") or final_status)
+                if after.get("cumExecQty") not in (None, ""):
+                    filled = _required_float(after.get("cumExecQty"), "unfilled order cumExecQty")
+                    fill_error = ""
+            except (BitgetAPIError, ValueError) as exc:
+                cancel_error = f"{cancel_error}; {_error_text(exc)}".strip("; ")
+        fill_unknown = not isfinite(filled)
+        if (
+            cancel_error
+            or fill_unknown
+            or filled > 1e-12
+            or not _is_terminal_order_status(final_status)
+        ):
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": str(row.get("side") or "-"),
+                    "size": str(row.get("qty") or "-"),
+                    "error": (
+                        "stale run order could not be proven flat"
+                        f" (status={final_status or 'unknown'}, "
+                        f"filled={'unknown' if fill_unknown else f'{filled:.8g}'}"
+                        + (f", fill error={fill_error}" if fill_error else "")
+                        + (f", cancel error={cancel_error}" if cancel_error else "")
+                        + "); new orders are blocked until reconciliation"
+                    ),
+                }
+            )
+            blocked = True
+        else:
+            report.margin_notes.append(
+                f"{symbol}: 已撤销上次遗留的零成交订单 {order_id or client_oid}"
+            )
+    return not blocked
+
+
+def _leverage_readback_error(
+    client: LiveTradingClient,
+    *,
+    symbol: str,
+    pos_side: str,
+    leverage: float,
+    margin_mode: str = MARGIN_MODE_ISOLATED,
+) -> str | None:
+    """Verify the venue's symbol config actually contains the requested setup."""
+
+    try:
+        settings = client.account_settings()
+    except (BitgetAPIError, ValueError) as exc:
+        return f"leverage readback failed: {_error_text(exc)}"
+    rows = settings.get("symbolConfigList") or []
+    if not isinstance(rows, list):
+        return "leverage readback symbolConfigList is not an array"
+    candidates = [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        and str(row.get("symbol") or "").upper() == symbol.upper()
+        and str(row.get("marginMode") or "").lower() == margin_mode
+    ]
+    if not candidates:
+        return f"leverage readback has no {margin_mode} config for {symbol}"
+    side_key = "shortLeverage" if pos_side.lower() == "short" else "longLeverage"
+    observed: list[float] = []
+    for row in candidates:
+        raw = row.get(side_key)
+        if raw in (None, ""):
+            raw = row.get("leverage")
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if isfinite(value):
+            observed.append(value)
+    if not observed:
+        return f"leverage readback has no numeric leverage for {symbol}"
+    if any(abs(value - float(leverage)) <= 1e-9 for value in observed):
+        return None
+    return (
+        f"leverage readback mismatch for {symbol}: "
+        f"expected {leverage:g}x, observed {', '.join(f'{value:g}' for value in observed)}x"
+    )
+
+
+def _venue_stop_protected_symbols(
+    strategy_orders: list[dict[str, Any]],
+    short_symbols: set[str],
+) -> set[str]:
+    protected: set[str] = set()
+    for row in strategy_orders:
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol not in short_symbols:
+            continue
+        if str(row.get("posSide") or "").lower() not in {"", "short"}:
+            continue
+        status = str(row.get("orderStatus") or row.get("status") or "").lower()
+        if status in {"cancelled", "canceled", "filled", "triggered", "failed"}:
+            continue
+        try:
+            stop = float(
+                row.get("stopLoss")
+                or row.get("slTriggerPrice")
+                or row.get("triggerPrice")
+                or 0.0
+            )
+        except (TypeError, ValueError):
+            continue
+        trigger = str(row.get("slTriggerBy") or row.get("triggerBy") or "").lower()
+        order_type = str(
+            row.get("slOrderType") or row.get("orderType") or row.get("type") or ""
+        ).lower()
+        if isfinite(stop) and stop > 0.0 and trigger == "mark_price" and order_type == "market":
+            protected.add(symbol)
+    return protected
 
 
 def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> bool:
@@ -342,7 +767,7 @@ def execute_plan(
 
     report = ExecutionReport(signal_date=signal_date)
     assets = client.account_assets()
-    report.equity_before = _to_float(assets.get("usdtEquity") or assets.get("accountEquity"))
+    report.equity_before = _account_equity(assets)
 
     mode = hold_mode if hold_mode is not None else client.hold_mode()
     hedging = str(mode).lower() == "hedge_mode"
@@ -353,6 +778,8 @@ def execute_plan(
         for row in initial_positions
         if _signed_position_qty(row) < 0.0
     }
+    prefix = client_oid_prefix or f"atlas20{int(time.time() * 1000):x}"
+    preflight_ok = _preflight_unfilled_orders(client, report=report)
     blocked_all_opens = False
     if require_isolated:
         initial_invalid_modes = _invalid_margin_modes(initial_positions)
@@ -375,9 +802,21 @@ def execute_plan(
     isolated_ok = margin_mode == MARGIN_MODE_ISOLATED
     leverage_done: set[tuple[str, str]] = set()
     blocked_open_assets: set[str] = set()
-    prefix = client_oid_prefix or f"atlas20{int(time.time() * 1000):x}"
+    stop_emergency_attempted: set[str] = set()
+    halt_all_orders = not preflight_ok
 
-    for index, order in enumerate(plan.orders):
+    for order in plan.orders:
+        if halt_all_orders:
+            report.failures.append(
+                {
+                    "symbol": order.symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": "order blocked because open-order reconciliation did not pass",
+                }
+            )
+            continue
         symbol = order.symbol
         if blocked_all_opens and not order.reduce_only:
             report.failures.append(
@@ -430,6 +869,26 @@ def execute_plan(
                         f"{symbol}: 逐仓杠杆设置被拒绝，规格要求逐仓，已跳过该腿（{exc}）"
                     )
                     continue
+                readback_error = _leverage_readback_error(
+                    client,
+                    symbol=symbol,
+                    pos_side=order_pos_side,
+                    leverage=leverage,
+                )
+                if readback_error is not None:
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": order.action,
+                            "side": order.side,
+                            "size": f"{order.size:.12g}",
+                            "error": readback_error,
+                        }
+                    )
+                    report.margin_notes.append(
+                        f"{symbol}: 杠杆/逐仓配置回读不符，已跳过该腿"
+                    )
+                    continue
                 leverage_done.add(leverage_key)
             else:
                 # Cap the fallback configuration first: this venue can accept an
@@ -479,7 +938,15 @@ def execute_plan(
             "order_type": "market",
             "pos_side": order_pos_side if hedging else None,
             "reduce_only": order.reduce_only and not hedging,
-            "client_oid": f"{prefix}{index:02d}",
+            "client_oid": _client_oid(
+                prefix,
+                purpose="order",
+                symbol=symbol,
+                action=order.action,
+                side=order.side,
+                pos_side=order_pos_side,
+                reduce_only=order.reduce_only,
+            ),
         }
         if isolated_ok and not order.reduce_only:
             body["margin_mode"] = MARGIN_MODE_ISOLATED
@@ -488,7 +955,6 @@ def execute_plan(
             body["sl_trigger_by"] = "mark_price"
             body["sl_order_type"] = "market"
 
-        recovered_by_oid = False
         try:
             try:
                 placed = client.place_order(**body)
@@ -505,7 +971,15 @@ def execute_plan(
                     body.pop("margin_mode", None)
                     # fresh clientOid: the rejected attempt never reached the
                     # matching engine, but a reused id would be refused
-                    body["client_oid"] = f"{prefix}{index:02d}c"
+                    body["client_oid"] = _client_oid(
+                        prefix,
+                        purpose="fallback",
+                        symbol=symbol,
+                        action=order.action,
+                        side=order.side,
+                        pos_side=order_pos_side,
+                        reduce_only=order.reduce_only,
+                    )
                     try:
                         placed = client.place_order(**body)
                     except BitgetAPIError as retry_exc:
@@ -520,7 +994,6 @@ def execute_plan(
                         ):
                             raise retry_exc
                         placed = recovered
-                        recovered_by_oid = True
                         report.margin_notes.append(
                             f"{symbol}: 下单响应不明确，已按 clientOid 回查确认"
                         )
@@ -536,7 +1009,6 @@ def execute_plan(
                     ):
                         raise
                     placed = recovered
-                    recovered_by_oid = True
                     report.margin_notes.append(
                         f"{symbol}: 下单响应不明确，已按 clientOid 回查确认"
                     )
@@ -567,7 +1039,6 @@ def execute_plan(
             ):
                 placed = recovered
                 order_id = str(placed.get("orderId") or "")
-                recovered_by_oid = True
                 report.margin_notes.append(
                     f"{symbol}: 下单响应缺少 orderId，已按 clientOid 回查确认"
                 )
@@ -593,12 +1064,85 @@ def execute_plan(
             sleep=sleep,
             clock=clock,
         )
-        filled = _to_float(payload.get("cumExecQty"))
-        avg_price = _to_float(payload.get("avgPrice"))
-        notional = _to_float(payload.get("cumExecValue")) or filled * avg_price
+        initial_status = str(payload.get("orderStatus") or "")
+        if not _is_terminal_order_status(initial_status):
+            cancel_error = ""
+            try:
+                client.cancel_order(category=UTA_CATEGORY, order_id=order_id)
+            except (BitgetAPIError, ValueError) as exc:
+                cancel_error = _error_text(exc)
+            try:
+                payload = wait_for_fill(
+                    client,
+                    order_id=order_id,
+                    timeout_seconds=min(max(fill_timeout_seconds, 0.0), 5.0),
+                    poll_interval_seconds=poll_interval_seconds,
+                    sleep=sleep,
+                    clock=clock,
+                )
+            except (BitgetAPIError, ValueError) as exc:
+                cancel_error = f"{cancel_error}; {_error_text(exc)}".strip("; ")
+            final_status = str(payload.get("orderStatus") or initial_status)
+            if not _is_terminal_order_status(final_status):
+                halt_all_orders = True
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": order.action,
+                        "side": order.side,
+                        "size": f"{order.size:.12g}",
+                        "error": (
+                            "order did not reach a terminal status and could not be "
+                            f"proven cancelled (status={final_status or 'unknown'}"
+                            + (f", cancel error={cancel_error}" if cancel_error else "")
+                            + ")"
+                        ),
+                    }
+                )
+            elif cancel_error:
+                halt_all_orders = True
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": order.action,
+                        "side": order.side,
+                        "size": f"{order.size:.12g}",
+                        "error": f"order cancellation response was ambiguous: {cancel_error}",
+                    }
+                )
+            else:
+                report.margin_notes.append(
+                    f"{symbol}: 市价单超时未终态，已撤单并核对"
+                )
+        try:
+            filled = _required_float(payload.get("cumExecQty"), "order cumExecQty")
+        except ValueError as exc:
+            halt_all_orders = True
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
+            report.traded = True
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": str(exc),
+                }
+            )
+            continue
+        avg_price = (
+            _required_float(payload.get("avgPrice"), "order avgPrice")
+            if filled > 0.0
+            else 0.0
+        )
+        if payload.get("cumExecValue") not in (None, ""):
+            notional = _required_float(payload.get("cumExecValue"), "order cumExecValue")
+        else:
+            notional = filled * avg_price
         fee, fee_coin = _fee_from_detail(payload)
         attached_stop = _to_float(payload.get("stopLoss"))
-        status = str(payload.get("orderStatus") or ("filled" if not order_id else ""))
+        status = str(payload.get("orderStatus") or "")
         stop_confirmed = _short_stop_confirmed(order.stop_loss, payload)
         report.fills.append(
             OrderFill(
@@ -617,30 +1161,31 @@ def execute_plan(
                 status=status or "unknown",
                 position_side=order_pos_side,
                 client_oid=str(body.get("client_oid") or ""),
-                    requested_stop_loss=order.stop_loss,
+                requested_stop_loss=order.stop_loss,
                 stop_trigger_by=str(payload.get("slTriggerBy") or ""),
                 stop_order_type=str(payload.get("slOrderType") or ""),
             )
         )
         report.traded = True
-        if recovered_by_oid and status == _FILLED:
-            tolerance = max(1e-9, abs(order.size) * 1e-8)
-            if abs(filled - order.size) > tolerance:
-                if order.action == "CLOSE":
-                    blocked_open_assets.add(order.asset)
-                report.failures.append(
-                    {
-                        "symbol": symbol,
-                        "action": order.action,
-                        "side": order.side,
-                        "size": f"{order.size:.12g}",
-                        "error": (
-                            "recovered clientOid order filled a different quantity "
-                            f"({filled:.8g} vs requested {order.size:.8g})"
-                        ),
-                    }
-                )
+        tolerance = max(1e-9, abs(order.size) * 1e-8)
+        if status == _FILLED and abs(filled - order.size) > tolerance:
+            halt_all_orders = True
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": (
+                        "venue reported filled with a different quantity "
+                        f"({filled:.8g} vs requested {order.size:.8g})"
+                    ),
+                }
+            )
         if order.stop_loss is not None and not stop_confirmed:
+            stop_emergency_attempted.add(symbol.upper())
             report.failures.append(
                 {
                     "symbol": symbol,
@@ -659,7 +1204,15 @@ def execute_plan(
                     "order_type": "market",
                     "pos_side": order_pos_side if hedging else None,
                     "reduce_only": not hedging,
-                    "client_oid": f"{prefix}{index:02d}r",
+                    "client_oid": _client_oid(
+                        prefix,
+                        purpose="stop-close",
+                        symbol=symbol,
+                        action="EMERGENCY_CLOSE",
+                        side="buy",
+                        pos_side=order_pos_side,
+                        reduce_only=not hedging,
+                    ),
                 }
                 try:
                     closed = client.place_order(**close_body)
@@ -744,14 +1297,48 @@ def execute_plan(
 
     positions = client.current_positions()
     report.positions_after = [dict(row) for row in positions]
-    if known_protected_short_symbols is not None:
-        protected = {str(symbol).upper() for symbol in known_protected_short_symbols}
-        protected.update(
+    _recover_fills_from_order_history(
+        client,
+        client_oid_prefix=prefix,
+        report=report,
+        positions=report.positions_after,
+    )
+    open_short_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in report.positions_after
+        if _signed_position_qty(row) < 0.0
+        and str(row.get("symbol") or "")
+        and str(row.get("symbol") or "").upper() not in stop_emergency_attempted
+    }
+    if open_short_symbols:
+        journal_protected = {
+            str(symbol).upper()
+            for symbol in (known_protected_short_symbols or set())
+        }
+        recent_confirmed = {
             fill.symbol.upper()
             for fill in report.fills
-            if fill.short_stop_confirmed
-            and fill.status == _FILLED
-        )
+            if fill.short_stop_confirmed and fill.status == _FILLED
+        }
+        try:
+            strategy_orders = client.unfilled_strategy_orders(category=UTA_CATEGORY)
+        except (BitgetAPIError, ValueError) as exc:
+            venue_protected: set[str] = set()
+            report.failures.append(
+                {
+                    "symbol": "*",
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": f"could not verify live short stop orders: {_error_text(exc)}",
+                }
+            )
+        else:
+            venue_protected = _venue_stop_protected_symbols(
+                strategy_orders,
+                open_short_symbols,
+            )
+        protected = venue_protected & (recent_confirmed | journal_protected)
         unprotected = [
             dict(row)
             for row in report.positions_after
@@ -768,7 +1355,7 @@ def execute_plan(
                     "side": "short",
                     "size": f"{qty:.12g}",
                     "error": (
-                        "existing short has no confirmed stop record; emergency close attempted"
+                        "existing short has no live venue stop; emergency close attempted"
                     ),
                 }
             )
@@ -782,7 +1369,15 @@ def execute_plan(
                     order_type="market",
                     pos_side="short" if hedging else None,
                     reduce_only=not hedging,
-                    client_oid=f"{prefix}u{index:02d}",
+                    client_oid=_client_oid(
+                        prefix,
+                        purpose="gap-close",
+                        symbol=symbol,
+                        action="EMERGENCY_CLOSE",
+                        side="buy",
+                        pos_side="short" if hedging else "",
+                        reduce_only=not hedging,
+                    ),
                 )
                 close_id = str(closed.get("orderId") or "")
                 if not close_id:
@@ -818,7 +1413,18 @@ def execute_plan(
                         order_id=close_id,
                         status=close_status,
                         position_side="short",
-                        client_oid=str(closed.get("clientOid") or f"{prefix}u{index:02d}"),
+                        client_oid=str(
+                            closed.get("clientOid")
+                            or _client_oid(
+                                prefix,
+                                purpose="gap-close",
+                                symbol=symbol,
+                                action="EMERGENCY_CLOSE",
+                                side="buy",
+                                pos_side="short" if hedging else "",
+                                reduce_only=not hedging,
+                            )
+                        ),
                     )
                 )
                 if close_status != _FILLED or close_filled + 1e-12 < qty:
@@ -848,9 +1454,9 @@ def execute_plan(
             positions = client.current_positions()
             report.positions_after = [dict(item) for item in positions]
     position_modes = {
-        str(row.get("marginMode") or "").lower()
+        str(row.get("marginMode") or "").strip().lower() or "<missing>"
         for row in report.positions_after
-        if str(row.get("marginMode") or "").strip()
+        if abs(_signed_position_qty(row)) > 1e-12
     }
     if len(position_modes) == 1:
         report.margin_mode = next(iter(position_modes))
@@ -905,9 +1511,7 @@ def execute_plan(
                     )
 
     assets_after = client.account_assets()
-    report.equity_after = _to_float(
-        assets_after.get("usdtEquity") or assets_after.get("accountEquity")
-    )
+    report.equity_after = _account_equity(assets_after)
     usdt_row = next(
         (
             row
@@ -916,8 +1520,12 @@ def execute_plan(
         ),
         {},
     )
-    report.available_after = _to_float(usdt_row.get("available"))
-    report.balance_after = _to_float(usdt_row.get("balance"))
+    report.available_after = _required_float(
+        usdt_row.get("available"), "USDT available after execution"
+    )
+    report.balance_after = _required_float(
+        usdt_row.get("balance"), "USDT balance after execution"
+    )
     return report
 
 

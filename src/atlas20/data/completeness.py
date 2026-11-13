@@ -109,7 +109,7 @@ def assess_last_day(
     frame["volume_usd"] = pd.to_numeric(frame["volume_usd"], errors="coerce")
     frame["market_cap"] = pd.to_numeric(frame["market_cap"], errors="coerce")
     last_day = pd.Timestamp(frame["date"].max())
-    floor = weekend_volume_floor if last_day.dayofweek >= 5 else weekday_volume_floor
+    floor = weekend_volume_floor if last_day.day_of_week >= 5 else weekday_volume_floor
 
     window = pd.date_range(end=last_day, periods=trailing_days + 1, freq="D")
     frame = frame[frame["date"].isin(window)].drop_duplicates(["date", "coin_id"], keep="last")
@@ -137,7 +137,7 @@ def assess_last_day(
 
     reasons: list[str] = []
     if median_ratio < floor:
-        kind = "weekend" if last_day.dayofweek >= 5 else "weekday"
+        kind = "weekend" if last_day.day_of_week >= 5 else "weekday"
         reasons.append(
             f"median last-day volume is {median_ratio:.2f}x the trailing {trailing_days}-day median, "
             f"below the {kind} floor {floor:.2f}x"

@@ -78,15 +78,15 @@ describe("LiveResearchTab", () => {
 
     const derivatives = await screen.findByRole("region", { name: "Derivatives live monitor" });
     expect(derivatives).toHaveTextContent("healthy");
-    expect(derivatives).toHaveTextContent("99.95 USDT equity");
-    expect(derivatives).toHaveTextContent("75.11 USDT gross notional");
+    expect(derivatives).toHaveTextContent("499.68 USDT equity");
+    expect(derivatives).toHaveTextContent("0.00 USDT gross notional");
     expect(derivatives).toHaveTextContent("0 hard failures");
     expect(derivatives).toHaveTextContent("Signal equivalence passed");
 
     const journal = screen.getByRole("region", { name: "Execution journal" });
-    expect(journal).toHaveTextContent("2026-10-10");
-    expect(journal).toHaveTextContent("99.974147");
-    expect(journal).toHaveTextContent("1 positions");
+    expect(journal).toHaveTextContent("2026-11-13");
+    expect(journal).toHaveTextContent("499.680708");
+    expect(journal).toHaveTextContent("0 positions");
     expect(journal).toHaveTextContent("0 trades");
   });
 

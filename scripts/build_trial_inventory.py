@@ -1220,7 +1220,8 @@ def _load_preregistered_lane(src: Sources, rec: TrialRecorder) -> list[UnscoredC
     ledger_path = Path(src.repo_root) / PREREGISTERED_LEDGER
     if not ledger_path.exists():
         return []
-    ledger = src.csv(str(PREREGISTERED_LEDGER)).fillna("")
+    ledger = src.csv(str(PREREGISTERED_LEDGER)).astype(object)
+    ledger = ledger.where(pd.notna(ledger), "")
     required = {"trial_id", "status", "counts_as_trial"}
     missing = sorted(required - set(ledger.columns))
     if missing:

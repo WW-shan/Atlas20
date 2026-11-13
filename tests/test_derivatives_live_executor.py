@@ -8,6 +8,8 @@ from atlas20.derivatives.bitget import BitgetAPIError
 from atlas20.derivatives.execution import (
     AccountState,
     ContractSpec,
+    ExecutionPlan,
+    OrderIntent,
     PositionState,
     build_execution_plan,
 )
@@ -65,9 +67,16 @@ class _FakeLiveClient:
         stop_loss_override: float | None = None,
         stop_trigger_by_override: str | None = None,
         stop_order_type_override: str | None = None,
+        unfilled: list[dict[str, Any]] | None = None,
+        cancel_error: str | None = None,
+        strategy_orders: list[dict[str, Any]] | None = None,
+        order_history_rows: list[dict[str, Any]] | None = None,
     ) -> None:
         self.hold_mode_value = hold_mode
-        self.assets = assets or {"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "25.0"}]}
+        self.assets = assets or {
+            "usdtEquity": "100",
+            "assets": [{"coin": "USDT", "available": "25.0", "balance": "100"}],
+        }
         self.positions = positions or []
         self.order_infos = order_infos or {}
         self.reject_isolated_orders = reject_isolated_orders
@@ -79,7 +88,13 @@ class _FakeLiveClient:
         self.stop_loss_override = stop_loss_override
         self.stop_trigger_by_override = stop_trigger_by_override
         self.stop_order_type_override = stop_order_type_override
+        self.pending_orders = list(unfilled or [])
+        self.cancel_error = cancel_error
+        self.strategy_orders = list(strategy_orders or [])
+        self.order_history_rows = list(order_history_rows or [])
         self.placed: list[dict[str, Any]] = []
+        self.cancelled: list[dict[str, Any]] = []
+        self.symbol_configs: dict[tuple[str, str], dict[str, Any]] = {}
         self.leverage_calls: list[dict[str, Any]] = []
         self.margin_calls: list[dict[str, Any]] = []
         self._next_id = 1000
@@ -94,12 +109,27 @@ class _FakeLiveClient:
     def hold_mode(self) -> str:
         return self.hold_mode_value
 
+    def account_settings(self) -> dict[str, Any]:
+        return {
+            "holdMode": self.hold_mode_value,
+            "symbolConfigList": [dict(row) for row in self.symbol_configs.values()],
+        }
+
     def set_leverage(self, symbol: str, leverage: float, **kwargs: Any) -> Any:
         self.leverage_calls.append({"symbol": symbol, "leverage": leverage, **kwargs})
         if kwargs.get("margin_mode") == "crossed" and self.crossed_leverage_error:
             raise BitgetAPIError(self.crossed_leverage_error)
         if kwargs.get("margin_mode") == "isolated" and self.reject_isolated_leverage:
             raise BitgetAPIError("Bitget set-leverage HTTP 400: 25200 fixedMargin not support")
+        mode = str(kwargs.get("margin_mode") or "crossed")
+        self.symbol_configs[(symbol, mode)] = {
+            "category": "USDT-FUTURES",
+            "symbol": symbol,
+            "marginMode": mode,
+            "leverage": str(leverage),
+            "longLeverage": str(leverage) if mode == "isolated" else None,
+            "shortLeverage": str(leverage) if mode == "isolated" else None,
+        }
         return "success"
 
     def set_margin(self, symbol: str, amount: float, **kwargs: Any) -> Any:
@@ -148,6 +178,34 @@ class _FakeLiveClient:
             },
         )
         return {"orderId": order_id, "clientOid": kwargs.get("client_oid")}
+
+    def unfilled_orders(self, **kwargs: Any) -> list[dict[str, Any]]:
+        symbol = str(kwargs.get("symbol") or "").upper()
+        return [
+            dict(row)
+            for row in self.pending_orders
+            if not symbol or str(row.get("symbol") or "").upper() == symbol
+        ]
+
+    def unfilled_strategy_orders(self, **kwargs: Any) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.strategy_orders]
+
+    def order_history(self, **kwargs: Any) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.order_history_rows]
+
+    def cancel_order(self, **kwargs: Any) -> dict[str, Any]:
+        if self.cancel_error:
+            raise BitgetAPIError(self.cancel_error)
+        self.cancelled.append(dict(kwargs))
+        order_id = str(kwargs.get("order_id") or "")
+        for index, row in enumerate(self.pending_orders):
+            if str(row.get("orderId") or "") == order_id:
+                cancelled = self.pending_orders.pop(index)
+                self.order_infos.setdefault(order_id, dict(cancelled))
+                break
+        if order_id in self.order_infos:
+            self.order_infos[order_id]["orderStatus"] = "cancelled"
+        return {"orderId": order_id, "status": "cancelled"}
 
     def order_info(self, **kwargs: Any) -> dict[str, Any]:
         order_id = str(kwargs.get("order_id") or "")
@@ -290,8 +348,8 @@ def test_an_accepted_order_with_a_lost_response_is_reconciled_by_client_oid() ->
 
     assert not report.failures
     assert len(report.fills) == 1
-    assert report.fills[0].client_oid == "a20stable00"
-    assert client.placed[0]["client_oid"] == "a20stable00"
+    assert report.fills[0].client_oid == client.placed[0]["client_oid"]
+    assert report.fills[0].client_oid.startswith("a20stableo")
     assert any("clientOid" in note for note in report.margin_notes)
 
 
@@ -367,10 +425,10 @@ def test_an_unfilled_order_is_a_failure_and_must_not_mark_the_run_ok() -> None:
 
     report = _run(client, _plan(), fill_timeout_seconds=0)
 
-    assert report.fills[0].status == "live"
+    assert report.fills[0].status == "cancelled"
     assert report.fills[0].filled_size == 0.0
     assert len(report.failures) == 1
-    assert "not filled" in report.failures[0]["error"]
+    assert "cancelled" in report.failures[0]["error"]
 
 
 def test_a_missing_order_id_is_a_failure_without_a_fake_fill() -> None:
@@ -756,6 +814,39 @@ def test_hedge_mode_short_open_attaches_a_mark_price_stop() -> None:
     assert report.fills[0].stop_loss == pytest.approx(6.0)
 
 
+def test_new_short_requires_a_live_venue_strategy_order_not_only_order_echo() -> None:
+    class _ShortPositionAfterFill(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            result = super().place_order(**kwargs)
+            if kwargs.get("side") == "sell":
+                self.positions = [
+                    {
+                        "symbol": kwargs["symbol"],
+                        "total": str(kwargs["qty"]),
+                        "posSide": "short",
+                        "marginMode": "isolated",
+                        "avgPrice": "5",
+                        "markPrice": "5",
+                    }
+                ]
+            elif kwargs.get("side") == "buy":
+                self.positions = []
+            return result
+
+    client = _ShortPositionAfterFill(
+        reject_isolated_orders=False,
+        strategy_orders=[],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.4, short_stop_loss_pct=0.20),
+    )
+
+    assert [fill.action for fill in report.fills] == ["OPEN", "EMERGENCY_CLOSE"]
+    assert any("no live venue stop" in item["error"] for item in report.failures)
+
+
 def test_one_way_short_open_keeps_the_stop_while_omitting_position_side() -> None:
     client = _FakeLiveClient(hold_mode="one_way_mode", reject_isolated_orders=False)
 
@@ -1000,7 +1091,26 @@ def test_existing_short_without_a_recorded_stop_is_emergency_closed() -> None:
 
     assert client.placed[0]["side"] == "buy"
     assert report.fills[-1].action == "EMERGENCY_CLOSE"
-    assert any("no confirmed stop record" in item["error"] for item in report.failures)
+    assert any("no live venue stop" in item["error"] for item in report.failures)
+
+
+def test_executor_rejects_an_unknown_position_side() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "side_typo",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="posSide"):
+        _run(client, _plan())
 
 
 def test_short_order_reports_an_unconfirmed_stop_as_a_failure() -> None:
@@ -1175,3 +1285,382 @@ def test_one_way_short_close_uses_reduce_only_without_position_side() -> None:
     assert order["side"] == "buy"
     assert order["pos_side"] is None
     assert order["reduce_only"] is True
+
+
+def test_plan_execution_never_turns_zero_equity_into_another_field() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        assets={
+            "usdtEquity": 0,
+            "accountEquity": 100,
+            "assets": [{"coin": "USDT", "available": "0"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="usdtEquity"):
+        _run(client, _plan())
+
+    assert client.placed == []
+
+
+def test_final_account_snapshot_rejects_a_missing_balance() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        assets={
+            "usdtEquity": "100",
+            "assets": [{"coin": "USDT", "available": "10"}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="balance"):
+        _run(client, _plan())
+
+
+def test_a_manual_unfilled_order_on_a_planned_symbol_blocks_new_orders() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        unfilled=[
+            {
+                "orderId": "9001",
+                "clientOid": "manual-risk-order",
+                "symbol": "NEARUSDT",
+                "orderStatus": "live",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), client_oid_prefix="a20current")
+
+    assert client.placed == []
+    assert any("unfilled" in item["error"].lower() for item in report.failures)
+
+
+def test_a_stale_zero_fill_run_order_is_cancelled_before_retrying() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        unfilled=[
+            {
+                "orderId": "9002",
+                "clientOid": "a20current00",
+                "symbol": "NEARUSDT",
+                "orderStatus": "live",
+                "cumExecQty": "0",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), client_oid_prefix="a20current")
+
+    assert [row["order_id"] for row in client.cancelled] == ["9002"]
+    assert len(client.placed) == 1
+    assert report.fills[0].status == "filled"
+
+
+def test_a_live_order_that_times_out_is_cancelled_and_reported() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_infos={"1001": {"orderStatus": "live", "cumExecQty": "0"}},
+    )
+
+    report = _run(client, _plan(), fill_timeout_seconds=0)
+
+    assert [row["order_id"] for row in client.cancelled] == ["1001"]
+    assert report.fills[0].status == "cancelled"
+    assert len(report.failures) == 1
+
+
+def test_a_filled_order_without_a_fill_quantity_is_not_treated_as_zero() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_infos={
+            "1001": {
+                "orderStatus": "filled",
+                "avgPrice": "5",
+                "cumExecValue": "60",
+                "feeDetail": [],
+            }
+        },
+    )
+
+    report = _run(client, _plan())
+
+    assert report.fills == []
+    assert any("cumExecQty" in item["error"] for item in report.failures)
+
+
+def test_missing_margin_mode_is_treated_as_non_isolated_and_blocks_new_risk() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "total": "2",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "5",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), require_isolated=True, margin_mode="isolated")
+
+    assert client.placed == []
+    assert any("preflight venue reports" in item["error"] for item in report.failures)
+
+
+def test_invalid_position_quantity_blocks_execution_instead_of_becoming_flat() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "total": "not-a-number",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "5",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="position total"):
+        _run(client, _plan())
+
+    assert client.placed == []
+
+
+def test_preflight_unfilled_order_with_invalid_fill_quantity_blocks_the_plan() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        unfilled=[
+            {
+                "orderId": "9003",
+                "clientOid": "a20current00",
+                "symbol": "NEARUSDT",
+                "orderStatus": "live",
+                "cumExecQty": "not-a-number",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), client_oid_prefix="a20current")
+
+    assert client.placed == []
+    assert any("could not be proven flat" in item["error"] for item in report.failures)
+
+
+def test_stale_prior_day_order_outside_todays_plan_is_still_reconciled() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        unfilled=[
+            {
+                "orderId": "9004",
+                "clientOid": "a20oldhash00",
+                "symbol": "SOLUSDT",
+                "orderStatus": "live",
+                "cumExecQty": "0",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), client_oid_prefix="a20current")
+
+    assert [row["order_id"] for row in client.cancelled] == ["9004"]
+    assert len(client.placed) == 1
+    assert report.fills[0].status == "filled"
+
+
+def test_manual_unfilled_order_on_any_symbol_blocks_the_whole_plan() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        unfilled=[
+            {
+                "orderId": "9005",
+                "clientOid": "manual-risk-order",
+                "symbol": "SOLUSDT",
+                "orderStatus": "live",
+            }
+        ],
+    )
+
+    report = _run(client, _plan(), client_oid_prefix="a20current")
+
+    assert client.placed == []
+    assert any("unrelated unfilled order" in item["error"] for item in report.failures)
+
+
+def test_executor_recovers_a_fill_that_landed_before_the_journal_write() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "10",
+                "posSide": "long",
+                "marginMode": "isolated",
+                "avgPrice": "5",
+                "markPrice": "5",
+            }
+        ],
+        order_history_rows=[
+            {
+                "orderId": "recovered-1",
+                "clientOid": "a20dailyorecovered",
+                "symbol": "NEARUSDT",
+                "side": "buy",
+                "posSide": "long",
+                "orderStatus": "filled",
+                "cumExecQty": "10",
+                "avgPrice": "5",
+                "cumExecValue": "50",
+                "feeDetail": [{"fee": "0.03", "feeCoin": "USDT"}],
+            }
+        ],
+    )
+    empty_plan = ExecutionPlan(
+        equity=100.0,
+        leverage=2.0,
+        target_margin_ratio=0.5,
+        orders=[],
+        margin_intents=[],
+        warnings=[],
+        target_notional={"near": 50.0},
+        expected_gross_notional=50.0,
+        expected_margin=25.0,
+    )
+
+    report = _run(client, empty_plan, client_oid_prefix="a20daily")
+
+    assert len(report.fills) == 1
+    assert report.fills[0].order_id == "recovered-1"
+    assert report.fills[0].action == "OPEN"
+    assert report.fills[0].filled_size == pytest.approx(10.0)
+
+
+def test_retry_does_not_reuse_a_filled_orders_client_oid_for_another_symbol() -> None:
+    class _FailSolOnce(_FakeLiveClient):
+        failed = False
+
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            if kwargs.get("symbol") == "SOLUSDT" and not self.failed:
+                self.failed = True
+                raise BitgetAPIError("temporary SOL rejection")
+            return super().place_order(**kwargs)
+
+    def order(symbol: str, side: str, pos_side: str) -> OrderIntent:
+        return OrderIntent(
+            asset=symbol.removesuffix("USDT").lower(),
+            symbol=symbol,
+            action="OPEN",
+            side=side,
+            size=10.0,
+            price=5.0,
+            notional=50.0,
+            reduce_only=False,
+            reason="test",
+            pos_side=pos_side,
+        )
+
+    def plan(orders: list[OrderIntent]) -> ExecutionPlan:
+        return ExecutionPlan(
+            equity=100.0,
+            leverage=2.0,
+            target_margin_ratio=0.5,
+            orders=orders,
+            margin_intents=[],
+            warnings=[],
+            target_notional={"near": 50.0, "sol": 50.0},
+            expected_gross_notional=100.0,
+            expected_margin=50.0,
+        )
+
+    near = order("NEARUSDT", "buy", "long")
+    sol = order("SOLUSDT", "buy", "long")
+    client = _FailSolOnce(reject_isolated_orders=False)
+
+    _run(client, plan([near, sol]), client_oid_prefix="a20daily")
+    near_oid = str(client.placed[0]["client_oid"])
+    _run(client, plan([sol]), client_oid_prefix="a20daily")
+    sol_oid = str(client.placed[-1]["client_oid"])
+
+    assert sol_oid != near_oid
+
+
+def test_isolated_leverage_readback_mismatch_blocks_the_order() -> None:
+    class _WrongLeverageReadback(_FakeLiveClient):
+        def set_leverage(self, symbol: str, leverage: float, **kwargs: Any) -> Any:
+            result = super().set_leverage(symbol, leverage, **kwargs)
+            if kwargs.get("margin_mode") == "isolated":
+                self.symbol_configs[(symbol, "isolated")]["leverage"] = "5"
+                self.symbol_configs[(symbol, "isolated")]["longLeverage"] = "5"
+                self.symbol_configs[(symbol, "isolated")]["shortLeverage"] = "5"
+            return result
+
+    client = _WrongLeverageReadback(reject_isolated_orders=False)
+
+    report = _run(client, _plan(), require_isolated=True, margin_mode="isolated")
+
+    assert client.placed == []
+    assert any("leverage readback" in item["error"] for item in report.failures)
+
+
+def test_journal_protection_without_a_live_venue_stop_is_emergency_closed() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_symbols={"NEARUSDT"},
+    )
+
+    assert any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert any("no live venue stop" in item["error"] for item in report.failures)
+
+
+def test_a_live_mark_market_strategy_stop_preserves_an_existing_short() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "stopLoss": "6",
+                "slTriggerBy": "mark_price",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_symbols={"NEARUSDT"},
+    )
+
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert not report.failures
