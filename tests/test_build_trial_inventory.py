@@ -460,6 +460,31 @@ def test_cross_venue_basis_variants_are_counted_as_a_separate_track() -> None:
     assert all(row["family"] == "cross_venue_basis" for row in rows)
 
 
+def test_ls99_basis_residual_allocations_are_counted_once_per_allocation() -> None:
+    from scripts.build_trial_inventory import PROCESSING_ORDER, basis_residual_configurations
+
+    frame = pd.DataFrame(
+        [
+            {"allocation": 0.25, "basis_cost_bps": 10.0, "full_sharpe": 2.01},
+            {"allocation": 0.50, "basis_cost_bps": 10.0, "full_sharpe": 2.03},
+            {"allocation": 1.00, "basis_cost_bps": 10.0, "full_sharpe": 2.06},
+            {"allocation": 0.25, "basis_cost_bps": 20.0, "full_sharpe": 2.00},
+            {"allocation": 0.50, "basis_cost_bps": 20.0, "full_sharpe": 2.02},
+            {"allocation": 1.00, "basis_cost_bps": 20.0, "full_sharpe": 2.03},
+        ]
+    )
+
+    rows = basis_residual_configurations(frame)
+
+    assert "ls99_ls57_basis_residual_2026" in PROCESSING_ORDER
+    assert [row["config_id"] for row in rows] == [
+        "allocation_025", "allocation_050", "allocation_100"
+    ]
+    assert all(row["cost_bps"] == 10.0 for row in rows)
+    assert all(row["universe"] == "Derivatives" for row in rows)
+    assert all(row["family"] == "basis_residual" for row in rows)
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

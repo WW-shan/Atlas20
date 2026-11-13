@@ -1,0 +1,36 @@
+{
+  "allocations": [
+    0.25,
+    0.5,
+    1.0
+  ],
+  "baseline": {
+    "full_max_drawdown": -0.39835021222536127,
+    "full_multiple": 68.80768535710902,
+    "full_sharpe": 1.981942355080547,
+    "validation_multiple": 15.238577595049632,
+    "validation_sharpe": 2.1078633990581066
+  },
+  "basis_costs_bps": [
+    10.0,
+    20.0
+  ],
+  "basis_daily_returns": "/Users/ww/Project/Atlas20/reports/ls98_cross_venue_basis_2026/daily_returns.csv",
+  "basis_daily_returns_sha256": "bc71ed2a4651d908b24534e873f52e3db4343f35b7bf011ff07e54fc385ffe33",
+  "basis_manifest": "/Users/ww/Project/Atlas20/reports/ls98_cross_venue_basis_2026/manifest.json",
+  "basis_manifest_sha256": "2fa42b926f0c25ddf5124310160a4cb82e857873260d42c6ad7aa58499b20e90",
+  "classification": "pass",
+  "end": "2026-09-20 00:00:00+00:00",
+  "gross_cap": 1.45,
+  "ls57_daily_returns": "/Users/ww/Project/Atlas20/reports/ls57_target_gross_2022_2026/daily_returns.csv",
+  "ls57_daily_returns_sha256": "ba3a1db0870f98d490ae8cf5055755dfc1fbd7050f83ff8e7cb0adbc3892d5ea",
+  "ls57_target_gross": "/Users/ww/Project/Atlas20/reports/ls57_target_gross_2022_2026/target_gross.csv",
+  "ls57_target_gross_sha256": "93ec5028724ea1fde0595710d61d02c8cc1e6f4488625bb2e431158689b21cff",
+  "orders_sent": false,
+  "primary_cost_bps": 10.0,
+  "rows": 1724,
+  "sleeve_gross": 1.0,
+  "start": "2022-01-01 00:00:00+00:00",
+  "stress_cost_bps": 20.0,
+  "trial_id": "PR2026-11-LS99-LS57-BASIS-RESIDUAL"
+}

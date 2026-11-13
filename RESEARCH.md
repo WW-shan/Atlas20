@@ -5159,3 +5159,35 @@ BTC funding **+15.61%**、basis **-0.06%**，ETH funding **+14.12%**、basis **-
 
 报告：`reports/ls98_cross_venue_basis_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls98-cross-venue-basis.md`。
+
+### 00.134 2026-11-13 LS99：LS57 + BTC/ETH basis residual-gross 集成（研究门槛 pass，不接实盘）
+
+LS99 按预注册 `PR2026-11-LS99-LS57-BASIS-RESIDUAL` 检验 LS98 的 always-on BTC/ETH
+long spot + short perp 研究代理能否只使用 LS57 的未占用 gross。LS57 的选币、H5、profit-lock、
+空头、20% stop、T+1 +3h、funding、mark 和 20bps 成本全部不变；LS98 的 1.0x gross 按
+`min(allocation, max(1.45 - LS57_gross, 0) / 1.0)` 缩放。25/50/100% 三档和 10bps 主档、
+20bps 压力档均为预注册，不做事后扫描。
+
+LS98 的毛 basis/funding 日收益进入组合后，LS99 按实际 scale 变化收取每腿每边成本，包含初始
+建仓、后续缩放和最终退出；没有把全额 sleeve 成本先扣一次、再乘 scale 的重复计费，也没有
+用零收益填补缺失日期。LS57 target gross 按事件日期 forward-fill 到日频，组合 gross 的硬上限
+为 1.45x，样本为 2022-01-01 → 2026-09-20（1,724 个共同交易日）。
+
+| 配置 | 成本 | full 终值/Sharpe/MDD | validation 终值/Sharpe | 最大组合 gross |
+|---|---:|---:|---:|---:|
+| LS57 baseline | 20bps | 68.8077x / 1.9819 / -39.835% | 15.2386x / 2.1079 | — |
+| LS99 25% residual | 10bps | 73.8635x / 2.0107 / -39.591% | 15.9876x / 2.1407 | 1.45x |
+| LS99 50% residual | 10bps | 78.0014x / 2.0326 / -39.597% | 16.6143x / 2.1671 | 1.45x |
+| LS99 100% residual | 10bps | **83.0200x / 2.0571 / -39.529%** | **17.3554x / 2.1978** | 1.45x |
+| LS99 100% residual stress | 20bps | 78.2794x / 2.0339 / -40.111% | 16.7281x / 2.1737 | 1.45x |
+
+100% residual 在 10bps 下同时通过 full 终值、Sharpe、MDD、validation 终值和 validation Sharpe；
+20bps 压力下仍高于 LS57 的 full 终值和 Sharpe。三档 25/50/100% 全部通过预注册主门槛，分类为
+**pass under the pre-registered integration gates**。这不是 live promotion：LS98 的 spot 是
+CMC/Binance 日价格代理、funding 是 Binance proxy、perp mark 是 Bitget，跨所转账、USDT/USD
+基差、保证金、真实 spot 成交和实际 funding 仍未闭合；LS99 的 pass 只说明同一机制值得进入
+同 venue spot/perp 数据和 execution study。当前 live track 仍为 `PR2026-10-D-L125-V2`，没有
+发送任何订单。
+
+报告：`reports/ls99_ls57_basis_residual_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls99-ls57-basis-residual.md`。
