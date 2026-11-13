@@ -4429,3 +4429,25 @@ LS66 从 watch 升级为 shadow，更不能接实盘。它的价值是：在不�
 
 报告：`reports/intraday_btc_leadlag_fresh_oos_20261113/`；Spec：
 `docs/superpowers/specs/2026-11-13-intraday-leadlag-fresh-oos-design.md`。
+
+### 00.103 2026-11-13 LS68：日频 BTC shock relative-gap 反转假设失败，但反向动量方向留下新假设
+
+LS63–LS67 的 30m lead-lag 成本过高，因此 LS68 把相同经济机制降到日频：BTC 发生
+1/3/5/10 日冲击后，按相对 BTC beta 的 residual gap 做 10%/20% 两端，检验低 gap 资产是否在
+接下来 1/3/5/10 日跑赢高 gap 资产。冻结网格共 `4 × 4 × 3 × 2 = 96` 个 cell，discovery 为
+2022–2023，validation 为 2024–2026-11-12；只报 gross spread，不接实盘、不计 funding。
+
+预注册的**反转方向**完全失败：96/96 cell 都是 `rejected-now`；discovery 排名前 16 的 cell 中，
+validation 没有任何一个同时满足负 IC 与正 contrarian spread。更基础地看，discovery 的 96 个
+cell **全部**是负 contrarian spread，说明相对落后后的短期表现是继续落后，而不是补涨。
+
+这不等于数据没有信息，但也不能把事后翻符号直接当成已验证策略。按同一份汇总做描述性反向核对，
+有 36/96 个 cell 在 discovery 与 validation 都呈现 `IC > 0` 且 `contrarian spread < 0`，即
+日频相对动量方向同号。该反向观察不是 LS68 的预注册结论，且 2024 之后已被用于观察符号，
+不能作为 fresh OOS。下一步若要研究，必须预注册为新的 LS69，只使用 discovery 冻结规则，
+再用独立样本做组合级回测；不能把本表的 gross spread 当作可交易收益。
+
+**判定：LS68 反转假设 rejected；反向动量仅登记为新假设，不接实盘。**
+
+报告：`reports/daily_btc_shock_leadlag_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-daily-btc-shock-leadlag-design.md`。

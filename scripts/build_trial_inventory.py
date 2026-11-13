@@ -159,6 +159,7 @@ PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_
 # Report directories that hold no new configuration (rolling starts,
 # sub-windows, stress windows, audits, live signals, or a re-listing).
 NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
+    "daily_btc_shock_leadlag_2026": "daily BTC shock relative-gap diagnostic; no strategy configurations",
     "intraday_btc_leadlag_fresh_oos_20261113": "fresh OOS re-run of the frozen LS66 variants",
     "intraday_btc_leadlag_diagnostic_2026": "predictive lead-lag diagnostic; no strategy configurations",
     "residual_reversal_screen_pre2022": "sensitivity window of LS61 residual reversal",

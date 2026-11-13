@@ -10,7 +10,7 @@ cross-sectional rank correlations and spread statistics.  No orders are sent.
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 import json
 from pathlib import Path
 import sys
@@ -149,6 +149,8 @@ def _cell_statistics(
     membership: pd.DataFrame,
     shock_z: pd.Series,
     horizon: int,
+    tail_fraction: float = 0.20,
+    shock_buckets: Iterable[str] = SHOCK_BUCKETS,
 ) -> dict[str, tuple[list[pd.Timestamp], list[float], list[float]]]:
     """Compute non-overlapping cross-sectional IC/spread observations.
 
@@ -158,6 +160,8 @@ def _cell_statistics(
     """
     if horizon < 1:
         raise ValueError("horizon must be positive")
+    if not 0.0 < tail_fraction < 0.5:
+        raise ValueError("tail_fraction must be in (0, 0.5)")
     positions = np.arange(0, len(signal_returns), horizon)
     timestamps = pd.DatetimeIndex(signal_returns.index)[positions]
     gap = signal_returns.iloc[positions].reset_index(drop=True)
@@ -182,8 +186,8 @@ def _cell_statistics(
     )
     ic = (numerator / denominator.replace(0.0, np.nan)).to_numpy(dtype=float)
 
-    low_cut = gap.quantile(0.20, axis=1)
-    high_cut = gap.quantile(0.80, axis=1)
+    low_cut = gap.quantile(tail_fraction, axis=1)
+    high_cut = gap.quantile(1.0 - tail_fraction, axis=1)
     low_future = future.where(gap.le(low_cut, axis=0)).mean(axis=1)
     high_future = future.where(gap.ge(high_cut, axis=0)).mean(axis=1)
     spread = ((low_future - high_future) * BPS).to_numpy(dtype=float)
@@ -194,15 +198,15 @@ def _cell_statistics(
     enough = counts >= MIN_CROSS_SECTION
     finite = np.isfinite(ic) & np.isfinite(spread)
     results: dict[str, tuple[list[pd.Timestamp], list[float], list[float]]] = {}
-    for bucket in SHOCK_BUCKETS:
+    for bucket in tuple(shock_buckets):
         if bucket == "all":
             bucket_mask = np.isfinite(z_values)
-        elif bucket == "abs_z_ge_1_5":
-            bucket_mask = np.isfinite(z_values) & (np.abs(z_values) >= 1.5)
-        elif bucket == "abs_z_ge_2_5":
-            bucket_mask = np.isfinite(z_values) & (np.abs(z_values) >= 2.5)
-        else:  # pragma: no cover - guarded by the module constant
-            raise ValueError(f"unknown shock bucket {bucket!r}")
+        else:
+            prefix = "abs_z_ge_"
+            if not str(bucket).startswith(prefix):
+                raise ValueError(f"unknown shock bucket {bucket!r}")
+            threshold = float(str(bucket)[len(prefix) :].replace("_", "."))
+            bucket_mask = np.isfinite(z_values) & (np.abs(z_values) >= threshold)
         keep = enough & finite & bucket_mask
         results[bucket] = (
             [pd.Timestamp(value) for value in timestamps[keep]],
