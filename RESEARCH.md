@@ -4606,3 +4606,28 @@ funding 的压力。普通 funding 下 25% allocation 在 100bps 仍有 **69.179
 
 报告：`reports/ls57_churn_overlay_stress_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls57-churn-overlay-stress-design.md`。
+
+### 00.113 2026-11-13 LS78：可执行 alt 永续空头 + BTC 现货仍被 1x adverse validation 拒绝
+
+LS78 只改变 LS77 的执行结构：BTC 多头改现货、alt 空头仍为永续；信号日仅保留过去 7 天内有
+Binance/Bybit/Bitget funding settlement 的 alt，并把事件内剩余空头腿等权重建。103 个有短腿的
+事件中 84 个至少保留一腿，138 条原始空头腿保留 106 条；被剔除的是 bitget-token、CRO、LEO、
+MNT、OKB、RENDER、LUNA、TON 这 8 个缺少同期 funding 证据的标的。short funding 覆盖率因此
+从 LS76 的 92.6% 提升到 **100%**，但这不是免费改进：可执行币池缩窄后 standalone sleeve 从
+LS74 的 1.4820x 降到 **1.3389x**（20bps）。
+
+BTC 现货腿确实消除了正常 funding 的拖累。25% allocation 在 20bps normal 为
+**77.4407x / 2.0338 / -35.56%**，validation **15.8832x / 2.1466**；20% 为
+75.7112x / 2.0252 / -36.43%。但同一 allocation 的 20bps **1x adverse** 只有
+**71.2339x / 2.0001 / -35.82%**，full 和 MDD 都仍优于 LS57，validation 却降到
+**15.0421x**，低于 LS57 的 15.2386x；2x/3x adverse 分别为
+66.4249x / 13.7851x 的 validation（更差）。**判定：normal 有真实增益，但 1x adverse
+validation 未通过，LS78 stress fail，不 promotion。**
+
+这轮排除了“只要把 BTC 腿从永续换现货就会自动闭合风险”的假设。下一步不再改 allocation，
+而是研究 **point-in-time funding sign/venue selection**：只空 funding 结构对空头不劣势的
+事件，或把同一空头腿路由到成本更低的 venue；必须同时报告过滤后的事件数、币池集中度和
+正常/1x adverse 的 validation，不能只看 full 终值。
+
+报告：`reports/ls57_churn_spot_btc_short_alt_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls57-churn-spot-btc-short-alt-design.md`。
