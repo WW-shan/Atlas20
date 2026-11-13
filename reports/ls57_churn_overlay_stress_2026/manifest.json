@@ -1,0 +1,22 @@
+{
+  "allocations": [
+    0.1,
+    0.2,
+    0.25
+  ],
+  "candidate_id": "PR2026-11-LS77-LS57-CHURN-OVERLAY-STRESS",
+  "costs_bps": [
+    20.0,
+    50.0,
+    100.0
+  ],
+  "end_date": "2026-09-20",
+  "funding_included": true,
+  "funding_scenarios": [
+    "normal",
+    "3x_adverse"
+  ],
+  "orders_sent": false,
+  "selected_allocation_worst_case": null,
+  "start_date": "2022-01-01"
+}

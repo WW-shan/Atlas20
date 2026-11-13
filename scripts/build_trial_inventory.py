@@ -204,6 +204,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "h5_exit_short_diagnostic_2026_11_11": "forward-return diagnostic of H5 exits (no backtest configuration)",
     "top20_membership_event_diagnostic_2026": "PIT Top20 entry/exit event diagnostic; no strategy configurations",
     "ls57_target_gross_2022_2026": "frozen LS57 target-gross refresh used as overlay input",
+    "ls57_churn_overlay_stress_2026": "stress matrix of the same LS76 overlay; no new configuration",
 }
 NON_RESEARCH_DIRS = frozenset({"app_runs", "ui_mockups", "research_trial_inventory"})
 

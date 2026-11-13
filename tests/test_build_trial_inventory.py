@@ -428,6 +428,7 @@ def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
             "daily_btc_shock_leadlag_2026",
             "top20_membership_event_diagnostic_2026",
             "ls57_target_gross_2022_2026",
+            "ls57_churn_overlay_stress_2026",
         ],
         used,
     ) == []

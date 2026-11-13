@@ -4592,3 +4592,17 @@ funding 与成本压力，不得把 92.6% proxy 覆盖当作精确历史。
 
 报告：`reports/ls57_churn_overlay_funding_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls57-churn-overlay-funding-design.md`。
+
+### 00.112 2026-11-13 LS77：churn overlay 压力矩阵（100bps 通过，3x adverse funding 失败）
+
+LS77 固定 LS75/LS76 的 residual-gross 规则，对 sleeve 做 20/50/100bps × normal/3x adverse
+funding 的压力。普通 funding 下 25% allocation 在 100bps 仍有 **69.1799x / 1.9873 / -37.59%**，
+略高于 LS57；10% allocation 也有 69.08x。但 3x adverse 下 25% 跌到
+**56.6938x / 1.9065 / -38.36%**，10% 也低于 LS57。**判定：stress fail，不 promotion。**
+
+这不是 allocation 太小的问题，而是 sleeve 的 BTC 多头腿也在 adverse funding 中被收费。下一轮
+只改变执行结构为“空 alt 永续 + 多 BTC 现货”，不在已看过的结果上调 allocation、成本或 funding
+阈值。
+
+报告：`reports/ls57_churn_overlay_stress_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls57-churn-overlay-stress-design.md`。

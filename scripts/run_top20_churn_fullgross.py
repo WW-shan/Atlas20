@@ -207,6 +207,8 @@ def main(argv: list[str] | None = None) -> None:
     files = {
         "summary": output_dir / "trial_summary.csv",
         "daily": output_dir / "daily_returns_20bps.csv",
+        "daily_50": output_dir / "daily_returns_50bps.csv",
+        "daily_100": output_dir / "daily_returns_100bps.csv",
         "gross": output_dir / "gross_exposure_20bps.csv",
         "targets": output_dir / "targets.csv",
         "metrics": output_dir / "selected_metrics.csv",
@@ -220,6 +222,8 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(f"output already exists: {existing[0]}; pass --overwrite")
     pd.DataFrame([row]).to_csv(files["summary"], index=False)
     result_20.daily_returns.to_csv(files["daily"])
+    results[50.0].daily_returns.to_csv(files["daily_50"])
+    results[100.0].daily_returns.to_csv(files["daily_100"])
     result_20.gross_exposure.to_csv(files["gross"])
     targets.to_csv(files["targets"])
     metrics.to_csv(files["metrics"], index=False)
