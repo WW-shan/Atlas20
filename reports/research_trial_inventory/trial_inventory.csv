@@ -138,6 +138,7 @@ ls92_ls57_maker13_2026,reports/ (no new configuration),reports/ls92_ls57_maker13
 ls92_ls82_maker13_2026,reports/ (no new configuration),reports/ls92_ls82_maker13_2026/,LS82 carry engine re-run at maker-shadow 13.0164bps,0,0,0,0,,,,,,False,False,
 ls92_ls88_maker13_2026,reports/ (no new configuration),reports/ls92_ls88_maker13_2026/,LS88 long-only engine re-run at maker-shadow 13.0164bps,0,0,0,0,,,,,,False,False,
 ls93_core_satellite_robustness_2026,reports/ (no new configuration),reports/ls93_core_satellite_robustness_2026/,robustness and attribution audit of LS92; no new configuration,0,0,0,0,,,,,,False,False,
+ls94_ls82_robustness_2026,reports/ (no new configuration),reports/ls94_ls82_robustness_2026/,robustness audit of LS82; no new configuration,0,0,0,0,,,,,,False,False,
 ls81_core_major_funding_carry_2026_cost50_100,reports/ (no new configuration),reports/ls81_core_major_funding_carry_2026_cost50_100/,cost sensitivity of LS81 core8 funding carry,0,0,0,0,,,,,,False,False,
 ls81_core_major_funding_carry_2026_adverse,reports/ (no new configuration),reports/ls81_core_major_funding_carry_2026_adverse/,adverse funding sensitivity of LS81 core8 funding carry,0,0,0,0,,,,,,False,False,
 ls81_core_major_funding_carry_2026_extended10,reports/ (no new configuration),reports/ls81_core_major_funding_carry_2026_extended10/,extended-universe sensitivity of LS81 core8 funding carry,0,0,0,0,,,,,,False,False,

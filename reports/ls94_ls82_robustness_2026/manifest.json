@@ -1,0 +1,27 @@
+{
+  "bootstrap_block_length": 63,
+  "bootstrap_count": 5000,
+  "classification": "year-concentrated",
+  "common_end": "2026-09-20 00:00:00+00:00",
+  "common_rows": 1724,
+  "common_start": "2022-01-01 00:00:00+00:00",
+  "orders_sent": false,
+  "reasons": [
+    "- 13.0164bps: LS82 73.0767x vs LS57 65.6712x; bootstrap 2.5% -9.81%; years 3/5; worst leave-one-year excess +0.2161x; PBO 0.3052; RC vs LS57 p=0.1834",
+    "- 20bps: LS82 62.1228x vs LS57 58.2059x; bootstrap 2.5% -14.07%; years 3/5; worst leave-one-year excess -0.6806x; PBO 0.5108; RC vs LS57 p=0.2995"
+  ],
+  "scenarios": {
+    "13.0164": {
+      "baseline": "reports/ls92_ls57_maker13_2026/daily_base_normal_13.0164.csv",
+      "candidate": "reports/ls92_ls82_maker13_2026/daily_normal_13.0164_0.25.csv"
+    },
+    "20.0": {
+      "baseline": "reports/ls89_asset_ma21_exit_2026/daily_base_normal_20.csv",
+      "candidate": "reports/ls82_core8_carry_risk_2026/daily_normal_20_0.25.csv"
+    }
+  },
+  "seed": 94,
+  "trial_id": "PR2026-11-LS94-LS82-ROBUSTNESS",
+  "trial_summary": "reports/research_trial_inventory/summary.json",
+  "trial_summary_sha256": "b0fd4356d859f0e06f711b2329efec9a22037309912c926ad80aae56c0aa3381"
+}

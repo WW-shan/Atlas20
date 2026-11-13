@@ -251,6 +251,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "ls92_ls82_maker13_2026": "LS82 carry engine re-run at maker-shadow 13.0164bps",
     "ls92_ls88_maker13_2026": "LS88 long-only engine re-run at maker-shadow 13.0164bps",
     "ls93_core_satellite_robustness_2026": "robustness and attribution audit of LS92; no new configuration",
+    "ls94_ls82_robustness_2026": "robustness audit of LS82; no new configuration",
     "ls81_core_major_funding_carry_2026_cost50_100": "cost sensitivity of LS81 core8 funding carry",
     "ls81_core_major_funding_carry_2026_adverse": "adverse funding sensitivity of LS81 core8 funding carry",
     "ls81_core_major_funding_carry_2026_extended10": "extended-universe sensitivity of LS81 core8 funding carry",

@@ -5030,3 +5030,34 @@ LS57 比较；不重新拟合、不扫描权重、不改变 live track。两个�
 
 报告：`reports/ls93_core_satellite_robustness_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls93-core-satellite-robustness.md`。
+
+### 00.129 2026-11-13 LS94：LS82 carry-core 独立稳健性（year-concentrated）
+
+LS94 不改变 LS82 的 25% residual、60% long buffer、1.45x target gross、funding 或执行，只在
+13.0164bps 与 20bps 两个成本档比较 LS82 vs 同成本 LS57。两个场景均为 1,724 个共同交易日。
+
+| 成本 | LS82 full 终值/Sharpe/MDD | LS57 full | LS82 validation 终值/Sharpe | LS57 validation |
+|---:|---:|---:|---:|---:|
+| 13.0164bps | **73.0767x / 2.0189 / -36.997%** | 65.6712x / 1.9638 / -38.96% | **16.1532x / 2.1621** | 14.9011x / 2.0925 |
+| 20bps | **62.1228x / 1.9519 / -37.978%** | 58.2059x / 1.9143 / -39.83% | **14.5712x / 2.0921** | 13.8153x / 2.0417 |
+
+LS82 standalone 的确优于 LS92 core-satellite 的全样本指标，但独立稳健性仍不通过：
+
+- 13.0164bps 逐年超额：2022 **-0.0758x**、2023 **+0.3788x**、2024 **+0.2076x**、2025
+  **-0.1165x**、2026 **+0.0530x**；20bps 为 **-0.0821x / +0.3373x / +0.1781x /
+  -0.1424x / +0.0366x**。收益集中在 2023/2024，2022/2025 为负。
+- leave-one-year-out：13.0164bps 最差仍为 **+0.2161x**，但 20bps 剔除 2024 后为
+  **-0.6806x**；高成本档对单一年份敏感。
+- 365D rolling 为正比例 **70.35% / 63.72%**，最差滚动超额 **-31.58% / -36.96%**。
+- Newey-West t(63) **0.9414 / 0.5404**；bootstrap 总 log excess 2.5% 分位 **-9.81% /
+  -14.07%**，为正概率 **84.02% / 73.36%**。
+- CSCV/PBO **0.3052 / 0.5108**；Reality Check 对零 p=**0.0012 / 0.0018**，对 LS57 超额
+  p=**0.1834 / 0.2995**。对零显著只说明策略有收益，不能证明相对 LS57 的增量显著。
+- all_trials DSR **0.6139 / 0.5477**，Top20/2022 DSR **0.7058 / 0.6444**，均远低于 0.95。
+
+**判定：year-concentrated。** LS82 比 LS92 更简洁、全样本指标更好，但没有证明增量来自可重复的
+carry alpha；不能因为 LS82 全样本更高就直接晋级。下一步应做 carry sleeve 的逐年/逐资产/多空腿
+归因，并预注册一个只针对 2022/2025 失败机制的 regime 假设；不扫描 allocation 或 funding 阈值。
+
+报告：`reports/ls94_ls82_robustness_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls94-ls82-robustness.md`。
