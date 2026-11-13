@@ -271,6 +271,27 @@ def _load_trade_window(
     return tuple(sorted(rows.values(), key=lambda row: (row.timestamp, row.trade_id)))
 
 
+def _haircut_tag(haircut: float) -> str:
+    percent = int(round(float(haircut) * 100.0))
+    if not math.isclose(percent / 100.0, float(haircut), abs_tol=1e-12):
+        raise ValueError("fill haircut must be a whole percentage")
+    return f"{percent:03d}"
+
+
+def _parse_haircuts(value: str) -> tuple[float, ...]:
+    if not value.strip():
+        return ()
+    haircuts: list[float] = []
+    for item in value.split(","):
+        haircut = float(item.strip())
+        if not 0.0 < haircut <= 1.0:
+            raise ValueError("fill haircut must be in (0, 1]")
+        _haircut_tag(haircut)
+        if haircut not in haircuts:
+            haircuts.append(haircut)
+    return tuple(sorted(haircuts))
+
+
 def _outcome_fields(prefix: str, outcome: MakerOrderOutcome) -> dict[str, Any]:
     return {
         f"{prefix}_limit_price": outcome.limit_price,
@@ -301,6 +322,7 @@ def _event_rows(
     max_depth_age_minutes: float,
     download_timeout_seconds: float,
     max_events: int | None,
+    haircut_sensitivity: tuple[float, ...] = (),
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     mapping = {
         str(record["coin_id"]): (
@@ -430,6 +452,25 @@ def _event_rows(
                 maker_fee_bps=MAKER_FEE_BPS,
                 taker_fee_bps=TAKER_FEE_BPS,
             )
+            haircut_fields: dict[str, Any] = {}
+            for haircut in haircut_sensitivity:
+                outcome = simulate_maker_order(
+                    trades_in_window,
+                    side=str(event["exec_side"]),
+                    reference_price=book.mid_price,
+                    order_notional=float(event["requested_notional"]),
+                    entry_time=entry,
+                    timeout_hours=timeout_hours,
+                    offset_bps=offset_bps,
+                    through_bps=through_bps,
+                    guard_bps=guard_bps,
+                    maker_fee_bps=MAKER_FEE_BPS,
+                    taker_fee_bps=TAKER_FEE_BPS,
+                    fill_haircut=haircut,
+                )
+                haircut_fields.update(
+                    _outcome_fields(f"haircut_{_haircut_tag(haircut)}", outcome)
+                )
             rows.append(
                 {
                     **event,
@@ -448,6 +489,7 @@ def _event_rows(
                     "base_taker_cost_bps": BASE_TAKER_COST_BPS,
                     **_outcome_fields("strict", strict),
                     **_outcome_fields("touch", touch),
+                    **haircut_fields,
                 }
             )
         except Exception as exc:  # noqa: BLE001
@@ -501,6 +543,117 @@ def _summaries(events: pd.DataFrame) -> dict[str, pd.DataFrame]:
         "side": events.groupby("exec_side", dropna=False).apply(aggregate, include_groups=False).reset_index(),
         "asset": events.groupby("asset", dropna=False).apply(aggregate, include_groups=False).reset_index(),
     }
+
+
+def _haircut_summary(
+    events: pd.DataFrame,
+    haircuts: tuple[float, ...],
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for haircut in haircuts:
+        prefix = f"haircut_{_haircut_tag(haircut)}"
+        maker_col = f"{prefix}_maker_filled_notional"
+        taker_col = f"{prefix}_taker_filled_notional"
+        cost_col = f"{prefix}_effective_cost_bps"
+        improvement_col = f"{prefix}_improvement_bps"
+        guard_col = f"{prefix}_guard_triggered"
+        status_col = f"{prefix}_status"
+        if events.empty or maker_col not in events.columns:
+            continue
+        requested = float(events["requested_notional"].sum())
+        improvement = _weighted_mean(events, improvement_col)
+        rows.append(
+            {
+                "haircut": float(haircut),
+                "events": int(len(events)),
+                "requested_notional": requested,
+                "strict_maker_fill_rate": float(events[maker_col].sum() / requested),
+                "strict_effective_cost_bps": _weighted_mean(events, cost_col),
+                "strict_improvement_bps": improvement,
+                "strict_effective_cost_p05_bps": float(events[cost_col].quantile(0.05)),
+                "strict_effective_cost_p95_bps": float(events[cost_col].quantile(0.95)),
+                "strict_guard_notional_share": float(events[taker_col].sum() / requested),
+                "strict_guard_event_share": float(events[guard_col].mean()),
+                "strict_full_fill_share": float((events[status_col] == "filled").mean()),
+                "strict_timeout_event_share": float((events[status_col] == "timeout").mean()),
+                "passes_5bps_improvement": bool(np.isfinite(improvement) and improvement >= 5.0),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _haircut_breakdowns(
+    events: pd.DataFrame,
+    haircuts: tuple[float, ...],
+) -> dict[str, pd.DataFrame]:
+    if events.empty:
+        empty = pd.DataFrame()
+        return {"side": empty, "month": empty, "asset": empty}
+    frame = events.copy()
+    frame["month"] = pd.to_datetime(frame["date"], utc=True).dt.strftime("%Y-%m")
+    dimensions = {"side": "exec_side", "month": "month", "asset": "asset"}
+    result: dict[str, pd.DataFrame] = {}
+    for name, column in dimensions.items():
+        group_rows: list[dict[str, Any]] = []
+        for haircut in haircuts:
+            prefix = f"haircut_{_haircut_tag(haircut)}"
+            maker_col = f"{prefix}_maker_filled_notional"
+            taker_col = f"{prefix}_taker_filled_notional"
+            cost_col = f"{prefix}_effective_cost_bps"
+            improvement_col = f"{prefix}_improvement_bps"
+            guard_col = f"{prefix}_guard_triggered"
+            status_col = f"{prefix}_status"
+            for group_value, group in frame.groupby(column, dropna=False):
+                requested = float(group["requested_notional"].sum())
+                group_rows.append(
+                    {
+                        "haircut": float(haircut),
+                        "group": str(group_value),
+                        "events": int(len(group)),
+                        "requested_notional": requested,
+                        "strict_maker_fill_rate": float(group[maker_col].sum() / requested),
+                        "strict_effective_cost_bps": _weighted_mean(group, cost_col),
+                        "strict_improvement_bps": _weighted_mean(group, improvement_col),
+                        "strict_guard_notional_share": float(group[taker_col].sum() / requested),
+                        "strict_guard_event_share": float(group[guard_col].mean()),
+                        "strict_full_fill_share": float((group[status_col] == "filled").mean()),
+                        "strict_timeout_event_share": float((group[status_col] == "timeout").mean()),
+                    }
+                )
+        result[name] = pd.DataFrame(group_rows).sort_values(
+            ["haircut", "group"], kind="stable"
+        ).reset_index(drop=True)
+    return result
+
+
+def _haircut_acceptance(
+    haircut_summary: pd.DataFrame,
+    *,
+    coverage_checks: dict[str, bool],
+) -> dict[str, bool]:
+    if haircut_summary.empty:
+        return {
+            **coverage_checks,
+            "haircut_25_present": False,
+            "haircut_25_improvement_ge_5bps": False,
+            "improvement_monotonic_with_haircut": False,
+        }
+    ordered = haircut_summary.sort_values("haircut", kind="stable")
+    row_25 = ordered.loc[np.isclose(ordered["haircut"], 0.25)]
+    improvement = ordered["strict_improvement_bps"].astype(float).to_numpy()
+    monotonic = bool(
+        len(improvement) >= 2
+        and np.all(np.diff(improvement) >= -1e-9)
+    )
+    checks = {
+        **coverage_checks,
+        "haircut_25_present": not row_25.empty,
+        "haircut_25_improvement_ge_5bps": bool(
+            not row_25.empty and float(row_25.iloc[0]["strict_improvement_bps"]) >= 5.0
+        ),
+        "improvement_monotonic_with_haircut": monotonic,
+    }
+    return {name: bool(passed) for name, passed in checks.items()}
 
 
 def _robustness_metrics(events: pd.DataFrame) -> dict[str, Any]:
@@ -578,6 +731,8 @@ def _report(
     equity: float,
     expected_events: int | None = None,
     expected_notional: float | None = None,
+    haircut_summary: pd.DataFrame | None = None,
+    haircut_breakdowns: dict[str, pd.DataFrame] | None = None,
 ) -> str:
     requested = float(events["requested_notional"].sum()) if not events.empty else 0.0
     strict_maker = float(events["strict_maker_filled_notional"].sum()) if not events.empty else 0.0
@@ -610,6 +765,31 @@ def _report(
         weighted_improvement_bps=strict_improvement if np.isfinite(strict_improvement) else -float("inf"),
     )
     verdict = "PASS (shadow candidate only)" if all(checks.values()) else "FAIL"
+    haircut_checks = _haircut_acceptance(
+        haircut_summary if haircut_summary is not None else pd.DataFrame(),
+        coverage_checks={
+            "events_ge_200": checks["events_ge_200"],
+            "notional_coverage_ge_70pct": checks["notional_coverage_ge_70pct"],
+        },
+    )
+    haircut_verdict = (
+        "PASS under 25% volume-capacity haircut (shadow only)"
+        if haircut_checks and all(haircut_checks.values())
+        else "FAIL"
+    )
+    haircut_robustness: dict[str, Any] | None = None
+    minimum_haircut: float | None = None
+    if haircut_summary is not None and not haircut_summary.empty and not events.empty:
+        minimum_haircut = float(haircut_summary["haircut"].min())
+        prefix = f"haircut_{_haircut_tag(minimum_haircut)}"
+        scenario_events = events.copy()
+        scenario_events["strict_improvement_bps"] = events[
+            f"{prefix}_improvement_bps"
+        ]
+        scenario_events["strict_effective_cost_bps"] = events[
+            f"{prefix}_effective_cost_bps"
+        ]
+        haircut_robustness = _robustness_metrics(scenario_events)
     lines = [
         "# Bitget trade-tape maker shadow",
         "",
@@ -642,6 +822,34 @@ def _report(
         f"- largest savings contributor: **{robustness['top_savings_asset']}** at **{robustness['top_savings_share']:.2%}** of total savings",
         f"- weighted improvement excluding that asset: **{robustness['ex_top_savings_improvement_bps']:.4f} bps**",
         f"- negative assets: **{robustness['negative_assets']}**; weighted improvement excluding them: **{robustness['ex_negative_assets_improvement_bps']:.4f} bps**",
+        "",
+        "## Fill haircut sensitivity",
+        "",
+        haircut_summary.to_csv(index=False)
+        if haircut_summary is not None and not haircut_summary.empty
+        else "No haircut sensitivity requested.",
+        "",
+        f"- haircut acceptance verdict: **{haircut_verdict}**",
+        "",
+        *[f"- [{'x' if passed else ' '}] {name}" for name, passed in haircut_checks.items()],
+        "",
+        (
+            f"- at {minimum_haircut:.0%} haircut: positive weeks "
+            f"**{haircut_robustness['positive_weeks']} / {haircut_robustness['weeks']}**, "
+            f">=5bps weeks **{haircut_robustness['weeks_ge_5bps']} / {haircut_robustness['weeks']}**, "
+            f"improvement excluding **{haircut_robustness['top_savings_asset']}** "
+            f"**{haircut_robustness['ex_top_savings_improvement_bps']:.4f}bps**"
+            if haircut_robustness is not None and minimum_haircut is not None
+            else "- haircut robustness: n/a"
+        ),
+        "",
+        "### Fill haircut by side",
+        "",
+        haircut_breakdowns["side"].to_csv(index=False)
+        if haircut_breakdowns is not None and not haircut_breakdowns["side"].empty
+        else "No side breakdown.",
+        "",
+        "Full monthly and asset breakdowns are in `haircut_month.csv` and `haircut_asset.csv`.",
         "",
         "## By side",
         "",
@@ -680,6 +888,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--guard-bps", type=float, default=30.0)
     parser.add_argument("--max-depth-age-minutes", type=float, default=10.0)
     parser.add_argument("--download-timeout-seconds", type=float, default=60.0)
+    parser.add_argument("--haircut-sensitivity", default="0.25,0.5,0.75")
     parser.add_argument("--max-events", type=int, default=None)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args(argv)
@@ -689,6 +898,10 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("--timeout-hours must be positive")
     if args.start_date > args.end_date:
         parser.error("--start-date must be on or before --end-date")
+    try:
+        haircut_sensitivity = _parse_haircuts(str(args.haircut_sensitivity))
+    except ValueError as exc:
+        parser.error(str(exc))
 
     trades = pd.read_csv(args.trades_path, parse_dates=["timestamp"])
     trades["timestamp"] = pd.to_datetime(trades["timestamp"], utc=True)
@@ -709,6 +922,10 @@ def main(argv: list[str] | None = None) -> None:
         "monthly": output_dir / "monthly.csv",
         "side": output_dir / "side.csv",
         "asset": output_dir / "asset.csv",
+        "haircuts": output_dir / "haircuts.csv",
+        "haircut_side": output_dir / "haircut_side.csv",
+        "haircut_month": output_dir / "haircut_month.csv",
+        "haircut_asset": output_dir / "haircut_asset.csv",
         "report": output_dir / "report.md",
         "manifest": output_dir / "manifest.json",
     }
@@ -731,6 +948,7 @@ def main(argv: list[str] | None = None) -> None:
         max_depth_age_minutes=float(args.max_depth_age_minutes),
         download_timeout_seconds=float(args.download_timeout_seconds),
         max_events=args.max_events,
+        haircut_sensitivity=haircut_sensitivity,
     )
     events = pd.DataFrame(rows)
     error_frame = pd.DataFrame(
@@ -751,11 +969,17 @@ def main(argv: list[str] | None = None) -> None:
         ],
     )
     summaries = _summaries(events)
+    haircut_summary = _haircut_summary(events, haircut_sensitivity)
+    haircut_breakdowns = _haircut_breakdowns(events, haircut_sensitivity)
     events.to_csv(files["events"], index=False)
     error_frame.to_csv(files["errors"], index=False)
     summaries["monthly"].to_csv(files["monthly"], index=False)
     summaries["side"].to_csv(files["side"], index=False)
     summaries["asset"].to_csv(files["asset"], index=False)
+    haircut_summary.to_csv(files["haircuts"], index=False)
+    haircut_breakdowns["side"].to_csv(files["haircut_side"], index=False)
+    haircut_breakdowns["month"].to_csv(files["haircut_month"], index=False)
+    haircut_breakdowns["asset"].to_csv(files["haircut_asset"], index=False)
     files["report"].write_text(
         _report(
             events,
@@ -764,6 +988,8 @@ def main(argv: list[str] | None = None) -> None:
             equity=float(args.equity),
             expected_events=expected_events,
             expected_notional=expected_notional,
+            haircut_summary=haircut_summary,
+            haircut_breakdowns=haircut_breakdowns,
         ),
         encoding="utf-8",
     )
@@ -789,6 +1015,13 @@ def main(argv: list[str] | None = None) -> None:
         ),
         weighted_improvement_bps=strict_improvement,
     )
+    haircut_checks = _haircut_acceptance(
+        haircut_summary,
+        coverage_checks={
+            "events_ge_200": acceptance["events_ge_200"],
+            "notional_coverage_ge_70pct": acceptance["notional_coverage_ge_70pct"],
+        },
+    )
     manifest = {
         "trades_path": str(args.trades_path),
         "symbol_map": str(args.symbol_map),
@@ -812,6 +1045,11 @@ def main(argv: list[str] | None = None) -> None:
         "strict_weighted_improvement_bps": strict_improvement,
         "acceptance_checks": acceptance,
         "acceptance_verdict": "pass" if all(acceptance.values()) else "fail",
+        "haircut_sensitivity": list(haircut_sensitivity),
+        "haircut_acceptance_checks": haircut_checks,
+        "haircut_acceptance_verdict": (
+            "pass" if haircut_checks and all(haircut_checks.values()) else "fail"
+        ),
         "cache_dir": str(args.cache_dir),
         "read_only": True,
         "orders_sent": False,

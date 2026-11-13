@@ -207,6 +207,7 @@ def simulate_maker_order(
     guard_bps: float = 30.0,
     maker_fee_bps: float = 2.0,
     taker_fee_bps: float = 20.0,
+    fill_haircut: float = 1.0,
 ) -> MakerOrderOutcome:
     """Simulate one passive order against public aggressor-side trades."""
     normalized_side = str(side).strip().lower()
@@ -216,6 +217,8 @@ def simulate_maker_order(
     requested = _positive(order_notional, field="order_notional")
     if timeout_hours <= 0.0 or offset_bps < 0.0 or through_bps < 0.0 or guard_bps <= 0.0:
         raise ValueError("invalid maker simulation parameters")
+    if not 0.0 < fill_haircut <= 1.0:
+        raise ValueError("fill_haircut must be in (0, 1]")
     start = pd.Timestamp(entry_time)
     end = start + pd.Timedelta(hours=float(timeout_hours))
     active = [trade for trade in trades if start <= trade.timestamp <= end]
@@ -237,7 +240,7 @@ def simulate_maker_order(
         direction_matches = trade.side == ("sell" if normalized_side == "buy" else "buy")
         strict_price = trade.price <= trigger if normalized_side == "buy" else trade.price >= trigger
         if remaining > 0.0 and direction_matches and strict_price:
-            fill = min(remaining, trade.quote_notional)
+            fill = min(remaining, trade.quote_notional * fill_haircut)
             maker_filled += fill
             maker_quantity += fill / limit
             remaining -= fill

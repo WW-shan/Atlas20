@@ -407,3 +407,108 @@ def test_robustness_metrics_report_weekly_breadth_and_top_asset_dependence() -> 
     assert metrics["top_savings_asset"] == "alpha"
     assert metrics["top_savings_share"] == pytest.approx(0.8)
     assert metrics["ex_top_savings_improvement_bps"] == pytest.approx(10.0)
+
+
+def test_simulate_maker_order_applies_fill_haircut_to_available_volume() -> None:
+    entry = pd.Timestamp("2026-01-04T03:00:00Z")
+    trades = parse_trade_csv(
+        pd.DataFrame(
+            [
+                _trade("2026-01-04T03:15:00Z", 99.93, "sell", 100.0, 1),
+            ]
+        ).to_csv(index=False).encode()
+    )
+
+    outcome = simulate_maker_order(
+        trades,
+        side="buy",
+        reference_price=100.0,
+        order_notional=100.0,
+        entry_time=entry,
+        fill_haircut=0.25,
+    )
+
+    assert outcome.maker_filled_notional == pytest.approx(25.0)
+    assert outcome.taker_filled_notional == pytest.approx(75.0)
+    assert outcome.maker_fill_ratio == pytest.approx(0.25)
+    assert outcome.status == "timeout"
+
+
+def test_haircut_summary_reports_fill_and_weighted_cost_by_scenario() -> None:
+    from scripts import simulate_bitget_trade_tape_maker as simulator
+
+    events = pd.DataFrame(
+        {
+            "requested_notional": [100.0, 100.0],
+            "haircut_025_maker_filled_notional": [25.0, 0.0],
+            "haircut_025_taker_filled_notional": [75.0, 100.0],
+            "haircut_025_effective_cost_bps": [10.0, 50.0],
+            "haircut_025_improvement_bps": [10.0, -30.0],
+            "haircut_025_guard_triggered": [False, True],
+            "haircut_025_status": ["timeout", "guard"],
+        }
+    )
+
+    summary = simulator._haircut_summary(events, (0.25,))
+
+    assert len(summary) == 1
+    row = summary.iloc[0]
+    assert row["haircut"] == pytest.approx(0.25)
+    assert row["events"] == 2
+    assert row["strict_maker_fill_rate"] == pytest.approx(0.125)
+    assert row["strict_effective_cost_bps"] == pytest.approx(30.0)
+    assert row["strict_improvement_bps"] == pytest.approx(-10.0)
+    assert row["strict_guard_event_share"] == pytest.approx(0.5)
+
+
+def test_haircut_breakdowns_cover_side_month_and_asset() -> None:
+    from scripts import simulate_bitget_trade_tape_maker as simulator
+
+    events = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2026-01-01T03:00:00Z", "2026-02-01T03:00:00Z"]),
+            "date": ["2026-01-01", "2026-02-01"],
+            "asset": ["alpha", "beta"],
+            "exec_side": ["buy", "sell"],
+            "requested_notional": [100.0, 50.0],
+            "haircut_025_maker_filled_notional": [25.0, 40.0],
+            "haircut_025_taker_filled_notional": [75.0, 10.0],
+            "haircut_025_effective_cost_bps": [10.0, 5.0],
+            "haircut_025_improvement_bps": [10.0, 15.0],
+            "haircut_025_guard_triggered": [True, False],
+            "haircut_025_status": ["guard", "filled"],
+        }
+    )
+
+    breakdowns = simulator._haircut_breakdowns(events, (0.25,))
+
+    assert set(breakdowns) == {"side", "month", "asset"}
+    assert breakdowns["side"]["group"].tolist() == ["buy", "sell"]
+    assert breakdowns["month"]["group"].tolist() == ["2026-01", "2026-02"]
+    assert breakdowns["asset"]["group"].tolist() == ["alpha", "beta"]
+
+
+def test_haircut_acceptance_requires_25pct_improvement_and_monotonicity() -> None:
+    from scripts import simulate_bitget_trade_tape_maker as simulator
+
+    summary = pd.DataFrame(
+        {
+            "haircut": [0.25, 0.5, 0.75],
+            "strict_improvement_bps": [6.0, 8.0, 9.0],
+        }
+    )
+    passing = simulator._haircut_acceptance(
+        summary,
+        coverage_checks={"events_ge_200": True, "notional_coverage_ge_70pct": True},
+    )
+    assert all(passing.values())
+
+    failing_summary = summary.copy()
+    failing_summary.loc[0, "strict_improvement_bps"] = 4.99
+    failing_summary.loc[1, "strict_improvement_bps"] = 4.5
+    failing = simulator._haircut_acceptance(
+        failing_summary,
+        coverage_checks={"events_ge_200": True, "notional_coverage_ge_70pct": True},
+    )
+    assert not failing["haircut_25_improvement_ge_5bps"]
+    assert not failing["improvement_monotonic_with_haircut"]
