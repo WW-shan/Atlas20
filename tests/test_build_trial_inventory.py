@@ -399,6 +399,39 @@ def test_derivatives_report_dirs_are_excluded_from_the_spot_inventory() -> None:
     ) == []
 
 
+def test_derivatives_research_lane_skips_baselines_and_relisted_sleeves() -> None:
+    from scripts.build_trial_inventory import derivative_research_configurations
+
+    core = pd.DataFrame(
+        [
+            {"label": "LS57 baseline", "base": True, "cost_bps": 20.0, "full_sharpe": 1.91},
+            {"label": "core8 10% residual", "base": False, "cost_bps": 20.0, "full_sharpe": 1.93},
+            {"label": "core8 25% residual", "base": False, "cost_bps": 20.0, "full_sharpe": 1.95},
+        ]
+    )
+    ensemble = pd.DataFrame(
+        [
+            {"portfolio": "LS57", "cost_bps": 20.0, "full_sharpe": 1.91},
+            {"portfolio": "LS82_CARRY", "cost_bps": 20.0, "full_sharpe": 1.95},
+            {"portfolio": "PR2026-11-LS91-CORE", "cost_bps": 20.0, "full_sharpe": 1.92},
+        ]
+    )
+
+    core_rows = derivative_research_configurations("ls81_core_major_funding_carry_2026", core)
+    ensemble_rows = derivative_research_configurations("ls91_core_satellite_ensemble_2026", ensemble)
+
+    assert [row["config_id"] for row in core_rows] == ["core8 10% residual", "core8 25% residual"]
+    assert [row["config_id"] for row in ensemble_rows] == ["PR2026-11-LS91-CORE"]
+    assert all(row["universe"] == "Derivatives" for row in [*core_rows, *ensemble_rows])
+
+
+def test_ls84_and_ls93_are_declared_as_no_new_configuration() -> None:
+    from scripts.build_trial_inventory import NO_NEW_CONFIGURATION_DIRS
+
+    assert "ls84_volume_reversal_screen_2026" in NO_NEW_CONFIGURATION_DIRS
+    assert "ls93_core_satellite_robustness_2026" in NO_NEW_CONFIGURATION_DIRS
+
+
 def test_new_residual_and_intraday_report_dirs_are_classified() -> None:
     from scripts.build_trial_inventory import PROCESSING_ORDER, unclassified_report_dirs
 

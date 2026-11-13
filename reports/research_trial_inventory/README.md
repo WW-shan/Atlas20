@@ -5,13 +5,13 @@ Every strategy configuration the project has backtested, built by
 `summary.json`; `trial_sharpes.csv` has one row per configuration and study
 and `trial_inventory.csv` one row per study.
 
-Built at commit `79b1d8d`; every source file is committed.
+Built at commit `83973f5`; every source file is committed.
 
 ## Totals
 
 | scope | trials | with Sharpe | distinct Sharpe values | mean Sharpe | std (annualized) | std (per day) |
 | --- | --- | --- | --- | --- | --- | --- |
-| all_trials | 14,398 | 14,364 | 9,192 | 0.7830 | 0.7036 | 0.03683 |
+| all_trials | 14,410 | 14,376 | 9,204 | 0.7839 | 0.7040 | 0.03685 |
 | top20_2022_trials | 6,201 | 6,186 | 3,889 | 0.4143 | 0.4821 | 0.02523 |
 
 `top20_2022_trials` is the comparable pool for the phase-momentum champion: Top20,
@@ -51,7 +51,7 @@ multiple-testing script uses it only for the trial count.
 | bull_offense | 792 | 648 |
 | ctrend_lite | 5241 | 3626 |
 | daily_shock_continuation | 96 | 0 |
-| derivatives | 87 | 0 |
+| derivatives | 99 | 0 |
 | intraday_down_shock_short | 18 | 18 |
 | intraday_leadlag | 15 | 15 |
 | leader_momentum | 5761 | 655 |

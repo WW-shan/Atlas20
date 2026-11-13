@@ -1,0 +1,3 @@
+cost_bps,pbo,median_oos_logit,cscv_combinations,rows_used,most_selected_candidate,most_selected_count
+13.0164,0.48917748917748916,0.6931471805599452,924,1724,LS82_CARRY,613
+20.0,0.6515151515151515,-0.6931471805599454,924,1724,LS82_CARRY,551

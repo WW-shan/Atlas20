@@ -162,8 +162,37 @@ OTHER_WINDOW_ORDER: tuple[str, ...] = (
     "ls57_churn_overlay_funding_2026",
     "ls57_churn_spot_btc_short_alt_2026",
     "ls57_churn_multiphase_ensemble_2026",
+    "ls81_core_major_funding_carry_2026",
+    "ls82_core8_carry_risk_2026",
+    "ls85_asset_trend_filter_2026",
+    "ls88_lowfunding_long_2026",
+    "ls89_asset_ma21_exit_2026",
+    "ls90_multi_strategy_ensemble_2026",
+    "ls91_core_satellite_ensemble_2026",
+    "ls92_core_satellite_maker_shadow_2026",
 )
 PROCESSING_ORDER: tuple[str, ...] = TOP20_2022_ORDER + TOP50_2022_ORDER + OTHER_WINDOW_ORDER
+
+# These are the real-engine derivatives research studies whose run_summary.csv
+# files are not in the preregistered H2-H4 ledger format.  They count in the
+# project-wide derivatives scope, not in the spot Top20/2022 scope.
+DERIVATIVES_RESEARCH_STUDIES: tuple[str, ...] = (
+    "ls81_core_major_funding_carry_2026",
+    "ls82_core8_carry_risk_2026",
+    "ls85_asset_trend_filter_2026",
+    "ls88_lowfunding_long_2026",
+    "ls89_asset_ma21_exit_2026",
+    "ls90_multi_strategy_ensemble_2026",
+    "ls91_core_satellite_ensemble_2026",
+    "ls92_core_satellite_maker_shadow_2026",
+)
+DERIVATIVES_ENSEMBLE_STUDIES = frozenset(
+    {
+        "ls90_multi_strategy_ensemble_2026",
+        "ls91_core_satellite_ensemble_2026",
+        "ls92_core_satellite_maker_shadow_2026",
+    }
+)
 
 # Report directories that hold no new configuration (rolling starts,
 # sub-windows, stress windows, audits, live signals, or a re-listing).
@@ -209,6 +238,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "ls57_churn_overlay_stress_2026": "stress matrix of the same LS76 overlay; no new configuration",
     "ls57_churn_bitget_executable_2026": "Bitget mark/funding executable audit of LS79; no new configuration",
     "ls83_funding_settlement_screen_2026": "core8 funding-settlement event screen; no portfolio configuration",
+    "ls84_volume_reversal_screen_2026": "core8 high-volume reversal event screen; no portfolio configuration",
     "ls86_realized_skew_screen_2026": "core8 realized-skew event screen; no portfolio configuration",
     "ls87_top20_skew_screen_2026": "PIT Top20 realized-skew event screen; no portfolio configuration",
     "ls85_asset_trend_filter_2026_adverse": "adverse-funding sensitivity of LS85 asset-trend filter",
@@ -220,6 +250,7 @@ NO_NEW_CONFIGURATION_DIRS: dict[str, str] = {
     "ls92_ls57_maker13_2026": "LS57 60%/1.45x engine re-run at maker-shadow 13.0164bps",
     "ls92_ls82_maker13_2026": "LS82 carry engine re-run at maker-shadow 13.0164bps",
     "ls92_ls88_maker13_2026": "LS88 long-only engine re-run at maker-shadow 13.0164bps",
+    "ls93_core_satellite_robustness_2026": "robustness and attribution audit of LS92; no new configuration",
     "ls81_core_major_funding_carry_2026_cost50_100": "cost sensitivity of LS81 core8 funding carry",
     "ls81_core_major_funding_carry_2026_adverse": "adverse funding sensitivity of LS81 core8 funding carry",
     "ls81_core_major_funding_carry_2026_extended10": "extended-universe sensitivity of LS81 core8 funding carry",
@@ -981,6 +1012,50 @@ def _ledger_bool(value: object) -> bool:
     raise ValueError(f"invalid ledger boolean {value!r}")
 
 
+def derivative_research_configurations(
+    study: str,
+    frame: pd.DataFrame,
+) -> list[dict[str, object]]:
+    """Return the new real-engine configurations in one derivatives report.
+
+    The LS81/LS82/LS85/LS88/LS89 summaries include the LS57 baseline in a
+    ``base`` column.  The LS90/LS91/LS92 summaries instead re-list the four
+    sleeve return streams and append one new ensemble row.  Neither kind of
+    re-listing should be counted as a new configuration.
+    """
+    required = {"cost_bps", "full_sharpe"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"{study}/run_summary.csv: missing columns {missing}")
+    if study in DERIVATIVES_ENSEMBLE_STUDIES:
+        if "portfolio" not in frame.columns:
+            raise ValueError(f"{study}/run_summary.csv: missing portfolio column")
+        candidates = frame[frame["portfolio"].astype(str).str.startswith("PR2026-11-")].copy()
+        id_column = "portfolio"
+    else:
+        if "label" not in frame.columns or "base" not in frame.columns:
+            raise ValueError(f"{study}/run_summary.csv: missing label/base columns")
+        candidates = frame[~frame["base"].map(_ledger_bool)].copy()
+        id_column = "label"
+    rows: list[dict[str, object]] = []
+    for _, row in candidates.iterrows():
+        config_id = str(row[id_column]).strip()
+        if not config_id:
+            raise ValueError(f"{study}/run_summary.csv: empty configuration id")
+        rows.append(
+            {
+                "config_id": config_id,
+                "cost_bps": float(row["cost_bps"]),
+                "full_sharpe": float(row["full_sharpe"]),
+                "universe": "Derivatives",
+                "family": "derivatives",
+                "window_start": "2022-01-01",
+                "window_end": "2026-09-20",
+            }
+        )
+    return rows
+
+
 def _ledger_result_row(ledger: pd.DataFrame, trial_id: str) -> pd.Series | None:
     """The last terminal result row for one preregistered trial, if any."""
     rows = ledger[
@@ -1348,6 +1423,28 @@ def _load_top20_churn_lane(src: Sources, rec: TrialRecorder) -> None:
             note="executable alt-perp short + BTC spot, cross-venue funding, residual gross",
         )
 
+
+def _load_derivatives_research_lane(src: Sources, rec: TrialRecorder) -> None:
+    """Load real-engine LS81-LS92 derivatives portfolios into the project count."""
+    for study in DERIVATIVES_RESEARCH_STUDIES:
+        path = f"reports/{study}/run_summary.csv"
+        frame = src.csv(path)
+        for row in derivative_research_configurations(study, frame):
+            rec.add(
+                study,
+                row["config_id"],
+                (str(row["window_start"]), str(row["window_end"])),
+                float(row["cost_bps"]),
+                str(row["universe"]),
+                float(row["full_sharpe"]),
+                source=path,
+                column="full_sharpe",
+                family=str(row["family"]),
+                lineage=study,
+                note="real-engine Bitget mark/funding research portfolio",
+            )
+
+
 def collect_trials(
     src: Sources, *, april_commit: str, bull_commit: str
 ) -> tuple[pd.DataFrame, list[UnscoredConfiguration], int]:
@@ -1367,6 +1464,7 @@ def collect_trials(
     _load_intraday_leadlag_lane(src, rec)
     _load_daily_shock_lanes(src, rec)
     _load_top20_churn_lane(src, rec)
+    _load_derivatives_research_lane(src, rec)
     _load_april_lane(src, rec, april_commit)
     return rec.frame(), unscored, rec.repeated_rows
 
