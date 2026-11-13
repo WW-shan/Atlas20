@@ -4862,3 +4862,22 @@ lottery-demand 溢价。**判定：rejected。** 不建立 LS87 组合回测，�
 
 报告：`reports/ls86_realized_skew_screen_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls86-realized-skew-screen.md`。
+
+### 00.122 2026-11-13 LS87：PIT Top20 realized-skew 宽币池筛选（rejected）
+
+LS87 把 LS86 的 30D realized-skew 机制移到 PIT CMC Top20，只保留 Bitget market candle 可成交
+的成员，每 7D 做多最低 skew 2 币、做空最高 skew 2 币，D+1 03:00 UTC 入场、7D 后出场。这样
+检验宽币池是否能提供 core8 缺失的横截面离散度，同时避免用当前 universe 回填历史。
+
+| 窗口 | n | gross mean | 20bps net mean | 50bps net mean | NW t | hit rate |
+|---|---:|---:|---:|---:|---:|---:|
+| full | 241 | -0.4712% | -0.8712% | -1.4712% | -0.70 | 53.53% |
+| discovery | 102 | -1.1815% | -1.5815% | -2.1815% | -1.15 | 47.06% |
+| validation | 139 | **+0.0500%** | **-0.3500%** | -0.9500% | 0.06 | 58.27% |
+
+validation 的 gross 仅约 5bps/7D，远低于一次多空组合入场+出场成本；20/50bps 后都为负，
+discovery 方向相反。**判定：rejected。** 不建立 LS88 引擎回测，不扫描 Top20、skew window、
+weekly horizon、count 或可成交池门槛；lottery-demand 家族停止。
+
+报告：`reports/ls87_top20_skew_screen_2026/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls87-top20-skew-screen.md`。

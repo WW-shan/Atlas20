@@ -1,0 +1,13 @@
+{
+  "end_date": "2026-09-21",
+  "execution_source": "Bitget market candle",
+  "horizon_days": 7,
+  "lookback_days": 30,
+  "orders_sent": false,
+  "placebo_iterations": 2000,
+  "rebalance_days": 7,
+  "screen_id": "PR2026-11-LS87-PIT-TOP20-REALIZED-SKEW-SCREEN",
+  "signal_source": "CMC daily price",
+  "start_date": "2022-01-01",
+  "universe": "PIT CMC Top20"
+}
