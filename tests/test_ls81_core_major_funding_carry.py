@@ -111,3 +111,31 @@ def test_pit_funding_carry_rejects_invalid_parameters() -> None:
             min_assets=3,
             count=2,
         )
+
+
+def test_pit_funding_carry_can_be_long_only() -> None:
+    from scripts.run_ls81_core_major_funding_carry import build_pit_funding_carry_schedule
+
+    dates = pd.date_range("2022-01-01", "2022-01-15", freq="1D", tz="UTC")
+    assets = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    funding = pd.DataFrame(
+        {asset: [index / 1000.0] * len(dates) for index, asset in enumerate(assets)},
+        index=dates,
+    )
+
+    schedule, _ = build_pit_funding_carry_schedule(
+        funding_rates=funding,
+        calendar=dates,
+        assets=assets,
+        rebalance_days=7,
+        lookback_days=7,
+        min_settlements=3,
+        min_assets=6,
+        count=2,
+        per_asset_weight=0.25,
+        long_enabled=True,
+        short_enabled=False,
+    )
+
+    target = schedule[pd.Timestamp("2022-01-08", tz="UTC")]
+    assert target.to_dict() == {"a": 0.25, "b": 0.25}

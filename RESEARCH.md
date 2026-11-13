@@ -4881,3 +4881,50 @@ weekly horizon、count 或可成交池门槛；lottery-demand 家族停止。
 
 报告：`reports/ls87_top20_skew_screen_2026/`；Spec：
 `docs/superpowers/specs/2026-11-13-ls87-top20-skew-screen.md`。
+
+### 00.123 2026-11-13 LS88：LS57 + core8 low-funding long-only（rejected）
+
+LS88 把 LS81/LS82 的 market-neutral carry 拆成只做 low-funding long 腿：core8 中 7D funding
+最低 2 币，每腿 25% NAV，目标 sleeve gross 10/20/25% NAV，沿用 60% long buffer、目标 gross
+1.45x 和 hard cap 1.50x。
+
+20bps normal：
+
+| 策略 | 终值 | Sharpe | MDD | validation multiple | validation Sharpe | 强平 |
+|---|---:|---:|---:|---:|---:|---:|
+| LS57 baseline | **58.2059x** | **1.9143** | -39.83% | **13.8153x** | **2.0417** | 0 |
+| LS88 10% gross | 61.4661x | 1.9062 | -39.41% | 14.3776x | 2.0185 | 0 |
+| LS88 20% gross | **63.0370x** | 1.8759 | -38.65% | 14.5795x | 1.9717 | 0 |
+| LS88 25% gross | 63.0364x | 1.8528 | -38.49% | 14.6717x | 1.9474 | 0 |
+
+终值上升但 Sharpe 和 validation Sharpe 全部下降，说明增量主要是多头 beta/收益放大，不是免费的
+风险调整 alpha。50bps 20% 为 32.7778x / 1.6208，baseline 34.6316x / 1.7012；100bps 为
+10.9744x / 1.1930，baseline 14.5318x / 1.3440；3x two-sided adverse 为 24.5404x，baseline
+31.4655x。**判定：rejected。** long-only carry 不是可接受的独立升级；不扫描 10/15/20/25/30%
+或 short-only 变体救结果。
+
+报告：`reports/ls88_lowfunding_long_2026/`；成本：
+`reports/ls88_lowfunding_long_2026_cost50_100/`；压力：
+`reports/ls88_lowfunding_long_2026_adverse/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls88-lowfunding-long-design.md`。
+
+### 00.124 2026-11-13 LS89：LS57 逐资产 21D SMA 退出（risk-only rejected）
+
+LS89 使用 LS57 已有的 21D 窗口做逐腿退出：long asset 信号日收盘低于自身 21D SMA 时转为现金，
+不重分配；同时使用 60% long buffer 和目标 gross 1.45x，short router 不变。
+
+| 成本 | LS57 baseline 终值/Sharpe/MDD | LS89 终值/Sharpe/MDD | baseline validation | LS89 validation |
+|---:|---:|---:|---:|---:|
+| 20bps | 58.2059x / 1.9143 / -39.83% | 54.7231x / **1.9275** / **-36.48%** | 13.8153x / 2.0417 | 12.1321x / 2.0093 |
+| 50bps | 34.6316x / 1.7012 / -43.44% | 32.4785x / **1.7075** / **-40.16%** | 9.9768x / 1.8223 | 8.7115x / 1.7771 |
+| 100bps | 14.5318x / 1.3440 / -49.42% | 13.5751x / 1.3386 / **-47.35%** | 5.7885x / 1.4535 | 5.0071x / 1.3868 |
+
+21D 过滤比 200D 明显更好，确实降低了 MDD，并让 20bps Sharpe 小幅上升；但终值和 validation
+全面下降，20bps full multiple 与 validation 门槛失败。3x two-sided adverse 下终值 30.8057x /
+Sharpe 1.6868 / MDD -40.24%，baseline 31.4655x / 1.6633 / -43.76%，仍是 risk-only。
+**判定：rejected。** 不扫描 10/14/28/50D、不改成部分减仓、不把释放权重再分配；逐资产 SMA
+退出家族停止。
+
+报告：`reports/ls89_asset_ma21_exit_2026/`；压力：
+`reports/ls89_asset_ma21_exit_2026_adverse/`；Spec：
+`docs/superpowers/specs/2026-11-13-ls89-asset-ma21-exit-design.md`。

@@ -1,0 +1,21 @@
+{
+  "costs_bps": [
+    20.0,
+    50.0,
+    100.0
+  ],
+  "end_date": "2026-09-21",
+  "filtered_to_cash": true,
+  "funding_scenarios": [
+    "normal"
+  ],
+  "gross_cap": 1.5,
+  "long_buffer": 0.6,
+  "ma_days": 21,
+  "orders_sent": false,
+  "raw_ledgers_retained": false,
+  "start_date": "2022-01-01",
+  "target_gross": 1.45,
+  "trial_id": "PR2026-11-LS89-LS57-ASSET-MA21-EXIT",
+  "warmup_start": "2021-01-01"
+}

@@ -130,12 +130,13 @@ def _report(
     filter_audit: pd.DataFrame,
     *,
     trial_id: str,
+    ma_days: int,
 ) -> str:
     lines = [
         f"# {trial_id}",
         "",
         "- Base: frozen LS57",
-        "- New rule: drop a long leg when signal-day close is below its own 200D SMA",
+        f"- New rule: drop a long leg when signal-day close is below its own {ma_days}D SMA",
         "- No redistribution; freed weight remains cash; short router unchanged",
         "",
         "## Runs",
@@ -206,6 +207,7 @@ def _report(
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config/base.yaml")
+    parser.add_argument("--trial-id", default=TRIAL_ID)
     parser.add_argument("--warmup-start", default="2021-01-01")
     parser.add_argument("--start-date", default="2022-01-01")
     parser.add_argument("--end-date", default="2026-09-21")
@@ -214,6 +216,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
     parser.add_argument("--costs-bps", default="20,50,100")
     parser.add_argument("--funding-scenarios", default="normal,two-sided-adverse-3x")
+    parser.add_argument("--ma-days", type=int, default=200)
+    parser.add_argument("--long-buffer", type=float, default=float(FROZEN_CONFIG["long_buffer"]))
+    parser.add_argument("--target-gross", type=float, default=float(FROZEN_CONFIG["max_total_gross"]))
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     costs = [float(value) for value in args.costs_bps.split(",") if value.strip()]
@@ -222,6 +227,12 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("costs and funding scenarios must be non-empty")
     if any(value < 0.0 for value in costs):
         parser.error("costs must be non-negative")
+    if args.ma_days < 2:
+        parser.error("ma-days must be at least two")
+    if not 0.0 < args.long_buffer < 1.0:
+        parser.error("long-buffer must be in (0, 1)")
+    if not 0.0 < args.target_gross <= float(FROZEN_CONFIG["max_total_gross"]):
+        parser.error("target-gross must be positive and no greater than the frozen cap")
     start = pd.Timestamp(args.start_date, tz="UTC")
     end = pd.Timestamp(args.end_date, tz="UTC")
     if start >= end:
@@ -284,17 +295,17 @@ def main(argv: list[str] | None = None) -> None:
     base_targets, base_audit = combine_long_with_cash_budgeted_short(
         long_targets,
         short_targets,
-        max_total_gross=float(FROZEN_CONFIG["max_total_gross"]),
+        max_total_gross=float(args.target_gross),
     )
     filtered_long, filter_audit = filter_long_targets_by_asset_ma(
         long_targets,
         prices=market.price,
-        ma_days=200,
+        ma_days=int(args.ma_days),
     )
     filtered_targets, filtered_audit = combine_long_with_cash_budgeted_short(
         filtered_long,
         short_targets,
-        max_total_gross=float(FROZEN_CONFIG["max_total_gross"]),
+        max_total_gross=float(args.target_gross),
     )
 
     rows: list[dict[str, Any]] = []
@@ -305,7 +316,7 @@ def main(argv: list[str] | None = None) -> None:
         for cost in costs:
             for label, targets, audit, base in (
                 ("LS57 baseline", base_targets, base_audit, True),
-                ("LS85 200D filter", filtered_targets, filtered_audit, False),
+                (f"{args.trial_id} {args.ma_days}D filter", filtered_targets, filtered_audit, False),
             ):
                 result = _run_engine(
                     mark_candles=mark_candles,
@@ -317,8 +328,8 @@ def main(argv: list[str] | None = None) -> None:
                     funding_stress=stress,
                     funding_multiplier=multiplier,
                     cost_bps=cost,
-                    long_buffer=float(FROZEN_CONFIG["long_buffer"]),
-                    target_gross=float(FROZEN_CONFIG["max_total_gross"]),
+                    long_buffer=float(args.long_buffer),
+                    target_gross=float(args.target_gross),
                     start_time=start,
                     end_time=end,
                 )
@@ -341,8 +352,8 @@ def main(argv: list[str] | None = None) -> None:
                         scenario=scenario,
                         result=result,
                         target_audit=audit,
-                        long_buffer=float(FROZEN_CONFIG["long_buffer"]),
-                        target_gross=float(FROZEN_CONFIG["max_total_gross"]),
+                        long_buffer=float(args.long_buffer),
+                        target_gross=float(args.target_gross),
                         base=base,
                     )
                 )
@@ -359,13 +370,15 @@ def main(argv: list[str] | None = None) -> None:
         for name, frame in frames.items():
             frame.to_csv(output_dir / f"{name}_{key}.csv", index=False)
     manifest = {
-        "trial_id": TRIAL_ID,
+        "trial_id": args.trial_id,
         "start_date": args.start_date,
         "end_date": args.end_date,
         "warmup_start": args.warmup_start,
         "costs_bps": costs,
         "funding_scenarios": scenarios,
-        "ma_days": 200,
+        "ma_days": int(args.ma_days),
+        "long_buffer": float(args.long_buffer),
+        "target_gross": float(args.target_gross),
         "filtered_to_cash": True,
         "gross_cap": float(FROZEN_CONFIG["max_total_gross"]),
         "orders_sent": False,
@@ -375,7 +388,8 @@ def main(argv: list[str] | None = None) -> None:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     (output_dir / "report.md").write_text(
-        _report(summary, filter_audit, trial_id=TRIAL_ID), encoding="utf-8"
+        _report(summary, filter_audit, trial_id=args.trial_id, ma_days=int(args.ma_days)),
+        encoding="utf-8",
     )
     print(f"wrote {output_dir}; runs={len(summary)}")
     print(

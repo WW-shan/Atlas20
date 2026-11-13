@@ -137,6 +137,8 @@ def build_pit_funding_carry_schedule(
     min_assets: int = 6,
     count: int = 2,
     per_asset_weight: float = 0.25,
+    long_enabled: bool = True,
+    short_enabled: bool = True,
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.DataFrame]:
     """Build a strict-PIT core-major low/high funding carry schedule.
 
@@ -153,8 +155,11 @@ def build_pit_funding_carry_schedule(
         raise ValueError("min_settlements must be positive")
     if count < 1:
         raise ValueError("count must be positive")
-    if min_assets < 2 * count:
-        raise ValueError("min_assets must cover both long and short legs")
+    enabled_sides = int(long_enabled) + int(short_enabled)
+    if enabled_sides == 0:
+        raise ValueError("at least one carry side must be enabled")
+    if min_assets < enabled_sides * count:
+        raise ValueError("min_assets must cover the enabled carry legs")
     if not np.isfinite(per_asset_weight) or per_asset_weight <= 0.0:
         raise ValueError("per_asset_weight must be positive and finite")
 
@@ -207,8 +212,8 @@ def build_pit_funding_carry_schedule(
             continue
 
         ranked = sorted(scores.items(), key=lambda item: (item[1], item[0]))
-        long_assets = {asset for asset, _ in ranked[:count]}
-        short_assets = {asset for asset, _ in ranked[-count:]}
+        long_assets = {asset for asset, _ in ranked[:count]} if long_enabled else set()
+        short_assets = {asset for asset, _ in ranked[-count:]} if short_enabled else set()
         target = pd.Series(dtype=float)
         for asset in sorted(long_assets):
             target.at[asset] = per_asset_weight
@@ -488,6 +493,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--costs-bps", default="20")
     parser.add_argument("--allocations", default="0.10,0.20,0.25")
     parser.add_argument("--funding-scenarios", default="normal")
+    parser.add_argument("--carry-side", choices=("both", "long-only", "short-only"), default="both")
     parser.add_argument("--long-buffer", type=float, default=float(FROZEN_CONFIG["long_buffer"]))
     parser.add_argument("--target-gross", type=float, default=float(FROZEN_CONFIG["max_total_gross"]))
     parser.add_argument("--funding-source", choices=("binance-proxy", "bitget-exact"), default="binance-proxy")
@@ -508,6 +514,8 @@ def main(argv: list[str] | None = None) -> None:
     costs = [float(value) for value in args.costs_bps.split(",") if value.strip()]
     allocations = [float(value) for value in args.allocations.split(",") if value.strip()]
     scenarios = [value.strip() for value in args.funding_scenarios.split(",") if value.strip()]
+    long_enabled = args.carry_side in {"both", "long-only"}
+    short_enabled = args.carry_side in {"both", "short-only"}
     if not costs or not allocations or not scenarios:
         parser.error("costs, allocations and funding scenarios must be non-empty")
     if any(value < 0.0 for value in costs + allocations):
@@ -605,6 +613,12 @@ def main(argv: list[str] | None = None) -> None:
         min_assets=6,
         count=2,
         per_asset_weight=0.25,
+        long_enabled=long_enabled,
+        short_enabled=short_enabled,
+    )
+    raw_sleeve_gross = max(
+        (float(target.abs().sum()) for target in carry_schedule.values()),
+        default=0.0,
     )
     for asset in core_assets:
         if asset not in funding.columns:
@@ -656,7 +670,12 @@ def main(argv: list[str] | None = None) -> None:
                     {"trades": base_result.trades, "funding": base_result.funding}
                 )
             for allocation in allocations:
-                scaled = _scale_schedule(carry_schedule, allocation)
+                sleeve_scale = (
+                    float(allocation) / raw_sleeve_gross
+                    if raw_sleeve_gross > 0.0
+                    else 0.0
+                )
+                scaled = _scale_schedule(carry_schedule, sleeve_scale)
                 combined, target_audit = combine_signed_book_with_residual_sleeve(
                     base_targets,
                     scaled,
@@ -680,6 +699,8 @@ def main(argv: list[str] | None = None) -> None:
                 label = f"core8 {allocation:.0%} residual"
                 if args.variant == "extended10":
                     label = f"extended10 {allocation:.0%} residual"
+                if args.carry_side != "both":
+                    label = f"{args.variant} {args.carry_side} {allocation:.0%} gross"
                 summary_rows.append(
                     _summary_row(
                         label=label,
@@ -722,6 +743,8 @@ def main(argv: list[str] | None = None) -> None:
     manifest = {
         "trial_id": args.trial_id,
         "variant": args.variant,
+        "carry_side": args.carry_side,
+        "raw_sleeve_gross": raw_sleeve_gross,
         "core_assets": list(core_assets),
         "warmup_start": args.warmup_start,
         "start_date": args.start_date,
