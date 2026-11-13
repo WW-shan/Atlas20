@@ -143,3 +143,15 @@ def test_zero_funding_shadow_keeps_short_schedule() -> None:
 
     assert list(kept) == [calendar[0]]
     assert kept[calendar[0]].to_dict() == {"bitcoin": pytest.approx(0.20)}
+
+
+def test_max_total_gross_override_is_validated() -> None:
+    from scripts.run_derivatives_shadow import _resolve_max_total_gross
+    from scripts.run_h5_regime_short_router import FROZEN_CONFIG
+
+    assert _resolve_max_total_gross(None) == pytest.approx(
+        float(FROZEN_CONFIG["max_total_gross"])
+    )
+    assert _resolve_max_total_gross(1.25) == pytest.approx(1.25)
+    with pytest.raises(ValueError, match="max_total_gross"):
+        _resolve_max_total_gross(0.0)

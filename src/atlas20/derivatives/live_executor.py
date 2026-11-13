@@ -238,6 +238,7 @@ def execute_plan(
 
     for index, order in enumerate(plan.orders):
         symbol = order.symbol
+        order_pos_side = str(order.pos_side or pos_side).lower()
         if symbol not in leverage_done:
             # Cap leverage in the *crossed* config first: this venue happily
             # accepts an isolated leverage config and then still fills the
@@ -246,7 +247,7 @@ def execute_plan(
                 client.set_leverage(
                     symbol,
                     leverage,
-                    pos_side=pos_side,
+                    pos_side=order_pos_side,
                     margin_mode=MARGIN_MODE_CROSSED,
                     long_leverage=leverage,
                     short_leverage=leverage,
@@ -270,7 +271,7 @@ def execute_plan(
                     client.set_leverage(
                         symbol,
                         leverage,
-                        pos_side=pos_side,
+                        pos_side=order_pos_side,
                         margin_mode=MARGIN_MODE_ISOLATED,
                         long_leverage=leverage,
                         short_leverage=leverage,
@@ -286,7 +287,7 @@ def execute_plan(
             "qty": order.size,
             "side": order.side,
             "order_type": "market",
-            "pos_side": pos_side if hedging else None,
+            "pos_side": order_pos_side if hedging else None,
             "reduce_only": order.reduce_only and not hedging,
             "client_oid": f"{client_oid_prefix}{stamp}{index}",
         }

@@ -135,6 +135,7 @@ class OrderIntent:
     notional: float
     reduce_only: bool
     reason: str
+    pos_side: str = "long"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -147,6 +148,7 @@ class OrderIntent:
             "notional": self.notional,
             "reduce_only": self.reduce_only,
             "reason": self.reason,
+            "pos_side": self.pos_side,
         }
 
 
@@ -181,6 +183,7 @@ class ExecutionPlan:
     target_notional: dict[str, float]
     expected_gross_notional: float
     expected_margin: float
+    signed_target_notional: dict[str, float] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -191,6 +194,7 @@ class ExecutionPlan:
             "margin_intents": [intent.as_dict() for intent in self.margin_intents],
             "warnings": list(self.warnings),
             "target_notional": dict(self.target_notional),
+            "signed_target_notional": dict(self.signed_target_notional),
             "expected_gross_notional": self.expected_gross_notional,
             "expected_margin": self.expected_margin,
         }
@@ -204,15 +208,22 @@ def build_execution_plan(
     *,
     leverage: float = 2.0,
     long_buffer: float = 0.50,
+    short_buffer: float = 0.50,
     fee_buffer: float = 0.005,
     maintenance_margin_rate: float = 0.01,
     max_margin_utilization: float = 0.85,
+    max_gross_exposure: float | None = None,
     taker_fee_rate: float = 0.0006,
     min_rebalance_usdt: float = 0.0,
     min_margin_delta: float = 0.01,
     mirror_engine: bool = False,
 ) -> ExecutionPlan:
-    """Build the orders and margin adjustments that move the account to target.
+    """Build signed long/short orders that move the account to the target.
+
+    Target weights are signed relative to account equity.  Positive weights
+    open or increase longs; negative weights open or increase shorts.  A
+    direction flip is always expressed as close-first, then open, so the
+    planner never relies on a venue's netting behaviour.
 
     ``mirror_engine=True`` reproduces the research engine's exact behaviour
     (no venue minimums, no rounding floor beyond the step) and is what the
@@ -223,19 +234,30 @@ def build_execution_plan(
         raise ValueError("account equity must be positive")
     if leverage <= 0.0:
         raise ValueError("leverage must be positive")
+    if max_gross_exposure is not None and max_gross_exposure <= 0.0:
+        raise ValueError("max_gross_exposure must be positive when set")
 
     warnings: list[str] = []
-    margin_ratio = initial_margin_ratio(
+    long_margin_ratio = initial_margin_ratio(
         "long",
         maintenance_margin_rate=maintenance_margin_rate,
         fee_buffer=fee_buffer,
         long_buffer=long_buffer,
     )
+    short_margin_ratio = initial_margin_ratio(
+        "short",
+        maintenance_margin_rate=maintenance_margin_rate,
+        fee_buffer=fee_buffer,
+        short_buffer=short_buffer,
+    )
     exchange_margin_ratio = 1.0 / leverage
 
-    desired: dict[str, float] = {}
-    for asset, weight in targets.items():
-        weight = float(weight)
+    def margin_ratio_for_side(side: str) -> float:
+        return long_margin_ratio if side == "long" else short_margin_ratio
+
+    desired_signed: dict[str, float] = {}
+    for asset, raw_weight in targets.items():
+        weight = float(raw_weight)
         if abs(weight) <= _EPS:
             continue
         if asset not in prices or not (float(prices[asset]) > 0.0):
@@ -244,17 +266,32 @@ def build_execution_plan(
         if asset not in specs and not mirror_engine:
             warnings.append(f"{asset}: no contract spec; target dropped")
             continue
-        desired[str(asset)] = abs(weight) * account.equity
+        desired_signed[str(asset)] = weight * account.equity
 
-    required_margin = sum(notional * margin_ratio for notional in desired.values())
-    scale = 1.0
-    if required_margin > max_margin_utilization * account.equity:
-        scale = (max_margin_utilization * account.equity) / required_margin
+    gross_requested = sum(abs(value) for value in desired_signed.values())
+    gross_scale = 1.0
+    if max_gross_exposure is not None and gross_requested > float(max_gross_exposure) + _EPS:
+        gross_scale = float(max_gross_exposure) / gross_requested
         warnings.append(
-            f"gross margin scaled to {scale:.4f}x by the {max_margin_utilization:.0%} "
-            "margin-utilization cap"
+            f"gross exposure scaled to {gross_scale:.4f}x by the "
+            f"{float(max_gross_exposure):,.2f} USDT cap"
         )
-    desired = {asset: notional * scale for asset, notional in desired.items()}
+
+    desired_signed = {asset: value * gross_scale for asset, value in desired_signed.items()}
+    required_margin = sum(
+        abs(value) * margin_ratio_for_side("long" if value > 0.0 else "short")
+        for value in desired_signed.values()
+    )
+    margin_scale = 1.0
+    if required_margin > max_margin_utilization * account.equity:
+        margin_scale = (max_margin_utilization * account.equity) / required_margin
+        warnings.append(
+            f"gross margin scaled to {margin_scale:.4f}x by the "
+            f"{max_margin_utilization:.0%} margin-utilization cap"
+        )
+
+    desired_signed = {asset: value * margin_scale for asset, value in desired_signed.items()}
+    desired_abs = {asset: abs(value) for asset, value in desired_signed.items()}
 
     positions = dict(account.positions)
     prices_all: dict[str, float] = {asset: float(price) for asset, price in prices.items()}
@@ -268,10 +305,16 @@ def build_execution_plan(
             return ContractSpec(symbol=str(asset).upper())
         raise KeyError(asset)
 
+    def _side(position: PositionState) -> str:
+        return "short" if str(position.side).lower() == "short" else "long"
+
     orders: list[OrderIntent] = []
     available = float(account.available_margin)
     final_sizes: dict[str, float] = {
         asset: position.size for asset, position in positions.items()
+    }
+    final_sides: dict[str, str | None] = {
+        asset: _side(position) for asset, position in positions.items()
     }
 
     def _register_trade(
@@ -287,25 +330,29 @@ def build_execution_plan(
         available += margin_delta + pnl - fee
         final_sizes[asset] = max(0.0, final_sizes.get(asset, 0.0) + size_delta)
 
-    # Reduce / close first so the released margin can fund increases.  The
-    # iteration order mirrors the engine: positions in open order.
-    for asset in positions:
-        position = positions[asset]
+    # Reduce / close first so released margin can fund opposite-side opens.
+    # The iteration order mirrors the engine: positions in open order.
+    for asset, position in positions.items():
         price = prices_all.get(asset)
         if price is None or price <= 0.0:
             warnings.append(f"{asset}: held leg has no price; left untouched")
             continue
-        target_notional = desired.get(asset)
-        if target_notional is None or target_notional <= _EPS:
-            action, size = "CLOSE", position.size
-            reason = "not in target book"
-        elif target_notional / price < position.size - 1e-12:
-            # Quantity-space comparison, exactly like the research engine.
-            size = position.size - target_notional / price
-            action, reason = "REDUCE", "rebalance to target"
-        else:
+        target_signed = float(desired_signed.get(asset, 0.0))
+        current_side = _side(position)
+        same_side = (
+            abs(target_signed) > _EPS
+            and ((target_signed > 0.0) == (current_side == "long"))
+        )
+        if same_side and abs(target_signed) / price >= position.size - 1e-12:
             continue
-        cash_delta = 0.0
+        action = "REDUCE" if same_side else "CLOSE"
+        size = (
+            position.size - abs(target_signed) / price
+            if same_side
+            else position.size
+        )
+        if size <= _EPS:
+            continue
         spec = _spec(asset)
         if not mirror_engine:
             size = spec.round_down_qty(size)
@@ -316,30 +363,36 @@ def build_execution_plan(
                     f"{asset}: reduce of {size:.8g} below venue minimum; kept for now"
                 )
                 continue
-            if action == "REDUCE" and size <= 0.0:
+            if size <= 0.0:
                 continue
-        if action == "CLOSE":
-            margin_delta = position.margin
-            pnl = position.size * (price - position.entry_price)
-            fee = position.size * price * taker_fee_rate
-            # Mirror the engine: a blown-up leg settles at zero, not negative.
-            cash_delta = max(0.0, margin_delta + pnl - fee) - (margin_delta + pnl - fee)
-        else:
-            fraction = size / position.size if position.size > 0.0 else 0.0
-            margin_delta = position.margin * fraction
-            pnl = size * (price - position.entry_price)
-            fee = size * price * taker_fee_rate
+        side = "sell" if current_side == "long" else "buy"
+        fee = size * price * taker_fee_rate
+        margin_delta = (
+            position.margin * (size / position.size)
+            if position.size > 0.0
+            else position.margin
+        )
+        pnl = (
+            size * (price - position.entry_price)
+            if current_side == "long"
+            else size * (position.entry_price - price)
+        )
+        settlement = margin_delta + pnl - fee
+        cash_delta = max(0.0, settlement) - settlement if action == "CLOSE" else 0.0
         orders.append(
             OrderIntent(
                 asset=asset,
-                symbol=position.symbol,
+                symbol=spec.symbol,
                 action=action,
-                side="sell",
+                side=side,
                 size=size,
                 price=price,
                 notional=size * price,
                 reduce_only=True,
-                reason=reason,
+                reason=(
+                    "not in target book" if action == "CLOSE" else "rebalance to target"
+                ),
+                pos_side=current_side,
             )
         )
         _register_trade(
@@ -350,20 +403,25 @@ def build_execution_plan(
             fee=fee,
             pnl=pnl,
         )
+        if action == "CLOSE":
+            final_sides[asset] = None
         if action == "CLOSE" and cash_delta:
             available += cash_delta
 
-    # Open or increase only after reductions have settled.
-    for asset, target_notional in desired.items():
+    # Open or increase only after reductions have settled.  A flip is already
+    # represented as CLOSE then OPEN, never as a negative-size order.
+    for asset, target_signed in desired_signed.items():
         price = prices_all.get(asset)
         if price is None or price <= 0.0:
             continue
-        position = positions.get(asset)
-        current_notional = position.size * price if position is not None else 0.0
-        if target_notional - current_notional <= _EPS:
+        target_side = "long" if target_signed > 0.0 else "short"
+        current_side = final_sides.get(asset)
+        current_size = final_sizes.get(asset, 0.0) if current_side == target_side else 0.0
+        target_size = abs(target_signed) / price
+        if target_size - current_size <= _EPS:
             continue
-        action = "OPEN" if position is None else "INCREASE"
-        raw_size = (target_notional - current_notional) / price
+        action = "OPEN" if current_size <= _EPS else "INCREASE"
+        raw_size = target_size - current_size
         spec = _spec(asset)
         size = raw_size if mirror_engine else spec.round_down_qty(raw_size)
         if not mirror_engine:
@@ -376,7 +434,8 @@ def build_execution_plan(
                 )
                 continue
         notional = size * price
-        margin_needed = notional * margin_ratio
+        side_margin_ratio = margin_ratio_for_side(target_side)
+        margin_needed = notional * side_margin_ratio
         fee = notional * taker_fee_rate
         if margin_needed + fee > available + _EPS:
             allowed = max(0.0, available)
@@ -393,19 +452,20 @@ def build_execution_plan(
                 f"{asset}: {action.lower()} scaled to {size:.8g} by available margin"
             )
             notional = size * price
-            margin_needed = notional * margin_ratio
+            margin_needed = notional * side_margin_ratio
             fee = notional * taker_fee_rate
         orders.append(
             OrderIntent(
                 asset=asset,
                 symbol=spec.symbol,
                 action=action,
-                side="buy",
+                side="buy" if target_side == "long" else "sell",
                 size=size,
                 price=price,
                 notional=notional,
                 reduce_only=False,
                 reason="rebalance to target",
+                pos_side=target_side,
             )
         )
         _register_trade(
@@ -416,13 +476,14 @@ def build_execution_plan(
             fee=0.0,
             pnl=0.0,
         )
+        final_sides[asset] = target_side
 
-    # Isolated-margin top-ups: the exchange only posts notional / leverage, the
-    # specification wants notional x 51.5% (50% buffer + 1% MMR + 0.5% fees).
+    # Isolated-margin top-ups: the exchange posts notional / leverage, while
+    # the track wants the side-specific buffer (51.5% by default for both sides).
     margin_intents: list[MarginIntent] = []
     expected_gross = 0.0
     expected_margin = 0.0
-    for asset, target_notional in desired.items():
+    for asset, target_signed in desired_signed.items():
         price = float(prices_all.get(asset, 0.0))
         if price <= 0.0:
             continue
@@ -430,15 +491,20 @@ def build_execution_plan(
         final_notional = final_size * price
         if final_notional <= _EPS:
             continue
+        target_side = "long" if target_signed > 0.0 else "short"
+        side_margin_ratio = margin_ratio_for_side(target_side)
+        target_margin = final_notional * side_margin_ratio
         position = positions.get(asset)
-        target_margin = final_notional * margin_ratio
-        if position is None:
+        position_side = _side(position) if position is not None else None
+        if position is None or position_side != target_side:
             projected_margin = final_notional * exchange_margin_ratio
         else:
             increase = max(0.0, final_notional - position.notional)
             decrease = max(0.0, position.notional - final_notional)
             projected_margin = (
-                position.margin + increase * exchange_margin_ratio - decrease * position.margin_ratio
+                position.margin
+                + increase * exchange_margin_ratio
+                - decrease * position.margin_ratio
             )
         delta = target_margin - projected_margin
         expected_gross += final_notional
@@ -449,11 +515,11 @@ def build_execution_plan(
             MarginIntent(
                 asset=asset,
                 symbol=specs[asset].symbol if asset in specs else str(asset).upper(),
-                pos_side="long",
+                pos_side=target_side,
                 operation="add" if delta > 0.0 else "remove",
                 amount=abs(delta),
                 reason=(
-                    f"isolated margin to {margin_ratio:.1%} of "
+                    f"isolated margin to {side_margin_ratio:.1%} of "
                     f"{final_notional:,.2f} USDT notional"
                 ),
             )
@@ -462,13 +528,14 @@ def build_execution_plan(
     return ExecutionPlan(
         equity=float(account.equity),
         leverage=float(leverage),
-        target_margin_ratio=float(margin_ratio),
+        target_margin_ratio=float(max(long_margin_ratio, short_margin_ratio)),
         orders=orders,
         margin_intents=margin_intents,
         warnings=warnings,
-        target_notional={asset: float(value) for asset, value in desired.items()},
+        target_notional={asset: float(value) for asset, value in desired_abs.items()},
         expected_gross_notional=float(expected_gross),
         expected_margin=float(expected_margin),
+        signed_target_notional={asset: float(value) for asset, value in desired_signed.items()},
     )
 
 

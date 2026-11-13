@@ -484,3 +484,66 @@ def test_signal_line_says_how_old_the_last_change_is() -> None:
         event_age_days=0,
     )
     assert "（今天的变化）" in today
+
+
+def _short_position(size: float = 20.0) -> PositionState:
+    return PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=size,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=size * 5.0 * 0.515,
+    )
+
+
+def _signed_plan(*, target_weight: float, position: PositionState | None = None):
+    account = AccountState(
+        equity=100.0,
+        available_margin=100.0,
+        positions={} if position is None else {position.asset: position},
+    )
+    return build_execution_plan(
+        account,
+        {"near": target_weight},
+        {"near": _spec()},
+        {"near": 5.0},
+    )
+
+
+def test_hedge_mode_short_open_uses_sell_and_short_position_side() -> None:
+    client = _FakeLiveClient(reject_isolated_orders=False)
+
+    report = _run(client, _signed_plan(target_weight=-0.4))
+
+    assert len(report.fills) == 1
+    order = client.placed[0]
+    assert order["side"] == "sell"
+    assert order["pos_side"] == "short"
+    assert order["reduce_only"] is False
+
+
+def test_hedge_mode_short_close_uses_buy_and_short_position_side() -> None:
+    client = _FakeLiveClient(reject_isolated_orders=False)
+    plan = _signed_plan(target_weight=0.0, position=_short_position())
+
+    report = _run(client, plan)
+
+    assert len(report.fills) == 1
+    order = client.placed[0]
+    assert order["side"] == "buy"
+    assert order["pos_side"] == "short"
+    assert order["reduce_only"] is False
+
+
+def test_one_way_short_close_uses_reduce_only_without_position_side() -> None:
+    client = _FakeLiveClient(hold_mode="one_way_mode", reject_isolated_orders=False)
+    plan = _signed_plan(target_weight=0.0, position=_short_position())
+
+    _run(client, plan)
+
+    order = client.placed[0]
+    assert order["side"] == "buy"
+    assert order["pos_side"] is None
+    assert order["reduce_only"] is True

@@ -146,3 +146,40 @@ def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None
         send_derivatives_signal.main(
             ["--targets-file", str(path), "--state-file", str(tmp_path / "state.json")]
         )
+
+
+def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional() -> None:
+    from scripts.send_derivatives_signal import format_derivatives_message
+
+    book = pd.DataFrame(
+        [
+            {
+                "signal_date": "2026-11-06 00:00:00+00:00",
+                "execution_hint": "2026-11-07 03:00:00+00:00",
+                "asset": "bitcoin",
+                "target_weight": 0.50,
+                "change_weight": 0.50,
+                "action": "OPEN",
+            },
+            {
+                "signal_date": "2026-11-06 00:00:00+00:00",
+                "execution_hint": "2026-11-07 03:00:00+00:00",
+                "asset": "ethereum",
+                "target_weight": -0.25,
+                "change_weight": -0.25,
+                "action": "OPEN",
+            },
+        ]
+    )
+
+    message = format_derivatives_message(
+        book,
+        signal_date=pd.Timestamp("2026-11-06", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-11-07 03:00", tz="UTC"),
+    )
+
+    assert "SELL ETHEREUM 名义 -250.00 USDT" in message
+    assert "ETHEREUM 名义 -250.00 USDT（-25.00%）· SHORT" in message
+    assert "BITCOIN 名义 500.00 USDT（50.00%）· LONG" in message
+    assert "合计名义 750.00 USDT（75.00% 权益 gross，上限 125%）" in message
+    assert "占用隔离保证金 386.25 USDT" in message

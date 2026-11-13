@@ -263,3 +263,107 @@ def test_mirror_engine_reproduces_an_engine_style_rebalance() -> None:
     reduce = plan.orders[0]
     assert reduce.action == "REDUCE"
     assert reduce.size == pytest.approx(0.5 - 0.25 * 1.0 / 2.0)
+
+
+def _short_position(
+    asset: str = "near",
+    *,
+    size: float,
+    entry: float,
+    mark: float,
+    margin: float,
+) -> PositionState:
+    return PositionState(
+        asset=asset,
+        symbol=f"{asset.upper()}USDT",
+        side="short",
+        size=size,
+        entry_price=entry,
+        mark_price=mark,
+        margin=margin,
+    )
+
+
+def test_empty_account_opens_a_signed_short_with_short_side() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=1000.0),
+        {"near": -0.25},
+        {"near": _spec()},
+        {"near": 2.0},
+    )
+
+    assert len(plan.orders) == 1
+    order = plan.orders[0]
+    assert order.action == "OPEN"
+    assert order.side == "sell"
+    assert order.pos_side == "short"
+    assert order.size == 125.0
+    assert plan.signed_target_notional["near"] == pytest.approx(-250.0)
+    assert plan.target_notional["near"] == pytest.approx(250.0)
+    assert plan.expected_gross_notional == pytest.approx(250.0)
+
+
+def test_all_cash_target_closes_a_short_with_a_buy_and_short_position_side() -> None:
+    position = _short_position(size=100.0, entry=2.0, mark=2.0, margin=103.0)
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=100.0, positions={"near": position}),
+        {},
+        {"near": _spec()},
+        {"near": 2.0},
+    )
+
+    assert len(plan.orders) == 1
+    order = plan.orders[0]
+    assert order.action == "CLOSE"
+    assert order.side == "buy"
+    assert order.pos_side == "short"
+    assert order.size == 100.0
+    assert order.reduce_only is True
+
+
+def test_long_to_short_flip_closes_then_opens_the_opposite_side() -> None:
+    position = _position(size=100.0, entry=2.0, mark=2.0, margin=103.0)
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=100.0, positions={"near": position}),
+        {"near": -0.2},
+        {"near": _spec()},
+        {"near": 2.0},
+    )
+
+    assert [(order.action, order.side, order.pos_side) for order in plan.orders] == [
+        ("CLOSE", "sell", "long"),
+        ("OPEN", "sell", "short"),
+    ]
+    assert [order.size for order in plan.orders] == [100.0, 100.0]
+    assert plan.signed_target_notional["near"] == pytest.approx(-200.0)
+
+
+def test_max_gross_exposure_scales_signed_long_short_book() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=1000.0),
+        {"near": -0.8, "sol": 0.8},
+        {"near": _spec(), "sol": _spec("SOLUSDT")},
+        {"near": 2.0, "sol": 20.0},
+        leverage=2.0,
+        max_margin_utilization=1.0,
+        max_gross_exposure=1250.0,
+    )
+
+    assert plan.expected_gross_notional <= 1250.0 + 1e-9
+    assert plan.expected_gross_notional >= 1240.0
+    assert any("gross" in warning.lower() for warning in plan.warnings)
+
+
+def test_short_margin_intent_uses_short_position_side() -> None:
+    position = _short_position(size=500.0, entry=2.0, mark=2.0, margin=1000.0 * 0.50)
+    plan = build_execution_plan(
+        AccountState(equity=1000.0, available_margin=100.0, positions={"near": position}),
+        {"near": -1.0},
+        {"near": _spec()},
+        {"near": 2.0},
+    )
+
+    intent = next(item for item in plan.margin_intents if item.asset == "near")
+    assert intent.pos_side == "short"
+    assert intent.operation == "add"
+    assert intent.amount == pytest.approx(1000.0 * (0.515 - 0.50))

@@ -405,6 +405,15 @@ def _shadow_spec(trial_id: str) -> str:
     raise ValueError(f"unsupported shadow trial: {trial_id}")
 
 
+def _resolve_max_total_gross(value: float | None) -> float:
+    if value is None:
+        return float(FROZEN_CONFIG["max_total_gross"])
+    resolved = float(value)
+    if not np.isfinite(resolved) or resolved <= 0.0:
+        raise ValueError("max_total_gross must be positive and finite")
+    return resolved
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -428,6 +437,12 @@ def main() -> None:
     )
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument(
+        "--max-total-gross",
+        type=float,
+        default=None,
+        help="override the frozen total gross cap; live candidate uses 1.25",
+    )
     parser.add_argument(
         "--funding-source",
         choices=("zero", "binance-proxy", "bitget-exact"),
@@ -463,6 +478,10 @@ def main() -> None:
         parser.error("--cost-bps must be non-negative")
     if args.capital <= 0.0:
         parser.error("--capital must be positive")
+    try:
+        max_total_gross = _resolve_max_total_gross(args.max_total_gross)
+    except ValueError as exc:
+        parser.error(str(exc))
     configure_logging("ERROR")
 
     symbol_map = load_symbol_map(args.raw_dir)
@@ -598,7 +617,7 @@ def main() -> None:
     combined, target_audit = combine_long_with_cash_budgeted_short(
         long_targets,
         short_targets,
-        max_total_gross=float(FROZEN_CONFIG["max_total_gross"]),
+        max_total_gross=max_total_gross,
     )
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
@@ -645,7 +664,7 @@ def main() -> None:
                 if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
                 else False
             ),
-            max_gross_exposure=float(FROZEN_CONFIG["max_total_gross"]),
+            max_gross_exposure=max_total_gross,
             rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
             funding_missing_policy=args.funding_missing_policy,
             missing_mark_policy=args.missing_mark_policy,
@@ -750,7 +769,7 @@ def main() -> None:
         "missing_mark_policy": args.missing_mark_policy,
         "missing_mark_max_carry_hours": int(args.missing_mark_max_carry_hours),
         "h5_leverage": float(FROZEN_CONFIG["h5_leverage"]),
-        "max_total_gross": float(FROZEN_CONFIG["max_total_gross"]),
+        "max_total_gross": float(max_total_gross),
         "rebalance_no_trade_band": float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
         "max_target_total_gross": (
             float(target_audit_oos["total_gross"].max())
@@ -766,7 +785,7 @@ def main() -> None:
             float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0
         ),
         "gross_breach_hours": int(
-            (result.gross_exposure > float(FROZEN_CONFIG["max_total_gross"]) + 1e-12).sum()
+            (result.gross_exposure > max_total_gross + 1e-12).sum()
         ),
         "short_open_count": short_opens,
         "short_stop_loss_count": int(

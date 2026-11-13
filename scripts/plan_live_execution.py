@@ -113,7 +113,8 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
     unknown: set[str] = set()
     for row in client.current_positions():
         symbol = str(row.get("symbol", "")).upper()
-        total = abs(float(row.get("total") or 0.0))
+        raw_total = float(row.get("total") or 0.0)
+        total = abs(raw_total)
         if total <= 0.0:
             continue
         asset = by_symbol.get(symbol)
@@ -125,7 +126,12 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
                 f"multiple venue positions map to asset {asset!r}; hedge-mode/duplicate rows "
                 "need explicit review before planning"
             )
-        side = str(row.get("posSide", "long")).lower()
+        reported_side = str(row.get("posSide") or "").lower()
+        side = (
+            "short"
+            if reported_side == "short" or (reported_side in {"", "net"} and raw_total < 0.0)
+            else "long"
+        )
         positions[asset] = PositionState(
             asset=asset,
             symbol=symbol,
@@ -269,6 +275,13 @@ def main() -> None:
     parser.add_argument("--live", action="store_true", help="read the account from the Bitget UTA API")
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
+    parser.add_argument("--short-buffer", type=float, default=0.50)
+    parser.add_argument(
+        "--max-gross-multiple",
+        type=float,
+        default=1.25,
+        help="hard cap on absolute target notional divided by account equity",
+    )
     parser.add_argument("--cost-bps", type=float, default=20.0, help="for reporting only")
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
     parser.add_argument("--instruments-file", type=Path, default=None)
@@ -337,6 +350,8 @@ def main() -> None:
         prices_by_asset,
         leverage=float(args.leverage),
         long_buffer=float(args.long_buffer),
+        short_buffer=float(args.short_buffer),
+        max_gross_exposure=float(args.max_gross_multiple) * account.equity,
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
     )

@@ -157,3 +157,21 @@ def test_external_deposit_is_excluded_from_daily_pnl() -> None:
     assert entry.day_pnl == pytest.approx(1.0)
     assert entry.day_return == pytest.approx(0.002)
     assert entry.capital_flow == pytest.approx(400.0)
+
+
+class _OneWayShortClient:
+    def account_assets(self):
+        return {"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "100"}]}
+
+    def current_positions(self):
+        return [{"symbol": "NEARUSDT", "total": "-2", "posSide": "net"}]
+
+
+def test_one_way_negative_position_is_recorded_as_short() -> None:
+    account = account_state_from_bitget(
+        _OneWayShortClient(),  # type: ignore[arg-type]
+        {"near": "NEARUSDT"},
+    )
+
+    assert account.positions["near"].side == "short"
+    assert account.positions["near"].size == pytest.approx(2.0)

@@ -42,6 +42,7 @@ from scripts.send_telegram_signal import (  # noqa: E402
 TRACKED_SPEC = "PR2026-10-D-L125-V2"
 LEVERAGE = 1.25
 LONG_BUFFER = 0.50
+SHORT_BUFFER = 0.50
 MAINTENANCE_MARGIN_RATE = 0.01
 FEE_BUFFER = 0.005
 DEFAULT_TARGETS_FILE = Path("reports/derivatives_track_oos_2026/oos_targets.csv")
@@ -102,6 +103,7 @@ def format_derivatives_message(
     spec: str = TRACKED_SPEC,
     leverage: float = LEVERAGE,
     long_buffer: float = LONG_BUFFER,
+    short_buffer: float = SHORT_BUFFER,
     now: pd.Timestamp | None = None,
 ) -> str:
     """Format one Telegram message from the derivatives target book."""
@@ -112,22 +114,34 @@ def format_derivatives_message(
     # The engine assigns margin = notional x (buffer + maintenance + fee buffer),
     # i.e. 51.5% for the frozen 50% long buffer - not exactly 50%.  Posting only
     # 50% would move the liquidation distance from -51.01% to -49.49%.
-    margin_ratio = initial_margin_ratio(
+    long_margin_ratio = initial_margin_ratio(
         "long",
         maintenance_margin_rate=MAINTENANCE_MARGIN_RATE,
         fee_buffer=FEE_BUFFER,
         long_buffer=long_buffer,
     )
+    short_margin_ratio = initial_margin_ratio(
+        "short",
+        maintenance_margin_rate=MAINTENANCE_MARGIN_RATE,
+        fee_buffer=FEE_BUFFER,
+        short_buffer=short_buffer,
+    )
     book = book.copy()
     book["target_notional"] = pd.to_numeric(book["target_weight"], errors="coerce").fillna(0.0) * capital
     book["change_notional"] = pd.to_numeric(book["change_weight"], errors="coerce").fillna(0.0) * capital
-    book["target_margin"] = book["target_notional"] * margin_ratio
+    book["target_side"] = book["target_notional"].map(
+        lambda value: "SHORT" if value < -1e-12 else ("LONG" if value > 1e-12 else "FLAT")
+    )
+    book["target_margin"] = book["target_notional"].abs() * book["target_side"].map(
+        lambda side: short_margin_ratio if side == "SHORT" else long_margin_ratio
+    )
+    has_short = bool(book["target_side"].eq("SHORT").any())
 
     lines = [
         f"Atlas20 合约信号 · {spec}",
         *_close_and_execution_lines(pd.Timestamp(signal_date), pd.Timestamp(execution_hint)),
         f"模式: Bitget 合约 · 名义上限 {leverage:g}x · 每腿隔离保证金 = 名义 × "
-        f"{margin_ratio * 100:.1f}% · 手动下单",
+        f"{max(long_margin_ratio, short_margin_ratio) * 100:.1f}% · 手动下单",
         "",
         f"今日调仓（按权益 {capital:.2f} USDT）:",
     ]
@@ -149,16 +163,19 @@ def format_derivatives_message(
         lines.append("  CASH 100.00%（不使用保证金）")
     else:
         for row in holdings.to_dict("records"):
+            side_separator = f"· {row['target_side']} · " if has_short else "· "
             lines.append(
                 f"  {str(row['asset']).upper()} 名义 {float(row['target_notional']):.2f} USDT"
-                f"（{float(row['target_weight']) * 100:.2f}%）· 参考隔离保证金 {float(row['target_margin']):.2f} USDT"
+                f"（{float(row['target_weight']) * 100:.2f}%）{side_separator}参考隔离保证金 "
+                f"{float(row['target_margin']):.2f} USDT"
             )
-    gross_weight = float(book["target_weight"].sum())
-    gross_notional = float(book["target_notional"].sum())
+    gross_weight = float(book["target_weight"].abs().sum())
+    gross_notional = float(book["target_notional"].abs().sum())
     margin_used = float(book["target_margin"].sum())
+    gross_label = "权益 gross" if has_short else "权益"
     lines += [
         "",
-        f"合计名义 {gross_notional:.2f} USDT（{gross_weight * 100:.2f}% 权益，上限 {leverage * 100:.0f}%）",
+        f"合计名义 {gross_notional:.2f} USDT（{gross_weight * 100:.2f}% {gross_label}，上限 {leverage * 100:.0f}%）",
         f"占用隔离保证金 {margin_used:.2f} USDT（{margin_used / capital * 100:.2f}%）"
         f" · 剩余可用 {capital - margin_used:.2f} USDT",
         f"参考缩放系数: {scale:g}（模型账本以 1000 USDT 权益计）",

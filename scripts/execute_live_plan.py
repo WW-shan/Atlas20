@@ -140,6 +140,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--equity-floor", type=float, default=20.0)
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
+    parser.add_argument("--short-buffer", type=float, default=0.50)
+    parser.add_argument("--max-gross-multiple", type=float, default=1.25)
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
     parser.add_argument(
@@ -439,6 +441,8 @@ def main(argv: list[str] | None = None) -> int:
         prices_by_asset,
         leverage=float(args.leverage),
         long_buffer=float(args.long_buffer),
+        short_buffer=float(args.short_buffer),
+        max_gross_exposure=float(args.max_gross_multiple) * account.equity,
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
     )
