@@ -5442,8 +5442,10 @@ API key，或由负责人明确批准把规格改为 crossed；真实 isolated �
   执行器和 `audit-live` 均复核；
 - 2026-11-14 刷新后真实审计：**0 hard failures / 89 warnings**（32 条历史缺失 market cap，
   88 条当前无空头时的 funding stale 提示）；manifest fingerprint 与 `audit-data` 一致；
-- 当前真实账户 **499.6291 USDT、0 仓位、0 普通挂单、0 策略单**；`audit-live` 全部通过，
-  `audit-signal` 68 行 / 31 信号日 / 0 差异，临时 state/journal 的 dry-run 为 0 订单；
+- 当前真实账户 **499.6287 USDT、0 仓位、0 普通挂单、0 策略单**；2026-11-14 09:05 定时任务实际触发后，
+  数据审计发现 Bitget 滚动窗口缓存把仍在增长的窗口误判为完成，导致 mark 停在 23:00；下载器已改为
+  对未收口窗口强制重取并合并历史，`--force` 全链路重跑后 journal 正常写入 2026-11-14、0 订单；
+  `audit-live` 全部通过，`audit-signal` 68 行 / 31 信号日 / 0 差异；
 - Python **2195 passed / 1 skipped**，前端 **249 passed**，Ruff、mypy、eslint、tsc、Vite build
   全部通过。launchd 主任务仍为北京 09:05，后五个 fire 仅为窗口内重试。
 

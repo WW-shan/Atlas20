@@ -1,7 +1,7 @@
 # Atlas20 derivatives data audit
 
 - passed: **True**
-- fingerprint: `sha256:082b19c79ab9ad2f0bbe4e4ab58f09e211fb9f1ae4d34d1dc8704661009af462`
+- fingerprint: `sha256:dbe30e1fef14f574414792fe157599a4a8af25fb13e6b403adecbb345ead2576`
 - hard failures: 0
 - warnings: 89
 
@@ -550,9 +550,9 @@
   },
   "funding_assets": 88,
   "hard_failures": 0,
-  "last_mark": "2026-11-13 23:00:00+00:00",
+  "last_mark": "2026-11-14 00:00:00+00:00",
   "mark_assets": 88,
-  "now": "2026-11-14T00:32:05.978216+00:00",
+  "now": "2026-11-14T01:11:42.821733+00:00",
   "panel_latest": "2026-11-13",
   "panel_latest_assets": 97,
   "warnings": 89

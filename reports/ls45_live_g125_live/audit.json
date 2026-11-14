@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-14T00:32:49.312921+00:00",
+  "checked_at": "2026-11-14T01:12:31.784885+00:00",
   "checks": [
     {
       "check": "venue drill 订单登记表可读",
@@ -39,7 +39,7 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + uPnL",
-      "detail": "499.6291 vs 499.6290 + 0.0000 = 499.6290",
+      "detail": "499.6287 vs 499.6286 + 0.0000 = 499.6286",
       "hard": true,
       "ok": true
     },
@@ -75,13 +75,13 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-13 equity=499.6296；折算后应为 499.6296，交易所 499.6291",
+      "detail": "台账 2026-11-14 equity=499.6287；折算后应为 499.6287，交易所 499.6287",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账 PnL 链一致",
-      "detail": "0 个相邻日全部一致",
+      "detail": "1 个相邻日全部一致",
       "hard": true,
       "ok": true
     },
@@ -147,7 +147,7 @@
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-13 23:00:00+00:00（1.5h 前）",
+      "detail": "最新 mark 2026-11-14 00:00:00+00:00（1.2h 前）",
       "hard": true,
       "ok": true
     },
@@ -171,7 +171,7 @@
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:082b19c79ab9ad2f0bbe4e4ab58f09e211fb9f1ae4d34d1dc8704661009af462 current=sha256:082b19c79ab9ad2f0bbe4e4ab58f09e211fb9f1ae4d34d1dc8704661009af462",
+      "detail": "manifest=sha256:dbe30e1fef14f574414792fe157599a4a8af25fb13e6b403adecbb345ead2576 current=sha256:dbe30e1fef14f574414792fe157599a4a8af25fb13e6b403adecbb345ead2576",
       "hard": true,
       "ok": true
     },
@@ -188,7 +188,7 @@
       "ok": true
     }
   ],
-  "equity": 499.62911492,
+  "equity": 499.62874939,
   "hard_failures": 0,
   "position_value": 0,
   "signal_date": "2026-11-06",

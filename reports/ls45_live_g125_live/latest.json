@@ -1,10 +1,10 @@
 {
-  "client_oid_prefix": "account-migration-cb05dac7a33ea24f",
-  "event_execution_hint": "2026-11-07 03:00:00+00:00",
+  "client_oid_prefix": "a2066cd8755275970914610",
+  "event_execution_hint": "2026-11-07 01:05:00+00:00",
   "execution_hint": "2026-11-14 01:05:00+00:00",
   "live_execution_hint": "2026-11-14 01:05:00+00:00",
   "plan": {
-    "equity": 499.62960765,
+    "equity": 499.62867537,
     "expected_gross_notional": 0.0,
     "expected_margin": 0.0,
     "leverage": 2.0,
@@ -19,14 +19,12 @@
   "report": {
     "available_after": 499.45972246,
     "balance_after": 499.45972246,
-    "equity_after": 499.62960765,
-    "equity_before": 499.62960765,
+    "equity_after": 499.62867047,
+    "equity_before": 499.62867537,
     "failures": [],
     "fills": [],
     "margin_mode": "",
-    "margin_notes": [
-      "account migration baseline after isolated long/short/stop/margin drills; drill PnL excluded from strategy PnL"
-    ],
+    "margin_notes": [],
     "position_value": 0,
     "positions_after": [],
     "signal_date": "2026-11-06",

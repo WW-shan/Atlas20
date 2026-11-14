@@ -1,2 +1,3 @@
 date,run_at_utc,signal_date,equity,position_value,cash,capital_flow,day_pnl,day_return,fees_today,funding_total,unrealised_pnl,positions,trades,notes
 2026-11-13,2026-11-13T21:47:36.092024+00:00,2026-11-06,499.62960765,0.0,499.45972246,0.0,,,0.0,0.0,0.0,[],[],"[""account migration baseline fingerprint=cb05dac7a33ea24f; old elite/copy account retired"", ""isolated long/short/stop/margin drills completed before this baseline; drill PnL excluded""]"
+2026-11-14,2026-11-14T01:11:45.873045+00:00,2026-11-06,499.62867,0.0,499.459722,0.0,-0.000937,-1.88e-06,0.0,0.0,0.0,[],[],"[""最新信号事件在 8 天前（事件驱动策略，无变化＝继续持有；若与回测不一致请跑 make audit-live）"", ""数据管线: mark 最新 2026-11-14 00:00:00+00:00（1.2h 前）、账本评估到 2026-11-13、信号事件 2026-11-06（8 天前）""]"

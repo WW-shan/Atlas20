@@ -6,7 +6,7 @@
 - cost: 20 bps; capital reference: 1,000 units
 - execution: 01:05 UTC; price model mark_1h_open_floor
 - funding: bitget-exact (available through 2026-11-11 16:00:00+00:00; stale shorts flattened)
-- last mark: 2026-11-13 23:00:00+00:00; staleness: 1.4h
+- last mark: 2026-11-14 00:00:00+00:00; staleness: 1.2h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - mark coverage: 0 missing hours; 88 assets checked; max gap 1.0h
 
