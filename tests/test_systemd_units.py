@@ -86,6 +86,7 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
     assert "scripts/run_ls45_live_signal.py" in live_signal
 
     live = makefile.split("derivatives-live:", 1)[1].split("\n\n", 1)[0]
+    assert "$(MAKE) audit-data-chain" in live
     assert "$(MAKE) audit-symbols" in live
     assert "$(MAKE) audit-signal" in live
     assert "scripts/execute_live_plan.py --live --notify --require-isolated" in live
@@ -95,9 +96,18 @@ def test_daily_wrapper_uses_the_ls45_chain_only() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
     assert "/usr/bin/make derivatives-live" in wrapper
+    assert "/usr/bin/make audit-data-chain" in wrapper
     assert "/usr/bin/make audit-symbols" in wrapper
     assert "/usr/bin/make audit-signal" in wrapper
     assert "derivatives-oos-data derivatives-oos execute-plan-live" not in wrapper
+
+
+def test_derivatives_signal_fallback_rebuilds_and_audits_before_notifying() -> None:
+    service = (
+        ROOT / "ops" / "systemd" / "atlas20-derivatives-signal.service"
+    ).read_text(encoding="utf-8")
+
+    assert "audit-data audit-data-chain derivatives-notify" in service
 
 
 def test_makefile_refresh_target_rebuilds_the_panel() -> None:
@@ -119,7 +129,10 @@ def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
     assert "OnCalendar=*-*-* 03:45:00 UTC" in timer
     assert "OnCalendar=*-*-* 04:15:00 UTC" in timer
     assert "Unit=atlas20-derivatives-signal.service" in timer
-    assert "derivatives-live-data derivatives-ls45-signal derivatives-notify" in service
+    assert (
+        "derivatives-live-data derivatives-ls45-signal audit-data "
+        "audit-data-chain derivatives-notify"
+    ) in service
     # The data-refresh timer must run before the 03:45 signal attempt.
     assert "00:50:00 UTC" in (
         ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer"

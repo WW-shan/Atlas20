@@ -463,6 +463,47 @@ def test_same_day_retry_replaces_stale_capital_flow_note() -> None:
     ]
 
 
+def test_same_day_retry_replaces_a_stale_signal_age_note() -> None:
+    previous = JournalEntry(
+        date="2026-11-14",
+        run_at_utc="2026-11-14T01:11:48+00:00",
+        signal_date="2026-11-06",
+        equity=499.6,
+        position_value=0.0,
+        cash=499.6,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        capital_flow=0.0,
+        notes=[
+            "最新信号事件在 8 天前（事件驱动策略，无变化＝继续持有；"
+            "若与回测不一致请跑 make audit-live）",
+            "stable context",
+        ],
+    )
+    current = JournalEntry(
+        date="2026-11-14",
+        run_at_utc="2026-11-14T14:14:40+00:00",
+        signal_date="2026-11-13",
+        equity=499.6,
+        position_value=120.0,
+        cash=379.6,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        capital_flow=0.0,
+        notes=["retry with the current signal"],
+    )
+
+    merged = execute_live_plan._merge_same_day_entry(previous.as_row(), current)
+
+    assert merged.notes == ["stable context", "retry with the current signal"]
+
+
 def test_external_deposit_is_excluded_from_daily_pnl() -> None:
     report = ExecutionReport(
         signal_date="2026-11-03",
@@ -541,6 +582,36 @@ def test_journal_records_a_one_way_negative_position_as_a_signed_short() -> None
     assert entry.positions[0]["side"] == "short"
     assert entry.positions[0]["qty"] == pytest.approx(20.0)
     assert entry.positions[0]["weight"] == pytest.approx(-1.0)
+
+
+def test_journal_records_the_normalized_stop_used_by_the_live_position() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=100.0,
+        equity_after=100.0,
+        positions_after=[
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "avgPrice": "5.5",
+                "markPrice": "5.5",
+            }
+        ],
+        normalized_short_stops={"NEARUSDT": 6.6},
+    )
+
+    entry = execute_live_plan._journal_entry(
+        report,
+        signal_date="2026-11-13",
+        run_at=datetime(2026, 11, 14, 3, 5, tzinfo=timezone.utc),
+        prev_equity=None,
+        capital_flow=0.0,
+        warnings=[],
+    )
+
+    assert entry.positions[0]["normalized_stop_loss"] == pytest.approx(6.6)
 
 
 def test_journal_funding_total_is_a_delta_not_a_cumulative_snapshot() -> None:

@@ -40,6 +40,8 @@ com.atlas20.derivatives-execute
      -> derivatives-live-data
      -> derivatives-ls45-signal
      -> audit-data
+     -> audit-data-chain
+     -> audit-symbols
      -> audit-signal
      -> scripts/execute_live_plan.py --live --notify --require-isolated
 ```
@@ -132,10 +134,11 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
    - 面板落后或最后一天不完整时，运行 `refresh_daily_data.py --force --wait-seconds 900`；
    - 刷新后再次检查，仍不完整就拒绝下单。
 3. **数据与账本**：`make derivatives-live-data derivatives-ls45-signal`
-4. **数据审计**：`make audit-data`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
+4. **数据审计**：`make audit-data` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
    **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
    `audit-data` 还校验 mark/funding 单调性、funding manifest 与实际最后时间一致，以及最新
-   panel 的 price/volume/market-cap 有效值。
+   panel 的 price/volume/market-cap 有效值；`audit-data-chain` 额外从 CMC/独立源缓存重建
+   panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
 5. **全品种实时能力**：`make audit-symbols` 对全部映射资产逐项核对 Bitget v3 合约身份、
    online/perpetual/USDT、2x、报价新鲜度，并生成多单、空单止损和 long→short 翻转计划。
 6. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；任何差异都会拒绝执行。
@@ -310,6 +313,7 @@ Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动�
 
 ```bash
 make audit-live
+make audit-data-chain             # CMC 缓存 → canonical panel → PIT universe 全链审计
 make audit-symbols              # 全部标的：实时合约、2x、多空、翻转、止损和报价
 make derivatives-signal                 # Telegram 文本 dry-run
 make execution-plan-live                # 读真实账户，只发计划，不下单

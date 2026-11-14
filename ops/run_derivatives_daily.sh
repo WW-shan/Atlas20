@@ -134,6 +134,7 @@ fi
 # acknowledgement; scheduled fires never receive that argument.
 /usr/bin/make derivatives-live-data derivatives-ls45-signal
 /usr/bin/make audit-data
+/usr/bin/make audit-data-chain
 /usr/bin/make audit-symbols
 /usr/bin/make audit-signal
 .venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg

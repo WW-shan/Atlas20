@@ -1309,7 +1309,6 @@ def build_processed_datasets(
         # the window stays fixed because no data after the backtest end is
         # needed.
         framed = framed[(framed["date"] >= data_start) & (framed["date"] <= config.end_timestamp)].copy()
-        framed = framed.loc[_valid_market_cap_mask(framed)].copy()
         if framed.empty:
             continue
 

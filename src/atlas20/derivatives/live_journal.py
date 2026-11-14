@@ -176,10 +176,14 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
         )
 
     def _stop_price(trade: dict[str, Any]) -> float:
-        try:
-            return float(trade.get("stop_loss") or 0.0)
-        except (TypeError, ValueError):
-            return 0.0
+        for key in ("normalized_stop_loss", "stop_loss"):
+            try:
+                value = float(trade.get(key) or 0.0)
+            except (TypeError, ValueError):
+                continue
+            if isfinite(value) and value > 0.0:
+                return value
+        return 0.0
 
     def _trade_direction(trade: dict[str, Any]) -> tuple[str, str]:
         explicit = str(trade.get("position_side") or "").lower()
@@ -249,6 +253,7 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
         if snapshot is None:
             continue
         snapshot_qty: dict[str, float] = {}
+        snapshot_stops: dict[str, float] = {}
         for position in snapshot:
             symbol = str(position.get("symbol") or "").upper()
             side = str(position.get("side") or "").lower()
@@ -258,6 +263,9 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
                 qty = 0.0
             if symbol and side == "short":
                 snapshot_qty[symbol] = qty
+                stop = _stop_price(position)
+                if stop > 0.0:
+                    snapshot_stops[symbol] = stop
         for symbol in set(short_qty).difference(snapshot_qty):
             short_qty.pop(symbol, None)
             protected.pop(symbol, None)
@@ -270,6 +278,8 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
                 short_qty[symbol] = 1.0
             elif qty > 1e-12:
                 short_qty[symbol] = qty
+            if protected.get(symbol, False) and snapshot_stops.get(symbol, 0.0) > 0.0:
+                stops[symbol] = snapshot_stops[symbol]
 
     return {
         symbol: stops[symbol]

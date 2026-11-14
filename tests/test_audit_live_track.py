@@ -158,6 +158,83 @@ def test_protected_short_symbols_requires_a_recorded_stop() -> None:
     assert protected_short_stops(journal) == {"NEARUSDT": 6.0}
 
 
+def test_protected_short_stops_prefers_the_normalized_venue_stop() -> None:
+    journal = pd.DataFrame(
+        [
+            {
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": 6.0,
+                            "requested_stop_loss": 6.0,
+                            "normalized_stop_loss": 6.6,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        }
+                    ]
+                )
+            }
+        ]
+    )
+
+    assert protected_short_stops(journal) == {"NEARUSDT": 6.6}
+
+
+def test_protected_short_stops_refreshes_from_a_quiet_position_snapshot() -> None:
+    journal = pd.DataFrame(
+        [
+            {
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": 6.0,
+                            "requested_stop_loss": 6.0,
+                            "normalized_stop_loss": 6.6,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        }
+                    ]
+                ),
+                "positions": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "side": "short",
+                            "qty": 10.0,
+                            "normalized_stop_loss": 6.6,
+                        }
+                    ]
+                ),
+            },
+            {
+                "trades": json.dumps([]),
+                "positions": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "side": "short",
+                            "qty": 10.0,
+                            "normalized_stop_loss": 6.7,
+                        }
+                    ]
+                ),
+            },
+        ]
+    )
+
+    assert protected_short_stops(journal) == {"NEARUSDT": 6.7}
+
+
 def test_protected_short_symbols_survives_a_quiet_hold_day() -> None:
     journal = pd.DataFrame(
         [
@@ -630,6 +707,32 @@ def test_venue_stop_coverage_rejects_a_modified_stop_price() -> None:
             "side": "buy",
             "qty": "10",
             "stopLoss": "5.5",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        }
+    ]
+
+    assert _venue_short_stop_gaps(
+        positions,
+        strategy_orders,
+        expected_stops={"NEARUSDT": 6.0},
+    ) == ["NEARUSDT"]
+
+
+def test_venue_stop_coverage_rejects_a_stop_that_is_too_wide() -> None:
+    from scripts.audit_live_track import _venue_short_stop_gaps
+
+    positions = [
+        {"symbol": "NEARUSDT", "total": "10", "posSide": "short", "markPrice": "5"}
+    ]
+    strategy_orders = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "10",
+            "stopLoss": "8",
             "slTriggerBy": "mark",
             "slOrderType": "market",
             "status": "pending",

@@ -8,4 +8,4 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/atlas20
 EnvironmentFile=-/etc/atlas20/telegram.env
-ExecStart=/usr/bin/make derivatives-live-data derivatives-ls45-signal derivatives-notify
+ExecStart=/usr/bin/make derivatives-live-data derivatives-ls45-signal audit-data audit-data-chain derivatives-notify

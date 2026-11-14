@@ -658,6 +658,7 @@ def _journal_entry(
                     else 0.0
                 ),
                 "unrealised_pnl": round(float(row.get("unrealisedPnl") or 0.0), 6),
+                "normalized_stop_loss": report.normalized_short_stops.get(symbol),
                 "funding_cumulative": (
                     round(funding_cumulative, 8)
                     if funding_cumulative is not None
@@ -720,6 +721,7 @@ def _journal_entry(
                 "client_oid": fill.client_oid,
                 "stop_trigger_by": fill.stop_trigger_by,
                 "stop_order_type": fill.stop_order_type,
+                "normalized_stop_loss": fill.normalized_stop_loss,
             }
             for fill in report.fills
         ],
@@ -844,7 +846,7 @@ def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> Jo
     # A retry refreshes volatile run facts instead of appending every observed
     # value.  Keeping both old and new capital-flow/freshness notes makes the
     # row look as if cash was deposited twice or the data moved backwards.
-    volatile_prefixes = ("外部资金流 ", "数据管线:")
+    volatile_prefixes = ("外部资金流 ", "数据管线:", "最新信号事件在 ")
     stable_prior = [
         note for note in prior_notes if not any(note.startswith(prefix) for prefix in volatile_prefixes)
     ]
@@ -1230,6 +1232,10 @@ def _main(args: argparse.Namespace) -> int:
             require_isolated=bool(args.require_isolated),
             known_protected_short_stops=protected_short_stops(journal),
             symbol_assets=symbol_to_asset_index(relevant_symbols),
+            short_stop_loss_pct=float(args.short_stop_loss_pct),
+            contract_specs_by_symbol={
+                spec.symbol.upper(): spec for spec in specs.values()
+            },
             hold_mode=hold_mode,
             client_oid_prefix=client_oid_prefix,
         )

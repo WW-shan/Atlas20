@@ -189,6 +189,22 @@ def test_zero_latest_market_cap_is_invalid_not_treated_as_a_real_value(
     assert any("panel.valid_market_cap" in item for item in report.warnings)
 
 
+def test_historical_market_cap_gap_is_unrankable_but_not_a_warning(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    mask = (panel["date"] == "2026-11-12") & (panel["coin_id"] == "bitcoin")
+    panel.loc[mask, "market_cap"] = float("nan")
+    panel.to_csv(paths["panel"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is True
+    assert report.hard_failures == []
+    assert not any("panel.valid_market_cap" in item for item in report.warnings)
+
+
 def test_required_last_mark_time_waits_for_the_completed_execution_hour() -> None:
     before_fill = data_audit.required_last_mark_time(
         datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc)

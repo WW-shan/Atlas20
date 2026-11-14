@@ -7,7 +7,7 @@
 - execution: 01:05 UTC; price model mark_1h_open_floor
 - target ledger: oos_targets.csv; sha256 e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871
 - funding: bitget-exact (complete for the OOS window)
-- last mark: 2026-11-14 13:00:00+00:00; staleness: 1.2h
+- last mark: 2026-11-14 13:00:00+00:00; staleness: 2.8h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - warmup provenance: sha256:77bff92b77750c483bc63041fa2b72d31f576dfaf006d167d91d9ce81121d0ad; 87 mark files; 28371 missing hours; 26265 gaps (26265 two-hour); max gap 2.0h
 - mark coverage: 0 missing hours; 88 assets checked; 0 gaps (0 two-hour); max gap 1.0h

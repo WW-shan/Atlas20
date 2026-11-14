@@ -188,6 +188,12 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     assert len(payload["ProgramArguments"]) == 2
 
 
+def test_wrapper_runs_the_full_data_chain_audit_before_execution() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+
+    assert "/usr/bin/make audit-data-chain" in script
+
+
 KEEP_AWAKE_PLIST = PROJECT_ROOT / "ops" / "com.atlas20.keep-awake.plist"
 
 

@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-signal audit-symbols
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-data-chain audit-signal audit-symbols
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -82,6 +82,7 @@ derivatives-ls45-signal: derivatives-live-data $(VENV_STAMP)
 
 derivatives-live: derivatives-live-data derivatives-ls45-signal
 	$(MAKE) audit-data
+	$(MAKE) audit-data-chain
 	$(MAKE) audit-symbols
 	$(MAKE) audit-signal
 	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
@@ -143,6 +144,13 @@ audit-symbols: $(VENV_STAMP)
 # is rebuilt and before the executor can place an order.
 audit-data: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_derivatives_data.py --require-all-funding-fresh
+
+# Full provider-to-panel audit for the daily live chain.  The derivatives
+# audit above checks the execution inputs; this target additionally proves the
+# point-in-time universe, provider cross-checks, feed continuity and engine
+# missing-return policy from the rebuilt canonical panel.
+audit-data-chain: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_data_chain.py --config config/base.yaml
 
 # Prove the live target book is the same computation as the reviewed
 # backtest (rebuild both, compare every overlapping target event).

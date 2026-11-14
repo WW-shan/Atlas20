@@ -5603,18 +5603,20 @@ gross 约 0.24x，四腿均为 isolated 2x 且带交易所可见的 mark-price m
 §00.144 留下的两个已知问题已直接修复，没有改策略参数、目标权重、风险门禁或当前仓位，也没有
 新增实盘订单。
 
-- **面板内部缺失市值**：`panel_daily.csv` 原有 32 条“价格有效但 market cap 非正/非有限”的
-  内部日期，分布在 NEAR（1 日）、RENDER（2 日）、PEPE（18 日）、POL（7 日）和 MATIC（4 日）。
-  这些行现在不再写入 canonical panel；`data_quality.csv` 新增
-  `invalid_market_cap_rows` 与 `invalid_market_cap_dates`，逐币记录丢弃数量和日期范围，因此不是
-  静默删除或前填。资产本身只要有有效市值历史，仍正确标记 `included_in_panel=true`；builder
-  会在缺口后续报价处计算跨缺口收益，并禁止用 carried cap 参与当日排名。
+- **面板内部缺失市值（随后被 §00.146 取代）**：`panel_daily.csv` 原有 32 条“价格有效但
+  market cap 非正/非有限”的内部日期，分布在 NEAR（1 日）、RENDER（2 日）、PEPE（18 日）、
+  POL（7 日）和 MATIC（4 日）。本版曾尝试把这些行从 canonical panel 删除，但删除价格会让
+  引擎误判为真实价格缺口；最终实现见 §00.146，保留价格行并只禁止当日市值参与排名。
+  `data_quality.csv` 新增
+  `invalid_market_cap_rows` 与 `invalid_market_cap_dates`，逐币记录不可排名数量和日期范围，
+  因此不是静默删除或前填。资产本身只要有有效市值历史，仍正确标记 `included_in_panel=true`；
+  builder 在缺口当日禁止用 carried cap 排名，同时保留价格行计算真实收益。
 - **冻结目标不受经济影响**：重建后的 LS45 账本仍是 72 行 / 32 个信号日，资产、方向、动作、
   执行时间和最新四腿权重完全相同；只有 NEAR 历史权重出现最大 `2.0e-15` 的浮点末位差异，
   低于信号等价性审计的 `1e-12` 门槛且审计差异为 0。为不改变已执行账本的幂等身份，冻结账本
   `reports/ls45_live_g125/oos_targets.csv` 保持原 SHA-256
   `e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871`。manifest 只更新由
-  panel 变化引起的 data fingerprint（当前
+  panel 变化引起的 data fingerprint（当时的
   `sha256:8a98037da785e814358aca12839fdf68505f3568b2486466cedf1ccdca4a6ab6`）和警告状态。
 - **测试栈告警**：Starlette 1.3.1 的 TestClient 已优先使用 `httpx2`；dev 依赖新增
   `httpx2>=2.16,<3`，同时保留脚本仍直接使用的 `httpx>=0.28`。全量测试输出不再出现
@@ -5627,3 +5629,37 @@ gross 约 0.24x，四腿均为 isolated 2x 且带交易所可见的 mark-price m
   总仓位市值 **119.9437 USDT（0.239x）**；全部 isolated 2x，4 张交易所可见
   mark-price market stop，普通挂单 0。`audit-live` 为 **0 hard failure**，所有检查通过；
   `health.json` 为 `audit_exit=0`、`issues=[]`。本轮只刷新只读审计快照，未下单。
+
+### 00.146 2026-11-14 LS45-G125：价格与市值解耦、止损归一化持久化、全链审计接入
+
+承接 §00.145 的剩余问题，本轮完成最后的代码与运维门禁修复。没有修改策略参数、目标权重、
+gross/isolated 风险上限或当前仓位，也没有新增实盘订单。
+
+- **内部缺失市值不能靠删价格修复**：最终实现保留“价格/成交量有效、market cap 缺失”的
+  原始行，让持仓收益使用真实相邻报价；只把该行标记为当日不可排名。`data_quality.csv` 仍逐币
+  记录 `invalid_market_cap_rows` / `invalid_market_cap_dates`。`audit-data` 要求最新一天所有
+  市值有效，并要求每个出现历史缺失市值的资产至少存在一条真实正市值记录；完整数据链审计再
+  独立证明没有任何排名使用 carried cap。该实现避免人为制造价格缺口，也不静默前填缺失市值。
+- **止损按真实成交均价归一化**：订单回显中的 20% 止损来自计划入场价；短单实际滑点成交后，
+  真正应保护的是当前 `avgPrice × 1.20`，并按交易所价格步长向上取整。执行器现在在每个空头
+  仍受保护时，把交易所策略单归一张“完整持仓数量 + 真实加权入场价对应止损”，并把归一化价格
+  同时写入报告、成交记录和 journal 持仓快照；静默持有日也会从持仓快照刷新该值。止损数量、
+  mark-price、market 类型、20% 风险门禁均未放宽。
+- **每日实盘链加入完整数据链审计**：`audit-data-chain` 已接入 `make derivatives-live`、macOS
+  日常 wrapper 和 systemd signal fallback，顺序位于成交之前。它检查 CMC/Binance/Gate.io
+  缓存、point-in-time 排名、跨源确认、feed 连续性、缺失收益策略和 panel freshness；任何 FAIL
+  都会阻止执行。
+- **冻结目标不受影响**：LS45 重建与冻结账本仍为 72 行 / 32 个重叠信号日，差异 0；目标账本
+  SHA-256 仍为 `e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871`。
+  只有 panel 内容指纹更新为
+  `sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45`。
+- **验证**：Python **2,263 passed / 1 skipped**；前端 **249 passed**；Ruff、mypy、eslint、tsc
+  全部通过。`audit-data` 为 **0 hard failure / 0 warning**；`audit-data-chain` 为
+  **42 PASS / 9 个已声明 WARN / 0 FAIL**；`audit-symbols` 为 88/88 合约在线且 2x、多空、翻转、
+  报价全部通过；`audit-signal` 为 72/72 行、差异 0。
+- **实盘只读证据**：最后一次可用的 `audit-live`（2026-11-14 16:08 UTC）为 **0 hard failure**：
+  权益 **501.6287 USDT**，四腿 gross **119.4015 USDT（0.238x）**，全部 isolated 2x，四张
+  mark-price market stop 可见，普通挂单 0，利润链和成交历史全部对账；台账按实时标记价折算后
+  与交易所相差 **0.0272 USDT**，落在专用 `max(0.10 USDT, 2bps)` 对账容差内。16:14 UTC 的
+  `health.json` 为 `audit_exit=0`、`issues=[]`。本次修复 shell 没有 Bitget 凭据，因此没有重新
+  请求当前账户，也没有下单；下一次实盘执行仍必须重新通过 `audit-live` 全部门禁。

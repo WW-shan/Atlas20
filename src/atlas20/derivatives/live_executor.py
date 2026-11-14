@@ -27,7 +27,7 @@ Venue quirks this module absorbs (all observed live on 2026-10-10):
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 from math import isfinite
@@ -40,7 +40,7 @@ from atlas20.derivatives.account import (
     isolated_margin_capability_error,
 )
 from atlas20.derivatives.bitget import BitgetAPIError
-from atlas20.derivatives.execution import ExecutionPlan
+from atlas20.derivatives.execution import ContractSpec, ExecutionPlan
 
 MARGIN_MODE_ISOLATED = "isolated"
 MARGIN_MODE_CROSSED = "crossed"
@@ -106,6 +106,7 @@ class OrderFill:
     requested_stop_loss: float | None = None
     stop_trigger_by: str = ""
     stop_order_type: str = ""
+    normalized_stop_loss: float | None = None
 
     @property
     def is_partial(self) -> bool:
@@ -149,6 +150,7 @@ class OrderFill:
             "requested_stop_loss": self.requested_stop_loss,
             "stop_trigger_by": self.stop_trigger_by,
             "stop_order_type": self.stop_order_type,
+            "normalized_stop_loss": self.normalized_stop_loss,
         }
 
 
@@ -165,6 +167,7 @@ class ExecutionReport:
     failures: list[dict[str, str]] = field(default_factory=list)
     margin_notes: list[str] = field(default_factory=list)
     positions_after: list[dict[str, Any]] = field(default_factory=list)
+    normalized_short_stops: dict[str, float] = field(default_factory=dict)
     margin_mode: str = ""
     traded: bool = False
 
@@ -200,6 +203,7 @@ class ExecutionReport:
             "failures": list(self.failures),
             "margin_notes": list(self.margin_notes),
             "positions_after": list(self.positions_after),
+            "normalized_short_stops": dict(self.normalized_short_stops),
             "margin_mode": self.margin_mode,
             "traded": self.traded,
         }
@@ -854,9 +858,9 @@ def short_stop_symbol_issue(
         # rounded independently, so compare their quantity-weighted protection
         # to the latest weighted-entry stop with a small rounding allowance.
         tolerance = max(1e-9, float(expected_stop) * 0.0005)
-        if weighted_stop + tolerance < float(expected_stop):
+        if abs(weighted_stop - float(expected_stop)) > tolerance:
             return (
-                f"weighted stop {weighted_stop:.8g} < expected "
+                f"weighted stop {weighted_stop:.8g} differs from expected "
                 f"{float(expected_stop):.8g}"
             )
     return None
@@ -1028,6 +1032,28 @@ def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> b
     )
 
 
+def _short_stop_from_position(
+    position: dict[str, Any],
+    *,
+    short_stop_loss_pct: float | None,
+    contract_specs_by_symbol: Mapping[str, ContractSpec] | None,
+) -> float | None:
+    """Return the stop implied by the venue's actual weighted entry price."""
+
+    if short_stop_loss_pct is None:
+        return None
+    try:
+        entry = float(position.get("avgPrice") or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if not isfinite(entry) or entry <= 0.0:
+        return None
+    raw_stop = entry * (1.0 + float(short_stop_loss_pct))
+    symbol = str(position.get("symbol") or "").upper()
+    spec = (contract_specs_by_symbol or {}).get(symbol)
+    return spec.round_up_price(raw_stop) if spec is not None else raw_stop
+
+
 def execute_plan(
     client: LiveTradingClient,
     plan: ExecutionPlan,
@@ -1040,6 +1066,8 @@ def execute_plan(
     known_protected_short_symbols: set[str] | None = None,
     known_protected_short_stops: dict[str, float] | None = None,
     symbol_assets: Mapping[str, str] | None = None,
+    short_stop_loss_pct: float | None = None,
+    contract_specs_by_symbol: Mapping[str, ContractSpec] | None = None,
     hold_mode: str | None = None,
     fill_timeout_seconds: float = 20.0,
     poll_interval_seconds: float = 1.0,
@@ -1056,6 +1084,8 @@ def execute_plan(
 
     if require_isolated and margin_mode != MARGIN_MODE_ISOLATED:
         raise ValueError("require_isolated conflicts with a non-isolated margin_mode")
+    if short_stop_loss_pct is not None and not 0.0 < short_stop_loss_pct < 1.0:
+        raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
     report = ExecutionReport(signal_date=signal_date)
     assets = client.account_assets()
@@ -1704,7 +1734,21 @@ def execute_plan(
             and fill.status == _FILLED
             and fill.stop_loss is not None
         }
-        expected_stops = {**journal_expected_stops, **recent_expected_stops}
+        actual_expected_stops = {
+            str(row.get("symbol") or "").upper(): stop
+            for row in report.positions_after
+            if _signed_position_qty(row) < 0.0
+            and (stop := _short_stop_from_position(
+                row,
+                short_stop_loss_pct=short_stop_loss_pct,
+                contract_specs_by_symbol=contract_specs_by_symbol,
+            )) is not None
+        }
+        expected_stops = {
+            **journal_expected_stops,
+            **recent_expected_stops,
+            **actual_expected_stops,
+        }
         strategy_orders, strategy_error = _reconcile_short_stop_orders(
             client,
             report,
@@ -1732,6 +1776,23 @@ def execute_plan(
                 expected_stops=expected_stops,
             )
         protected = venue_protected & (recent_confirmed | journal_protected)
+        report.normalized_short_stops = {
+            symbol: stop
+            for symbol, stop in actual_expected_stops.items()
+            if symbol in protected
+        }
+        if report.normalized_short_stops:
+            report.fills = [
+                replace(
+                    fill,
+                    normalized_stop_loss=report.normalized_short_stops.get(
+                        fill.symbol.upper()
+                    ),
+                )
+                if fill.symbol.upper() in report.normalized_short_stops
+                else fill
+                for fill in report.fills
+            ]
         unprotected = [
             dict(row)
             for row in report.positions_after
@@ -2031,8 +2092,9 @@ def format_execution_report(
     for fill in report.fills:
         verb = "买入" if fill.side == "buy" else "卖出"
         note = "" if fill.status == _FILLED else f"（{fill.status}）"
+        displayed_stop = fill.normalized_stop_loss or fill.stop_loss
         stop_note = (
-            f" · 止损 {fill.stop_loss:.8g}" if fill.stop_loss is not None else ""
+            f" · 止损 {displayed_stop:.8g}" if displayed_stop is not None else ""
         )
         lines.append(
             f"  {verb} {fill.asset.upper()} {_qty(fill.filled_size)} 枚 @ {fill.avg_price:.8g}"

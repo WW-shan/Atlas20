@@ -674,6 +674,35 @@ def test_report_shows_the_attached_short_stop_price() -> None:
     assert "止损 6" in message
 
 
+def test_report_shows_the_normalized_short_stop_instead_of_the_order_echo() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        fills=[
+            OrderFill(
+                asset="near",
+                symbol="NEARUSDT",
+                action="OPEN",
+                side="sell",
+                stop_loss=6.0,
+                normalized_stop_loss=6.6,
+                requested_size=10.0,
+                filled_size=10.0,
+                avg_price=5.5,
+                notional=55.0,
+                fee=0.03,
+                fee_coin="USDT",
+                order_id="1",
+                status="filled",
+            )
+        ],
+    )
+
+    message = format_execution_report(report, signal_date="2026-11-13", spec="SPEC")
+
+    assert "止损 6.6" in message
+    assert "止损 6 " not in message
+
+
 def test_report_matches_a_signed_short_target_and_marks_short_pnl() -> None:
     report = ExecutionReport(
         signal_date="2026-11-13",
@@ -929,6 +958,52 @@ def test_hedge_mode_short_open_attaches_a_mark_price_stop() -> None:
     assert order["sl_trigger_by"] == "mark"
     assert order["sl_order_type"] == "market"
     assert report.fills[0].stop_loss == pytest.approx(6.0)
+
+
+def test_short_stop_is_recomputed_from_the_actual_weighted_entry() -> None:
+    class _SlippedShortFill(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            result = super().place_order(**kwargs)
+            if kwargs.get("side") == "sell":
+                qty = float(kwargs["qty"])
+                self.positions = [
+                    {
+                        "symbol": kwargs["symbol"],
+                        "total": str(qty),
+                        "posSide": "short",
+                        "marginMode": "isolated",
+                        "avgPrice": "5.5",
+                        "markPrice": "5.5",
+                    }
+                ]
+                self.strategy_orders = [
+                    {
+                        "orderId": "stop-1",
+                        "symbol": kwargs["symbol"],
+                        "posSide": "short",
+                        "orderStatus": "live",
+                        "side": "buy",
+                        "qty": str(qty),
+                        "stopLoss": "6.0",
+                        "slTriggerBy": "mark",
+                        "slOrderType": "market",
+                    }
+                ]
+                self.order_infos[result["orderId"]]["avgPrice"] = "5.5"
+            return result
+
+    client = _SlippedShortFill(reject_isolated_orders=False)
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.4, short_stop_loss_pct=0.20),
+        short_stop_loss_pct=0.20,
+        contract_specs_by_symbol={"NEARUSDT": _spec()},
+    )
+
+    assert not report.failures
+    assert float(client.strategy_orders[0]["stopLoss"]) == pytest.approx(6.6)
+    assert report.fills[0].normalized_stop_loss == pytest.approx(6.6)
 
 
 def test_new_short_requires_a_live_venue_strategy_order_not_only_order_echo() -> None:

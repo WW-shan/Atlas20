@@ -159,7 +159,7 @@ def test_zero_market_cap_asset_never_enters_the_panel(tmp_path):
     assert not bool(quality.loc["whitebit", "validation_passed"])
 
 
-def test_panel_omits_an_interior_date_without_a_positive_market_cap(tmp_path):
+def test_panel_keeps_price_but_marks_an_interior_date_without_market_cap_unrankable(tmp_path):
     config = _config(tmp_path)
     raw_dir = tmp_path / "data" / "raw"
     _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
@@ -171,8 +171,10 @@ def test_panel_omits_an_interior_date_without_a_positive_market_cap(tmp_path):
 
     panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
 
-    assert panel["market_cap"].notna().all()
-    assert pd.Timestamp("2024-01-02") not in set(panel["date"])
+    missing = panel.loc[panel["date"] == pd.Timestamp("2024-01-02")]
+    assert len(missing) == 1
+    assert float(missing.iloc[0]["price"]) == 250.0
+    assert pd.isna(missing.iloc[0]["market_cap"])
     quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
     assert quality.loc["bitcoin", "invalid_market_cap_rows"] == 1
     assert quality.loc["bitcoin", "invalid_market_cap_dates"] == "2024-01-02"
