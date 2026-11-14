@@ -5805,7 +5805,7 @@ Bitget 新标记 bar 尚未发布：88 个合约最后 mark 仍停在 2026-11-13
   检查决定，不再只相信订单回报；`risk_overlay`、已止损腿、最小成交残差都有独立处理。执行状态的
   `last_run_mode` 区分 `execution` / `protect_only` / `reconcile_only`。
 
-**真实账户与数据终局复核（2026-11-14 20:10 UTC）：**
+**真实账户与数据终局复核（2026-11-14 20:15 UTC）：**
 
 - `make audit-data`：**0 hard failure / 0 warning**，fingerprint
   `sha256:d8d698ce7b59aa6c4e45dd59a9ef896119e53f6821a48f528f354eeac2d7f678`；
@@ -5814,7 +5814,7 @@ Bitget 新标记 bar 尚未发布：88 个合约最后 mark 仍停在 2026-11-13
 - `make audit-symbols`：**88/88** mapped contracts online、2x、long/short/flip 和报价全部通过；
 - `make audit-signal`：冻结账本 **72 行**、重建账本 72 行、32 个重叠信号日、差异 **0**；
 - 真实 `make audit-live`：**37 项硬检查 + 1 项非硬提示，0 hard failure**；权益
-  **504.4440 USDT**、仓位价值 **116.5710 USDT（0.231x）**、4 条空头、4 张交易所可见
+  **505.3264 USDT**、仓位价值 **115.6710 USDT（0.229x）**、4 条空头、4 张交易所可见
   mark-price market stop、普通未成交订单 **0**、已触发策略止损 **0**；订单历史、funding、目标
   数量、manifest fingerprint、isolated 2x 与强平前止损全部通过；
 - 真实 `protect-only` 输出 `stops and risk book already correct; no order placed`；

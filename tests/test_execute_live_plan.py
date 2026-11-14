@@ -1141,6 +1141,8 @@ def test_protect_only_bypasses_target_replanning_but_obeys_the_kill_switch(
             "--protect-only",
             "--kill-switch",
             str(tmp_path / "missing.kill"),
+            "--json-out",
+            str(tmp_path / "protect.json"),
             "--lock-file",
             str(tmp_path / "execution.lock"),
         ]
@@ -1156,6 +1158,8 @@ def test_protect_only_bypasses_target_replanning_but_obeys_the_kill_switch(
             "--protect-only",
             "--kill-switch",
             str(kill),
+            "--json-out",
+            str(tmp_path / "protect-error.json"),
             "--lock-file",
             str(tmp_path / "execution.lock"),
         ]
