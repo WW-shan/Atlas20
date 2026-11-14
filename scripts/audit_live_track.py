@@ -331,6 +331,12 @@ def _position_data_issues(positions: list[dict]) -> list[str]:
         pos_side = str(row.get("posSide") or "").strip().lower()
         if pos_side not in {"", "long", "short", "net"}:
             issues.append(f"{symbol} posSide 非法 ({pos_side!r})")
+        entry_value = row.get("avgPrice")
+        issue = _finite_number_issue(entry_value, f"{symbol} avgPrice")
+        if issue:
+            issues.append(issue)
+        elif float(entry_value) <= 0.0:
+            issues.append(f"{symbol} avgPrice must be positive ({entry_value!r})")
         mark_value = row.get("markPrice", row.get("avgPrice"))
         issue = _finite_number_issue(mark_value, f"{symbol} markPrice")
         if issue:
@@ -398,6 +404,47 @@ def _position_signed_notional(row: dict) -> float:
 
     mark = _num(row.get("markPrice") or row.get("avgPrice"))
     return _position_signed_qty(row) * mark
+
+
+def _position_short_stop_expectations(
+    positions: list[dict],
+    *,
+    specs_by_symbol: Mapping[str, ContractSpec],
+    short_stop_loss_pct: float,
+) -> dict[str, float]:
+    """Recompute each live short's 20% stop from venue entry and price grid."""
+
+    if not isfinite(short_stop_loss_pct) or not 0.0 < short_stop_loss_pct < 1.0:
+        return {}
+    expected: dict[str, float] = {}
+    for row in positions:
+        if _position_signed_qty(row) >= 0.0:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        spec = specs_by_symbol.get(symbol)
+        avg_price = _num(row.get("avgPrice"))
+        if not symbol or spec is None or not isfinite(avg_price) or avg_price <= 0.0:
+            continue
+        expected[symbol] = float(
+            spec.round_up_price(avg_price * (1.0 + float(short_stop_loss_pct)))
+        )
+    return expected
+
+
+def _short_stop_expectation_gaps(
+    positions: list[dict],
+    *,
+    expected_stops: Mapping[str, float],
+) -> list[str]:
+    """Open shorts whose stop cannot be independently recomputed."""
+
+    expected = {str(symbol).upper() for symbol in expected_stops}
+    open_shorts = {
+        str(row.get("symbol") or "").upper()
+        for row in positions
+        if _position_signed_qty(row) < 0.0
+    }
+    return sorted(symbol for symbol in open_shorts if symbol and symbol not in expected)
 
 
 def _minimum_tradeable_qty(spec: ContractSpec, price: float) -> float | None:
@@ -1061,7 +1108,23 @@ def main(argv: list[str] | None = None) -> int:
         ", ".join(unjournaled) or "无漏记成交",
     )
 
+    position_expected_stops = _position_short_stop_expectations(
+        positions,
+        specs_by_symbol={spec.symbol.upper(): spec for spec in specs.values()},
+        short_stop_loss_pct=float(LS45_G125_FROZEN_CONFIG["short_stop_loss_pct"]),
+    )
+    stop_expectation_gaps = _short_stop_expectation_gaps(
+        positions,
+        expected_stops=position_expected_stops,
+    )
+    check(
+        "当前空头止损可由交易所均价与价格步长独立重算",
+        not stop_expectation_gaps,
+        ", ".join(stop_expectation_gaps)
+        or "无空头仓，或全部可按 avgPrice × 1.20 重算",
+    )
     expected_stops = protected_short_stops(journal)
+    expected_stops.update(position_expected_stops)
     stop_gaps = _short_stop_gaps(journal, positions)
     check(
         "空头入场成交记录包含已确认止损",

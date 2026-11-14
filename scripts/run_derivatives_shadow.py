@@ -559,6 +559,27 @@ def _daily_frame(
     return daily.reset_index(names="date")
 
 
+def _engine_end_for_signal_end(
+    signal_end: pd.Timestamp,
+    *,
+    execution_hour: int = 1,
+    execution_minute: int = 5,
+) -> pd.Timestamp:
+    """Include the last signal's next-day execution in the engine path.
+
+    The engine treats ``end_time`` as exclusive and floors ``01:05`` to the
+    ``01:00`` mark bar.  Ending at ``signal_end + 1 day`` excludes that bar and
+    silently omits the final OPEN from trades, positions, quantisation and stop
+    statistics even though the live executor executes it.
+    """
+
+    return _execution_hint(
+        signal_end,
+        execution_hour=execution_hour,
+        execution_minute=execution_minute,
+    ) + pd.Timedelta(seconds=1)
+
+
 def _latest_target_rows(targets: pd.DataFrame) -> pd.DataFrame:
     if targets.empty:
         return targets
@@ -778,7 +799,12 @@ def main() -> None:
     end_date = pd.Timestamp(signal_end_day).normalize()
     if end_date <= start:
         raise SystemExit("no completed signal days in the requested OOS window")
-    coverage_end = min(end_date + pd.Timedelta(days=1), last_mark + pd.Timedelta(hours=1))
+    engine_end = _engine_end_for_signal_end(
+        end_date,
+        execution_hour=int(args.execution_hour),
+        execution_minute=int(args.execution_minute),
+    )
+    coverage_end = min(engine_end, last_mark + pd.Timedelta(hours=1))
 
     warmup_marks: dict[str, pd.DataFrame] = {}
     warmup_mark_provenance: dict[str, object] = {
@@ -965,10 +991,10 @@ def main() -> None:
             if pd.notna(interval) and float(interval) > 0.0:
                 funding_intervals[str(record["coin_id"])] = float(interval)
 
-    # Evaluate only through the last requested signal day.  Using the newest
-    # raw mark as the engine end made a historical 2026-09 run carry its final
-    # book through today when a newer mark tree was supplied as warmup.
-    engine_end = end_date + pd.Timedelta(days=1)
+    # Evaluate through the last signal's next-day execution, but not through
+    # newer warmup marks.  The daily performance frame is still cut at
+    # ``end_date``; this extension only lets the final OPEN happen and makes
+    # trades, positions, quantisation and stop statistics match the live book.
     result = run_derivative_backtest(
         marks,
         combined,
@@ -1368,7 +1394,7 @@ def main() -> None:
                 "max_observed_gross": summary["max_observed_gross"],
                 "gross_breach_hours": summary["gross_breach_hours"],
                 "short_opens": summary["short_open_count"],
-                "short_stops": summary["short_stop_loss_count"],
+                "short_stop_exits": summary["short_stop_loss_count"],
                 "liquidations": summary["liquidation_count"],
                 "funding_total": summary["funding_total"],
                 "fees_total": summary["fees_total"],
@@ -1428,6 +1454,8 @@ def main() -> None:
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",
         f"- execution: {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
         f"price model {_execution_price_model(str(args.execution_price_snap))}",
+        f"- engine end: {engine_end} (includes the final T+1 execution; "
+        f"daily metrics end {end_date.date()})",
         f"- target ledger: oos_targets.csv; sha256 {summary['targets_sha256']}",
         f"- funding: {summary['funding']}",
         f"- last mark: {last_mark}; staleness: {staleness_hours:.1f}h",

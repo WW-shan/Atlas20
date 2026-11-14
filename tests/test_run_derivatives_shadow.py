@@ -36,6 +36,54 @@ def test_shadow_targets_can_use_the_single_0105_execution_clock() -> None:
     assert rows.iloc[0]["execution_hint"] == pd.Timestamp("2026-11-14 01:05", tz="UTC")
 
 
+def test_engine_end_includes_the_last_signals_0105_execution() -> None:
+    from scripts.run_derivatives_shadow import _engine_end_for_signal_end
+
+    signal_end = pd.Timestamp("2026-11-13", tz="UTC")
+
+    engine_end = _engine_end_for_signal_end(
+        signal_end,
+        execution_hour=1,
+        execution_minute=5,
+    )
+
+    assert engine_end == pd.Timestamp("2026-11-14 01:05:01", tz="UTC")
+
+
+def test_last_signal_executes_before_the_engine_end() -> None:
+    from atlas20.derivatives.engine import DerivativeBacktestConfig, run_derivative_backtest
+    from scripts.run_derivatives_shadow import _engine_end_for_signal_end
+
+    signal = pd.Timestamp("2026-01-01", tz="UTC")
+    frame = pd.DataFrame(
+        {"open": [100.0, 100.0, 100.0], "high": [100.0] * 3, "low": [100.0] * 3, "close": [100.0] * 3},
+        index=pd.DatetimeIndex(
+            ["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-02T01:00:00Z"]
+        ),
+    )
+    result = run_derivative_backtest(
+        {"bitcoin": frame},
+        {signal: pd.Series({"bitcoin": 0.5})},
+        config=DerivativeBacktestConfig(
+            initial_capital=500.0,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+            max_gross_exposure=1.25,
+        ),
+        start_time=signal,
+        end_time=_engine_end_for_signal_end(
+            signal,
+            execution_hour=1,
+            execution_minute=5,
+        ),
+    )
+
+    assert result.trades[["asset", "action"]].to_dict("records") == [
+        {"asset": "bitcoin", "action": "open"}
+    ]
+
+
 def test_short_schedule_is_flattened_after_funding_history_ends() -> None:
     from scripts.run_derivatives_shadow import _cap_short_schedule_at_funding_end
 

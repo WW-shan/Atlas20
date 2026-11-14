@@ -5,9 +5,10 @@
 - frozen long/short book: H5 1.25x + LS45 stronger-21D profit-lock redistribution/regime short
 - cost: 20 bps; capital reference: 1,000 units
 - execution: 01:05 UTC; price model mark_1h_open_floor
+- engine end: 2026-11-14 01:05:01+00:00 (includes the final T+1 execution; daily metrics end 2026-11-13)
 - target ledger: oos_targets.csv; sha256 e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871
 - funding: bitget-exact (complete for the OOS window)
-- last mark: 2026-11-14 13:00:00+00:00; staleness: 2.8h
+- last mark: 2026-11-14 16:00:00+00:00; staleness: 1.5h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - warmup provenance: sha256:77bff92b77750c483bc63041fa2b72d31f576dfaf006d167d91d9ce81121d0ad; 87 mark files; 28371 missing hours; 26265 gaps (26265 two-hour); max gap 2.0h
 - mark coverage: 0 missing hours; 88 assets checked; 0 gaps (0 two-hour); max gap 1.0h
@@ -21,9 +22,9 @@
 
 ## Execution and risk counters
 
-| spec | max_target_gross | max_observed_gross | gross_breach_hours | short_opens | short_stops | liquidations | funding_total | fees_total |
+| spec | max_target_gross | max_observed_gross | gross_breach_hours | short_opens | short_stop_exits | liquidations | funding_total | fees_total |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.7768 | 0.8163 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | -2.0320 | 6.2422 |
+| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.7768 | 0.8163 | 0.0000 | 4.0000 | 0.0000 | 0.0000 | -2.0320 | 6.4749 |
 
 ## Latest target book
 

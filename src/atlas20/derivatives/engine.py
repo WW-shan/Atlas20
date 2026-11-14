@@ -911,6 +911,12 @@ def run_derivative_backtest(
             return
         candle = bar(asset, timestamp)
         trigger = position.entry_price * (1.0 + float(cfg.short_stop_loss_pct))
+        spec = contract_specs.get(asset) if contract_specs is not None else None
+        if spec is not None:
+            # The live executor rounds an adverse short stop up to the venue
+            # price grid.  Use the same trigger here so a 20% backtest stop
+            # cannot fire at a price the venue can never hold.
+            trigger = float(spec.round_up_price(trigger))
         open_price = float(candle["open"])
         if open_price >= trigger:
             raw_execution = open_price

@@ -277,6 +277,46 @@ def test_short_stop_loss_closes_before_isolated_liquidation() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(800.0)
 
 
+def test_short_stop_trigger_uses_the_venue_price_grid() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        125.0,
+        100.0,
+        125.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            short_stop_loss_pct=0.2005,
+            contract_specs={
+                "BTC": ContractSpec(
+                    symbol="BTCUSDT",
+                    min_order_qty=0.001,
+                    quantity_multiplier=0.001,
+                    min_order_usdt=5.0,
+                    quantity_precision=3,
+                    price_multiplier=0.1,
+                    price_precision=1,
+                )
+            },
+        ),
+    )
+
+    stop = result.trades.loc[result.trades["reason"] == "stop_loss"].iloc[0]
+    assert stop["price"] == pytest.approx(120.1)
+
+
 def test_short_stop_loss_rejects_invalid_percentage() -> None:
     with pytest.raises(ValueError, match="short_stop_loss_pct"):
         DerivativeBacktestConfig(short_stop_loss_pct=1.0)

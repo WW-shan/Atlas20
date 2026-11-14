@@ -16,10 +16,13 @@ from scripts.audit_live_track import (
     _ledger_expected_equity,
     _orphan_strategy_order_issues,
     _pnl_chain_errors,
+    _position_data_issues,
     _position_signed_notional,
     _position_side_issues,
+    _position_short_stop_expectations,
     _position_target_issues,
     _short_stop_gaps,
+    _short_stop_expectation_gaps,
     _trade_mismatch,
     _unfilled_order_issues,
 )
@@ -71,6 +74,55 @@ def test_target_drift_still_fails_when_a_tradeable_order_would_reduce_the_gap() 
 
     assert issues
     assert "HYPERLIQUID" in issues[0]
+
+
+def test_short_stop_expectation_is_independent_of_the_journal_value() -> None:
+    expectations = _position_short_stop_expectations(
+        [
+            {
+                "symbol": "HYPEUSDT",
+                "total": "0.46",
+                "posSide": "short",
+                "avgPrice": "67.308",
+            }
+        ],
+        specs_by_symbol={"HYPEUSDT": _hyperliquid_spec()},
+        short_stop_loss_pct=0.20,
+    )
+
+    assert expectations == {"HYPEUSDT": pytest.approx(80.77)}
+
+
+def test_position_audit_requires_entry_price_for_short_stop_recomputation() -> None:
+    issues = _position_data_issues(
+        [
+            {
+                "symbol": "HYPEUSDT",
+                "total": "0.46",
+                "posSide": "short",
+                "markPrice": "66.04",
+            }
+        ]
+    )
+
+    assert issues
+    assert "avgPrice" in issues[0]
+
+
+def test_short_stop_audit_rejects_a_missing_live_contract_spec() -> None:
+    gaps = _short_stop_expectation_gaps(
+        [
+            {
+                "symbol": "HYPEUSDT",
+                "total": "0.46",
+                "posSide": "short",
+                "avgPrice": "67.308",
+            }
+        ],
+        expected_stops={},
+    )
+
+    assert gaps == ["HYPEUSDT"]
 
 
 def _entry(

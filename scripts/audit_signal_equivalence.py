@@ -154,7 +154,115 @@ def _compare_target_ledgers(
     }
 
 
-def _rebuild_replay(end_date: str) -> pd.DataFrame:
+def _latest_action_execution_issues(
+    frozen: pd.DataFrame,
+    trades: pd.DataFrame,
+    positions: pd.DataFrame,
+    *,
+    order_skips: pd.DataFrame | None = None,
+) -> list[str]:
+    """Require the latest target actions to exist in the replay artifacts.
+
+    Target-ledger equality alone cannot catch an engine end time that excludes
+    the final T+1 execution.  That failure leaves the target rows intact but
+    produces no corresponding trade or open position, exactly the state that
+    previously made the report say ``short_opens=0`` while the live executor
+    opened four shorts.
+    """
+
+    ledger = _normalize_ledger(frozen)
+    if ledger.empty:
+        return []
+    latest_signal = ledger["signal_date"].max()
+    latest = ledger.loc[ledger["signal_date"] == latest_signal]
+
+    trade_frame = trades.copy()
+    if not trade_frame.empty:
+        trade_frame["timestamp"] = pd.to_datetime(
+            trade_frame["timestamp"], utc=True, format="mixed", errors="raise"
+        )
+        trade_frame["asset"] = trade_frame["asset"].astype(str).str.lower()
+        trade_frame["side"] = trade_frame["side"].astype(str).str.lower()
+        trade_frame["action"] = trade_frame["action"].astype(str).str.lower()
+
+    position_frame = positions.copy()
+    if not position_frame.empty:
+        position_frame["timestamp"] = pd.to_datetime(
+            position_frame["timestamp"], utc=True, format="mixed", errors="raise"
+        )
+        position_frame["asset"] = position_frame["asset"].astype(str).str.lower()
+        position_frame["side"] = position_frame["side"].astype(str).str.lower()
+
+    skip_frame = order_skips.copy() if order_skips is not None else pd.DataFrame()
+    if not skip_frame.empty:
+        skip_frame["timestamp"] = pd.to_datetime(
+            skip_frame["timestamp"], utc=True, format="mixed", errors="raise"
+        )
+        skip_frame["asset"] = skip_frame["asset"].astype(str).str.lower()
+        skip_frame["action"] = skip_frame["action"].astype(str).str.lower()
+
+    issues: list[str] = []
+    for row in latest.to_dict("records"):
+        action = str(row["action"]).lower()
+        if action == "hold":
+            continue
+        asset = str(row["asset"])
+        execution_hint = pd.Timestamp(row["execution_hint"])
+        # The engine's floor resolver accepts a mark bar from the preceding
+        # hour through the exact execution time.  Trades after the execution
+        # clock cannot have produced this action.
+        earliest_match = execution_hint - pd.Timedelta(hours=1)
+
+        def matches_execution_time(frame: pd.DataFrame) -> pd.Series:
+            return (frame["timestamp"] >= earliest_match) & (
+                frame["timestamp"] <= execution_hint
+            )
+
+        matching_trades = trade_frame
+        if not matching_trades.empty:
+            matching_trades = matching_trades.loc[
+                (matching_trades["asset"] == asset)
+                & (matching_trades["action"] == action)
+                & matches_execution_time(matching_trades)
+            ]
+        if matching_trades.empty:
+            matching_skips = skip_frame
+            if not matching_skips.empty:
+                matching_skips = matching_skips.loc[
+                    (matching_skips["asset"] == asset)
+                    & (matching_skips["action"] == action)
+                    & matches_execution_time(matching_skips)
+                ]
+            if matching_skips.empty:
+                issues.append(
+                    f"{asset}: latest {row['action']} at {execution_hint} has no replay "
+                    "trade or explicit venue skip"
+                )
+            continue
+
+        target_side = str(row["side"]).lower()
+        if not (matching_trades["side"] == target_side).any():
+            issues.append(
+                f"{asset}: latest {row['action']} replay side does not match target {target_side}"
+            )
+            continue
+
+        if action in {"open", "increase"} or (action == "reduce" and float(row["target_weight"]) != 0.0):
+            matching_positions = position_frame
+            if not matching_positions.empty:
+                matching_positions = matching_positions.loc[
+                    (matching_positions["asset"] == asset)
+                    & (matching_positions["side"] == target_side)
+                    & matches_execution_time(matching_positions)
+                ]
+            if matching_positions.empty:
+                issues.append(
+                    f"{asset}: latest {row['action']} has no matching replay position"
+                )
+    return issues
+
+
+def _rebuild_replay(end_date: str) -> dict[str, pd.DataFrame]:
     with tempfile.TemporaryDirectory(prefix="atlas20-ls45-audit-") as tmp:
         output_dir = Path(tmp) / "ledger"
         command = build_command(end_date=end_date, output_dir=str(output_dir))
@@ -162,7 +270,12 @@ def _rebuild_replay(end_date: str) -> pd.DataFrame:
         path = output_dir / "oos_targets.csv"
         if not path.is_file():
             raise FileNotFoundError(f"replay did not write {path}")
-        return pd.read_csv(path)
+        return {
+            "targets": pd.read_csv(path),
+            "trades": pd.read_csv(output_dir / "oos_trades.csv"),
+            "positions": pd.read_csv(output_dir / "oos_positions.csv"),
+            "order_skips": pd.read_csv(output_dir / "oos_order_skips.csv"),
+        }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -186,22 +299,35 @@ def main(argv: list[str] | None = None) -> int:
     end_date = str(pd.Timestamp(end_date).date())
 
     frozen = pd.read_csv(args.targets_file)
+    execution_issues: list[str] | None = None
     if args.replay_targets_file is not None:
         replay = pd.read_csv(args.replay_targets_file)
     else:
         try:
-            replay = _rebuild_replay(end_date)
+            replay_bundle = _rebuild_replay(end_date)
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as exc:
             raise SystemExit(f"LS45 replay failed: {exc}") from exc
+        replay = replay_bundle["targets"]
+        execution_issues = _latest_action_execution_issues(
+            frozen,
+            replay_bundle["trades"],
+            replay_bundle["positions"],
+            order_skips=replay_bundle["order_skips"],
+        )
 
     comparison = _compare_target_ledgers(frozen, replay)
-    passed = bool(comparison["passed"]) and spec == LS45_CANDIDATE_ID
+    execution_passed = execution_issues is not None and not execution_issues
+    passed = bool(comparison["passed"]) and spec == LS45_CANDIDATE_ID and execution_passed
     payload = {
         "spec": spec,
         "expected_spec": LS45_CANDIDATE_ID,
         "end_date": end_date,
         "checked_at": checked_at.isoformat(),
         **comparison,
+        "latest_action_execution_passed": execution_passed,
+        "latest_action_execution_issues": (
+            ["execution artifacts were not rebuilt"] if execution_issues is None else execution_issues
+        ),
         "passed": passed,
     }
     output = ensure_dir(args.json_out.parent)
@@ -218,6 +344,11 @@ def main(argv: list[str] | None = None) -> int:
     if payload["differences"]:
         for item in payload["differences"][:10]:
             print(f"  ❌ {item}")
+    if execution_issues:
+        for item in execution_issues[:10]:
+            print(f"  ❌ execution: {item}")
+    elif execution_issues is None:
+        print("  ❌ execution: replay artifacts were not rebuilt")
     if spec != LS45_CANDIDATE_ID:
         print(f"  ❌ manifest spec {spec!r} != {LS45_CANDIDATE_ID!r}")
     print(f"  结论: {'一致（同一套 LS45 计算）' if passed else '不一致，必须停下排查'}")

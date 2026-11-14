@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-14T16:38:25.614777+00:00",
+  "checked_at": "2026-11-14T17:34:08.747336+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -21,7 +21,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 503.44 USDT",
+      "detail": "权益 502.26 USDT",
       "hard": true,
       "ok": true
     },
@@ -45,13 +45,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "503.4370 vs 439.0084 + 60.5439 + 3.8846 = 503.4369",
+      "detail": "502.2614 vs 439.0003 + 60.5439 + 2.7173 = 502.2614",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 117.5833",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 118.7578",
       "hard": true,
       "ok": true
     },
@@ -81,7 +81,7 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-14 equity=503.5373；折算后应为 503.4930，交易所 503.4370",
+      "detail": "台账 2026-11-14 equity=503.5373；折算后应为 502.3186，交易所 502.2614",
       "hard": true,
       "ok": true
     },
@@ -106,6 +106,12 @@
     {
       "check": "交易所已成交的 Atlas20 订单都已记账",
       "detail": "无漏记成交",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前空头止损可由交易所均价与价格步长独立重算",
+      "detail": "无空头仓，或全部可按 avgPrice × 1.20 重算",
       "hard": true,
       "ok": true
     },
@@ -147,13 +153,13 @@
     },
     {
       "check": "总名义 <= 1.25x 权益（规格上限）",
-      "detail": "gross 117.58 / equity 503.44 = 0.234x",
+      "detail": "gross 118.76 / equity 502.26 = 0.236x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-14 13:00:00+00:00（3.6h 前）",
+      "detail": "最新 mark 2026-11-14 16:00:00+00:00（1.6h 前）",
       "hard": true,
       "ok": true
     },
@@ -183,7 +189,7 @@
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45 current=sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45",
+      "detail": "manifest=sha256:84e608091fe36c3c7364bf00fc51c8ca0de41e98f3cbb30ddf61940783c17419 current=sha256:84e608091fe36c3c7364bf00fc51c8ca0de41e98f3cbb30ddf61940783c17419",
       "hard": true,
       "ok": true
     },
@@ -200,9 +206,9 @@
       "ok": true
     }
   ],
-  "equity": 503.43701822,
+  "equity": 502.26138952,
   "hard_failures": 0,
-  "position_value": 117.58331000000001,
+  "position_value": 118.75778,
   "signal_date": "2026-11-13",
   "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 }

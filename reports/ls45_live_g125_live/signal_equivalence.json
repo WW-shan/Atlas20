@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-14T16:22:21.561977+00:00",
+  "checked_at": "2026-11-14T17:32:34.030360+00:00",
   "differences": [],
   "differing_rows": 0,
   "end_date": "2026-11-13",
@@ -7,6 +7,8 @@
   "events_only_in_replay": [],
   "expected_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
   "frozen_rows": 72,
+  "latest_action_execution_issues": [],
+  "latest_action_execution_passed": true,
   "overlapping_rows": 72,
   "overlapping_signal_days": 32,
   "passed": true,

@@ -101,6 +101,17 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
                      = signal_end_date + T+1 01:05 UTC
 ```
 
+live-parity 回测的 `engine_end` 必须覆盖这个执行点。由于引擎区间是右开区间，且
+`01:05` 会 floor 到 `01:00` mark bar，runbook 使用：
+
+```text
+engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
+           = signal_end_date + T+1 01:05:01 UTC
+```
+
+若仍以 `signal_end_date + 1 day 00:00` 结束，目标账本虽然存在，最后一批 OPEN/CLOSE
+却不会进入回测成交、持仓、量化和止损统计；`audit-signal` 会因此硬失败。
+
 目标权重仍取最新事件行；止损校验、账户对账和 journal 则每天都按
 `daily_execution_hint` 运行。因此事件信号可以显示旧信号日，但定时任务不会
 因为“今天没有新交易事件”而失效。
@@ -141,7 +152,9 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
    panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
 5. **全品种实时能力**：`make audit-symbols` 对全部映射资产逐项核对 Bitget v3 合约身份、
    online/perpetual/USDT、2x、报价新鲜度，并生成多单、空单止损和 long→short 翻转计划。
-6. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；任何差异都会拒绝执行。
+6. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；同时要求最新信号动作
+   在 replay 中留下对应成交、持仓或显式的交易所最小额跳过记录，且成交时间必须落在执行时刻
+   前 1 小时到执行时刻之间。任何差异都会拒绝执行。
 7. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
 
 执行器自身还有：
@@ -227,7 +240,8 @@ Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动�
 止损保护按当前空头开仓周期维护。平仓后旧 journal 中的历史 stop 不会继续保护后续重开的空头；
 当前空头若没有完整的当周期入场 stop 记录，会先被 `EMERGENCY_CLOSE`。
 
-空头止损阈值与回测一致：`entry_price × 1.20`，mark price 触发。
+空头止损阈值与回测一致：`entry_price × 1.20` 先按 Bitget 合约价格步长向上取整，再由
+mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必须使用同一价格网格。
 
 ---
 
@@ -354,38 +368,43 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，当前实现为 **31 项硬检查 + 1 项非硬告警**，下面按检查族列出：
+`scripts/audit_live_track.py` 只读。当前审计 JSON 输出 **33 项硬检查 + 1 项非硬告警**；
+下面按检查族归纳：
 
-1. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
-2. 账户 API 必需字段完整且有限；
-3. 账户权益不低于执行下限 20 USDT；
-4. 持仓 API 必需字段完整、方向合法且标记价有限；
-5. 当前没有未成交普通订单；
+1. 冻结目标都有唯一 Bitget 合约映射；
+2. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
+3. 账户 API 必需字段完整且有限；
+4. 账户权益不低于执行下限 20 USDT；
+5. 持仓 API 必需字段完整、方向合法，且 `markPrice` / `avgPrice` 有限；
 6. 同一合约没有重复或反向对冲腿；
-7. `equity = USDT-equivalent collateral + unrealisedPnl`；multi-assets 账户的非 USDT
+7. 当前没有未成交普通订单；
+8. `equity = USDT-equivalent collateral + isolated margin + unrealisedPnl`；multi-assets 账户的非 USDT
    抵押品按交易所 `usdValue` 计入；
-8. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
-9. 所有持仓合约都能在冻结 symbol map 中唯一映射；
-10. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
-11. API key/账户分类未命中 copy-trading/elite 逐仓限制；
-12. 执行状态带账户指纹，且与当前 Bitget 账户一致；旧/未绑定 legacy state 失败；
-13. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
-14. journal PnL 链在剔除 capital flow 后连续；
-15. journal `funding_total` 等于持仓未变化区间的累计资金费差；
-16. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
-17. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
-18. 空头 journal 入场必须记录已确认止损；
-19. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
-20. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
-21. 冻结目标 gross 不超过 1.25x；
-22. 有符号目标 vs 有符号实际仓位：多头正、空头负；先按 1 USDT、目标名义 1% 和 1.5 个合约步长三者取大判定。若略超容差但方向一致，且交易所**最小可成交订单**会让偏差变大（通常由最小下单额导致），允许该不可修复残差；只要存在一张可改善偏差的最小订单，仍然硬失败；
-23. 无计划外持仓；
-24. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
-25. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
-26. 账本评估日 = 数据最新可判定日；
-27. manifest 的 `tracked_spec`、冻结参数、成本、funding source 和 gross cap 与当前 LS45-G125 规格完全一致；
-28. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；
-29. journal 信号日 = 冻结账本最新信号日。
+9. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
+10. 所有持仓合约都能在冻结 symbol map 中唯一映射；
+11. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
+12. API key/账户分类未命中 copy-trading/elite 逐仓限制；
+13. 执行状态带账户指纹，且与当前 Bitget 账户一致；旧/未绑定 legacy state 失败；
+14. journal 最新权益按实时 mark 和外部资金流折算后等于账户；
+15. journal PnL 链在剔除 capital flow 后连续；
+16. journal `funding_total` 等于持仓未变化区间的累计资金费差；
+17. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
+18. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
+19. 每个当前空头都必须能由交易所 `avgPrice × 1.20` 和实时合约价格步长**独立重算**预期止损；缺 `avgPrice`、缺合约规格或无法重算都硬失败，不允许回退到 journal 旧值；
+20. 空头 journal 入场必须记录已确认止损；
+21. 当前每个空头仓都有交易所**当前可见**的 mark-price market 策略止损单；
+22. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
+23. 有符号目标 vs 有符号实际仓位：多头正、空头负；先按 1 USDT、目标名义 1% 和 1.5 个合约步长三者取大判定。若略超容差但方向一致，且交易所**最小可成交订单**会让偏差变大（通常由最小下单额导致），允许该不可修复残差；只要存在一张可改善偏差的最小订单，仍然硬失败；
+24. 无计划外持仓；
+25. 冻结目标 gross 不超过 1.25x；
+26. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
+27. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
+28. 账本评估日 = 数据最新可判定日；
+29. manifest 的 `tracked_spec`、冻结参数、成本、funding source 和 gross cap 与当前 LS45-G125 规格完全一致；
+30. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；
+31. `audit-data` 必须 0 hard failure / 0 warning；
+32. manifest 的 `data_fingerprint` 必须等于当前输入指纹；
+33. journal 信号日 = 冻结账本最新信号日。
 
 另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。若 journal 为空，会先报“台账存在”硬失败并跳过依赖 journal 的检查。
 
