@@ -261,10 +261,18 @@ def build_execution_plan(
 
     if not math.isfinite(account.equity):
         raise ValueError("account equity must be finite")
-    if leverage <= 0.0:
+    if not math.isfinite(account.available_margin) or account.available_margin < 0.0:
+        raise ValueError("available margin must be finite and non-negative")
+    if not math.isfinite(leverage) or leverage <= 0.0:
         raise ValueError("leverage must be positive")
-    if max_gross_exposure is not None and max_gross_exposure < 0.0:
-        raise ValueError("max_gross_exposure must be non-negative when set")
+    if max_gross_exposure is not None and (
+        not math.isfinite(max_gross_exposure) or max_gross_exposure < 0.0
+    ):
+        raise ValueError("max_gross_exposure must be finite and non-negative when set")
+    if not math.isfinite(taker_fee_rate) or taker_fee_rate < 0.0:
+        raise ValueError("taker_fee_rate must be finite and non-negative")
+    if not math.isfinite(min_rebalance_usdt) or min_rebalance_usdt < 0.0:
+        raise ValueError("min_rebalance_usdt must be finite and non-negative")
     if short_stop_loss_pct is not None and not 0.0 < short_stop_loss_pct < 1.0:
         raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 

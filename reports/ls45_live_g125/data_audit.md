@@ -11,7 +11,7 @@
 
 ## Warnings
 
-- panel.valid_market_cap: 32 negative/non-finite market-cap row(s)
+- panel.valid_market_cap: 32 non-positive/non-finite market-cap row(s)
 
 ## Summary
 
@@ -464,7 +464,7 @@
   "hard_failures": 0,
   "last_mark": "2026-11-14 13:00:00+00:00",
   "mark_assets": 88,
-  "now": "2026-11-14T14:12:41.225229+00:00",
+  "now": "2026-11-14T15:12:49.228733+00:00",
   "panel_latest": "2026-11-13",
   "panel_latest_assets": 97,
   "warnings": 1

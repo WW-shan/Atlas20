@@ -117,6 +117,17 @@ def test_ledger_expected_equity_rejects_a_side_flip_since_the_snapshot() -> None
     assert any("方向" in item for item in mismatches)
 
 
+def test_ledger_expected_equity_reports_malformed_position_json() -> None:
+    expected, mismatches = _ledger_expected_equity(
+        {"equity": 100.0, "positions": "not-json"},
+        current_positions=[],
+        capital_flow=0.0,
+    )
+
+    assert expected == pytest.approx(100.0)
+    assert any("positions" in item for item in mismatches)
+
+
 def test_position_signed_notional_preserves_hedge_and_one_way_shorts() -> None:
     assert _position_signed_notional(
         {"total": "20", "posSide": "short", "markPrice": "5"}
@@ -421,6 +432,24 @@ def test_account_audit_rejects_missing_or_non_numeric_core_fields() -> None:
     assert any("balance" in issue for issue in issues)
 
 
+def test_account_audit_rejects_invalid_non_usdt_asset_value() -> None:
+    from scripts.audit_live_track import _account_data_issues
+
+    issues = _account_data_issues(
+        {
+            "usdtEquity": "100",
+            "usdtUnrealisedPnl": "0",
+            "positionValue": "0",
+            "assets": [
+                {"coin": "USDT", "balance": "100", "available": "100"},
+                {"coin": "BGB", "balance": "1", "usdValue": "bad"},
+            ],
+        }
+    )
+
+    assert any("BGB" in issue and "usdValue" in issue for issue in issues)
+
+
 def test_usdt_equivalent_balance_includes_non_usdt_collateral() -> None:
     from scripts.audit_live_track import _usdt_equivalent_balance
 
@@ -527,6 +556,16 @@ def test_position_audit_rejects_an_invalid_total_and_mark_price() -> None:
     assert any("NEARUSDT" in issue and "total" in issue for issue in issues)
     assert any("TRXUSDT" in issue and "markPrice" in issue for issue in issues)
     assert any("SOLUSDT" in issue and "posSide" in issue for issue in issues)
+
+
+def test_position_audit_rejects_a_non_positive_mark_price() -> None:
+    from scripts.audit_live_track import _position_data_issues
+
+    issues = _position_data_issues(
+        [{"symbol": "NEARUSDT", "total": "10", "markPrice": "0"}]
+    )
+
+    assert any("NEARUSDT" in issue and "positive" in issue for issue in issues)
 
 
 def test_position_audit_rejects_duplicate_or_opposite_hedge_legs() -> None:

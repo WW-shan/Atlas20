@@ -80,7 +80,7 @@ PUBLIC_INSTRUMENTS_URL = "https://api.bitget.com/api/v3/market/instruments"
 PUBLIC_TICKERS_URL = "https://api.bitget.com/api/v3/market/tickers"
 
 
-def _finite_float(value: object, field: str) -> float:
+def _finite_float(value: object, field: str, *, positive: bool = False) -> float:
     """Parse one required numeric venue field without a silent zero fallback."""
 
     if value is None or value == "":
@@ -91,6 +91,8 @@ def _finite_float(value: object, field: str) -> float:
         raise ValueError(f"{field} is not numeric: {value!r}") from exc
     if not isfinite(number):
         raise ValueError(f"{field} is not finite: {value!r}")
+    if positive and number <= 0.0:
+        raise ValueError(f"{field} must be positive: {value!r}")
     return number
 
 
@@ -267,14 +269,21 @@ def load_account_file(path: Path) -> AccountState:
     positions: dict[str, PositionState] = {}
     for record in payload.get("positions", []):
         asset = str(record["asset"])
+        side = str(record.get("side", "long")).strip().lower()
+        if side not in {"long", "short"}:
+            raise ValueError(f"{asset} side must be 'long' or 'short': {side!r}")
         positions[asset] = PositionState(
             asset=asset,
             symbol=str(record.get("symbol", asset.upper())),
-            side=str(record.get("side", "long")),
-            size=float(record["size"]),
-            entry_price=float(record["entry_price"]),
-            mark_price=float(record["mark_price"]),
-            margin=float(record["margin"]),
+            side=side,
+            size=_finite_float(record["size"], f"{asset} size", positive=True),
+            entry_price=_finite_float(
+                record["entry_price"], f"{asset} entry_price", positive=True
+            ),
+            mark_price=_finite_float(
+                record["mark_price"], f"{asset} mark_price", positive=True
+            ),
+            margin=_finite_float(record["margin"], f"{asset} margin", positive=True),
         )
     as_of = payload.get("as_of")
     return AccountState(
@@ -336,9 +345,15 @@ def account_state_from_bitget(client: BitgetPrivateClient, symbols_by_asset: dic
             symbol=symbol,
             side=side or "long",
             size=total,
-            entry_price=_finite_float(row.get("avgPrice"), f"{symbol} avgPrice"),
-            mark_price=_finite_float(row.get("markPrice"), f"{symbol} markPrice"),
-            margin=_finite_float(margin_value, f"{symbol} positionBalance"),
+            entry_price=_finite_float(
+                row.get("avgPrice"), f"{symbol} avgPrice", positive=True
+            ),
+            mark_price=_finite_float(
+                row.get("markPrice"), f"{symbol} markPrice", positive=True
+            ),
+            margin=_finite_float(
+                margin_value, f"{symbol} positionBalance", positive=True
+            ),
         )
     if unknown:
         raise RuntimeError(
@@ -383,10 +398,11 @@ def fetch_public_prices(session: requests.Session) -> dict[str, float]:
         symbol = str(row.get("symbol", "")).upper()
         price = row.get("lastPrice") or row.get("markPrice") or row.get("price")
         try:
-            if symbol and price is not None:
-                prices[symbol] = float(price)
+            number = float(price) if price is not None else 0.0
         except (TypeError, ValueError):
             continue
+        if symbol and isfinite(number) and number > 0.0:
+            prices[symbol] = number
     return prices
 
 

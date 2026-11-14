@@ -267,6 +267,54 @@ def test_non_finite_equity_is_rejected() -> None:
         )
 
 
+def test_non_finite_available_margin_is_rejected() -> None:
+    with pytest.raises(ValueError, match="available margin"):
+        build_execution_plan(
+            AccountState(equity=100.0, available_margin=float("nan")), {}, {}, {}
+        )
+
+
+def test_non_finite_leverage_is_rejected() -> None:
+    with pytest.raises(ValueError, match="leverage"):
+        build_execution_plan(
+            AccountState(equity=100.0, available_margin=100.0),
+            {},
+            {},
+            {},
+            leverage=float("nan"),
+        )
+
+
+def test_non_finite_max_gross_exposure_is_rejected() -> None:
+    with pytest.raises(ValueError, match="max_gross_exposure"):
+        build_execution_plan(
+            AccountState(equity=100.0, available_margin=100.0),
+            {},
+            {},
+            {},
+            max_gross_exposure=float("nan"),
+        )
+
+
+def test_negative_fee_and_minimum_rebalance_are_rejected() -> None:
+    with pytest.raises(ValueError, match="taker_fee_rate"):
+        build_execution_plan(
+            AccountState(equity=100.0, available_margin=100.0),
+            {},
+            {},
+            {},
+            taker_fee_rate=-0.001,
+        )
+    with pytest.raises(ValueError, match="min_rebalance_usdt"):
+        build_execution_plan(
+            AccountState(equity=100.0, available_margin=100.0),
+            {},
+            {},
+            {},
+            min_rebalance_usdt=-1.0,
+        )
+
+
 def test_mirror_engine_reproduces_an_engine_style_rebalance() -> None:
     # Engine-style state: 1.0 equity, one leg at 0.5 weight, price 2.0.
     position = _position(size=0.5, entry=2.0, mark=2.0, margin=1.0 * DEFAULT_MARGIN)

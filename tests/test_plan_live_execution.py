@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from scripts import plan_live_execution
 from atlas20.derivatives.execution import (
     AccountState,
     ContractSpec,
@@ -65,6 +66,26 @@ def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
     path.write_text('{"signal_end_date": "2026-11-12"}', encoding="utf-8")
 
     assert manifest_signal_end_date(path) == pd.Timestamp("2026-11-12", tz="UTC")
+
+
+def test_public_prices_reject_non_positive_and_non_finite_values(monkeypatch) -> None:
+    monkeypatch.setattr(
+        plan_live_execution,
+        "get_json_with_retries",
+        lambda *_args, **_kwargs: {
+            "code": "00000",
+            "data": [
+                {"symbol": "BTCUSDT", "lastPrice": "0"},
+                {"symbol": "NEARUSDT", "lastPrice": "-1"},
+                {"symbol": "SOLUSDT", "lastPrice": "not-a-price"},
+                {"symbol": "TRXUSDT", "lastPrice": "0.25"},
+            ],
+        },
+    )
+
+    prices = plan_live_execution.fetch_public_prices(object())
+
+    assert prices == {"TRXUSDT": pytest.approx(0.25)}
 
 
 def test_dry_run_plan_uses_the_0105_fill_for_live_and_research() -> None:
@@ -238,6 +259,75 @@ def test_account_state_rejects_an_invalid_position_mark_price():
     )
 
     with pytest.raises(ValueError, match="markPrice"):
+        account_state_from_bitget(client, {"near": "NEARUSDT"})
+
+
+def test_account_state_rejects_a_non_positive_position_mark_price():
+    import pytest
+
+    from scripts.plan_live_execution import account_state_from_bitget
+
+    client = _AccountClient(
+        assets={"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "25"}]},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "total": "10",
+                "avgPrice": "5",
+                "markPrice": "0",
+                "positionBalance": "3",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="markPrice"):
+        account_state_from_bitget(client, {"near": "NEARUSDT"})
+
+
+def test_account_state_rejects_a_non_positive_position_entry_price():
+    import pytest
+
+    from scripts.plan_live_execution import account_state_from_bitget
+
+    client = _AccountClient(
+        assets={"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "25"}]},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "total": "10",
+                "avgPrice": "0",
+                "markPrice": "5",
+                "positionBalance": "3",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="avgPrice"):
+        account_state_from_bitget(client, {"near": "NEARUSDT"})
+
+
+def test_account_state_rejects_a_non_positive_position_margin():
+    import pytest
+
+    from scripts.plan_live_execution import account_state_from_bitget
+
+    client = _AccountClient(
+        assets={"usdtEquity": "100", "assets": [{"coin": "USDT", "available": "25"}]},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "total": "10",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "0",
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="positionBalance"):
         account_state_from_bitget(client, {"near": "NEARUSDT"})
 
 

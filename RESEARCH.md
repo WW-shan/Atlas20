@@ -5572,3 +5572,28 @@ gross、止损回读、成交对账和幂等门禁全部保留。补跑前预检
 修复后 `audit-live` 全部硬检查通过，`monitor_live_track.py` 健康巡检通过；`test_audit_live_track.py`
 32 项通过。该次执行是负责人明确授权的迟到补跑，不应被解释为自动执行器已经验证了所有未来
 迟到补跑路径；下一次正常 01:05 UTC 任务仍须重新通过完整链路。
+
+### 00.144 2026-11-14 LS45-G125：成交后 fail-closed bug sweep
+
+在 §00.143 的真实空头成交后，又对 live 数据、规划、成交回报和对账路径做了一轮只读 bug
+扫描；本轮没有修改策略、目标权重或仓位，也没有下新订单。发现并修复的实际问题：
+
+- data audit 过去把 `market_cap == 0` 当作有效值；现在历史检查按 non-positive/non-finite
+  报警告，最新一天为硬失败，与 universe 的“零市值即缺失”语义一致；
+- live audit 过去只检查持仓 `markPrice` 是否有限，不拒绝 `0` 或负数；现在非正 mark 为硬失败，
+  并增加对非 USDT 抵押品 `usdValue` 的有限性检查；
+- journal 的 `positions` JSON 损坏时，`audit-live` 过去会直接抛异常；现在保留审计输出并产生
+  hard failure，同时对空 symbol、非对象记录、无效当前仓位和无效 ledger mark 给出明确问题；
+- Bitget 账户/账户文件中的持仓现在要求 positive `avgPrice`、`markPrice`、`positionBalance`；
+  未知 `side` 和公共 ticker 的零/负/非有限价格也会被拒绝；
+- execution planner 现在拒绝 non-finite equity/available margin/leverage/gross cap，以及负
+  `taker_fee_rate`/`min_rebalance_usdt`，避免 `NaN` 绕过数值上限；
+- 已成交订单若返回 non-positive `avgPrice` 或 `cumExecValue`，执行器现在停止后续下单并写
+  failure；紧急平空的成交价缺失也会保留平仓动作但标记审计失败，避免把无效 PnL 写进 journal。
+
+验证：Python **2,252 passed / 1 skipped**、前端 **249 passed**；Ruff、mypy、eslint、tsc 全部通过，
+`pip-audit --strict .` 和 `npm audit --audit-level=moderate` 均无已知漏洞。`audit-data` 为
+**0 hard failure / 1 warning**；该 warning 仍是 32 条历史 CMC 缺失市值行，历史 universe 会
+排除它们；本轮没有重写历史 panel，以免在没有新研究证据的情况下改变回测结果。
+`audit-live` 全部硬检查通过，健康监控 `audit_exit=0`、`issues=[]`。当前实盘仍为四腿空头，
+gross 约 0.24x，四腿均为 isolated 2x 且带交易所可见的 mark-price market stop。

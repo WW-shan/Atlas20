@@ -173,6 +173,22 @@ def test_valid_fixture_passes_and_has_a_stable_fingerprint(tmp_path: Path) -> No
     assert first.provenance["fingerprint"].startswith("sha256:")
 
 
+def test_zero_latest_market_cap_is_invalid_not_treated_as_a_real_value(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    mask = (panel["date"] == "2026-11-13") & (panel["coin_id"] == "bitcoin")
+    panel.loc[mask, "market_cap"] = 0.0
+    panel.to_csv(paths["panel"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("panel.latest_market_cap" in item for item in report.hard_failures)
+    assert any("panel.valid_market_cap" in item for item in report.warnings)
+
+
 def test_required_last_mark_time_waits_for_the_completed_execution_hour() -> None:
     before_fill = data_audit.required_last_mark_time(
         datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc)

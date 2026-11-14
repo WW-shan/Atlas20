@@ -1211,6 +1211,40 @@ def test_existing_short_without_a_recorded_stop_is_emergency_closed() -> None:
     assert any("no live venue stop" in item["error"] for item in report.failures)
 
 
+def test_emergency_close_with_a_non_positive_average_price_reports_failure() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+            }
+        ],
+        order_infos={
+            "1001": {
+                "orderStatus": "filled",
+                "cumExecQty": "20",
+                "avgPrice": "0",
+                "cumExecValue": "100",
+                "feeDetail": [],
+            }
+        },
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=0.0),
+        known_protected_short_symbols=set(),
+    )
+
+    assert report.fills[-1].action == "EMERGENCY_CLOSE"
+    assert any("avgPrice" in item["error"] for item in report.failures)
+
+
 def test_executor_rejects_an_unknown_position_side() -> None:
     client = _FakeLiveClient(
         reject_isolated_orders=False,
@@ -1504,6 +1538,46 @@ def test_a_filled_order_without_a_fill_quantity_is_not_treated_as_zero() -> None
 
     assert report.fills == []
     assert any("cumExecQty" in item["error"] for item in report.failures)
+
+
+def test_a_filled_order_with_a_non_positive_average_price_halts_safely() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_infos={
+            "1001": {
+                "orderStatus": "filled",
+                "cumExecQty": "12",
+                "avgPrice": "0",
+                "cumExecValue": "60",
+                "feeDetail": [],
+            }
+        },
+    )
+
+    report = _run(client, _plan())
+
+    assert report.fills == []
+    assert any("avgPrice" in item["error"] for item in report.failures)
+
+
+def test_a_filled_order_with_a_non_positive_execution_value_halts_safely() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        order_infos={
+            "1001": {
+                "orderStatus": "filled",
+                "cumExecQty": "12",
+                "avgPrice": "5",
+                "cumExecValue": "0",
+                "feeDetail": [],
+            }
+        },
+    )
+
+    report = _run(client, _plan())
+
+    assert report.fills == []
+    assert any("cumExecValue" in item["error"] for item in report.failures)
 
 
 def test_missing_margin_mode_is_treated_as_non_isolated_and_blocks_new_risk() -> None:

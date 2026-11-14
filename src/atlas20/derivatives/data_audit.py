@@ -172,10 +172,10 @@ def _read_panel(path: Path, report: DataAuditReport, now: datetime) -> pd.DataFr
         _check(report, "panel.no_future_dates", not future.any(), f"{int(future.sum())} future row(s)")
         invalid_price = ~np.isfinite(frame["price"].to_numpy(dtype=float)) | (frame["price"] <= 0.0)
         invalid_volume = ~np.isfinite(frame["volume_usd"].to_numpy(dtype=float)) | (frame["volume_usd"] < 0.0)
-        invalid_cap = ~np.isfinite(frame["market_cap"].to_numpy(dtype=float)) | (frame["market_cap"] < 0.0)
+        invalid_cap = ~np.isfinite(frame["market_cap"].to_numpy(dtype=float)) | (frame["market_cap"] <= 0.0)
         _check(report, "panel.valid_price", not invalid_price.any(), f"{int(invalid_price.sum())} non-positive/non-finite price row(s)", hard=False)
         _check(report, "panel.valid_volume", not invalid_volume.any(), f"{int(invalid_volume.sum())} negative/non-finite volume row(s)", hard=False)
-        _check(report, "panel.valid_market_cap", not invalid_cap.any(), f"{int(invalid_cap.sum())} negative/non-finite market-cap row(s)", hard=False)
+        _check(report, "panel.valid_market_cap", not invalid_cap.any(), f"{int(invalid_cap.sum())} non-positive/non-finite market-cap row(s)", hard=False)
         latest = frame["date"].max()
         latest_rows = frame.loc[frame["date"] == latest]
         latest_price = pd.to_numeric(latest_rows["price"], errors="coerce").to_numpy(dtype=float)
@@ -183,10 +183,10 @@ def _read_panel(path: Path, report: DataAuditReport, now: datetime) -> pd.DataFr
         latest_cap = pd.to_numeric(latest_rows["market_cap"], errors="coerce").to_numpy(dtype=float)
         latest_price_bad = ~np.isfinite(latest_price) | (latest_price <= 0.0)
         latest_volume_bad = ~np.isfinite(latest_volume) | (latest_volume < 0.0)
-        latest_cap_bad = ~np.isfinite(latest_cap) | (latest_cap < 0.0)
+        latest_cap_bad = ~np.isfinite(latest_cap) | (latest_cap <= 0.0)
         _check(report, "panel.latest_price", not latest_price_bad.any(), f"{int(latest_price_bad.sum())} non-positive/non-finite latest price row(s)")
         _check(report, "panel.latest_volume", not latest_volume_bad.any(), f"{int(latest_volume_bad.sum())} negative/non-finite latest volume row(s)")
-        _check(report, "panel.latest_market_cap", not latest_cap_bad.any(), f"{int(latest_cap_bad.sum())} negative/non-finite latest market-cap row(s)")
+        _check(report, "panel.latest_market_cap", not latest_cap_bad.any(), f"{int(latest_cap_bad.sum())} non-positive/non-finite latest market-cap row(s)")
     return frame
 
 

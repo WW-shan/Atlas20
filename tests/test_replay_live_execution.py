@@ -191,6 +191,56 @@ def test_plan_cli_loads_account_file_and_formats_message(tmp_path) -> None:
     assert "保证金调整" in message
 
 
+def test_plan_account_file_rejects_a_non_positive_mark_price(tmp_path) -> None:
+    from scripts.plan_live_execution import load_account_file
+
+    payload = {
+        "equity": 500.0,
+        "available_margin": 300.0,
+        "positions": [
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "side": "long",
+                "size": 100.0,
+                "entry_price": 2.0,
+                "mark_price": 0.0,
+                "margin": 105.0,
+            }
+        ],
+    }
+    path = tmp_path / "account.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="mark_price"):
+        load_account_file(path)
+
+
+def test_plan_account_file_rejects_an_unknown_position_side(tmp_path) -> None:
+    from scripts.plan_live_execution import load_account_file
+
+    payload = {
+        "equity": 500.0,
+        "available_margin": 300.0,
+        "positions": [
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "side": "net",
+                "size": 100.0,
+                "entry_price": 2.0,
+                "mark_price": 2.1,
+                "margin": 105.0,
+            }
+        ],
+    }
+    path = tmp_path / "account.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="side"):
+        load_account_file(path)
+
+
 def test_plan_message_uses_resolved_alias_for_margin_contract() -> None:
     from scripts.plan_live_execution import format_execution_plan
 

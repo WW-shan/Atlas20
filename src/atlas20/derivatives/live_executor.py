@@ -1462,15 +1462,39 @@ def execute_plan(
                 }
             )
             continue
-        avg_price = (
-            _required_float(payload.get("avgPrice"), "order avgPrice")
-            if filled > 0.0
-            else 0.0
-        )
-        if payload.get("cumExecValue") not in (None, ""):
-            notional = _required_float(payload.get("cumExecValue"), "order cumExecValue")
-        else:
-            notional = filled * avg_price
+        try:
+            avg_price = (
+                _required_float(
+                    payload.get("avgPrice"),
+                    "order avgPrice",
+                    positive=True,
+                )
+                if filled > 0.0
+                else 0.0
+            )
+            if payload.get("cumExecValue") not in (None, ""):
+                notional = _required_float(
+                    payload.get("cumExecValue"),
+                    "order cumExecValue",
+                    positive=True,
+                )
+            else:
+                notional = filled * avg_price
+        except ValueError as exc:
+            halt_all_orders = True
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
+            report.traded = True
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": f"venue fill values are invalid: {exc}",
+                }
+            )
+            continue
         fee, fee_coin = _fee_from_detail(payload)
         attached_stop = _to_float(payload.get("stopLoss"))
         status = str(payload.get("orderStatus") or "")
@@ -1565,6 +1589,11 @@ def execute_plan(
                     )
                     close_fee, close_fee_coin = _fee_from_detail(close_payload)
                     close_status = str(close_payload.get("orderStatus") or "unknown")
+                    close_value_error = ""
+                    if close_filled > 0.0 and close_avg <= 0.0:
+                        close_value_error = "emergency close returned no positive avgPrice"
+                    elif close_filled > 0.0 and close_notional <= 0.0:
+                        close_value_error = "emergency close returned no positive value"
                     report.fills.append(
                         OrderFill(
                             asset=order.asset,
@@ -1584,6 +1613,16 @@ def execute_plan(
                             client_oid=str(close_body["client_oid"]),
                         )
                     )
+                    if close_value_error:
+                        report.failures.append(
+                            {
+                                "symbol": symbol,
+                                "action": "EMERGENCY_CLOSE",
+                                "side": "buy",
+                                "size": f"{close_qty:.12g}",
+                                "error": close_value_error,
+                            }
+                        )
                     if close_status != _FILLED or close_filled + 1e-12 < close_qty:
                         report.failures.append(
                             {
@@ -1753,6 +1792,11 @@ def execute_plan(
                 )
                 close_fee, close_fee_coin = _fee_from_detail(close_payload)
                 close_status = str(close_payload.get("orderStatus") or "unknown")
+                close_value_error = ""
+                if close_filled > 0.0 and close_avg <= 0.0:
+                    close_value_error = "stop-gap close returned no positive avgPrice"
+                elif close_filled > 0.0 and close_notional <= 0.0:
+                    close_value_error = "stop-gap close returned no positive value"
                 report.fills.append(
                     OrderFill(
                         asset=str(
@@ -1785,6 +1829,16 @@ def execute_plan(
                         ),
                     )
                 )
+                if close_value_error:
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": "EMERGENCY_CLOSE",
+                            "side": "buy",
+                            "size": f"{qty:.12g}",
+                            "error": close_value_error,
+                        }
+                    )
                 if close_status != _FILLED or close_filled + 1e-12 < qty:
                     report.failures.append(
                         {

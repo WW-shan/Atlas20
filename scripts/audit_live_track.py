@@ -192,10 +192,14 @@ def _account_data_issues(assets: dict) -> list[str]:
         issue = _finite_number_issue(assets.get(key), key)
         if issue:
             issues.append(issue)
+    rows = assets.get("assets")
+    if not isinstance(rows, list):
+        issues.append("assets rows 缺失或不是数组")
+        rows = []
     usdt_row = next(
         (
             row
-            for row in assets.get("assets") or []
+            for row in rows
             if isinstance(row, dict) and str(row.get("coin", "")).upper() == "USDT"
         ),
         None,
@@ -207,6 +211,16 @@ def _account_data_issues(assets: dict) -> list[str]:
             issue = _finite_number_issue(usdt_row.get(key), f"USDT {key}")
             if issue:
                 issues.append(issue)
+    for row in rows:
+        if not isinstance(row, dict):
+            issues.append("asset row is not an object")
+            continue
+        coin = str(row.get("coin") or "").strip().upper() or "<missing-coin>"
+        if coin == "USDT":
+            continue
+        issue = _finite_number_issue(row.get("usdValue"), f"{coin} usdValue")
+        if issue:
+            issues.append(issue)
     return issues
 
 
@@ -319,6 +333,8 @@ def _position_data_issues(positions: list[dict]) -> list[str]:
         issue = _finite_number_issue(mark_value, f"{symbol} markPrice")
         if issue:
             issues.append(issue)
+        elif float(mark_value) <= 0.0:
+            issues.append(f"{symbol} markPrice must be positive ({mark_value!r})")
     return issues
 
 
@@ -569,10 +585,24 @@ def _ledger_expected_equity(
     not, so the latter are added separately from the capital-flow ledger.
     """
 
-    ledger_positions = json.loads(last.get("positions") or "[]")
-    ledger_by_symbol = {str(item.get("symbol")): item for item in ledger_positions}
     expected_equity = _num(last.get("equity")) + float(capital_flow)
     mismatches: list[str] = []
+    try:
+        ledger_positions = json.loads(last.get("positions") or "[]")
+    except (TypeError, json.JSONDecodeError) as exc:
+        return expected_equity, [f"台账 positions JSON 无效: {exc}"]
+    if not isinstance(ledger_positions, list):
+        return expected_equity, ["台账 positions 不是数组"]
+
+    ledger_by_symbol: dict[str, dict] = {}
+    for item in ledger_positions:
+        if not isinstance(item, dict):
+            return expected_equity, ["台账 positions 含有非对象记录"]
+        symbol = str(item.get("symbol") or "")
+        if not symbol:
+            return expected_equity, ["台账 positions 含有空 symbol"]
+        ledger_by_symbol[symbol] = item
+
     for row in current_positions:
         symbol = str(row.get("symbol") or "")
         ledger_row = ledger_by_symbol.pop(symbol, None)
@@ -580,14 +610,21 @@ def _ledger_expected_equity(
             mismatches.append(f"{symbol} 不在台账里")
             continue
         ledger_side = str(ledger_row.get("side") or "").lower()
-        current_side = "short" if _position_signed_qty(row) < 0.0 else "long"
+        try:
+            current_signed = _position_signed_qty(row)
+        except (TypeError, ValueError) as exc:
+            mismatches.append(f"{symbol} 当前仓位无效: {exc}")
+            continue
+        current_side = "short" if current_signed < 0.0 else "long"
         if ledger_side in {"long", "short"} and ledger_side != current_side:
             mismatches.append(
                 f"{symbol} 方向变了：台账 {ledger_side} vs 当前 {current_side}"
             )
-        expected_equity += _position_signed_qty(row) * (
-            _num(row.get("markPrice")) - _num(ledger_row.get("mark_price"))
-        )
+        ledger_mark = _num(ledger_row.get("mark_price"))
+        if ledger_mark <= 0.0:
+            mismatches.append(f"{symbol} 台账 mark_price 无效")
+            continue
+        expected_equity += current_signed * (_num(row.get("markPrice")) - ledger_mark)
     if ledger_by_symbol:
         mismatches.append(f"台账多了 {', '.join(sorted(ledger_by_symbol))}")
     return expected_equity, mismatches
