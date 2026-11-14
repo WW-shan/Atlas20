@@ -37,7 +37,7 @@ today's daily run still reconciles even when the latest strategy event is
 several days old.
 
 The current live decision is a direct owner-approved live test, not a claim of
-long-run out-of-sample validation. `RESEARCH.md` section 00.140 is the
+long-run out-of-sample validation. `RESEARCH.md` section 00.141 is the
 authoritative research record; the implementation and recovery rules are in
 [`docs/operations/derivatives_live_runbook.md`](docs/operations/derivatives_live_runbook.md).
 
