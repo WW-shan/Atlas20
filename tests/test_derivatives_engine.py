@@ -999,6 +999,30 @@ def test_0105_exact_execution_requires_an_exact_minute_bar() -> None:
         )
 
 
+def test_missing_execution_hour_does_not_silently_use_a_multi_hour_carry() -> None:
+    index = pd.DatetimeIndex(["2026-11-13T23:00:00Z"])
+    candles = {"BTC": _flat_frame(index)}
+    targets = {pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    with pytest.raises(ValueError, match="within one hour"):
+        run_derivative_backtest(
+            candles,
+            targets,
+            config=DerivativeBacktestConfig(
+                initial_capital=1_000.0,
+                taker_fee_bps=0.0,
+                slippage_bps=0.0,
+                liquidation_slippage_bps=0.0,
+                fee_buffer=0.0,
+                execution_hour=1,
+                execution_minute=5,
+                execution_price_snap="floor",
+                missing_mark_policy="carry",
+                missing_mark_max_carry_hours=3,
+            ),
+        )
+
+
 def test_market_candles_drive_the_fill_price_while_mark_drives_liquidation() -> None:
     index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
     marks = {"BTC": _flat_frame(index)}

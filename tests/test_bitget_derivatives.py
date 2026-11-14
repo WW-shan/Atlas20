@@ -206,6 +206,23 @@ def test_window_status_marks_page_gaps_as_partial() -> None:
     assert _window_status(pd.DataFrame(), start, end) == ("missing", 4)
 
 
+def test_window_status_requires_the_exact_hourly_grid_not_only_row_count() -> None:
+    from scripts.download_bitget_derivatives_data import _window_status
+
+    start = pd.Timestamp("2026-01-01T00:00:00Z")
+    end = start + pd.Timedelta(hours=4)
+    wrong_times = candle_frame(
+        [
+            _row(str(start)),
+            _row(str(start + pd.Timedelta(hours=1))),
+            _row(str(start + pd.Timedelta(hours=2))),
+            _row(str(start + pd.Timedelta(hours=4))),
+        ]
+    )
+
+    assert _window_status(wrong_times, start, end) == ("partial", 4)
+
+
 def test_open_live_window_is_never_treated_as_cached_complete() -> None:
     from scripts.download_bitget_derivatives_data import _window_needs_refresh
 
@@ -213,3 +230,54 @@ def test_open_live_window_is_never_treated_as_cached_complete() -> None:
 
     assert _window_needs_refresh(pd.Timestamp("2026-11-15T00:00:00Z"), now) is True
     assert _window_needs_refresh(pd.Timestamp("2026-11-14T00:00:00Z"), now) is False
+
+
+def test_stale_cached_funding_is_refetched_and_history_is_merged(tmp_path) -> None:
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            self.calls += 1
+            assert symbol == "BTCUSDT"
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-14T00:00:00Z")],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-10T00:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+    client = _FundingClient()
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        client,
+        symbol_map,
+        output_dir,
+        force=False,
+        now=pd.Timestamp("2026-11-14T01:05:00Z"),
+    )
+
+    assert client.calls == 1
+    merged = pd.read_csv(funding_dir / "bitcoin.csv")
+    assert len(merged) == 2
+    assert merged["funding_time"].tolist() == [
+        "2026-11-10 00:00:00+00:00",
+        "2026-11-14 00:00:00+00:00",
+    ]
+    assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"

@@ -170,6 +170,7 @@ def test_live_execution_rejects_a_data_fingerprint_mismatch(
     tmp_path: Path, monkeypatch
 ) -> None:
     from atlas20.derivatives.data_audit import DataAuditReport
+    from atlas20.derivatives.live_chain import file_sha256
 
     manifest = tmp_path / "manifest.json"
     manifest.write_text(
@@ -180,6 +181,8 @@ def test_live_execution_rejects_a_data_fingerprint_mismatch(
                 last_mark="2026-11-14T00:00:00+00:00",
                 data_fingerprint="sha256:manifest",
                 data_audit_passed=True,
+                targets_file=execute_live_plan.DEFAULT_TARGETS_FILE.name,
+                targets_sha256=file_sha256(execute_live_plan.DEFAULT_TARGETS_FILE),
             )
         ),
         encoding="utf-8",

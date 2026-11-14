@@ -83,6 +83,7 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
     assert "scripts/run_ls45_live_signal.py" in live_signal
 
     live = makefile.split("derivatives-live:", 1)[1].split("\n\n", 1)[0]
+    assert "$(MAKE) audit-signal" in live
     assert "scripts/execute_live_plan.py --live --notify --require-isolated" in live
 
 

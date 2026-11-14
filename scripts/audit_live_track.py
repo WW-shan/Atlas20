@@ -53,6 +53,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     LS45_G125_SPEC,
     manifest_spec_issues,
     manifest_staleness_hours,
+    manifest_targets_hash_issue,
 )
 from atlas20.derivatives.live_executor import short_stop_symbol_issue  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
@@ -975,6 +976,22 @@ def main(argv: list[str] | None = None) -> int:
             not manifest_issues,
             "; ".join(manifest_issues) or "规格、参数与成本口径一致",
         )
+        targets_hash_issue = manifest_targets_hash_issue(
+            manifest,
+            args.targets_file,
+        )
+        targets_hash_recorded = bool(manifest.get("targets_sha256"))
+        check(
+            "目标账本与 manifest 内容哈希一致",
+            targets_hash_issue is None and targets_hash_recorded,
+            targets_hash_issue
+            or (
+                "targets_sha256 一致"
+                if targets_hash_recorded
+                else "manifest 缺少 targets_sha256；请重建冻结账本"
+            ),
+            hard=targets_hash_recorded,
+        )
         required_short_assets = {
             str(record["asset"])
             for record in book.to_dict("records")
@@ -987,6 +1004,7 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest_file,
             now=checked_at,
             required_short_assets=required_short_assets,
+            require_all_funding_fresh=True,
         )
         check(
             "数据可靠性审计通过",

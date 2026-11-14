@@ -100,8 +100,8 @@ sends one message per signal day with:
 - signed `BUY`/`SELL` notional and weight changes in pp;
 - long and short legs separately labelled, never hidden behind absolute values;
 - reference isolated margin, total gross (`sum(abs(notional))`), and the 1.25x cap;
-- the live fast-path execution time (T+1 01:05 UTC, 09:05 Beijing);
-- the target ledger's research `execution_hint` (T+1 03:00 UTC) shown separately;
+- the single execution time (T+1 01:05 UTC, 09:05 Beijing);
+- the target ledger's `execution_hint`, which must be the same T+1 01:05 UTC clock;
 - a short-risk line stating that entries carry a 20% mark-price market stop;
 - a warning when the execution time has already passed.
 

@@ -59,7 +59,10 @@ from atlas20.derivatives.execution import (  # noqa: E402
     build_execution_plan,
 )
 from atlas20.derivatives.http import get_json_with_retries  # noqa: E402
-from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    live_execution_hint_for_signal,
+    manifest_targets_hash_issue,
+)
 from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -494,6 +497,16 @@ def main() -> None:
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
     signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
+    if args.manifest_file.is_file():
+        manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+        if not isinstance(manifest, dict):
+            raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
+        targets_hash_issue = manifest_targets_hash_issue(
+            manifest,
+            args.targets_file,
+        )
+        if targets_hash_issue is not None:
+            raise SystemExit(targets_hash_issue)
     signal_end_date = manifest_signal_end_date(args.manifest_file)
     execution_hint = pd.Timestamp(
         live_execution_hint_for_signal(signal_end_date or signal_date)

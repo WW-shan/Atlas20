@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 from typing import Any
 
 import pandas as pd
@@ -35,11 +37,17 @@ for path in (PROJECT_ROOT, SRC_DIR):
 
 from atlas20.derivatives.bitget import BitgetClient, CANDLE_COLUMNS  # noqa: E402
 from atlas20.derivatives.mapping import build_symbol_map  # noqa: E402
-from atlas20.logging_utils import configure_logging, ensure_dir, get_logger  # noqa: E402
+from atlas20.logging_utils import (  # noqa: E402
+    atomic_write_text,
+    configure_logging,
+    ensure_dir,
+    get_logger,
+)
 
 LOGGER = get_logger(__name__)
 DEFAULT_TYPES = ("mark", "index", "market")
 _WINDOW_DAYS = 89
+DEFAULT_FUNDING_REFRESH_HOURS = 12.0
 
 
 def _read_panel(path: Path) -> pd.DataFrame:
@@ -87,7 +95,24 @@ def _load_state(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _save_state(path: Path, state: dict[str, dict[str, Any]]) -> None:
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(state, indent=2, sort_keys=True))
+
+
+def _write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:
+    """Replace a cache CSV only after the complete new file is written."""
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    os.close(fd)
+    temporary = Path(temporary_name)
+    try:
+        frame.to_csv(temporary, index=False)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _merge_candles(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
@@ -114,7 +139,9 @@ def _window_status(
         return "missing", expected
     times = pd.to_datetime(frame["open_time"], utc=True)
     actual = int(((times >= start) & (times < end)).sum())
-    if actual >= expected:
+    expected_index = pd.date_range(start, end, freq="h", inclusive="left")
+    actual_index = pd.DatetimeIndex(times[(times >= start) & (times < end)])
+    if actual >= expected and expected_index.difference(actual_index).empty:
         return "complete", expected
     return "partial", expected
 
@@ -193,7 +220,20 @@ def _download_funding(
     output_dir: Path,
     *,
     force: bool,
+    now: pd.Timestamp | None = None,
 ) -> dict[str, Any]:
+    """Refresh stale funding caches while retaining older local history.
+
+    The Bitget funding endpoint returns a rolling window.  A cache that was
+    written once must therefore be periodically refreshed, or a future short
+    target will fail the live data audit even though the mark feed is current.
+    """
+
+    current = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if current.tzinfo is None:
+        current = current.tz_localize("UTC")
+    else:
+        current = current.tz_convert("UTC")
     funding_dir = ensure_dir(output_dir / "funding")
     manifest: dict[str, Any] = {}
     for record in symbol_map.to_dict("records"):
@@ -202,14 +242,37 @@ def _download_funding(
         coin_id = str(record["coin_id"])
         symbol = str(record["bitget_symbol"])
         path = funding_dir / f"{coin_id}.csv"
-        if path.exists() and not force:
-            frame = pd.read_csv(path)
-            if not frame.empty:
+        if path.exists():
+            try:
+                cached = pd.read_csv(path)
+            except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+                LOGGER.warning("cached funding %s is unreadable (%s); refetching", path, exc)
+                cached = pd.DataFrame()
+        else:
+            cached = pd.DataFrame()
+        if not cached.empty:
+            cached["funding_time"] = pd.to_datetime(
+                cached["funding_time"], utc=True, errors="coerce"
+            )
+            cached["funding_rate"] = pd.to_numeric(
+                cached["funding_rate"], errors="coerce"
+            )
+            cached = cached.dropna(subset=["funding_time", "funding_rate"])
+        interval_raw = pd.to_numeric(record.get("fund_interval"), errors="coerce")
+        interval_hours = float(interval_raw) if pd.notna(interval_raw) else 0.0
+        last_cached = cached["funding_time"].max() if not cached.empty else pd.NaT
+        stale_after_hours = max(DEFAULT_FUNDING_REFRESH_HOURS, interval_hours)
+        cached_is_fresh = (
+            not pd.isna(last_cached)
+            and (current - last_cached).total_seconds() / 3600.0 <= stale_after_hours
+        )
+        if not force and cached_is_fresh:
+            if not cached.empty:
                 manifest[coin_id] = {
                     "symbol": symbol,
-                    "rows": int(len(frame)),
-                    "first": str(pd.to_datetime(frame["funding_time"], utc=True).min()),
-                    "last": str(pd.to_datetime(frame["funding_time"], utc=True).max()),
+                    "rows": int(len(cached)),
+                    "first": str(cached["funding_time"].min()),
+                    "last": str(cached["funding_time"].max()),
                     "cached": True,
                 }
                 continue
@@ -222,16 +285,29 @@ def _download_funding(
         if frame.empty:
             manifest[coin_id] = {"symbol": symbol, "available": False, "reason": "no funding rows"}
             continue
-        frame.to_csv(path, index=False)
+        frames = [item for item in (cached, frame) if not item.empty]
+        merged = pd.concat(frames, ignore_index=True)
+        merged["funding_time"] = pd.to_datetime(
+            merged["funding_time"], utc=True, errors="coerce"
+        )
+        merged["funding_rate"] = pd.to_numeric(merged["funding_rate"], errors="coerce")
+        merged = (
+            merged.dropna(subset=["funding_time", "funding_rate"])
+            .drop_duplicates("funding_time", keep="last")
+            .sort_values("funding_time")
+            .reset_index(drop=True)
+        )
+        _write_csv_atomic(merged, path)
         manifest[coin_id] = {
             "symbol": symbol,
-            "rows": int(len(frame)),
-            "first": str(frame["funding_time"].min()),
-            "last": str(frame["funding_time"].max()),
+            "rows": int(len(merged)),
+            "first": str(merged["funding_time"].min()),
+            "last": str(merged["funding_time"].max()),
             "cached": False,
         }
-    (output_dir / "funding_manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+    atomic_write_text(
+        output_dir / "funding_manifest.json",
+        json.dumps(manifest, indent=2, sort_keys=True),
     )
     return manifest
 
@@ -282,9 +358,9 @@ def main() -> None:
     )
     contracts = client.fetch_contracts()
     symbol_map = build_symbol_map(panel, contracts)
-    symbol_map.to_csv(output_dir / "symbol_map.csv", index=False)
-    (output_dir / "contracts.json").write_text(
-        json.dumps(contracts, indent=2, sort_keys=True), encoding="utf-8"
+    _write_csv_atomic(symbol_map, output_dir / "symbol_map.csv")
+    atomic_write_text(
+        output_dir / "contracts.json", json.dumps(contracts, indent=2, sort_keys=True)
     )
     LOGGER.info("Bitget contracts: %s; mapped coins: %s", len(contracts), int(symbol_map["bitget_symbol"].ne("").sum()))
 
@@ -322,7 +398,14 @@ def main() -> None:
             state_key = f"{symbol}_{candle_type}"
             window_state: dict[str, Any] = state.setdefault(state_key, {})
             path = candle_dir / f"{symbol}_{candle_type}.csv"
-            existing = pd.read_csv(path) if path.exists() and not args.force else pd.DataFrame(columns=CANDLE_COLUMNS)
+            if path.exists() and not args.force:
+                try:
+                    existing = pd.read_csv(path)
+                except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+                    LOGGER.warning("cached candles %s are unreadable (%s); refetching", path, exc)
+                    existing = pd.DataFrame(columns=CANDLE_COLUMNS)
+            else:
+                existing = pd.DataFrame(columns=CANDLE_COLUMNS)
             for window_start, window_end in windows:
                 key = window_start.isoformat()
                 cached_status = window_state.get(key, {}).get("status")
@@ -364,7 +447,7 @@ def main() -> None:
                     "expected_rows": int(expected_rows),
                 }
                 _save_state(state_path, state)
-            existing.to_csv(path, index=False)
+            _write_csv_atomic(existing, path)
             coverage_rows.append(_coverage_row(coin_id, symbol, candle_type, existing, window_state, windows))
             LOGGER.info(
                 "%s %s: %s rows, %s complete windows, %s missing",
@@ -376,9 +459,10 @@ def main() -> None:
             )
 
     coverage = pd.DataFrame(coverage_rows)
-    coverage.to_csv(output_dir / "coverage.csv", index=False)
-    (output_dir / "coverage.json").write_text(
-        json.dumps(coverage_rows, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    _write_csv_atomic(coverage, output_dir / "coverage.csv")
+    atomic_write_text(
+        output_dir / "coverage.json",
+        json.dumps(coverage_rows, indent=2, sort_keys=True, default=str),
     )
     print(f"wrote {output_dir} ({len(selected)} symbols, {client.request_count} requests)")
 

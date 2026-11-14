@@ -1,0 +1,35 @@
+{
+  "generated_for": "2026-11-14",
+  "headline": {
+    "ideal_oos_0105_multiple": 0.9437661603194536,
+    "legacy_oos_0300_multiple": 0.9365492890377107,
+    "live_parity_full_20bps_multiple": 65.25920284487101,
+    "live_parity_full_6bps_diagnostic_multiple": 83.98515241183044,
+    "live_parity_oos_multiple": 0.938508152459474
+  },
+  "live_execution": false,
+  "report_sha256": "5492244f273d36ee449bcdc03574d3bd5f7a8a04ede641a2b4fda31d31e6baf4",
+  "research_only": true,
+  "sources": {
+    "ideal_oos_0105": {
+      "path": "reports/ls45_live_g125_0105_ideal/summary.json",
+      "sha256": "a80c4b98d690663250eedc0b14c5e0f728242faeb70b92100e8f7b565c491d98"
+    },
+    "legacy_oos_0300": {
+      "path": "reports/ls45_live_g125_legacy_0300/summary.json",
+      "sha256": "47ed83635d0373b868590c5b148f14627c6b158512fbaf313ac6e74a017f797e"
+    },
+    "live_parity_full_20bps": {
+      "path": "reports/ls45_live_g125_full_0105/summary.json",
+      "sha256": "e5fa91d90de18322ee147e9be099d514e47dfc15dd283c97b4b3c1ec02bf91c2"
+    },
+    "live_parity_full_6bps_diagnostic": {
+      "path": "reports/ls45_live_g125_full_0105_6bps/summary.json",
+      "sha256": "3e508472c2f6c3d0f9679a13300b7db4088c9f26b8b6d97c5bff420837eca9a1"
+    },
+    "live_parity_oos": {
+      "path": "reports/ls45_live_g125/summary.json",
+      "sha256": "a19cd9229788ea29a8eeb2fec697391ee7efab44531022586969959c4948b275"
+    }
+  }
+}

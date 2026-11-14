@@ -40,6 +40,7 @@ com.atlas20.derivatives-execute
      -> derivatives-live-data
      -> derivatives-ls45-signal
      -> audit-data
+     -> audit-signal
      -> scripts/execute_live_plan.py --live --notify --require-isolated
 ```
 
@@ -119,14 +120,19 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
    - 刷新后再次检查，仍不完整就拒绝下单。
 3. **数据与账本**：`make derivatives-live-data derivatives-ls45-signal`
 4. **数据审计**：`make audit-data`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
-   空头所需 funding 过期、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行
-5. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
+   **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
+   `audit-data` 还校验 mark/funding 单调性、funding manifest 与实际最后时间一致，以及最新
+   panel 的 price/volume/market-cap 有效值。
+5. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；任何差异都会拒绝执行。
+6. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
 
 执行器自身还有：
 
 - 持有 `data/ls45_g125_execution.lock` 的进程级 `flock`；另一个实例直接退出；
 - mark 新鲜度硬阈值 30h；
 - 目标账本评估日必须等于数据最新可判定日；
+- `manifest.targets_sha256` 必须与 `oos_targets.csv` 字节哈希一致，防止“新账本 + 旧 manifest”
+  或进程中断留下的半写账本被当成完整目标；
 - 实时 ticker 不得超过 120s、价格必须可用；
 - account equity 不低于 20 USDT；
 - kill switch 文件存在时拒绝一切操作；
@@ -323,7 +329,7 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读，当前正常路径为 **28 项硬检查 + 1 项非硬告警**：
+`scripts/audit_live_track.py` 只读，当前实现为 **31 项硬检查 + 1 项非硬告警**，下面按检查族列出：
 
 1. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
 2. 账户 API 必需字段完整且有限；
@@ -353,7 +359,8 @@ make audit-live
 25. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
 26. 账本评估日 = 数据最新可判定日；
 27. manifest 的 `tracked_spec`、冻结参数、成本、funding source 和 gross cap 与当前 LS45-G125 规格完全一致；
-28. journal 信号日 = 冻结账本最新信号日。
+28. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；
+29. journal 信号日 = 冻结账本最新信号日。
 
 另有 1 项非硬告警记录最近交易事件距今天数；事件驱动账本长期没有新事件是正常的。若 journal 为空，会先报“台账存在”硬失败并跳过依赖 journal 的检查。
 
@@ -371,7 +378,7 @@ make audit-live
 | 对账 | `reports/ls45_live_g125_live/audit.json` | `hard_failures = 0` |
 | 巡检 | `reports/ls45_live_g125_live/health.json` | `issues` 为空 |
 | journal | `reports/ls45_live_g125_live/journal.csv` | 每日一行；同日重跑覆盖 |
-| 数据覆盖 | `reports/ls45_live_g125/manifest.json` | `missing_hours = 0`，mark 新鲜 ≤ 30h |
+| 数据覆盖 | `reports/ls45_live_g125/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 的 2h provider gaps 单独查看，不能和 live OOS 覆盖混为一谈 |
 | 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
 | funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属 |
 

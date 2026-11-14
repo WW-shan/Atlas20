@@ -178,7 +178,18 @@ def _has_execution_mark(
     mark_candles: dict[str, pd.DataFrame],
     asset: str,
     date: pd.Timestamp,
+    *,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
+    execution_price_snap: str = "ceil",
 ) -> bool:
+    """Return whether an asset can fill a signal at the configured clock.
+
+    The old research convention used a 03:00 exact/ceil lookup.  Live-parity
+    runs use 01:05 with a floor lookup, so availability must follow the same
+    resolver as the engine rather than silently checking 03:00 for every run.
+    """
+
     frame = mark_candles.get(asset)
     if frame is None:
         return False
@@ -187,9 +198,18 @@ def _has_execution_mark(
         execution_time = execution_time.tz_localize("UTC")
     else:
         execution_time = execution_time.tz_convert("UTC")
-    execution_time = execution_time.normalize() + pd.Timedelta(days=1, hours=3)
+    execution_time = execution_time.normalize() + pd.Timedelta(
+        days=1, hours=execution_hour, minutes=execution_minute
+    )
     if execution_time in frame.index:
         return True
+    if execution_price_snap == "floor":
+        earlier = frame.index[frame.index <= execution_time]
+        return bool(len(earlier) and execution_time - earlier[-1] <= pd.Timedelta(hours=1))
+    if execution_price_snap == "exact":
+        return False
+    if execution_price_snap != "ceil":
+        raise ValueError("execution_price_snap must be 'exact', 'floor', or 'ceil'")
     later = frame.index[frame.index >= execution_time]
     return bool(len(later) and later[0] - execution_time <= pd.Timedelta(hours=1))
 
@@ -207,6 +227,10 @@ def _restrict_targets(
     targets: dict[pd.Timestamp, pd.Series],
     available: set[str],
     mark_candles: dict[str, pd.DataFrame],
+    *,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
+    execution_price_snap: str = "ceil",
 ) -> tuple[dict[pd.Timestamp, pd.Series], pd.Series]:
     """Drop unavailable Bitget assets to cash without renormalizing the book."""
     restricted: dict[pd.Timestamp, pd.Series] = {}
@@ -215,7 +239,14 @@ def _restrict_targets(
         weights = pd.to_numeric(weights, errors="coerce").fillna(0.0)
         keep_mask = weights.index.isin(available) & pd.Index(
             [
-                _has_execution_mark(mark_candles, str(asset), pd.Timestamp(date))
+                _has_execution_mark(
+                    mark_candles,
+                    str(asset),
+                    pd.Timestamp(date),
+                    execution_hour=execution_hour,
+                    execution_minute=execution_minute,
+                    execution_price_snap=execution_price_snap,
+                )
                 for asset in weights.index
             ]
         )

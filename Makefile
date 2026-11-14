@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-signal
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -72,10 +72,12 @@ derivatives-live-data: $(VENV_STAMP)
 		--end $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=1)).date())") \
 		--types mark
 
-derivatives-ls45-signal: $(VENV_STAMP)
+derivatives-ls45-signal: derivatives-live-data $(VENV_STAMP)
 	$(PYTHON) scripts/run_ls45_live_signal.py
 
 derivatives-live: derivatives-live-data derivatives-ls45-signal
+	$(MAKE) audit-data
+	$(MAKE) audit-signal
 	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
 
 # Legacy L125 research refresher. The live chain above no longer calls these
@@ -129,7 +131,7 @@ audit-live: $(VENV_STAMP)
 # Bitget marks and funding. The daily wrapper runs this after the signal book
 # is rebuilt and before the executor can place an order.
 audit-data: $(VENV_STAMP)
-	$(PYTHON) scripts/audit_derivatives_data.py
+	$(PYTHON) scripts/audit_derivatives_data.py --require-all-funding-fresh
 
 # Prove the live target book is the same computation as the reviewed
 # backtest (rebuild both, compare every overlapping target event).

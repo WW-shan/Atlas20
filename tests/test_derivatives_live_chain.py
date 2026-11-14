@@ -295,3 +295,25 @@ def test_default_schedule_matches_the_launchd_job(hour: int, minute: int) -> Non
     # ops/com.atlas20.derivatives-execute.plist fires at 09:05 Beijing = 01:05
     # UTC; the gate must not open before the LS45 execution window.
     assert (hour, minute) == (1, 5)
+
+
+def test_manifest_target_hash_detects_a_partial_target_rewrite(tmp_path: Path) -> None:
+    from atlas20.derivatives.live_chain import (
+        file_sha256,
+        manifest_targets_hash_issue,
+    )
+
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text("asset,target_weight\nnear,0.25\n", encoding="utf-8")
+    manifest = {
+        "targets_file": targets.name,
+        "targets_sha256": file_sha256(targets),
+    }
+
+    assert manifest_targets_hash_issue(manifest, targets) is None
+
+    targets.write_text("asset,target_weight\nnear,0.25\nzcash,0.25\n", encoding="utf-8")
+
+    issue = manifest_targets_hash_issue(manifest, targets)
+    assert issue is not None
+    assert "targets_sha256" in issue

@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-14T01:12:31.784885+00:00",
+  "checked_at": "2026-11-14T10:17:46.637866+00:00",
   "checks": [
     {
       "check": "venue drill 订单登记表可读",
@@ -39,7 +39,7 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + uPnL",
-      "detail": "499.6287 vs 499.6286 + 0.0000 = 499.6286",
+      "detail": "499.6264 vs 499.6262 + 0.0000 = 499.6262",
       "hard": true,
       "ok": true
     },
@@ -75,7 +75,7 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-14 equity=499.6287；折算后应为 499.6287，交易所 499.6287",
+      "detail": "台账 2026-11-14 equity=499.6287；折算后应为 499.6287，交易所 499.6264",
       "hard": true,
       "ok": true
     },
@@ -123,9 +123,9 @@
     },
     {
       "check": "持仓与冻结目标一致（1%/1.5 个合约步长容差）",
-      "detail": "全部吻合",
+      "detail": "BITCOIN-CASH 目标 -31.23 vs 实际 0.00; HYPERLIQUID 目标 -31.23 vs 实际 0.00; NEAR 目标 -31.23 vs 实际 0.00; ZCASH 目标 -31.23 vs 实际 0.00",
       "hard": true,
-      "ok": true
+      "ok": false
     },
     {
       "check": "无计划外持仓",
@@ -135,7 +135,7 @@
     },
     {
       "check": "冻结目标 gross <= 1.25x（规格上限）",
-      "detail": "目标 gross 0.0000x",
+      "detail": "目标 gross 0.2500x",
       "hard": true,
       "ok": true
     },
@@ -147,7 +147,7 @@
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-14 00:00:00+00:00（1.2h 前）",
+      "detail": "最新 mark 2026-11-14 08:00:00+00:00（2.3h 前）",
       "hard": true,
       "ok": true
     },
@@ -164,33 +164,39 @@
       "ok": true
     },
     {
+      "check": "目标账本与 manifest 内容哈希一致",
+      "detail": "targets_sha256 一致",
+      "hard": true,
+      "ok": true
+    },
+    {
       "check": "数据可靠性审计通过",
-      "detail": "89 warning(s)",
+      "detail": "1 warning(s)",
       "hard": true,
       "ok": true
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:dbe30e1fef14f574414792fe157599a4a8af25fb13e6b403adecbb345ead2576 current=sha256:dbe30e1fef14f574414792fe157599a4a8af25fb13e6b403adecbb345ead2576",
+      "detail": "manifest=sha256:9ccd2bac1ca17aa9c6c9e4b57d5ff3ab52e9d246b5567a4a734ff64f5428c08f current=sha256:9ccd2bac1ca17aa9c6c9e4b57d5ff3ab52e9d246b5567a4a734ff64f5428c08f",
       "hard": true,
       "ok": true
     },
     {
       "check": "信号事件距今（事件驱动，非每日变化）",
-      "detail": "最近一次仓位变化 2026-11-06（8 天前；无变化＝继续持有）",
+      "detail": "最近一次仓位变化 2026-11-13（1 天前；无变化＝继续持有）",
       "hard": false,
       "ok": true
     },
     {
       "check": "台账信号日 = 冻结账本最新信号日",
-      "detail": "台账 2026-11-06 vs 账本 2026-11-06",
+      "detail": "台账 2026-11-06 vs 账本 2026-11-13",
       "hard": true,
-      "ok": true
+      "ok": false
     }
   ],
-  "equity": 499.62874939,
-  "hard_failures": 0,
+  "equity": 499.62638899,
+  "hard_failures": 2,
   "position_value": 0,
-  "signal_date": "2026-11-06",
+  "signal_date": "2026-11-13",
   "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 }

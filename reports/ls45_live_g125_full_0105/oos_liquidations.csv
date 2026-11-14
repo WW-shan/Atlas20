@@ -1,0 +1,2 @@
+trigger_timestamp,asset,side,entry_price,liquidation_price,execution_price,quantity,margin_before,bad_debt
+2025-02-03 02:00:00+00:00,ripple,long,3.1529933068594125,1.9384376836963764,1.9374684648545284,279.0,344.26926,0.0

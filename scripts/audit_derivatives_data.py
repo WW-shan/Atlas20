@@ -74,6 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--markdown-out", type=Path, default=DEFAULT_MARKDOWN_OUT)
     parser.add_argument("--now", default=None, help="ISO timestamp; defaults to current UTC")
     parser.add_argument("--min-panel-assets", type=int, default=20)
+    parser.add_argument(
+        "--require-all-funding-fresh",
+        action="store_true",
+        help="require fresh funding for every normal contract, not only selected shorts",
+    )
     args = parser.parse_args(argv)
 
     now = datetime.fromisoformat(args.now.replace("Z", "+00:00")) if args.now else datetime.now(timezone.utc)
@@ -85,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         now=now,
         min_panel_assets=int(args.min_panel_assets),
         required_short_assets=_required_short_assets(args.targets_file),
+        require_all_funding_fresh=bool(args.require_all_funding_fresh),
     )
     payload = report.as_dict()
     ensure_dir(args.json_out.parent)

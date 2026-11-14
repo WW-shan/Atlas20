@@ -1900,7 +1900,14 @@ def main() -> None:
     symbol_map = pd.read_csv(args.raw_dir / "symbol_map.csv")
     mark_candles = load_mark_candles(args.raw_dir, symbol_map)
     available = set(mark_candles)
-    restricted, dropped = _restrict_targets(long_raw, available, mark_candles)
+    restricted, dropped = _restrict_targets(
+        long_raw,
+        available,
+        mark_candles,
+        execution_hour=int(args.execution_hour),
+        execution_minute=int(args.execution_minute),
+        execution_price_snap=str(args.execution_price_snap),
+    )
     long_targets = scale_long_targets(
         restricted,
         leverage=float(FROZEN_CONFIG["h5_leverage"]),

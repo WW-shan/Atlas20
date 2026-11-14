@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date, datetime, time, timedelta, timezone
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -232,6 +233,48 @@ def manifest_staleness_hours(manifest: dict[str, Any], now: datetime) -> float:
         except (TypeError, ValueError, OverflowError):
             return float("inf")
     return float("inf")
+
+
+def file_sha256(path: Path) -> str:
+    """Return the SHA-256 of a local artifact without loading it into memory."""
+
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def manifest_targets_hash_issue(
+    manifest: Mapping[str, Any],
+    targets_file: Path,
+) -> str | None:
+    """Check that the target CSV is the exact file covered by its manifest.
+
+    A killed process can leave a newly written ``oos_targets.csv`` beside an
+    older manifest.  The executor must not interpret that mixed snapshot as a
+    valid target book, so the manifest commits to the target bytes.
+    """
+
+    expected = str(manifest.get("targets_sha256") or "")
+    if not expected:
+        return None
+    path = Path(targets_file)
+    if not path.is_file():
+        return f"targets file is missing: {path}"
+    actual = file_sha256(path)
+    if actual != expected:
+        return (
+            f"targets_sha256 mismatch: manifest={expected}, actual={actual}; "
+            "rebuild the LS45 signal"
+        )
+    recorded_name = str(manifest.get("targets_file") or "")
+    if recorded_name and Path(recorded_name).name != path.name:
+        return (
+            f"targets_file={path.name!r} does not match manifest "
+            f"{recorded_name!r}"
+        )
+    return None
 
 
 def panel_end_date(panel_path: Path) -> date | None:

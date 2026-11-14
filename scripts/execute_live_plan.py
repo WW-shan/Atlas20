@@ -64,6 +64,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     live_execution_hint_for_signal,
     manifest_spec_issues,
     manifest_staleness_hours,
+    manifest_targets_hash_issue,
 )
 from atlas20.derivatives.live_executor import (  # noqa: E402
     ExecutionReport,
@@ -911,12 +912,23 @@ def _main(args: argparse.Namespace) -> int:
             "refusing to trade without an evaluated-date and mark-freshness proof"
         )
     if manifest is not None:
+        if args.live and not manifest.get("targets_sha256"):
+            raise SystemExit(
+                "live execution requires manifest targets_sha256; "
+                "rebuild the LS45 signal so the target file is content-addressed"
+            )
         manifest_issues = _manifest_spec_issues(manifest, args)
         if manifest_issues:
             raise SystemExit(
                 "frozen manifest does not match the current LS45-G125 live "
                 "specification: " + "; ".join(manifest_issues)
             )
+        targets_hash_issue = manifest_targets_hash_issue(
+            manifest,
+            args.targets_file,
+        )
+        if targets_hash_issue is not None:
+            raise SystemExit(targets_hash_issue)
     if manifest is not None and (args.live or args.require_data_audit):
         required_short_assets = {
             str(record["asset"])
@@ -929,6 +941,7 @@ def _main(args: argparse.Namespace) -> int:
             args.symbol_map,
             args.manifest_file,
             required_short_assets=required_short_assets,
+            require_all_funding_fresh=True,
         )
         if not data_audit.passed:
             raise SystemExit(

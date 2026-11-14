@@ -208,6 +208,47 @@ def test_stale_funding_fails_when_short_is_required(tmp_path: Path) -> None:
     assert any("funding is stale" in item for item in report.hard_failures)
 
 
+def test_all_funding_must_be_fresh_for_the_live_short_sleeve(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    stale = pd.to_datetime(frame["funding_time"], utc=True) <= pd.Timestamp(
+        "2026-11-12T16:00:00Z"
+    )
+    frame.loc[stale].to_csv(path, index=False)
+
+    report = _audit(paths, require_all_funding_fresh=True)
+
+    assert report.passed is False
+    assert any("live short sleeve" in item for item in report.hard_failures)
+
+
+def test_non_monotonic_funding_fails(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = frame.iloc[[1, 0, 2, 3]]
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("not monotonic" in item for item in report.hard_failures)
+
+
+def test_latest_panel_market_cap_must_be_finite(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    frame = pd.read_csv(paths["panel"])
+    latest = frame["date"] == "2026-11-13"
+    frame.loc[latest, "market_cap"] = float("nan")
+    frame.to_csv(paths["panel"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("latest market-cap" in item for item in report.hard_failures)
+
+
 def test_ambiguous_symbol_mapping_fails(tmp_path: Path) -> None:
     paths = _fixture(tmp_path)
     frame = pd.read_csv(paths["symbol_map"])

@@ -130,12 +130,15 @@ def _read_panel(path: Path, report: DataAuditReport, now: datetime) -> pd.DataFr
         _check(report, "panel.valid_market_cap", not invalid_cap.any(), f"{int(invalid_cap.sum())} negative/non-finite market-cap row(s)", hard=False)
         latest = frame["date"].max()
         latest_rows = frame.loc[frame["date"] == latest]
-        latest_price = pd.to_numeric(latest_rows["price"], errors="coerce")
-        latest_volume = pd.to_numeric(latest_rows["volume_usd"], errors="coerce")
-        latest_cap = pd.to_numeric(latest_rows["market_cap"], errors="coerce")
-        _check(report, "panel.latest_price", bool((latest_price > 0.0).all()), f"{int((latest_price <= 0.0).sum())} non-positive latest price row(s)")
-        _check(report, "panel.latest_volume", bool((latest_volume >= 0.0).all()), f"{int((latest_volume < 0.0).sum())} negative latest volume row(s)")
-        _check(report, "panel.latest_market_cap", bool((latest_cap >= 0.0).all()), f"{int((latest_cap < 0.0).sum())} negative latest market-cap row(s)")
+        latest_price = pd.to_numeric(latest_rows["price"], errors="coerce").to_numpy(dtype=float)
+        latest_volume = pd.to_numeric(latest_rows["volume_usd"], errors="coerce").to_numpy(dtype=float)
+        latest_cap = pd.to_numeric(latest_rows["market_cap"], errors="coerce").to_numpy(dtype=float)
+        latest_price_bad = ~np.isfinite(latest_price) | (latest_price <= 0.0)
+        latest_volume_bad = ~np.isfinite(latest_volume) | (latest_volume < 0.0)
+        latest_cap_bad = ~np.isfinite(latest_cap) | (latest_cap < 0.0)
+        _check(report, "panel.latest_price", not latest_price_bad.any(), f"{int(latest_price_bad.sum())} non-positive/non-finite latest price row(s)")
+        _check(report, "panel.latest_volume", not latest_volume_bad.any(), f"{int(latest_volume_bad.sum())} negative/non-finite latest volume row(s)")
+        _check(report, "panel.latest_market_cap", not latest_cap_bad.any(), f"{int(latest_cap_bad.sum())} negative/non-finite latest market-cap row(s)")
     return frame
 
 
@@ -148,7 +151,7 @@ def _read_symbol_map(path: Path, report: DataAuditReport) -> pd.DataFrame | None
     except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
         _check(report, "symbol_map.readable", False, str(exc))
         return None
-    required = {"coin_id", "bitget_symbol", "contract_status", "fund_interval", "min_trade_usdt", "size_multiplier"}
+    required = {"coin_id", "bitget_symbol", "contract_status", "reason", "fund_interval", "min_trade_usdt", "size_multiplier"}
     missing = sorted(required.difference(frame.columns))
     _check(report, "symbol_map.columns", not missing, f"missing columns {missing}" if missing else "all required columns present")
     if missing:
@@ -191,6 +194,16 @@ def _read_contracts(path: Path, report: DataAuditReport) -> dict[str, dict[str, 
         return {}
     rows = [item for item in payload if isinstance(item, dict)]
     _check(report, "contracts.list", bool(rows), f"{len(rows)} contract row(s)")
+    symbols = [str(row.get("symbol") or "").upper() for row in rows if row.get("symbol")]
+    duplicates = sorted(
+        {symbol for symbol in symbols if symbols.count(symbol) > 1}
+    )
+    _check(
+        report,
+        "contracts.unique_symbol",
+        not duplicates,
+        f"duplicate contract symbol(s): {duplicates}" if duplicates else "symbols unique",
+    )
     return {str(row.get("symbol") or "").upper(): row for row in rows if row.get("symbol")}
 
 
@@ -200,17 +213,19 @@ def _read_funding(
     report: DataAuditReport,
     *,
     required_short_assets: set[str],
+    require_all_fresh: bool,
     stale_hours: float,
     now: datetime,
 ) -> dict[str, dict[str, Any]]:
     manifest_path = raw_dir / "funding_manifest.json"
+    manifest_payload: object = None
     if manifest_path.is_file():
         try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
             _check(
                 report,
                 "funding.manifest_object",
-                isinstance(payload, dict),
+                isinstance(manifest_payload, dict),
                 "funding manifest must be a JSON object",
             )
         except (OSError, json.JSONDecodeError) as exc:
@@ -237,9 +252,36 @@ def _read_funding(
         rates = pd.to_numeric(frame["funding_rate"], errors="coerce")
         valid = stamps.notna() & rates.notna() & np.isfinite(rates.to_numpy(dtype=float))
         _check(report, f"funding.{asset}.valid_rows", bool(valid.all()), f"{int((~valid).sum())} invalid row(s)")
+        valid_stamps = stamps.loc[valid].reset_index(drop=True)
+        _check(
+            report,
+            f"funding.{asset}.monotonic",
+            bool(valid_stamps.is_monotonic_increasing),
+            "funding_time is not monotonic",
+        )
         clean = pd.DataFrame({"funding_time": stamps[valid], "funding_rate": rates[valid]}).sort_values("funding_time")
         _check(report, f"funding.{asset}.unique_time", not clean["funding_time"].duplicated().any(), f"{int(clean['funding_time'].duplicated().sum())} duplicate timestamp(s)")
         last = clean["funding_time"].max() if not clean.empty else pd.NaT
+        _check(
+            report,
+            f"funding.{asset}.no_future",
+            bool(pd.isna(last) or _as_utc(last) <= _as_utc(now) + pd.Timedelta(hours=1)),
+            f"latest funding timestamp {last} is materially in the future",
+        )
+        if isinstance(manifest_payload, dict):
+            entry = manifest_payload.get(asset)
+            manifest_last = entry.get("last") if isinstance(entry, dict) else None
+            try:
+                manifest_last_ts = pd.Timestamp(manifest_last) if manifest_last else pd.NaT
+            except (TypeError, ValueError):
+                manifest_last_ts = pd.NaT
+            _check(
+                report,
+                f"funding.{asset}.manifest_matches",
+                (pd.isna(last) and pd.isna(manifest_last_ts))
+                or (not pd.isna(last) and not pd.isna(manifest_last_ts) and _as_utc(last) == _as_utc(manifest_last_ts)),
+                f"manifest last={manifest_last!r} actual last={last}",
+            )
         interval = float(pd.to_numeric(row.get("fund_interval"), errors="coerce")) if pd.notna(row.get("fund_interval")) else float("nan")
         stale = False
         if pd.isna(last):
@@ -247,7 +289,14 @@ def _read_funding(
         else:
             age = (_as_utc(now) - _as_utc(last)).total_seconds() / 3600.0
             stale = age > max(stale_hours, interval if np.isfinite(interval) else 0.0)
-        if asset in required_short_assets:
+        if require_all_fresh:
+            _check(
+                report,
+                f"funding.{asset}.fresh",
+                not stale,
+                "funding is stale for the live short sleeve" if stale else "fresh",
+            )
+        elif asset in required_short_assets:
             _check(report, f"funding.{asset}.fresh_for_short", not stale, "funding is stale for a required short" if stale else "fresh for required short")
         elif stale:
             _check(report, f"funding.{asset}.fresh", False, "funding is stale but no short is required", hard=False)
@@ -269,6 +318,7 @@ def audit_derivatives_data(
     now: datetime | None = None,
     min_panel_assets: int = 20,
     required_short_assets: Iterable[str] | None = None,
+    require_all_funding_fresh: bool = False,
     execution_utc: time = DEFAULT_EXECUTION_UTC,
     funding_stale_hours: float = DEFAULT_FUNDING_STALE_HOURS,
 ) -> DataAuditReport:
@@ -344,6 +394,13 @@ def audit_derivatives_data(
             numeric = frame.loc[:, ["open", "high", "low", "close"]].apply(pd.to_numeric, errors="coerce")
             valid = stamps.notna() & numeric.notna().all(axis=1)
             _check(report, f"marks.{asset}.valid_rows", bool(valid.all()), f"{int((~valid).sum())} invalid row(s)")
+            valid_stamps = stamps.loc[valid].reset_index(drop=True)
+            _check(
+                report,
+                f"marks.{asset}.monotonic",
+                bool(valid_stamps.is_monotonic_increasing),
+                "mark open_time is not monotonic",
+            )
             clean = numeric.loc[valid].copy()
             clean.index = pd.DatetimeIndex(stamps.loc[valid])
             clean = clean.sort_index()
@@ -387,6 +444,7 @@ def audit_derivatives_data(
             symbol_map,
             report,
             required_short_assets={str(asset) for asset in (required_short_assets or ())},
+            require_all_fresh=bool(require_all_funding_fresh),
             stale_hours=float(funding_stale_hours),
             now=moment,
         )

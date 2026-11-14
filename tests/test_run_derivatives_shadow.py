@@ -19,7 +19,9 @@ def test_shadow_targets_preserve_signed_long_and_short_weights() -> None:
     assert by_asset.loc["ethereum", "side"] == "short"
     assert by_asset.loc["ethereum", "target_weight"] == -0.25
     assert by_asset.loc["ethereum", "target_notional_per_1k"] == -250.0
-    assert by_asset.loc["bitcoin", "execution_hint"] == signal + pd.Timedelta(days=1, hours=3)
+    assert by_asset.loc["bitcoin", "execution_hint"] == signal + pd.Timedelta(
+        days=1, hours=1, minutes=5
+    )
 
 
 def test_shadow_targets_can_use_the_single_0105_execution_clock() -> None:
@@ -120,7 +122,48 @@ def test_mark_coverage_detects_hourly_page_boundary_gaps() -> None:
     assert coverage["expected_hours"] == 4
     assert coverage["missing_hours"] == 1
     assert coverage["max_gap_hours"] == 2.0
+    assert coverage["gap_event_count"] == 1
+    assert coverage["two_hour_gap_count"] == 1
+    assert coverage["assets_with_observations"] == 2
     assert coverage["assets_with_gaps"] == 1
+
+
+def test_mark_coverage_does_not_count_pre_listing_history_as_a_gap() -> None:
+    from scripts.run_derivatives_shadow import _mark_coverage
+
+    start = pd.Timestamp("2026-01-01", tz="UTC")
+    end = start + pd.Timedelta(hours=6)
+    late = pd.DataFrame(
+        {"close": [1.0, 1.0, 1.0, 1.0]},
+        index=pd.date_range(start + pd.Timedelta(hours=2), periods=4, freq="h"),
+    )
+
+    coverage = _mark_coverage({"late": late}, start=start, end=end)
+
+    assert coverage["missing_hours"] == 0
+    assert coverage["assets_with_gaps"] == 0
+    assert coverage["expected_hours"] == 4
+
+
+def test_execution_mark_availability_uses_the_0105_floor_clock() -> None:
+    from scripts.run_derivatives_backtest import _has_execution_mark
+
+    signal = pd.Timestamp("2026-01-01", tz="UTC")
+    frame = pd.DataFrame(
+        {"open": [100.0], "high": [100.0], "low": [100.0], "close": [100.0]},
+        index=pd.DatetimeIndex(["2026-01-02T01:00:00Z"]),
+    )
+    candles = {"bitcoin": frame}
+
+    assert _has_execution_mark(
+        candles,
+        "bitcoin",
+        signal,
+        execution_hour=1,
+        execution_minute=5,
+        execution_price_snap="floor",
+    )
+    assert not _has_execution_mark(candles, "bitcoin", signal)
 
 
 def test_merge_mark_maps_lets_oos_marks_override_warmup_overlap() -> None:
@@ -190,3 +233,62 @@ def test_max_total_gross_override_is_validated() -> None:
     assert _resolve_max_total_gross(1.25) == pytest.approx(1.25)
     with pytest.raises(ValueError, match="max_total_gross"):
         _resolve_max_total_gross(0.0)
+
+
+def test_mark_tree_provenance_hashes_each_symbol_file(tmp_path) -> None:
+    from scripts.run_derivatives_shadow import _mark_tree_provenance
+
+    candles = tmp_path / "candles"
+    candles.mkdir()
+    for symbol in ("BTCUSDT", "ETHUSDT"):
+        (candles / f"{symbol}_mark.csv").write_text(
+            "open_time,open,high,low,close\n"
+            "2026-01-01T00:00:00Z,1,1,1,1\n",
+            encoding="utf-8",
+        )
+    symbol_map = pd.DataFrame(
+        {
+            "coin_id": ["bitcoin", "ethereum", "missing", "unmapped"],
+            "bitget_symbol": ["BTCUSDT", "ETHUSDT", "MISSINGUSDT", float("nan")],
+        }
+    )
+
+    provenance = _mark_tree_provenance(tmp_path, symbol_map)
+
+    assert provenance["mark_file_count"] == 2
+    assert provenance["missing_symbols"] == ["MISSINGUSDT"]
+    assert set(provenance["files"]) == {
+        "candles/BTCUSDT_mark.csv",
+        "candles/ETHUSDT_mark.csv",
+    }
+    assert provenance["fingerprint"].startswith("sha256:")
+
+
+def test_execution_mark_audit_records_a_missing_0100_floor_bar() -> None:
+    from scripts.run_derivatives_shadow import _execution_mark_audit
+
+    first_signal = pd.Timestamp("2026-01-01", tz="UTC")
+    second_signal = pd.Timestamp("2026-01-03", tz="UTC")
+    frame = pd.DataFrame(
+        {"open": [100.0], "high": [100.0], "low": [100.0], "close": [100.0]},
+        index=pd.DatetimeIndex(["2026-01-02T01:00:00Z"]),
+    )
+
+    audit = _execution_mark_audit(
+        {
+            first_signal: pd.Series({"bitcoin": 0.5}),
+            second_signal: pd.Series({"bitcoin": -0.25}),
+        },
+        {"bitcoin": frame},
+        execution_hour=1,
+        execution_minute=5,
+        execution_price_snap="floor",
+    )
+
+    assert audit["required_pair_count"] == 2
+    assert audit["resolved_pair_count"] == 1
+    assert audit["floor_resolved_count"] == 1
+    assert audit["exact_bar_count"] == 0
+    assert audit["missing_pair_count"] == 1
+    assert audit["missing"][0]["signal_date"] == str(second_signal)
+    assert audit["missing"][0]["asset"] == "bitcoin"

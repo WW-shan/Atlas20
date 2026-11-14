@@ -5,10 +5,13 @@
 - frozen long/short book: H5 1.25x + LS45 stronger-21D profit-lock redistribution/regime short
 - cost: 20 bps; capital reference: 1,000 units
 - execution: 01:05 UTC; price model mark_1h_open_floor
-- funding: bitget-exact (available through 2026-11-11 16:00:00+00:00; stale shorts flattened)
-- last mark: 2026-11-14 00:00:00+00:00; staleness: 1.2h
+- target ledger: oos_targets.csv; sha256 e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871
+- funding: bitget-exact (complete for the OOS window)
+- last mark: 2026-11-14 08:00:00+00:00; staleness: 2.0h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
-- mark coverage: 0 missing hours; 88 assets checked; max gap 1.0h
+- warmup provenance: sha256:77bff92b77750c483bc63041fa2b72d31f576dfaf006d167d91d9ce81121d0ad; 87 mark files; 28371 missing hours; 26265 gaps (26265 two-hour); max gap 2.0h
+- mark coverage: 0 missing hours; 88 assets checked; 0 gaps (0 two-hour); max gap 1.0h
+- execution-bar audit: 72/72 target pairs resolved; 0 missing
 
 ## OOS metrics
 
@@ -24,13 +27,14 @@
 
 ## Latest target book
 
-- signal date: 2026-11-06 00:00:00+00:00
+- signal date: 2026-11-13 00:00:00+00:00
 
 | asset | side | target_weight | target_notional_per_1k | change_weight | change_notional_per_1k | action | execution_hint |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| hyperliquid | flat | 0.0000 | 0.0000 | -0.1042 | -104.1667 | CLOSE | 2026-11-07 01:05:00+00:00 |
-| monero | flat | 0.0000 | 0.0000 | -0.4688 | -468.7500 | CLOSE | 2026-11-07 01:05:00+00:00 |
-| near | flat | 0.0000 | 0.0000 | -0.0299 | -29.9343 | CLOSE | 2026-11-07 01:05:00+00:00 |
+| bitcoin-cash | short | -0.0625 | -62.5000 | -0.0625 | -62.5000 | OPEN | 2026-11-14 01:05:00+00:00 |
+| hyperliquid | short | -0.0625 | -62.5000 | -0.0625 | -62.5000 | OPEN | 2026-11-14 01:05:00+00:00 |
+| near | short | -0.0625 | -62.5000 | -0.0625 | -62.5000 | OPEN | 2026-11-14 01:05:00+00:00 |
+| zcash | short | -0.0625 | -62.5000 | -0.0625 | -62.5000 | OPEN | 2026-11-14 01:05:00+00:00 |
 
 The first daily row is the engine initialization point and is excluded from Sharpe/volatility; it remains in `oos_daily.csv`.
 
