@@ -158,6 +158,48 @@ def test_live_manifest_rejects_a_non_isolated_venue_leverage() -> None:
     assert any("leverage=3" in issue for issue in issues)
 
 
+def test_live_manifest_rejects_a_second_execution_clock() -> None:
+    manifest = _valid_manifest_payload(execution_utc="03:00")
+
+    issues = execute_live_plan._manifest_spec_issues(manifest, _manifest_args())
+
+    assert any("execution_utc" in issue for issue in issues)
+
+
+def test_live_execution_rejects_a_data_fingerprint_mismatch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from atlas20.derivatives.data_audit import DataAuditReport
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            _valid_manifest_payload(
+                signal_end_date="2026-11-13",
+                index_end_date="2026-11-13",
+                last_mark="2026-11-14T00:00:00+00:00",
+                data_fingerprint="sha256:manifest",
+                data_audit_passed=True,
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "audit_derivatives_data",
+        lambda *args, **kwargs: DataAuditReport(
+            passed=True,
+            provenance={"fingerprint": "sha256:current"},
+        ),
+    )
+
+    args = execute_live_plan.parse_args(
+        ["--live", "--manifest-file", str(manifest), "--force"]
+    )
+    with pytest.raises(SystemExit, match="data_fingerprint"):
+        execute_live_plan._main(args)
+
+
 def test_unmapped_live_position_fails_closed() -> None:
     with pytest.raises(RuntimeError, match="not in the frozen symbol map"):
         account_state_from_bitget(_PositionClient(), {"near": "NEARUSDT"})  # type: ignore[arg-type]

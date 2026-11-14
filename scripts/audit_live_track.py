@@ -46,6 +46,7 @@ from atlas20.derivatives.account import (
     isolated_margin_capability_error,
 )  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
+from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     LS45_G125_FROZEN_CONFIG,
     LS45_G125_MANIFEST_TOP_LEVEL,
@@ -82,6 +83,8 @@ DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/audit.json")
 DEFAULT_DRILL_REGISTRY = Path("reports/ls45_live_g125_live/venue_drill_order_registry.json")
 DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
+DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
+DEFAULT_PANEL_FILE = Path("data/processed/panel_daily.csv")
 SPEC_MAX_GROSS = 1.25
 SPEC_VENUE_LEVERAGE = 2.0
 SPEC_MIN_MARGIN_RATIO = 0.45
@@ -619,6 +622,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--history-days", type=int, default=7)
     parser.add_argument("--equity-floor", type=float, default=EXECUTION_FLOOR_USDT)
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
+    parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
+    parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--drill-registry", type=Path, default=DEFAULT_DRILL_REGISTRY)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
@@ -641,14 +646,6 @@ def main(argv: list[str] | None = None) -> int:
     prices = fetch_public_prices(session)
     specs = specs_from_instruments(fetch_public_instruments(session), relevant)
 
-    usdt_row = next(
-        (
-            row
-            for row in assets.get("assets") or []
-            if isinstance(row, dict) and str(row.get("coin", "")).upper() == "USDT"
-        ),
-        {},
-    )
     equity = _num(assets.get("usdtEquity"))
     balance = _usdt_equivalent_balance(assets)
     unrealised = _num(assets.get("usdtUnrealisedPnl"))
@@ -977,6 +974,30 @@ def main(argv: list[str] | None = None) -> int:
             "manifest 与当前 LS45-G125 冻结规格一致",
             not manifest_issues,
             "; ".join(manifest_issues) or "规格、参数与成本口径一致",
+        )
+        required_short_assets = {
+            str(record["asset"])
+            for record in book.to_dict("records")
+            if float(record["target_weight"]) < 0.0
+        }
+        data_audit = audit_derivatives_data(
+            args.raw_dir,
+            args.panel,
+            args.symbol_map,
+            args.manifest_file,
+            now=checked_at,
+            required_short_assets=required_short_assets,
+        )
+        check(
+            "数据可靠性审计通过",
+            data_audit.passed,
+            "; ".join(data_audit.hard_failures[:5]) or f"{len(data_audit.warnings)} warning(s)",
+        )
+        check(
+            "manifest data_fingerprint = 当前输入指纹",
+            bool(manifest.get("data_fingerprint"))
+            and manifest.get("data_fingerprint") == data_audit.provenance.get("fingerprint"),
+            f"manifest={manifest.get('data_fingerprint')} current={data_audit.provenance.get('fingerprint')}",
         )
     else:
         check("样本外 manifest 存在", False, f"{args.manifest_file} 不存在")

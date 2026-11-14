@@ -1,12 +1,12 @@
 # Derivatives Shadow OOS Tracker — PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21
 
-- window: 2026-09-22 00:00:00+00:00 → 2026-11-13 00:00:00+00:00 (52 daily rows; 51 metric returns)
+- window: 2026-09-22 00:00:00+00:00 → 2026-11-13 00:00:00+00:00 (53 daily rows; 52 metric returns)
 - research only: yes; live execution: **no**
 - frozen long/short book: H5 1.25x + LS45 stronger-21D profit-lock redistribution/regime short
 - cost: 20 bps; capital reference: 1,000 units
 - execution: 01:05 UTC; price model mark_1h_open_floor
 - funding: bitget-exact (available through 2026-11-11 16:00:00+00:00; stale shorts flattened)
-- last mark: 2026-11-13 14:00:00+00:00; staleness: 10.2h
+- last mark: 2026-11-13 23:00:00+00:00; staleness: 1.4h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - mark coverage: 0 missing hours; 88 assets checked; max gap 1.0h
 
@@ -14,7 +14,7 @@
 
 | spec | multiple | cagr | sharpe | max_drawdown |
 | --- | --- | --- | --- | --- |
-| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.9385 | -0.3708 | -0.5468 | -0.1932 |
+| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.9385 | -0.3650 | -0.5415 | -0.1932 |
 
 ## Execution and risk counters
 

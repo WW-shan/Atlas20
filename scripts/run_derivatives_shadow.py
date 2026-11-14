@@ -20,6 +20,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from datetime import datetime, timezone
 from typing import Mapping
 
 import numpy as np
@@ -37,6 +38,7 @@ from atlas20.derivatives.engine import (  # noqa: E402
     run_derivative_backtest,
 )
 from atlas20.derivatives.execution import ContractSpec  # noqa: E402
+from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.signals import (  # noqa: E402
     combine_long_with_cash_budgeted_short,
     scale_long_targets,
@@ -480,6 +482,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config", default="config/base.yaml")
+    parser.add_argument("--panel", type=Path, default=Path("data/processed/panel_daily.csv"))
     parser.add_argument("--trial-id", choices=TRIAL_CHOICES, default=SHADOW_SPEC)
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument(
@@ -718,6 +721,18 @@ def main() -> None:
         short_targets,
         max_total_gross=max_total_gross,
     )
+    latest_target = combined[max(combined)] if combined else pd.Series(dtype=float)
+    required_short_assets = {
+        str(asset) for asset, weight in latest_target.items() if float(weight) < 0.0
+    }
+    data_audit = audit_derivatives_data(
+        args.raw_dir,
+        args.panel,
+        args.raw_dir / "symbol_map.csv",
+        now=datetime.now(timezone.utc),
+        required_short_assets=required_short_assets,
+    )
+    data_fingerprint = data_audit.provenance.get("fingerprint")
     funding_intervals: dict[str, float] = {}
     if "fund_interval" in symbol_map.columns:
         for record in symbol_map.to_dict("records"):
@@ -913,6 +928,10 @@ def main() -> None:
         "order_skip_count": int(len(result.order_skips)),
         "order_quantization_count": int(len(result.order_quantizations)),
         "margin_event_count": int(len(result.margin_events)),
+        "data_fingerprint": data_fingerprint,
+        "data_audit_passed": bool(data_audit.passed),
+        "data_audit_hard_failures": len(data_audit.hard_failures),
+        "data_audit_warnings": len(data_audit.warnings),
         "funding_source": args.funding_source,
         "funding_last": None if funding_last is None else str(funding_last),
         "funding_missing_policy": args.funding_missing_policy,
@@ -1043,6 +1062,11 @@ def main() -> None:
                 ),
                 "min_rebalance_usdt": float(args.min_rebalance_usdt),
                 "normalize_isolated_margin": str(args.normalize_isolated_margin),
+                "data_fingerprint": data_fingerprint,
+                "data_audit_required": True,
+                "data_audit_passed": bool(data_audit.passed),
+                "data_audit_hard_failures": data_audit.hard_failures[:20],
+                "data_audit_warnings": data_audit.warnings[:20],
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
                 "mark_source": "bitget_mark",

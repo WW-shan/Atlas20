@@ -7,7 +7,8 @@
 #   1. decide whether this load may trade at all              (preflight window)
 #   2. repair the point-in-time Top20 panel if it lags        (self-heal)
 #   3. refresh Bitget mark candles and rebuild the LS45 book  (derivatives-live-data)
-#   4. size the book from the real account equity, place the orders, write the
+#   4. audit CMC/mark/funding/contract reliability                  (audit-data)
+#   5. size the book from the real account equity, place the orders, write the
 #      journal, and push the Telegram report                  (derivatives-live)
 #
 # Why a wrapper instead of a ProgramArguments one-liner: launchd does not read
@@ -74,11 +75,11 @@ cd "$PROJECT_ROOT"
 # idempotency still refuses a second trade.  Neither launchd nor systemd ever
 # passes an argument, so the scheduled and boot-replay fires always obey the
 # window.
-make_args=""
+late_arg=""
 window_status=0
 if [ "${1:-}" = "--force" ]; then
   .venv/bin/python scripts/live_chain_preflight.py --check window --force || window_status=$?
-  make_args="ARGS=--allow-late-execution"
+  late_arg="--allow-late-execution"
 else
   .venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
 fi
@@ -126,4 +127,6 @@ fi
 # The executor refuses to trade on stale data, so this order is mandatory.
 # A human `--force` catch-up also passes the executor's explicit late-window
 # acknowledgement; scheduled fires never receive that argument.
-/usr/bin/make derivatives-live $make_args
+/usr/bin/make derivatives-live-data derivatives-ls45-signal
+/usr/bin/make audit-data
+.venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg

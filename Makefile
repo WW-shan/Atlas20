@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -124,6 +124,12 @@ record-capital-flow: $(VENV_STAMP)
 # order history, book vs frozen target, gross vs the 1.25x cap.
 audit-live: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_live_track.py
+
+# Fail-closed reliability audit for the CMC panel, symbol map, contracts,
+# Bitget marks and funding. The daily wrapper runs this after the signal book
+# is rebuilt and before the executor can place an order.
+audit-data: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_derivatives_data.py
 
 # Prove the live target book is the same computation as the reviewed
 # backtest (rebuild both, compare every overlapping target event).

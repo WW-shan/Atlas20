@@ -55,6 +55,7 @@ from atlas20.derivatives.account import (  # noqa: E402
     account_state_binding_issue,
 )
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
+from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     LS45_G125_FROZEN_CONFIG,
@@ -110,6 +111,8 @@ DEFAULT_MANIFEST_FILE = Path("reports/ls45_live_g125/manifest.json")
 DEFAULT_KILL_SWITCH = Path("data/ls45_g125_execution.KILL")
 DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/latest.json")
 DEFAULT_LOCK_FILE = Path("data/ls45_g125_execution.lock")
+DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
+DEFAULT_PANEL_FILE = Path("data/processed/panel_daily.csv")
 
 
 def _live_quote_snapshot(
@@ -159,6 +162,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="hours after execution_hint during which a normal run is allowed",
     )
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
+    parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
+    parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL_FILE)
+    parser.add_argument(
+        "--require-data-audit",
+        action="store_true",
+        help="also enforce the data audit during a dry run (live runs always enforce it)",
+    )
     parser.add_argument(
         "--max-mark-staleness-hours",
         type=float,
@@ -907,6 +917,35 @@ def _main(args: argparse.Namespace) -> int:
                 "frozen manifest does not match the current LS45-G125 live "
                 "specification: " + "; ".join(manifest_issues)
             )
+    if manifest is not None and (args.live or args.require_data_audit):
+        required_short_assets = {
+            str(record["asset"])
+            for record in book.to_dict("records")
+            if float(record["target_weight"]) < 0.0
+        }
+        data_audit = audit_derivatives_data(
+            args.raw_dir,
+            args.panel,
+            args.symbol_map,
+            args.manifest_file,
+            required_short_assets=required_short_assets,
+        )
+        if not data_audit.passed:
+            raise SystemExit(
+                "data audit failed before live execution: "
+                + "; ".join(data_audit.hard_failures[:10])
+            )
+        expected_fingerprint = manifest.get("data_fingerprint")
+        actual_fingerprint = data_audit.provenance.get("fingerprint")
+        if not expected_fingerprint:
+            raise SystemExit("manifest is missing data_fingerprint; rebuild the LS45 signal")
+        if expected_fingerprint != actual_fingerprint:
+            raise SystemExit(
+                "manifest data_fingerprint does not match the current inputs: "
+                f"manifest={expected_fingerprint}, current={actual_fingerprint}"
+            )
+        if manifest.get("data_audit_passed") is not True:
+            raise SystemExit("manifest records a failed data audit; refusing to execute")
     try:
         execution_hint = _effective_execution_hint(
             signal_end_date=manifest.get("signal_end_date") if manifest else None,
