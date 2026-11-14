@@ -6,7 +6,7 @@
 - cost: 20 bps; capital reference: 1,000 units
 - execution: 01:05 UTC; price model mark_1h_open_floor
 - funding: bitget-exact (available through 2026-11-11 16:00:00+00:00; stale shorts flattened)
-- last mark: 2026-11-13 14:00:00+00:00; staleness: 10.0h
+- last mark: 2026-11-13 14:00:00+00:00; staleness: 10.2h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - mark coverage: 0 missing hours; 88 assets checked; max gap 1.0h
 
@@ -14,13 +14,13 @@
 
 | spec | multiple | cagr | sharpe | max_drawdown |
 | --- | --- | --- | --- | --- |
-| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.9438 | -0.3446 | -0.4727 | -0.1899 |
+| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.9385 | -0.3708 | -0.5468 | -0.1932 |
 
 ## Execution and risk counters
 
 | spec | max_target_gross | max_observed_gross | gross_breach_hours | short_opens | short_stops | liquidations | funding_total | fees_total |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.7768 | 0.8211 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | -0.0041 | 0.0128 |
+| PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21 | 0.7768 | 0.8163 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | -2.0320 | 6.2422 |
 
 ## Latest target book
 

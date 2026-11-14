@@ -31,6 +31,10 @@ def test_build_command_pins_the_single_0105_execution_clock() -> None:
     assert command[command.index("--execution-hour") + 1] == "1"
     assert command[command.index("--execution-minute") + 1] == "5"
     assert command[command.index("--execution-price-snap") + 1] == "floor"
+    assert command[command.index("--normalize-isolated-margin") + 1] == "daily"
+    assert command[command.index("--min-rebalance-usdt") + 1] == "5"
+    assert command[command.index("--engine-capital") + 1] == "500"
+    assert "--contract-specs-from-symbol-map" in command
 
 
 def test_build_command_rejects_invalid_end_date() -> None:

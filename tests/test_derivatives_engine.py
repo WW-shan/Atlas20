@@ -7,6 +7,7 @@ from atlas20.derivatives.engine import (
     DerivativeBacktestConfig,
     run_derivative_backtest,
 )
+from atlas20.derivatives.execution import ContractSpec
 
 
 def _candles(
@@ -429,6 +430,143 @@ def test_margin_utilization_caps_requested_gross_exposure() -> None:
     )
 
     assert result.positions.iloc[0]["notional"] == pytest.approx(1_000.0 * 0.85 / 0.31)
+
+
+def test_contract_quantity_is_floored_to_the_venue_step() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-15T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index, value=101.0)}
+    targets = {pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 0.5})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+            contract_specs={
+                "BTC": ContractSpec(
+                    "BTCUSDT",
+                    min_order_qty=1.0,
+                    quantity_multiplier=1.0,
+                )
+            },
+        ),
+    )
+
+    trade = result.trades.iloc[0]
+    quantization = result.order_quantizations.iloc[0]
+    assert trade["quantity"] == pytest.approx(4.0)
+    assert quantization["requested_quantity"] == pytest.approx(500.0 / 101.0)
+    assert quantization["quantized_quantity"] == pytest.approx(4.0)
+    assert quantization["quantity_error"] == pytest.approx(500.0 / 101.0 - 4.0)
+
+
+def test_open_below_the_venue_minimum_is_skipped_and_audited() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-15T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index, value=100.0)}
+    targets = {pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 0.1})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+            contract_specs={
+                "BTC": ContractSpec(
+                    "BTCUSDT",
+                    min_order_qty=0.0,
+                    quantity_multiplier=0.0,
+                    min_order_usdt=500.0,
+                )
+            },
+        ),
+    )
+
+    assert result.trades.empty
+    assert len(result.order_skips) == 1
+    assert result.order_skips.iloc[0]["reason"] == "below_venue_minimum"
+
+
+def test_full_close_is_allowed_below_the_venue_minimum() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-17T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index, value=100.0)}
+    candles["BTC"].loc[index >= pd.Timestamp("2026-11-15T00:00:00Z"), ["open", "high", "low", "close"]] = 80.0
+    targets = {
+        pd.Timestamp("2026-11-13T00:00:00Z"): pd.Series({"BTC": 0.5}),
+        pd.Timestamp("2026-11-15T00:00:00Z"): pd.Series(dtype=float),
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            long_buffer=0.50,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+            contract_specs={
+                "BTC": ContractSpec(
+                    "BTCUSDT",
+                    min_order_qty=0.0,
+                    quantity_multiplier=0.0,
+                    min_order_usdt=500.0,
+                )
+            },
+        ),
+    )
+
+    assert list(result.trades["action"]) == ["open", "close"]
+
+
+def test_daily_margin_normalization_adds_and_removes_without_changing_equity() -> None:
+    index = pd.date_range("2026-11-13T00:00:00Z", "2026-11-18T03:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index, value=100.0)}
+    candles["BTC"].loc[index >= pd.Timestamp("2026-11-15T00:00:00Z"), ["open", "high", "low", "close"]] = 120.0
+    candles["BTC"].loc[index >= pd.Timestamp("2026-11-16T00:00:00Z"), ["open", "high", "low", "close"]] = 80.0
+    targets = {
+        pd.Timestamp(day): pd.Series({"BTC": 0.5})
+        for day in ("2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16")
+    }
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            long_buffer=0.50,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+            normalize_isolated_margin="daily",
+        ),
+    )
+
+    assert list(result.margin_events["operation"]) == ["add", "remove"]
+    assert result.margin_events["amount"].tolist() == pytest.approx([51.5, 103.0])
+    for row in result.margin_events.itertuples(index=False):
+        assert row.equity_before == pytest.approx(row.equity_after)
+        expected_cash_delta = -row.amount if row.operation == "add" else row.amount
+        assert row.cash_after - row.cash_before == pytest.approx(expected_cash_delta)
 
 
 def test_missing_funding_for_a_held_asset_fails_closed() -> None:

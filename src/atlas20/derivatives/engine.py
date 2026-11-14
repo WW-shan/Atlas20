@@ -23,6 +23,7 @@ from typing import Mapping
 import numpy as np
 import pandas as pd
 
+from atlas20.derivatives.execution import ContractSpec
 from atlas20.derivatives.margin import initial_margin_ratio, liquidation_price
 
 
@@ -53,6 +54,10 @@ class DerivativeBacktestConfig:
     execution_minute: int = 0
     execution_price_snap: str = "exact"
     execution_lag_days: int = 1
+    contract_specs: Mapping[str, ContractSpec] | None = None
+    min_rebalance_usdt: float = 0.0
+    normalize_isolated_margin: str = "none"
+    min_margin_delta_usdt: float = 0.0
     funding_missing_policy: str = "error"
     funding_stress: str = "none"
     funding_multiplier: float = 1.0
@@ -129,6 +134,20 @@ class DerivativeBacktestConfig:
             raise ValueError("execution_price_snap must be 'exact', 'floor', or 'ceil'")
         if self.execution_lag_days < 0:
             raise ValueError("execution_lag_days must be non-negative")
+        if self.min_rebalance_usdt < 0.0 or not np.isfinite(self.min_rebalance_usdt):
+            raise ValueError("min_rebalance_usdt must be finite and non-negative")
+        if self.normalize_isolated_margin not in {"none", "rebalance", "daily"}:
+            raise ValueError(
+                "normalize_isolated_margin must be 'none', 'rebalance', or 'daily'"
+            )
+        if self.min_margin_delta_usdt < 0.0 or not np.isfinite(self.min_margin_delta_usdt):
+            raise ValueError("min_margin_delta_usdt must be finite and non-negative")
+        if self.contract_specs is not None:
+            for asset, spec in self.contract_specs.items():
+                if not str(asset):
+                    raise ValueError("contract_specs keys must be non-empty asset names")
+                if not isinstance(spec, ContractSpec):
+                    raise ValueError("contract_specs values must be ContractSpec instances")
         if self.funding_missing_policy not in {"error", "skip", "carry_last", "stress_median"}:
             raise ValueError(
                 "funding_missing_policy must be 'error', 'skip', 'carry_last', "
@@ -182,6 +201,9 @@ class DerivativeBacktestResult:
     funding: pd.DataFrame
     liquidations: pd.DataFrame
     positions: pd.DataFrame
+    margin_events: pd.DataFrame
+    order_quantizations: pd.DataFrame
+    order_skips: pd.DataFrame
     mark_carries: pd.DataFrame
     fill_downgrades: pd.DataFrame
 
@@ -212,6 +234,44 @@ _LIQUIDATION_COLUMNS = [
 ]
 _MARK_CARRY_COLUMNS = ["timestamp", "asset", "last_mark_time", "hours", "price"]
 _FILL_DOWNGRADE_COLUMNS = ["timestamp", "asset", "mark_price"]
+_MARGIN_EVENT_COLUMNS = [
+    "timestamp",
+    "asset",
+    "side",
+    "operation",
+    "amount",
+    "margin_before",
+    "margin_after",
+    "target_margin",
+    "cash_before",
+    "cash_after",
+    "equity_before",
+    "equity_after",
+    "reason",
+]
+_ORDER_QUANTIZATION_COLUMNS = [
+    "timestamp",
+    "asset",
+    "action",
+    "requested_quantity",
+    "quantized_quantity",
+    "quantity_error",
+    "requested_notional",
+    "quantized_notional",
+    "price",
+    "reason",
+]
+_ORDER_SKIP_COLUMNS = [
+    "timestamp",
+    "asset",
+    "action",
+    "requested_quantity",
+    "quantized_quantity",
+    "requested_notional",
+    "quantized_notional",
+    "price",
+    "reason",
+]
 _POSITION_COLUMNS = [
     "timestamp",
     "asset",
@@ -379,6 +439,11 @@ def run_derivative_backtest(
     right-open, and targets whose execution would fall outside it are ignored.
     """
     cfg = config or DerivativeBacktestConfig()
+    contract_specs = (
+        {str(asset): spec for asset, spec in cfg.contract_specs.items()}
+        if cfg.contract_specs is not None
+        else None
+    )
     candles = _validate_candles(mark_candles)
     fills = _validate_candles(market_candles) if market_candles else {}
     target_schedule = _normalise_targets(targets, cfg)
@@ -467,6 +532,9 @@ def run_derivative_backtest(
     mark_carries: list[dict[str, object]] = []
     downgrade_events: list[dict[str, object]] = []
     position_entries: list[dict[str, object]] = []
+    margin_events: list[dict[str, object]] = []
+    order_quantizations: list[dict[str, object]] = []
+    order_skips: list[dict[str, object]] = []
     equity_values: list[float] = []
     cash_values: list[float] = []
     gross_values: list[float] = []
@@ -573,6 +641,83 @@ def run_derivative_backtest(
             )
             return mark(asset, timestamp, "open")
         return float(frame.at[resolved, "open"])
+
+    def venue_spec(asset: str) -> ContractSpec | None:
+        if contract_specs is None:
+            return None
+        spec = contract_specs.get(asset)
+        if spec is None:
+            raise ValueError(f"missing Bitget contract spec for required asset {asset}")
+        return spec
+
+    def quantize_order(
+        asset: str,
+        timestamp: pd.Timestamp,
+        action: str,
+        requested_quantity: float,
+        price: float,
+    ) -> float:
+        """Floor a risk-increasing or partial-reducing order to venue rules."""
+
+        if requested_quantity <= 0.0:
+            return 0.0
+        spec = venue_spec(asset)
+        if spec is None:
+            return float(requested_quantity)
+        quantized = spec.round_down_qty(float(requested_quantity))
+        requested_notional = float(requested_quantity) * price
+        quantized_notional = quantized * price
+        if quantized <= 0.0:
+            order_skips.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": asset,
+                    "action": action,
+                    "requested_quantity": float(requested_quantity),
+                    "quantized_quantity": quantized,
+                    "requested_notional": requested_notional,
+                    "quantized_notional": quantized_notional,
+                    "price": price,
+                    "reason": "quantized_to_zero",
+                }
+            )
+            return 0.0
+        if not spec.is_tradeable(
+            quantized,
+            price,
+            floor_usdt=cfg.min_rebalance_usdt,
+        ):
+            order_skips.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": asset,
+                    "action": action,
+                    "requested_quantity": float(requested_quantity),
+                    "quantized_quantity": quantized,
+                    "requested_notional": requested_notional,
+                    "quantized_notional": quantized_notional,
+                    "price": price,
+                    "reason": "below_venue_minimum",
+                }
+            )
+            return 0.0
+        error = float(requested_quantity) - quantized
+        if abs(error) > 1e-15:
+            order_quantizations.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": asset,
+                    "action": action,
+                    "requested_quantity": float(requested_quantity),
+                    "quantized_quantity": quantized,
+                    "quantity_error": error,
+                    "requested_notional": requested_notional,
+                    "quantized_notional": quantized_notional,
+                    "price": price,
+                    "reason": "venue_quantity_step",
+                }
+            )
+        return float(quantized)
 
     def check_funding_coverage(asset: str, timestamp: pd.Timestamp) -> None:
         if cfg.funding_missing_policy != "error" or not funding_intervals:
@@ -801,16 +946,22 @@ def run_derivative_backtest(
         if notional <= 0.0:
             return
         ratio = _margin_ratio(cfg, side)
+        requested_notional = float(notional)
+        max_notional = max(0.0, cash / (ratio + fee_rate))
+        if requested_notional > max_notional:
+            requested_notional = max_notional
+        quantity = quantize_order(
+            asset,
+            timestamp,
+            "open",
+            requested_notional / price,
+            price,
+        )
+        if quantity <= 0.0:
+            return
+        notional = quantity * price
         margin = notional * ratio
         fee = notional * fee_rate
-        if margin + fee > cash + 1e-12:
-            scale = max(0.0, cash / (margin + fee))
-            margin *= scale
-            fee *= scale
-            notional *= scale
-        if notional <= 0.0:
-            return
-        quantity = notional / price
         cash -= margin + fee
         position = _Position(
             asset=asset,
@@ -872,6 +1023,18 @@ def run_derivative_backtest(
         if quantity >= position.quantity - 1e-15:
             close_position(asset, timestamp, price, reason=reason)
             return
+        quantity = quantize_order(
+            asset,
+            timestamp,
+            "reduce",
+            quantity,
+            price,
+        )
+        if quantity <= 1e-15:
+            return
+        if quantity >= position.quantity - 1e-15:
+            close_position(asset, timestamp, price, reason=reason)
+            return
         fraction = quantity / position.quantity
         released_margin = position.margin * fraction
         pnl = position.side * quantity * (price - position.entry_price)
@@ -906,16 +1069,22 @@ def run_derivative_backtest(
         if additional_notional <= 0.0:
             return
         ratio = position.margin_ratio
+        requested_notional = float(additional_notional)
+        max_notional = max(0.0, cash / (ratio + fee_rate))
+        if requested_notional > max_notional:
+            requested_notional = max_notional
+        quantity = quantize_order(
+            asset,
+            timestamp,
+            "increase",
+            requested_notional / price,
+            price,
+        )
+        if quantity <= 0.0:
+            return
+        additional_notional = quantity * price
         margin = additional_notional * ratio
         fee = additional_notional * fee_rate
-        if margin + fee > cash + 1e-12:
-            scale = max(0.0, cash / (margin + fee))
-            additional_notional *= scale
-            margin *= scale
-            fee *= scale
-        if additional_notional <= 0.0:
-            return
-        quantity = additional_notional / price
         old_quantity = position.quantity
         new_quantity = old_quantity + quantity
         position.entry_price = (
@@ -956,6 +1125,66 @@ def run_derivative_backtest(
                 ),
             }
         )
+
+    def normalize_isolated_margins(timestamp: pd.Timestamp) -> None:
+        """Move free cash to/from each leg to restore its target buffer."""
+
+        nonlocal cash
+        for asset in sorted(positions):
+            position = positions[asset]
+            price = mark(asset, timestamp, "open")
+            target_margin = position.quantity * price * position.margin_ratio
+            delta = target_margin - position.margin
+            threshold = max(float(cfg.min_margin_delta_usdt), 1e-12)
+            if abs(delta) <= threshold:
+                continue
+            equity_before = account_equity(timestamp)
+            cash_before = cash
+            margin_before = position.margin
+            if delta > 0.0:
+                amount = min(delta, max(0.0, cash))
+                if amount <= threshold:
+                    order_skips.append(
+                        {
+                            "timestamp": timestamp,
+                            "asset": asset,
+                            "action": "margin_add",
+                            "requested_quantity": 0.0,
+                            "quantized_quantity": 0.0,
+                            "requested_notional": delta,
+                            "quantized_notional": 0.0,
+                            "price": price,
+                            "reason": "insufficient_free_cash_for_margin_add",
+                        }
+                    )
+                    continue
+                cash -= amount
+                position.margin += amount
+                operation = "add"
+            else:
+                amount = min(-delta, position.margin)
+                if amount <= threshold:
+                    continue
+                position.margin -= amount
+                cash += amount
+                operation = "remove"
+            margin_events.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": asset,
+                    "side": "long" if position.side > 0 else "short",
+                    "operation": operation,
+                    "amount": amount,
+                    "margin_before": margin_before,
+                    "margin_after": position.margin,
+                    "target_margin": target_margin,
+                    "cash_before": cash_before,
+                    "cash_after": cash,
+                    "equity_before": equity_before,
+                    "equity_after": account_equity(timestamp),
+                    "reason": "daily_isolated_margin_normalization",
+                }
+            )
 
     def reduce_gross_to_target(timestamp: pd.Timestamp) -> None:
         """Reduce positions at an executable price after a prior close breach."""
@@ -1227,11 +1456,16 @@ def run_derivative_backtest(
 
         if timestamp in execution_times:
             target = execution_times[timestamp]
-            if not _target_equal(last_target, target):
+            target_changed = not _target_equal(last_target, target)
+            if target_changed:
                 rebalance(timestamp, target)
                 last_target = target.copy()
                 for asset in positions:
                     check_funding_coverage(asset, timestamp)
+            if cfg.normalize_isolated_margin == "daily" or (
+                cfg.normalize_isolated_margin == "rebalance" and target_changed
+            ):
+                normalize_isolated_margins(timestamp)
 
         equity = account_equity(timestamp)
         gross_notional = sum(
@@ -1261,6 +1495,12 @@ def run_derivative_backtest(
         funding=pd.DataFrame(funding_events, columns=_FUNDING_COLUMNS),
         liquidations=pd.DataFrame(liquidation_events, columns=_LIQUIDATION_COLUMNS),
         positions=pd.DataFrame(position_entries, columns=_POSITION_COLUMNS),
+        margin_events=pd.DataFrame(margin_events, columns=_MARGIN_EVENT_COLUMNS),
+        order_quantizations=pd.DataFrame(
+            order_quantizations,
+            columns=_ORDER_QUANTIZATION_COLUMNS,
+        ),
+        order_skips=pd.DataFrame(order_skips, columns=_ORDER_SKIP_COLUMNS),
         mark_carries=pd.DataFrame(mark_carries, columns=_MARK_CARRY_COLUMNS),
         fill_downgrades=pd.DataFrame(downgrade_events, columns=_FILL_DOWNGRADE_COLUMNS),
     )

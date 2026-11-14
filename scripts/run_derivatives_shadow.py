@@ -36,6 +36,7 @@ from atlas20.derivatives.engine import (  # noqa: E402
     DerivativeBacktestConfig,
     run_derivative_backtest,
 )
+from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.signals import (  # noqa: E402
     combine_long_with_cash_budgeted_short,
     scale_long_targets,
@@ -444,6 +445,35 @@ def _resolve_max_total_gross(value: float | None) -> float:
     return resolved
 
 
+def _contract_specs_from_symbol_map(symbol_map: pd.DataFrame) -> dict[str, ContractSpec]:
+    """Build current-snapshot venue specs from the frozen symbol map."""
+
+    specs: dict[str, ContractSpec] = {}
+    for record in symbol_map.to_dict("records"):
+        asset = str(record.get("coin_id") or "").strip()
+        symbol = str(record.get("bitget_symbol") or "").strip()
+        if not asset or not symbol:
+            continue
+        status = str(record.get("contract_status") or "").strip().lower()
+        if status and status != "normal":
+            continue
+        try:
+            step = float(record.get("size_multiplier"))
+            min_usdt = float(record.get("min_trade_usdt"))
+        except (TypeError, ValueError):
+            continue
+        if not np.isfinite(step) or step <= 0.0:
+            continue
+        if not np.isfinite(min_usdt) or min_usdt <= 0.0:
+            continue
+        specs[asset] = ContractSpec(
+            symbol=symbol,
+            quantity_multiplier=step,
+            min_order_usdt=min_usdt,
+        )
+    return specs
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -467,6 +497,12 @@ def main() -> None:
     )
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument(
+        "--engine-capital",
+        type=float,
+        default=None,
+        help="starting equity for live-parity venue minimums; defaults to --capital",
+    )
     parser.add_argument("--execution-hour", type=int, default=3)
     parser.add_argument("--execution-minute", type=int, default=0)
     parser.add_argument(
@@ -474,6 +510,17 @@ def main() -> None:
         choices=("exact", "floor", "ceil"),
         default="exact",
         help="snap the configured execution minute to an available hourly mark bar",
+    )
+    parser.add_argument(
+        "--contract-specs-from-symbol-map",
+        action="store_true",
+        help="apply the frozen symbol-map quantity step and minimum notional",
+    )
+    parser.add_argument("--min-rebalance-usdt", type=float, default=0.0)
+    parser.add_argument(
+        "--normalize-isolated-margin",
+        choices=("none", "rebalance", "daily"),
+        default="none",
     )
     parser.add_argument(
         "--max-total-gross",
@@ -516,10 +563,15 @@ def main() -> None:
         parser.error("--cost-bps must be non-negative")
     if args.capital <= 0.0:
         parser.error("--capital must be positive")
+    engine_capital = float(args.capital if args.engine_capital is None else args.engine_capital)
+    if engine_capital <= 0.0:
+        parser.error("--engine-capital must be positive")
     if not 0 <= args.execution_hour <= 23:
         parser.error("--execution-hour must be in [0, 23]")
     if not 0 <= args.execution_minute <= 59:
         parser.error("--execution-minute must be in [0, 59]")
+    if args.min_rebalance_usdt < 0.0:
+        parser.error("--min-rebalance-usdt must be non-negative")
     try:
         max_total_gross = _resolve_max_total_gross(args.max_total_gross)
     except ValueError as exc:
@@ -527,6 +579,11 @@ def main() -> None:
     configure_logging("ERROR")
 
     symbol_map = load_symbol_map(args.raw_dir)
+    contract_specs = (
+        _contract_specs_from_symbol_map(symbol_map)
+        if args.contract_specs_from_symbol_map
+        else None
+    )
     execution_marks = load_mark_candles(args.raw_dir, symbol_map)
     if not execution_marks:
         raise SystemExit(f"no market candles found in {args.raw_dir}/candles")
@@ -675,7 +732,7 @@ def main() -> None:
         funding_rates=funding if not funding.empty else None,
         funding_intervals_hours=funding_intervals if not funding.empty else None,
         config=DerivativeBacktestConfig(
-            initial_capital=1.0,
+            initial_capital=engine_capital,
             taker_fee_bps=float(args.cost_bps),
             slippage_bps=0.0,
             liquidation_slippage_bps=5.0,
@@ -711,6 +768,9 @@ def main() -> None:
             execution_hour=int(args.execution_hour),
             execution_minute=int(args.execution_minute),
             execution_price_snap=str(args.execution_price_snap),
+            contract_specs=contract_specs,
+            min_rebalance_usdt=float(args.min_rebalance_usdt),
+            normalize_isolated_margin=str(args.normalize_isolated_margin),
             funding_missing_policy=args.funding_missing_policy,
             missing_mark_policy=args.missing_mark_policy,
             missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
@@ -748,6 +808,12 @@ def main() -> None:
     result.trades.to_csv(output_dir / "oos_trades.csv", index=False)
     result.funding.to_csv(output_dir / "oos_funding.csv", index=False)
     result.positions.to_csv(output_dir / "oos_positions.csv", index=False)
+    result.margin_events.to_csv(output_dir / "oos_margin_events.csv", index=False)
+    result.order_quantizations.to_csv(
+        output_dir / "oos_order_quantizations.csv",
+        index=False,
+    )
+    result.order_skips.to_csv(output_dir / "oos_order_skips.csv", index=False)
     result.gross_exposure.rename("gross_exposure").to_csv(
         output_dir / "oos_gross_exposure.csv", header=True
     )
@@ -832,9 +898,21 @@ def main() -> None:
         "metric_days": int(len(metric_returns)),
         "cost_bps": float(args.cost_bps),
         "capital": float(args.capital),
+        "engine_capital": engine_capital,
         "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
         "execution_price_model": _execution_price_model(str(args.execution_price_snap)),
         "execution_source": "signal_ledger_daily_close_next_day",
+        "live_parity": bool(args.contract_specs_from_symbol_map),
+        "contract_spec_source": (
+            "symbol_map_current_snapshot_approximation"
+            if args.contract_specs_from_symbol_map
+            else "ideal_unquantized"
+        ),
+        "min_rebalance_usdt": float(args.min_rebalance_usdt),
+        "normalize_isolated_margin": str(args.normalize_isolated_margin),
+        "order_skip_count": int(len(result.order_skips)),
+        "order_quantization_count": int(len(result.order_quantizations)),
+        "margin_event_count": int(len(result.margin_events)),
         "funding_source": args.funding_source,
         "funding_last": None if funding_last is None else str(funding_last),
         "funding_missing_policy": args.funding_missing_policy,
@@ -951,11 +1029,20 @@ def main() -> None:
                 "warmup_start": str(warmup_start),
                 "end_date": str(end_date),
                 "cost_bps": float(args.cost_bps),
+                "engine_capital": engine_capital,
                 "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
                 "execution_price_model": _execution_price_model(
                     str(args.execution_price_snap)
                 ),
                 "execution_source": "signal_ledger_daily_close_next_day",
+                "live_parity": bool(args.contract_specs_from_symbol_map),
+                "contract_spec_source": (
+                    "symbol_map_current_snapshot_approximation"
+                    if args.contract_specs_from_symbol_map
+                    else "ideal_unquantized"
+                ),
+                "min_rebalance_usdt": float(args.min_rebalance_usdt),
+                "normalize_isolated_margin": str(args.normalize_isolated_margin),
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
                 "mark_source": "bitget_mark",
