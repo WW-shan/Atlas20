@@ -92,6 +92,7 @@ def _manifest_args(**overrides):
         "short_stop_loss_pct": 0.20,
         "cost_bps": 20.0,
         "leverage": 2.0,
+        "max_margin_utilization": 0.85,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -2412,3 +2413,53 @@ def test_reconcile_only_imports_a_post_execution_stop_once_and_attributes_fundin
     trades = json.loads(row["trades"])
     close_trades = [trade for trade in trades if trade.get("reason") == "venue_strategy_stop"]
     assert len(close_trades) == 1
+
+
+def test_live_manifest_matches_the_pinned_ls104_spec() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+    )
+
+    manifest = {
+        "tracked_spec": LS104_G175_M090_SPEC,
+        "frozen_config": LS104_G175_M090_FROZEN_CONFIG,
+        **LS104_G175_M090_MANIFEST_TOP_LEVEL,
+    }
+
+    assert execute_live_plan._manifest_spec_issues(
+        manifest,
+        _manifest_args(
+            spec=LS104_G175_M090_SPEC,
+            max_gross_multiple=1.75,
+            leverage=4.0,
+            max_margin_utilization=0.90,
+        ),
+    ) == []
+
+
+def test_live_manifest_rejects_ls104_with_a_two_x_venue_leverage() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+    )
+
+    manifest = {
+        "tracked_spec": LS104_G175_M090_SPEC,
+        "frozen_config": LS104_G175_M090_FROZEN_CONFIG,
+        **LS104_G175_M090_MANIFEST_TOP_LEVEL,
+    }
+
+    issues = execute_live_plan._manifest_spec_issues(
+        manifest,
+        _manifest_args(
+            spec=LS104_G175_M090_SPEC,
+            max_gross_multiple=1.75,
+            leverage=2.0,
+            max_margin_utilization=0.90,
+        ),
+    )
+
+    assert any("leverage=2" in issue for issue in issues)

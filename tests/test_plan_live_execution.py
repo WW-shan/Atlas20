@@ -368,3 +368,38 @@ def test_plan_event_freshness_uses_the_latest_evaluated_data_day() -> None:
     assert not plan_live_execution._target_event_is_fresh(
         signal_date, pd.Timestamp("2026-11-14", tz="UTC")
     )
+
+
+def test_zero_ninety_margin_cap_keeps_a_full_ls104_book_almost_unscaled() -> None:
+    from atlas20.derivatives.execution import ContractSpec
+
+    account = AccountState(equity=500.0, available_margin=500.0)
+    targets = {"long": 1.25, "short": -0.50}
+    specs = {
+        "long": ContractSpec("LONGUSDT", min_order_qty=0.0, quantity_multiplier=0.0),
+        "short": ContractSpec("SHORTUSDT", min_order_qty=0.0, quantity_multiplier=0.0),
+    }
+    prices = {"long": 1.0, "short": 1.0}
+
+    capped = build_execution_plan(
+        account,
+        targets,
+        specs,
+        prices,
+        max_gross_exposure=1.75 * account.equity,
+        max_margin_utilization=0.90,
+        mirror_engine=True,
+    )
+    legacy = build_execution_plan(
+        account,
+        targets,
+        specs,
+        prices,
+        max_gross_exposure=1.75 * account.equity,
+        max_margin_utilization=0.85,
+        mirror_engine=True,
+    )
+
+    assert capped.expected_gross_notional == pytest.approx(873.7864, abs=1e-4)
+    assert legacy.expected_gross_notional == pytest.approx(825.2427, abs=1e-4)
+    assert capped.expected_gross_notional > legacy.expected_gross_notional

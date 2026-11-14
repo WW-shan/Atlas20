@@ -62,10 +62,8 @@ from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.execution import ContractSpec, build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
-    LS45_G125_FROZEN_CONFIG,
-    LS45_G125_MANIFEST_TOP_LEVEL,
-    LS45_G125_SPEC,
     live_execution_hint_for_signal,
+    live_track_profile,
     manifest_spec_issues,
     manifest_staleness_hours,
     manifest_targets_hash_issue,
@@ -214,6 +212,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--short-buffer", type=float, default=0.50)
     parser.add_argument("--short-stop-loss-pct", type=float, default=0.20)
     parser.add_argument("--max-gross-multiple", type=float, default=1.25)
+    parser.add_argument("--max-margin-utilization", type=float, default=0.85)
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
     parser.add_argument(
@@ -652,28 +651,45 @@ def _manifest_spec_issues(
 ) -> list[str]:
     """Check that the manifest and live CLI describe the same frozen book."""
 
-    expected_config = dict(LS45_G125_FROZEN_CONFIG)
+    try:
+        profile = live_track_profile(str(args.spec))
+    except ValueError as exc:
+        return [str(exc)]
+    expected_config = dict(profile.frozen_config)
     expected_config["long_buffer"] = float(args.long_buffer)
     expected_config["short_buffer"] = float(args.short_buffer)
     expected_config["short_stop_loss_pct"] = float(args.short_stop_loss_pct)
     expected_config["max_total_gross"] = float(args.max_gross_multiple)
-    expected_top_level = dict(LS45_G125_MANIFEST_TOP_LEVEL)
+    expected_top_level = dict(profile.manifest_top_level)
     expected_top_level["max_total_gross"] = float(args.max_gross_multiple)
     expected_top_level["cost_bps"] = float(args.cost_bps)
+    margin_cap = float(
+        getattr(args, "max_margin_utilization", profile.max_margin_utilization)
+    )
+    if "max_margin_utilization" in expected_top_level:
+        expected_top_level["max_margin_utilization"] = margin_cap
+    if "venue_leverage" in expected_top_level:
+        expected_top_level["venue_leverage"] = float(args.leverage)
 
     issues = manifest_spec_issues(
         manifest,
-        expected_spec=LS45_G125_SPEC,
+        expected_spec=profile.spec,
         expected_frozen_config=expected_config,
         expected_top_level=expected_top_level,
     )
-    if str(args.spec) != LS45_G125_SPEC:
+    if str(args.spec) != profile.spec:
         issues.append(
-            f"live --spec={args.spec!r}, expected {LS45_G125_SPEC!r}"
+            f"live --spec={args.spec!r}, expected {profile.spec!r}"
         )
-    if abs(float(args.leverage) - 2.0) > 1e-9:
+    if abs(float(args.leverage) - profile.venue_leverage) > 1e-9:
         issues.append(
-            f"live leverage={float(args.leverage):g}x, expected 2x isolated"
+            f"live leverage={float(args.leverage):g}x, expected "
+            f"{profile.venue_leverage:g}x isolated"
+        )
+    if abs(margin_cap - profile.max_margin_utilization) > 1e-9:
+        issues.append(
+            f"live max_margin_utilization={margin_cap:g}, expected "
+            f"{profile.max_margin_utilization:g}"
         )
     return issues
 
@@ -1804,6 +1820,7 @@ def _protect_only_main(args: argparse.Namespace) -> int:
             if account.equity > 0.0
             else None
         ),
+        max_margin_utilization=float(args.max_margin_utilization),
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
         rebalance_to_target=False,
@@ -2415,6 +2432,7 @@ def _main(args: argparse.Namespace) -> int:
             if account.equity > 0.0
             else None
         ),
+        max_margin_utilization=float(args.max_margin_utilization),
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
         rebalance_to_target=rebalance_to_target,

@@ -594,6 +594,12 @@ def main() -> None:
         default=1.25,
         help="hard cap on absolute target notional divided by account equity",
     )
+    parser.add_argument(
+        "--max-margin-utilization",
+        type=float,
+        default=0.85,
+        help="portfolio isolated-margin utilization cap",
+    )
     parser.add_argument("--cost-bps", type=float, default=20.0, help="for reporting only")
     parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
     parser.add_argument("--instruments-file", type=Path, default=None)
@@ -695,6 +701,7 @@ def main() -> None:
         short_buffer=float(args.short_buffer),
         short_stop_loss_pct=float(args.short_stop_loss_pct),
         max_gross_exposure=float(args.max_gross_multiple) * account.equity,
+        max_margin_utilization=float(args.max_margin_utilization),
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
         rebalance_to_target=fresh_target_event,

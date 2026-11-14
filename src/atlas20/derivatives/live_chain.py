@@ -156,6 +156,19 @@ LIVE_TRACK_PROFILES: dict[str, LiveTrackProfile] = {
 }
 
 
+def live_track_profile(name_or_spec: str) -> LiveTrackProfile:
+    """Resolve a live track by profile name or exact frozen spec."""
+
+    key = str(name_or_spec).strip()
+    profile = LIVE_TRACK_PROFILES.get(key)
+    if profile is not None:
+        return profile
+    for candidate in LIVE_TRACK_PROFILES.values():
+        if candidate.spec == key:
+            return candidate
+    raise ValueError(f"unknown live track: {name_or_spec!r}")
+
+
 def as_utc(moment: datetime) -> datetime:
     """Return ``moment`` in UTC, treating a naive value as already UTC."""
 

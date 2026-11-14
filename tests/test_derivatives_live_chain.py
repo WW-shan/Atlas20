@@ -404,3 +404,16 @@ def test_ls45_profile_remains_the_default_without_aggressive_overrides() -> None
     assert profile.frozen_config["max_total_gross"] == 1.25
     assert profile.frozen_config["bear_per_asset_weight"] == 0.0625
     assert profile.frozen_config["exit_per_asset_weight"] == 0.025
+
+
+def test_live_track_profile_lookup_accepts_name_or_spec() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_SPEC,
+        live_track_profile,
+    )
+
+    by_name = live_track_profile("ls104-g175-m090")
+    by_spec = live_track_profile(LS104_G175_M090_SPEC)
+    assert by_name == by_spec
+    with pytest.raises(ValueError, match="unknown live track"):
+        live_track_profile("not-a-track")
