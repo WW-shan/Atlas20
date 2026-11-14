@@ -9,7 +9,7 @@ def _book() -> pd.DataFrame:
         [
             {
                 "signal_date": "2026-10-08 00:00:00+00:00",
-                "execution_hint": "2026-10-09 03:00:00+00:00",
+                "execution_hint": "2026-10-09 01:05:00+00:00",
                 "asset": "near",
                 "target_weight": 0.7768,
                 "target_notional_per_1k": 776.78,
@@ -19,7 +19,7 @@ def _book() -> pd.DataFrame:
             },
             {
                 "signal_date": "2026-10-08 00:00:00+00:00",
-                "execution_hint": "2026-10-09 03:00:00+00:00",
+                "execution_hint": "2026-10-09 01:05:00+00:00",
                 "asset": "zcash",
                 "target_weight": 0.2138,
                 "target_notional_per_1k": 213.77,
@@ -37,13 +37,13 @@ def test_format_derivatives_message_labels_utc_close_and_execution() -> None:
     message = format_derivatives_message(
         _book(),
         signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
-        execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
     )
 
     assert "Atlas20 合约信号 · PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21" in message
     assert "信号日线（UTC）: 2026-10-08" in message
     assert "数据收盘: 2026-10-09 00:00 UTC / 北京时间 2026-10-09 08:00" in message
-    assert "建议执行: 北京时间 2026-10-09 11:00（UTC 2026-10-09 03:00，T+1 +3h）" in message
+    assert "建议执行: 北京时间 2026-10-09 09:05（UTC 2026-10-09 01:05，T+1 +1h5m）" in message
     assert "名义上限 1.25x" in message
     assert "每腿隔离保证金 = 名义 × 51.5%" in message
 
@@ -54,7 +54,7 @@ def test_format_derivatives_message_show_trades_notional_and_margin() -> None:
     message = format_derivatives_message(
         _book(),
         signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
-        execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
     )
 
     assert "今日调仓（按权益 1000.00 USDT）:" in message
@@ -72,7 +72,7 @@ def test_format_derivatives_message_flags_stale_execution() -> None:
     message = format_derivatives_message(
         _book(),
         signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
-        execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
         now=pd.Timestamp("2026-10-09 15:38", tz="UTC"),
     )
 
@@ -92,19 +92,19 @@ def test_format_derivatives_message_shows_the_early_execution_lag() -> None:
     assert "UTC 2026-10-09 01:05，T+1 +1h5m" in message
 
 
-def test_format_derivatives_message_separates_live_and_research_execution() -> None:
+def test_format_derivatives_message_does_not_show_a_second_research_clock() -> None:
     from scripts.send_derivatives_signal import format_derivatives_message
 
     message = format_derivatives_message(
         _book(),
         signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
         execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
-        research_execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
     )
 
     assert "建议执行: 北京时间 2026-10-09 09:05（UTC 2026-10-09 01:05，T+1 +1h5m）" in message
-    assert "研究回测成交口径: 03:00 UTC" in message
-    assert "T+1 +3h" in message
+    assert "研究回测成交口径" not in message
+    assert message.count("建议执行:") == 1
 
 
 def test_format_derivatives_message_reports_no_trade_when_book_is_unchanged() -> None:
@@ -117,7 +117,7 @@ def test_format_derivatives_message_reports_no_trade_when_book_is_unchanged() ->
     message = format_derivatives_message(
         book,
         signal_date=pd.Timestamp("2026-10-08", tz="UTC"),
-        execution_hint=pd.Timestamp("2026-10-09 03:00", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-10-09 01:05", tz="UTC"),
     )
 
     assert "  今日无需调仓" in message
@@ -129,7 +129,7 @@ def test_load_latest_targets_picks_last_signal_date(tmp_path) -> None:
     path = tmp_path / "oos_targets.csv"
     second = _book().assign(
         signal_date="2026-10-09 00:00:00+00:00",
-        execution_hint="2026-10-10 03:00:00+00:00",
+        execution_hint="2026-10-10 01:05:00+00:00",
     )
     frame = pd.concat([_book(), second])
     frame.to_csv(path, index=False)
@@ -137,7 +137,7 @@ def test_load_latest_targets_picks_last_signal_date(tmp_path) -> None:
     signal_date, execution_hint, book = load_latest_targets(path)
 
     assert signal_date == pd.Timestamp("2026-10-09", tz="UTC")
-    assert execution_hint == pd.Timestamp("2026-10-10 03:00", tz="UTC")
+    assert execution_hint == pd.Timestamp("2026-10-10 01:05", tz="UTC")
     assert len(book) == 2
 
 
@@ -151,15 +151,15 @@ def test_load_latest_targets_rejects_missing_columns(tmp_path) -> None:
         load_latest_targets(path)
 
 
-def test_main_uses_the_live_fast_path_and_keeps_the_research_hint(tmp_path, monkeypatch) -> None:
+def test_main_uses_the_single_0105_execution_clock(tmp_path, monkeypatch) -> None:
     from scripts import send_derivatives_signal
 
     path = tmp_path / "oos_targets.csv"
     frame = _book().copy()
     frame["signal_date"] = "2026-09-01 00:00:00+00:00"
-    frame["execution_hint"] = "2026-09-02 03:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 01:05:00+00:00"
     frame.to_csv(path, index=False)
-    seen: list[tuple[pd.Timestamp, pd.Timestamp]] = []
+    seen: list[tuple[pd.Timestamp, pd.Timestamp | None]] = []
 
     def capture(book, *, signal_date, execution_hint, research_execution_hint, **kwargs):
         seen.append((execution_hint, research_execution_hint))
@@ -180,7 +180,7 @@ def test_main_uses_the_live_fast_path_and_keeps_the_research_hint(tmp_path, monk
     assert seen == [
         (
             pd.Timestamp("2026-09-02 01:05", tz="UTC"),
-            pd.Timestamp("2026-09-02 03:00", tz="UTC"),
+            None,
         )
     ]
 
@@ -191,7 +191,7 @@ def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None
     path = tmp_path / "oos_targets.csv"
     frame = _book().copy()
     frame["signal_date"] = "2026-09-01 00:00:00+00:00"
-    frame["execution_hint"] = "2026-09-02 03:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 01:05:00+00:00"
     frame.to_csv(path, index=False)
     monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "123")
 
@@ -208,7 +208,7 @@ def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional
         [
             {
                 "signal_date": "2026-11-06 00:00:00+00:00",
-                "execution_hint": "2026-11-07 03:00:00+00:00",
+                "execution_hint": "2026-11-07 01:05:00+00:00",
                 "asset": "bitcoin",
                 "target_weight": 0.50,
                 "change_weight": 0.50,
@@ -216,7 +216,7 @@ def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional
             },
             {
                 "signal_date": "2026-11-06 00:00:00+00:00",
-                "execution_hint": "2026-11-07 03:00:00+00:00",
+                "execution_hint": "2026-11-07 01:05:00+00:00",
                 "asset": "ethereum",
                 "target_weight": -0.25,
                 "change_weight": -0.25,
@@ -228,7 +228,7 @@ def test_format_derivatives_message_preserves_short_side_and_uses_gross_notional
     message = format_derivatives_message(
         book,
         signal_date=pd.Timestamp("2026-11-06", tz="UTC"),
-        execution_hint=pd.Timestamp("2026-11-07 03:00", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-11-07 01:05", tz="UTC"),
     )
 
     assert "SELL ETHEREUM 名义 -250.00 USDT" in message
@@ -279,7 +279,7 @@ def test_load_latest_targets_rejects_a_non_finite_weight(tmp_path) -> None:
         load_latest_targets(path)
 
 
-def test_load_latest_targets_requires_the_current_t_plus_one_plus_three_hour_hint(tmp_path) -> None:
+def test_load_latest_targets_requires_the_single_0105_execution_hint(tmp_path) -> None:
     from scripts.send_derivatives_signal import load_latest_targets
 
     path = tmp_path / "oos_targets.csv"
@@ -287,5 +287,10 @@ def test_load_latest_targets_requires_the_current_t_plus_one_plus_three_hour_hin
     frame["execution_hint"] = "2026-10-09 01:05:00+00:00"
     frame.to_csv(path, index=False)
 
-    with pytest.raises(SystemExit, match="T\\+1 \\+3h"):
+    _, execution_hint, _ = load_latest_targets(path)
+    assert execution_hint == pd.Timestamp("2026-10-09 01:05", tz="UTC")
+
+    frame["execution_hint"] = "2026-10-09 03:00:00+00:00"
+    frame.to_csv(path, index=False)
+    with pytest.raises(SystemExit, match="01:05"):
         load_latest_targets(path)

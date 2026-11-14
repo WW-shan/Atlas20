@@ -25,6 +25,14 @@ def test_build_command_pins_ls45_and_g125() -> None:
     assert command[command.index("--end-date") + 1] == "2026-11-13"
 
 
+def test_build_command_pins_the_single_0105_execution_clock() -> None:
+    command = build_command(end_date="2026-11-13")
+
+    assert command[command.index("--execution-hour") + 1] == "1"
+    assert command[command.index("--execution-minute") + 1] == "5"
+    assert command[command.index("--execution-price-snap") + 1] == "floor"
+
+
 def test_build_command_rejects_invalid_end_date() -> None:
     with pytest.raises(ValueError, match="end_date"):
         build_command(end_date="not-a-date")
@@ -36,6 +44,8 @@ def test_committed_manifest_carries_every_audit_freshness_field() -> None:
 
     for key in (
         "tracked_spec",
+        "execution_utc",
+        "execution_price_model",
         "end_date",
         "last_mark",
         "staleness_hours",
@@ -47,6 +57,8 @@ def test_committed_manifest_carries_every_audit_freshness_field() -> None:
     ):
         assert key in payload
     assert payload["max_total_gross"] == 1.25
+    assert payload["execution_utc"] == "01:05"
+    assert payload["execution_price_model"] == "mark_1h_open_floor"
     assert payload["frozen_config"]["max_total_gross"] == 1.25
 
 

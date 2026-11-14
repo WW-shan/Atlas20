@@ -90,6 +90,8 @@ LS45_G125_FROZEN_CONFIG: dict[str, Any] = {
 LS45_G125_MANIFEST_TOP_LEVEL: dict[str, Any] = {
     "allow_incomplete_marks": False,
     "cost_bps": 20.0,
+    "execution_price_model": "mark_1h_open_floor",
+    "execution_utc": "01:05",
     "funding_source": "bitget-exact",
     "max_total_gross": 1.25,
     "research_only": True,

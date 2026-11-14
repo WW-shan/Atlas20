@@ -142,26 +142,50 @@ def _as_utc(value: object) -> pd.Timestamp:
     return stamp.tz_convert("UTC")
 
 
-def _execution_hint(signal: pd.Timestamp) -> pd.Timestamp:
-    """Frozen T+1 03:00 UTC execution hint for a daily signal."""
-    return _as_utc(signal).normalize() + pd.Timedelta(days=1, hours=3)
+def _execution_hint(
+    signal: pd.Timestamp,
+    *,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
+) -> pd.Timestamp:
+    """Return the configured T+1 execution hint for a daily signal."""
+
+    return _as_utc(signal).normalize() + pd.Timedelta(
+        days=1,
+        hours=execution_hour,
+        minutes=execution_minute,
+    )
+
+
+def _execution_price_model(snap: str) -> str:
+    """Name the hourly-bar execution-price convention written to manifests."""
+
+    return f"mark_1h_open_{snap}"
 
 
 def _targets_executing_after(
     targets: Mapping[pd.Timestamp, pd.Series],
     start: pd.Timestamp,
+    *,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
 ) -> dict[pd.Timestamp, pd.Series]:
     """Keep signals whose T+1 fill falls inside the requested OOS window.
 
     The engine filters by normalized execution time.  Filtering by signal date
     instead would omit the carry-in signal from the previous day even though
-    its 03:00 fill is the first trade in the window.
+    its configured T+1 fill is the first trade in the window.
     """
     start = _as_utc(start)
     return {
         _as_utc(signal): target
         for signal, target in targets.items()
-        if _execution_hint(signal) >= start
+        if _execution_hint(
+            signal,
+            execution_hour=execution_hour,
+            execution_minute=execution_minute,
+        )
+        >= start
     }
 
 
@@ -169,6 +193,8 @@ def _shadow_targets(
     targets: Mapping[pd.Timestamp, pd.Series],
     *,
     capital: float = 1000.0,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
 ) -> pd.DataFrame:
     """Return a signed target ledger without losing short-side information.
 
@@ -218,7 +244,11 @@ def _shadow_targets(
             rows.append(
                 {
                     "signal_date": signal,
-                    "execution_hint": _execution_hint(signal),
+                    "execution_hint": _execution_hint(
+                        signal,
+                        execution_hour=execution_hour,
+                        execution_minute=execution_minute,
+                    ),
                     "asset": str(asset),
                     "side": side,
                     "target_weight": weight,
@@ -437,6 +467,14 @@ def main() -> None:
     )
     parser.add_argument("--cost-bps", type=float, default=20.0)
     parser.add_argument("--capital", type=float, default=1000.0)
+    parser.add_argument("--execution-hour", type=int, default=3)
+    parser.add_argument("--execution-minute", type=int, default=0)
+    parser.add_argument(
+        "--execution-price-snap",
+        choices=("exact", "floor", "ceil"),
+        default="exact",
+        help="snap the configured execution minute to an available hourly mark bar",
+    )
     parser.add_argument(
         "--max-total-gross",
         type=float,
@@ -478,6 +516,10 @@ def main() -> None:
         parser.error("--cost-bps must be non-negative")
     if args.capital <= 0.0:
         parser.error("--capital must be positive")
+    if not 0 <= args.execution_hour <= 23:
+        parser.error("--execution-hour must be in [0, 23]")
+    if not 0 <= args.execution_minute <= 59:
+        parser.error("--execution-minute must be in [0, 59]")
     try:
         max_total_gross = _resolve_max_total_gross(args.max_total_gross)
     except ValueError as exc:
@@ -666,6 +708,9 @@ def main() -> None:
             ),
             max_gross_exposure=max_total_gross,
             rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
+            execution_hour=int(args.execution_hour),
+            execution_minute=int(args.execution_minute),
+            execution_price_snap=str(args.execution_price_snap),
             funding_missing_policy=args.funding_missing_policy,
             missing_mark_policy=args.missing_mark_policy,
             missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
@@ -686,8 +731,15 @@ def main() -> None:
     metrics = _metrics_from_returns(metric_returns)
 
     shadow = _shadow_targets(
-        _targets_executing_after(combined, start),
+        _targets_executing_after(
+            combined,
+            start,
+            execution_hour=int(args.execution_hour),
+            execution_minute=int(args.execution_minute),
+        ),
         capital=float(args.capital),
+        execution_hour=int(args.execution_hour),
+        execution_minute=int(args.execution_minute),
     )
     latest = _latest_target_rows(shadow)
     output_dir = ensure_dir(args.output_dir)
@@ -705,7 +757,14 @@ def main() -> None:
     if "date" in profit_lock_oos.columns and not profit_lock_oos.empty:
         signal_dates = pd.to_datetime(profit_lock_oos["date"], utc=True)
         profit_lock_oos = profit_lock_oos.loc[
-            signal_dates.map(lambda value: _execution_hint(value) >= start)
+            signal_dates.map(
+                lambda value: _execution_hint(
+                    value,
+                    execution_hour=int(args.execution_hour),
+                    execution_minute=int(args.execution_minute),
+                )
+                >= start
+            )
         ]
     if not profit_lock_oos.empty:
         profit_lock_oos.to_csv(output_dir / "oos_profit_lock_audit.csv", index=False)
@@ -720,7 +779,12 @@ def main() -> None:
     if isinstance(target_audit_oos.index, pd.DatetimeIndex):
         target_audit_oos = target_audit_oos.loc[
             [
-                _execution_hint(value) >= start
+                _execution_hint(
+                    value,
+                    execution_hour=int(args.execution_hour),
+                    execution_minute=int(args.execution_minute),
+                )
+                >= start
                 for value in target_audit_oos.index
             ]
         ]
@@ -732,7 +796,14 @@ def main() -> None:
     if "date" in dropped_oos.columns and not dropped_oos.empty:
         dropped_dates = pd.to_datetime(dropped_oos["date"], utc=True)
         dropped_oos = dropped_oos.loc[
-            dropped_dates.map(lambda value: _execution_hint(value) >= start)
+            dropped_dates.map(
+                lambda value: _execution_hint(
+                    value,
+                    execution_hour=int(args.execution_hour),
+                    execution_minute=int(args.execution_minute),
+                )
+                >= start
+            )
         ]
 
     trades = result.trades
@@ -761,6 +832,9 @@ def main() -> None:
         "metric_days": int(len(metric_returns)),
         "cost_bps": float(args.cost_bps),
         "capital": float(args.capital),
+        "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
+        "execution_price_model": _execution_price_model(str(args.execution_price_snap)),
+        "execution_source": "signal_ledger_daily_close_next_day",
         "funding_source": args.funding_source,
         "funding_last": None if funding_last is None else str(funding_last),
         "funding_missing_policy": args.funding_missing_policy,
@@ -877,6 +951,11 @@ def main() -> None:
                 "warmup_start": str(warmup_start),
                 "end_date": str(end_date),
                 "cost_bps": float(args.cost_bps),
+                "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
+                "execution_price_model": _execution_price_model(
+                    str(args.execution_price_snap)
+                ),
+                "execution_source": "signal_ledger_daily_close_next_day",
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
                 "mark_source": "bitget_mark",
@@ -961,6 +1040,8 @@ def main() -> None:
             else "- frozen long/short book: H5 1.25x baseline"
         ),
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",
+        f"- execution: {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
+        f"price model {_execution_price_model(str(args.execution_price_snap))}",
         f"- funding: {summary['funding']}",
         f"- last mark: {last_mark}; staleness: {staleness_hours:.1f}h",
         f"- warmup history: {args.warmup_raw_dir or 'same as OOS marks'}",

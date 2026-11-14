@@ -1638,6 +1638,8 @@ def build_reversal_short_block_windows(
     profit_lock_audit: pd.DataFrame,
     *,
     hold_days: int,
+    execution_hour: int = 3,
+    execution_minute: int = 0,
 ) -> tuple[tuple[str, pd.Timestamp, pd.Timestamp], ...]:
     """Return execution-time windows for stop-aware reversal short episodes."""
     if hold_days < 1:
@@ -1650,8 +1652,16 @@ def build_reversal_short_block_windows(
         if not bool(getattr(row, "full_exit", False)):
             continue
         signal_date = _as_utc(getattr(row, "date")).normalize()
-        execution_start = signal_date + pd.Timedelta(days=1, hours=3)
-        execution_end = signal_date + pd.Timedelta(days=hold_days + 1, hours=3)
+        execution_start = signal_date + pd.Timedelta(
+            days=1,
+            hours=execution_hour,
+            minutes=execution_minute,
+        )
+        execution_end = signal_date + pd.Timedelta(
+            days=hold_days + 1,
+            hours=execution_hour,
+            minutes=execution_minute,
+        )
         windows.append((str(getattr(row, "leader")), execution_start, execution_end))
     return tuple(sorted(windows, key=lambda item: (item[0], item[1], item[2])))
 
@@ -1846,6 +1856,13 @@ def main() -> None:
     )
     parser.add_argument("--end-date", default="2026-09-21")
     parser.add_argument("--cost-bps", type=float, default=20.0)
+    parser.add_argument("--execution-hour", type=int, default=3)
+    parser.add_argument("--execution-minute", type=int, default=0)
+    parser.add_argument(
+        "--execution-price-snap",
+        choices=("exact", "floor", "ceil"),
+        default="exact",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw/bitget_derivatives/merged_20261009"))
     parser.add_argument("--binance-funding-dir", type=Path, default=Path("data/raw/binance_funding"))
@@ -1867,6 +1884,10 @@ def main() -> None:
         parser.error("--evaluation-start must be on or after --start-date")
     if pd.Timestamp(args.evaluation_start) >= pd.Timestamp(args.end_date):
         parser.error("--evaluation-start must be earlier than --end-date")
+    if not 0 <= args.execution_hour <= 23:
+        parser.error("--execution-hour must be in [0, 23]")
+    if not 0 <= args.execution_minute <= 59:
+        parser.error("--execution-minute must be in [0, 59]")
     configure_logging("ERROR")
 
     config, market, universe, index = _load_market(
@@ -2142,6 +2163,8 @@ def main() -> None:
                 hold_days=int(
                     REVERSAL_SHORT_CONFIG_BY_TRIAL[args.trial_id]["hold_days"]
                 ),
+                execution_hour=int(args.execution_hour),
+                execution_minute=int(args.execution_minute),
             )
             if args.trial_id in STOP_STATE_REVERSAL_SHORT_TRIALS
             else ()
@@ -2161,6 +2184,9 @@ def main() -> None:
             else False
         ),
         max_gross_exposure=target_total_gross,
+        execution_hour=int(args.execution_hour),
+        execution_minute=int(args.execution_minute),
+        execution_price_snap=str(args.execution_price_snap),
         hard_gross_exposure=(
             float(FROZEN_CONFIG["max_total_gross"])
             if args.trial_id
@@ -2212,6 +2238,8 @@ def main() -> None:
         "warmup_start_date": args.start_date,
         "end_date": args.end_date,
         "cost_bps": float(args.cost_bps),
+        "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
+        "execution_price_model": f"mark_1h_open_{args.execution_price_snap}",
         "funding_source": args.funding_source,
         "funding_stress": args.funding_stress,
         "funding_multiplier": float(args.funding_multiplier),
@@ -2359,7 +2387,9 @@ def main() -> None:
         "max_funded_short_gross": float(target_audit["funded_short_gross"].max()),
         "max_target_total_gross": float(target_audit["total_gross"].max()),
         "max_observed_gross": float(result.gross_exposure.max()) if not result.gross_exposure.empty else 0.0,
-        "gross_breach_hours": int((result.gross_exposure > float(FROZEN_CONFIG["max_total_gross"]) + 1e-12).sum()),
+        "gross_breach_hours": int(
+            (result.gross_exposure > float(target_total_gross) + 1e-12).sum()
+        ),
         "short_open_count": short_opens,
         "stop_loss_count": int(stop_reason.sum()) if not trades.empty else 0,
         "short_stop_loss_count": int((short_side & stop_reason).sum()) if not trades.empty else 0,
@@ -2611,6 +2641,8 @@ def main() -> None:
                 "warmup_start_date": args.start_date,
                 "end_date": args.end_date,
                 "cost_bps": float(args.cost_bps),
+                "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
+                "execution_price_model": f"mark_1h_open_{args.execution_price_snap}",
                 "funding_source": args.funding_source,
                 "funding_stress": args.funding_stress,
                 "funding_multiplier": float(args.funding_multiplier),

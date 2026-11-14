@@ -417,13 +417,9 @@ def format_execution_plan(
         "",
         "今日调仓:",
     ]
-    if research_execution_hint is not None:
-        lines.insert(
-            2,
-            "研究回测成交口径 "
-            f"{research_execution_hint.strftime('%Y-%m-%d %H:%M')} UTC "
-            f"/ 北京 {(research_execution_hint + pd.Timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')}",
-        )
+    # Retained as a compatibility argument; live and research now share one
+    # execution clock, so a second line would be misleading.
+    del research_execution_hint
     if not plan.orders:
         lines.append("  无需调仓（已与目标一致或在最小下单量以内）")
     for order in plan.orders:
@@ -497,7 +493,7 @@ def main() -> None:
     args = parser.parse_args()
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
-    signal_date, research_execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
     signal_end_date = manifest_signal_end_date(args.manifest_file)
     execution_hint = pd.Timestamp(
         live_execution_hint_for_signal(signal_end_date or signal_date)
@@ -582,7 +578,7 @@ def main() -> None:
         plan,
         signal_date=signal_date,
         execution_hint=execution_hint,
-        research_execution_hint=research_execution_hint,
+        research_execution_hint=None,
         signal_end_date=signal_end_date,
         spec=args.spec,
     )
@@ -597,7 +593,7 @@ def main() -> None:
                     "spec": args.spec,
                     "signal_date": str(signal_date.date()),
                     "execution_hint": str(execution_hint),
-                    "research_execution_hint": str(research_execution_hint),
+                    "ledger_execution_hint": str(ledger_execution_hint),
                     "plan": plan.as_dict(),
                 },
                 indent=2,

@@ -49,7 +49,7 @@ def test_plan_message_distinguishes_event_date_from_data_evaluation_date() -> No
     assert "最新事件 2026-11-06" in message
     assert "数据评估日 2026-11-12" in message
     assert "建议执行 2026-11-13 01:05" in message
-    assert "研究回测成交口径 2026-11-07 03:00" in message
+    assert "研究回测成交口径" not in message
 
 
 def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
@@ -61,7 +61,7 @@ def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
     assert manifest_signal_end_date(path) == pd.Timestamp("2026-11-12", tz="UTC")
 
 
-def test_dry_run_plan_separates_live_fast_path_from_research_fill() -> None:
+def test_dry_run_plan_uses_the_0105_fill_for_live_and_research() -> None:
     plan = build_execution_plan(
         AccountState(equity=100.0, available_margin=100.0),
         {"near": 0.4},
@@ -73,11 +73,30 @@ def test_dry_run_plan_separates_live_fast_path_from_research_fill() -> None:
         plan,
         signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
         execution_hint=pd.Timestamp("2026-11-14 01:05", tz="UTC"),
-        research_execution_hint=pd.Timestamp("2026-11-14 03:00", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-11-14 01:05", tz="UTC"),
     )
 
     assert "建议执行 2026-11-14 01:05 UTC / 北京 2026-11-14 09:05" in message
-    assert "研究回测成交口径 2026-11-14 03:00 UTC / 北京 2026-11-14 11:00" in message
+    assert "研究回测成交口径" not in message
+
+
+def test_dry_run_plan_uses_only_the_single_execution_clock() -> None:
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0),
+        {},
+        {},
+        {},
+    )
+
+    message = format_execution_plan(
+        plan,
+        signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
+        execution_hint=pd.Timestamp("2026-11-14 01:05", tz="UTC"),
+        research_execution_hint=pd.Timestamp("2026-11-14 01:05", tz="UTC"),
+    )
+
+    assert "建议执行 2026-11-14 01:05 UTC / 北京 2026-11-14 09:05" in message
+    assert "研究回测成交口径" not in message
 
 
 def test_execute_cli_defaults_to_the_ls45_short_stop() -> None:

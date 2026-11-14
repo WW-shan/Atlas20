@@ -22,6 +22,18 @@ def test_shadow_targets_preserve_signed_long_and_short_weights() -> None:
     assert by_asset.loc["bitcoin", "execution_hint"] == signal + pd.Timedelta(days=1, hours=3)
 
 
+def test_shadow_targets_can_use_the_single_0105_execution_clock() -> None:
+    signal = pd.Timestamp("2026-11-13", tz="UTC")
+    rows = _shadow_targets(
+        {signal: pd.Series({"bitcoin": 0.5})},
+        capital=1000.0,
+        execution_hour=1,
+        execution_minute=5,
+    )
+
+    assert rows.iloc[0]["execution_hint"] == pd.Timestamp("2026-11-14 01:05", tz="UTC")
+
+
 def test_short_schedule_is_flattened_after_funding_history_ends() -> None:
     from scripts.run_derivatives_shadow import _cap_short_schedule_at_funding_end
 
@@ -51,6 +63,29 @@ def test_shadow_ledger_includes_signal_that_fills_inside_the_window() -> None:
     selected = _targets_executing_after(targets, start)
 
     assert list(selected) == [signal]
+
+
+def test_shadow_ledger_window_filter_uses_the_0105_clock() -> None:
+    from scripts.run_derivatives_shadow import _targets_executing_after
+
+    signal = pd.Timestamp("2026-09-21", tz="UTC")
+    targets = {signal: pd.Series({"bitcoin": 0.5})}
+
+    included = _targets_executing_after(
+        targets,
+        pd.Timestamp("2026-09-22 01:00", tz="UTC"),
+        execution_hour=1,
+        execution_minute=5,
+    )
+    excluded = _targets_executing_after(
+        targets,
+        pd.Timestamp("2026-09-22 01:06", tz="UTC"),
+        execution_hour=1,
+        execution_minute=5,
+    )
+
+    assert list(included) == [signal]
+    assert excluded == {}
 
 
 def test_shadow_ledger_marks_a_close_as_flat() -> None:

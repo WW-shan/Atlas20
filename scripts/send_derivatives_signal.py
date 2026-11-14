@@ -89,10 +89,10 @@ def load_latest_targets(path: Path) -> tuple[pd.Timestamp, pd.Timestamp, pd.Data
             f"targets file {path} has inconsistent execution_hint values on {latest.date()}"
         )
     execution_hint = pd.Timestamp(hints.iloc[0])
-    expected_hint = latest + pd.Timedelta(days=1, hours=3)
+    expected_hint = pd.Timestamp(live_execution_hint_for_signal(latest))
     if execution_hint != expected_hint:
         raise SystemExit(
-            f"targets file {path} must use the current T+1 +3h execution_hint "
+            f"targets file {path} must use the single T+1 01:05 UTC execution_hint "
             f"{expected_hint.isoformat()}, got {execution_hint.isoformat()}"
         )
     assets = book["asset"].astype(str).str.strip().str.lower()
@@ -135,13 +135,9 @@ def _close_and_execution_lines(
         f"（UTC {execution_hint.strftime('%Y-%m-%d %H:%M')}，"
         f"{_lag_label(close_utc, execution_hint)}）",
     ]
-    if research_execution_hint is not None:
-        research_local = research_execution_hint + pd.Timedelta(hours=8)
-        lines.append(
-            f"研究回测成交口径: {research_execution_hint.strftime('%H:%M')} UTC"
-            f"（{_lag_label(close_utc, research_execution_hint)}；"
-            f"北京时间 {research_local.strftime('%H:%M')}）"
-        )
+    # Kept only for compatibility with older callers.  A second execution
+    # clock would falsely imply that research and live still diverge.
+    del research_execution_hint
     return lines
 
 
@@ -297,8 +293,13 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    signal_date, research_execution_hint, book = load_latest_targets(args.targets_file)
+    signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
     execution_hint = pd.Timestamp(live_execution_hint_for_signal(signal_date))
+    if ledger_execution_hint != execution_hint:
+        raise SystemExit(
+            f"target ledger execution_hint {ledger_execution_hint} does not match "
+            f"the live execution clock {execution_hint}"
+        )
     raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
     try:
         capital = float(raw_capital)
@@ -311,7 +312,7 @@ def main(argv: list[str] | None = None) -> None:
         book,
         signal_date=signal_date,
         execution_hint=execution_hint,
-        research_execution_hint=research_execution_hint,
+        research_execution_hint=None,
         capital=capital,
         spec=args.spec,
         now=pd.Timestamp.now(tz="UTC"),

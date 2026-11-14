@@ -1197,6 +1197,29 @@ def test_reversal_short_block_windows_cover_execution_through_expiry() -> None:
     )
 
 
+def test_reversal_short_block_windows_follow_the_configured_execution_clock() -> None:
+    import scripts.run_h5_regime_short_router as runner
+
+    audit = pd.DataFrame(
+        [{"date": pd.Timestamp("2026-10-03", tz="UTC"), "leader": "near", "full_exit": True}]
+    )
+
+    windows = runner.build_reversal_short_block_windows(
+        audit,
+        hold_days=28,
+        execution_hour=1,
+        execution_minute=5,
+    )
+
+    assert windows == (
+        (
+            "near",
+            pd.Timestamp("2026-10-04T01:05:00Z"),
+            pd.Timestamp("2026-11-01T01:05:00Z"),
+        ),
+    )
+
+
 def test_suppress_long_targets_while_reversal_short_removes_active_asset() -> None:
     import scripts.run_h5_regime_short_router as runner
 
