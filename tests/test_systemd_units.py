@@ -78,6 +78,9 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
     assert "DERIVATIVES_LIVE_RAW_DIR ?= data/raw/bitget_derivatives/merged_oos_20261112" in makefile
     assert "--output-dir $(DERIVATIVES_LIVE_RAW_DIR)" in live_data
     assert "--types mark" in live_data
+    assert "--wait-for-live-mark-seconds $(DERIVATIVES_LIVE_MARK_WAIT_SECONDS)" in live_data
+    assert "--wait-for-live-mark-poll-seconds $(DERIVATIVES_LIVE_MARK_POLL_SECONDS)" in live_data
+    assert "--execution-utc 01:05" in live_data
 
     live_signal = makefile.split("derivatives-ls45-signal:", 1)[1].split("\n\n", 1)[0]
     assert "scripts/run_ls45_live_signal.py" in live_signal

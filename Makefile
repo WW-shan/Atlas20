@@ -64,13 +64,18 @@ refresh-data: $(VENV_STAMP)
 # this target.  Keep the raw directory stable so daily downloads append to one
 # resumable cache and every live artifact points at the same identity.
 DERIVATIVES_LIVE_RAW_DIR ?= data/raw/bitget_derivatives/merged_oos_20261112
+DERIVATIVES_LIVE_MARK_WAIT_SECONDS ?= 180
+DERIVATIVES_LIVE_MARK_POLL_SECONDS ?= 30
 
 derivatives-live-data: $(VENV_STAMP)
 	$(PYTHON) scripts/download_bitget_derivatives_data.py \
 		--output-dir $(DERIVATIVES_LIVE_RAW_DIR) \
 		--start $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)-datetime.timedelta(days=3)).date())") \
 		--end $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=1)).date())") \
-		--types mark
+		--types mark \
+		--wait-for-live-mark-seconds $(DERIVATIVES_LIVE_MARK_WAIT_SECONDS) \
+		--wait-for-live-mark-poll-seconds $(DERIVATIVES_LIVE_MARK_POLL_SECONDS) \
+		--execution-utc 01:05
 
 derivatives-ls45-signal: derivatives-live-data $(VENV_STAMP)
 	$(PYTHON) scripts/run_ls45_live_signal.py

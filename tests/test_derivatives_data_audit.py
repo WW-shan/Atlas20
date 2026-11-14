@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from atlas20.derivatives import data_audit
 from atlas20.derivatives.data_audit import audit_derivatives_data
 
 NOW = datetime(2026, 11, 14, 2, 0, tzinfo=timezone.utc)
@@ -170,6 +171,36 @@ def test_valid_fixture_passes_and_has_a_stable_fingerprint(tmp_path: Path) -> No
     assert first.hard_failures == []
     assert first.provenance["fingerprint"] == second.provenance["fingerprint"]
     assert first.provenance["fingerprint"].startswith("sha256:")
+
+
+def test_required_last_mark_time_waits_for_the_completed_execution_hour() -> None:
+    before_fill = data_audit.required_last_mark_time(
+        datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc)
+    )
+    at_fill = data_audit.required_last_mark_time(
+        datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc)
+    )
+
+    assert before_fill == pd.Timestamp("2026-11-13T23:00:00Z")
+    assert at_fill == pd.Timestamp("2026-11-14T00:00:00Z")
+
+
+def test_missing_required_mark_bar_fails_even_when_a_newer_bar_exists(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(path)
+    frame = frame.loc[
+        pd.to_datetime(frame["open_time"], utc=True)
+        != pd.Timestamp("2026-11-14T00:00:00Z")
+    ]
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("required mark bar" in item for item in report.hard_failures)
 
 
 def test_duplicate_mark_timestamp_fails(tmp_path: Path) -> None:

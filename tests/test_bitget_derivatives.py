@@ -355,3 +355,227 @@ def test_stale_cached_funding_is_refetched_and_history_is_merged(tmp_path) -> No
         "2026-11-14 00:00:00+00:00",
     ]
     assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
+
+
+def test_live_mark_tail_retry_merges_the_new_completed_hour(tmp_path) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    candle_dir = tmp_path / "candles"
+    candle_dir.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": [pd.Timestamp("2026-11-13T23:00:00Z")],
+            "open": [100.0],
+            "high": [101.0],
+            "low": [99.0],
+            "close": [100.0],
+            "volume": [1.0],
+            "quote_volume": [100.0],
+        }
+    ).to_csv(candle_dir / "BTCUSDT_mark.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            }
+        ]
+    )
+
+    class _TailClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_history_candles(
+            self,
+            symbol: str,
+            candle_type: str,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
+        ) -> pd.DataFrame:
+            self.calls += 1
+            assert symbol == "BTCUSDT"
+            assert candle_type == "mark"
+            assert start == pd.Timestamp("2026-11-13T22:00:00Z")
+            assert end == pd.Timestamp("2026-11-14T01:00:00Z")
+            return candle_frame([_row("2026-11-14T00:00:00Z")])
+
+    client = _TailClient()
+    stale = downloader._wait_for_live_mark_tail(  # type: ignore[attr-defined,arg-type]
+        client,
+        symbol_map,
+        tmp_path,
+        required_last=pd.Timestamp("2026-11-14T00:00:00Z"),
+        max_wait_seconds=120.0,
+        poll_seconds=30.0,
+        sleep_fn=lambda _: None,
+    )
+
+    assert stale == []
+    assert client.calls == 1
+    merged = pd.read_csv(candle_dir / "BTCUSDT_mark.csv")
+    assert pd.to_datetime(merged["open_time"], utc=True).max() == pd.Timestamp(
+        "2026-11-14T00:00:00Z"
+    )
+
+
+def test_live_mark_tail_retry_does_not_refetch_a_deep_gap(tmp_path) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    candle_dir = tmp_path / "candles"
+    candle_dir.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": [pd.Timestamp("2026-11-13T12:00:00Z")],
+            "open": [100.0],
+            "high": [101.0],
+            "low": [99.0],
+            "close": [100.0],
+            "volume": [1.0],
+            "quote_volume": [100.0],
+        }
+    ).to_csv(candle_dir / "BTCUSDT_mark.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            }
+        ]
+    )
+
+    class _TailClient:
+        def fetch_history_candles(self, *args, **kwargs) -> pd.DataFrame:
+            raise AssertionError("a deep gap needs a full data refresh, not a tail retry")
+
+    stale = downloader._wait_for_live_mark_tail(  # type: ignore[attr-defined,arg-type]
+        _TailClient(),
+        symbol_map,
+        tmp_path,
+        required_last=pd.Timestamp("2026-11-14T00:00:00Z"),
+        max_wait_seconds=120.0,
+        poll_seconds=30.0,
+        sleep_fn=lambda _: None,
+    )
+
+    assert stale == ["BTCUSDT"]
+
+
+def test_live_mark_tail_retry_stops_at_the_wait_budget(tmp_path) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    candle_dir = tmp_path / "candles"
+    candle_dir.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": [pd.Timestamp("2026-11-13T23:00:00Z")],
+            "open": [100.0],
+            "high": [101.0],
+            "low": [99.0],
+            "close": [100.0],
+            "volume": [1.0],
+            "quote_volume": [100.0],
+        }
+    ).to_csv(candle_dir / "BTCUSDT_mark.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            }
+        ]
+    )
+
+    class _EmptyTailClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_history_candles(self, *args, **kwargs) -> pd.DataFrame:
+            self.calls += 1
+            return pd.DataFrame()
+
+    class _Clock:
+        def __init__(self) -> None:
+            self.elapsed = 0.0
+
+        def monotonic(self) -> float:
+            return self.elapsed
+
+        def sleep(self, seconds: float) -> None:
+            self.elapsed += seconds
+
+    clock = _Clock()
+    client = _EmptyTailClient()
+    stale = downloader._wait_for_live_mark_tail(  # type: ignore[attr-defined,arg-type]
+        client,
+        symbol_map,
+        tmp_path,
+        required_last=pd.Timestamp("2026-11-14T00:00:00Z"),
+        max_wait_seconds=75.0,
+        poll_seconds=30.0,
+        sleep_fn=clock.sleep,
+        clock_fn=clock.monotonic,
+    )
+
+    assert stale == ["BTCUSDT"]
+    assert clock.elapsed == 75.0
+    assert client.calls == 3
+
+
+def test_live_mark_tail_retry_fills_a_hole_before_a_newer_bar(tmp_path) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    candle_dir = tmp_path / "candles"
+    candle_dir.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": [
+                pd.Timestamp("2026-11-13T23:00:00Z"),
+                pd.Timestamp("2026-11-14T01:00:00Z"),
+            ],
+            "open": [100.0, 101.0],
+            "high": [101.0, 102.0],
+            "low": [99.0, 100.0],
+            "close": [100.0, 101.0],
+            "volume": [1.0, 1.0],
+            "quote_volume": [100.0, 100.0],
+        }
+    ).to_csv(candle_dir / "BTCUSDT_mark.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            }
+        ]
+    )
+
+    class _HoleClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_history_candles(self, *args, **kwargs) -> pd.DataFrame:
+            self.calls += 1
+            return candle_frame([_row("2026-11-14T00:00:00Z")])
+
+    client = _HoleClient()
+    stale = downloader._wait_for_live_mark_tail(  # type: ignore[attr-defined,arg-type]
+        client,
+        symbol_map,
+        tmp_path,
+        required_last=pd.Timestamp("2026-11-14T00:00:00Z"),
+        max_wait_seconds=120.0,
+        poll_seconds=30.0,
+        sleep_fn=lambda _: None,
+    )
+
+    assert stale == []
+    assert client.calls == 1
+    merged = pd.read_csv(candle_dir / "BTCUSDT_mark.csv")
+    assert pd.Timestamp("2026-11-14T00:00:00Z") in set(
+        pd.to_datetime(merged["open_time"], utc=True)
+    )

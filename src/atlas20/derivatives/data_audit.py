@@ -68,6 +68,27 @@ def _as_utc(value: object) -> datetime:
     return stamp.to_pydatetime()
 
 
+def required_last_mark_time(
+    now: datetime | pd.Timestamp,
+    *,
+    execution_utc: time = DEFAULT_EXECUTION_UTC,
+) -> pd.Timestamp:
+    """Return the newest mark bar the live chain must have before trading."""
+
+    moment = pd.Timestamp(_as_utc(now))
+    last_completed = moment.date() - timedelta(days=1)
+    execution_target = pd.Timestamp(
+        datetime.combine(
+            last_completed + timedelta(days=1),
+            execution_utc,
+            tzinfo=UTC,
+        )
+    )
+    if moment >= execution_target:
+        return execution_target - pd.Timedelta(hours=1, minutes=5)
+    return pd.Timestamp(last_completed, tz=UTC) + pd.Timedelta(hours=23)
+
+
 def _file_sha256(path: Path) -> str | None:
     if not path.is_file():
         return None
@@ -558,19 +579,24 @@ def audit_derivatives_data(
             _check(report, f"marks.{asset}.ohlc", not invalid_ohlc, "invalid OHLC relationship")
             if not clean.empty:
                 last = pd.Timestamp(clean.index.max())
-                last_completed = moment.date() - timedelta(days=1)
-                execution_target = pd.Timestamp(datetime.combine(last_completed + timedelta(days=1), execution_utc, tzinfo=UTC))
                 # At/after the fill minute the live chain can only have the
                 # last *completed* hourly bar; the 01:00 bar that starts at
                 # the same minute is used later by the retrospective engine,
                 # not by the live data refresh.  Requiring it here would make
                 # every 09:05 Beijing run fail until 02:00 UTC.
-                required_last = (
-                    execution_target - pd.Timedelta(hours=1, minutes=5)
-                    if moment >= execution_target
-                    else pd.Timestamp(last_completed, tz="UTC") + pd.Timedelta(hours=23)
+                required_last = required_last_mark_time(
+                    moment,
+                    execution_utc=execution_utc,
                 )
                 _check(report, f"marks.{asset}.last_bar", last >= required_last, f"last mark {last} is before required {required_last}")
+                required_bar_present = required_last in clean.index
+                _check(
+                    report,
+                    f"marks.{asset}.required_bar",
+                    required_bar_present,
+                    f"required mark bar {required_last} "
+                    + ("present" if required_bar_present else "is missing"),
+                )
                 recent = clean.loc[clean.index >= last - pd.Timedelta(days=1)]
                 gaps = recent.index.to_series().diff().dropna().dt.total_seconds().div(3600.0)
                 max_gap = float(gaps.max()) if not gaps.empty else 1.0

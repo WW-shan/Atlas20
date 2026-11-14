@@ -20,12 +20,14 @@ Usage::
 from __future__ import annotations
 
 import argparse
+from datetime import time
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
-from typing import Any
+import time as time_module
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -36,6 +38,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.bitget import BitgetClient, CANDLE_COLUMNS  # noqa: E402
+from atlas20.derivatives.data_audit import required_last_mark_time  # noqa: E402
 from atlas20.derivatives.mapping import build_symbol_map  # noqa: E402
 from atlas20.logging_utils import (  # noqa: E402
     atomic_write_text,
@@ -48,6 +51,7 @@ LOGGER = get_logger(__name__)
 DEFAULT_TYPES = ("mark", "index", "market")
 _WINDOW_DAYS = 89
 DEFAULT_FUNDING_REFRESH_HOURS = 12.0
+MAX_RETRYABLE_MARK_TAIL_LAG = pd.Timedelta(hours=3)
 
 
 def _read_panel(path: Path) -> pd.DataFrame:
@@ -170,6 +174,128 @@ def _window_needs_refresh(window_end: pd.Timestamp, now: pd.Timestamp) -> bool:
     else:
         current = current.tz_convert("UTC")
     return end > current.floor("h")
+
+
+def _mark_times(path: Path) -> pd.DatetimeIndex | None:
+    """Read one cached mark file's open times, or ``None`` if unusable."""
+
+    try:
+        frame = pd.read_csv(path)
+    except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+        return None
+    if frame.empty or "open_time" not in frame.columns:
+        return None
+    times = pd.to_datetime(frame["open_time"], utc=True, format="mixed", errors="coerce")
+    valid = times.dropna().drop_duplicates().sort_values()
+    return pd.DatetimeIndex(valid) if not valid.empty else None
+
+
+def _mark_tail_gaps(
+    symbol_map: pd.DataFrame,
+    output_dir: Path,
+    *,
+    required_last: pd.Timestamp,
+) -> tuple[list[str], list[str]]:
+    """Split stale marks into retryable last-bar lag and deeper data gaps."""
+
+    retryable: list[str] = []
+    blocked: list[str] = []
+    normal = symbol_map.loc[
+        symbol_map["contract_status"].astype(str).str.lower().eq("normal")
+    ]
+    for record in normal.to_dict("records"):
+        symbol = str(record.get("bitget_symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        times = _mark_times(output_dir / "candles" / f"{symbol}_mark.csv")
+        if times is None:
+            blocked.append(symbol)
+            continue
+        required = pd.Timestamp(required_last)
+        if required in times:
+            continue
+        last = pd.Timestamp(times.max())
+        lag = abs(last - required)
+        if lag <= MAX_RETRYABLE_MARK_TAIL_LAG:
+            retryable.append(symbol)
+        else:
+            blocked.append(symbol)
+    return sorted(set(retryable)), sorted(set(blocked))
+
+
+def _refresh_mark_tails(
+    client: BitgetClient,
+    symbols: list[str],
+    output_dir: Path,
+    *,
+    required_last: pd.Timestamp,
+) -> None:
+    """Fetch only the two hours before the required bar and merge it atomically."""
+
+    start = pd.Timestamp(required_last) - pd.Timedelta(hours=2)
+    end = pd.Timestamp(required_last) + pd.Timedelta(hours=1)
+    for symbol in symbols:
+        path = output_dir / "candles" / f"{symbol}_mark.csv"
+        try:
+            existing = pd.read_csv(path)
+        except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+            existing = pd.DataFrame(columns=CANDLE_COLUMNS)
+        try:
+            frame = client.fetch_history_candles(symbol, "mark", start, end)
+        except Exception as exc:  # noqa: BLE001 - the next bounded poll can retry
+            LOGGER.warning("live mark tail refresh %s failed: %s", symbol, exc)
+            continue
+        if frame.empty:
+            continue
+        _write_csv_atomic(_merge_candles(existing, frame), path)
+
+
+def _wait_for_live_mark_tail(
+    client: BitgetClient,
+    symbol_map: pd.DataFrame,
+    output_dir: Path,
+    *,
+    required_last: pd.Timestamp,
+    max_wait_seconds: float,
+    poll_seconds: float,
+    sleep_fn: Callable[[float], None] = time_module.sleep,
+    clock_fn: Callable[[], float] = time_module.monotonic,
+) -> list[str]:
+    """Wait for the live exchange to publish its last completed hourly mark bar."""
+
+    if max_wait_seconds <= 0.0:
+        raise ValueError("max_wait_seconds must be positive")
+    if poll_seconds <= 0.0:
+        raise ValueError("poll_seconds must be positive")
+    required = pd.Timestamp(required_last)
+    deadline = clock_fn() + float(max_wait_seconds)
+    while True:
+        retryable, blocked = _mark_tail_gaps(
+            symbol_map,
+            output_dir,
+            required_last=required,
+        )
+        if not retryable and not blocked:
+            return []
+        if blocked:
+            return sorted(set(retryable) | set(blocked))
+        remaining = deadline - clock_fn()
+        if remaining <= 0.0:
+            return retryable
+        wait_seconds = min(float(poll_seconds), remaining)
+        LOGGER.warning(
+            "waiting %.0fs for Bitget live mark %s on %s symbol(s)",
+            wait_seconds,
+            required,
+            len(retryable),
+        )
+        sleep_fn(wait_seconds)
+        _refresh_mark_tails(
+            client,
+            retryable,
+            output_dir,
+            required_last=required,
+        )
 
 
 def _max_gap_hours(frame: pd.DataFrame) -> float:
@@ -322,6 +448,14 @@ def _download_funding(
     return manifest
 
 
+def _parse_clock(value: str) -> time:
+    try:
+        hour, minute = value.split(":", 1)
+        return time(int(hour), int(minute))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"{value!r} is not HH:MM") from exc
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--panel", type=Path, default=Path("data/processed/panel_daily.csv"))
@@ -340,6 +474,24 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--funding-only", action="store_true")
     parser.add_argument("--skip-funding", action="store_true")
+    parser.add_argument(
+        "--wait-for-live-mark-seconds",
+        type=float,
+        default=0.0,
+        help="bounded wait for the last completed live mark bar",
+    )
+    parser.add_argument(
+        "--wait-for-live-mark-poll-seconds",
+        type=float,
+        default=30.0,
+        help="poll interval used by --wait-for-live-mark-seconds",
+    )
+    parser.add_argument(
+        "--execution-utc",
+        type=_parse_clock,
+        default=time(1, 5),
+        help="live fill clock used to derive the required completed mark bar",
+    )
     args = parser.parse_args()
     configure_logging("INFO")
 
@@ -353,6 +505,10 @@ def main() -> None:
         raise SystemExit("--client-retries must be at least 1")
     if args.retry_backoff_seconds < 0:
         raise SystemExit("--retry-backoff-seconds must be non-negative")
+    if args.wait_for_live_mark_seconds < 0:
+        raise SystemExit("--wait-for-live-mark-seconds must be non-negative")
+    if args.wait_for_live_mark_poll_seconds <= 0:
+        raise SystemExit("--wait-for-live-mark-poll-seconds must be positive")
     types = [item.strip() for item in args.types.split(",") if item.strip()]
     output_dir = ensure_dir(args.output_dir)
     candle_dir = ensure_dir(output_dir / "candles")
@@ -459,15 +615,55 @@ def main() -> None:
                 _save_state(state_path, state)
             _write_csv_atomic(existing, path)
             coverage_rows.append(_coverage_row(coin_id, symbol, candle_type, existing, window_state, windows))
+            last_open = existing["open_time"].max() if not existing.empty else "missing"
             LOGGER.info(
-                "%s %s: %s rows, %s complete windows, %s missing",
+                "%s %s: %s rows, last=%s, %s complete windows, %s missing",
                 symbol,
                 candle_type,
                 len(existing),
+                last_open,
                 window_state and sum(1 for value in window_state.values() if value.get("status") == "complete"),
                 sum(1 for value in window_state.values() if value.get("status") == "missing"),
             )
 
+    if args.wait_for_live_mark_seconds > 0.0:
+        required_last = required_last_mark_time(
+            pd.Timestamp.now(tz="UTC").to_pydatetime(),
+            execution_utc=args.execution_utc,
+        )
+        LOGGER.info("live mark requirement: %s", required_last)
+        stale_marks = _wait_for_live_mark_tail(
+            client,
+            selected,
+            output_dir,
+            required_last=required_last,
+            max_wait_seconds=float(args.wait_for_live_mark_seconds),
+            poll_seconds=float(args.wait_for_live_mark_poll_seconds),
+        )
+        for row in coverage_rows:
+            if row.get("candle_type") != "mark":
+                continue
+            path = candle_dir / f"{row['bitget_symbol']}_mark.csv"
+            try:
+                refreshed = pd.read_csv(path)
+            except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+                continue
+            row["rows"] = int(len(refreshed))
+            row["first"] = refreshed["open_time"].min() if not refreshed.empty else pd.NaT
+            row["last"] = refreshed["open_time"].max() if not refreshed.empty else pd.NaT
+            row["max_gap_hours"] = _max_gap_hours_within_windows(refreshed, windows)
+        coverage = pd.DataFrame(coverage_rows)
+        _write_csv_atomic(coverage, output_dir / "coverage.csv")
+        atomic_write_text(
+            output_dir / "coverage.json",
+            json.dumps(coverage_rows, indent=2, sort_keys=True, default=str),
+        )
+        if stale_marks:
+            raise SystemExit(
+                "Bitget live mark feed is still missing the required completed bar "
+                f"{required_last} for {len(stale_marks)} symbol(s): "
+                + ", ".join(stale_marks[:10])
+            )
     coverage = pd.DataFrame(coverage_rows)
     _write_csv_atomic(coverage, output_dir / "coverage.csv")
     atomic_write_text(

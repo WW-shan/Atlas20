@@ -17,7 +17,7 @@
 
 ```json
 {
-  "checks": 2141,
+  "checks": 2229,
   "funding": {
     "1inch": {
       "last": "2026-11-14 08:00:00+00:00",
@@ -464,7 +464,7 @@
   "hard_failures": 0,
   "last_mark": "2026-11-14 08:00:00+00:00",
   "mark_assets": 88,
-  "now": "2026-11-14T12:07:44.477041+00:00",
+  "now": "2026-11-14T12:46:26.857198+00:00",
   "panel_latest": "2026-11-13",
   "panel_latest_assets": 97,
   "warnings": 1
