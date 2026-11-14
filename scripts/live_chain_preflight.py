@@ -21,7 +21,7 @@ a real error abort the job.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, time, timezone
+from datetime import date, datetime, time, timezone
 import json
 from pathlib import Path
 import sys
@@ -37,6 +37,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     DEFAULT_SCHEDULED_UTC,
     as_utc,
     last_completed_utc_day,
+    manifest_targets_hash_issue,
     panel_completeness,
     panel_end_date,
     panel_lags_last_completed_day,
@@ -84,6 +85,38 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _manifest_day(value: object) -> date | None:
+    """Parse one manifest evaluation date without importing the full stack."""
+
+    if value in (None, ""):
+        return None
+    text = str(value).strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text).date()
+    except ValueError:
+        return None
+
+
+def _manifest_evaluated_through_latest_day(
+    manifest: dict[str, object],
+    now: datetime,
+) -> bool:
+    """Whether both manifest evaluation dates reach the latest completed day."""
+
+    expected = last_completed_utc_day(now)
+    signal_end = _manifest_day(manifest.get("signal_end_date"))
+    index_end = _manifest_day(manifest.get("index_end_date"))
+    return signal_end == expected and index_end == expected
+
+
+def _manifest_target_file(manifest: dict[str, object], manifest_path: Path) -> Path | None:
+    recorded = str(manifest.get("targets_file") or "").strip()
+    if not recorded:
+        return None
+    path = Path(recorded)
+    return path if path.is_absolute() else manifest_path.parent / path
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     now = (
@@ -106,11 +139,37 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"manifest {args.manifest_file} has no targets_sha256")
                 return 1
             target_identity = str(manifest["targets_sha256"])
-        if run_day_already_done(
-            args.state_file,
-            now.date(),
-            target_identity=target_identity,
-        ):
+        if args.manifest_file is not None:
+            assert manifest is not None
+            target_file = _manifest_target_file(manifest, args.manifest_file)
+            target_hash_issue = (
+                manifest_targets_hash_issue(manifest, target_file)
+                if target_file is not None
+                else "manifest has no targets_file"
+            )
+            evaluated_through_latest = _manifest_evaluated_through_latest_day(
+                manifest,
+                now,
+            )
+            if not evaluated_through_latest:
+                print(
+                    "manifest has not been evaluated through "
+                    f"{last_completed_utc_day(now).isoformat()}; rebuilding before "
+                    "the same-day idempotency check"
+                )
+            elif target_hash_issue is not None:
+                print(
+                    f"manifest cannot prove the current target file: {target_hash_issue}; "
+                    "rebuilding before the same-day idempotency check"
+                )
+            elif run_day_already_done(
+                args.state_file,
+                now.date(),
+                target_identity=target_identity,
+            ):
+                print(f"run day {now.date().isoformat()} already completed; nothing to do")
+                return BLOCKED
+        elif run_day_already_done(args.state_file, now.date()):
             print(f"run day {now.date().isoformat()} already completed; nothing to do")
             return BLOCKED
         allowed, reason = within_run_window(

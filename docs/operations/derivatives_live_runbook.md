@@ -137,8 +137,10 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 
 1. **窗口闸**：`scripts/live_chain_preflight.py --check window`
    - 01:05 UTC 前退出；
-   - 当日状态已 `ok` 且 `targets_sha256` 与当前待执行账本一致时退出；旧账本上的空操作成功
-     不会挡住新账本补跑；
+   - 只有 `signal_end_date` 与 `index_end_date` 都已覆盖最新完成 UTC 日、manifest 的
+     `targets_sha256` 与磁盘上的目标 CSV 完全一致，并且当日状态已 `ok` 的目标身份与它相同时才退出；
+   - 旧 manifest 落后一天或目标 CSV 是半写/混合快照时，**不得**先用旧账本的“成功空操作”
+     跳过重试；窗口内必须继续刷新数据、重建账本，再由执行器按新目标哈希判断是否真的重复；
    - 超过 6 小时补跑窗口退出；
    - 退出码 3 表示“设计上不交易”，不是故障。
 2. **面板自愈**：`--check panel`

@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-14T17:34:08.747336+00:00",
+  "checked_at": "2026-11-14T18:10:48.746254+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -21,7 +21,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 502.26 USDT",
+      "detail": "权益 503.41 USDT",
       "hard": true,
       "ok": true
     },
@@ -45,13 +45,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "502.2614 vs 439.0003 + 60.5439 + 2.7173 = 502.2614",
+      "detail": "503.4112 vs 439.0003 + 60.5439 + 3.8670 = 503.4112",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 118.7578",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 117.6033",
       "hard": true,
       "ok": true
     },
@@ -81,7 +81,7 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-14 equity=503.5373；折算后应为 502.3186，交易所 502.2614",
+      "detail": "台账 2026-11-14 equity=503.5373；折算后应为 503.4730，交易所 503.4112",
       "hard": true,
       "ok": true
     },
@@ -153,13 +153,13 @@
     },
     {
       "check": "总名义 <= 1.25x 权益（规格上限）",
-      "detail": "gross 118.76 / equity 502.26 = 0.236x",
+      "detail": "gross 117.60 / equity 503.41 = 0.234x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-14 16:00:00+00:00（1.6h 前）",
+      "detail": "最新 mark 2026-11-14 16:00:00+00:00（2.2h 前）",
       "hard": true,
       "ok": true
     },
@@ -206,9 +206,9 @@
       "ok": true
     }
   ],
-  "equity": 502.26138952,
+  "equity": 503.41115952,
   "hard_failures": 0,
-  "position_value": 118.75778,
+  "position_value": 117.60330000000002,
   "signal_date": "2026-11-13",
   "spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 }

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from atlas20.derivatives.live_chain import file_sha256
 from scripts.live_chain_preflight import BLOCKED, main
 
 
@@ -119,13 +120,26 @@ def test_window_check_retries_a_failed_day(tmp_path: Path) -> None:
 
 
 def test_window_check_retries_when_the_target_book_changed(tmp_path: Path) -> None:
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text("target-b\n", encoding="utf-8")
+    target_identity = file_sha256(targets)
     state = _write_state(
         tmp_path / "state.json",
         "spec|2026-10-15|target-a|2026-10-16",
         "ok",
     )
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps({"targets_sha256": "target-b"}), encoding="utf-8")
+    manifest.write_text(
+        json.dumps(
+            {
+                "targets_file": targets.name,
+                "targets_sha256": target_identity,
+                "signal_end_date": "2026-10-15",
+                "index_end_date": "2026-10-15",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     code = main(
         [
@@ -144,13 +158,26 @@ def test_window_check_retries_when_the_target_book_changed(tmp_path: Path) -> No
 
 
 def test_window_check_blocks_when_the_target_book_is_unchanged(tmp_path: Path) -> None:
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text("target-a\n", encoding="utf-8")
+    target_identity = file_sha256(targets)
     state = _write_state(
         tmp_path / "state.json",
-        "spec|2026-10-15|target-a|2026-10-16",
+        f"spec|2026-10-15|{target_identity}|2026-10-16",
         "ok",
     )
     manifest = tmp_path / "manifest.json"
-    manifest.write_text(json.dumps({"targets_sha256": "target-a"}), encoding="utf-8")
+    manifest.write_text(
+        json.dumps(
+            {
+                "targets_file": targets.name,
+                "targets_sha256": target_identity,
+                "signal_end_date": "2026-10-15",
+                "index_end_date": "2026-10-15",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     code = main(
         [
@@ -166,6 +193,127 @@ def test_window_check_blocks_when_the_target_book_is_unchanged(tmp_path: Path) -
     )
 
     assert code == BLOCKED
+
+
+def test_window_check_retries_when_the_manifest_is_behind_the_completed_day(
+    tmp_path: Path,
+) -> None:
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text("target-a\n", encoding="utf-8")
+    target_identity = file_sha256(targets)
+    state = _write_state(
+        tmp_path / "state.json",
+        f"spec|2026-10-14|{target_identity}|2026-10-16",
+        "ok",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "targets_file": targets.name,
+                "targets_sha256": target_identity,
+                "signal_end_date": "2026-10-14",
+                "index_end_date": "2026-10-14",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code = main(
+        [
+            "--check",
+            "window",
+            "--state-file",
+            str(state),
+            "--manifest-file",
+            str(manifest),
+            "--now",
+            "2026-10-16T04:00:00+00:00",
+        ]
+    )
+
+    assert code == 0
+
+
+def test_window_check_blocks_only_when_the_manifest_is_fully_current(
+    tmp_path: Path,
+) -> None:
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text("target-a\n", encoding="utf-8")
+    target_identity = file_sha256(targets)
+    state = _write_state(
+        tmp_path / "state.json",
+        f"spec|2026-10-15|{target_identity}|2026-10-16",
+        "ok",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "targets_file": targets.name,
+                "targets_sha256": target_identity,
+                "signal_end_date": "2026-10-15",
+                "index_end_date": "2026-10-15",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code = main(
+        [
+            "--check",
+            "window",
+            "--state-file",
+            str(state),
+            "--manifest-file",
+            str(manifest),
+            "--now",
+            "2026-10-16T04:00:00+00:00",
+        ]
+    )
+
+    assert code == BLOCKED
+
+
+def test_window_check_rebuilds_when_the_target_file_disagrees_with_the_manifest(
+    tmp_path: Path,
+) -> None:
+    state = _write_state(
+        tmp_path / "state.json",
+        "spec|2026-10-15|target-a|2026-10-16",
+        "ok",
+    )
+    (tmp_path / "oos_targets.csv").write_text(
+        "signal_date,execution_hint,asset,side,target_weight,change_weight,action\n",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "targets_file": "oos_targets.csv",
+                "targets_sha256": "target-a",
+                "signal_end_date": "2026-10-15",
+                "index_end_date": "2026-10-15",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    code = main(
+        [
+            "--check",
+            "window",
+            "--state-file",
+            str(state),
+            "--manifest-file",
+            str(manifest),
+            "--now",
+            "2026-10-16T04:00:00+00:00",
+        ]
+    )
+
+    assert code == 0
 
 
 def test_window_check_blocks_outside_the_catchup_budget(tmp_path: Path) -> None:

@@ -5741,3 +5741,33 @@ gross/isolated 风险上限或当前仓位，也没有新增实盘订单。
 - **验证**：Python **2,276 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy、ESLint、
   tsc、Vite build 全部通过。本轮只刷新公共数据、重建研究/审计报告和读取真实账户，没有下单；
   下一次自动执行仍需重新通过数据、manifest、信号、账户、reconciliation 和 idempotency 门禁。
+
+### 00.149 2026-11-15 LS45-G125：定时重试不得被旧 manifest 的“成功空操作”截断
+
+在复核真实 launchd 日志和状态文件时发现一个仍然存在的调度风险。2026-11-14 的首次 01:05 定时运行遇到
+Bitget 新标记 bar 尚未发布：88 个合约最后 mark 仍停在 2026-11-13 23:00 UTC，`audit-data` 按设计
+硬失败，没有下单。这个失败本身是正确 fail-closed；问题在下一次重试的幂等顺序。
+
+- **根因**：window preflight 先用“当日 state=ok + manifest.targets_sha256”决定是否直接退出。如果
+  当日早先曾对旧账本写出成功空操作，而新数据尚未触发 manifest 重建，旧 manifest 仍会与旧 state
+  哈希一致，重试就会在数据/账本刷新之前被错误跳过。目标行并未被改坏，但新数据永远不会进入链。
+- **修复**：只有同时满足以下三项，preflight 才允许按“当天已完成”退出：
+  1. manifest 的 `signal_end_date` 与 `index_end_date` 都等于最新完成 UTC 日；
+  2. manifest `targets_sha256` 与磁盘上的目标 CSV 字节哈希一致；
+  3. state 中成功 key 的目标身份与当前 manifest 相同。
+  任一条件不成立时，窗口内继续刷新数据并重建账本；执行器随后仍按新目标身份做最终幂等检查，
+  因此不会重复下单，也不会让旧空操作挡住新的 catch-up。
+- **回归测试**：新增“manifest 落后完成日必须重试”“只有完全当前 manifest 才能跳过”“目标文件与
+  manifest 哈希不一致必须重建”三类测试；`tests/test_live_chain_preflight.py` 共 **15 passed**。
+- **真实状态模拟**：使用当前真实 manifest/state 运行 preflight：
+  - `2026-11-14 17:45 UTC`（当天已成功、manifest 覆盖 11-13）返回 `3`，正确表示当天不再交易；
+  - `2026-11-15 01:05 UTC`（最新完成日为 11-14，当前 manifest 覆盖 11-13）返回 `0`，正确进入
+    数据刷新/账本重建，而不是被旧成功状态截断。
+- **调度器核对**：`launchctl` 中 execute / monitor / daily-refresh / protect-logs / cmc-probe 均已加载；
+  execute 最近退出码 0，monitor 最近退出码 0，daily-refresh 最近退出码 0；keep-awake 正在运行。
+  Bitget 与 Telegram 环境文件均存在、属主为当前用户且权限为 `0600`。本轮没有新增实盘订单。
+- **最终验证（2026-11-14 18:10 UTC）**：Python **2,279 passed / 1 skipped**，前端 **249 passed**；
+  Ruff、mypy、ESLint、tsc、Vite build 全部通过。真实 `audit-live` 仍为 **0 hard failure**：
+  权益 **503.4112 USDT**，仓位价值 **117.6033 USDT（0.234x）**，4 条空头、4 张可见止损、
+  普通挂单 0；随后 `monitor_live_track` 为 `audit_exit=0`、`issues=[]`。再次用真实
+  manifest/state 模拟，当前日返回 `3`（已完成），下一交易日 01:05 返回 `0`（允许重建）。
