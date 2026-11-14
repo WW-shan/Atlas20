@@ -204,3 +204,12 @@ def test_window_status_marks_page_gaps_as_partial() -> None:
     assert _window_status(full, start, end) == ("complete", 4)
     assert _window_status(gapped, start, end) == ("partial", 4)
     assert _window_status(pd.DataFrame(), start, end) == ("missing", 4)
+
+
+def test_open_live_window_is_never_treated_as_cached_complete() -> None:
+    from scripts.download_bitget_derivatives_data import _window_needs_refresh
+
+    now = pd.Timestamp("2026-11-14T01:07:00Z")
+
+    assert _window_needs_refresh(pd.Timestamp("2026-11-15T00:00:00Z"), now) is True
+    assert _window_needs_refresh(pd.Timestamp("2026-11-14T00:00:00Z"), now) is False

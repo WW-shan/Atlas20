@@ -118,6 +118,23 @@ def _window_status(
         return "complete", expected
     return "partial", expected
 
+
+def _window_needs_refresh(window_end: pd.Timestamp, now: pd.Timestamp) -> bool:
+    """Return whether a cached window can still grow with new hourly bars."""
+
+    end = pd.Timestamp(window_end)
+    current = pd.Timestamp(now)
+    if end.tzinfo is None:
+        end = end.tz_localize("UTC")
+    else:
+        end = end.tz_convert("UTC")
+    if current.tzinfo is None:
+        current = current.tz_localize("UTC")
+    else:
+        current = current.tz_convert("UTC")
+    return end > current.floor("h")
+
+
 def _max_gap_hours(frame: pd.DataFrame) -> float:
     if len(frame) < 2:
         return 0.0
@@ -294,6 +311,7 @@ def main() -> None:
         if args.sample_windows > 0
         else _iter_windows(start, end)
     )
+    now = pd.Timestamp.now(tz="UTC")
     LOGGER.info("candle windows: %s x %s symbols x %s types", len(windows), len(selected), len(types))
 
     coverage_rows: list[dict[str, Any]] = []
@@ -308,6 +326,8 @@ def main() -> None:
             for window_start, window_end in windows:
                 key = window_start.isoformat()
                 cached_status = window_state.get(key, {}).get("status")
+                if _window_needs_refresh(window_end, now):
+                    cached_status = None
                 if not args.force and cached_status in {"complete", "missing", "partial"}:
                     if cached_status == "complete":
                         cached_frame = existing.loc[
