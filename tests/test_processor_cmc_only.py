@@ -159,6 +159,26 @@ def test_zero_market_cap_asset_never_enters_the_panel(tmp_path):
     assert not bool(quality.loc["whitebit", "validation_passed"])
 
 
+def test_panel_omits_an_interior_date_without_a_positive_market_cap(tmp_path):
+    config = _config(tmp_path)
+    raw_dir = tmp_path / "data" / "raw"
+    _write_candidates(raw_dir, _candidate("bitcoin", "BTC", 1))
+    _write_cmc(raw_dir, 1, _days())
+    history_path = next((raw_dir / "coinmarketcap" / "history").glob("1_*.json"))
+    payload = json.loads(history_path.read_text(encoding="utf-8"))
+    payload[1]["quote"]["marketCap"] = None
+    history_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    panel, _ = processor.build_processed_datasets(config, load_sector_config("config/sectors.yaml"))
+
+    assert panel["market_cap"].notna().all()
+    assert pd.Timestamp("2024-01-02") not in set(panel["date"])
+    quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
+    assert quality.loc["bitcoin", "invalid_market_cap_rows"] == 1
+    assert quality.loc["bitcoin", "invalid_market_cap_dates"] == "2024-01-02"
+    assert bool(quality.loc["bitcoin", "included_in_panel"]) is True
+
+
 def test_data_quality_keeps_the_api_contract_columns(tmp_path):
     config = _config(tmp_path)
     raw_dir = tmp_path / "data" / "raw"

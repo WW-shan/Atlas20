@@ -1,9 +1,9 @@
 # Atlas20 derivatives data audit
 
 - passed: **True**
-- fingerprint: `sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45`
+- fingerprint: `sha256:8a98037da785e814358aca12839fdf68505f3568b2486466cedf1ccdca4a6ab6`
 - hard failures: 0
-- warnings: 1
+- warnings: 0
 
 ## Hard failures
 
@@ -11,7 +11,7 @@
 
 ## Warnings
 
-- panel.valid_market_cap: 32 non-positive/non-finite market-cap row(s)
+- none
 
 ## Summary
 
@@ -464,9 +464,9 @@
   "hard_failures": 0,
   "last_mark": "2026-11-14 13:00:00+00:00",
   "mark_assets": 88,
-  "now": "2026-11-14T15:12:49.228733+00:00",
+  "now": "2026-11-14T15:33:45.885864+00:00",
   "panel_latest": "2026-11-13",
   "panel_latest_assets": 97,
-  "warnings": 1
+  "warnings": 0
 }
 ```

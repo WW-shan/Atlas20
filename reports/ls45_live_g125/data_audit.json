@@ -41,9 +41,9 @@
       "passed": true
     },
     {
-      "detail": "32 non-positive/non-finite market-cap row(s)",
+      "detail": "0 non-positive/non-finite market-cap row(s)",
       "name": "panel.valid_market_cap",
-      "passed": false
+      "passed": true
     },
     {
       "detail": "0 non-positive/non-finite latest price row(s)",
@@ -11239,12 +11239,12 @@
       "candles/ZILUSDT_mark.csv": "ef5645773a97a79be42c3c98d77e0f05737b1fc0ca6daadaf327b1050ae39ad8",
       "contracts.json": "bad342192105cde0b142538f0bdc8337c484e584adbcf1abb50ecb259a5b690e",
       "coverage.json": "1bcab29320ccbc89c0daa7eeef302457ea4fb1726c1d0fc8797f14d0f9f93327",
-      "data/processed/panel_daily.csv": "dbdefd6c5bc473fa008706bf654afed63af20d41bbf9d72ffe11d6911338dddc",
+      "data/processed/panel_daily.csv": "66a44400d96d3251a445f08c48d509305d47f24879a9bb9f4dc7d951ec9eba7b",
       "funding_manifest.json": "3e6ee0ed589511006ff86edcad69946e8cb754174d0d0e14be3f2fd0f8acc1a5",
       "symbol_map.csv": "7a538b5157036fea03c349968e31ae7c8e10ce16c7c7926497268082a241db53"
     },
-    "fingerprint": "sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45",
-    "manifest_sha256": "3853aa3bba3f0518925aea4308a9fcc07bda23a1a0208091495b682ba8d83bf9",
+    "fingerprint": "sha256:8a98037da785e814358aca12839fdf68505f3568b2486466cedf1ccdca4a6ab6",
+    "manifest_sha256": "aef7a2735a9bfe2503b548a9e25c1a75c69f8c0d41bdc610447c2ebd00b0382f",
     "panel_path": "data/processed/panel_daily.csv",
     "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
@@ -11697,12 +11697,10 @@
     "hard_failures": 0,
     "last_mark": "2026-11-14 13:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-14T15:12:49.228733+00:00",
+    "now": "2026-11-14T15:33:45.885864+00:00",
     "panel_latest": "2026-11-13",
     "panel_latest_assets": 97,
-    "warnings": 1
+    "warnings": 0
   },
-  "warnings": [
-    "panel.valid_market_cap: 32 non-positive/non-finite market-cap row(s)"
-  ]
+  "warnings": []
 }

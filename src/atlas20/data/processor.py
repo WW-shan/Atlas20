@@ -844,6 +844,12 @@ def _date_ranges(days: list[pd.Timestamp]) -> str:
     return ", ".join(ranges)
 
 
+def _valid_market_cap_mask(frame: pd.DataFrame) -> pd.Series:
+    """Rows carrying a real, finite, positive CoinMarketCap market cap."""
+    values = pd.to_numeric(frame["market_cap"], errors="coerce").to_numpy(dtype=float)
+    return pd.Series(np.isfinite(values) & (values > 0.0), index=frame.index, dtype=bool)
+
+
 def _load_coingecko_chart(path: Path) -> pd.DataFrame:
     """Normalize a cached CoinGecko market chart into a daily close series.
 
@@ -1017,6 +1023,7 @@ def build_processed_datasets(
     _check_unique_cmc_ids(assignments)
 
     feed_ended_by_asset: dict[str, bool] = {}
+    data_start = config.start_timestamp - pd.Timedelta(days=_pre_window_buffer_days(config))
     for _, asset in candidates.iterrows():
         coin_id = str(asset["id"])
         symbol = str(asset["symbol"]).upper()
@@ -1157,6 +1164,13 @@ def build_processed_datasets(
             source_verdicts[f"crosscheck_{source.name}_median_gap"] = (
                 result.median_gap if result is not None else pd.NA
             )
+        panel_window = validation.history[
+            (validation.history["date"] >= data_start)
+            & (validation.history["date"] <= config.end_timestamp)
+        ]
+        invalid_market_cap_dates = panel_window.loc[
+            ~_valid_market_cap_mask(panel_window), "date"
+        ].tolist()
         quality_rows.append(
             validation.summary
             | {
@@ -1170,6 +1184,11 @@ def build_processed_datasets(
                 "level_corruption_rows": len(corrupted_days),
                 "level_corruption_dates": _date_ranges(corrupted_days),
                 "level_corruption_confirmed_rows": len(confirmed_days),
+                # A panel row without a real positive cap cannot be ranked.
+                # Omit it rather than publishing a row that no strategy can use;
+                # the builder computes returns across the resulting provider gap.
+                "invalid_market_cap_rows": len(invalid_market_cap_dates),
+                "invalid_market_cap_dates": _date_ranges(invalid_market_cap_dates),
                 # The API's data-quality alerts read these four. They describe
                 # the comparison the decision rests on: the source that admitted
                 # the asset, or the disagreement that refused it.
@@ -1237,7 +1256,9 @@ def build_processed_datasets(
                     and cross.latest_secondary_date is not None
                     else 0
                 ),
-                "included_in_panel": bool(admitted),
+                "included_in_panel": bool(
+                    admitted and not panel_window.empty and _valid_market_cap_mask(panel_window).any()
+                ),
                 "market_cap_feed_ended": bool(market_cap_ended),
                 "crosscheck_historical_unverified": historical_unverified,
             }
@@ -1287,8 +1308,8 @@ def build_processed_datasets(
         # warm on start_timestamp (see ``_pre_window_buffer_days``). The end of
         # the window stays fixed because no data after the backtest end is
         # needed.
-        data_start = config.start_timestamp - pd.Timedelta(days=_pre_window_buffer_days(config))
         framed = framed[(framed["date"] >= data_start) & (framed["date"] <= config.end_timestamp)].copy()
+        framed = framed.loc[_valid_market_cap_mask(framed)].copy()
         if framed.empty:
             continue
 

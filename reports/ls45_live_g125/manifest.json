@@ -6,10 +6,8 @@
   "data_audit_hard_failures": [],
   "data_audit_passed": true,
   "data_audit_required": true,
-  "data_audit_warnings": [
-    "panel.valid_market_cap: 32 negative/non-finite market-cap row(s)"
-  ],
-  "data_fingerprint": "sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45",
+  "data_audit_warnings": [],
+  "data_fingerprint": "sha256:8a98037da785e814358aca12839fdf68505f3568b2486466cedf1ccdca4a6ab6",
   "end_date": "2026-11-13 00:00:00+00:00",
   "engine_capital": 500.0,
   "engine_end": "2026-11-14 00:00:00+00:00",

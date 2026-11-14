@@ -37,6 +37,7 @@ dependencies = [
 dev = [
   "pytest>=8.0",
   "httpx>=0.28",
+  "httpx2>=2.16,<3",
   "pip-audit>=2.7",
   # Pinned: ruff 0.16 widened its default rule set, so the lint job failed on
   # code the project's venv (0.15.17) had always passed. Upgrade deliberately
