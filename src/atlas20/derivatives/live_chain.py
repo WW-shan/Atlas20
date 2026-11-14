@@ -31,6 +31,7 @@ backstop and still fail closed.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 import hashlib
 import json
@@ -97,6 +98,61 @@ LS45_G125_MANIFEST_TOP_LEVEL: dict[str, Any] = {
     "funding_source": "bitget-exact",
     "max_total_gross": 1.25,
     "research_only": True,
+}
+
+# LS104 is an owner-approved aggressive live track.  It inherits LS45's
+# selection, profit-lock, 7D rerank and stop logic, but uses twice the short
+# request, a 1.75x gross cap and a 0.90 portfolio margin-utilization cap.
+LS104_G175_M090_SPEC = (
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+)
+LS104_G175_M090_FROZEN_CONFIG: dict[str, Any] = {
+    **LS45_G125_FROZEN_CONFIG,
+    "bear_per_asset_weight": 0.125,
+    "exit_per_asset_weight": 0.05,
+    "max_total_gross": 1.75,
+}
+LS104_G175_M090_MANIFEST_TOP_LEVEL: dict[str, Any] = {
+    "allow_incomplete_marks": False,
+    "cost_bps": 20.0,
+    "data_audit_required": True,
+    "execution_price_model": "mark_1h_open_floor",
+    "execution_utc": "01:05",
+    "funding_source": "bitget-exact",
+    "max_margin_utilization": 0.90,
+    "max_total_gross": 1.75,
+    "research_only": True,
+    "short_scale": 2.0,
+    "venue_leverage": 4.0,
+}
+
+
+@dataclass(frozen=True)
+class LiveTrackProfile:
+    """One frozen live track and its runtime risk budget."""
+
+    spec: str
+    frozen_config: dict[str, Any]
+    manifest_top_level: dict[str, Any]
+    venue_leverage: float
+    max_margin_utilization: float
+
+
+LIVE_TRACK_PROFILES: dict[str, LiveTrackProfile] = {
+    "ls45-g125": LiveTrackProfile(
+        spec=LS45_G125_SPEC,
+        frozen_config=LS45_G125_FROZEN_CONFIG,
+        manifest_top_level=LS45_G125_MANIFEST_TOP_LEVEL,
+        venue_leverage=2.0,
+        max_margin_utilization=0.85,
+    ),
+    "ls104-g175-m090": LiveTrackProfile(
+        spec=LS104_G175_M090_SPEC,
+        frozen_config=LS104_G175_M090_FROZEN_CONFIG,
+        manifest_top_level=LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        venue_leverage=4.0,
+        max_margin_utilization=0.90,
+    ),
 }
 
 

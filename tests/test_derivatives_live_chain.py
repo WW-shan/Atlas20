@@ -361,3 +361,46 @@ def test_manifest_target_hash_detects_a_partial_target_rewrite(tmp_path: Path) -
     issue = manifest_targets_hash_issue(manifest, targets)
     assert issue is not None
     assert "targets_sha256" in issue
+
+
+def test_ls104_profile_pins_aggressive_sizing_and_margin_budget() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+        LIVE_TRACK_PROFILES,
+    )
+
+    profile = LIVE_TRACK_PROFILES["ls104-g175-m090"]
+    assert profile.spec == LS104_G175_M090_SPEC
+    assert profile.venue_leverage == 4.0
+    assert profile.max_margin_utilization == 0.90
+    assert profile.frozen_config == LS104_G175_M090_FROZEN_CONFIG
+    assert profile.manifest_top_level == LS104_G175_M090_MANIFEST_TOP_LEVEL
+    assert profile.frozen_config["h5_leverage"] == 1.25
+    assert profile.frozen_config["bear_per_asset_weight"] == 0.125
+    assert profile.frozen_config["exit_per_asset_weight"] == 0.05
+    assert profile.frozen_config["max_total_gross"] == 1.75
+    assert profile.frozen_config["long_buffer"] == 0.50
+    assert profile.frozen_config["short_buffer"] == 0.50
+    assert profile.frozen_config["short_stop_loss_pct"] == 0.20
+    assert profile.manifest_top_level["max_total_gross"] == 1.75
+    assert profile.manifest_top_level["venue_leverage"] == 4.0
+    assert profile.manifest_top_level["max_margin_utilization"] == 0.90
+
+
+def test_ls45_profile_remains_the_default_without_aggressive_overrides() -> None:
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_SPEC,
+        LIVE_TRACK_PROFILES,
+    )
+
+    profile = LIVE_TRACK_PROFILES["ls45-g125"]
+    assert profile.spec == LS45_G125_SPEC
+    assert profile.venue_leverage == 2.0
+    assert profile.max_margin_utilization == 0.85
+    assert profile.frozen_config == LS45_G125_FROZEN_CONFIG
+    assert profile.frozen_config["max_total_gross"] == 1.25
+    assert profile.frozen_config["bear_per_asset_weight"] == 0.0625
+    assert profile.frozen_config["exit_per_asset_weight"] == 0.025
