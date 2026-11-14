@@ -9,7 +9,7 @@
 > | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-10**（仅运行跟踪，不用于选规则） |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。衍生品轨（§9，独立风险预算，Bitget isolated margin）在单独设计文档 `docs/superpowers/specs/2026-10-09-bitget-derivatives-track-design.md` 下研究，不得与现货轨的口径混用 |
-> | 执行 | 信号收盘生成、T+1 执行；现货轨为收盘后约 3 小时成交，衍生品轨当前为 LS45-G125，账本执行提示为 T+1 +3h（03:00 UTC），自动执行从 03:05 UTC 开始，用 Binance/Gate 1 小时 K 线模拟；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
+> | 执行 | 现货轨保留历史收盘后约 3 小时口径；衍生品轨当前为 LS45-G125，信号账本、live-parity 回测和实盘统一为 T+1 +1h5m（01:05 UTC / 北京 09:05），旧 03:00 UTC 结果仅作 legacy 对照；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
 > | 成本口径 | 基准 **2bps**（AGENTS.md），20/50/100bps 为压力测试 |
 > | 主回测起点 | **2022-01-01**，剔除 2021 泡沫行情 |
 
@@ -5416,3 +5416,37 @@ API key，或由负责人明确批准把规格改为 crossed；真实 isolated �
 尚未在本 key 上完成。全量 87 标的在 500 USDT 单腿测试中均满足交易所数量上限，但部分标的单腿
 500 USDT 会超过可见盘口第一档深度，市场单可能吃到更深的滑点；实盘仍需按实际目标权重和
 `orderbook_warnings` 复核。
+
+### 00.141 2026-11-14 LS45-G125：唯一 01:05 UTC 执行时钟与 live-parity 数据门禁
+
+本节取代 §00.140 中“研究回测仍用 03:00 UTC、实盘单独用 01:05 UTC”的双口径描述；不删除旧
+03:00 报告，也不把旧结论静默改写。新的唯一执行时钟是 **T+1 +1h5m = 01:05 UTC / 北京 09:05**。
+
+- 信号账本、回测引擎、manifest、Telegram、执行窗口和 launchd/systemd 全部对齐到 01:05 UTC；
+  `DerivativeBacktestConfig` 支持 `execution_minute` 与 `execution_price_snap=exact|floor|ceil`，
+  LS45 固定 `01:05 + floor`，以 01:00 的 1H mark open 作为历史成交价代理；
+- 实盘数据刷新在 01:05 只能拿到上一根已完成小时线；数据审计因此检查最后**已完成**小时线，
+  不把尚未完成的 01:00 bar 当成 live 输入。回测在事后使用完整的 01:00 mark open；
+- live-parity 引擎加入 Bitget `size_multiplier`/最小下单量、每日逐仓保证金归一化、保证金
+  add/remove、量化误差与跳过订单账本；当前 OOS 主规模 500 USDT，目标账本仍按 1000 USDT
+  展示，二者分开记录；
+- 当前 01:05 live-parity OOS（2026-09-22 → 2026-11-13，20bps，500 USDT，symbol-map
+  current-snapshot approximation）终值 **0.938508x**、Sharpe **-0.5415**、MDD **-19.32%**；
+  11 笔订单因低于交易所最小量被跳过，49 笔发生数量步长量化，52 次逐仓保证金调整；这是
+  当前实盘链路的真实摩擦结果，不是旧 03:00 ideal 结果的替代声明；
+- 旧 03:00 结果保存在 `reports/ls45_live_g125_legacy_0300/`，01:05 ideal 对照保存在
+  `reports/ls45_live_g125_0105_ideal/`，当前 live-parity 主报告为 `reports/ls45_live_g125/`；
+- 新增 `make audit-data`：面板、symbol map、contracts、mark、funding、OHLC、未来时间、重复、
+  最后完成日、合约 2x/步长、空头所需 funding 新鲜度和输入 SHA-256 fingerprint 全部 fail closed；
+  manifest 记录 `execution_utc / execution_price_model / data_fingerprint / data_audit_*`，
+  执行器和 `audit-live` 均复核；
+- 2026-11-14 刷新后真实审计：**0 hard failures / 89 warnings**（32 条历史缺失 market cap，
+  88 条当前无空头时的 funding stale 提示）；manifest fingerprint 与 `audit-data` 一致；
+- 当前真实账户 **499.6291 USDT、0 仓位、0 普通挂单、0 策略单**；`audit-live` 全部通过，
+  `audit-signal` 68 行 / 31 信号日 / 0 差异，临时 state/journal 的 dry-run 为 0 订单；
+- Python **2195 passed / 1 skipped**，前端 **249 passed**，Ruff、mypy、eslint、tsc、Vite build
+  全部通过。launchd 主任务仍为北京 09:05，后五个 fire 仅为窗口内重试。
+
+**残余风险**：全样本 2022-01-01 → 2026-09-21 的 01:05 live-parity 报告尚未在本节完成重跑；
+当前报告是 OOS 53 天 live-parity，且历史合约规格只能用当前 symbol-map 近似。首次真实空头
+entry + attached stop 仍需在后续交易出现时做真钱 venue probe。

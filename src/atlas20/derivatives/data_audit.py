@@ -359,7 +359,16 @@ def audit_derivatives_data(
                 last = pd.Timestamp(clean.index.max())
                 last_completed = moment.date() - timedelta(days=1)
                 execution_target = pd.Timestamp(datetime.combine(last_completed + timedelta(days=1), execution_utc, tzinfo=UTC))
-                required_last = execution_target - pd.Timedelta(minutes=5) if moment >= execution_target else pd.Timestamp(last_completed, tz="UTC") + pd.Timedelta(hours=23)
+                # At/after the fill minute the live chain can only have the
+                # last *completed* hourly bar; the 01:00 bar that starts at
+                # the same minute is used later by the retrospective engine,
+                # not by the live data refresh.  Requiring it here would make
+                # every 09:05 Beijing run fail until 02:00 UTC.
+                required_last = (
+                    execution_target - pd.Timedelta(hours=1, minutes=5)
+                    if moment >= execution_target
+                    else pd.Timestamp(last_completed, tz="UTC") + pd.Timedelta(hours=23)
+                )
                 _check(report, f"marks.{asset}.last_bar", last >= required_last, f"last mark {last} is before required {required_last}")
                 recent = clean.loc[clean.index >= last - pd.Timedelta(days=1)]
                 gaps = recent.index.to_series().diff().dropna().dt.total_seconds().div(3600.0)

@@ -7,9 +7,8 @@
 > - 目标 **gross 硬上限 1.25x 权益**，实际 gross 可以更低，空仓即 100% cash；
 > - 交易所杠杆配置 **2x isolated**，多空每腿 initial buffer 均为 **50%**；
 > - 空头开/加仓附带 **20% adverse move、mark-price、market stop**；
-> - 研究执行口径为 **T+1 +3h = 03:00 UTC**；事件账本保留自己的 `execution_hint`；
-> - 实盘采用负责人批准的早盘快路径：manifest 最新完成日 **T+1 01:05 UTC**
->   （北京 09:05，约为收盘后 +1h5m），目标权重仍取最新事件行；
+> - 信号账本、live-parity 回测和实盘统一使用 **T+1 01:05 UTC**
+>   （北京 09:05，约为收盘后 +1h5m）；旧 03:00 UTC 报告只作为 legacy 对照；
 > - 实盘主任务在 **01:05 UTC** 运行；
 > - 成本口径 20 bps，funding 使用 Bitget exact；
 > - 当前策略书与选择证据：`docs/superpowers/specs/2026-11-13-ls103-live-candidate-selection.md`；
@@ -27,7 +26,7 @@
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 数据审计 → 按真实权益执行 → 写 journal → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
 | `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
@@ -40,6 +39,7 @@ com.atlas20.derivatives-execute
   -> make derivatives-live
      -> derivatives-live-data
      -> derivatives-ls45-signal
+     -> audit-data
      -> scripts/execute_live_plan.py --live --notify --require-isolated
 ```
 
@@ -73,12 +73,12 @@ sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execu
 
 ```text
 signal_date D 00:00 UTC
-execution_hint D+1 03:00 UTC
+execution_hint D+1 01:05 UTC
 ```
 
-这个字段描述**该事件行**的研究回测成交口径（T+1 +3h）。Telegram 会同时显示
-研究口径和实盘快路径，避免把 11:00 误认为真实下单时间。每日自动执行不能直接
-拿事件行当窗口：如果账本连续多日没有新事件，它会被误判为“数天前的任务已过期”。
+这个字段描述**该事件行**的统一执行口径（T+1 +1h5m），与 live-parity 回测和
+实盘执行一致。每日自动执行不能直接拿事件行当窗口：如果账本连续多日没有新事件，
+它会被误判为“数天前的任务已过期”。
 执行器改为从 manifest 的最新已完成数据日计算：
 
 ```text
@@ -90,8 +90,7 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
 `daily_execution_hint` 运行。因此事件信号可以显示旧信号日，但定时任务不会
 因为“今天没有新交易事件”而失效。
 
-实盘主任务在 01:05 UTC 开始，早于研究回测的 +3h 成交口径，但信号仍只使用
-D 日收盘及之前的数据。重试点在：
+实盘主任务在 01:05 UTC 开始，信号仍只使用 D 日收盘及之前的数据。重试点在：
 
 ```text
 01:05 UTC = 09:05 北京  primary
@@ -119,7 +118,9 @@ D 日收盘及之前的数据。重试点在：
    - 面板落后或最后一天不完整时，运行 `refresh_daily_data.py --force --wait-seconds 900`；
    - 刷新后再次检查，仍不完整就拒绝下单。
 3. **数据与账本**：`make derivatives-live-data derivatives-ls45-signal`
-4. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
+4. **数据审计**：`make audit-data`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
+   空头所需 funding 过期、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行
+5. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
 
 执行器自身还有：
 

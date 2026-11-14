@@ -27,12 +27,14 @@ and a React/Vite console for reviewing results.
 The current live default is **`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`**
 on Bitget USDT-M: a signed long/short H5 book, 1.25x maximum gross notional,
 2x isolated leverage per leg with a 50% initial buffer, and a 20%
-mark-price market stop on every short entry/increase. The frozen research fill
-convention is T+1 +3h, while the owner-approved live fast path starts at
-09:05 Beijing / 01:05 UTC (T+1 +1h5m); the primary run and its retries are
-documented in the live runbook. The target book may be 100% cash, and today's
-daily run still reconciles even when the latest strategy event is several days
-old.
+mark-price market stop on every short entry/increase. Signal generation,
+live-parity research and live execution now share one clock: 09:05 Beijing /
+01:05 UTC (T+1 +1h5m). Legacy 03:00 UTC reports are retained only for
+comparison. The live executor also requires a passing CMC/mark/funding/contract
+data audit and a manifest input fingerprint; the primary run and its retries
+are documented in the live runbook. The target book may be 100% cash, and
+today's daily run still reconciles even when the latest strategy event is
+several days old.
 
 The current live decision is a direct owner-approved live test, not a claim of
 long-run out-of-sample validation. `RESEARCH.md` section 00.140 is the

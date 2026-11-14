@@ -1,8 +1,8 @@
 {
-  "checked_at": "2026-11-13T21:49:11.439738+00:00",
+  "checked_at": "2026-11-14T00:33:01.674952+00:00",
   "differences": [],
   "differing_rows": 0,
-  "end_date": "2026-11-12",
+  "end_date": "2026-11-13",
   "events_only_in_frozen": [],
   "events_only_in_replay": [],
   "expected_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
