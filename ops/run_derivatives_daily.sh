@@ -66,6 +66,52 @@ set +a
 
 cd "$PROJECT_ROOT"
 
+# One wrapper serves both frozen tracks.  The default remains LS45 until the
+# LS104 dry-run and post-trade audits pass; setting ATLAS20_TRACK_PROFILE
+# selects the independent aggressive track without rewriting any LS45 file.
+TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"
+case "$TRACK_PROFILE" in
+  ls45-g125)
+    SPEC="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+    TARGETS_FILE="reports/ls45_live_g125/oos_targets.csv"
+    MANIFEST_FILE="reports/ls45_live_g125/manifest.json"
+    STATE_FILE="data/ls45_g125_execution_state.json"
+    JOURNAL_FILE="reports/ls45_live_g125_live/journal.csv"
+    JSON_OUT="reports/ls45_live_g125_live/latest.json"
+    AUDIT_JSON="reports/ls45_live_g125_live/audit.json"
+    HEALTH_JSON="reports/ls45_live_g125_live/health.json"
+    SYMBOL_AUDIT_JSON="reports/ls45_live_g125_live/venue_symbol_audit.json"
+    SIGNAL_TARGET="derivatives-ls45-signal"
+    DATA_AUDIT_TARGET="audit-data"
+    SIGNAL_AUDIT_TARGET="audit-signal"
+    LEVERAGE="2.0"
+    MAX_GROSS="1.25"
+    MARGIN_CAP="0.85"
+    ;;
+  ls104-g175-m090)
+    SPEC="PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+    TARGETS_FILE="reports/ls45_live_g175/oos_targets.csv"
+    MANIFEST_FILE="reports/ls45_live_g175/manifest.json"
+    STATE_FILE="data/ls45_g175_execution_state.json"
+    JOURNAL_FILE="reports/ls45_live_g175_live/journal.csv"
+    JSON_OUT="reports/ls45_live_g175_live/latest.json"
+    AUDIT_JSON="reports/ls45_live_g175_live/audit.json"
+    HEALTH_JSON="reports/ls45_live_g175_live/health.json"
+    SYMBOL_AUDIT_JSON="reports/ls45_live_g175_live/venue_symbol_audit.json"
+    SIGNAL_TARGET="derivatives-ls104-signal"
+    DATA_AUDIT_TARGET="audit-data-ls104"
+    SIGNAL_AUDIT_TARGET="audit-signal-ls104"
+    LEVERAGE="4.0"
+    MAX_GROSS="1.75"
+    MARGIN_CAP="0.90"
+    ;;
+  *)
+    echo "unknown ATLAS20_TRACK_PROFILE: $TRACK_PROFILE" >&2
+    exit 1
+    ;;
+esac
+export ATLAS20_TRACK_PROFILE="$TRACK_PROFILE"
+
 # --- 1. May this load trade? -------------------------------------------------
 # The preflight exits 3 when a documented reason says no (before the fill
 # point, today's run day already succeeded, or past the catch-up budget) and
@@ -82,12 +128,14 @@ window_status=0
 if [ "${1:-}" = "--force" ]; then
   .venv/bin/python scripts/live_chain_preflight.py \
     --check window --force \
-    --manifest-file reports/ls45_live_g125/manifest.json || window_status=$?
+    --manifest-file "$MANIFEST_FILE" \
+    --state-file "$STATE_FILE" || window_status=$?
   late_arg="--allow-late-execution"
 else
   .venv/bin/python scripts/live_chain_preflight.py \
     --check window \
-    --manifest-file reports/ls45_live_g125/manifest.json || window_status=$?
+    --manifest-file "$MANIFEST_FILE" \
+    --state-file "$STATE_FILE" || window_status=$?
 fi
 if [ "$window_status" -eq 4 ]; then
   # Today's trade is already complete.  Run risk-reducing protection only:
@@ -96,10 +144,26 @@ if [ "$window_status" -eq 4 ]; then
   # cannot add risk on a fallback fire.
   protect_status=0
   .venv/bin/python scripts/execute_live_plan.py \
-    --live --notify --require-isolated --protect-only || protect_status=$?
+    --live --notify --require-isolated --protect-only \
+    --spec "$SPEC" \
+    --targets-file "$TARGETS_FILE" \
+    --manifest-file "$MANIFEST_FILE" \
+    --state-file "$STATE_FILE" \
+    --journal-file "$JOURNAL_FILE" \
+    --json-out "$JSON_OUT" \
+    --leverage "$LEVERAGE" \
+    --max-gross-multiple "$MAX_GROSS" \
+    --max-margin-utilization "$MARGIN_CAP" || protect_status=$?
 
   monitor_status=0
-  .venv/bin/python scripts/monitor_live_track.py --notify || monitor_status=$?
+  .venv/bin/python scripts/monitor_live_track.py \
+    --notify --spec "$SPEC" \
+    --state-file "$STATE_FILE" \
+    --journal-file "$JOURNAL_FILE" \
+    --targets-file "$TARGETS_FILE" \
+    --manifest-file "$MANIFEST_FILE" \
+    --out "$HEALTH_JSON" \
+    --audit-out "$AUDIT_JSON" || monitor_status=$?
 
   if [ "$protect_status" -ne 0 ]; then
     exit "$protect_status"
@@ -149,11 +213,11 @@ fi
 # The executor refuses to trade on stale data, so this order is mandatory.
 # A human `--force` catch-up also passes the executor's explicit late-window
 # acknowledgement; scheduled fires never receive that argument.
-/usr/bin/make derivatives-live-data derivatives-ls45-signal
-/usr/bin/make audit-data
+/usr/bin/make derivatives-live-data "$SIGNAL_TARGET"
 /usr/bin/make audit-data-chain
-/usr/bin/make audit-symbols
-/usr/bin/make audit-signal
+.venv/bin/python scripts/audit_venue_symbols.py --out "$SYMBOL_AUDIT_JSON"
+/usr/bin/make "$DATA_AUDIT_TARGET"
+/usr/bin/make "$SIGNAL_AUDIT_TARGET"
 
 # Independent post-trade verification.  The executor already validates its own
 # fills and stops, but a read-only full-account audit here catches any mismatch
@@ -162,10 +226,27 @@ fi
 # execution so its Telegram alert describes the actual venue state; then
 # preserve the execution failure as the wrapper's exit status.
 execution_status=0
-.venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg || execution_status=$?
+.venv/bin/python scripts/execute_live_plan.py \
+  --live --notify --require-isolated $late_arg \
+  --spec "$SPEC" \
+  --targets-file "$TARGETS_FILE" \
+  --manifest-file "$MANIFEST_FILE" \
+  --state-file "$STATE_FILE" \
+  --journal-file "$JOURNAL_FILE" \
+  --json-out "$JSON_OUT" \
+  --leverage "$LEVERAGE" \
+  --max-gross-multiple "$MAX_GROSS" \
+  --max-margin-utilization "$MARGIN_CAP" || execution_status=$?
 
 monitor_status=0
-.venv/bin/python scripts/monitor_live_track.py --notify || monitor_status=$?
+.venv/bin/python scripts/monitor_live_track.py \
+  --notify --spec "$SPEC" \
+  --state-file "$STATE_FILE" \
+  --journal-file "$JOURNAL_FILE" \
+  --targets-file "$TARGETS_FILE" \
+  --manifest-file "$MANIFEST_FILE" \
+  --out "$HEALTH_JSON" \
+  --audit-out "$AUDIT_JSON" || monitor_status=$?
 
 if [ "$execution_status" -ne 0 ]; then
   exit "$execution_status"

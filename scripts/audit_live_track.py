@@ -51,9 +51,7 @@ from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
-    LS45_G125_FROZEN_CONFIG,
-    LS45_G125_MANIFEST_TOP_LEVEL,
-    LS45_G125_SPEC,
+    live_track_profile,
     manifest_spec_issues,
     manifest_staleness_hours,
     manifest_targets_hash_issue,
@@ -126,7 +124,12 @@ def _unknown_position_symbols(
     )
 
 
-def _position_risk_issues(positions: list[dict]) -> list[str]:
+def _position_risk_issues(
+    positions: list[dict],
+    *,
+    expected_leverage: float = SPEC_VENUE_LEVERAGE,
+    min_margin_ratio: float = SPEC_MIN_MARGIN_RATIO,
+) -> list[str]:
     """Check venue margin mode, leverage and the per-leg initial buffer."""
 
     issues: list[str] = []
@@ -150,9 +153,9 @@ def _position_risk_issues(positions: list[dict]) -> list[str]:
         leverage = _num(raw_leverage)
         if leverage <= 0.0:
             issues.append(f"{symbol}: leverage 缺失或非法 ({raw_leverage!r})")
-        elif abs(leverage - SPEC_VENUE_LEVERAGE) > 1e-9:
+        elif abs(leverage - expected_leverage) > 1e-9:
             issues.append(
-                f"{symbol}: leverage={leverage:g}，要求 {SPEC_VENUE_LEVERAGE:g}x"
+                f"{symbol}: leverage={leverage:g}，要求 {expected_leverage:g}x"
             )
 
         mark = _num(row.get("markPrice") or row.get("avgPrice"))
@@ -169,9 +172,9 @@ def _position_risk_issues(positions: list[dict]) -> list[str]:
             issues.append(f"{symbol}: positionBalance 缺失或为零")
         else:
             ratio = margin / notional
-            if ratio + 1e-9 < SPEC_MIN_MARGIN_RATIO:
+            if ratio + 1e-9 < min_margin_ratio:
                 issues.append(
-                    f"{symbol}: margin buffer {ratio:.3%} < {SPEC_MIN_MARGIN_RATIO:.0%}"
+                    f"{symbol}: margin buffer {ratio:.3%} < {min_margin_ratio:.0%}"
                 )
     return issues
 
@@ -1197,6 +1200,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     args = parser.parse_args(argv)
     checked_at = datetime.now(timezone.utc)
+    try:
+        profile = live_track_profile(str(args.spec))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    spec_max_gross = float(profile.manifest_top_level["max_total_gross"])
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
     assets = client.account_assets()
@@ -1301,7 +1309,11 @@ def main(argv: list[str] | None = None) -> int:
         not unknown_symbols,
         ", ".join(unknown_symbols) or "全部有唯一映射",
     )
-    risk_issues = _position_risk_issues(positions)
+    risk_issues = _position_risk_issues(
+        positions,
+        expected_leverage=profile.venue_leverage,
+        min_margin_ratio=SPEC_MIN_MARGIN_RATIO,
+    )
     risk_legs = sum(1 for row in positions if abs(_position_signed_qty(row)) > 1e-12)
     check(
         "每腿逐仓、2x 杠杆与保证金缓冲符合规格",
@@ -1465,7 +1477,7 @@ def main(argv: list[str] | None = None) -> int:
     position_expected_stops = _position_short_stop_expectations(
         positions,
         specs_by_symbol={spec.symbol.upper(): spec for spec in specs.values()},
-        short_stop_loss_pct=float(LS45_G125_FROZEN_CONFIG["short_stop_loss_pct"]),
+        short_stop_loss_pct=float(profile.frozen_config["short_stop_loss_pct"]),
     )
     stop_expectation_gaps = _short_stop_expectation_gaps(
         positions,
@@ -1668,16 +1680,23 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     check(
-        f"冻结目标 gross <= {SPEC_MAX_GROSS:.2f}x（规格上限）",
-        target_gross <= SPEC_MAX_GROSS + 1e-9,
+        f"冻结目标 gross <= {spec_max_gross:.2f}x（规格上限）",
+        target_gross <= spec_max_gross + 1e-9,
         f"目标 gross {target_gross:.4f}x",
     )
 
     gross = sum(notional_by_asset.values())
     check(
-        f"总名义 <= {SPEC_MAX_GROSS:.2f}x 权益（规格上限）",
-        gross <= SPEC_MAX_GROSS * equity + 1.0,
+        f"总名义 <= {spec_max_gross:.2f}x 权益（规格上限）",
+        gross <= spec_max_gross * equity + 1.0,
         f"gross {gross:.2f} / equity {equity:.2f} = {gross / equity:.3f}x" if equity else "equity 0",
+    )
+    margin_utilization = isolated_margin / equity if equity > 0.0 else float("inf")
+    check(
+        f"组合保证金占用 <= {profile.max_margin_utilization:.0%}",
+        margin_utilization <= profile.max_margin_utilization + 1e-9,
+        f"isolated margin {isolated_margin:.2f} / equity {equity:.2f} = "
+        f"{margin_utilization:.3f}x",
     )
 
     # The book is an *event* series: a row dated several days ago is normal.
@@ -1703,16 +1722,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         manifest_issues = manifest_spec_issues(
             manifest,
-            expected_spec=LS45_G125_SPEC,
-            expected_frozen_config=LS45_G125_FROZEN_CONFIG,
-            expected_top_level=LS45_G125_MANIFEST_TOP_LEVEL,
+            expected_spec=profile.spec,
+            expected_frozen_config=profile.frozen_config,
+            expected_top_level=profile.manifest_top_level,
         )
-        if str(args.spec) != LS45_G125_SPEC:
+        if str(args.spec) != profile.spec:
             manifest_issues.append(
-                f"audit --spec={args.spec!r}, expected {LS45_G125_SPEC!r}"
+                f"audit --spec={args.spec!r}, expected {profile.spec!r}"
             )
         check(
-            "manifest 与当前 LS45-G125 冻结规格一致",
+            f"manifest 与当前 {profile.spec} 冻结规格一致",
             not manifest_issues,
             "; ".join(manifest_issues) or "规格、参数与成本口径一致",
         )

@@ -30,9 +30,9 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from atlas20.derivatives.live_chain import live_track_profile  # noqa: E402
 from atlas20.logging_utils import ensure_dir  # noqa: E402
 
-from scripts.run_h5_regime_short_router import LS45_CANDIDATE_ID  # noqa: E402
 from scripts.run_ls45_live_signal import build_command  # noqa: E402
 
 DEFAULT_TARGETS_FILE = Path("reports/ls45_live_g125/oos_targets.csv")
@@ -262,10 +262,18 @@ def _latest_action_execution_issues(
     return issues
 
 
-def _rebuild_replay(end_date: str) -> dict[str, pd.DataFrame]:
+def _rebuild_replay(
+    end_date: str,
+    *,
+    track: str = "ls45-g125",
+) -> dict[str, pd.DataFrame]:
     with tempfile.TemporaryDirectory(prefix="atlas20-ls45-audit-") as tmp:
         output_dir = Path(tmp) / "ledger"
-        command = build_command(end_date=end_date, output_dir=str(output_dir))
+        command = build_command(
+            end_date=end_date,
+            output_dir=str(output_dir),
+            track=track,
+        )
         subprocess.run(command, cwd=PROJECT_ROOT, check=True)
         path = output_dir / "oos_targets.csv"
         if not path.is_file():
@@ -284,15 +292,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--replay-targets-file", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
+    parser.add_argument(
+        "--track",
+        choices=("ls45-g125", "ls104-g175-m090"),
+        default="ls45-g125",
+    )
     args = parser.parse_args(argv)
 
     checked_at = datetime.now(timezone.utc)
+    profile = live_track_profile(args.track)
     if not args.manifest_file.is_file():
         raise SystemExit(f"manifest not found: {args.manifest_file}")
     if not args.targets_file.is_file():
         raise SystemExit(f"target ledger not found: {args.targets_file}")
     manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
     spec = str(manifest.get("tracked_spec") or "")
+    expected_spec = profile.spec
     end_date = str(manifest.get("end_date") or "")
     if not end_date:
         raise SystemExit("manifest is missing end_date")
@@ -304,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         replay = pd.read_csv(args.replay_targets_file)
     else:
         try:
-            replay_bundle = _rebuild_replay(end_date)
+            replay_bundle = _rebuild_replay(end_date, track=args.track)
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as exc:
             raise SystemExit(f"LS45 replay failed: {exc}") from exc
         replay = replay_bundle["targets"]
@@ -317,10 +332,10 @@ def main(argv: list[str] | None = None) -> int:
 
     comparison = _compare_target_ledgers(frozen, replay)
     execution_passed = execution_issues is not None and not execution_issues
-    passed = bool(comparison["passed"]) and spec == LS45_CANDIDATE_ID and execution_passed
+    passed = bool(comparison["passed"]) and spec == expected_spec and execution_passed
     payload = {
         "spec": spec,
-        "expected_spec": LS45_CANDIDATE_ID,
+        "expected_spec": expected_spec,
         "end_date": end_date,
         "checked_at": checked_at.isoformat(),
         **comparison,
@@ -349,8 +364,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ❌ execution: {item}")
     elif execution_issues is None:
         print("  ❌ execution: replay artifacts were not rebuilt")
-    if spec != LS45_CANDIDATE_ID:
-        print(f"  ❌ manifest spec {spec!r} != {LS45_CANDIDATE_ID!r}")
+    if spec != expected_spec:
+        print(f"  ❌ manifest spec {spec!r} != {expected_spec!r}")
     print(f"  结论: {'一致（同一套 LS45 计算）' if passed else '不一致，必须停下排查'}")
     return 0 if passed else 1
 

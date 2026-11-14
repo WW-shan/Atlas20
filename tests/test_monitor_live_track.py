@@ -109,7 +109,7 @@ def test_audit_subprocess_uses_the_configured_capital_flows_file(tmp_path: Path)
 
     command = _audit_command(json_out, flows)
 
-    assert command[-2:] == ["--capital-flows-file", str(flows)]
+    assert command[command.index("--capital-flows-file") + 1] == str(flows)
 
 
 def test_alert_names_the_failed_audit_check() -> None:
@@ -244,3 +244,24 @@ def test_monitor_unexpected_failure_is_written_and_notified(tmp_path, monkeypatc
     assert code == 1
     assert sent and "venue unavailable" in sent[0]
     assert json.loads(out.read_text(encoding="utf-8"))["issues"]
+
+
+def test_audit_command_carries_the_ls104_paths_and_spec(tmp_path: Path) -> None:
+    from scripts import monitor_live_track
+    from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
+
+    command = monitor_live_track._audit_command(
+        tmp_path / "audit.json",
+        tmp_path / "flows.csv",
+        spec=LS104_G175_M090_SPEC,
+        targets_file=Path("reports/ls45_live_g175/oos_targets.csv"),
+        manifest_file=Path("reports/ls45_live_g175/manifest.json"),
+        state_file=Path("data/ls45_g175_execution_state.json"),
+        journal_file=Path("reports/ls45_live_g175_live/journal.csv"),
+    )
+
+    assert command[command.index("--spec") + 1] == LS104_G175_M090_SPEC
+    assert command[command.index("--targets-file") + 1] == "reports/ls45_live_g175/oos_targets.csv"
+    assert command[command.index("--manifest-file") + 1] == "reports/ls45_live_g175/manifest.json"
+    assert command[command.index("--state-file") + 1] == "data/ls45_g175_execution_state.json"
+    assert command[command.index("--journal-file") + 1] == "reports/ls45_live_g175_live/journal.csv"

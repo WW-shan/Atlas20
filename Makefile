@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-data-chain audit-signal audit-symbols
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -86,6 +86,65 @@ derivatives-live: derivatives-live-data derivatives-ls45-signal
 	$(MAKE) audit-symbols
 	$(MAKE) audit-signal
 	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
+
+# LS104 is the owner-approved aggressive track.  It is deliberately a
+# separate artifact/state family: LS45-G125 files are never overwritten.
+LS104_SPEC ?= PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090
+LS104_TARGETS ?= reports/ls45_live_g175/oos_targets.csv
+LS104_MANIFEST ?= reports/ls45_live_g175/manifest.json
+LS104_STATE ?= data/ls45_g175_execution_state.json
+LS104_JOURNAL ?= reports/ls45_live_g175_live/journal.csv
+LS104_AUDIT ?= reports/ls45_live_g175_live/audit.json
+LS104_SIGNAL_EQUIVALENCE ?= reports/ls45_live_g175_live/signal_equivalence.json
+
+
+derivatives-ls104-signal: derivatives-live-data $(VENV_STAMP)
+	$(PYTHON) scripts/run_ls45_live_signal.py --track ls104-g175-m090
+
+
+audit-data-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_derivatives_data.py \
+		--manifest $(LS104_MANIFEST) \
+		--targets-file $(LS104_TARGETS) \
+		--json-out reports/ls45_live_g175/data_audit.json \
+		--markdown-out reports/ls45_live_g175/data_audit.md \
+		--require-all-funding-fresh
+
+
+audit-signal-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_signal_equivalence.py \
+		--targets-file $(LS104_TARGETS) \
+		--manifest-file $(LS104_MANIFEST) \
+		--json-out $(LS104_SIGNAL_EQUIVALENCE) \
+		--track ls104-g175-m090
+
+
+audit-live-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_live_track.py \
+		--spec $(LS104_SPEC) \
+		--targets-file $(LS104_TARGETS) \
+		--manifest-file $(LS104_MANIFEST) \
+		--state-file $(LS104_STATE) \
+		--journal-file $(LS104_JOURNAL) \
+		--json-out $(LS104_AUDIT)
+
+
+derivatives-live-ls104: derivatives-live-data derivatives-ls104-signal
+	$(MAKE) audit-data-chain
+	$(MAKE) audit-symbols
+	$(MAKE) audit-data-ls104
+	$(MAKE) audit-signal-ls104
+	$(PYTHON) scripts/execute_live_plan.py \
+		--live --notify --require-isolated \
+		--spec $(LS104_SPEC) \
+		--targets-file $(LS104_TARGETS) \
+		--manifest-file $(LS104_MANIFEST) \
+		--state-file $(LS104_STATE) \
+		--journal-file $(LS104_JOURNAL) \
+		--json-out reports/ls45_live_g175_live/latest.json \
+		--leverage 4.0 \
+		--max-gross-multiple 1.75 \
+		--max-margin-utilization 0.90 $(ARGS)
 
 # Legacy L125 research refresher. The live chain above no longer calls these
 # targets; they remain only for reproducing the previous research track.

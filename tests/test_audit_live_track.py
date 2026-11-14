@@ -1534,3 +1534,21 @@ def test_strategy_stop_history_accepts_one_way_net_position_side() -> None:
     ]
 
     assert _strategy_stop_history_issues(stopped, rows) == []
+
+
+def test_position_risk_checks_accept_the_ls104_four_x_profile() -> None:
+    from scripts.audit_live_track import _position_risk_issues
+
+    positions = [
+        {
+            "symbol": "NEARUSDT",
+            "total": "-20",
+            "posSide": "short",
+            "markPrice": "5",
+            "marginMode": "isolated",
+            "leverage": "4",
+            "positionBalance": "51.5",
+        }
+    ]
+
+    assert _position_risk_issues(positions, expected_leverage=4.0) == []

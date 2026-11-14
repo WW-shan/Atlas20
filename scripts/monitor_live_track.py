@@ -45,6 +45,7 @@ for path in (PROJECT_ROOT, PROJECT_ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.live_chain import live_track_profile  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
     latest_row,
@@ -79,8 +80,8 @@ from scripts.send_telegram_signal import _chat_ids, send_telegram_message  # noq
 DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
 DEFAULT_OUT = Path("reports/ls45_live_g125_live/health.json")
 DEFAULT_AUDIT_OUT = Path("reports/ls45_live_g125_live/audit.json")
+DEFAULT_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_live_track.py"
-SPEC_MAX_GROSS = 1.25
 EXECUTION_FLOOR_USDT = 20.0
 EXECUTION_OVERDUE_UTC_HOUR = 7  # after the 06:35 UTC final fallback has landed
 MAX_EXECUTION_AGE_HOURS = 36.0
@@ -88,6 +89,7 @@ MAX_EXECUTION_AGE_HOURS = 36.0
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--spec", default=DEFAULT_SPEC)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     parser.add_argument("--journal-file", type=Path, default=DEFAULT_JOURNAL_FILE)
     parser.add_argument("--capital-flows-file", type=Path, default=DEFAULT_CAPITAL_FLOWS_FILE)
@@ -106,14 +108,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _audit_command(json_out: Path, capital_flows_file: Path) -> list[str]:
+def _audit_command(
+    json_out: Path,
+    capital_flows_file: Path,
+    *,
+    spec: str = DEFAULT_SPEC,
+    targets_file: Path = DEFAULT_TARGETS_FILE,
+    manifest_file: Path = DEFAULT_MANIFEST_FILE,
+    state_file: Path = DEFAULT_STATE_FILE,
+    journal_file: Path = DEFAULT_JOURNAL_FILE,
+) -> list[str]:
     return [
         sys.executable,
         str(AUDIT_SCRIPT),
+        "--spec",
+        str(spec),
         "--json-out",
         str(json_out),
         "--capital-flows-file",
         str(capital_flows_file),
+        "--targets-file",
+        str(targets_file),
+        "--manifest-file",
+        str(manifest_file),
+        "--state-file",
+        str(state_file),
+        "--journal-file",
+        str(journal_file),
     ]
 
 
@@ -161,6 +182,11 @@ def _run_audit(
     capital_flows_file: Path,
     *,
     audit_out: Path | None = None,
+    spec: str = DEFAULT_SPEC,
+    targets_file: Path = DEFAULT_TARGETS_FILE,
+    manifest_file: Path = DEFAULT_MANIFEST_FILE,
+    state_file: Path = DEFAULT_STATE_FILE,
+    journal_file: Path = DEFAULT_JOURNAL_FILE,
 ) -> tuple[int, dict, str]:
     """Run the read-only audit in a subprocess and preserve failure diagnostics."""
 
@@ -176,7 +202,15 @@ def _run_audit(
     try:
         try:
             proc = subprocess.run(
-                _audit_command(json_out, capital_flows_file),
+                _audit_command(
+                    json_out,
+                    capital_flows_file,
+                    spec=spec,
+                    targets_file=targets_file,
+                    manifest_file=manifest_file,
+                    state_file=state_file,
+                    journal_file=journal_file,
+                ),
                 cwd=str(PROJECT_ROOT),
                 capture_output=True,
                 text=True,
@@ -261,7 +295,14 @@ def _main(args: argparse.Namespace) -> int:
     audit_exit, audit, audit_stderr = _run_audit(
         args.capital_flows_file,
         audit_out=args.audit_out,
+        spec=args.spec,
+        targets_file=args.targets_file,
+        manifest_file=args.manifest_file,
+        state_file=args.state_file,
+        journal_file=args.journal_file,
     )
+    profile = live_track_profile(args.spec)
+    spec_max_gross = float(profile.manifest_top_level["max_total_gross"])
     audit_failures = int(audit.get("hard_failures") or 0)
     equity, gross = _audit_metrics(audit)
     signal_date = str(audit.get("signal_date") or "?")
@@ -286,9 +327,9 @@ def _main(args: argparse.Namespace) -> int:
             "冻结目标缺少 Bitget 合约映射: " + ", ".join(missing_mappings)
         )
     target_gross = target_gross_weight(targets)
-    if target_gross > SPEC_MAX_GROSS + 1e-9:
+    if target_gross > spec_max_gross + 1e-9:
         issues.append(
-            f"冻结目标 gross {target_gross:.2f}x 超过规格上限 {SPEC_MAX_GROSS:.2f}x"
+            f"冻结目标 gross {target_gross:.2f}x 超过规格上限 {spec_max_gross:.2f}x"
         )
     missing_specs = missing_contract_specs(specs, set(targets))
     if missing_specs:
@@ -336,8 +377,8 @@ def _main(args: argparse.Namespace) -> int:
         if gross is not None and equity is not None
         else None
     )
-    if ratio is not None and ratio > SPEC_MAX_GROSS:
-        issues.append(f"总名义 {ratio:.2f}x 权益，超过规格上限 {SPEC_MAX_GROSS:.2f}x")
+    if ratio is not None and ratio > spec_max_gross:
+        issues.append(f"总名义 {ratio:.2f}x 权益，超过规格上限 {spec_max_gross:.2f}x")
     elif equity is not None and equity <= 0 and gross is not None and gross > 1.0:
         issues.append(
             f"权益 {equity:.2f} USDT 但仓位价值 {gross:.2f} USDT，无法计算名义倍数，请立即核对"

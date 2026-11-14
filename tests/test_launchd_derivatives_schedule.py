@@ -127,7 +127,8 @@ def test_execute_job_catches_a_reboot_up_without_trading_twice():
     assert payload["RunAtLoad"] is True
     assert "scripts/live_chain_preflight.py" in script
     assert "--check window" in script
-    assert "--manifest-file reports/ls45_live_g125/manifest.json" in script
+    assert '--manifest-file "$MANIFEST_FILE"' in script
+    assert '--state-file "$STATE_FILE"' in script
     assert "scripts/live_chain_preflight.py --check panel" in script
     assert "scripts/refresh_daily_data.py" in script
 
@@ -181,7 +182,8 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     assert '[ "${1:-}" = "--force" ]' in script
     assert "live_chain_preflight.py" in script
     assert "--check window --force" in script
-    assert "--manifest-file reports/ls45_live_g125/manifest.json" in script
+    assert '--manifest-file "$MANIFEST_FILE"' in script
+    assert '--state-file "$STATE_FILE"' in script
     assert "--allow-late-execution" in script
     # launchd passes the wrapper path and nothing else, so every scheduled or
     # RunAtLoad fire goes through the window.
@@ -197,9 +199,10 @@ def test_wrapper_runs_the_full_data_chain_audit_before_execution() -> None:
 def test_wrapper_runs_an_independent_post_execution_audit() -> None:
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
-    execute_at = script.index("scripts/execute_live_plan.py --live --notify --require-isolated")
+    execute_at = script.index("execution_status=0")
     post_execution = script[execute_at:]
-    assert "scripts/monitor_live_track.py --notify" in post_execution
+    assert "scripts/execute_live_plan.py" in post_execution
+    assert "scripts/monitor_live_track.py" in post_execution
     assert "execution_status" in post_execution
     assert "monitor_status" in post_execution
 
@@ -230,5 +233,20 @@ def test_window_done_reconciles_stops_before_the_read_only_monitor() -> None:
 
     reconcile_at = skip_block.index("scripts/execute_live_plan.py")
     assert "--protect-only" in skip_block[reconcile_at:]
-    monitor_at = skip_block.index("scripts/monitor_live_track.py --notify")
+    monitor_at = skip_block.index("scripts/monitor_live_track.py")
     assert reconcile_at < monitor_at
+
+
+def test_wrapper_exposes_the_ls104_profile_without_overwriting_ls45() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "ATLAS20_TRACK_PROFILE" in script
+    assert "ls104-g175-m090" in script
+    assert "reports/ls45_live_g175/oos_targets.csv" in script
+    assert "data/ls45_g175_execution_state.json" in script
+    assert 'MARGIN_CAP="0.90"' in script
+    assert 'LEVERAGE="4.0"' in script
+    # The default stays LS45 until the aggressive profile is explicitly selected.
+    assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"' in script
