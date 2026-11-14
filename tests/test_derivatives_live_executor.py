@@ -140,12 +140,24 @@ class _FakeLiveClient:
             "longLeverage": str(leverage) if mode == "isolated" else None,
             "shortLeverage": str(leverage) if mode == "isolated" else None,
         }
+        for row in self.positions:
+            if str(row.get("symbol") or "").upper() == symbol.upper():
+                row["leverage"] = str(leverage)
+                row["marginMode"] = mode
         return "success"
 
     def set_margin(self, symbol: str, amount: float, **kwargs: Any) -> Any:
         self.margin_calls.append({"symbol": symbol, "amount": amount, **kwargs})
         if self.margin_error:
             raise BitgetAPIError(self.margin_error)
+        delta = float(amount) * (
+            1.0 if kwargs.get("operation") == "add" else -1.0
+        )
+        for row in self.positions:
+            if str(row.get("symbol") or "").upper() != symbol.upper():
+                continue
+            current = row.get("positionBalance", row.get("marginSize", 0.0))
+            row["positionBalance"] = str(float(current) + delta)
         return "success"
 
     def place_order(self, **kwargs: Any) -> dict[str, Any]:
@@ -358,7 +370,7 @@ def test_execute_plan_reports_the_venue_fill_and_the_real_book() -> None:
     assert fill.fee == pytest.approx(0.03)
     assert report.positions_after[0]["symbol"] == "NEARUSDT"
     assert report.available_after == pytest.approx(25.0)
-    assert report.margin_mode == "crossed"
+    assert report.margin_mode == "isolated"
 
 
 def test_isolated_rejection_falls_back_to_cross_and_says_so() -> None:
@@ -2577,3 +2589,172 @@ def test_one_way_successful_buy_stop_is_matched_without_pos_side() -> None:
     assert errors == []
     assert len(fills) == 1
     assert fills[0].position_side == "short"
+
+
+def test_existing_position_leverage_is_normalized_without_an_order() -> None:
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="long",
+        size=12.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=30.9,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0, positions={"near": position}),
+        {"near": 0.6},
+        {"near": _spec()},
+        {"near": 5.0},
+        leverage=4.0,
+    )
+    assert plan.orders == []
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "12",
+                "posSide": "long",
+                "marginMode": "isolated",
+                "leverage": "2",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "30.9",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        plan,
+        leverage=4.0,
+        require_isolated=True,
+        margin_mode="isolated",
+    )
+
+    assert report.failures == []
+    assert [
+        (call["symbol"], call["leverage"], call["margin_mode"])
+        for call in client.leverage_calls
+    ] == [("NEARUSDT", 4.0, "isolated")]
+
+
+def test_leverage_change_reconciles_margin_from_the_actual_position() -> None:
+    class _LeverageDropsMargin(_FakeLiveClient):
+        def set_leverage(self, symbol: str, leverage: float, **kwargs: Any) -> Any:
+            result = super().set_leverage(symbol, leverage, **kwargs)
+            if kwargs.get("margin_mode") == "isolated":
+                for row in self.positions:
+                    if str(row.get("symbol") or "").upper() == symbol.upper():
+                        notional = abs(float(row["total"])) * float(row["markPrice"])
+                        row["positionBalance"] = str(notional / float(leverage))
+                        row["leverage"] = str(leverage)
+            return result
+
+        def set_margin(self, symbol: str, amount: float, **kwargs: Any) -> Any:
+            return super().set_margin(symbol, amount, **kwargs)
+
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="long",
+        size=12.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=30.9,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0, positions={"near": position}),
+        {"near": 0.6},
+        {"near": _spec()},
+        {"near": 5.0},
+        leverage=4.0,
+    )
+    client = _LeverageDropsMargin(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "12",
+                "posSide": "long",
+                "marginMode": "isolated",
+                "leverage": "2",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "30.9",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        plan,
+        leverage=4.0,
+        require_isolated=True,
+        margin_mode="isolated",
+    )
+
+    assert report.failures == []
+    add_calls = [call for call in client.margin_calls if call.get("operation") == "add"]
+    assert len(add_calls) == 1
+    assert add_calls[0]["symbol"] == "NEARUSDT"
+    assert add_calls[0]["amount"] == pytest.approx(15.9)
+    assert float(client.positions[0]["positionBalance"]) == pytest.approx(60.0 * 0.515)
+
+
+def test_partial_order_failure_still_protects_a_filled_leg_margin() -> None:
+    class _FirstFillThenReject(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            symbol = str(kwargs["symbol"]).upper()
+            if symbol == "SOLUSDT":
+                raise BitgetAPIError("venue rejected open")
+            placed = super().place_order(**kwargs)
+            qty = float(kwargs["qty"])
+            self.positions.append(
+                {
+                    "symbol": symbol,
+                    "total": str(qty),
+                    "posSide": str(kwargs.get("pos_side") or "long"),
+                    "marginMode": "isolated",
+                    "leverage": "4",
+                    "avgPrice": "5",
+                    "markPrice": "5",
+                    "positionBalance": str(qty * 5.0 / 4.0),
+                }
+            )
+            return placed
+
+        def set_margin(self, symbol: str, amount: float, **kwargs: Any) -> Any:
+            return super().set_margin(symbol, amount, **kwargs)
+
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=100.0),
+        {"near": 0.2, "sol": 0.2},
+        {"near": _spec(), "sol": _spec("SOLUSDT")},
+        {"near": 5.0, "sol": 5.0},
+        leverage=4.0,
+    )
+    client = _FirstFillThenReject(reject_isolated_orders=False)
+
+    report = _run(
+        client,
+        plan,
+        leverage=4.0,
+        require_isolated=True,
+        margin_mode="isolated",
+    )
+
+    assert report.failures
+    assert [call["symbol"] for call in client.margin_calls] == ["NEARUSDT"]
+    assert client.margin_calls[0]["operation"] == "add"
+    assert float(client.positions[0]["positionBalance"]) == pytest.approx(20.0 * 0.515)
+
+
+def test_execute_plan_rejects_nonpositive_venue_leverage() -> None:
+    client = _FakeLiveClient(reject_isolated_orders=False)
+
+    with pytest.raises(ValueError, match="leverage"):
+        _run(client, _plan(), leverage=0.0)
+
+    assert client.placed == []

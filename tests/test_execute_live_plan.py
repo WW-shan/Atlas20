@@ -1864,6 +1864,13 @@ def test_dry_run_does_not_write_live_state_or_journal(tmp_path: Path, monkeypatc
             AssertionError("dry run wrote live state")
         ),
     )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_event_completion_issues",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("dry run compared planned orders with the untouched venue book")
+        ),
+    )
 
     args = execute_live_plan.parse_args(
         [
@@ -2463,3 +2470,44 @@ def test_live_manifest_rejects_ls104_with_a_two_x_venue_leverage() -> None:
     )
 
     assert any("leverage=2" in issue for issue in issues)
+
+
+def test_bootstrap_track_can_apply_one_non_current_event_to_an_empty_track_only() -> None:
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event=None,
+        bootstrap_track=True,
+    ) == "fresh"
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event={"position_status": "ok"},
+        bootstrap_track=True,
+    ) == "maintain"
+
+
+def test_bootstrap_track_rejects_reused_state_journal_or_unhashed_manifest() -> None:
+    manifest = {"targets_sha256": "target-a"}
+    assert execute_live_plan._bootstrap_track_issues(
+        requested=True,
+        state={},
+        journal=pd.DataFrame(),
+        manifest=manifest,
+    ) == []
+    assert execute_live_plan._bootstrap_track_issues(
+        requested=True,
+        state={"last_key": "old"},
+        journal=pd.DataFrame(),
+        manifest=manifest,
+    )
+    assert execute_live_plan._bootstrap_track_issues(
+        requested=True,
+        state={},
+        journal=pd.DataFrame([{"date": "2026-11-14"}]),
+        manifest=manifest,
+    )
+    assert execute_live_plan._bootstrap_track_issues(
+        requested=True,
+        state={},
+        journal=pd.DataFrame(),
+        manifest={},
+    )

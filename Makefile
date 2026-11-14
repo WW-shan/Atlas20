@@ -59,13 +59,15 @@ refresh-data: $(VENV_STAMP)
 	$(PYTHON) scripts/download_data.py --config config/base.yaml
 	$(PYTHON) scripts/build_datasets.py --config config/base.yaml
 
-# Current LS45-G125 live chain.  The target ledger is produced by the frozen
+# Shared derivatives live chain.  The selected profile produces a frozen
 # research wrapper from Bitget mark candles; it is never parameter-selected by
 # this target.  Keep the raw directory stable so daily downloads append to one
 # resumable cache and every live artifact points at the same identity.
 DERIVATIVES_LIVE_RAW_DIR ?= data/raw/bitget_derivatives/merged_oos_20261112
 DERIVATIVES_LIVE_MARK_WAIT_SECONDS ?= 180
 DERIVATIVES_LIVE_MARK_POLL_SECONDS ?= 30
+AUDIT_REQUIRED_LEVERAGE ?= 2.0
+AUDIT_SYMBOL_OUT ?= reports/ls45_live_g125_live/venue_symbol_audit.json
 
 derivatives-live-data: $(VENV_STAMP)
 	$(PYTHON) scripts/download_bitget_derivatives_data.py \
@@ -96,6 +98,9 @@ LS104_STATE ?= data/ls45_g175_execution_state.json
 LS104_JOURNAL ?= reports/ls45_live_g175_live/journal.csv
 LS104_AUDIT ?= reports/ls45_live_g175_live/audit.json
 LS104_SIGNAL_EQUIVALENCE ?= reports/ls45_live_g175_live/signal_equivalence.json
+LS104_KILL ?= data/ls45_g175_execution.KILL
+LS104_LOCK ?= data/derivatives_execution.lock
+LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)
 
 
 derivatives-ls104-signal: derivatives-live-data $(VENV_STAMP)
@@ -108,6 +113,7 @@ audit-data-ls104: $(VENV_STAMP)
 		--targets-file $(LS104_TARGETS) \
 		--json-out reports/ls45_live_g175/data_audit.json \
 		--markdown-out reports/ls45_live_g175/data_audit.md \
+		--required-leverage 4.0 \
 		--require-all-funding-fresh
 
 
@@ -131,7 +137,8 @@ audit-live-ls104: $(VENV_STAMP)
 
 derivatives-live-ls104: derivatives-live-data derivatives-ls104-signal
 	$(MAKE) audit-data-chain
-	$(MAKE) audit-symbols
+	$(MAKE) audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 \
+		AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json
 	$(MAKE) audit-data-ls104
 	$(MAKE) audit-signal-ls104
 	$(PYTHON) scripts/execute_live_plan.py \
@@ -142,9 +149,11 @@ derivatives-live-ls104: derivatives-live-data derivatives-ls104-signal
 		--state-file $(LS104_STATE) \
 		--journal-file $(LS104_JOURNAL) \
 		--json-out reports/ls45_live_g175_live/latest.json \
+		--kill-switch $(LS104_KILL) \
+		--lock-file $(LS104_LOCK) \
 		--leverage 4.0 \
 		--max-gross-multiple 1.75 \
-		--max-margin-utilization 0.90 $(ARGS)
+		--max-margin-utilization 0.90 $(LS104_BOOTSTRAP_ARG) $(ARGS)
 
 # Legacy L125 research refresher. The live chain above no longer calls these
 # targets; they remain only for reproducing the previous research track.
@@ -189,14 +198,16 @@ record-capital-flow: $(VENV_STAMP)
 	$(PYTHON) scripts/record_capital_flow.py --amount="$(AMOUNT)" --note="$(NOTE)"
 
 # Read-only end-to-end reconciliation: account identities, ledger vs venue
-# order history, book vs frozen target, gross vs the 1.25x cap.
+# order history, book vs frozen target, and the selected profile's risk caps.
 audit-live: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_live_track.py
 
 # Read-only full-universe capability proof: every mapped CMC asset against
 # Bitget's live v3 instruments, quotes, long/short order plans and flip plans.
 audit-symbols: $(VENV_STAMP)
-	$(PYTHON) scripts/audit_venue_symbols.py
+	$(PYTHON) scripts/audit_venue_symbols.py \
+		--required-leverage $(AUDIT_REQUIRED_LEVERAGE) \
+		--out $(AUDIT_SYMBOL_OUT)
 
 # Fail-closed reliability audit for the CMC panel, symbol map, contracts,
 # Bitget marks and funding. The daily wrapper runs this after the signal book

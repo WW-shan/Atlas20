@@ -6,7 +6,7 @@
 #
 #   1. decide whether this load may trade at all              (preflight window)
 #   2. repair the point-in-time Top20 panel if it lags        (self-heal)
-#   3. refresh Bitget mark candles and rebuild the LS45 book  (derivatives-live-data)
+#   3. refresh Bitget mark candles and rebuild the selected track book
 #   4. audit CMC/mark/funding/contract reliability                  (audit-data)
 #   5. size the book from the real account equity, place the orders, write the
 #      journal, and push the Telegram report                  (derivatives-live)
@@ -47,6 +47,7 @@ CONFIG_DIR="${ATLAS20_CONFIG_DIR:-$CONFIG_DIR}"
 
 BITGET_ENV="$CONFIG_DIR/bitget.env"
 TELEGRAM_ENV="$CONFIG_DIR/telegram.env"
+TRACK_ENV="$CONFIG_DIR/track.env"
 
 # launchd starts jobs with a minimal PATH; systemd units start with almost
 # none. make, git and the venv python all need to be reachable.
@@ -64,11 +65,19 @@ set -a
 . "$TELEGRAM_ENV"
 set +a
 
+# Persistent track selection lives outside the repository so launchd and
+# systemd see the same choice as an interactive shell.  An explicit environment
+# variable wins, which keeps emergency rollback to LS45 one command away.
+if [ -r "$TRACK_ENV" ] && [ -z "${ATLAS20_TRACK_PROFILE+x}" ]; then
+  set -a
+  . "$TRACK_ENV"
+  set +a
+fi
+
 cd "$PROJECT_ROOT"
 
-# One wrapper serves both frozen tracks.  The default remains LS45 until the
-# LS104 dry-run and post-trade audits pass; setting ATLAS20_TRACK_PROFILE
-# selects the independent aggressive track without rewriting any LS45 file.
+# One wrapper serves both frozen tracks without rewriting either profile's
+# target, state, journal, audit or kill-switch files.
 TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"
 case "$TRACK_PROFILE" in
   ls45-g125)
@@ -80,6 +89,7 @@ case "$TRACK_PROFILE" in
     JSON_OUT="reports/ls45_live_g125_live/latest.json"
     AUDIT_JSON="reports/ls45_live_g125_live/audit.json"
     HEALTH_JSON="reports/ls45_live_g125_live/health.json"
+    KILL_FILE="data/ls45_g125_execution.KILL"
     SYMBOL_AUDIT_JSON="reports/ls45_live_g125_live/venue_symbol_audit.json"
     SIGNAL_TARGET="derivatives-ls45-signal"
     DATA_AUDIT_TARGET="audit-data"
@@ -97,6 +107,7 @@ case "$TRACK_PROFILE" in
     JSON_OUT="reports/ls45_live_g175_live/latest.json"
     AUDIT_JSON="reports/ls45_live_g175_live/audit.json"
     HEALTH_JSON="reports/ls45_live_g175_live/health.json"
+    KILL_FILE="data/ls45_g175_execution.KILL"
     SYMBOL_AUDIT_JSON="reports/ls45_live_g175_live/venue_symbol_audit.json"
     SIGNAL_TARGET="derivatives-ls104-signal"
     DATA_AUDIT_TARGET="audit-data-ls104"
@@ -111,6 +122,16 @@ case "$TRACK_PROFILE" in
     ;;
 esac
 export ATLAS20_TRACK_PROFILE="$TRACK_PROFILE"
+LOCK_FILE="data/derivatives_execution.lock"
+
+# A new track starts from an empty state/journal.  The first application of
+# its frozen book is an explicit one-time bootstrap, not a late replay of an
+# old signal.  Once any state file exists, retries use the normal active-event
+# completion path and this flag is never added again.
+BOOTSTRAP_ARG=""
+if [ "$TRACK_PROFILE" = "ls104-g175-m090" ] && [ ! -e "$STATE_FILE" ]; then
+  BOOTSTRAP_ARG="--bootstrap-track"
+fi
 
 # --- 1. May this load trade? -------------------------------------------------
 # The preflight exits 3 when a documented reason says no (before the fill
@@ -151,6 +172,8 @@ if [ "$window_status" -eq 4 ]; then
     --state-file "$STATE_FILE" \
     --journal-file "$JOURNAL_FILE" \
     --json-out "$JSON_OUT" \
+    --kill-switch "$KILL_FILE" \
+    --lock-file "$LOCK_FILE" \
     --leverage "$LEVERAGE" \
     --max-gross-multiple "$MAX_GROSS" \
     --max-margin-utilization "$MARGIN_CAP" || protect_status=$?
@@ -209,13 +232,15 @@ elif [ "$panel_status" -ne 0 ]; then
 fi
 
 # --- 3/4. The chain itself ---------------------------------------------------
-# Refresh the Bitget mark tree, rebuild the frozen LS45 ledger, then execute.
+# Refresh the Bitget mark tree, rebuild the selected frozen ledger, then execute.
 # The executor refuses to trade on stale data, so this order is mandatory.
 # A human `--force` catch-up also passes the executor's explicit late-window
 # acknowledgement; scheduled fires never receive that argument.
 /usr/bin/make derivatives-live-data "$SIGNAL_TARGET"
 /usr/bin/make audit-data-chain
-.venv/bin/python scripts/audit_venue_symbols.py --out "$SYMBOL_AUDIT_JSON"
+.venv/bin/python scripts/audit_venue_symbols.py \
+  --required-leverage "$LEVERAGE" \
+  --out "$SYMBOL_AUDIT_JSON"
 /usr/bin/make "$DATA_AUDIT_TARGET"
 /usr/bin/make "$SIGNAL_AUDIT_TARGET"
 
@@ -234,9 +259,11 @@ execution_status=0
   --state-file "$STATE_FILE" \
   --journal-file "$JOURNAL_FILE" \
   --json-out "$JSON_OUT" \
+  --kill-switch "$KILL_FILE" \
+  --lock-file "$LOCK_FILE" \
   --leverage "$LEVERAGE" \
   --max-gross-multiple "$MAX_GROSS" \
-  --max-margin-utilization "$MARGIN_CAP" || execution_status=$?
+  --max-margin-utilization "$MARGIN_CAP" $BOOTSTRAP_ARG || execution_status=$?
 
 monitor_status=0
 .venv/bin/python scripts/monitor_live_track.py \

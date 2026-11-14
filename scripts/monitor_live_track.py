@@ -15,7 +15,8 @@ Checks:
    freshness, ...) - any hard failure is an alert;
 2. position drift vs the frozen target beyond what the 5 USDT rebalance
    threshold would correct on the next run;
-3. gross notional / equity within the 1.25x specification cap;
+3. gross notional / equity and isolated-margin utilization within the selected
+   track profile caps;
 4. execution freshness: the last successful run is too old, or today's run is
    already overdue after the early window and fallbacks have had time to run;
 5. account equity above the executor's floor.

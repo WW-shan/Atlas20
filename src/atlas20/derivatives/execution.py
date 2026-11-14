@@ -267,6 +267,11 @@ def build_execution_plan(
         raise ValueError("available margin must be finite and non-negative")
     if not math.isfinite(leverage) or leverage <= 0.0:
         raise ValueError("leverage must be positive")
+    if (
+        not math.isfinite(max_margin_utilization)
+        or not 0.0 < max_margin_utilization <= 1.0
+    ):
+        raise ValueError("max_margin_utilization must be in (0, 1]")
     if max_gross_exposure is not None and (
         not math.isfinite(max_gross_exposure) or max_gross_exposure < 0.0
     ):

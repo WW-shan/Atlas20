@@ -435,3 +435,72 @@ def test_panel_missing_last_completed_day_fails(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("panel does not reach the last completed UTC day" in item for item in report.hard_failures)
+
+
+def test_required_short_leverage_must_be_supported_by_the_venue(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    contract_path = paths["raw"] / "contracts.json"
+    contracts = json.loads(contract_path.read_text(encoding="utf-8"))
+    contracts[0]["maxLever"] = "3"
+    contract_path.write_text(json.dumps(contracts), encoding="utf-8")
+
+    report = _audit(
+        paths,
+        required_short_assets={"bitcoin"},
+        required_leverage=4.0,
+    )
+
+    assert report.passed is False
+    assert any("leverage" in item and "bitcoin" in item for item in report.hard_failures)
+
+
+def test_required_leverage_is_checked_for_every_target_asset(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    contract_path = paths["raw"] / "contracts.json"
+    contracts = json.loads(contract_path.read_text(encoding="utf-8"))
+    contracts[0]["maxLever"] = "3"
+    contract_path.write_text(json.dumps(contracts), encoding="utf-8")
+
+    report = _audit(
+        paths,
+        required_leverage_assets={"bitcoin"},
+        required_leverage=4.0,
+    )
+
+    assert report.passed is False
+    assert any(
+        item.startswith("contracts.bitcoin.required_leverage:")
+        for item in report.hard_failures
+    )
+
+
+def test_target_asset_reader_covers_latest_longs_and_shorts_separately(tmp_path: Path) -> None:
+    from scripts.audit_derivatives_data import _required_short_assets, _target_assets
+
+    targets = tmp_path / "targets.csv"
+    pd.DataFrame(
+        [
+            {"signal_date": "2026-11-12", "asset": "old", "target_weight": -0.25},
+            {"signal_date": "2026-11-13", "asset": "bitcoin", "target_weight": 0.75},
+            {"signal_date": "2026-11-13", "asset": "near", "target_weight": -0.50},
+        ]
+    ).to_csv(targets, index=False)
+
+    assert _target_assets(targets) == {"bitcoin", "near"}
+    assert _required_short_assets(targets) == {"near"}
+
+
+def test_required_leverage_asset_without_a_live_mapping_fails_closed(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+
+    report = _audit(
+        paths,
+        required_leverage_assets={"ethereum"},
+        required_leverage=4.0,
+    )
+
+    assert report.passed is False
+    assert any(
+        "required_leverage" in item and "ethereum" in item
+        for item in report.hard_failures
+    )

@@ -3,7 +3,8 @@
 The audit deliberately separates hard failures from warnings.  A hard failure
 means the live executor must not plan or place an order: the panel is missing
 its last completed day, a mark file is duplicated/future/invalid, a contract is
-not online/perpetual/2x-compatible, or a required short lacks fresh funding.
+not online/perpetual at the profile's required leverage, or a required short
+lacks fresh funding.
 Historical or provider-window warnings remain visible without being silently
 converted into zero-filled data.
 """
@@ -488,6 +489,8 @@ def audit_derivatives_data(
     now: datetime | None = None,
     min_panel_assets: int = 20,
     required_short_assets: Iterable[str] | None = None,
+    required_leverage_assets: Iterable[str] | None = None,
+    required_leverage: float = 2.0,
     require_all_funding_fresh: bool = False,
     execution_utc: time = DEFAULT_EXECUTION_UTC,
     funding_stale_hours: float = DEFAULT_FUNDING_STALE_HOURS,
@@ -498,8 +501,23 @@ def audit_derivatives_data(
     panel_file = Path(panel_path)
     symbol_file = Path(symbol_map_path) if symbol_map_path is not None else raw / "symbol_map.csv"
     moment = _as_utc(now or datetime.now(UTC))
+    if not np.isfinite(float(required_leverage)) or float(required_leverage) <= 0.0:
+        raise ValueError("required_leverage must be positive and finite")
+    required_short_set = {
+        str(asset).strip().lower() for asset in (required_short_assets or ())
+    }
+    required_leverage_set = {
+        str(asset).strip().lower()
+        for asset in (
+            required_short_set
+            if required_leverage_assets is None
+            else required_leverage_assets
+        )
+    }
     report = DataAuditReport(passed=False)
     report.summary["now"] = moment.isoformat()
+    report.summary["required_leverage"] = float(required_leverage)
+    report.summary["required_leverage_assets"] = sorted(required_leverage_set)
     panel = _read_panel(panel_file, report, moment)
     symbol_map = _read_symbol_map(symbol_file, report)
     contracts = _read_contracts(raw / "contracts.json", report)
@@ -525,6 +543,23 @@ def audit_derivatives_data(
     mark_paths: list[Path] = []
     if symbol_map is not None:
         normal = symbol_map.loc[symbol_map["contract_status"].astype(str).str.lower().eq("normal")]
+        normal_assets = {
+            str(asset).strip().lower() for asset in normal["coin_id"].astype(str)
+        }
+        missing_required_leverage = sorted(
+            required_leverage_set.difference(normal_assets)
+        )
+        _check(
+            report,
+            "contracts.required_leverage_mappings",
+            not missing_required_leverage,
+            (
+                "missing normal Bitget mapping for required leverage asset(s): "
+                + ", ".join(missing_required_leverage)
+                if missing_required_leverage
+                else "all required leverage assets have a normal Bitget mapping"
+            ),
+        )
         for row in normal.to_dict("records"):
             asset = str(row["coin_id"])
             symbol = str(row["bitget_symbol"]).strip().upper()
@@ -569,6 +604,20 @@ def audit_derivatives_data(
                 _check(report, f"contracts.{asset}.normal", status == "normal", f"status={status or 'missing'}")
                 _check(report, f"contracts.{asset}.perpetual", kind == "perpetual", f"type={kind or 'missing'}")
                 _check(report, f"contracts.{asset}.two_x", np.isfinite(min_lever) and np.isfinite(max_lever) and min_lever <= 2.0 <= max_lever, f"leverage range {min_lever:g}..{max_lever:g}" if np.isfinite(min_lever) and np.isfinite(max_lever) else "missing leverage")
+                if str(asset).strip().lower() in required_leverage_set:
+                    _check(
+                        report,
+                        f"contracts.{asset}.required_leverage",
+                        np.isfinite(min_lever)
+                        and np.isfinite(max_lever)
+                        and min_lever <= float(required_leverage) <= max_lever,
+                        (
+                            f"leverage range {min_lever:g}..{max_lever:g}, "
+                            f"require {float(required_leverage):g}"
+                            if np.isfinite(min_lever) and np.isfinite(max_lever)
+                            else "missing leverage"
+                        ),
+                    )
                 _check(report, f"contracts.{asset}.steps", all(np.isfinite(v) and v > 0.0 for v in (min_qty, min_usdt, step, interval)), "min quantity/notional, size step and funding interval must be positive")
                 _check(report, f"contracts.{asset}.taker_fee", np.isfinite(taker) and taker >= 0.0, f"taker fee={taker:g}" if np.isfinite(taker) else "missing taker fee")
             mark_path = raw / "candles" / f"{symbol}_mark.csv"

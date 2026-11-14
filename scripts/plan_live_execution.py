@@ -5,7 +5,7 @@ A real account does not: its equity moves with PnL, deposits and funding, and
 the order sizes only make sense against that equity.  This script is the
 bridge - it combines
 
-* the latest frozen LS45 target book (``reports/ls45_live_g125``),
+* the latest frozen target book for the selected track,
 * the account state (live Bitget UTA API, a JSON snapshot, or ``--equity``),
 * the real contract specs and last prices,
 

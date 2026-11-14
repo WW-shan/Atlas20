@@ -1,11 +1,12 @@
-"""Build the LS45-G125 live target ledger from the frozen research engine.
+"""Build a frozen live long/short target ledger from the research engine.
 
 This is a thin, explicit wrapper around ``run_derivatives_shadow.py``.  It uses
-the LS45 candidate, caps total target gross at 1.25x, and writes the signed
-target ledger used by ``plan_live_execution.py`` and ``execute_live_plan.py``.
+the LS45 signal construction and can layer the LS104 short-scale/gross/margin
+profile on top.  The selected profile writes the signed target ledger used by
+``plan_live_execution.py`` and ``execute_live_plan.py``.
 
-The wrapper deliberately does not contain strategy parameters beyond the
-frozen LS45 ID and the owner-requested 1.25x gross cap.  It never places orders.
+The wrapper deliberately contains only the profile pins; it never places
+orders.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ def build_command(
     output_dir: str | None = None,
     track: str = "ls45-g125",
 ) -> list[str]:
-    """Return the exact shadow-runner command for the LS45-G125 ledger."""
+    """Return the exact shadow-runner command for the selected live profile."""
 
     normalized_end = _validated_end_date(end_date)
     if track not in {"ls45-g125", "ls104-g175-m090"}:

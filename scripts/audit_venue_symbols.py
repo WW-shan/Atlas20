@@ -2,7 +2,7 @@
 
 This audit closes the gap between a symbol appearing in a CSV and the venue
 actually being able to trade it.  For every mapped asset it verifies the live
-v3 contract identity, 2x leverage support, quote freshness, and synthetic
+v3 contract identity, profile leverage support, quote freshness, and synthetic
 long, short-with-stop, and long-to-short flip plans.  It never places or
 cancels an order and never reads private account credentials.
 """
@@ -67,7 +67,12 @@ def _json_number(value: float) -> float | None:
     return float(value) if isfinite(value) else None
 
 
-def _contract_issues(contract: dict[str, Any], symbol: str) -> list[str]:
+def _contract_issues(
+    contract: dict[str, Any],
+    symbol: str,
+    *,
+    required_leverage: float,
+) -> list[str]:
     issues: list[str] = []
     contract_symbol = str(contract.get("symbol") or "").strip().upper()
     base = str(contract.get("baseCoin") or "").strip().upper()
@@ -90,8 +95,11 @@ def _contract_issues(contract: dict[str, Any], symbol: str) -> list[str]:
     max_leverage = _first_number(contract.get("maxLeverage"), contract.get("maxLever"))
     if not (isfinite(min_leverage) and isfinite(max_leverage)):
         issues.append(f"{symbol}: leverage range is missing or invalid")
-    elif not (min_leverage <= 2.0 <= max_leverage):
-        issues.append(f"{symbol}: 2x outside leverage range {min_leverage:g}..{max_leverage:g}")
+    elif not (min_leverage <= required_leverage <= max_leverage):
+        issues.append(
+            f"{symbol}: {required_leverage:g}x outside leverage range "
+            f"{min_leverage:g}..{max_leverage:g}"
+        )
     return issues
 
 
@@ -130,8 +138,12 @@ def build_venue_symbol_audit(
     now: datetime | None = None,
     equity_reference: float = 500.0,
     max_quote_age_seconds: float = 120.0,
+    required_leverage: float = 2.0,
 ) -> dict[str, Any]:
     """Build a deterministic, read-only venue-symbol capability report."""
+
+    if not isfinite(required_leverage) or required_leverage <= 0.0:
+        raise ValueError("required_leverage must be positive and finite")
 
     moment = now or datetime.now(timezone.utc)
     if moment.tzinfo is None:
@@ -161,7 +173,11 @@ def build_venue_symbol_audit(
             issues.append(f"{asset}: no live v3 instrument for {symbol}")
             assets.append(row)
             continue
-        asset_issues = _contract_issues(contract, symbol)
+        asset_issues = _contract_issues(
+            contract,
+            symbol,
+            required_leverage=float(required_leverage),
+        )
         issues.extend(f"{asset}: {item}" for item in asset_issues)
         spec = specs_from_instruments([contract], {asset: symbol}).get(asset)
         if spec is None:
@@ -202,7 +218,7 @@ def build_venue_symbol_audit(
             {asset: 1.0},
             specs,
             prices,
-            leverage=2.0,
+            leverage=float(required_leverage),
             long_buffer=0.50,
             short_buffer=0.50,
             short_stop_loss_pct=0.20,
@@ -214,7 +230,7 @@ def build_venue_symbol_audit(
             {asset: -1.0},
             specs,
             prices,
-            leverage=2.0,
+            leverage=float(required_leverage),
             long_buffer=0.50,
             short_buffer=0.50,
             short_stop_loss_pct=0.20,
@@ -247,7 +263,7 @@ def build_venue_symbol_audit(
             {asset: -1.0},
             specs,
             prices,
-            leverage=2.0,
+            leverage=float(required_leverage),
             long_buffer=0.50,
             short_buffer=0.50,
             short_stop_loss_pct=0.20,
@@ -311,6 +327,7 @@ def build_venue_symbol_audit(
         "generated_at": moment.isoformat(),
         "equity_reference": float(equity_reference),
         "max_quote_age_seconds": float(max_quote_age_seconds),
+        "required_leverage": float(required_leverage),
         "mapped_assets": len(symbol_map),
         "unique_symbols": len(unique_symbols),
         "v3_instruments": len(instruments),
@@ -319,11 +336,13 @@ def build_venue_symbol_audit(
         "long_ok": sum(bool(row.get("long_ok")) for row in assets),
         "short_ok": sum(bool(row.get("short_ok")) for row in assets),
         "flip_ok": sum(bool(row.get("flip_ok")) for row in assets),
-        "two_x_supported": sum(
+        "required_leverage_supported": sum(
             bool(
                 isfinite(_number(row.get("min_leverage")))
                 and isfinite(_number(row.get("max_leverage")))
-                and _number(row.get("min_leverage")) <= 2.0 <= _number(row.get("max_leverage"))
+                and _number(row.get("min_leverage"))
+                <= float(required_leverage)
+                <= _number(row.get("max_leverage"))
             )
             for row in assets
         ),
@@ -346,13 +365,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--equity", type=float, default=500.0)
     parser.add_argument("--max-quote-age-seconds", type=float, default=120.0)
+    parser.add_argument("--required-leverage", type=float, default=2.0)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.equity <= 0.0 or args.max_quote_age_seconds <= 0.0:
-        raise SystemExit("equity and quote age must be positive")
+    if (
+        args.equity <= 0.0
+        or args.max_quote_age_seconds <= 0.0
+        or args.required_leverage <= 0.0
+    ):
+        raise SystemExit("equity, quote age and required leverage must be positive")
     symbol_map = load_symbol_map(args.symbol_map)
     session = requests.Session()
     instruments = fetch_public_instruments(session)
@@ -364,6 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         quotes=quotes,
         equity_reference=float(args.equity),
         max_quote_age_seconds=float(args.max_quote_age_seconds),
+        required_leverage=float(args.required_leverage),
     )
     ensure_dir(args.out.parent)
     atomic_write_text(args.out, json.dumps(report, indent=2, sort_keys=True, default=str))
@@ -375,7 +400,8 @@ def main(argv: list[str] | None = None) -> int:
             "unique_symbols",
             "mapped_specs",
             "mapped_online",
-            "two_x_supported",
+            "required_leverage",
+            "required_leverage_supported",
             "long_ok",
             "short_ok",
             "flip_ok",

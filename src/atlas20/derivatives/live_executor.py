@@ -1302,6 +1302,8 @@ def execute_plan(
 
     if require_isolated and margin_mode != MARGIN_MODE_ISOLATED:
         raise ValueError("require_isolated conflicts with a non-isolated margin_mode")
+    if not isfinite(float(leverage)) or float(leverage) <= 0.0:
+        raise ValueError("leverage must be positive and finite")
     if short_stop_loss_pct is not None and not 0.0 < short_stop_loss_pct < 1.0:
         raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
@@ -1380,9 +1382,99 @@ def execute_plan(
 
     isolated_ok = margin_mode == MARGIN_MODE_ISOLATED
     leverage_done: set[tuple[str, str]] = set()
+    blocked_open_keys: set[tuple[str, str]] = set()
     blocked_open_assets: set[str] = set()
     stop_emergency_attempted: set[str] = set()
     halt_all_orders = not preflight_ok
+
+    def _configure_isolated_leverage(symbol: str, side: str) -> str | None:
+        try:
+            client.set_leverage(
+                symbol,
+                leverage,
+                pos_side=side,
+                margin_mode=MARGIN_MODE_ISOLATED,
+                long_leverage=leverage,
+                short_leverage=leverage,
+            )
+        except (BitgetAPIError, ValueError) as exc:
+            detail = f"isolated leverage setup failed: {_error_text(exc)}"
+            report.margin_notes.append(
+                f"{symbol}: 逐仓杠杆设置被拒绝，规格要求逐仓（{exc}）"
+            )
+            return detail
+        readback_error = _leverage_readback_error(
+            client,
+            symbol=symbol,
+            pos_side=side,
+            leverage=leverage,
+        )
+        if readback_error is not None:
+            report.margin_notes.append(
+                f"{symbol}: 杠杆/逐仓配置回读不符，规格要求逐仓"
+            )
+            return readback_error
+        return None
+
+    if require_isolated:
+        # Existing positions are already at risk before today's plan.  Normalize
+        # their venue leverage first; waiting for a future OPEN/INCREASE would
+        # leave unchanged legs on the old profile indefinitely.
+        required_leverage_keys: list[tuple[str, str]] = []
+        for row in initial_positions:
+            if abs(_signed_position_qty(row)) <= 1e-12:
+                continue
+            symbol = str(row.get("symbol") or "").upper()
+            side = str(row.get("posSide") or "").lower()
+            if side not in {"long", "short"}:
+                side = "long" if _signed_position_qty(row) > 0.0 else "short"
+            if symbol:
+                required_leverage_keys.append((symbol, side))
+        for order in plan.orders:
+            if order.reduce_only:
+                continue
+            required_leverage_keys.append(
+                (order.symbol.upper(), str(order.pos_side or pos_side).lower())
+            )
+
+        seen_leverage_keys: set[tuple[str, str]] = set()
+        for symbol, side in required_leverage_keys:
+            key = (symbol, side)
+            if key in seen_leverage_keys:
+                continue
+            seen_leverage_keys.add(key)
+            error = _configure_isolated_leverage(symbol, side)
+            if error is None:
+                leverage_done.add(key)
+                continue
+            has_open_order = any(
+                not order.reduce_only
+                and str(order.symbol).upper() == symbol
+                and str(order.pos_side or pos_side).lower() == side
+                for order in plan.orders
+            )
+            has_reduce_order = any(
+                order.reduce_only
+                and str(order.symbol).upper() == symbol
+                and str(order.pos_side or pos_side).lower() == side
+                for order in plan.orders
+            )
+            if has_open_order:
+                blocked_open_keys.add(key)
+            if has_open_order or not has_reduce_order:
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": side,
+                        "size": "-",
+                        "error": error,
+                    }
+                )
+            else:
+                report.margin_notes.append(
+                    f"{symbol}: 风险降低订单仍允许执行，但当前逐仓杠杆未达到规格"
+                )
 
     for order in plan.orders:
         if halt_all_orders:
@@ -1423,6 +1515,11 @@ def execute_plan(
             continue
         order_pos_side = str(order.pos_side or pos_side).lower()
         leverage_key = (symbol, order_pos_side)
+        if not order.reduce_only and leverage_key in blocked_open_keys:
+            report.margin_notes.append(
+                f"{symbol}: 杠杆/逐仓配置未通过，OPEN/INCREASE 已跳过"
+            )
+            continue
         if not order.reduce_only and leverage_key not in leverage_done:
             if require_isolated:
                 try:
@@ -2170,57 +2267,194 @@ def execute_plan(
             }
         )
 
-    # Isolated-margin top-ups only exist for isolated legs.  On a crossed
-    # account the venue answers 40731/25200 every single day, which is noise
-    # rather than information - so say it once, plainly, and skip the calls.
-    if plan.margin_intents:
-        if report.failures:
-            report.margin_notes.append(
-                f"本轮回调存在失败：跳过 {len(plan.margin_intents)} 笔保证金调整"
+    # Isolated-margin top-ups are a safety operation, not an optional
+    # rebalance tail.  Add margin even after a partial order failure: a leg
+    # opened at the venue's 4x initial margin (25%) must not be left there just
+    # because another symbol failed.  Removes remain disabled after any failure
+    # because reducing collateral can only worsen the residual book.
+    def _apply_margin(
+        symbol: str,
+        amount: float,
+        side: str,
+        operation: str,
+    ) -> bool:
+        try:
+            client.set_margin(
+                symbol,
+                amount,
+                pos_side=side,
+                operation=operation,
             )
-        elif report.margin_mode and report.margin_mode != MARGIN_MODE_ISOLATED:
+        except BitgetAPIError as exc:
+            report.margin_notes.append(
+                f"{symbol}: 保证金{operation} {amount:.2f} USDT 失败（{exc}）"
+            )
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "MARGIN",
+                    "side": side,
+                    "size": f"{amount:.12g}",
+                    "error": (
+                        f"isolated margin {operation} failed: {_error_text(exc)}"
+                    ),
+                }
+            )
+            return False
+        except ValueError as exc:
+            report.margin_notes.append(
+                f"{symbol}: 保证金调整参数错误（{exc}）"
+            )
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "MARGIN",
+                    "side": side,
+                    "size": f"{amount:.12g}",
+                    "error": f"isolated margin {operation} is invalid: {exc}",
+                }
+            )
+            return False
+        return True
+
+    margin_positions = client.current_positions()
+    open_margin_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in margin_positions
+        if abs(_signed_position_qty(row)) > 1e-12
+    }
+    filled_open_symbols = {
+        fill.symbol.upper()
+        for fill in report.fills
+        if fill.status == _FILLED
+        and fill.filled_size > 0.0
+        and fill.action in {"OPEN", "INCREASE"}
+    }
+    if plan.margin_intents:
+        if report.margin_mode and report.margin_mode != MARGIN_MODE_ISOLATED:
             report.margin_notes.append(
                 f"持仓为{report.margin_mode}：跳过 {len(plan.margin_intents)} 笔逐仓保证金调整"
             )
         else:
             for intent in plan.margin_intents:
-                try:
-                    client.set_margin(
-                        intent.symbol,
-                        intent.amount,
-                        pos_side=intent.pos_side,
-                        operation=intent.operation,
-                    )
-                except BitgetAPIError as exc:
+                symbol = intent.symbol.upper()
+                position_exists = symbol in open_margin_symbols
+                if intent.operation == "add" and not (
+                    position_exists or symbol in filled_open_symbols
+                ):
                     report.margin_notes.append(
-                        f"{intent.symbol}: 保证金{intent.operation}"
-                        f" {intent.amount:.2f} USDT 失败（{exc}）"
+                        f"{symbol}: 没有已成交持仓，跳过保证金加仓"
                     )
-                    report.failures.append(
-                        {
-                            "symbol": intent.symbol,
-                            "action": "MARGIN",
-                            "side": intent.pos_side,
-                            "size": f"{intent.amount:.12g}",
-                            "error": (
-                                f"isolated margin {intent.operation} failed: "
-                                f"{_error_text(exc)}"
-                            ),
-                        }
-                    )
-                except ValueError as exc:
+                    continue
+                if intent.operation == "remove" and (
+                    report.failures or not position_exists
+                ):
                     report.margin_notes.append(
-                        f"{intent.symbol}: 保证金调整参数错误（{exc}）"
+                        f"{symbol}: 本轮存在未解决风险或没有持仓，跳过保证金释放"
                     )
-                    report.failures.append(
-                        {
-                            "symbol": intent.symbol,
-                            "action": "MARGIN",
-                            "side": intent.pos_side,
-                            "size": f"{intent.amount:.12g}",
-                            "error": f"isolated margin {intent.operation} is invalid: {exc}",
-                        }
-                    )
+                    continue
+                _apply_margin(
+                    symbol,
+                    intent.amount,
+                    intent.pos_side,
+                    intent.operation,
+                )
+
+    # Re-read the venue after leverage changes and fills.  Some venues update
+    # the isolated position balance when leverage changes; a static pre-trade
+    # delta is therefore insufficient.  Reconcile the *actual* open leg to the
+    # profile's explicit 51.5% margin ratio.
+    reconciled_margin_positions = client.current_positions()
+    for row in reconciled_margin_positions:
+        qty = _signed_position_qty(row)
+        if abs(qty) <= 1e-12:
+            continue
+        mode = str(row.get("marginMode") or "").strip().lower()
+        if mode != MARGIN_MODE_ISOLATED:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        side = str(row.get("posSide") or "").lower()
+        if side not in {"long", "short"}:
+            side = "long" if qty > 0.0 else "short"
+        mark = _to_float(row.get("markPrice") or row.get("avgPrice"))
+        margin = _to_float(
+            row.get("positionBalance")
+            or row.get("marginSize")
+            or row.get("isolatedMargin")
+        )
+        if mark <= 0.0 or margin <= 0.0:
+            continue
+        target_margin = abs(qty) * mark * plan.target_margin_ratio
+        delta = target_margin - margin
+        if delta > 0.01:
+            _apply_margin(symbol, delta, side, "add")
+        elif delta < -0.01 and not report.failures:
+            asset = _asset_for_symbol(symbol, symbol_assets)
+            target_signed = float(plan.signed_target_notional.get(asset, 0.0))
+            same_side = target_signed != 0.0 and (target_signed > 0.0) == (qty > 0.0)
+            if same_side:
+                _apply_margin(symbol, abs(delta), side, "remove")
+
+    positions_after_margin = client.current_positions()
+    report.positions_after = [dict(row) for row in positions_after_margin]
+    if require_isolated:
+        for row in positions_after_margin:
+            qty = _signed_position_qty(row)
+            if abs(qty) <= 1e-12:
+                continue
+            symbol = str(row.get("symbol") or "").upper()
+            mark = _to_float(row.get("markPrice") or row.get("avgPrice"))
+            margin = _to_float(
+                row.get("positionBalance")
+                or row.get("marginSize")
+                or row.get("isolatedMargin")
+            )
+            if mark <= 0.0 or margin <= 0.0:
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": str(row.get("posSide") or "-"),
+                        "size": "-",
+                        "error": "post-execution position margin is missing or invalid",
+                    }
+                )
+                continue
+            ratio = margin / (abs(qty) * mark)
+            if ratio + 1e-9 < 0.45:
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": str(row.get("posSide") or "-"),
+                        "size": "-",
+                        "error": (
+                            f"post-execution margin buffer {ratio:.3%} is below 45%"
+                        ),
+                    }
+                )
+            raw_leverage = row.get("leverage")
+            pos_side = str(row.get("posSide") or "").lower()
+            if raw_leverage in (None, ""):
+                raw_leverage = (
+                    row.get("shortLeverage")
+                    if pos_side == "short"
+                    else row.get("longLeverage")
+                )
+            observed = _to_float(raw_leverage)
+            if observed <= 0.0 or abs(observed - leverage) > 1e-9:
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": pos_side or "-",
+                        "size": "-",
+                        "error": (
+                            f"post-execution leverage={observed:g}, "
+                            f"expected {leverage:g}x isolated"
+                        ),
+                    }
+                )
 
     assets_after = client.account_assets()
     report.equity_after = _account_equity(assets_after)

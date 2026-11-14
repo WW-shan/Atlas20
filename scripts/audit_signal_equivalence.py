@@ -1,4 +1,4 @@
-"""Prove the checked-in LS45 target ledger is reproducible from its data.
+"""Prove the checked-in long/short target ledger is reproducible from its data.
 
 This audit is deliberately specific to the current live track:
 ``PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21``. It rebuilds the ledger with
@@ -321,7 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             replay_bundle = _rebuild_replay(end_date, track=args.track)
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as exc:
-            raise SystemExit(f"LS45 replay failed: {exc}") from exc
+            raise SystemExit(f"frozen signal replay failed: {exc}") from exc
         replay = replay_bundle["targets"]
         execution_issues = _latest_action_execution_issues(
             frozen,
@@ -351,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
 
-    print(f"LS45 信号等价性核对 · {spec or '?'} · end {end_date}")
+    print(f"衍生品信号等价性核对 · {spec or '?'} · end {end_date}")
     print(
         f"  冻结账本 {comparison['frozen_rows']} 行 / 重建账本 {comparison['replay_rows']} 行；"
         f"重叠信号日 {comparison['overlapping_signal_days']}，差异 {comparison['differing_rows']}"
@@ -366,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  ❌ execution: replay artifacts were not rebuilt")
     if spec != expected_spec:
         print(f"  ❌ manifest spec {spec!r} != {expected_spec!r}")
-    print(f"  结论: {'一致（同一套 LS45 计算）' if passed else '不一致，必须停下排查'}")
+        print(f"  结论: {'一致（同一套冻结信号计算）' if passed else '不一致，必须停下排查'}")
     return 0 if passed else 1
 
 

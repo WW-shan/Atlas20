@@ -12,7 +12,8 @@ book and the local ledger, then checks
 4. the current book matches the frozen target book (within one contract lot),
 5. the ledger's PnL chain adds up after excluding external capital flows,
 6. nothing is held that the frozen book does not ask for,
-7. the gross notional respects the 1.25x spec cap.
+7. the gross notional, venue leverage and isolated-margin utilization respect
+   the selected frozen track profile.
 
 Exit code 0 when every hard check passes, 1 otherwise.  Read-only: it never
 places or cancels an order.
@@ -89,7 +90,6 @@ DEFAULT_DRILL_REGISTRY = Path("reports/ls45_live_g125_live/venue_drill_order_reg
 DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
 DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
 DEFAULT_PANEL_FILE = Path("data/processed/panel_daily.csv")
-SPEC_MAX_GROSS = 1.25
 SPEC_VENUE_LEVERAGE = 2.0
 SPEC_MIN_MARGIN_RATIO = 0.45
 EXECUTION_FLOOR_USDT = 20.0
@@ -1316,7 +1316,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     risk_legs = sum(1 for row in positions if abs(_position_signed_qty(row)) > 1e-12)
     check(
-        "每腿逐仓、2x 杠杆与保证金缓冲符合规格",
+        f"每腿逐仓、{profile.venue_leverage:g}x 杠杆与保证金缓冲符合规格",
         not risk_issues,
         "；".join(risk_issues) or f"{risk_legs} 腿全部符合" if risk_legs else "无持仓",
     )
@@ -1761,6 +1761,8 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest_file,
             now=checked_at,
             required_short_assets=required_short_assets,
+            required_leverage_assets=set(targets),
+            required_leverage=profile.venue_leverage,
             require_all_funding_fresh=True,
         )
         check(

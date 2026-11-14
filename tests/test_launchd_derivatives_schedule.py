@@ -250,3 +250,28 @@ def test_wrapper_exposes_the_ls104_profile_without_overwriting_ls45() -> None:
     assert 'LEVERAGE="4.0"' in script
     # The default stays LS45 until the aggressive profile is explicitly selected.
     assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"' in script
+
+
+def test_wrapper_bootstraps_only_an_empty_ls104_execution_state() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'BOOTSTRAP_ARG="--bootstrap-track"' in script
+    assert 'BOOTSTRAP_ARG=""' in script
+    assert '[ "$TRACK_PROFILE" = "ls104-g175-m090" ]' in script
+    assert '[ ! -e "$STATE_FILE" ]' in script
+    assert "TRACK_PROFILE=\"$TRACK_PROFILE\"" in script
+    assert "$BOOTSTRAP_ARG" in script
+
+
+def test_wrapper_uses_profile_specific_kill_switches_and_one_global_lock() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'KILL_FILE="data/ls45_g125_execution.KILL"' in script
+    assert 'KILL_FILE="data/ls45_g175_execution.KILL"' in script
+    assert 'LOCK_FILE="data/derivatives_execution.lock"' in script
+    assert '--kill-switch "$KILL_FILE"' in script
+    assert '--lock-file "$LOCK_FILE"' in script

@@ -77,3 +77,18 @@ def test_venue_symbol_audit_rejects_a_contract_base_mismatch() -> None:
 
     assert report["passed"] is False
     assert any("baseCoin" in issue for issue in report["issues"])
+
+
+def test_venue_symbol_audit_uses_the_profiles_required_leverage() -> None:
+    report = build_venue_symbol_audit(
+        symbol_map=_symbol_map(),
+        instruments=[_instrument(maxLeverage="3")],
+        quotes={"TRXUSDT": _quote()},
+        now=datetime(2026, 11, 14, 12, 0, 1, tzinfo=timezone.utc),
+        required_leverage=4.0,
+    )
+
+    assert report["passed"] is False
+    assert report["required_leverage"] == 4.0
+    assert report["required_leverage_supported"] == 0
+    assert any("4x outside leverage range" in issue for issue in report["issues"])

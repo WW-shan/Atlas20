@@ -40,7 +40,10 @@ from atlas20.derivatives.engine import (  # noqa: E402
 )
 from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
-from atlas20.derivatives.live_chain import file_sha256  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    LS104_G175_M090_SPEC,
+    file_sha256,
+)
 from atlas20.derivatives.signals import (  # noqa: E402
     combine_long_with_cash_budgeted_short,
     scale_long_targets,
@@ -626,6 +629,14 @@ def _shadow_spec(trial_id: str) -> str:
     raise ValueError(f"unsupported shadow trial: {trial_id}")
 
 
+def _track_spec_for(tracked_spec: str) -> str | None:
+    """Return the design document for an execution profile layered on a trial."""
+
+    if tracked_spec == LS104_G175_M090_SPEC:
+        return "docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md"
+    return None
+
+
 def _resolve_max_total_gross(value: float | None) -> float:
     if value is None:
         return float(FROZEN_CONFIG["max_total_gross"])
@@ -669,6 +680,14 @@ def _scale_short_config(config: Mapping[str, object], scale: float) -> dict[str,
             raise ValueError(f"{key} must be finite and non-negative")
         scaled[key] = raw * resolved
     return scaled
+
+
+def _apply_short_scale_in_place(config: dict[str, object], scale: float) -> None:
+    """Scale the two short weights without clearing the config prematurely."""
+
+    scaled = _scale_short_config(config, scale)
+    config.clear()
+    config.update(scaled)
 
 
 def _cap_short_schedule(
@@ -865,8 +884,7 @@ def main() -> None:
     # intentionally single-run, so applying the explicit short scale here
     # keeps LS45's default byte-for-byte behavior while allowing LS104 to
     # request twice the short gross without a second strategy implementation.
-    FROZEN_CONFIG.clear()
-    FROZEN_CONFIG.update(_scale_short_config(FROZEN_CONFIG, short_scale))
+    _apply_short_scale_in_place(FROZEN_CONFIG, short_scale)
     configure_logging("ERROR")
 
     symbol_map = load_symbol_map(args.raw_dir)
@@ -1073,6 +1091,8 @@ def main() -> None:
         args.raw_dir / "symbol_map.csv",
         now=datetime.now(timezone.utc),
         required_short_assets=required_short_assets,
+        required_leverage_assets={str(asset) for asset in latest_target.index},
+        required_leverage=float(venue_leverage),
         require_all_funding_fresh=(args.funding_source == "bitget-exact"),
     )
     if not data_audit.passed and not args.allow_data_audit_failures:
@@ -1393,6 +1413,11 @@ def main() -> None:
                 "tracked_spec": tracked_spec,
                 "signal_trial_id": args.trial_id,
                 "spec": _shadow_spec(args.trial_id),
+                **(
+                    {"track_spec": _track_spec_for(tracked_spec)}
+                    if _track_spec_for(tracked_spec) is not None
+                    else {}
+                ),
                 "research_only": True,
                 "live_execution": False,
                 "last_mark": str(last_mark),
@@ -1520,7 +1545,7 @@ def main() -> None:
         )
     )
     report_lines = [
-        f"# Derivatives Shadow OOS Tracker — {args.trial_id}",
+        f"# Derivatives Shadow OOS Tracker — {tracked_spec}",
         "",
         f"- window: {start} → {end_date} ({len(daily)} daily rows; {len(metric_returns)} metric returns)",
         "- research only: yes; live execution: **no**",
@@ -1559,6 +1584,8 @@ def main() -> None:
             if args.trial_id == LS57_CANDIDATE_ID
             else "- frozen long/short book: H5 1.25x baseline"
         ),
+        f"- execution profile: short_scale {short_scale:g}x, gross cap {max_total_gross:g}x, "
+        f"margin cap {max_margin_utilization:.0%}, venue leverage {venue_leverage:g}x",
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",
         f"- execution: {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
         f"price model {_execution_price_model(str(args.execution_price_snap))}",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the Bitget/CMC derivatives inputs used by the live LS45 chain."""
+"""Audit the Bitget/CMC derivatives inputs used by the selected live chain."""
 
 from __future__ import annotations
 
@@ -29,17 +29,32 @@ DEFAULT_MARKDOWN_OUT = Path("reports/ls45_live_g125/data_audit.md")
 
 
 def _required_short_assets(path: Path) -> set[str]:
-    if not path.is_file():
+    frame = _latest_target_rows(path)
+    if frame is None:
         return set()
+    weights = pd.to_numeric(frame["target_weight"], errors="coerce")
+    return set(frame.loc[weights < 0.0, "asset"].astype(str).str.lower())
+
+
+def _target_assets(path: Path) -> set[str]:
+    frame = _latest_target_rows(path)
+    if frame is None:
+        return set()
+    return set(frame["asset"].astype(str).str.lower())
+
+
+def _latest_target_rows(path: Path) -> pd.DataFrame | None:
+    if not path.is_file():
+        return None
     frame = pd.read_csv(path)
     required = {"signal_date", "asset", "target_weight"}
     if not required.issubset(frame.columns) or frame.empty:
-        return set()
+        return None
     frame["signal_date"] = pd.to_datetime(frame["signal_date"], utc=True, format="mixed", errors="coerce")
     latest = frame["signal_date"].max()
-    latest_book = frame.loc[frame["signal_date"] == latest]
-    weights = pd.to_numeric(latest_book["target_weight"], errors="coerce")
-    return set(latest_book.loc[weights < 0.0, "asset"].astype(str).str.lower())
+    if pd.isna(latest):
+        return None
+    return frame.loc[frame["signal_date"] == latest].copy()
 
 
 def _markdown(report: dict[str, object]) -> str:
@@ -75,6 +90,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--now", default=None, help="ISO timestamp; defaults to current UTC")
     parser.add_argument("--min-panel-assets", type=int, default=20)
     parser.add_argument(
+        "--required-leverage",
+        type=float,
+        default=2.0,
+        help="venue leverage that every asset in the latest target book must support",
+    )
+    parser.add_argument(
         "--require-all-funding-fresh",
         action="store_true",
         help="require fresh funding for every normal contract, not only selected shorts",
@@ -90,6 +111,8 @@ def main(argv: list[str] | None = None) -> int:
         now=now,
         min_panel_assets=int(args.min_panel_assets),
         required_short_assets=_required_short_assets(args.targets_file),
+        required_leverage_assets=_target_assets(args.targets_file),
+        required_leverage=float(args.required_leverage),
         require_all_funding_fresh=bool(args.require_all_funding_fresh),
     )
     payload = report.as_dict()

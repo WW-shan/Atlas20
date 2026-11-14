@@ -401,3 +401,26 @@ def test_venue_leverage_is_positive_and_finite() -> None:
     assert _resolve_venue_leverage(4.0) == pytest.approx(4.0)
     with pytest.raises(ValueError, match="venue_leverage"):
         _resolve_venue_leverage(0.0)
+
+
+def test_apply_short_scale_in_place_preserves_existing_keys() -> None:
+    from scripts.run_derivatives_shadow import _apply_short_scale_in_place
+
+    config = {
+        "bear_per_asset_weight": 0.0625,
+        "exit_per_asset_weight": 0.025,
+        "max_total_gross": 1.50,
+    }
+    _apply_short_scale_in_place(config, 2.0)
+
+    assert config["bear_per_asset_weight"] == pytest.approx(0.125)
+    assert config["exit_per_asset_weight"] == pytest.approx(0.05)
+    assert config["max_total_gross"] == pytest.approx(1.50)
+
+
+def test_ls104_manifest_pins_the_aggressive_track_design_not_the_ls45_baseline() -> None:
+    from scripts.run_derivatives_shadow import _track_spec_for
+
+    assert _track_spec_for(
+        "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+    ) == "docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md"

@@ -1,4 +1,4 @@
-"""Execute the frozen daily plan on a real Bitget account and report it.
+"""Execute a frozen daily plan on a real Bitget account and report it.
 
 This is the automated arm of the derivatives track: it reads the latest frozen
 target book, sizes it from the *real* account equity, places the resulting
@@ -175,6 +175,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--allow-stale-signal", action="store_true")
+    parser.add_argument(
+        "--bootstrap-track",
+        action="store_true",
+        help=(
+            "one-time activation for an empty track state/journal: apply the "
+            "current frozen book even when its event row predates the latest data day"
+        ),
+    )
     parser.add_argument(
         "--allow-late-execution",
         action="store_true",
@@ -399,6 +407,7 @@ def _event_plan_mode(
     *,
     fresh_target_event: bool,
     active_event: dict[str, Any] | None,
+    bootstrap_track: bool = False,
 ) -> str:
     """Choose how a run may use the target book.
 
@@ -409,10 +418,33 @@ def _event_plan_mode(
     """
 
     if not isinstance(active_event, dict):
-        return "fresh" if fresh_target_event else "maintain"
+        return "fresh" if fresh_target_event or bootstrap_track else "maintain"
     if str(active_event.get("position_status") or "") != "ok":
         return "complete"
     return "maintain"
+
+
+def _bootstrap_track_issues(
+    *,
+    requested: bool,
+    state: Mapping[str, Any],
+    journal: pd.DataFrame,
+    manifest: Mapping[str, Any] | None,
+) -> list[str]:
+    """Return why a one-time track bootstrap is unsafe, or an empty list."""
+
+    if not requested:
+        return []
+    issues: list[str] = []
+    if any(
+        key in state for key in ("active_event", "last_key", "last_status", "runs")
+    ):
+        issues.append("execution state already contains track history")
+    if not journal.empty:
+        issues.append("track journal is not empty")
+    if not manifest or not str(manifest.get("targets_sha256") or ""):
+        issues.append("manifest has no targets_sha256")
+    return issues
 
 
 def _signed_event_target_quantities(
@@ -2085,12 +2117,12 @@ def _main(args: argparse.Namespace) -> int:
         if args.live and not manifest.get("targets_sha256"):
             raise SystemExit(
                 "live execution requires manifest targets_sha256; "
-                "rebuild the LS45 signal so the target file is content-addressed"
+                "rebuild the selected track signal so the target file is content-addressed"
             )
         manifest_issues = _manifest_spec_issues(manifest, args)
         if manifest_issues:
             raise SystemExit(
-                "frozen manifest does not match the current LS45-G125 live "
+                "frozen manifest does not match the current live track "
                 "specification: " + "; ".join(manifest_issues)
             )
         targets_hash_issue = manifest_targets_hash_issue(
@@ -2100,6 +2132,9 @@ def _main(args: argparse.Namespace) -> int:
         if targets_hash_issue is not None:
             raise SystemExit(targets_hash_issue)
     if manifest is not None and (args.live or args.require_data_audit):
+        required_assets = {
+            str(record["asset"]) for record in book.to_dict("records")
+        }
         required_short_assets = {
             str(record["asset"])
             for record in book.to_dict("records")
@@ -2111,6 +2146,8 @@ def _main(args: argparse.Namespace) -> int:
             args.symbol_map,
             args.manifest_file,
             required_short_assets=required_short_assets,
+            required_leverage_assets=required_assets,
+            required_leverage=float(args.leverage),
             require_all_funding_fresh=True,
         )
         if not data_audit.passed:
@@ -2121,7 +2158,9 @@ def _main(args: argparse.Namespace) -> int:
         expected_fingerprint = manifest.get("data_fingerprint")
         actual_fingerprint = data_audit.provenance.get("fingerprint")
         if not expected_fingerprint:
-            raise SystemExit("manifest is missing data_fingerprint; rebuild the LS45 signal")
+            raise SystemExit(
+                "manifest is missing data_fingerprint; rebuild the selected track signal"
+            )
         if expected_fingerprint != actual_fingerprint:
             raise SystemExit(
                 "manifest data_fingerprint does not match the current inputs: "
@@ -2176,7 +2215,7 @@ def _main(args: argparse.Namespace) -> int:
             if index_end != signal_end:
                 raise SystemExit(
                     f"target book was only evaluated through {index_end} while data "
-                    f"reaches {signal_end}; refresh the LS45 signal first"
+                    f"reaches {signal_end}; refresh the selected track signal first"
                 )
         freshness_note = (
             f"数据管线: mark 最新 {manifest.get('last_mark')}（{staleness:.1f}h 前）、"
@@ -2313,6 +2352,20 @@ def _main(args: argparse.Namespace) -> int:
     }
     run_at = datetime.now(timezone.utc)
     journal = load_journal(args.journal_file)
+    bootstrap_issues = _bootstrap_track_issues(
+        requested=bool(args.bootstrap_track),
+        state=state,
+        journal=journal,
+        manifest=manifest,
+    )
+    if bootstrap_issues:
+        raise SystemExit("track bootstrap refused: " + "; ".join(bootstrap_issues))
+    bootstrap_track = bool(args.bootstrap_track)
+    if bootstrap_track:
+        warnings.append(
+            "一次性新 track 启动：按当前冻结账本建立首个事件基线，"
+            "不会重放历史盈亏或历史成交"
+        )
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
     prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
     capital_flow = _capital_flow_for_run(
@@ -2398,6 +2451,7 @@ def _main(args: argparse.Namespace) -> int:
     plan_mode = _event_plan_mode(
         fresh_target_event=fresh_target_event,
         active_event=plan_active_event if isinstance(plan_active_event, dict) else None,
+        bootstrap_track=bootstrap_track,
     )
 
     plan_quantities: dict[str, float] | None = None
@@ -2544,7 +2598,7 @@ def _main(args: argparse.Namespace) -> int:
 
     if isinstance(plan_active_event, dict) and existing_active_event_ok:
         active_event = dict(plan_active_event)
-    elif fresh_target_event:
+    elif fresh_target_event or bootstrap_track:
         active_event = _active_event_record(
             plan,
             targets,
@@ -2596,13 +2650,17 @@ def _main(args: argparse.Namespace) -> int:
             ),
         }
 
-    completion_issues = _event_completion_issues(
-        active_event,
-        positions=report.positions_after,
-        symbol_assets=symbol_to_asset_index(relevant_symbols),
-        specs_by_symbol={
-            spec.symbol.upper(): spec for spec in specs.values()
-        },
+    completion_issues = (
+        _event_completion_issues(
+            active_event,
+            positions=report.positions_after,
+            symbol_assets=symbol_to_asset_index(relevant_symbols),
+            specs_by_symbol={
+                spec.symbol.upper(): spec for spec in specs.values()
+            },
+        )
+        if args.live
+        else []
     )
     for issue in completion_issues:
         report.failures.append(
@@ -2633,14 +2691,18 @@ def _main(args: argparse.Namespace) -> int:
         capital_flow=capital_flow,
         run_at=run_at,
         event_age_days=event_age_days,
-        target_rebalance_enabled=plan_mode == "fresh",
+        target_rebalance_enabled=args.live and plan_mode == "fresh",
         target_status_note=(
-            "按冻结事件数量补齐未完成仓位，不按今日权益重算"
-            if plan_mode == "complete"
+            "DRY RUN：以下为按当前计划应达到的目标，未回读为已成交仓位"
+            if not args.live
             else (
-                "今日无新目标事件，不做权重再平衡"
-                if not fresh_target_event
-                else "最新目标事件已完整应用，不做旧权重再平衡"
+                "按冻结事件数量补齐未完成仓位，不按今日权益重算"
+                if plan_mode == "complete"
+                else (
+                    "今日无新目标事件，不做权重再平衡"
+                    if not fresh_target_event
+                    else "最新目标事件已完整应用，不做旧权重再平衡"
+                )
             )
         ),
     )

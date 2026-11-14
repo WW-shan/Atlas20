@@ -1,20 +1,40 @@
-# LS45-G125 Bitget USDT-M 实盘 Runbook
+# Atlas20 Bitget USDT-M 多空实盘 Runbook
 
-> 当前实盘规格：**`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`**
+> 当前启用的 aggressive track：**`PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090`**
+> （`LS104-G175-M090`）。LS45-G125 保留为独立可回滚 profile。
 >
 > - 标的：Bitget **USDT-M 永续**，允许有符号多空账本；
 > - H5 多头 + 利润保护 + 空头路由 + 21D 强持有者再分配；
-> - 目标 **gross 硬上限 1.25x 权益**，实际 gross 可以更低，空仓即 100% cash；
-> - 交易所杠杆配置 **2x isolated**，多空每腿 initial buffer 均为 **50%**；
+> - LS104：H5 long 1.25x、short request 0.50x、目标 **gross 硬上限 1.75x 权益**；
+> - 交易所杠杆配置 **4x isolated**，多空每腿 initial buffer 均为 **50%**；
+> - 组合 isolated-margin utilization 硬上限 **0.90**；
 > - 空头开/加仓附带 **20% adverse move、mark-price、market stop**；
 > - 信号账本、live-parity 回测和实盘统一使用 **T+1 01:05 UTC**
 >   （北京 09:05，约为收盘后 +1h5m）；旧 03:00 UTC 报告只作为 legacy 对照；
 > - 实盘主任务在 **01:05 UTC** 运行；
 > - 成本口径 20 bps，funding 使用 Bitget exact；
-> - 当前策略书与选择证据：`docs/superpowers/specs/2026-11-13-ls103-live-candidate-selection.md`；
-> - 研究记录：`RESEARCH.md` §00.138；回测产物：`reports/ls45_live_g125/`。
+> - 当前策略书：`docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md`；
+> - 研究记录：`RESEARCH.md` §00.152；回测产物：`reports/ls104_g175_m090_20261115/`；
+> - 实盘冻结账本：`reports/ls45_live_g175/`。
 >
 > 本文只描述执行与恢复，不允许在实盘中临时改参数。运行时代码和状态优先于本文摘要。
+
+两个 profile 的隔离文件：
+
+| Profile | Spec | Leverage | Gross cap | Margin cap | Targets / state / journal |
+|---|---|---:|---:|---:|---|
+| `ls45-g125` | `PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21` | 2x | 1.25x | 0.85 | `reports/ls45_live_g125/`, `data/ls45_g125_execution_state.json` |
+| `ls104-g175-m090` | `PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090` | 4x | 1.75x | 0.90 | `reports/ls45_live_g175/`, `data/ls45_g175_execution_state.json` |
+
+持久选择写入仓库外文件 `~/.config/atlas20/track.env`：
+
+```sh
+ATLAS20_TRACK_PROFILE=ls104-g175-m090
+```
+
+wrapper 只在交互环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文件；因此紧急回滚可以临时用
+`ATLAS20_TRACK_PROFILE=ls45-g125 ops/run_derivatives_daily.sh ...` 覆盖，但已持有的 LS104
+仓位必须先按 LS104 目标降低到 LS45 的风险范围，不能只切配置留下超风险仓位。
 
 ---
 
@@ -26,7 +46,7 @@
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成 LS45 账本 → 数据审计 → 按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成当前 profile 账本 → 数据/信号/venue 审计 → 按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
 | `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
@@ -36,16 +56,18 @@
 ```text
 com.atlas20.derivatives-execute
   -> ops/run_derivatives_daily.sh
-  -> make derivatives-live
-     -> derivatives-live-data
-     -> derivatives-ls45-signal
-     -> audit-data
+  -> make derivatives-live-data <profile-signal-target>
      -> audit-data-chain
-     -> audit-symbols
-     -> audit-signal
+     -> audit_venue_symbols.py
+     -> audit-data-ls104 / audit-signal-ls104
      -> scripts/execute_live_plan.py --live --notify --require-isolated
      -> scripts/monitor_live_track.py --notify
 ```
+
+LS104 首次运行且 `data/ls45_g175_execution_state.json` 不存在时，wrapper 额外传入
+`--bootstrap-track`。该旗标只允许 state、journal 均为空且 manifest 有 `targets_sha256`；它把当前
+冻结账本作为新 track 的首个事件应用，不重放 LS45 历史 PnL/funding，也不复用 LS45 state/journal。
+一旦 state 文件存在，后续重试只走 `active_event` 的 complete/maintain 路径。
 
 若窗口闸返回 `DONE=4`，wrapper 不刷新数据、不重读新的 alpha 目标，而是先运行：
 
@@ -99,7 +121,7 @@ sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execu
 
 ## 2. 信号与执行时点
 
-事件账本每行包含权威字段 `execution_hint`。当前 LS45 账本固定为：
+事件账本每行包含权威字段 `execution_hint`。当前 LS104 账本固定为：
 
 ```text
 signal_date D 00:00 UTC
@@ -172,15 +194,17 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 2. **面板自愈**：`--check panel`
    - 面板落后或最后一天不完整时，运行 `refresh_daily_data.py --force --wait-seconds 900`；
    - 刷新后再次检查，仍不完整就拒绝下单。
-3. **数据与账本**：`make derivatives-live-data derivatives-ls45-signal`
-4. **数据审计**：`make audit-data` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
+3. **数据与账本**：`make derivatives-live-data derivatives-ls104-signal`（当前 profile）
+4. **数据审计**：`make audit-data-ls104` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
    **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
    `audit-data` 还校验 mark/funding 单调性、近期 funding 结算缺口、funding manifest 与实际最后时间一致，
    把每个 funding CSV 的字节哈希纳入 data fingerprint，并校验最新 panel 的 price/volume/market-cap 有效值；
    `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
 5. **全品种实时能力**：`make audit-symbols` 对全部映射资产逐项核对 Bitget v3 合约身份、
-   online/perpetual/USDT、2x、报价新鲜度，并生成多单、空单止损和 long→short 翻转计划。
-6. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；同时要求最新信号动作
+   online/perpetual/USDT、报价新鲜度，并按 `--required-leverage 4.0` 验证 all-universe 杠杆能力，
+   生成多单、空单止损和 long→short 翻转计划；
+   `audit-data-ls104 --required-leverage 4.0` 进一步要求目标账本内每个资产支持 4x。
+6. **信号等价性**：`make audit-signal-ls104` 重新构建冻结账本并逐行比较；同时要求最新信号动作
    在 replay 中留下对应成交、持仓或显式的交易所最小额跳过记录，且成交时间必须落在执行时刻
    前 1 小时到执行时刻之间。任何差异都会拒绝执行。
 7. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
@@ -228,6 +252,9 @@ kill switch：
 touch data/ls45_g125_execution.KILL   # 立即阻止新的执行
 rm data/ls45_g125_execution.KILL      # 恢复
 ```
+
+LS104 使用 `data/ls45_g175_execution.KILL`。kill switch 路径必须与当前 profile 一致，不能误以为
+LS45 的开关会阻断 LS104。
 
 注意：kill switch 阻止完整执行链和 `--protect-only` 的风险维护，不会自动平仓；已有仓位仍由交易所
 止损及人工操作管理。只有 `--reconcile-only` 可在 kill switch 存在时运行，因为它只补记已经发生的
@@ -328,7 +355,8 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
   `copy_futures_*`；
 - `traderType=trader` 本身不是 isolated 禁用条件；真正阻断的是 copy-futures 权限。
   该判断已由 `tests/test_derivatives_account.py` 固定；
-- 2 NEAR 多头：2x isolated 开仓、方向/保证金/杠杆回读、立即平仓，通过；
+- 2 NEAR 多头：2x isolated 开仓、方向/保证金/杠杆回读、立即平仓，通过；这是 LS45 时代的
+  venue capability drill，LS104 的 4x 回读由独立 executor 和 audit 固化；
 - 2 NEAR 空头：2x isolated 开仓，附带 `stopLoss=entry×1.20`、`slTriggerBy=mark`、
   `slOrderType=market`；交易所策略单回读通过；
 - 空头 2 → 4 加仓后出现两张 `qty=2` 策略单，执行器归一为一张 `qty=4`；
@@ -350,9 +378,11 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
 
 保证金路径：
 
-1. symbol 设置 2x isolated；
+1. Symbol 先设置当前 profile 的 venue leverage；LS104 为 4x isolated，现有持仓和待开腿都要
+   在风险订单前做 set + readback；
 2. 成交后交易所自动占用约 50% 名义；
-3. 执行器按计划调用 `set-margin(add/remove)`，把每腿保证金补到约 51.5%；
+3. 执行器按交易所实际仓位重算并调用 `set-margin(add/remove)`，把每腿保证金补到约 51.5%；
+   杠杆切换可能改变 `positionBalance`，所以不能只使用下单前的静态 delta；
 4. 交易所拒绝 `set-margin` 时同时记录 margin note 和失败；本次 run 必须是 `partial`，后续窗口重试
    会重新读取账户并再次尝试，不能写成 `ok` 后被当日幂等跳过。若持仓模式本身不是 isolated，则按上面的硬失败处理。
 
@@ -362,22 +392,23 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
 
 | 路径 | 内容 |
 |---|---|
-| `reports/ls45_live_g125/oos_targets.csv` | 冻结的有符号目标账本 |
-| `reports/ls45_live_g125/manifest.json` | 数据覆盖、spec、funding、冻结参数、评估日 |
-| `reports/ls45_live_g125/report.md` | LS45 研究回测报告 |
-| `reports/ls45_live_g125_live/latest.json` | 最近一次真实执行或 `mode=reconcile_only` 对账的计划/报告与状态 |
-| `reports/ls45_live_g125_live/journal.csv` | 每日权益、仓位、成交、止损记录、notes |
-| `reports/ls45_live_g125_live/audit.json` | 只读对账输出 |
-| `reports/ls45_live_g125_live/health.json` | 19:00 巡检快照 |
-| `reports/ls45_live_g125_live/account_migration.json` | 当前账户迁移、baseline 与 isolated 演练证据 |
-| `data/ls45_g125_execution_state.json` | 幂等 key/status、`active_event` 原始/有效目标数量、风险 overlay、已止损 legs、止损历史高水位 |
-| `data/ls45_g125_telegram_state.json` | Telegram 播报幂等状态 |
-| `data/ls45_g125_execution.KILL` | kill switch（存在即停止新执行） |
-| `data/ls45_g125_execution.lock` | 进程级执行锁；OS 在进程退出时自动释放 |
+| `reports/ls45_live_g175/oos_targets.csv` | LS104 冻结的有符号目标账本 |
+| `reports/ls45_live_g175/manifest.json` | 数据覆盖、spec、funding、冻结参数、评估日、4x/0.90 pins |
+| `reports/ls104_g175_m090_20261115/README.md` | LS104 live-parity 研究摘要 |
+| `reports/ls45_live_g175_live/latest.json` | LS104 最近一次真实执行或对账的计划/报告与状态 |
+| `reports/ls45_live_g175_live/journal.csv` | LS104 每日权益、仓位、成交、止损记录、notes |
+| `reports/ls45_live_g175_live/audit.json` | LS104 只读对账输出 |
+| `reports/ls45_live_g175_live/health.json` | LS104 巡检快照 |
+| `data/ls45_g175_execution_state.json` | LS104 幂等 key/status、`active_event`、风险 overlay、止损高水位 |
+| `data/ls45_g175_telegram_state.json` | LS104 Telegram 播报幂等状态 |
+| `data/ls45_g175_execution.KILL` | LS104 kill switch（存在即停止新执行） |
+| `data/derivatives_execution.lock` | LS45/LS104 共用的进程级执行锁，防止两个 profile 同时下单 |
 | `reports/derivatives_track_live/capital_flows.csv` | 账户级外部资金流；入金/出金不能计为策略 PnL |
 
+LS45-G125 的全部同名文件保留为独立回滚 profile，LS104 不覆盖它们。
+
 `data/` 是本地运行状态，不随 git 部署。**同一账户**迁移机器时必须同步 credentials、
-`data/ls45_g125_execution_state.json`、`data/ls45_g125_telegram_state.json`、journal 和
+当前 profile 的 execution state、telegram state、journal 和
 所需 raw/processed 数据，否则会重复执行或重复播报。换 Bitget 账户时必须归档旧 state/journal
 并建立新 baseline，不能让旧账户的 `account_fingerprint` 混入新账户。
 
@@ -388,9 +419,9 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
 ### 7.1 只读检查
 
 ```bash
-make audit-live
+make audit-live-ls104
 make audit-data-chain             # CMC 缓存 → canonical panel → PIT universe 全链审计
-make audit-symbols              # 全部标的：实时合约、2x、多空、翻转、止损和报价
+make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0  # 全部标的：4x、多空、翻转、止损和报价
 make derivatives-signal                 # Telegram 文本 dry-run
 make execution-plan-live                # 读真实账户，只发计划，不下单
 make execute-plan                       # 读真实账户，执行器 dry-run，不下单
@@ -450,7 +481,7 @@ make audit-live
    抵押品按交易所 `usdValue` 计入；
 9. 交易所 `positionValue` = `Σ abs(qty) × markPrice`；
 10. 所有持仓合约都能在冻结 symbol map 中唯一映射；
-11. 每腿 `marginMode=isolated`、杠杆 2x、保证金缓冲不低于 45%；
+11. 每腿 `marginMode=isolated`、杠杆为 profile 的 4x（LS104）/ 2x（LS45）、保证金缓冲不低于 45%；
 12. API key/账户分类未命中 copy-trading/elite 逐仓限制；
 13. 执行状态带账户指纹，且与当前 Bitget 账户一致；旧/未绑定 legacy state 失败；
 14. journal 最新权益按实时 mark 和外部资金流折算后等于账户；专用对账容差为
@@ -467,11 +498,11 @@ make audit-live
 24. 策略单必须与当前空头止损/数量对应，不能有孤立策略单；
 25. 有符号目标 vs 有符号实际仓位：多头正、空头负；先按 1 USDT、目标名义 1% 和 1.5 个合约步长三者取大判定。若略超容差但方向一致，且交易所**最小可成交订单**会让偏差变大（通常由最小下单额导致），允许该不可修复残差；只要存在一张可改善偏差的最小订单，仍然硬失败；
 26. 无计划外持仓；
-27. 冻结目标 gross 不超过 1.25x；
-28. 实际 gross = `Σ abs(notional)` ≤ 1.25 × equity；
+27. 冻结目标 gross 不超过 profile cap：LS104 为 1.75x，LS45 为 1.25x；
+28. 实际 gross = `Σ abs(notional)` ≤ profile cap × equity；LS104 的组合 isolated margin 同时 ≤0.90×equity；
 29. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
 30. 账本评估日 = 数据最新可判定日；
-31. manifest 的 `tracked_spec`、冻结参数、成本、funding source 和 gross cap 与当前 LS45-G125 规格完全一致；
+31. manifest 的 `tracked_spec`、`frozen_config`、成本、funding source、venue leverage、margin cap 和 gross cap 与当前 profile 完全一致；
 32. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；
 33. `audit-data` 必须 0 hard failure / 0 warning；输入指纹覆盖 panel、symbol map、contracts、coverage、funding manifest、全部 mark CSV 和全部 funding CSV；
 34. manifest 的 `data_fingerprint` 必须等于当前输入指纹；
@@ -530,10 +561,10 @@ ops/run_derivatives_daily.sh --force
 
 ### 出现强平、止损失效或 gross 超限
 
-1. 立即 `touch data/ls45_g125_execution.KILL`；
+1. 立即 `touch data/ls45_g175_execution.KILL`（LS104；LS45 回滚时用 `data/ls45_g125_execution.KILL`）；
 2. 人工核对并平掉风险腿；
 3. 修复原因；
-4. 重跑 `make audit-live`；
+4. 重跑 `make audit-live-ls104`；
 5. 在 `RESEARCH.md` 记录事故与恢复；
 6. 经负责人确认后再移除 kill switch。
 
@@ -541,10 +572,11 @@ ops/run_derivatives_daily.sh --force
 
 ## 11. 研究依据与已知限制
 
-- LS45-G125 在同一 20 bps 口径下：终值 **68.95x**、Sharpe **1.982**、MDD **-39.96%**；
-- L125 基线同口径：40.22x、1.733、-40.65%；
-- LS45 在 100 bps、funding ×1.59、3x long-adverse 压力下仍略优于 LS57；
-- 报告：`reports/ls45_live_candidate_compare/`；
+- LS104 在同一 01:05 live-parity 口径下：20bps 终值 **77.8524x / Sharpe 1.9637 / MDD -40.77%**，
+  50bps **41.4492x / 1.7174 / -46.55%**；
+- LS45-G125 对照：20bps 65.2592x / 1.9792 / -34.06%，50bps 39.3339x / 1.7694 / -39.75%；
+- 100bps 诊断 19.09x / 1.406 / -52.77%，不作为晋级门槛；
+- 报告：`reports/ls104_g175_m090_20261115/`；
 - 当前选择是研究候选直接进入真实账户测试，不把 12 个月 OOS 或 PBO/DSR 作为额外实盘硬门槛；这不等于声称策略已被长期 OOS 证明；
 - 仍需持续观察：空头实际成交与止损触发、funding、isolated 权限、资产上下架、滑点、数据缺口；
 - 最后一轮 06:35 UTC 执行后若交易所止损才触发，Bitget 会立即执行止损并关闭风险；journal 补记由

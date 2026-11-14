@@ -92,13 +92,15 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
     assert "scripts/execute_live_plan.py --live --notify --require-isolated" in live
 
 
-def test_daily_wrapper_uses_the_ls45_chain_only() -> None:
+def test_daily_wrapper_uses_the_selected_profile_chain() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
-    assert "/usr/bin/make derivatives-live" in wrapper
+    assert '/usr/bin/make derivatives-live-data "$SIGNAL_TARGET"' in wrapper
     assert "/usr/bin/make audit-data-chain" in wrapper
-    assert "/usr/bin/make audit-symbols" in wrapper
-    assert "/usr/bin/make audit-signal" in wrapper
+    assert "scripts/audit_venue_symbols.py" in wrapper
+    assert '/usr/bin/make "$DATA_AUDIT_TARGET"' in wrapper
+    assert '/usr/bin/make "$SIGNAL_AUDIT_TARGET"' in wrapper
+    assert 'scripts/execute_live_plan.py \\' in wrapper
     assert "derivatives-oos-data derivatives-oos execute-plan-live" not in wrapper
 
 
@@ -137,3 +139,22 @@ def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
     assert "00:50:00 UTC" in (
         ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer"
     ).read_text(encoding="utf-8")
+
+
+def test_ls104_make_target_uses_an_isolated_kill_switch_and_global_lock() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    ls104 = makefile.split("derivatives-live-ls104:", 1)[1].split("\n\n", 1)[0]
+
+    assert "LS104_KILL ?= data/ls45_g175_execution.KILL" in makefile
+    assert "LS104_LOCK ?= data/derivatives_execution.lock" in makefile
+    assert "--kill-switch $(LS104_KILL)" in ls104
+    assert "--lock-file $(LS104_LOCK)" in ls104
+    assert "AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json" in ls104
+
+
+def test_ls104_make_target_bootstraps_an_absent_state_file_once() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    ls104 = makefile.split("derivatives-live-ls104:", 1)[1].split("\n\n", 1)[0]
+
+    assert "LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)" in makefile
+    assert "$(LS104_BOOTSTRAP_ARG)" in ls104

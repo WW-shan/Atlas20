@@ -637,3 +637,14 @@ def test_short_margin_intent_uses_short_position_side() -> None:
     assert intent.pos_side == "short"
     assert intent.operation == "add"
     assert intent.amount == pytest.approx(1000.0 * (0.515 - 0.50))
+
+
+def test_margin_utilization_cap_must_be_a_fraction() -> None:
+    with pytest.raises(ValueError, match="max_margin_utilization"):
+        build_execution_plan(
+            AccountState(equity=1000.0, available_margin=1000.0),
+            {"near": 0.5},
+            {"near": _spec()},
+            {"near": 2.0},
+            max_margin_utilization=1.01,
+        )

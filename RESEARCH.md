@@ -5932,3 +5932,64 @@ quantization/min-order 的 65.2592x live-parity 不能直接混比，网格内�
 candidate；0.75x/1.00x 空头不进入 promotion；1x 多 + 1x 空在现有 2x/50% isolated 规格下不可
 直接执行。若负责人选择更低回撤目标，L100-S050 是唯一值得进入下一轮独立 OOS 的低风险候选。
 不因 20bps 的局部终值提升修改 live 参数，也不扫描本轮网格之外的 L/S 组合。
+
+### 00.152 2026-11-15 LS104 S050/G175/M090：负责人批准的 aggressive live track
+
+负责人明确选择 `1.25x long / 0.50x short request / 1.75x total gross`，并把
+`0.90` 作为 portfolio isolated-margin utilization cap、`4x` 作为 venue leverage ceiling。
+该选择基于对后续市场波动率下降、存量博弈和下跌机会仍多的判断，不是把 LS104 宣称为
+风险更优的策略。50bps 是硬压力上限；100bps 只保留为诊断。
+
+Track ID：
+
+```text
+PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090
+```
+
+冻结构造只改变 LS45 的两个短头请求权重与总 gross cap：
+
+- bear weak-four：4 × 0.125x = 0.50x short request；
+- non-bear funding exit：每腿 0.05x，总请求仍截断到 0.50x；
+- H5 long：1.25x；总 gross cap：1.75x；
+- 每腿 initial buffer：50%；20% mark-price market short stop 不变；
+- venue leverage：4x isolated；组合 margin cap：0.90。
+
+同口径 live-parity 结果：
+
+| Cost | Terminal | Sharpe | MDD | Max observed gross | Liquidations |
+|---:|---:|---:|---:|---:|---:|
+| 20bps | **77.8524x** | 1.9637 | -40.77% | 1.4986x | 1 |
+| 50bps | **41.4492x** | 1.7174 | -46.55% | 1.4961x | 1 |
+| 100bps diagnostic | 19.09x | 1.406 | -52.77% | — | 1 |
+
+LS45-G125 的同口径 20bps 为 65.2592x / 1.9792 / -34.06%，50bps 为
+39.3339x / 1.7694 / -39.75%。因此 LS104 的收益贡献来自更高的空头请求和允许 gross，
+代价是 Sharpe 略降、MDD 更深；50bps MDD 距 50% kill line 约 3.45pp。两次运行的唯一
+强平都是继承的 2025-02-03 XRP long，没有新增强平；20/50bps 均 0 gross breach hour。
+
+当前 live 冻结账本位于 `reports/ls45_live_g175/`：
+
+- 72 行、最新信号日 2026-11-13；
+- BCH/HYPE/NEAR/ZEC 各 -0.125，latest short gross 0.50x；
+- `targets_sha256=2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`；
+- data audit 0 hard failure / 0 warning；signal equivalence 72/72、0 差异；
+- manifest 使用独立 `track_spec=docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md`，
+  与原 LS45 signal spec 分开记录。
+
+逐节点审核还修复了三个执行层问题：
+
+1. **4x 数据审计覆盖所有目标资产**：此前只检查 required short；现在最新目标账本中的多头
+   和空头都必须支持 `required_leverage`，防止未来多头轮入时绕过 venue capability gate。
+2. **现有持仓先归一杠杆**：executor 不再等到下一次 OPEN/INCREASE 才设置 4x；所有当前持仓和
+   所有待开腿在首笔风险订单前先做 4x isolated set + readback，失败则阻断对应 OPEN/INCREASE。
+3. **保证金按交易所实际仓位重算**：杠杆切换可能改变 isolated position balance；executor 在订单
+   后重新读取真实仓位并按 51.5% 目标补足 margin。即使另一条腿下单失败，已成交腿的 margin add
+   仍执行；任何 margin remove 在 partial/failure 下被禁止。
+4. **新 track 一次性 bootstrap**：LS104 的 state/journal 从空文件开始，wrapper 在首个常规
+   01:05 UTC 窗口用 `--bootstrap-track` 应用当前冻结账本；不复用 LS45 state/journal，不写入
+   虚假历史 PnL/funding。失败后由 active_event partial 路径续作，成功后才建立首个 journal 行。
+
+**判定：** owner-approved aggressive live track，工程门禁按 LS104 profile 固定；12 个月独立
+OOS 仍未完成，50bps 最坏回撤仍接近 kill line。不得把历史 20bps 终值当作未来保证。实盘完成后
+必须补记 post-trade audit（0 hard failure、4x isolated、每空头一张 stop、margin >=45%、
+gross <=1.75x、margin utilization <=0.90、无计划外订单）。
