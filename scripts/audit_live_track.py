@@ -23,8 +23,9 @@ places or cancels an order.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from math import isfinite
+from math import ceil, isfinite
 import json
 from pathlib import Path
 import sys
@@ -48,6 +49,7 @@ from atlas20.derivatives.account import (
 )  # noqa: E402
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
+from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     LS45_G125_FROZEN_CONFIG,
     LS45_G125_MANIFEST_TOP_LEVEL,
@@ -396,6 +398,86 @@ def _position_signed_notional(row: dict) -> float:
 
     mark = _num(row.get("markPrice") or row.get("avgPrice"))
     return _position_signed_qty(row) * mark
+
+
+def _minimum_tradeable_qty(spec: ContractSpec, price: float) -> float | None:
+    """Smallest exchange-step quantity that also clears the venue's USDT floor."""
+
+    if not isfinite(price) or price <= 0.0:
+        return None
+    step = max(float(spec.quantity_multiplier), float(spec.min_order_qty), 0.0)
+    if not isfinite(step) or step <= 0.0:
+        return None
+    required = max(float(spec.minimum_notional()), step * price) / price
+    steps = max(1, int(ceil(required / step - 1e-12)))
+    qty = spec.round_down_qty(float(steps) * step)
+    if qty <= 0.0 or not spec.is_tradeable(qty, price):
+        qty = spec.round_down_qty(qty + step)
+    return qty if qty > 0.0 and spec.is_tradeable(qty, price) else None
+
+
+def _minimum_trade_would_improve(
+    actual_qty: float,
+    target_qty: float,
+    minimum_qty: float,
+) -> bool:
+    """Whether one venue-minimum order strictly reduces the target gap."""
+
+    actual_gap = abs(actual_qty - target_qty)
+    if target_qty > actual_qty:
+        proposed = actual_qty + minimum_qty
+    else:
+        proposed = max(0.0, actual_qty - minimum_qty)
+    return abs(proposed - target_qty) < actual_gap - 1e-12
+
+
+def _position_target_issues(
+    *,
+    targets: Mapping[str, float],
+    signed_notional_by_asset: Mapping[str, float],
+    equity: float,
+    lot_notional_by_asset: Mapping[str, float],
+    prices_by_asset: Mapping[str, float],
+    contract_specs_by_asset: Mapping[str, ContractSpec],
+) -> list[str]:
+    """Report target drift that is material and operationally correctable.
+
+    The declared 1 USDT / 1% / 1.5-lot tolerance remains the first gate.  A
+    slightly larger residual is accepted only when both sides have the same
+    sign and the smallest order the venue accepts would move the position
+    farther from target.  Without that feasibility exception a $5 venue
+    minimum can make every possible order worsen a small residual, leaving the
+    live audit permanently red even though the planner correctly skips it.
+    """
+
+    issues: list[str] = []
+    for asset, weight in targets.items():
+        want = float(weight) * equity
+        got = float(signed_notional_by_asset.get(asset, 0.0))
+        tolerance = max(
+            1.0,
+            0.01 * abs(want),
+            1.5 * float(lot_notional_by_asset.get(asset, 0.0)),
+        )
+        if abs(got - want) <= tolerance:
+            continue
+
+        price = float(prices_by_asset.get(asset, 0.0))
+        spec = contract_specs_by_asset.get(asset)
+        minimum_qty = _minimum_tradeable_qty(spec, price) if spec is not None else None
+        same_side = got != 0.0 and want != 0.0 and (got > 0.0) == (want > 0.0)
+        untradeable = (
+            same_side
+            and minimum_qty is not None
+            and not _minimum_trade_would_improve(
+                abs(got) / price,
+                abs(want) / price,
+                minimum_qty,
+            )
+        )
+        if not untradeable:
+            issues.append(f"{asset.upper()} 目标 {want:.2f} vs 实际 {got:.2f}")
+    return issues
 
 
 def _trade_mismatch(trade: dict, venue: dict) -> str | None:
@@ -1029,13 +1111,14 @@ def main(argv: list[str] | None = None) -> int:
         * _num(prices.get(relevant[asset].upper()))
         for asset, spec in specs.items()
     }
-    off_target: list[str] = []
-    for asset, weight in targets.items():
-        want = weight * equity
-        got = signed_notional_by_asset.get(asset, 0.0)
-        tolerance = max(1.0, 0.01 * abs(want), 1.5 * float(lot_by_asset.get(asset, 0.0)))
-        if abs(got - want) > tolerance:
-            off_target.append(f"{asset.upper()} 目标 {want:.2f} vs 实际 {got:.2f}")
+    off_target = _position_target_issues(
+        targets=targets,
+        signed_notional_by_asset=signed_notional_by_asset,
+        equity=equity,
+        lot_notional_by_asset=lot_by_asset,
+        prices_by_asset={asset: _num(prices.get(relevant[asset].upper())) for asset in targets},
+        contract_specs_by_asset=specs,
+    )
     check(
         "持仓与冻结目标一致（1%/1.5 个合约步长容差）",
         not off_target,

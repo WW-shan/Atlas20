@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import pytest
 
+from atlas20.derivatives.execution import ContractSpec
 from atlas20.derivatives.live_journal import (
     JournalEntry,
     protected_short_stops,
@@ -17,6 +18,7 @@ from scripts.audit_live_track import (
     _pnl_chain_errors,
     _position_signed_notional,
     _position_side_issues,
+    _position_target_issues,
     _short_stop_gaps,
     _trade_mismatch,
     _unfilled_order_issues,
@@ -26,6 +28,49 @@ from scripts.audit_live_track import (
 def test_execution_floor_issue_rejects_equity_below_the_live_minimum() -> None:
     assert _execution_floor_issue(20.0, floor_usdt=20.0) is None
     assert "执行下限" in str(_execution_floor_issue(19.99, floor_usdt=20.0))
+
+
+def _hyperliquid_spec() -> ContractSpec:
+    return ContractSpec(
+        symbol="HYPEUSDT",
+        min_order_qty=0.01,
+        quantity_multiplier=0.01,
+        min_order_usdt=5.0,
+        quantity_precision=2,
+        price_multiplier=0.001,
+        price_precision=3,
+    )
+
+
+def test_target_drift_is_allowed_when_the_minimum_order_would_move_further_away() -> None:
+    equity = 503.59357169
+    price = 66.089
+    issues = _position_target_issues(
+        targets={"hyperliquid": -31.47 / equity},
+        signed_notional_by_asset={"hyperliquid": -30.37},
+        equity=equity,
+        lot_notional_by_asset={"hyperliquid": 0.01 * price},
+        prices_by_asset={"hyperliquid": price},
+        contract_specs_by_asset={"hyperliquid": _hyperliquid_spec()},
+    )
+
+    assert issues == []
+
+
+def test_target_drift_still_fails_when_a_tradeable_order_would_reduce_the_gap() -> None:
+    equity = 503.59357169
+    price = 66.089
+    issues = _position_target_issues(
+        targets={"hyperliquid": -31.47 / equity},
+        signed_notional_by_asset={"hyperliquid": -20.0},
+        equity=equity,
+        lot_notional_by_asset={"hyperliquid": 0.01 * price},
+        prices_by_asset={"hyperliquid": price},
+        contract_specs_by_asset={"hyperliquid": _hyperliquid_spec()},
+    )
+
+    assert issues
+    assert "HYPERLIQUID" in issues[0]
 
 
 def _entry(
