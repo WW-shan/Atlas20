@@ -143,6 +143,80 @@ def test_build_symbol_map_handles_rebrand_and_missing_contract() -> None:
     assert mapping.loc["okb", "contract_status"] == "missing"
 
 
+def test_build_symbol_map_uses_the_latest_panel_row_regardless_of_file_order() -> None:
+    panel = pd.DataFrame(
+        {
+            "date": ["2026-11-13", "2026-11-12"],
+            "coin_id": ["the-open-network", "the-open-network"],
+            "symbol": ["GRAM", "TON"],
+            "name": ["Gram (prev. Toncoin)", "Toncoin"],
+        }
+    )
+    contracts = [
+        {
+            "symbol": "GRAMUSDT",
+            "baseCoin": "GRAM",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+        }
+    ]
+
+    mapping = build_symbol_map(panel, contracts).set_index("coin_id")
+
+    assert mapping.loc["the-open-network", "panel_symbol"] == "GRAM"
+    assert mapping.loc["the-open-network", "bitget_symbol"] == "GRAMUSDT"
+    assert mapping.loc["the-open-network", "reason"] == "direct"
+
+
+def test_build_symbol_map_uses_the_known_gram_rebrand_alias() -> None:
+    panel = pd.DataFrame(
+        {
+            "date": ["2026-11-12"],
+            "coin_id": ["the-open-network"],
+            "symbol": ["TON"],
+            "name": ["Toncoin"],
+        }
+    )
+    contracts = [
+        {
+            "symbol": "GRAMUSDT",
+            "baseCoin": "GRAM",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+        }
+    ]
+
+    mapping = build_symbol_map(panel, contracts).set_index("coin_id")
+
+    assert mapping.loc["the-open-network", "bitget_symbol"] == "GRAMUSDT"
+    assert mapping.loc["the-open-network", "reason"] == "alias:GRAM"
+
+
+def test_build_symbol_map_treats_blank_panel_symbol_as_unmapped() -> None:
+    panel = pd.DataFrame(
+        {
+            "coin_id": ["tron"],
+            "symbol": [None],
+        }
+    )
+    contracts = [
+        {
+            "symbol": "TRXUSDT",
+            "baseCoin": "TRX",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+        }
+    ]
+
+    mapping = build_symbol_map(panel, contracts).set_index("coin_id")
+
+    assert mapping.loc["tron", "bitget_symbol"] == ""
+    assert mapping.loc["tron", "contract_status"] == "missing"
+
+
 def test_funding_overlap_passes_on_close_series() -> None:
     times = pd.date_range("2026-07-01", periods=40, freq="8h", tz="UTC")
     bitget = pd.DataFrame({"funding_time": times, "funding_rate": [0.0001] * 40})

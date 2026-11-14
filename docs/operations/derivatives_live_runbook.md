@@ -112,7 +112,8 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
 
 1. **窗口闸**：`scripts/live_chain_preflight.py --check window`
    - 01:05 UTC 前退出；
-   - 当日状态已 `ok` 退出；
+   - 当日状态已 `ok` 且 `targets_sha256` 与当前待执行账本一致时退出；旧账本上的空操作成功
+     不会挡住新账本补跑；
    - 超过 6 小时补跑窗口退出；
    - 退出码 3 表示“设计上不交易”，不是故障。
 2. **面板自愈**：`--check panel`
@@ -123,8 +124,10 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
    **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
    `audit-data` 还校验 mark/funding 单调性、funding manifest 与实际最后时间一致，以及最新
    panel 的 price/volume/market-cap 有效值。
-5. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；任何差异都会拒绝执行。
-6. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
+5. **全品种实时能力**：`make audit-symbols` 对全部映射资产逐项核对 Bitget v3 合约身份、
+   online/perpetual/USDT、2x、报价新鲜度，并生成多单、空单止损和 long→short 翻转计划。
+6. **信号等价性**：`make audit-signal` 重新构建冻结账本并逐行比较；任何差异都会拒绝执行。
+7. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
 
 执行器自身还有：
 
@@ -136,7 +139,8 @@ daily_execution_hint = manifest.signal_end_date + 1 day + 1 hour 5 minutes
 - 实时 ticker 不得超过 120s、价格必须可用；
 - account equity 不低于 20 USDT；
 - kill switch 文件存在时拒绝一切操作；
-- 每个 run day 只允许一个 `ok`；`partial` 会在后续重试窗口重读账户并自愈；
+- 每个 run day + `targets_sha256` 只允许一个 `ok`；同一天账本重建后会重新进入补跑链，
+  `partial` 也会在后续重试窗口重读账户并自愈；
 - 同一 run day 的 clientOid 稳定；请求超时或缺少 `orderId` 时按 clientOid 回查，避免重启重试
   把“已接受但响应丢失”的订单再下一遍；
 - clientOid 按订单业务身份做稳定哈希，不再使用“当前订单数组下标”；前面订单成交后，
@@ -290,6 +294,7 @@ Bitget 的策略止损是**按入场订单/加仓订单保留**，不会自动�
 
 ```bash
 make audit-live
+make audit-symbols              # 全部标的：实时合约、2x、多空、翻转、止损和报价
 make derivatives-signal                 # Telegram 文本 dry-run
 make execution-plan-live                # 读真实账户，只发计划，不下单
 make execute-plan                       # 读真实账户，执行器 dry-run，不下单

@@ -6,6 +6,16 @@
       "passed": true
     },
     {
+      "detail": "0 missing/non-finite coin id row(s)",
+      "name": "panel.valid_coin_ids",
+      "passed": true
+    },
+    {
+      "detail": "0 missing/non-finite symbol row(s)",
+      "name": "panel.valid_symbols",
+      "passed": true
+    },
+    {
       "detail": "0 invalid date row(s)",
       "name": "panel.valid_dates",
       "passed": true
@@ -66,6 +76,21 @@
       "passed": true
     },
     {
+      "detail": "0 normal row(s) without the source panel symbol",
+      "name": "symbol_map.normal_panel_symbol",
+      "passed": true
+    },
+    {
+      "detail": "0 normal row(s) without a base coin",
+      "name": "symbol_map.normal_base_coin",
+      "passed": true
+    },
+    {
+      "detail": "non-normal rows carry no venue symbol",
+      "name": "symbol_map.unusable_has_no_symbol",
+      "passed": true
+    },
+    {
       "detail": "explicit alias/direct pairs only",
       "name": "symbol_map.unambiguous_symbol",
       "passed": true
@@ -96,6 +121,16 @@
       "passed": true
     },
     {
+      "detail": "all latest panel assets mapped",
+      "name": "symbol_map.latest_panel_coverage",
+      "passed": true
+    },
+    {
+      "detail": "panel symbols current",
+      "name": "symbol_map.latest_panel_symbols",
+      "passed": true
+    },
+    {
       "detail": "panel reaches 2026-11-13",
       "name": "panel.last_completed_day",
       "passed": true
@@ -108,6 +143,21 @@
     {
       "detail": "missing contract 1INCHUSDT",
       "name": "contracts.1inch.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=1INCH vs map base_coin=1INCH",
+      "name": "contracts.1inch.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.1inch.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=1INCHUSDT vs baseCoin+quoteCoin=1INCH+USDT",
+      "name": "contracts.1inch.symbol_identity",
       "passed": true
     },
     {
@@ -186,6 +236,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=AAVE vs map base_coin=AAVE",
+      "name": "contracts.aave.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.aave.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=AAVEUSDT vs baseCoin+quoteCoin=AAVE+USDT",
+      "name": "contracts.aave.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.aave.normal",
       "passed": true
@@ -258,6 +323,21 @@
     {
       "detail": "missing contract ALGOUSDT",
       "name": "contracts.algorand.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ALGO vs map base_coin=ALGO",
+      "name": "contracts.algorand.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.algorand.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ALGOUSDT vs baseCoin+quoteCoin=ALGO+USDT",
+      "name": "contracts.algorand.symbol_identity",
       "passed": true
     },
     {
@@ -336,6 +416,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=APE vs map base_coin=APE",
+      "name": "contracts.apecoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.apecoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=APEUSDT vs baseCoin+quoteCoin=APE+USDT",
+      "name": "contracts.apecoin.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.apecoin.normal",
       "passed": true
@@ -408,6 +503,21 @@
     {
       "detail": "missing contract APTUSDT",
       "name": "contracts.aptos.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=APT vs map base_coin=APT",
+      "name": "contracts.aptos.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.aptos.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=APTUSDT vs baseCoin+quoteCoin=APT+USDT",
+      "name": "contracts.aptos.symbol_identity",
       "passed": true
     },
     {
@@ -486,6 +596,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ARB vs map base_coin=ARB",
+      "name": "contracts.arbitrum.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.arbitrum.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ARBUSDT vs baseCoin+quoteCoin=ARB+USDT",
+      "name": "contracts.arbitrum.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.arbitrum.normal",
       "passed": true
@@ -558,6 +683,21 @@
     {
       "detail": "missing contract ASTERUSDT",
       "name": "contracts.aster-2.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ASTER vs map base_coin=ASTER",
+      "name": "contracts.aster-2.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.aster-2.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ASTERUSDT vs baseCoin+quoteCoin=ASTER+USDT",
+      "name": "contracts.aster-2.symbol_identity",
       "passed": true
     },
     {
@@ -636,6 +776,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=AVAX vs map base_coin=AVAX",
+      "name": "contracts.avalanche-2.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.avalanche-2.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=AVAXUSDT vs baseCoin+quoteCoin=AVAX+USDT",
+      "name": "contracts.avalanche-2.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.avalanche-2.normal",
       "passed": true
@@ -708,6 +863,21 @@
     {
       "detail": "missing contract AXSUSDT",
       "name": "contracts.axie-infinity.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=AXS vs map base_coin=AXS",
+      "name": "contracts.axie-infinity.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.axie-infinity.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=AXSUSDT vs baseCoin+quoteCoin=AXS+USDT",
+      "name": "contracts.axie-infinity.symbol_identity",
       "passed": true
     },
     {
@@ -786,6 +956,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=BAT vs map base_coin=BAT",
+      "name": "contracts.basic-attention-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.basic-attention-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BATUSDT vs baseCoin+quoteCoin=BAT+USDT",
+      "name": "contracts.basic-attention-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.basic-attention-token.normal",
       "passed": true
@@ -858,6 +1043,21 @@
     {
       "detail": "missing contract BNBUSDT",
       "name": "contracts.binancecoin.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=BNB vs map base_coin=BNB",
+      "name": "contracts.binancecoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.binancecoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BNBUSDT vs baseCoin+quoteCoin=BNB+USDT",
+      "name": "contracts.binancecoin.symbol_identity",
       "passed": true
     },
     {
@@ -936,6 +1136,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=BTC vs map base_coin=BTC",
+      "name": "contracts.bitcoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.bitcoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BTCUSDT vs baseCoin+quoteCoin=BTC+USDT",
+      "name": "contracts.bitcoin.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.bitcoin.normal",
       "passed": true
@@ -1008,6 +1223,21 @@
     {
       "detail": "missing contract BCHUSDT",
       "name": "contracts.bitcoin-cash.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=BCH vs map base_coin=BCH",
+      "name": "contracts.bitcoin-cash.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.bitcoin-cash.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BCHUSDT vs baseCoin+quoteCoin=BCH+USDT",
+      "name": "contracts.bitcoin-cash.symbol_identity",
       "passed": true
     },
     {
@@ -1086,6 +1316,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=BGB vs map base_coin=BGB",
+      "name": "contracts.bitget-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.bitget-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BGBUSDT vs baseCoin+quoteCoin=BGB+USDT",
+      "name": "contracts.bitget-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.bitget-token.normal",
       "passed": true
@@ -1158,6 +1403,21 @@
     {
       "detail": "missing contract TAOUSDT",
       "name": "contracts.bittensor.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=TAO vs map base_coin=TAO",
+      "name": "contracts.bittensor.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.bittensor.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=TAOUSDT vs baseCoin+quoteCoin=TAO+USDT",
+      "name": "contracts.bittensor.symbol_identity",
       "passed": true
     },
     {
@@ -1236,6 +1496,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=BTW vs map base_coin=BTW",
+      "name": "contracts.bitway.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.bitway.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=BTWUSDT vs baseCoin+quoteCoin=BTW+USDT",
+      "name": "contracts.bitway.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.bitway.normal",
       "passed": true
@@ -1308,6 +1583,21 @@
     {
       "detail": "missing contract CCUSDT",
       "name": "contracts.canton-network.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=CC vs map base_coin=CC",
+      "name": "contracts.canton-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.canton-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=CCUSDT vs baseCoin+quoteCoin=CC+USDT",
+      "name": "contracts.canton-network.symbol_identity",
       "passed": true
     },
     {
@@ -1386,6 +1676,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ADA vs map base_coin=ADA",
+      "name": "contracts.cardano.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.cardano.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ADAUSDT vs baseCoin+quoteCoin=ADA+USDT",
+      "name": "contracts.cardano.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.cardano.normal",
       "passed": true
@@ -1458,6 +1763,21 @@
     {
       "detail": "missing contract TIAUSDT",
       "name": "contracts.celestia.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=TIA vs map base_coin=TIA",
+      "name": "contracts.celestia.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.celestia.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=TIAUSDT vs baseCoin+quoteCoin=TIA+USDT",
+      "name": "contracts.celestia.symbol_identity",
       "passed": true
     },
     {
@@ -1536,6 +1856,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=LINK vs map base_coin=LINK",
+      "name": "contracts.chainlink.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.chainlink.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=LINKUSDT vs baseCoin+quoteCoin=LINK+USDT",
+      "name": "contracts.chainlink.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.chainlink.normal",
       "passed": true
@@ -1608,6 +1943,21 @@
     {
       "detail": "missing contract CHZUSDT",
       "name": "contracts.chiliz.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=CHZ vs map base_coin=CHZ",
+      "name": "contracts.chiliz.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.chiliz.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=CHZUSDT vs baseCoin+quoteCoin=CHZ+USDT",
+      "name": "contracts.chiliz.symbol_identity",
       "passed": true
     },
     {
@@ -1686,6 +2036,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=COMP vs map base_coin=COMP",
+      "name": "contracts.compound-governance-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.compound-governance-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=COMPUSDT vs baseCoin+quoteCoin=COMP+USDT",
+      "name": "contracts.compound-governance-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.compound-governance-token.normal",
       "passed": true
@@ -1758,6 +2123,21 @@
     {
       "detail": "missing contract ATOMUSDT",
       "name": "contracts.cosmos.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ATOM vs map base_coin=ATOM",
+      "name": "contracts.cosmos.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.cosmos.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ATOMUSDT vs baseCoin+quoteCoin=ATOM+USDT",
+      "name": "contracts.cosmos.symbol_identity",
       "passed": true
     },
     {
@@ -1836,6 +2216,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=CRO vs map base_coin=CRO",
+      "name": "contracts.crypto-com-chain.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.crypto-com-chain.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=CROUSDT vs baseCoin+quoteCoin=CRO+USDT",
+      "name": "contracts.crypto-com-chain.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.crypto-com-chain.normal",
       "passed": true
@@ -1908,6 +2303,21 @@
     {
       "detail": "missing contract CRVUSDT",
       "name": "contracts.curve-dao-token.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=CRV vs map base_coin=CRV",
+      "name": "contracts.curve-dao-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.curve-dao-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=CRVUSDT vs baseCoin+quoteCoin=CRV+USDT",
+      "name": "contracts.curve-dao-token.symbol_identity",
       "passed": true
     },
     {
@@ -1986,6 +2396,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=MANA vs map base_coin=MANA",
+      "name": "contracts.decentraland.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.decentraland.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=MANAUSDT vs baseCoin+quoteCoin=MANA+USDT",
+      "name": "contracts.decentraland.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.decentraland.normal",
       "passed": true
@@ -2058,6 +2483,21 @@
     {
       "detail": "missing contract DOGEUSDT",
       "name": "contracts.dogecoin.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=DOGE vs map base_coin=DOGE",
+      "name": "contracts.dogecoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.dogecoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=DOGEUSDT vs baseCoin+quoteCoin=DOGE+USDT",
+      "name": "contracts.dogecoin.symbol_identity",
       "passed": true
     },
     {
@@ -2136,6 +2576,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=DYDX vs map base_coin=DYDX",
+      "name": "contracts.dydx-chain.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.dydx-chain.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=DYDXUSDT vs baseCoin+quoteCoin=DYDX+USDT",
+      "name": "contracts.dydx-chain.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.dydx-chain.normal",
       "passed": true
@@ -2208,6 +2663,21 @@
     {
       "detail": "missing contract EGLDUSDT",
       "name": "contracts.elrond-erd-2.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=EGLD vs map base_coin=EGLD",
+      "name": "contracts.elrond-erd-2.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.elrond-erd-2.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=EGLDUSDT vs baseCoin+quoteCoin=EGLD+USDT",
+      "name": "contracts.elrond-erd-2.symbol_identity",
       "passed": true
     },
     {
@@ -2286,6 +2756,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ENJ vs map base_coin=ENJ",
+      "name": "contracts.enjincoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.enjincoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ENJUSDT vs baseCoin+quoteCoin=ENJ+USDT",
+      "name": "contracts.enjincoin.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.enjincoin.normal",
       "passed": true
@@ -2358,6 +2843,21 @@
     {
       "detail": "missing contract ENAUSDT",
       "name": "contracts.ethena.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ENA vs map base_coin=ENA",
+      "name": "contracts.ethena.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ethena.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ENAUSDT vs baseCoin+quoteCoin=ENA+USDT",
+      "name": "contracts.ethena.symbol_identity",
       "passed": true
     },
     {
@@ -2436,6 +2936,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ETH vs map base_coin=ETH",
+      "name": "contracts.ethereum.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ethereum.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ETHUSDT vs baseCoin+quoteCoin=ETH+USDT",
+      "name": "contracts.ethereum.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.ethereum.normal",
       "passed": true
@@ -2508,6 +3023,21 @@
     {
       "detail": "missing contract ETCUSDT",
       "name": "contracts.ethereum-classic.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ETC vs map base_coin=ETC",
+      "name": "contracts.ethereum-classic.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ethereum-classic.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ETCUSDT vs baseCoin+quoteCoin=ETC+USDT",
+      "name": "contracts.ethereum-classic.symbol_identity",
       "passed": true
     },
     {
@@ -2586,6 +3116,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ENS vs map base_coin=ENS",
+      "name": "contracts.ethereum-name-service.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ethereum-name-service.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ENSUSDT vs baseCoin+quoteCoin=ENS+USDT",
+      "name": "contracts.ethereum-name-service.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.ethereum-name-service.normal",
       "passed": true
@@ -2658,6 +3203,21 @@
     {
       "detail": "missing contract SUSDT",
       "name": "contracts.fantom.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=S vs map base_coin=S",
+      "name": "contracts.fantom.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.fantom.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SUSDT vs baseCoin+quoteCoin=S+USDT",
+      "name": "contracts.fantom.symbol_identity",
       "passed": true
     },
     {
@@ -2736,6 +3296,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=FIL vs map base_coin=FIL",
+      "name": "contracts.filecoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.filecoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=FILUSDT vs baseCoin+quoteCoin=FIL+USDT",
+      "name": "contracts.filecoin.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.filecoin.normal",
       "passed": true
@@ -2808,6 +3383,21 @@
     {
       "detail": "missing contract GALAUSDT",
       "name": "contracts.gala.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=GALA vs map base_coin=GALA",
+      "name": "contracts.gala.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.gala.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=GALAUSDT vs baseCoin+quoteCoin=GALA+USDT",
+      "name": "contracts.gala.symbol_identity",
       "passed": true
     },
     {
@@ -2886,6 +3476,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=SNX vs map base_coin=SNX",
+      "name": "contracts.havven.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.havven.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SNXUSDT vs baseCoin+quoteCoin=SNX+USDT",
+      "name": "contracts.havven.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.havven.normal",
       "passed": true
@@ -2958,6 +3563,21 @@
     {
       "detail": "missing contract HBARUSDT",
       "name": "contracts.hedera-hashgraph.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=HBAR vs map base_coin=HBAR",
+      "name": "contracts.hedera-hashgraph.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.hedera-hashgraph.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=HBARUSDT vs baseCoin+quoteCoin=HBAR+USDT",
+      "name": "contracts.hedera-hashgraph.symbol_identity",
       "passed": true
     },
     {
@@ -3036,6 +3656,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=HYPE vs map base_coin=HYPE",
+      "name": "contracts.hyperliquid.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.hyperliquid.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=HYPEUSDT vs baseCoin+quoteCoin=HYPE+USDT",
+      "name": "contracts.hyperliquid.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.hyperliquid.normal",
       "passed": true
@@ -3108,6 +3743,21 @@
     {
       "detail": "missing contract IMXUSDT",
       "name": "contracts.immutable-x.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=IMX vs map base_coin=IMX",
+      "name": "contracts.immutable-x.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.immutable-x.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=IMXUSDT vs baseCoin+quoteCoin=IMX+USDT",
+      "name": "contracts.immutable-x.symbol_identity",
       "passed": true
     },
     {
@@ -3186,6 +3836,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=INJ vs map base_coin=INJ",
+      "name": "contracts.injective-protocol.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.injective-protocol.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=INJUSDT vs baseCoin+quoteCoin=INJ+USDT",
+      "name": "contracts.injective-protocol.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.injective-protocol.normal",
       "passed": true
@@ -3258,6 +3923,21 @@
     {
       "detail": "missing contract ICPUSDT",
       "name": "contracts.internet-computer.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ICP vs map base_coin=ICP",
+      "name": "contracts.internet-computer.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.internet-computer.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ICPUSDT vs baseCoin+quoteCoin=ICP+USDT",
+      "name": "contracts.internet-computer.symbol_identity",
       "passed": true
     },
     {
@@ -3336,6 +4016,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=JUP vs map base_coin=JUP",
+      "name": "contracts.jupiter-exchange-solana.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.jupiter-exchange-solana.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=JUPUSDT vs baseCoin+quoteCoin=JUP+USDT",
+      "name": "contracts.jupiter-exchange-solana.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.jupiter-exchange-solana.normal",
       "passed": true
@@ -3408,6 +4103,21 @@
     {
       "detail": "missing contract KASUSDT",
       "name": "contracts.kaspa.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=KAS vs map base_coin=KAS",
+      "name": "contracts.kaspa.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.kaspa.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=KASUSDT vs baseCoin+quoteCoin=KAS+USDT",
+      "name": "contracts.kaspa.symbol_identity",
       "passed": true
     },
     {
@@ -3486,6 +4196,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=LDO vs map base_coin=LDO",
+      "name": "contracts.lido-dao.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.lido-dao.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=LDOUSDT vs baseCoin+quoteCoin=LDO+USDT",
+      "name": "contracts.lido-dao.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.lido-dao.normal",
       "passed": true
@@ -3558,6 +4283,21 @@
     {
       "detail": "missing contract LTCUSDT",
       "name": "contracts.litecoin.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=LTC vs map base_coin=LTC",
+      "name": "contracts.litecoin.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.litecoin.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=LTCUSDT vs baseCoin+quoteCoin=LTC+USDT",
+      "name": "contracts.litecoin.symbol_identity",
       "passed": true
     },
     {
@@ -3636,6 +4376,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=POL vs map base_coin=POL",
+      "name": "contracts.matic-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.matic-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=POLUSDT vs baseCoin+quoteCoin=POL+USDT",
+      "name": "contracts.matic-network.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.matic-network.normal",
       "passed": true
@@ -3708,6 +4463,21 @@
     {
       "detail": "missing contract MUSDT",
       "name": "contracts.memecore.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=M vs map base_coin=M",
+      "name": "contracts.memecore.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.memecore.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=MUSDT vs baseCoin+quoteCoin=M+USDT",
+      "name": "contracts.memecore.symbol_identity",
       "passed": true
     },
     {
@@ -3786,6 +4556,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=XMR vs map base_coin=XMR",
+      "name": "contracts.monero.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.monero.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=XMRUSDT vs baseCoin+quoteCoin=XMR+USDT",
+      "name": "contracts.monero.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.monero.normal",
       "passed": true
@@ -3858,6 +4643,21 @@
     {
       "detail": "missing contract MORPHOUSDT",
       "name": "contracts.morpho.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=MORPHO vs map base_coin=MORPHO",
+      "name": "contracts.morpho.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.morpho.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=MORPHOUSDT vs baseCoin+quoteCoin=MORPHO+USDT",
+      "name": "contracts.morpho.symbol_identity",
       "passed": true
     },
     {
@@ -3936,6 +4736,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=NEAR vs map base_coin=NEAR",
+      "name": "contracts.near.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.near.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=NEARUSDT vs baseCoin+quoteCoin=NEAR+USDT",
+      "name": "contracts.near.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.near.normal",
       "passed": true
@@ -4008,6 +4823,21 @@
     {
       "detail": "missing contract NEOUSDT",
       "name": "contracts.neo.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=NEO vs map base_coin=NEO",
+      "name": "contracts.neo.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.neo.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=NEOUSDT vs baseCoin+quoteCoin=NEO+USDT",
+      "name": "contracts.neo.symbol_identity",
       "passed": true
     },
     {
@@ -4086,6 +4916,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ONDO vs map base_coin=ONDO",
+      "name": "contracts.ondo-finance.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ondo-finance.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ONDOUSDT vs baseCoin+quoteCoin=ONDO+USDT",
+      "name": "contracts.ondo-finance.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.ondo-finance.normal",
       "passed": true
@@ -4158,6 +5003,21 @@
     {
       "detail": "missing contract OPUSDT",
       "name": "contracts.optimism.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=OP vs map base_coin=OP",
+      "name": "contracts.optimism.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.optimism.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=OPUSDT vs baseCoin+quoteCoin=OP+USDT",
+      "name": "contracts.optimism.symbol_identity",
       "passed": true
     },
     {
@@ -4236,6 +5096,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=CAKE vs map base_coin=CAKE",
+      "name": "contracts.pancakeswap-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.pancakeswap-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=CAKEUSDT vs baseCoin+quoteCoin=CAKE+USDT",
+      "name": "contracts.pancakeswap-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.pancakeswap-token.normal",
       "passed": true
@@ -4308,6 +5183,21 @@
     {
       "detail": "missing contract PEPEUSDT",
       "name": "contracts.pepe.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=PEPE vs map base_coin=PEPE",
+      "name": "contracts.pepe.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.pepe.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=PEPEUSDT vs baseCoin+quoteCoin=PEPE+USDT",
+      "name": "contracts.pepe.symbol_identity",
       "passed": true
     },
     {
@@ -4386,6 +5276,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=PI vs map base_coin=PI",
+      "name": "contracts.pi-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.pi-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=PIUSDT vs baseCoin+quoteCoin=PI+USDT",
+      "name": "contracts.pi-network.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.pi-network.normal",
       "passed": true
@@ -4458,6 +5363,21 @@
     {
       "detail": "missing contract DOTUSDT",
       "name": "contracts.polkadot.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=DOT vs map base_coin=DOT",
+      "name": "contracts.polkadot.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.polkadot.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=DOTUSDT vs baseCoin+quoteCoin=DOT+USDT",
+      "name": "contracts.polkadot.symbol_identity",
       "passed": true
     },
     {
@@ -4536,6 +5456,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=POL vs map base_coin=POL",
+      "name": "contracts.polygon-ecosystem-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.polygon-ecosystem-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=POLUSDT vs baseCoin+quoteCoin=POL+USDT",
+      "name": "contracts.polygon-ecosystem-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.polygon-ecosystem-token.normal",
       "passed": true
@@ -4608,6 +5543,21 @@
     {
       "detail": "missing contract PUMPUSDT",
       "name": "contracts.pump-fun.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=PUMP vs map base_coin=PUMP",
+      "name": "contracts.pump-fun.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.pump-fun.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=PUMPUSDT vs baseCoin+quoteCoin=PUMP+USDT",
+      "name": "contracts.pump-fun.symbol_identity",
       "passed": true
     },
     {
@@ -4686,6 +5636,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=QNT vs map base_coin=QNT",
+      "name": "contracts.quant-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.quant-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=QNTUSDT vs baseCoin+quoteCoin=QNT+USDT",
+      "name": "contracts.quant-network.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.quant-network.normal",
       "passed": true
@@ -4758,6 +5723,21 @@
     {
       "detail": "missing contract RENDERUSDT",
       "name": "contracts.render-token.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=RENDER vs map base_coin=RENDER",
+      "name": "contracts.render-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.render-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=RENDERUSDT vs baseCoin+quoteCoin=RENDER+USDT",
+      "name": "contracts.render-token.symbol_identity",
       "passed": true
     },
     {
@@ -4836,6 +5816,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=XRP vs map base_coin=XRP",
+      "name": "contracts.ripple.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.ripple.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=XRPUSDT vs baseCoin+quoteCoin=XRP+USDT",
+      "name": "contracts.ripple.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.ripple.normal",
       "passed": true
@@ -4908,6 +5903,21 @@
     {
       "detail": "missing contract SEIUSDT",
       "name": "contracts.sei-network.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=SEI vs map base_coin=SEI",
+      "name": "contracts.sei-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.sei-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SEIUSDT vs baseCoin+quoteCoin=SEI+USDT",
+      "name": "contracts.sei-network.symbol_identity",
       "passed": true
     },
     {
@@ -4986,6 +5996,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=SHIB vs map base_coin=SHIB",
+      "name": "contracts.shiba-inu.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.shiba-inu.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SHIBUSDT vs baseCoin+quoteCoin=SHIB+USDT",
+      "name": "contracts.shiba-inu.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.shiba-inu.normal",
       "passed": true
@@ -5058,6 +6083,21 @@
     {
       "detail": "missing contract SKYUSDT",
       "name": "contracts.sky.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=SKY vs map base_coin=SKY",
+      "name": "contracts.sky.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.sky.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SKYUSDT vs baseCoin+quoteCoin=SKY+USDT",
+      "name": "contracts.sky.symbol_identity",
       "passed": true
     },
     {
@@ -5136,6 +6176,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=SOL vs map base_coin=SOL",
+      "name": "contracts.solana.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.solana.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SOLUSDT vs baseCoin+quoteCoin=SOL+USDT",
+      "name": "contracts.solana.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.solana.normal",
       "passed": true
@@ -5208,6 +6263,21 @@
     {
       "detail": "missing contract XLMUSDT",
       "name": "contracts.stellar.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=XLM vs map base_coin=XLM",
+      "name": "contracts.stellar.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.stellar.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=XLMUSDT vs baseCoin+quoteCoin=XLM+USDT",
+      "name": "contracts.stellar.symbol_identity",
       "passed": true
     },
     {
@@ -5286,6 +6356,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=GMT vs map base_coin=GMT",
+      "name": "contracts.stepn.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.stepn.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=GMTUSDT vs baseCoin+quoteCoin=GMT+USDT",
+      "name": "contracts.stepn.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.stepn.normal",
       "passed": true
@@ -5358,6 +6443,21 @@
     {
       "detail": "missing contract SUIUSDT",
       "name": "contracts.sui.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=SUI vs map base_coin=SUI",
+      "name": "contracts.sui.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.sui.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SUIUSDT vs baseCoin+quoteCoin=SUI+USDT",
+      "name": "contracts.sui.symbol_identity",
       "passed": true
     },
     {
@@ -5436,6 +6536,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=SUSHI vs map base_coin=SUSHI",
+      "name": "contracts.sushi.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.sushi.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SUSHIUSDT vs baseCoin+quoteCoin=SUSHI+USDT",
+      "name": "contracts.sushi.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.sushi.normal",
       "passed": true
@@ -5508,6 +6623,21 @@
     {
       "detail": "missing contract LUNCUSDT",
       "name": "contracts.terra-luna.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=LUNC vs map base_coin=LUNC",
+      "name": "contracts.terra-luna.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.terra-luna.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=LUNCUSDT vs baseCoin+quoteCoin=LUNC+USDT",
+      "name": "contracts.terra-luna.symbol_identity",
       "passed": true
     },
     {
@@ -5586,6 +6716,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=LUNA vs map base_coin=LUNA",
+      "name": "contracts.terra-luna-2.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.terra-luna-2.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=LUNAUSDT vs baseCoin+quoteCoin=LUNA+USDT",
+      "name": "contracts.terra-luna-2.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.terra-luna-2.normal",
       "passed": true
@@ -5658,6 +6803,21 @@
     {
       "detail": "missing contract XTZUSDT",
       "name": "contracts.tezos.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=XTZ vs map base_coin=XTZ",
+      "name": "contracts.tezos.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.tezos.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=XTZUSDT vs baseCoin+quoteCoin=XTZ+USDT",
+      "name": "contracts.tezos.symbol_identity",
       "passed": true
     },
     {
@@ -5736,6 +6896,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=GRT vs map base_coin=GRT",
+      "name": "contracts.the-graph.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.the-graph.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=GRTUSDT vs baseCoin+quoteCoin=GRT+USDT",
+      "name": "contracts.the-graph.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.the-graph.normal",
       "passed": true
@@ -5808,6 +6983,21 @@
     {
       "detail": "missing contract GRAMUSDT",
       "name": "contracts.the-open-network.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=GRAM vs map base_coin=GRAM",
+      "name": "contracts.the-open-network.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.the-open-network.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=GRAMUSDT vs baseCoin+quoteCoin=GRAM+USDT",
+      "name": "contracts.the-open-network.symbol_identity",
       "passed": true
     },
     {
@@ -5886,6 +7076,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=SAND vs map base_coin=SAND",
+      "name": "contracts.the-sandbox.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.the-sandbox.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=SANDUSDT vs baseCoin+quoteCoin=SAND+USDT",
+      "name": "contracts.the-sandbox.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.the-sandbox.normal",
       "passed": true
@@ -5958,6 +7163,21 @@
     {
       "detail": "missing contract THETAUSDT",
       "name": "contracts.theta-token.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=THETA vs map base_coin=THETA",
+      "name": "contracts.theta-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.theta-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=THETAUSDT vs baseCoin+quoteCoin=THETA+USDT",
+      "name": "contracts.theta-token.symbol_identity",
       "passed": true
     },
     {
@@ -6036,6 +7256,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=RUNE vs map base_coin=RUNE",
+      "name": "contracts.thorchain.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.thorchain.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=RUNEUSDT vs baseCoin+quoteCoin=RUNE+USDT",
+      "name": "contracts.thorchain.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.thorchain.normal",
       "passed": true
@@ -6108,6 +7343,21 @@
     {
       "detail": "missing contract TRXUSDT",
       "name": "contracts.tron.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=TRX vs map base_coin=TRX",
+      "name": "contracts.tron.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.tron.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=TRXUSDT vs baseCoin+quoteCoin=TRX+USDT",
+      "name": "contracts.tron.symbol_identity",
       "passed": true
     },
     {
@@ -6186,6 +7436,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=UNI vs map base_coin=UNI",
+      "name": "contracts.uniswap.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.uniswap.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=UNIUSDT vs baseCoin+quoteCoin=UNI+USDT",
+      "name": "contracts.uniswap.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.uniswap.normal",
       "passed": true
@@ -6258,6 +7523,21 @@
     {
       "detail": "missing contract VETUSDT",
       "name": "contracts.vechain.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=VET vs map base_coin=VET",
+      "name": "contracts.vechain.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.vechain.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=VETUSDT vs baseCoin+quoteCoin=VET+USDT",
+      "name": "contracts.vechain.symbol_identity",
       "passed": true
     },
     {
@@ -6336,6 +7616,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=VVV vs map base_coin=VVV",
+      "name": "contracts.venice-token.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.venice-token.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=VVVUSDT vs baseCoin+quoteCoin=VVV+USDT",
+      "name": "contracts.venice-token.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.venice-token.normal",
       "passed": true
@@ -6408,6 +7703,21 @@
     {
       "detail": "missing contract WLFIUSDT",
       "name": "contracts.world-liberty-financial.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=WLFI vs map base_coin=WLFI",
+      "name": "contracts.world-liberty-financial.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.world-liberty-financial.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=WLFIUSDT vs baseCoin+quoteCoin=WLFI+USDT",
+      "name": "contracts.world-liberty-financial.symbol_identity",
       "passed": true
     },
     {
@@ -6486,6 +7796,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=WLD vs map base_coin=WLD",
+      "name": "contracts.worldcoin-wld.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.worldcoin-wld.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=WLDUSDT vs baseCoin+quoteCoin=WLD+USDT",
+      "name": "contracts.worldcoin-wld.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.worldcoin-wld.normal",
       "passed": true
@@ -6561,6 +7886,21 @@
       "passed": true
     },
     {
+      "detail": "base coin mismatch: contract baseCoin=ZEC vs map base_coin=ZEC",
+      "name": "contracts.zcash.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.zcash.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ZECUSDT vs baseCoin+quoteCoin=ZEC+USDT",
+      "name": "contracts.zcash.symbol_identity",
+      "passed": true
+    },
+    {
       "detail": "status=normal",
       "name": "contracts.zcash.normal",
       "passed": true
@@ -6633,6 +7973,21 @@
     {
       "detail": "missing contract ZILUSDT",
       "name": "contracts.zilliqa.exists",
+      "passed": true
+    },
+    {
+      "detail": "base coin mismatch: contract baseCoin=ZIL vs map base_coin=ZIL",
+      "name": "contracts.zilliqa.base_coin",
+      "passed": true
+    },
+    {
+      "detail": "quoteCoin=USDT",
+      "name": "contracts.zilliqa.quote_coin",
+      "passed": true
+    },
+    {
+      "detail": "symbol=ZILUSDT vs baseCoin+quoteCoin=ZIL+USDT",
+      "name": "contracts.zilliqa.symbol_identity",
       "passed": true
     },
     {
@@ -9455,7 +10810,7 @@
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
   },
   "summary": {
-    "checks": 1870,
+    "checks": 2141,
     "funding": {
       "1inch": {
         "last": "2026-11-14 08:00:00+00:00",
@@ -9902,7 +11257,7 @@
     "hard_failures": 0,
     "last_mark": "2026-11-14 08:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-14T10:19:38.092185+00:00",
+    "now": "2026-11-14T12:07:44.477041+00:00",
     "panel_latest": "2026-11-13",
     "panel_latest_assets": 97,
     "warnings": 1

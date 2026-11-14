@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-signal
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal audit-data audit-signal audit-symbols
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -77,6 +77,7 @@ derivatives-ls45-signal: derivatives-live-data $(VENV_STAMP)
 
 derivatives-live: derivatives-live-data derivatives-ls45-signal
 	$(MAKE) audit-data
+	$(MAKE) audit-symbols
 	$(MAKE) audit-signal
 	$(PYTHON) scripts/execute_live_plan.py --live --notify --require-isolated $(ARGS)
 
@@ -126,6 +127,11 @@ record-capital-flow: $(VENV_STAMP)
 # order history, book vs frozen target, gross vs the 1.25x cap.
 audit-live: $(VENV_STAMP)
 	$(PYTHON) scripts/audit_live_track.py
+
+# Read-only full-universe capability proof: every mapped CMC asset against
+# Bitget's live v3 instruments, quotes, long/short order plans and flip plans.
+audit-symbols: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_venue_symbols.py
 
 # Fail-closed reliability audit for the CMC panel, symbol map, contracts,
 # Bitget marks and funding. The daily wrapper runs this after the signal book

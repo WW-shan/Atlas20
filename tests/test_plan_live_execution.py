@@ -9,7 +9,13 @@ from atlas20.derivatives.execution import (
     build_execution_plan,
 )
 from scripts import execute_live_plan
-from scripts.plan_live_execution import format_execution_plan, load_symbol_map
+from scripts.plan_live_execution import (
+    format_execution_plan,
+    load_symbol_map,
+    missing_asset_mappings,
+    symbol_to_asset_index,
+    target_weights_from_book,
+)
 
 
 def test_dry_run_plan_displays_the_short_stop() -> None:
@@ -117,7 +123,7 @@ class _AccountClient:
         return self._positions
 
 
-def test_load_symbol_map_drops_missing_contracts_and_alias_duplicates(tmp_path):
+def test_load_symbol_map_keeps_alias_targets_but_indexes_the_direct_asset(tmp_path):
     path = tmp_path / "symbol_map.csv"
     path.write_text(
         "coin_id,bitget_symbol,contract_status,reason\n"
@@ -128,10 +134,71 @@ def test_load_symbol_map_drops_missing_contracts_and_alias_duplicates(tmp_path):
         encoding="utf-8",
     )
 
-    assert load_symbol_map(path) == {
+    symbol_map = load_symbol_map(path)
+
+    assert symbol_map == {
+        "matic-network": "POLUSDT",
         "polygon-ecosystem-token": "POLUSDT",
         "near": "NEARUSDT",
     }
+    assert symbol_to_asset_index(symbol_map) == {
+        "POLUSDT": "polygon-ecosystem-token",
+        "NEARUSDT": "near",
+    }
+
+
+def test_load_symbol_map_never_resolves_a_non_normal_contract(tmp_path):
+    path = tmp_path / "symbol_map.csv"
+    path.write_text(
+        "coin_id,bitget_symbol,contract_status,reason\n"
+        "near,NEARUSDT,offline,direct\n"
+        "tron,TRXUSDT,normal,direct\n",
+        encoding="utf-8",
+    )
+
+    assert load_symbol_map(path) == {"tron": "TRXUSDT"}
+
+
+def test_live_symbol_map_canonicalizes_rebrand_targets(tmp_path):
+    path = tmp_path / "symbol_map.csv"
+    path.write_text(
+        "coin_id,bitget_symbol,contract_status,reason\n"
+        "matic-network,POLUSDT,normal,alias:POL\n"
+        "polygon-ecosystem-token,POLUSDT,normal,direct\n",
+        encoding="utf-8",
+    )
+    symbol_map = load_symbol_map(path)
+
+    assert symbol_map.canonical_asset("matic-network") == "polygon-ecosystem-token"
+    assert symbol_map.canonical_asset("polygon-ecosystem-token") == "polygon-ecosystem-token"
+
+
+def test_target_weights_sum_aliases_on_the_same_venue_contract(tmp_path):
+    path = tmp_path / "symbol_map.csv"
+    path.write_text(
+        "coin_id,bitget_symbol,contract_status,reason\n"
+        "matic-network,POLUSDT,normal,alias:POL\n"
+        "polygon-ecosystem-token,POLUSDT,normal,direct\n",
+        encoding="utf-8",
+    )
+    symbol_map = load_symbol_map(path)
+    book = pd.DataFrame(
+        [
+            {"asset": "matic-network", "target_weight": 0.1},
+            {"asset": "polygon-ecosystem-token", "target_weight": 0.2},
+        ]
+    )
+
+    assert target_weights_from_book(book, symbol_map) == {
+        "polygon-ecosystem-token": pytest.approx(0.3)
+    }
+
+
+def test_missing_asset_mappings_fail_closed_before_symbol_fallback():
+    assert missing_asset_mappings(
+        {"tron": "TRXUSDT"},
+        {"tron", "unmapped-target"},
+    ) == ["unmapped-target"]
 
 
 def test_account_equity_zero_does_not_fall_back_to_another_field():

@@ -10,9 +10,51 @@ than replaced with a lower-ranked asset.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
+
+
+class LiveSymbolMap(dict[str, str]):
+    """Asset-to-contract map with an explicit reverse index.
+
+    A rebrand can legitimately leave more than one CMC coin id on the same
+    Bitget contract (for example MATIC and POL both use POLUSDT).  Targets
+    must still be able to resolve either coin id, while venue positions need
+    one canonical model asset.  A plain ``dict[str, str]`` cannot represent
+    both facts, so the loader keeps all forward aliases and separately records
+    the one canonical asset per venue symbol.
+    """
+
+    def __init__(
+        self,
+        assets: Mapping[str, str],
+        canonical_by_symbol: Mapping[str, str] | None = None,
+    ) -> None:
+        normalized_assets = {
+            str(asset): str(symbol).strip().upper()
+            for asset, symbol in assets.items()
+            if str(symbol).strip()
+        }
+        super().__init__(normalized_assets)
+        self.canonical_by_symbol = {
+            str(symbol).strip().upper(): str(asset)
+            for symbol, asset in (canonical_by_symbol or {}).items()
+            if str(symbol).strip()
+        }
+
+    def canonical_index(self) -> dict[str, str]:
+        """Return a copy of the venue-symbol -> model-asset reverse index."""
+
+        return dict(self.canonical_by_symbol)
+
+    def canonical_asset(self, asset: str) -> str:
+        """Resolve one model alias to the canonical asset of its venue symbol."""
+
+        key = str(asset).strip().lower()
+        symbol = str(self.get(key, "")).strip().upper()
+        return str(self.canonical_by_symbol.get(symbol, key))
 
 # Explicit aliases for rebrands, exchange tokens and contracts quoted in
 # thousand-unit form.  The panel symbol is always tried first; aliases are
@@ -26,7 +68,7 @@ COIN_BASE_ALIASES: dict[str, list[str]] = {
     "terra-luna": ["LUNC", "LUNA", "1000LUNC"],
     "elrond-erd-2": ["EGLD"],
     "avalanche-2": ["AVAX"],
-    "the-open-network": ["TON"],
+    "the-open-network": ["GRAM", "TON"],
     "world-liberty-financial": ["WLFI"],
     "hyperliquid": ["HYPE"],
     "crypto-com-chain": ["CRO"],
@@ -106,7 +148,15 @@ COIN_BASE_ALIASES: dict[str, list[str]] = {
 
 
 def _normalise_base(value: Any) -> str:
-    return str(value or "").strip().upper()
+    if value is None:
+        return ""
+    try:
+        if bool(pd.isna(value)):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip().upper()
+    return "" if text in {"NAN", "NONE", "<NA>"} else text
 
 
 def _contract_priority(contract: dict[str, Any]) -> tuple[int, int, int, float]:
@@ -124,13 +174,28 @@ def _panel_symbols(panel: pd.DataFrame) -> pd.DataFrame:
     missing = required.difference(panel.columns)
     if missing:
         raise ValueError(f"panel is missing required columns: {sorted(missing)}")
-    frame = panel.loc[:, ["coin_id", "symbol"]].copy()
-    frame["coin_id"] = frame["coin_id"].astype(str)
-    frame["symbol"] = frame["symbol"].astype(str)
-    frame = frame.dropna(subset=["coin_id", "symbol"])
-    frame = frame[frame["symbol"].str.len() > 0]
-    # Keep the most recent symbol for a rebranded coin id.  The panel is
-    # ordered by date; a stable de-duplication keeps the last observation.
+    columns = ["coin_id", "symbol"]
+    if "name" in panel.columns:
+        columns.append("name")
+    if "date" in panel.columns:
+        columns.append("date")
+    frame = panel.loc[:, columns].copy()
+    frame["coin_id"] = [
+        str(value).strip() if _normalise_base(value) else ""
+        for value in frame["coin_id"]
+    ]
+    frame["symbol"] = [_normalise_base(value) for value in frame["symbol"]]
+    frame = frame[frame["coin_id"].ne("")]
+    # Keep the most recent symbol for a rebranded coin id.  Do not trust CSV
+    # row order: a shuffled or concatenated panel must still select the
+    # latest symbol, otherwise TON/GRAM-style rebrands can map backwards.
+    if "date" in frame.columns:
+        frame["date"] = pd.to_datetime(frame["date"], utc=True, errors="coerce")
+        frame["_row_order"] = range(len(frame))
+        frame = frame.sort_values(
+            ["coin_id", "date", "_row_order"],
+            na_position="first",
+        )
     frame = frame.drop_duplicates("coin_id", keep="last")
     return frame.sort_values("coin_id").reset_index(drop=True)
 
@@ -155,10 +220,12 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
     for record in _panel_symbols(panel).to_dict("records"):
         coin_id = str(record["coin_id"])
         panel_symbol = _normalise_base(record["symbol"])
-        candidates = [panel_symbol]
-        for alias in COIN_BASE_ALIASES.get(coin_id, []):
-            if alias not in candidates:
-                candidates.append(alias)
+        panel_name = str(record.get("name") or "")
+        candidates = [panel_symbol] if panel_symbol else []
+        if panel_symbol:
+            for alias in COIN_BASE_ALIASES.get(coin_id, []):
+                if alias not in candidates:
+                    candidates.append(alias)
         chosen: dict[str, Any] | None = None
         chosen_base = ""
         reason = "direct"
@@ -175,6 +242,7 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
                 {
                     "coin_id": coin_id,
                     "panel_symbol": panel_symbol,
+                    "panel_name": panel_name,
                     "bitget_symbol": "",
                     "base_coin": "",
                     "contract_status": "missing",
@@ -193,6 +261,7 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
             {
                 "coin_id": coin_id,
                 "panel_symbol": panel_symbol,
+                "panel_name": panel_name,
                 "bitget_symbol": str(chosen.get("symbol", "")),
                 "base_coin": chosen_base,
                 "contract_status": str(chosen.get("symbolStatus", "")),
@@ -209,6 +278,7 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
     columns = [
         "coin_id",
         "panel_symbol",
+        "panel_name",
         "bitget_symbol",
         "base_coin",
         "contract_status",
@@ -228,4 +298,9 @@ def map_panel_symbols(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> p
     return build_symbol_map(panel, contracts)
 
 
-__all__ = ["COIN_BASE_ALIASES", "build_symbol_map", "map_panel_symbols"]
+__all__ = [
+    "COIN_BASE_ALIASES",
+    "LiveSymbolMap",
+    "build_symbol_map",
+    "map_panel_symbols",
+]

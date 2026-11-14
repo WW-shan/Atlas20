@@ -97,10 +97,12 @@ from scripts.plan_live_execution import (  # noqa: E402
     account_state_from_bitget,
     fetch_public_instruments,
     load_symbol_map,
+    missing_asset_mappings,
     missing_contract_specs,
     spec_symbol_universe,
     specs_from_instruments,
     symbol_to_asset_index,
+    target_weights_from_book,
     target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -253,6 +255,18 @@ def _attempt_client_oid_prefix(
     return "a20" + hashlib.sha256(seed.encode("utf-8")).hexdigest()[:20]
 
 
+def _execution_key(
+    spec: str,
+    signal_date: str,
+    run_day: str,
+    target_identity: str,
+) -> str:
+    """Idempotency key bound to both the execution day and exact target book."""
+
+    identity = str(target_identity or "").strip() or "no-target-manifest"
+    return f"{spec}|{signal_date}|{identity}|{run_day}"
+
+
 def _apply_equity_floor(
     plan: Any,
     *,
@@ -375,7 +389,7 @@ def _stamp_assets(rows: list[dict], symbols_by_asset: dict[str, str]) -> list[di
     for row in rows:
         record = dict(row)
         symbol = str(record.get("symbol") or "").upper()
-        record.setdefault("asset", by_symbol.get(symbol, symbol.replace("USDT", "")))
+        record["asset"] = by_symbol.get(symbol, symbol.replace("USDT", "")).lower()
         stamped.append(record)
     return stamped
 
@@ -1021,18 +1035,20 @@ def _main(args: argparse.Namespace) -> int:
             "若与回测不一致请跑 make audit-live）"
         )
 
-    targets = {
-        str(record["asset"]): float(record["target_weight"])
-        for record in book.to_dict("records")
-        if abs(float(record["target_weight"])) > 0.0
-    }
+    symbols_by_asset = load_symbol_map(args.symbol_map)
+    targets = target_weights_from_book(book, symbols_by_asset)
+    missing_mappings = missing_asset_mappings(symbols_by_asset, targets)
+    if missing_mappings:
+        raise SystemExit(
+            "frozen target has no normal Bitget contract mapping: "
+            + ", ".join(missing_mappings)
+        )
     gross_weight = target_gross_weight(targets)
     if gross_weight > float(args.max_gross_multiple) + 1e-9:
         raise SystemExit(
             f"frozen target gross {gross_weight:.6f}x exceeds the "
             f"{float(args.max_gross_multiple):g}x spec cap"
         )
-    symbols_by_asset = load_symbol_map(args.symbol_map)
     # Resolve the venue contract for every asset the account can hold, not just
     # today's targets: a "go to cash" book has no targets at all and the close
     # of the held leg still needs its contract.
@@ -1047,7 +1063,7 @@ def _main(args: argparse.Namespace) -> int:
 
     client = BitgetPrivateClient(BitgetCredentials.from_env())
     account_fp = account_fingerprint(client.account_info())
-    account = account_state_from_bitget(client, {**symbols_by_asset, **relevant_symbols})
+    account = account_state_from_bitget(client, relevant_symbols)
     missing_specs = missing_contract_specs(
         specs,
         set(targets).union(account.positions),
@@ -1124,12 +1140,21 @@ def _main(args: argparse.Namespace) -> int:
             )
         )
 
-    # Idempotency is per *run day*, not per signal date: the book only changes
-    # when a sleeve changes its pick, so keying on the signal date alone would
-    # silently skip every day in between - no rebalance check, no daily
-    # report, no ledger row.  A second run on the same day still skips.
+    # Idempotency is per *run day and exact target book*.  Keying only on the
+    # signal date would skip every unchanged day; keying only on the run day
+    # lets a stale no-op block a later catch-up after the book is rebuilt.
     run_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    key = f"{args.spec}|{signal_date.date()}|{run_day}"
+    target_identity = (
+        str(manifest.get("targets_sha256") or "")
+        if manifest is not None
+        else ""
+    )
+    key = _execution_key(
+        args.spec,
+        str(signal_date.date()),
+        run_day,
+        target_identity,
+    )
     state = _read_state(args.state_file)
     binding_issue = account_state_binding_issue(state, account_fp)
     if binding_issue is not None:
@@ -1186,7 +1211,7 @@ def _main(args: argparse.Namespace) -> int:
             "",
         )
         report.positions_after = _stamp_assets(
-            report.positions_after, {**symbols_by_asset, **relevant_symbols}
+            report.positions_after, relevant_symbols
         )
         planned_orders = list(plan.orders)
     else:
@@ -1204,12 +1229,12 @@ def _main(args: argparse.Namespace) -> int:
             margin_mode=requested,
             require_isolated=bool(args.require_isolated),
             known_protected_short_stops=protected_short_stops(journal),
-            symbol_assets=symbol_to_asset_index({**symbols_by_asset, **relevant_symbols}),
+            symbol_assets=symbol_to_asset_index(relevant_symbols),
             hold_mode=hold_mode,
             client_oid_prefix=client_oid_prefix,
         )
         report.positions_after = _stamp_assets(
-            report.positions_after, {**symbols_by_asset, **relevant_symbols}
+            report.positions_after, relevant_symbols
         )
         for order in floor_blocked_orders:
             report.failures.append(

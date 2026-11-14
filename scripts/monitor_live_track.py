@@ -65,10 +65,12 @@ from scripts.plan_live_execution import (  # noqa: E402
     fetch_public_instruments,
     fetch_public_prices,
     load_symbol_map,
+    missing_asset_mappings,
     missing_contract_specs,
     spec_symbol_universe,
     specs_from_instruments,
     symbol_to_asset_index,
+    target_weights_from_book,
     target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -249,11 +251,7 @@ def _main(args: argparse.Namespace) -> int:
     positions = client.current_positions()
     symbol_map = load_symbol_map(args.symbol_map)
     signal_date, _hint, book = load_latest_targets(args.targets_file)
-    targets = {
-        str(record["asset"]): float(record["target_weight"])
-        for record in book.to_dict("records")
-        if abs(float(record["target_weight"])) > 0.0
-    }
+    targets = target_weights_from_book(book, symbol_map)
 
     session = requests.Session()
     prices = fetch_public_prices(session)
@@ -263,6 +261,11 @@ def _main(args: argparse.Namespace) -> int:
     )
 
     issues: list[str] = []
+    missing_mappings = missing_asset_mappings(symbol_map, targets)
+    if missing_mappings:
+        issues.append(
+            "冻结目标缺少 Bitget 合约映射: " + ", ".join(missing_mappings)
+        )
     target_gross = target_gross_weight(targets)
     if target_gross > SPEC_MAX_GROSS + 1e-9:
         issues.append(

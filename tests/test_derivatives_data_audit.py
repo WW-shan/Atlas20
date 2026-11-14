@@ -23,13 +23,26 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
         [
             {
                 "coin_id": "bitcoin",
+                "panel_symbol": "BTC",
                 "bitget_symbol": "BTCUSDT",
+                "base_coin": "BTC",
                 "contract_status": "normal",
                 "reason": "direct",
                 "fund_interval": 8,
                 "min_trade_usdt": 5,
                 "size_multiplier": 0.001,
-            }
+            },
+            {
+                "coin_id": "ethereum",
+                "panel_symbol": "ETH",
+                "bitget_symbol": "",
+                "base_coin": "",
+                "contract_status": "missing",
+                "reason": "no Bitget USDT-M perpetual",
+                "fund_interval": None,
+                "min_trade_usdt": None,
+                "size_multiplier": None,
+            },
         ]
     ).to_csv(symbol_map, index=False)
 
@@ -39,6 +52,8 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
             [
                 {
                     "symbol": "BTCUSDT",
+                    "baseCoin": "BTC",
+                    "quoteCoin": "USDT",
                     "symbolStatus": "normal",
                     "symbolType": "perpetual",
                     "minLever": "1",
@@ -118,6 +133,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
                 {
                     "date": day,
                     "coin_id": coin,
+                    "symbol": "BTC" if coin == "bitcoin" else "ETH",
                     "price": 100.0,
                     "volume_usd": 1_000_000.0,
                     "market_cap": 10_000_000_000.0,
@@ -247,6 +263,57 @@ def test_latest_panel_market_cap_must_be_finite(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("latest market-cap" in item for item in report.hard_failures)
+
+
+def test_contract_base_identity_must_match_the_symbol_map(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    contracts = paths["raw"] / "contracts.json"
+    payload = json.loads(contracts.read_text(encoding="utf-8"))
+    payload[0]["baseCoin"] = "XBT"
+    contracts.write_text(json.dumps(payload), encoding="utf-8")
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("base coin" in item for item in report.hard_failures)
+
+
+def test_panel_symbol_drift_invalidates_a_stale_symbol_map(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    latest = panel["date"] == "2026-11-13"
+    panel.loc[latest & panel["coin_id"].eq("bitcoin"), "symbol"] = "BTX"
+    panel.to_csv(paths["panel"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("panel symbol drift" in item for item in report.hard_failures)
+
+
+def test_panel_missing_symbol_fails_closed(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    latest = panel["date"] == "2026-11-13"
+    panel.loc[latest & panel["coin_id"].eq("bitcoin"), "symbol"] = ""
+    panel.to_csv(paths["panel"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("panel.valid_symbols" in item for item in report.hard_failures)
+
+
+def test_non_normal_map_row_cannot_keep_a_tradeable_symbol(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    frame = pd.read_csv(paths["symbol_map"])
+    frame.loc[frame["coin_id"].eq("bitcoin"), "contract_status"] = "offline"
+    frame.to_csv(paths["symbol_map"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("non-normal row" in item for item in report.hard_failures)
 
 
 def test_ambiguous_symbol_mapping_fails(tmp_path: Path) -> None:

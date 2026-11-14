@@ -33,7 +33,8 @@
 # or an out-of-hours one.
 #
 # Do not run two copies at once: launchd carries a start-interval throttle, the
-# refresh step takes its own lock, and the executor is idempotent per run day.
+# refresh step takes its own lock, and the executor is idempotent per run day
+# plus exact target-book identity.
 
 set -eu
 
@@ -78,10 +79,14 @@ cd "$PROJECT_ROOT"
 late_arg=""
 window_status=0
 if [ "${1:-}" = "--force" ]; then
-  .venv/bin/python scripts/live_chain_preflight.py --check window --force || window_status=$?
+  .venv/bin/python scripts/live_chain_preflight.py \
+    --check window --force \
+    --manifest-file reports/ls45_live_g125/manifest.json || window_status=$?
   late_arg="--allow-late-execution"
 else
-  .venv/bin/python scripts/live_chain_preflight.py --check window || window_status=$?
+  .venv/bin/python scripts/live_chain_preflight.py \
+    --check window \
+    --manifest-file reports/ls45_live_g125/manifest.json || window_status=$?
 fi
 if [ "$window_status" -eq 3 ]; then
   exit 0
@@ -129,4 +134,6 @@ fi
 # acknowledgement; scheduled fires never receive that argument.
 /usr/bin/make derivatives-live-data derivatives-ls45-signal
 /usr/bin/make audit-data
+/usr/bin/make audit-symbols
+/usr/bin/make audit-signal
 .venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg

@@ -121,6 +121,50 @@ def test_run_day_already_done_ignores_a_key_without_a_run_day(tmp_path: Path) ->
     assert run_day_already_done(state, date(2026, 10, 16)) is False
 
 
+def test_run_day_already_done_requires_the_same_target_identity(tmp_path: Path) -> None:
+    state = _write_state(
+        tmp_path / "state.json",
+        "spec|2026-10-14|target-a|2026-10-16",
+        "ok",
+    )
+
+    assert (
+        run_day_already_done(
+            state,
+            date(2026, 10, 16),
+            target_identity="target-a",
+        )
+        is True
+    )
+    assert (
+        run_day_already_done(
+            state,
+            date(2026, 10, 16),
+            target_identity="target-b",
+        )
+        is False
+    )
+
+
+def test_legacy_success_without_target_identity_cannot_block_a_new_book(
+    tmp_path: Path,
+) -> None:
+    state = _write_state(
+        tmp_path / "state.json",
+        "spec|2026-10-14|2026-10-16",
+        "ok",
+    )
+
+    assert (
+        run_day_already_done(
+            state,
+            date(2026, 10, 16),
+            target_identity="target-b",
+        )
+        is False
+    )
+
+
 def test_preflight_uses_the_ls45_execution_state() -> None:
     from scripts import live_chain_preflight
 

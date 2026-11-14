@@ -330,12 +330,19 @@ def panel_completeness(panel_path: Path) -> tuple[bool, str]:
     return bool(verdict.complete), verdict.describe()
 
 
-def run_day_already_done(state_path: Path, run_day: date) -> bool:
+def run_day_already_done(
+    state_path: Path,
+    run_day: date,
+    *,
+    target_identity: str | None = None,
+) -> bool:
     """True when the executor already recorded a successful run for ``run_day``.
 
-    The executor keys idempotency on ``spec|signal_date|run_day`` and only
-    skips a repeat when the previous status was ``ok``, so a failed day must
-    stay retryable here too.
+    The executor keys idempotency on
+    ``spec|signal_date|targets_sha256|run_day``.  A successful no-op against an
+    older target book must not suppress a later catch-up after the book is
+    rebuilt.  Legacy three-part keys have no target identity and therefore
+    cannot prove that the currently pending book was executed.
     """
 
     path = Path(state_path)
@@ -350,7 +357,12 @@ def run_day_already_done(state_path: Path, run_day: date) -> bool:
     parts = str(state.get("last_key") or "").split("|")
     if len(parts) < 3:
         return False
-    return parts[-1] == run_day.isoformat()
+    if parts[-1] != run_day.isoformat():
+        return False
+    if target_identity is None:
+        return True
+    recorded_identity = parts[-2] if len(parts) >= 4 else ""
+    return recorded_identity == str(target_identity)
 
 
 def within_run_window(

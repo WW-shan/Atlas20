@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, time, timezone
+import json
 from pathlib import Path
 import sys
 
@@ -46,6 +47,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 BLOCKED = 3
 DEFAULT_PANEL = PROJECT_ROOT / "data" / "processed" / "panel_daily.csv"
 DEFAULT_STATE_FILE = PROJECT_ROOT / "data" / "ls45_g125_execution_state.json"
+DEFAULT_MANIFEST_FILE = PROJECT_ROOT / "reports" / "ls45_live_g125" / "manifest.json"
 
 
 def _parse_clock(value: str) -> time:
@@ -61,6 +63,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--check", choices=("window", "panel"), default="window")
     parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    parser.add_argument(
+        "--manifest-file",
+        type=Path,
+        default=None,
+        help="compare the successful state key with the currently pending target book",
+    )
     parser.add_argument("--scheduled-utc", type=_parse_clock, default=DEFAULT_SCHEDULED_UTC)
     parser.add_argument("--catchup-hours", type=float, default=DEFAULT_CATCHUP_HOURS)
     parser.add_argument(
@@ -87,7 +95,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.check == "window":
         if args.force:
             return 0
-        if run_day_already_done(args.state_file, now.date()):
+        target_identity: str | None = None
+        if args.manifest_file is not None:
+            try:
+                manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                print(f"manifest {args.manifest_file} could not be read: {exc}")
+                return 1
+            if not isinstance(manifest, dict) or not manifest.get("targets_sha256"):
+                print(f"manifest {args.manifest_file} has no targets_sha256")
+                return 1
+            target_identity = str(manifest["targets_sha256"])
+        if run_day_already_done(
+            args.state_file,
+            now.date(),
+            target_identity=target_identity,
+        ):
             print(f"run day {now.date().isoformat()} already completed; nothing to do")
             return BLOCKED
         allowed, reason = within_run_window(

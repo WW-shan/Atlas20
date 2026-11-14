@@ -63,6 +63,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     live_execution_hint_for_signal,
     manifest_targets_hash_issue,
 )
+from atlas20.derivatives.mapping import LiveSymbolMap  # noqa: E402
 from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -121,7 +122,7 @@ def manifest_signal_end_date(path: Path) -> pd.Timestamp | None:
     return stamp.normalize()
 
 
-def load_symbol_map(path: Path) -> dict[str, str]:
+def load_symbol_map(path: Path) -> LiveSymbolMap:
     """Load the live asset -> contract map, excluding unusable rows.
 
     A rebrand can leave two CMC ids pointing at one exchange contract
@@ -139,6 +140,7 @@ def load_symbol_map(path: Path) -> dict[str, str]:
         frame["reason"] = ""
 
     by_symbol: dict[str, list[dict[str, object]]] = {}
+    assets: dict[str, str] = {}
     seen_coin_ids: set[str] = set()
     for record in frame.to_dict("records"):
         coin_id = str(record.get("coin_id") or "").strip()
@@ -153,9 +155,13 @@ def load_symbol_map(path: Path) -> dict[str, str]:
         if coin_id in seen_coin_ids:
             raise SystemExit(f"symbol map {path} contains duplicate coin_id {coin_id!r}")
         seen_coin_ids.add(coin_id)
+        status = str(record.get("contract_status") or "normal").strip().lower()
+        if status != "normal":
+            continue
         by_symbol.setdefault(symbol, []).append(record)
+        assets[coin_id] = symbol
 
-    mapped: dict[str, str] = {}
+    canonical: dict[str, str] = {}
     for symbol, candidates in by_symbol.items():
         direct = [
             record
@@ -169,14 +175,28 @@ def load_symbol_map(path: Path) -> dict[str, str]:
                 f"symbol map {path} maps {symbol} ambiguously to {len(eligible)} coin ids: {ids}"
             )
         coin_id = str(eligible[0].get("coin_id") or "").strip()
-        if coin_id in mapped:
-            raise SystemExit(f"symbol map {path} assigns multiple symbols to coin_id {coin_id!r}")
-        mapped[coin_id] = symbol
-    return mapped
+        canonical[symbol] = coin_id
+    return LiveSymbolMap(assets, canonical)
 
 
 def symbol_to_asset_index(symbols_by_asset: dict[str, str]) -> dict[str, str]:
     """Return a fail-closed venue symbol -> model asset index."""
+
+    canonical = getattr(symbols_by_asset, "canonical_by_symbol", None)
+    if isinstance(canonical, dict):
+        index = {
+            str(symbol).strip().upper(): str(asset)
+            for symbol, asset in canonical.items()
+            if str(symbol).strip()
+        }
+        for symbol, asset in index.items():
+            mapped_symbol = str(symbols_by_asset.get(asset, "")).strip().upper()
+            if mapped_symbol != symbol:
+                raise ValueError(
+                    f"canonical venue symbol {symbol} maps to {asset!r}, "
+                    f"whose forward symbol is {mapped_symbol or '<missing>'!r}"
+                )
+        return index
 
     index: dict[str, str] = {}
     for asset, raw_symbol in symbols_by_asset.items():
@@ -190,6 +210,56 @@ def symbol_to_asset_index(symbols_by_asset: dict[str, str]) -> dict[str, str]:
             )
         index[symbol] = asset
     return index
+
+
+def canonical_asset_for(
+    symbols_by_asset: dict[str, str] | LiveSymbolMap,
+    asset: str,
+) -> str:
+    """Return the executable asset id for a possible CMC rebrand alias."""
+
+    key = str(asset).strip().lower()
+    if isinstance(symbols_by_asset, LiveSymbolMap):
+        return symbols_by_asset.canonical_asset(key)
+    return key
+
+
+def target_weights_from_book(
+    book: pd.DataFrame,
+    symbols_by_asset: dict[str, str] | LiveSymbolMap,
+) -> dict[str, float]:
+    """Build signed target weights after resolving venue-contract aliases."""
+
+    targets: dict[str, float] = {}
+    for record in book.to_dict("records"):
+        source_asset = str(record.get("asset") or "").strip().lower()
+        if not source_asset:
+            raise ValueError("target book contains an empty asset")
+        try:
+            weight = float(record["target_weight"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"target weight for {source_asset!r} is invalid") from exc
+        if not isfinite(weight):
+            raise ValueError(f"target weight for {source_asset!r} is not finite")
+        if abs(weight) <= 0.0:
+            continue
+        asset = canonical_asset_for(symbols_by_asset, source_asset)
+        targets[asset] = targets.get(asset, 0.0) + weight
+    return targets
+
+
+def missing_asset_mappings(
+    symbols_by_asset: dict[str, str] | LiveSymbolMap,
+    required_assets: Iterable[str],
+) -> list[str]:
+    """Return required model assets that have no normal Bitget contract."""
+
+    known = {str(asset).strip().lower() for asset in symbols_by_asset}
+    return sorted(
+        str(asset).strip().lower()
+        for asset in required_assets
+        if str(asset).strip().lower() not in known
+    )
 
 
 def load_account_file(path: Path) -> AccountState:
@@ -322,7 +392,7 @@ def fetch_public_prices(session: requests.Session) -> dict[str, float]:
 
 def spec_symbol_universe(
     symbols_by_asset: dict[str, str], targets: Iterable[str] = ()
-) -> dict[str, str]:
+) -> LiveSymbolMap:
     """Every asset whose venue contract the planner may need, asset -> symbol.
 
     Specs used to be resolved from today's target set alone.  A "go to cash"
@@ -335,9 +405,22 @@ def spec_symbol_universe(
     """
 
     universe = {str(asset): str(symbol).upper() for asset, symbol in symbols_by_asset.items()}
+    canonical = dict(getattr(symbols_by_asset, "canonical_by_symbol", {}) or {})
     for asset in targets:
-        universe.setdefault(str(asset), f"{str(asset).upper()}USDT")
-    return universe
+        key = str(asset)
+        if key not in universe:
+            universe[key] = f"{key.upper()}USDT"
+            canonical.setdefault(universe[key], key)
+    if not canonical:
+        counts: dict[str, int] = {}
+        for symbol in universe.values():
+            counts[symbol] = counts.get(symbol, 0) + 1
+        canonical = {
+            symbol: asset
+            for asset, symbol in universe.items()
+            if counts.get(symbol) == 1
+        }
+    return LiveSymbolMap(universe, canonical)
 
 
 def specs_from_instruments(rows: list[dict], symbols_by_asset: dict[str, str]) -> dict[str, ContractSpec]:
@@ -511,11 +594,13 @@ def main() -> None:
     execution_hint = pd.Timestamp(
         live_execution_hint_for_signal(signal_end_date or signal_date)
     )
-    targets = {
-        str(record["asset"]): float(record["target_weight"])
-        for record in book.to_dict("records")
-        if abs(float(record["target_weight"])) > 0.0
-    }
+    targets = target_weights_from_book(book, symbols_by_asset)
+    missing_mappings = missing_asset_mappings(symbols_by_asset, targets)
+    if missing_mappings:
+        raise SystemExit(
+            "frozen target has no normal Bitget contract mapping: "
+            + ", ".join(missing_mappings)
+        )
     gross_weight = target_gross_weight(targets)
     if gross_weight > float(args.max_gross_multiple) + 1e-9:
         raise SystemExit(
@@ -541,8 +626,7 @@ def main() -> None:
     account: AccountState | None = None
     if args.live:
         client = BitgetPrivateClient(BitgetCredentials.from_env())
-        symbols_for_account = {**symbols_by_asset, **relevant_symbols}
-        account = account_state_from_bitget(client, symbols_for_account)
+        account = account_state_from_bitget(client, relevant_symbols)
     elif args.account_file is not None:
         account = load_account_file(args.account_file)
     elif args.equity is not None:

@@ -118,6 +118,56 @@ def test_window_check_retries_a_failed_day(tmp_path: Path) -> None:
     assert code == 0
 
 
+def test_window_check_retries_when_the_target_book_changed(tmp_path: Path) -> None:
+    state = _write_state(
+        tmp_path / "state.json",
+        "spec|2026-10-15|target-a|2026-10-16",
+        "ok",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"targets_sha256": "target-b"}), encoding="utf-8")
+
+    code = main(
+        [
+            "--check",
+            "window",
+            "--state-file",
+            str(state),
+            "--manifest-file",
+            str(manifest),
+            "--now",
+            "2026-10-16T04:00:00+00:00",
+        ]
+    )
+
+    assert code == 0
+
+
+def test_window_check_blocks_when_the_target_book_is_unchanged(tmp_path: Path) -> None:
+    state = _write_state(
+        tmp_path / "state.json",
+        "spec|2026-10-15|target-a|2026-10-16",
+        "ok",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"targets_sha256": "target-a"}), encoding="utf-8")
+
+    code = main(
+        [
+            "--check",
+            "window",
+            "--state-file",
+            str(state),
+            "--manifest-file",
+            str(manifest),
+            "--now",
+            "2026-10-16T04:00:00+00:00",
+        ]
+    )
+
+    assert code == BLOCKED
+
+
 def test_window_check_blocks_outside_the_catchup_budget(tmp_path: Path) -> None:
     state = _write_state(tmp_path / "state.json", "spec|2026-10-14|2026-10-15", "ok")
 

@@ -72,9 +72,11 @@ from scripts.plan_live_execution import (  # noqa: E402
     fetch_public_instruments,
     fetch_public_prices,
     load_symbol_map,
+    missing_asset_mappings,
     spec_symbol_universe,
     specs_from_instruments,
     symbol_to_asset_index,
+    target_weights_from_book,
     target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
@@ -636,11 +638,8 @@ def main(argv: list[str] | None = None) -> int:
     positions = client.current_positions()
     symbol_map = load_symbol_map(args.symbol_map)
     signal_date, execution_hint, book = load_latest_targets(args.targets_file)
-    targets = {
-        str(record["asset"]): float(record["target_weight"])
-        for record in book.to_dict("records")
-        if abs(float(record["target_weight"])) > 0.0
-    }
+    targets = target_weights_from_book(book, symbol_map)
+    missing_mappings = missing_asset_mappings(symbol_map, targets)
     target_gross = target_gross_weight(targets)
     relevant = spec_symbol_universe(symbol_map, targets)
     session = requests.Session()
@@ -660,6 +659,12 @@ def main(argv: list[str] | None = None) -> int:
 
     def check(name: str, ok: bool, detail: str, *, hard: bool = True) -> None:
         checks.append({"check": name, "ok": bool(ok), "hard": hard, "detail": detail})
+
+    check(
+        "冻结目标都有唯一 Bitget 合约映射",
+        not missing_mappings,
+        ", ".join(missing_mappings) or "全部有唯一映射",
+    )
 
     try:
         drill_order_ids = _load_drill_order_ids(args.drill_registry)
@@ -993,9 +998,7 @@ def main(argv: list[str] | None = None) -> int:
             hard=targets_hash_recorded,
         )
         required_short_assets = {
-            str(record["asset"])
-            for record in book.to_dict("records")
-            if float(record["target_weight"]) < 0.0
+            asset for asset, weight in targets.items() if weight < 0.0
         }
         data_audit = audit_derivatives_data(
             args.raw_dir,

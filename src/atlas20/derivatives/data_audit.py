@@ -25,6 +25,18 @@ DEFAULT_EXECUTION_UTC = time(1, 5)
 DEFAULT_FUNDING_STALE_HOURS = 12.0
 
 
+def _normalise_text(value: object) -> str:
+    if value is None:
+        return ""
+    try:
+        if bool(pd.isna(value)):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    text = str(value).strip()
+    return "" if text.lower() in {"nan", "none", "<na>"} else text
+
+
 @dataclass
 class DataAuditReport:
     """One auditable data snapshot and its typed pass/fail evidence."""
@@ -104,14 +116,29 @@ def _read_panel(path: Path, report: DataAuditReport, now: datetime) -> pd.DataFr
     except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
         _check(report, "panel.readable", False, str(exc))
         return None
-    required = {"date", "coin_id", "price", "volume_usd", "market_cap"}
+    required = {"date", "coin_id", "symbol", "price", "volume_usd", "market_cap"}
     missing = sorted(required.difference(frame.columns))
     _check(report, "panel.columns", not missing, f"missing columns {missing}" if missing else "all required columns present")
     if missing:
         return None
     frame = frame.copy()
     frame["date"] = pd.to_datetime(frame["date"], utc=True, format="mixed", errors="coerce").dt.normalize()
-    frame["coin_id"] = frame["coin_id"].astype(str)
+    frame["coin_id"] = [_normalise_text(value) for value in frame["coin_id"]]
+    frame["symbol"] = [_normalise_text(value).upper() for value in frame["symbol"]]
+    invalid_coin_id = frame["coin_id"].eq("")
+    invalid_symbol = frame["symbol"].eq("")
+    _check(
+        report,
+        "panel.valid_coin_ids",
+        not invalid_coin_id.any(),
+        f"{int(invalid_coin_id.sum())} missing/non-finite coin id row(s)",
+    )
+    _check(
+        report,
+        "panel.valid_symbols",
+        not invalid_symbol.any(),
+        f"{int(invalid_symbol.sum())} missing/non-finite symbol row(s)",
+    )
     for column in ("price", "volume_usd", "market_cap"):
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
     invalid_date = frame["date"].isna()
@@ -151,19 +178,70 @@ def _read_symbol_map(path: Path, report: DataAuditReport) -> pd.DataFrame | None
     except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
         _check(report, "symbol_map.readable", False, str(exc))
         return None
-    required = {"coin_id", "bitget_symbol", "contract_status", "reason", "fund_interval", "min_trade_usdt", "size_multiplier"}
+    required = {
+        "coin_id",
+        "panel_symbol",
+        "bitget_symbol",
+        "base_coin",
+        "contract_status",
+        "reason",
+        "fund_interval",
+        "min_trade_usdt",
+        "size_multiplier",
+    }
     missing = sorted(required.difference(frame.columns))
     _check(report, "symbol_map.columns", not missing, f"missing columns {missing}" if missing else "all required columns present")
     if missing:
         return None
     frame = frame.copy()
-    frame["coin_id"] = frame["coin_id"].astype(str).str.strip()
-    frame["bitget_symbol"] = frame["bitget_symbol"].fillna("").astype(str).str.strip()
+    for column in (
+        "coin_id",
+        "panel_symbol",
+        "bitget_symbol",
+        "base_coin",
+        "contract_status",
+        "reason",
+    ):
+        frame[column] = (
+            frame[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace({"nan": "", "NaN": "", "NAN": "", "None": ""})
+        )
     duplicate_coin = frame["coin_id"].duplicated(keep=False)
     _check(report, "symbol_map.unique_coin", not duplicate_coin.any(), f"{int(duplicate_coin.sum())} duplicate coin_id row(s)")
     normal = frame.loc[frame["contract_status"].astype(str).str.lower().eq("normal")].copy()
     missing_symbol = normal["bitget_symbol"].eq("")
     _check(report, "symbol_map.normal_symbol", not missing_symbol.any(), f"{int(missing_symbol.sum())} normal row(s) without Bitget symbol")
+    missing_panel_symbol = normal["panel_symbol"].eq("")
+    _check(
+        report,
+        "symbol_map.normal_panel_symbol",
+        not missing_panel_symbol.any(),
+        f"{int(missing_panel_symbol.sum())} normal row(s) without the source panel symbol",
+    )
+    missing_base = normal["base_coin"].eq("")
+    _check(
+        report,
+        "symbol_map.normal_base_coin",
+        not missing_base.any(),
+        f"{int(missing_base.sum())} normal row(s) without a base coin",
+    )
+    unusable_with_symbol = frame.loc[
+        ~frame["contract_status"].str.lower().eq("normal")
+        & frame["bitget_symbol"].ne("")
+    ]
+    _check(
+        report,
+        "symbol_map.unusable_has_no_symbol",
+        unusable_with_symbol.empty,
+        (
+            f"{len(unusable_with_symbol)} non-normal row(s) still carry a tradeable symbol"
+            if not unusable_with_symbol.empty
+            else "non-normal rows carry no venue symbol"
+        ),
+    )
     symbol_dupes = normal.loc[normal["bitget_symbol"].ne("") & normal["bitget_symbol"].duplicated(keep=False)]
     if not symbol_dupes.empty:
         alias_only = symbol_dupes.groupby("bitget_symbol", dropna=False).apply(
@@ -178,6 +256,47 @@ def _read_symbol_map(path: Path, report: DataAuditReport) -> pd.DataFrame | None
         invalid = numeric.isna() | ~np.isfinite(numeric.to_numpy(dtype=float)) | (numeric <= 0.0)
         _check(report, f"symbol_map.valid_{column}", not invalid.any(), f"{int(invalid.sum())} invalid normal row(s)")
     return frame
+
+
+def _check_panel_symbol_alignment(
+    panel: pd.DataFrame,
+    symbol_map: pd.DataFrame,
+    report: DataAuditReport,
+) -> None:
+    """Prove the cached map was built from the current per-asset symbols."""
+
+    latest = (
+        panel.sort_values(["date", "coin_id"], kind="stable")
+        .drop_duplicates("coin_id", keep="last")
+        .set_index("coin_id")
+    )
+    latest_symbols = {
+        str(coin_id): _normalise_text(value).upper()
+        for coin_id, value in latest["symbol"].items()
+    }
+    mapped = symbol_map.drop_duplicates("coin_id", keep="last").set_index("coin_id", drop=False)
+    missing = sorted(set(latest_symbols).difference(mapped.index.astype(str)))
+    _check(
+        report,
+        "symbol_map.latest_panel_coverage",
+        not missing,
+        f"latest panel asset(s) absent from symbol map: {missing}" if missing else "all latest panel assets mapped",
+    )
+
+    drift: list[str] = []
+    for coin_id, panel_symbol in latest_symbols.items():
+        if coin_id not in mapped.index:
+            continue
+        row = mapped.loc[coin_id]
+        mapped_symbol = str(row.get("panel_symbol") or "").strip().upper()
+        if panel_symbol != mapped_symbol:
+            drift.append(f"{coin_id}:{mapped_symbol or '<missing>'}->{panel_symbol or '<missing>'}")
+    _check(
+        report,
+        "symbol_map.latest_panel_symbols",
+        not drift,
+        "panel symbol drift: " + ", ".join(sorted(drift)) if drift else "panel symbols current",
+    )
 
 
 def _read_contracts(path: Path, report: DataAuditReport) -> dict[str, dict[str, Any]]:
@@ -333,6 +452,8 @@ def audit_derivatives_data(
     panel = _read_panel(panel_file, report, moment)
     symbol_map = _read_symbol_map(symbol_file, report)
     contracts = _read_contracts(raw / "contracts.json", report)
+    if panel is not None and symbol_map is not None:
+        _check_panel_symbol_alignment(panel, symbol_map, report)
     if panel is not None and not panel.empty:
         last_completed = moment.date() - timedelta(days=1)
         latest = panel["date"].max().date()
@@ -361,6 +482,29 @@ def audit_derivatives_data(
             if contract is not None:
                 status = str(contract.get("symbolStatus") or "").lower()
                 kind = str(contract.get("symbolType") or "").lower()
+                contract_symbol = str(contract.get("symbol") or "").strip().upper()
+                contract_base = str(contract.get("baseCoin") or "").strip().upper()
+                contract_quote = str(contract.get("quoteCoin") or "").strip().upper()
+                mapped_base = str(row.get("base_coin") or "").strip().upper()
+                _check(
+                    report,
+                    f"contracts.{asset}.base_coin",
+                    bool(mapped_base) and contract_base == mapped_base,
+                    f"base coin mismatch: contract baseCoin={contract_base or 'missing'} vs map base_coin={mapped_base or 'missing'}",
+                )
+                _check(
+                    report,
+                    f"contracts.{asset}.quote_coin",
+                    contract_quote == "USDT",
+                    f"quoteCoin={contract_quote or 'missing'}",
+                )
+                _check(
+                    report,
+                    f"contracts.{asset}.symbol_identity",
+                    bool(contract_base and contract_quote)
+                    and contract_symbol == f"{contract_base}{contract_quote}",
+                    f"symbol={contract_symbol or 'missing'} vs baseCoin+quoteCoin={contract_base or '?'}+{contract_quote or '?'}",
+                )
                 try:
                     min_lever = float(contract.get("minLever"))
                     max_lever = float(contract.get("maxLever"))

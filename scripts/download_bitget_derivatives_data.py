@@ -51,7 +51,17 @@ DEFAULT_FUNDING_REFRESH_HOURS = 12.0
 
 
 def _read_panel(path: Path) -> pd.DataFrame:
-    frame = pd.read_csv(path, usecols=["coin_id", "symbol"])
+    frame = pd.read_csv(path)
+    required = {"coin_id", "symbol"}
+    missing = required.difference(frame.columns)
+    if missing:
+        raise ValueError(f"panel {path} is missing columns {sorted(missing)}")
+    columns = ["coin_id", "symbol"]
+    if "name" in frame.columns:
+        columns.append("name")
+    if "date" in frame.columns:
+        columns.append("date")
+    frame = frame.loc[:, columns].copy()
     frame["coin_id"] = frame["coin_id"].astype(str)
     frame["symbol"] = frame["symbol"].astype(str)
     return frame

@@ -1112,3 +1112,33 @@ def test_fatal_notification_survives_an_unwritable_latest_path(tmp_path, monkeyp
 
     assert code == 1
     assert sent and "execution failed" in sent[0]
+
+
+def test_stamp_assets_overrides_a_venue_alias_with_the_model_asset() -> None:
+    from scripts import execute_live_plan
+
+    stamped = execute_live_plan._stamp_assets(
+        [{"symbol": "TRXUSDT", "asset": "TRX", "total": "10"}],
+        {"tron": "TRXUSDT"},
+    )
+
+    assert stamped[0]["asset"] == "tron"
+
+
+def test_execution_key_changes_when_the_target_book_changes() -> None:
+    first = execute_live_plan._execution_key(
+        "spec",
+        "2026-11-06",
+        "2026-11-14",
+        "target-a",
+    )
+    second = execute_live_plan._execution_key(
+        "spec",
+        "2026-11-06",
+        "2026-11-14",
+        "target-b",
+    )
+
+    assert first.endswith("|2026-11-14")
+    assert second.endswith("|2026-11-14")
+    assert first != second

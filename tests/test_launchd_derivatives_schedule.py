@@ -125,7 +125,9 @@ def test_execute_job_catches_a_reboot_up_without_trading_twice():
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
     assert payload["RunAtLoad"] is True
-    assert "scripts/live_chain_preflight.py --check window" in script
+    assert "scripts/live_chain_preflight.py" in script
+    assert "--check window" in script
+    assert "--manifest-file reports/ls45_live_g125/manifest.json" in script
     assert "scripts/live_chain_preflight.py --check panel" in script
     assert "scripts/refresh_daily_data.py" in script
 
@@ -177,7 +179,9 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     payload = plistlib.loads(EXECUTE_PLIST.read_bytes())
 
     assert '[ "${1:-}" = "--force" ]' in script
-    assert "live_chain_preflight.py --check window --force" in script
+    assert "live_chain_preflight.py" in script
+    assert "--check window --force" in script
+    assert "--manifest-file reports/ls45_live_g125/manifest.json" in script
     assert "--allow-late-execution" in script
     # launchd passes the wrapper path and nothing else, so every scheduled or
     # RunAtLoad fire goes through the window.

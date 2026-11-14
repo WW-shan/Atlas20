@@ -36,8 +36,9 @@
 	  panel before spending money.
 
 	  ThrottleInterval (300s) keeps two copies from racing if a manual kickstart
-	  overlaps the calendar fire. The executor itself is idempotent per run day,
-	  so a re-run after a completed day is a no-op report.
+		  overlaps the calendar fire. The executor is idempotent per run day and
+		  exact target-book hash, so an unchanged completed book is a no-op while a
+		  later same-day target rebuild remains eligible for catch-up.
 
 	  Logs: ~/Library/Logs/atlas20-derivatives-execute.log (stdout and stderr).
 	-->
