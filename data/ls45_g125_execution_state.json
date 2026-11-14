@@ -1,7 +1,7 @@
 {
   "account_fingerprint": "cb05dac7a33ea24f",
   "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
-  "last_run_at": "2026-11-14T14:15:00.055382+00:00",
+  "last_run_at": "2026-11-14T16:38:17.275427+00:00",
   "last_status": "ok",
   "migration": {
     "baseline_available": 499.45972246,
@@ -120,6 +120,13 @@
       ],
       "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
       "ran_at": "2026-11-14T14:15:00.055382+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "ran_at": "2026-11-14T16:38:17.275427+00:00",
       "status": "ok"
     }
   ]
