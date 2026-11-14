@@ -4,8 +4,9 @@ Answers one question: *can every number in the daily report be reproduced
 from an independent source?*  It re-reads the exchange, the frozen target
 book and the local ledger, then checks
 
-1. the account identity ``usdtEquity == USDT-equivalent collateral + unrealisedPnl``,
-2. ``positionValue == Σ |size| × markPrice`` across open legs,
+1. the account identity ``usdtEquity == USDT-equivalent collateral + isolated margin + unrealisedPnl``,
+2. account-level ``positionValue`` is reconciled with open legs, using the
+   isolated ``current-position`` rows when Bitget exposes zero there,
 3. every trade in the ledger exists in the venue's order history with the
    same quantity, average price and fee,
 4. the current book matches the frozen target book (within one contract lot),
@@ -230,6 +231,74 @@ def _usdt_equivalent_balance(assets: dict) -> float:
         else:
             total += _num(row.get("usdValue"))
     return total
+
+
+def _isolated_margin_balance(positions: list[dict]) -> float:
+    """Sum the margin held inside open isolated position legs."""
+
+    return sum(
+        _num(row.get("positionBalance"))
+        for row in positions
+        if abs(_num(row.get("total"))) > 1e-12
+    )
+
+
+def _account_identity_components(
+    assets: dict,
+    positions: list[dict],
+) -> tuple[float, float, float, float]:
+    """Return the four values used by the UTA account identity check."""
+
+    return (
+        _num(assets.get("usdtEquity")),
+        _usdt_equivalent_balance(assets),
+        _isolated_margin_balance(positions),
+        _num(assets.get("usdtUnrealisedPnl")),
+    )
+
+
+def _position_value_reconciliation(
+    reported_position_value: float,
+    mark_notional: float,
+    positions: list[dict],
+) -> tuple[bool, str]:
+    """Reconcile the account-level value with the independent position rows.
+
+    Bitget's UTA ``assets.positionValue`` is zero for isolated futures while
+    ``current-position`` still carries the open legs.  In that specific shape,
+    use the position rows and require every open leg to be isolated with a
+    positive ``positionBalance``; a zero account-level value without that
+    evidence remains a hard failure.
+    """
+
+    tolerance = max(0.05, 0.003 * abs(mark_notional))
+    if abs(reported_position_value - mark_notional) <= tolerance:
+        return (
+            True,
+            f"交易所 {reported_position_value:.4f} vs 重算 {mark_notional:.4f}",
+        )
+
+    active = [
+        row for row in positions if abs(_num(row.get("total"))) > 1e-12
+    ]
+    isolated_zero = (
+        abs(reported_position_value) <= 1e-12
+        and bool(active)
+        and all(str(row.get("marginMode") or "").lower() == "isolated" for row in active)
+        and all(_num(row.get("positionBalance")) > 0.0 for row in active)
+    )
+    if isolated_zero:
+        return (
+            True,
+            "Bitget assets.positionValue=0 for isolated legs; "
+            f"current-position 重算 {mark_notional:.4f}",
+        )
+
+    return (
+        False,
+        f"交易所 {reported_position_value:.4f} vs 重算 {mark_notional:.4f}；"
+        "positionValue=0 回退需要所有持仓均为 isolated 且 positionBalance>0",
+    )
 
 
 def _position_data_issues(positions: list[dict]) -> list[str]:
@@ -524,6 +593,13 @@ def _ledger_expected_equity(
     return expected_equity, mismatches
 
 
+
+def _ledger_equity_tolerance(equity: float) -> float:
+    """Allow for cross-request marks without hiding a material ledger break."""
+
+    return max(0.10, 0.0002 * abs(float(equity)))
+
+
 def _pnl_chain_errors(journal: pd.DataFrame) -> list[str]:
     """Return every adjacent-row break in the capital-adjusted PnL chain."""
 
@@ -646,10 +722,9 @@ def main(argv: list[str] | None = None) -> int:
     prices = fetch_public_prices(session)
     specs = specs_from_instruments(fetch_public_instruments(session), relevant)
 
-    equity = _num(assets.get("usdtEquity"))
-    balance = _usdt_equivalent_balance(assets)
-    unrealised = _num(assets.get("usdtUnrealisedPnl"))
-    reported_position_value = _num(assets.get("positionValue"))
+    equity, balance, isolated_margin, unrealised = _account_identity_components(
+        assets, positions
+    )
     mark_notional = sum(
         abs(_num(row.get("total"))) * _num(row.get("markPrice") or row.get("avgPrice"))
         for row in positions
@@ -715,17 +790,20 @@ def main(argv: list[str] | None = None) -> int:
             ", ".join(pending_issues) or "0 笔",
         )
     check(
-        "账户恒等式 equity = USDT 等值抵押品 + uPnL",
-        abs(equity - (balance + unrealised)) <= 0.02,
-        f"{equity:.4f} vs {balance:.4f} + {unrealised:.4f} = {balance + unrealised:.4f}",
+        "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
+        abs(equity - (balance + isolated_margin + unrealised)) <= 0.02,
+        f"{equity:.4f} vs {balance:.4f} + {isolated_margin:.4f} + "
+        f"{unrealised:.4f} = {balance + isolated_margin + unrealised:.4f}",
     )
     # ``assets`` and ``current-position`` are two round trips, so their marks
     # can differ by a few bps on a moving book; the tolerance says so.
+    position_value_ok, position_value_detail = _position_value_reconciliation(
+        _num(assets.get("positionValue")), mark_notional, positions
+    )
     check(
         "仓位市值 = Σ 数量 × 标记价",
-        abs(reported_position_value - mark_notional) <= max(0.05, 0.003 * mark_notional),
-        f"交易所 {reported_position_value:.4f} vs 重算 {mark_notional:.4f}"
-        f"（两次请求的标记价差 {abs(reported_position_value - mark_notional):.4f}）",
+        position_value_ok,
+        position_value_detail,
     )
 
     known_symbols = symbol_to_asset_index(symbol_map)
@@ -799,7 +877,10 @@ def main(argv: list[str] | None = None) -> int:
             detail += f"；外部资金流 {capital_flow:+.4f}"
         if mismatches:
             detail += f"；{'；'.join(mismatches)}"
-        consistent = not mismatches and abs(expected_equity - equity) <= 0.05
+        consistent = (
+            not mismatches
+            and abs(expected_equity - equity) <= _ledger_equity_tolerance(equity)
+        )
         check(
             "台账最新一行 = 当前账户（按实时标记价折算）",
             consistent,

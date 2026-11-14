@@ -5532,3 +5532,43 @@ Vite build、`audit-data`、`audit-signal` 全部通过。`audit-live` 的 31 �
 回归测试覆盖：01:05 边界所需 bar、交易所延迟后补到、已有更新 bar 但中间仍缺 required bar、
 深缺口不误做尾部重试、等待预算耗尽即停止。没有下真实订单；下一次 01:05 主任务仍需用真实
 运行和 `audit-live` 最终验收。
+
+### 00.143 2026-11-14 LS45-G125：负责人授权的迟到补跑、四腿空头实盘成交与审计闭环
+
+负责人在 2026-11-14 22:09 北京（14:09 UTC）明确授权立即补空。执行使用
+`ops/run_derivatives_daily.sh --force`，只跳过已经错过的窗口闸；数据、账户、isolated、
+gross、止损回读、成交对账和幂等门禁全部保留。补跑前预检确认凭据可读、kill switch 不存在、
+没有并行执行进程。
+
+补跑结果：
+
+- Bitget mark 下载到 2026-11-14 13:00 UTC，88 个目标合约正常；数据审计 **0 hard failure /
+  1 warning**（32 条历史非有限 market-cap），symbol audit 的 88/88 合约均支持 2x、多空、
+  翻转和报价；
+- LS45 冻结账本与重建账本均为 72 行、32 个重叠信号日，差异 **0**；目标账本哈希与 manifest
+  fingerprint 一致；
+- 真实成交四笔空头（均为 isolated 2x，附 mark-price、market 止损）：
+
+| 资产 | 数量 | 成交均价 | 20% mark 止损 |
+|---|---:|---:|---:|
+| BITCOIN-CASH | 0.14 | 215.17 | 258.27 |
+| HYPERLIQUID | 0.46 | 67.308 | 80.835 |
+| NEAR | 9 | 3.2706 | 3.9288 |
+| ZCASH | 0.035 | 884.27 | 1061.93 |
+
+成交后账户权益约 **499.65 USDT**，四腿 gross 约 **121.37 USDT（0.243x）**；当前持仓全部
+逐仓 2x，四张策略止损均已由交易所回读确认，普通挂单为 0，未触发 emergency close。journal
+已写入 2026-11-14、signal 2026-11-13，真实成交订单和止损字段已落账。
+
+**审计修复**：真实 UTA 账户在 isolated 持仓下返回 `assets.positionValue=0`，且
+`usdtEquity` 的恒等式必须包含各腿 `positionBalance` 的 isolated margin。审计器已改为：
+
+1. `usdtEquity = USDT 等值抵押品 + Σ isolated positionBalance + uPnL`；
+2. 当 `assets.positionValue=0` 且所有活动腿均为 isolated、`positionBalance>0` 时，使用
+   `current-position` 的 `total × markPrice` 重算，不用错误的账户级 0 直接判失败；
+3. 账本对账容差改为 `max(0.10 USDT, 权益的 2bps)`，覆盖两次交易所请求之间的报价快照差异；
+   这不是策略风险门禁，isolated、gross、止损和目标一致性门槛没有放宽。
+
+修复后 `audit-live` 全部硬检查通过，`monitor_live_track.py` 健康巡检通过；`test_audit_live_track.py`
+32 项通过。该次执行是负责人明确授权的迟到补跑，不应被解释为自动执行器已经验证了所有未来
+迟到补跑路径；下一次正常 01:05 UTC 任务仍须重新通过完整链路。

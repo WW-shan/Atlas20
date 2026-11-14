@@ -9,7 +9,7 @@
   "data_audit_warnings": [
     "panel.valid_market_cap: 32 negative/non-finite market-cap row(s)"
   ],
-  "data_fingerprint": "sha256:9ccd2bac1ca17aa9c6c9e4b57d5ff3ab52e9d246b5567a4a734ff64f5428c08f",
+  "data_fingerprint": "sha256:17ec173d9e90f2a207f23d6825216da14fe9b6ef868b57856ef7cc4be0ec1a45",
   "end_date": "2026-11-13 00:00:00+00:00",
   "engine_capital": 500.0,
   "engine_end": "2026-11-14 00:00:00+00:00",
@@ -58,7 +58,7 @@
   "funding_last": "2026-11-14 08:00:00+00:00",
   "funding_source": "bitget-exact",
   "index_end_date": "2026-11-13",
-  "last_mark": "2026-11-14 08:00:00+00:00",
+  "last_mark": "2026-11-14 13:00:00+00:00",
   "live_execution": false,
   "live_parity": true,
   "mark_carry_count": 0,
@@ -85,7 +85,7 @@
   "research_only": true,
   "signal_end_date": "2026-11-13",
   "spec": "docs/superpowers/specs/2026-11-13-h5-ls23-profitlock-stronger21-design.md",
-  "staleness_hours": 1.9831338544444443,
+  "staleness_hours": 1.1831828066666668,
   "start": "2026-09-22 00:00:00+00:00",
   "targets_file": "oos_targets.csv",
   "targets_sha256": "e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871",

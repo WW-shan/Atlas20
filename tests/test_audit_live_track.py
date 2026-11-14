@@ -436,6 +436,83 @@ def test_usdt_equivalent_balance_includes_non_usdt_collateral() -> None:
     assert balance == pytest.approx(499.62946023)
 
 
+def test_account_identity_includes_isolated_position_margin() -> None:
+    from scripts.audit_live_track import _account_identity_components
+
+    assets = {
+        "usdtEquity": "499.59468426",
+        "usdtUnrealisedPnl": "0.0413",
+        "assets": [
+            {"coin": "USDT", "equity": "436.54408782"},
+            {"coin": "BGB", "usdValue": "0.16642705"},
+        ],
+    }
+    positions = [
+        {
+            "symbol": "ZECUSDT",
+            "total": "0.035",
+            "posSide": "short",
+            "positionBalance": "16.00555047",
+        },
+        {
+            "symbol": "HYPEUSDT",
+            "total": "0.46",
+            "posSide": "short",
+            "positionBalance": "16.02101533",
+        },
+        {
+            "symbol": "NEARUSDT",
+            "total": "9",
+            "posSide": "short",
+            "positionBalance": "15.23275542",
+        },
+        {
+            "symbol": "BCHUSDT",
+            "total": "0.14",
+            "posSide": "short",
+            "positionBalance": "15.58343122",
+        },
+    ]
+
+    equity, collateral, isolated, unrealised = _account_identity_components(
+        assets, positions
+    )
+
+    assert equity == pytest.approx(499.59468426)
+    assert collateral == pytest.approx(436.71051487)
+    assert isolated == pytest.approx(62.84275244)
+    assert unrealised == pytest.approx(0.0413)
+    assert collateral + isolated + unrealised == pytest.approx(equity, abs=0.001)
+
+
+def test_position_value_accepts_zero_assets_field_for_isolated_legs() -> None:
+    from scripts.audit_live_track import _position_value_reconciliation
+
+    positions = [
+        {
+            "symbol": "NEARUSDT",
+            "total": "9",
+            "posSide": "short",
+            "markPrice": "3.2706",
+            "marginMode": "isolated",
+            "positionBalance": "15.23275542",
+        }
+    ]
+
+    ok, detail = _position_value_reconciliation(0.0, 29.4354, positions)
+
+    assert ok
+    assert "positionValue=0" in detail
+    assert "current-position" in detail
+
+
+def test_ledger_equity_tolerance_allows_snapshot_noise_but_stays_bounded() -> None:
+    from scripts.audit_live_track import _ledger_equity_tolerance
+
+    assert _ledger_equity_tolerance(499.6) == pytest.approx(0.10)
+    assert _ledger_equity_tolerance(1_000_000.0) == pytest.approx(200.0)
+
+
 def test_position_audit_rejects_an_invalid_total_and_mark_price() -> None:
     from scripts.audit_live_track import _position_data_issues
 
