@@ -8,10 +8,13 @@ import pytest
 from atlas20.derivatives.execution import ContractSpec
 from atlas20.derivatives.live_journal import (
     JournalEntry,
+    latest_short_quantities,
     protected_short_stops,
     protected_short_symbols,
 )
 from scripts.audit_live_track import (
+    _active_event_state_issues,
+    _event_quantity_issues,
     _execution_floor_issue,
     _ledger_expected_equity,
     _orphan_strategy_order_issues,
@@ -20,8 +23,11 @@ from scripts.audit_live_track import (
     _position_signed_notional,
     _position_side_issues,
     _position_short_stop_expectations,
+    _short_stop_duplicate_issues,
+    _short_stop_liquidation_issues,
     _position_target_issues,
     _short_stop_gaps,
+    _strategy_stop_history_issues,
     _short_stop_expectation_gaps,
     _trade_mismatch,
     _unfilled_order_issues,
@@ -558,6 +564,16 @@ def test_open_short_requires_a_recorded_stop_trade() -> None:
     assert _short_stop_gaps(journal, positions) == ["NEARUSDT"]
 
 
+def test_journal_trade_rows_must_be_valid_objects() -> None:
+    from scripts.audit_live_track import _journal_trade_rows
+
+    assert _journal_trade_rows('[{"order_id": "1"}]') == [{"order_id": "1"}]
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _journal_trade_rows("not-json")
+    with pytest.raises(ValueError, match="array of objects"):
+        _journal_trade_rows('["not-an-object"]')
+
+
 def test_position_risk_checks_require_isolated_two_x_and_the_margin_buffer() -> None:
     from scripts.audit_live_track import _position_risk_issues
 
@@ -915,6 +931,53 @@ def test_multiple_exchange_stops_must_collectively_cover_the_short() -> None:
     ) == ["NEARUSDT"]
 
 
+def test_short_stop_audit_rejects_multiple_active_stops_for_one_short() -> None:
+    positions = [
+        {"symbol": "NEARUSDT", "total": "4", "posSide": "short", "markPrice": "3.545"}
+    ]
+    strategy_orders = [
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "2",
+            "stopLoss": "4.2538",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+        {
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "qty": "2",
+            "stopLoss": "4.2542",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "status": "pending",
+        },
+    ]
+
+    assert _short_stop_duplicate_issues(positions, strategy_orders) == ["NEARUSDT"]
+
+
+def test_short_stop_must_fire_before_the_isolated_liquidation_price() -> None:
+    positions = [
+        {
+            "symbol": "NEARUSDT",
+            "total": "4",
+            "posSide": "short",
+            "avgPrice": "3.545",
+            "liquidationPrice": "5.5",
+        }
+    ]
+
+    assert _short_stop_liquidation_issues(
+        positions,
+        expected_stops={"NEARUSDT": 6.0},
+    ) == ["NEARUSDT"]
+
+
 def test_orphan_strategy_orders_are_not_silently_accepted() -> None:
     positions = [
         {"symbol": "NEARUSDT", "total": "10", "posSide": "short", "markPrice": "5"}
@@ -1058,3 +1121,416 @@ def test_every_filled_strategy_order_must_appear_in_the_journal() -> None:
     ]
 
     assert _unjournaled_order_ids(history, journal) == ["2"]
+
+
+def test_latest_journal_short_quantities_ignore_other_sides() -> None:
+    entry = JournalEntry(
+        date="2026-11-14",
+        run_at_utc="2026-11-14T16:38:00+00:00",
+        signal_date="2026-11-13",
+        equity=500.0,
+        position_value=50.0,
+        cash=450.0,
+        day_pnl=0.0,
+        day_return=0.0,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        positions=[
+            {"symbol": "NEARUSDT", "side": "short", "qty": 9.0},
+            {"symbol": "LINKUSDT", "side": "long", "qty": 2.0},
+        ],
+    )
+    frame = pd.DataFrame([entry.as_row()])
+
+    assert latest_short_quantities(frame) == {"NEARUSDT": pytest.approx(9.0)}
+
+
+def test_event_quantity_target_allows_price_drift_without_daily_rebalance() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 9.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "total": "9",
+                "markPrice": "4.0",
+            }
+        ],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={},
+    )
+
+    assert issues == []
+
+
+def test_event_quantity_target_fails_a_partial_leg() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 9.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "total": "4",
+                "markPrice": "5.0",
+            }
+        ],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={},
+    )
+
+    assert issues == ["NEARUSDT 目标数量 9 vs 实际 -4"]
+
+
+def test_event_quantity_target_accepts_a_journaled_stop_closure() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 9.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={
+            "NEARUSDT": {
+                "order_id": "executed-stop-1",
+                "strategy_order_id": "strategy-stop-1",
+                "triggered_at": "2026-11-15T00:00:00+00:00",
+                "quantity": 9.0,
+            }
+        },
+    )
+
+    assert issues == []
+
+
+def _stop_journal() -> pd.DataFrame:
+    entry = JournalEntry(
+        date="2026-11-15",
+        run_at_utc="2026-11-15T01:05:00+00:00",
+        signal_date="2026-11-13",
+        equity=500.0,
+        position_value=0.0,
+        cash=500.0,
+        day_pnl=0.0,
+        day_return=0.0,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+        trades=[
+            {
+                "order_id": "executed-stop-1",
+                "symbol": "NEARUSDT",
+                "action": "CLOSE",
+                "side": "buy",
+                "qty": 9.0,
+                "status": "filled",
+                "reason": "venue_strategy_stop",
+                "strategy_order_id": "strategy-stop-1",
+                "triggered_at": "2026-11-15T00:00:00+00:00",
+            }
+        ],
+    )
+    return pd.DataFrame([entry.as_row()])
+
+
+def test_active_event_state_accepts_a_journaled_stop_closure() -> None:
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "stopped_symbols": {
+                "NEARUSDT": {
+                    "order_id": "executed-stop-1",
+                    "strategy_order_id": "strategy-stop-1",
+                    "triggered_at": "2026-11-15T00:00:00+00:00",
+                    "quantity": 9.0,
+                }
+            },
+        },
+    }
+
+    assert _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="sha256:target",
+    ) == []
+
+
+def test_active_event_state_rejects_an_incomplete_position_application() -> None:
+    state = {
+        "last_status": "partial",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "partial",
+            "stopped_symbols": {},
+        },
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("last_status" in issue for issue in issues)
+    assert any("position application" in issue for issue in issues)
+
+
+def test_strategy_stop_history_verifies_the_journaled_stop_trigger() -> None:
+    stopped = {
+        "NEARUSDT": {
+            "order_id": "executed-stop-1",
+            "strategy_order_id": "strategy-stop-1",
+            "triggered_at": "2026-11-15T00:00:00+00:00",
+            "quantity": 9.0,
+            "stop_loss": 3.9248,
+            "stop_trigger_by": "mark",
+            "stop_order_type": "market",
+        }
+    }
+    rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "status": "success",
+            "qty": "9",
+            "stopLoss": "3.9248",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "1794700800000",
+        }
+    ]
+
+    assert _strategy_stop_history_issues(stopped, rows) == []
+
+
+def test_event_quantity_target_allows_an_untradeable_minimum_order_residual() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"HYPEUSDT": 0.47637},
+        target_weights={"hyperliquid": -0.0625},
+        symbol_assets={"HYPEUSDT": "hyperliquid"},
+        positions=[
+            {
+                "symbol": "HYPEUSDT",
+                "posSide": "short",
+                "total": "0.46",
+                "markPrice": "66.0",
+            }
+        ],
+        specs_by_symbol={
+            "HYPEUSDT": ContractSpec(
+                "HYPEUSDT",
+                min_order_qty=0.01,
+                quantity_multiplier=0.01,
+                min_order_usdt=5.0,
+            )
+        },
+        event_prices={"hyperliquid": 66.055},
+        stopped_symbols={},
+    )
+
+    assert issues == []
+
+
+def test_event_quantity_target_rejects_reopening_a_stopped_leg_before_a_new_event() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 9.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "total": "9",
+                "markPrice": "5.0",
+            }
+        ],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={
+            "NEARUSDT": {
+                "order_id": "executed-stop-1",
+                "strategy_order_id": "strategy-stop-1",
+                "triggered_at": "2026-11-15T00:00:00+00:00",
+                "quantity": 9.0,
+            }
+        },
+    )
+
+    assert issues == ["NEARUSDT 已在旧事件中止损，下一目标事件前不得重开"]
+
+
+def test_active_event_state_requires_stop_history_high_water_coverage() -> None:
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "applied_at": "2026-11-14T16:38:00+00:00",
+            "stopped_symbols": {},
+        },
+        "stop_reconciliation_through": "2026-11-14T01:00:00+00:00",
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("stop history high-water" in issue for issue in issues)
+
+
+def test_generated_stop_close_is_matched_to_its_execution_order_without_attached_stop() -> None:
+    trade = {
+        "qty": 9.0,
+        "avg_price": 3.95,
+        "fee": 0.02,
+        "stop_loss": 3.9248,
+        "reason": "venue_strategy_stop",
+        "strategy_order_id": "strategy-stop-1",
+    }
+    venue = {
+        "cumExecQty": "9",
+        "avgPrice": "3.95",
+        "feeDetail": [{"fee": "0.02"}],
+        "stopLoss": "",
+        "slTriggerBy": "",
+        "slOrderType": "",
+    }
+
+    assert _trade_mismatch(trade, venue) is None
+
+
+def test_active_event_state_rejects_a_malformed_risk_overlay() -> None:
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "stopped_symbols": {},
+            "risk_overlay": {
+                "reason": "not-a-risk-cap",
+                "applied_at": "invalid",
+                "target_quantities": {"NEARUSDT": -4.0},
+            },
+        },
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("risk_overlay" in issue for issue in issues)
+
+
+def test_active_event_state_rejects_a_stop_trade_with_wrong_action() -> None:
+    journal = _stop_journal()
+    trades = json.loads(journal.iloc[0]["trades"])
+    trades[0]["action"] = "OPEN"
+    journal.loc[journal.index[0], "trades"] = json.dumps(trades)
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "stopped_symbols": {
+                "NEARUSDT": {
+                    "order_id": "executed-stop-1",
+                    "strategy_order_id": "strategy-stop-1",
+                    "triggered_at": "2026-11-15T00:00:00+00:00",
+                    "quantity": 9.0,
+                }
+            },
+        },
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=journal,
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("journal stop trade" in issue for issue in issues)
+
+
+def test_strategy_stop_history_accepts_a_partial_execution_of_the_requested_stop() -> None:
+    stopped = {
+        "NEARUSDT": {
+            "order_id": "executed-stop-1",
+            "strategy_order_id": "strategy-stop-1",
+            "triggered_at": "2026-11-15T00:00:00+00:00",
+            "quantity": 4.0,
+            "requested_quantity": 10.0,
+            "stop_loss": 3.9248,
+            "stop_trigger_by": "mark",
+            "stop_order_type": "market",
+        }
+    }
+    rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "status": "success",
+            "qty": "10",
+            "stopLoss": "3.9248",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "1794700800000",
+        }
+    ]
+
+    assert _strategy_stop_history_issues(stopped, rows) == []
+
+
+def test_strategy_stop_history_accepts_one_way_net_position_side() -> None:
+    stopped = {
+        "NEARUSDT": {
+            "order_id": "executed-stop-1",
+            "strategy_order_id": "strategy-stop-1",
+            "triggered_at": "2026-11-15T00:00:00+00:00",
+            "quantity": 9.0,
+            "stop_loss": 3.9248,
+            "stop_trigger_by": "mark",
+            "stop_order_type": "market",
+        }
+    }
+    rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "net",
+            "side": "buy",
+            "status": "success",
+            "qty": "9",
+            "stopLoss": "3.9248",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "1794700800000",
+        }
+    ]
+
+    assert _strategy_stop_history_issues(stopped, rows) == []

@@ -173,6 +173,25 @@ def test_valid_fixture_passes_and_has_a_stable_fingerprint(tmp_path: Path) -> No
     assert first.provenance["fingerprint"].startswith("sha256:")
 
 
+def test_funding_csv_bytes_are_part_of_the_provenance_fingerprint(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    first = _audit(paths)
+
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame.loc[0, "funding_rate"] = 0.0002
+    frame.to_csv(path, index=False)
+
+    second = _audit(paths)
+
+    assert first.passed is True
+    assert second.passed is True
+    assert "funding/bitcoin.csv" in second.provenance["files"]
+    assert second.provenance["fingerprint"] != first.provenance["fingerprint"]
+
+
 def test_zero_latest_market_cap_is_invalid_not_treated_as_a_real_value(
     tmp_path: Path,
 ) -> None:
@@ -313,6 +332,19 @@ def test_non_monotonic_funding_fails(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("not monotonic" in item for item in report.hard_failures)
+
+
+def test_missing_recent_funding_settlement_fails(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = frame.drop(index=1).reset_index(drop=True)
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths, require_all_funding_fresh=True)
+
+    assert report.passed is False
+    assert any("funding gap" in item for item in report.hard_failures)
 
 
 def test_latest_panel_market_cap_must_be_finite(tmp_path: Path) -> None:

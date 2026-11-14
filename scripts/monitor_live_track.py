@@ -78,6 +78,7 @@ from scripts.send_telegram_signal import _chat_ids, send_telegram_message  # noq
 
 DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
 DEFAULT_OUT = Path("reports/ls45_live_g125_live/health.json")
+DEFAULT_AUDIT_OUT = Path("reports/ls45_live_g125_live/audit.json")
 AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_live_track.py"
 SPEC_MAX_GROSS = 1.25
 EXECUTION_FLOOR_USDT = 20.0
@@ -94,6 +95,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--audit-out", type=Path, default=DEFAULT_AUDIT_OUT)
     parser.add_argument("--notify", action="store_true", help="send the alert to Telegram")
     parser.add_argument(
         "--always-report",
@@ -155,13 +157,23 @@ def _audit_failure_details(
     return f"全链路核对失败：{details}"
 
 
-def _run_audit(capital_flows_file: Path) -> tuple[int, dict, str]:
+def _run_audit(
+    capital_flows_file: Path,
+    *,
+    audit_out: Path | None = None,
+) -> tuple[int, dict, str]:
     """Run the read-only audit in a subprocess and preserve failure diagnostics."""
 
     import tempfile
 
-    with tempfile.TemporaryDirectory(prefix="atlas20-monitor-") as tmp:
-        json_out = Path(tmp) / "audit.json"
+    temporary: tempfile.TemporaryDirectory[str] | None = None
+    if audit_out is None:
+        temporary = tempfile.TemporaryDirectory(prefix="atlas20-monitor-")
+        json_out = Path(temporary.name) / "audit.json"
+    else:
+        json_out = Path(audit_out)
+        ensure_dir(json_out.parent)
+    try:
         try:
             proc = subprocess.run(
                 _audit_command(json_out, capital_flows_file),
@@ -180,6 +192,9 @@ def _run_audit(capital_flows_file: Path) -> tuple[int, dict, str]:
             except (OSError, json.JSONDecodeError) as exc:
                 stderr = f"{stderr}\naudit JSON unreadable: {exc}".strip()
         return proc.returncode, payload, stderr
+    finally:
+        if temporary is not None:
+            temporary.cleanup()
 
 
 def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dict[str, float]:
@@ -204,8 +219,9 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
     if not last_at:
         return False, "execution state has no last_run_at"
     status = str(state.get("last_status") or "missing")
+    mode = str(state.get("last_run_mode") or "execution")
     if status != "ok":
-        return False, f"最近一次调仓未完成（status={status}，最后尝试：{last_at}）"
+        return False, f"最近一次调仓未完成（status={status}，mode={mode}，最后尝试：{last_at}）"
     last = datetime.fromisoformat(str(last_at))
     if last.tzinfo is None:
         last = last.replace(tzinfo=timezone.utc)
@@ -216,7 +232,7 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
         return False, f"今天的调仓还没执行（状态文件最后成功：{last_at}）"
     if age_hours > MAX_EXECUTION_AGE_HOURS:
         return False, f"超过 {MAX_EXECUTION_AGE_HOURS:.0f}h 没有成功执行（最后：{last_at}）"
-    return True, f"最近成功执行 {last_at}（{age_hours:.1f}h 前）"
+    return True, f"最近成功运行（{mode}）{last_at}（{age_hours:.1f}h 前）"
 
 
 def _ledger_change(
@@ -242,7 +258,10 @@ def _ledger_change(
 def _main(args: argparse.Namespace) -> int:
     now = datetime.now(timezone.utc)
 
-    audit_exit, audit, audit_stderr = _run_audit(args.capital_flows_file)
+    audit_exit, audit, audit_stderr = _run_audit(
+        args.capital_flows_file,
+        audit_out=args.audit_out,
+    )
     audit_failures = int(audit.get("hard_failures") or 0)
     equity, gross = _audit_metrics(audit)
     signal_date = str(audit.get("signal_date") or "?")

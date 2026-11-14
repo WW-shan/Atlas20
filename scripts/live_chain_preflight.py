@@ -13,7 +13,9 @@ Used by ``ops/run_derivatives_daily.sh``:
 
 Exit code 3 (not 1) is deliberate: it means "a documented reason says do not
 trade", as opposed to a crash, so the wrapper can skip quietly and still let
-a real error abort the job.
+a real error abort the job.  Exit code 4 is the narrower "today's trade is
+already complete" state; the wrapper still runs the read-only monitor there so
+an exchange-side stop can be reported promptly.
 """
 
 # ruff: noqa: E402
@@ -46,6 +48,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 )
 
 BLOCKED = 3
+DONE = 4
 DEFAULT_PANEL = PROJECT_ROOT / "data" / "processed" / "panel_daily.csv"
 DEFAULT_STATE_FILE = PROJECT_ROOT / "data" / "ls45_g125_execution_state.json"
 DEFAULT_MANIFEST_FILE = PROJECT_ROOT / "reports" / "ls45_live_g125" / "manifest.json"
@@ -168,10 +171,10 @@ def main(argv: list[str] | None = None) -> int:
                 target_identity=target_identity,
             ):
                 print(f"run day {now.date().isoformat()} already completed; nothing to do")
-                return BLOCKED
+                return DONE
         elif run_day_already_done(args.state_file, now.date()):
             print(f"run day {now.date().isoformat()} already completed; nothing to do")
-            return BLOCKED
+            return DONE
         allowed, reason = within_run_window(
             now, scheduled_utc=args.scheduled_utc, catchup_hours=float(args.catchup_hours)
         )

@@ -26,7 +26,8 @@
 # The primary schedule fires at 09:05 Beijing = 01:05 UTC, the owner-approved
 # live fast path after the 08:30/08:50 Beijing panel refresh and catch-up. The
 # 01:35/03:05/03:35/04:35/06:35 UTC fires remain fallbacks; a successful same-day
-# run makes those retries no-ops.
+# alpha execution makes those retries non-alpha no-ops, but they still run the
+# risk-reducing protect-only path and the read-only monitor.
 # macOS loads the job at boot (RunAtLoad) and
 # systemd replays a missed timer fire (Persistent=true);
 # scripts/live_chain_preflight.py keeps those from turning into a second trade
@@ -34,7 +35,7 @@
 #
 # Do not run two copies at once: launchd carries a start-interval throttle, the
 # refresh step takes its own lock, and the executor is idempotent per run day
-# plus exact target-book identity.
+# plus exact target-book identity; protect-only never opens or increases risk.
 
 set -eu
 
@@ -88,7 +89,23 @@ else
     --check window \
     --manifest-file reports/ls45_live_g125/manifest.json || window_status=$?
 fi
-if [ "$window_status" -eq 3 ]; then
+if [ "$window_status" -eq 4 ]; then
+  # Today's trade is already complete.  Run risk-reducing protection only:
+  # reconcile venue-triggered stops, normalize/restore every short stop, and
+  # enforce the gross cap.  OPEN/INCREASE are structurally disabled, so this
+  # cannot add risk on a fallback fire.
+  protect_status=0
+  .venv/bin/python scripts/execute_live_plan.py \
+    --live --notify --require-isolated --protect-only || protect_status=$?
+
+  monitor_status=0
+  .venv/bin/python scripts/monitor_live_track.py --notify || monitor_status=$?
+
+  if [ "$protect_status" -ne 0 ]; then
+    exit "$protect_status"
+  fi
+  exit "$monitor_status"
+elif [ "$window_status" -eq 3 ]; then
   exit 0
 elif [ "$window_status" -ne 0 ]; then
   echo "live chain window preflight failed with status $window_status" >&2
@@ -137,4 +154,20 @@ fi
 /usr/bin/make audit-data-chain
 /usr/bin/make audit-symbols
 /usr/bin/make audit-signal
-.venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg
+
+# Independent post-trade verification.  The executor already validates its own
+# fills and stops, but a read-only full-account audit here catches any mismatch
+# between the venue's final book, the frozen target and the journal while the
+# operator is still close to the execution window.  Run it even after a partial
+# execution so its Telegram alert describes the actual venue state; then
+# preserve the execution failure as the wrapper's exit status.
+execution_status=0
+.venv/bin/python scripts/execute_live_plan.py --live --notify --require-isolated $late_arg || execution_status=$?
+
+monitor_status=0
+.venv/bin/python scripts/monitor_live_track.py --notify || monitor_status=$?
+
+if [ "$execution_status" -ne 0 ]; then
+  exit "$execution_status"
+fi
+exit "$monitor_status"

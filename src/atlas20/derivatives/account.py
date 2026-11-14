@@ -686,6 +686,28 @@ class BitgetPrivateClient:
             params={"category": category, "type": strategy_type},
         )
 
+    def strategy_order_history(
+        self,
+        *,
+        category: str = UTA_CATEGORY,
+        symbol: str | None = None,
+        start_time_ms: int | None = None,
+        end_time_ms: int | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Closed/triggered TPSL strategy orders for one query window."""
+
+        return self._cursor_all(
+            "/api/v3/trade/history-strategy-orders",
+            params={
+                "category": category,
+                "symbol": symbol,
+                "startTime": start_time_ms,
+                "endTime": end_time_ms,
+                "limit": int(limit),
+            },
+        )
+
     def order_history(
         self,
         *,

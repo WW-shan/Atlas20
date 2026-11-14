@@ -107,6 +107,9 @@ class OrderFill:
     stop_trigger_by: str = ""
     stop_order_type: str = ""
     normalized_stop_loss: float | None = None
+    reason: str = ""
+    strategy_order_id: str = ""
+    triggered_at: str = ""
 
     @property
     def is_partial(self) -> bool:
@@ -151,6 +154,9 @@ class OrderFill:
             "stop_trigger_by": self.stop_trigger_by,
             "stop_order_type": self.stop_order_type,
             "normalized_stop_loss": self.normalized_stop_loss,
+            "reason": self.reason,
+            "strategy_order_id": self.strategy_order_id,
+            "triggered_at": self.triggered_at,
         }
 
 
@@ -561,6 +567,206 @@ def _recover_fills_from_order_history(
             )
 
 
+def match_venue_stop_fills(
+    strategy_rows: list[dict[str, Any]],
+    order_rows: list[dict[str, Any]],
+    *,
+    known_order_ids: set[str],
+    symbol_assets: Mapping[str, str] | None = None,
+    match_window_ms: int = 10_000,
+) -> tuple[list[OrderFill], list[dict[str, Any]]]:
+    """Match triggered short stops to the venue order that actually closed them.
+
+    Bitget exposes a triggered TPSL row as ``status=success`` but returns the
+    resulting market execution as a separate normal order with a new venue
+    order id.  The external order is created at the same instant.  A unique
+    symbol/side/posSide/quantity match inside a narrow timestamp window is
+    required; ambiguity is a reconciliation failure, never a best guess.
+    """
+
+    if match_window_ms < 0:
+        raise ValueError("match_window_ms must be non-negative")
+    known = {str(order_id) for order_id in known_order_ids if str(order_id)}
+    fills: list[OrderFill] = []
+    errors: list[dict[str, Any]] = []
+    for strategy in strategy_rows:
+        status = str(strategy.get("status") or "").lower()
+        if status != "success":
+            continue
+        strategy_id = str(strategy.get("orderId") or "")
+        symbol = str(strategy.get("symbol") or "").upper()
+        pos_side = str(strategy.get("posSide") or "").lower()
+        side = str(strategy.get("side") or "").lower()
+        if pos_side not in {"", "short", "net"} or side != "buy":
+            continue
+        one_way = pos_side in {"", "net"}
+        if not strategy_id or not symbol:
+            errors.append(
+                {
+                    "symbol": symbol or "*",
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": str(strategy.get("qty") or "-"),
+                    "error": "triggered short buy stop has no identifiable identity",
+                }
+            )
+            continue
+        try:
+            triggered_ms = int(strategy.get("updatedTime"))
+            strategy_qty = _required_float(
+                strategy.get("qty"),
+                "strategy stop qty",
+                positive=True,
+            )
+        except (TypeError, ValueError) as exc:
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": str(strategy.get("qty") or "-"),
+                    "error": f"triggered strategy stop is not reconcilable: {exc}",
+                }
+            )
+            continue
+
+        candidates: list[dict[str, Any]] = []
+        for order in order_rows:
+            order_id = str(order.get("orderId") or "")
+            if not order_id:
+                continue
+            if str(order.get("orderStatus") or "").lower() != _FILLED:
+                continue
+            if str(order.get("symbol") or "").upper() != symbol:
+                continue
+            if str(order.get("side") or "").lower() != side:
+                continue
+            order_pos_side = str(order.get("posSide") or "").lower()
+            if (
+                order_pos_side not in {"", "net"}
+                if one_way
+                else order_pos_side != pos_side
+            ):
+                continue
+            try:
+                order_qty = _required_float(
+                    order.get("qty"),
+                    "executed stop qty",
+                    positive=True,
+                )
+            except ValueError:
+                continue
+            if abs(order_qty - strategy_qty) > max(1e-9, strategy_qty * 1e-8):
+                continue
+            timestamps: list[int] = []
+            for key in ("createdTime", "updatedTime"):
+                try:
+                    timestamps.append(int(order.get(key)))
+                except (TypeError, ValueError):
+                    continue
+            if not any(
+                abs(timestamp - triggered_ms) <= match_window_ms
+                for timestamp in timestamps
+            ):
+                continue
+            candidates.append(order)
+
+        if len(candidates) != 1:
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{strategy_qty:.12g}",
+                    "error": (
+                        "triggered strategy stop could not be matched to exactly one "
+                        f"executed order ({len(candidates)} candidates)"
+                    ),
+                }
+            )
+            continue
+        order = candidates[0]
+        order_id = str(order.get("orderId") or "")
+        if order_id in known:
+            continue
+        try:
+            filled = _required_float(
+                order.get("cumExecQty"),
+                "executed stop cumExecQty",
+                positive=True,
+            )
+            avg_price = _required_float(
+                order.get("avgPrice"),
+                "executed stop avgPrice",
+                positive=True,
+            )
+            raw_notional = order.get("cumExecValue")
+            notional = (
+                _required_float(
+                    raw_notional,
+                    "executed stop cumExecValue",
+                    positive=True,
+                )
+                if raw_notional not in (None, "")
+                else filled * avg_price
+            )
+        except ValueError as exc:
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{strategy_qty:.12g}",
+                    "error": f"executed strategy stop values are invalid: {exc}",
+                }
+            )
+            continue
+        if abs(filled - strategy_qty) > max(1e-9, strategy_qty * 1e-8):
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{strategy_qty:.12g}",
+                    "error": (
+                        "executed strategy stop quantity differs from the strategy "
+                        f"row ({filled:.8g} vs {strategy_qty:.8g})"
+                    ),
+                }
+            )
+        fee, fee_coin = _fee_from_detail(order)
+        stop = _to_float(strategy.get("stopLoss"))
+        triggered_at = datetime.fromtimestamp(
+            triggered_ms / 1000.0, tz=timezone.utc
+        ).isoformat()
+        fills.append(
+            OrderFill(
+                asset=_asset_for_symbol(symbol, symbol_assets),
+                symbol=symbol,
+                action="CLOSE",
+                side="buy",
+                stop_loss=stop if stop > 0.0 else None,
+                requested_size=strategy_qty,
+                filled_size=filled,
+                avg_price=avg_price,
+                notional=notional,
+                fee=fee,
+                fee_coin=fee_coin,
+                order_id=order_id,
+                status=_FILLED,
+                position_side="short",
+                client_oid=str(order.get("clientOid") or ""),
+                requested_stop_loss=stop if stop > 0.0 else None,
+                stop_trigger_by=str(strategy.get("slTriggerBy") or ""),
+                stop_order_type=str(strategy.get("slOrderType") or ""),
+                reason="venue_strategy_stop",
+                strategy_order_id=strategy_id,
+                triggered_at=triggered_at,
+            )
+        )
+    return fills, errors
+
+
 def _preflight_unfilled_orders(
     client: LiveTradingClient,
     *,
@@ -862,6 +1068,18 @@ def short_stop_symbol_issue(
             return (
                 f"weighted stop {weighted_stop:.8g} differs from expected "
                 f"{float(expected_stop):.8g}"
+            )
+    else:
+        weighted_stop = sum(qty * stop for qty, stop in parsed) / stop_qty
+    liquidation_raw = position.get("liquidationPrice")
+    if liquidation_raw not in (None, ""):
+        liquidation = _to_float(liquidation_raw)
+        if not isfinite(liquidation) or liquidation <= 0.0:
+            return f"liquidationPrice is invalid: {liquidation_raw!r}"
+        if weighted_stop >= liquidation:
+            return (
+                f"stop {weighted_stop:.8g} is not before liquidation "
+                f"{liquidation:.8g}"
             )
     return None
 
@@ -1978,9 +2196,30 @@ def execute_plan(
                         f"{intent.symbol}: 保证金{intent.operation}"
                         f" {intent.amount:.2f} USDT 失败（{exc}）"
                     )
+                    report.failures.append(
+                        {
+                            "symbol": intent.symbol,
+                            "action": "MARGIN",
+                            "side": intent.pos_side,
+                            "size": f"{intent.amount:.12g}",
+                            "error": (
+                                f"isolated margin {intent.operation} failed: "
+                                f"{_error_text(exc)}"
+                            ),
+                        }
+                    )
                 except ValueError as exc:
                     report.margin_notes.append(
                         f"{intent.symbol}: 保证金调整参数错误（{exc}）"
+                    )
+                    report.failures.append(
+                        {
+                            "symbol": intent.symbol,
+                            "action": "MARGIN",
+                            "side": intent.pos_side,
+                            "size": f"{intent.amount:.12g}",
+                            "error": f"isolated margin {intent.operation} is invalid: {exc}",
+                        }
                     )
 
     assets_after = client.account_assets()
@@ -2025,6 +2264,8 @@ def format_execution_report(
     capital_flow: float = 0.0,
     run_at: datetime | None = None,
     event_age_days: int | None = None,
+    target_rebalance_enabled: bool = True,
+    target_status_note: str | None = None,
 ) -> str:
     """Render the daily Telegram message: short, and all venue numbers.
 
@@ -2092,6 +2333,8 @@ def format_execution_report(
     for fill in report.fills:
         verb = "买入" if fill.side == "buy" else "卖出"
         note = "" if fill.status == _FILLED else f"（{fill.status}）"
+        if fill.reason == "venue_strategy_stop":
+            note += " · 交易所止损触发"
         displayed_stop = fill.normalized_stop_loss or fill.stop_loss
         stop_note = (
             f" · 止损 {displayed_stop:.8g}" if displayed_stop is not None else ""
@@ -2133,22 +2376,24 @@ def format_execution_report(
 
     if targets is not None:
         checks = []
-        for asset in sorted(targets):
-            target_weight = float(targets.get(asset, 0.0))
-            target_notional = target_weight * equity
-            actual = signed_notional_by_asset.get(asset.lower(), 0.0)
-            gap = actual - target_notional
-            lot = float((lot_notional or {}).get(asset, 0.0))
-            tolerance = max(1.0, 0.01 * abs(target_notional), 1.5 * lot)
-            flag = "" if abs(gap) <= tolerance else " ⚠️"
-            checks.append(
-                f"{asset.upper()} 目标 {_money(target_notional)} / 实际 {_money(actual)}{flag}"
-            )
+        if target_rebalance_enabled:
+            for asset in sorted(targets):
+                target_weight = float(targets.get(asset, 0.0))
+                target_notional = target_weight * equity
+                actual = signed_notional_by_asset.get(asset.lower(), 0.0)
+                gap = actual - target_notional
+                lot = float((lot_notional or {}).get(asset, 0.0))
+                tolerance = max(1.0, 0.01 * abs(target_notional), 1.5 * lot)
+                flag = "" if abs(gap) <= tolerance else " ⚠️"
+                checks.append(
+                    f"{asset.upper()} 目标 {_money(target_notional)} / "
+                    f"实际 {_money(actual)}{flag}"
+                )
         orphans = sorted(set(notional_by_asset) - {asset.lower() for asset in targets})
         if orphans:
             orphan_labels = [ticker_by_asset.get(asset, asset.upper()) for asset in orphans]
             checks.append(f"⚠️ 计划外持仓: {', '.join(orphan_labels)}")
-        if checks:
+        if checks or not target_rebalance_enabled:
             age = (
                 ""
                 if event_age_days is None
@@ -2158,7 +2403,16 @@ def format_execution_report(
                     else f"（{event_age_days} 天前的最近变化）"
                 )
             )
-            lines += ["", f"信号 {signal_date}{age} · " + " · ".join(checks)]
+            prefix = (
+                f"信号 {signal_date}{age} · "
+                if target_rebalance_enabled
+                else (
+                    f"信号 {signal_date}{age} · "
+                    f"{target_status_note or '今日无新目标事件，不做权重再平衡'}"
+                )
+            )
+            suffix = " · ".join(checks)
+            lines += ["", prefix + (f" · {suffix}" if suffix else "")]
 
     if report.failures:
         lines += ["", "⚠️ 未完成:"]

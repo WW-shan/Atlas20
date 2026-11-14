@@ -323,6 +323,57 @@ def latest_row(frame: pd.DataFrame) -> dict[str, Any] | None:
     return {key: (None if pd.isna(value) else value) for key, value in record.items()}
 
 
+def effective_event_target_quantities(active_event: dict) -> dict:
+    """Return the event quantity anchor after any recorded risk-cap overlay."""
+
+    overlay = active_event.get("risk_overlay")
+    if isinstance(overlay, dict):
+        quantities = overlay.get("target_quantities")
+        if isinstance(quantities, dict):
+            return quantities
+    quantities = active_event.get("target_quantities")
+    return quantities if isinstance(quantities, dict) else {}
+
+
+def latest_position_quantities(
+    frame: pd.DataFrame,
+) -> dict[str, tuple[str, float]]:
+    """Decode the newest journal position snapshot by venue symbol."""
+
+    latest = latest_row(frame)
+    if latest is None:
+        return {}
+    try:
+        rows = json.loads(latest.get("positions") or "[]")
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    if not isinstance(rows, list):
+        return {}
+    positions: dict[str, tuple[str, float]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        side = str(row.get("side") or "").lower()
+        try:
+            qty = float(row.get("qty") or row.get("size") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if symbol and side in {"long", "short"} and isfinite(qty) and qty > 0.0:
+            positions[symbol] = (side, qty)
+    return positions
+
+
+def latest_short_quantities(frame: pd.DataFrame) -> dict[str, float]:
+    """Newest journal short quantity for each still-open venue symbol."""
+
+    return {
+        symbol: qty
+        for symbol, (side, qty) in latest_position_quantities(frame).items()
+        if side == "short"
+    }
+
+
 def _utc_timestamp(value: datetime | str) -> pd.Timestamp:
     timestamp = pd.Timestamp(value)
     if pd.isna(timestamp):

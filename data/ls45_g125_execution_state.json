@@ -1,7 +1,36 @@
 {
   "account_fingerprint": "cb05dac7a33ea24f",
+  "active_event": {
+    "applied_at": "2026-11-14T16:38:08.279585+00:00",
+    "equity_at_execution": 503.46541856,
+    "execution_hint": "2026-11-14 01:05:00+00:00",
+    "position_failures": [],
+    "position_status": "ok",
+    "prices": {
+      "bitcoin-cash": 207.81,
+      "hyperliquid": 66.055,
+      "near": 3.1008,
+      "zcash": 862.04
+    },
+    "signal_date": "2026-11-13",
+    "stopped_symbols": {},
+    "target_quantities": {
+      "BCHUSDT": 0.15141999258938452,
+      "HYPEUSDT": 0.4763695202482779,
+      "NEARUSDT": 10.147893659700722,
+      "ZECUSDT": 0.03650246932856944
+    },
+    "target_weights": {
+      "bitcoin-cash": -0.0625,
+      "hyperliquid": -0.0625,
+      "near": -0.0625,
+      "zcash": -0.0625
+    },
+    "targets_sha256": "e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871"
+  },
   "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
-  "last_run_at": "2026-11-14T16:38:17.275427+00:00",
+  "last_run_at": "2026-11-14T20:10:16.102206+00:00",
+  "last_run_mode": "protect_only",
   "last_status": "ok",
   "migration": {
     "baseline_available": 499.45972246,
@@ -128,6 +157,43 @@
       "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
       "ran_at": "2026-11-14T16:38:17.275427+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "ran_at": "2026-11-14T19:50:07.232678+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "ran_at": "2026-11-14T19:50:48.063332+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "ran_at": "2026-11-14T20:02:11.376885+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "ran_at": "2026-11-14T20:03:05.399961+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
+      "mode": "protect_only",
+      "ran_at": "2026-11-14T20:10:16.102206+00:00",
+      "status": "ok"
     }
-  ]
+  ],
+  "stop_reconciliation_through": "2026-11-14T20:10:09.211327+00:00"
 }

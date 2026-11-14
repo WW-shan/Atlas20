@@ -15,7 +15,10 @@ Safety rails (all on by default):
 * the account equity must clear ``--equity-floor``,
 * one execution per signal date (recorded in ``--state-file``); a run that
   ended with failures may retry once the next timer fires, and the retry
-  re-reads the account so it self-corrects.
+  re-reads the account so it self-corrects;
+* ``--protect-only`` runs risk-reducing maintenance only (open/increase are
+  structurally disabled), while ``--reconcile-only`` writes journal/state from
+  exchange stop history and never enters the order planner.
 
 ``--margin-mode auto`` tries isolated margin first (the frozen spec) and falls
 back to the venue's cross default when the key/account refuses isolated
@@ -33,11 +36,12 @@ from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
+import math
 from math import isfinite
 import os
 from pathlib import Path
 import sys
-from typing import Any, Callable, TextIO
+from typing import Any, Callable, Mapping, TextIO
 
 import pandas as pd
 import requests
@@ -56,7 +60,7 @@ from atlas20.derivatives.account import (  # noqa: E402
 )
 from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
-from atlas20.derivatives.execution import build_execution_plan  # noqa: E402
+from atlas20.derivatives.execution import ContractSpec, build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     LS45_G125_FROZEN_CONFIG,
     LS45_G125_MANIFEST_TOP_LEVEL,
@@ -70,10 +74,14 @@ from atlas20.derivatives.live_executor import (  # noqa: E402
     ExecutionReport,
     execute_plan,
     format_execution_report,
+    match_venue_stop_fills,
 )
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
     JournalEntry,
+    effective_event_target_quantities,
+    latest_row,
+    latest_short_quantities,
     load_journal,
     net_capital_flow,
     previous_row,
@@ -152,6 +160,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--live", action="store_true", help="actually place the orders")
     parser.add_argument("--notify", action="store_true", help="send the report to Telegram")
     parser.add_argument("--force", action="store_true", help="ignore same-day idempotency")
+    parser.add_argument(
+        "--reconcile-only",
+        action="store_true",
+        help=(
+            "read exchange stop/order history and repair the journal/state only; "
+            "never plan or place an order"
+        ),
+    )
+    parser.add_argument(
+        "--protect-only",
+        action="store_true",
+        help=(
+            "reconcile stops and run risk-reducing maintenance only; opens and "
+            "increases are structurally disabled"
+        ),
+    )
     parser.add_argument("--allow-stale-signal", action="store_true")
     parser.add_argument(
         "--allow-late-execution",
@@ -350,6 +374,279 @@ def _effective_execution_hint(
     return pd.Timestamp(live_execution_hint_for_signal(normalized.normalize()))
 
 
+def _target_event_is_fresh(
+    signal_date: pd.Timestamp, manifest: dict[str, Any]
+) -> bool:
+    """Whether the latest target row was produced for today's execution cycle.
+
+    The frozen ledger is an event series.  A missing daily row means "keep the
+    current book", not "trade the old book back to its original weights".  Only
+    equality between the event date and the latest evaluated data date authorizes
+    a fresh target rebalance.
+    """
+
+    signal_end = manifest.get("signal_end_date")
+    if signal_end in (None, ""):
+        return False
+    try:
+        event_day = pd.Timestamp(signal_date).date()
+        data_day = pd.Timestamp(signal_end).date()
+    except (TypeError, ValueError):
+        return False
+    return event_day == data_day
+
+
+def _event_plan_mode(
+    *,
+    fresh_target_event: bool,
+    active_event: dict[str, Any] | None,
+) -> str:
+    """Choose how a run may use the target book.
+
+    ``fresh`` is the first application of a new event and is sized from the
+    event's weights and current equity.  ``complete`` resumes an event that was
+    persisted as partial and must use its frozen quantities.  ``maintain`` keeps
+    same-side drift and permits only risk-reducing/account-maintenance work.
+    """
+
+    if not isinstance(active_event, dict):
+        return "fresh" if fresh_target_event else "maintain"
+    if str(active_event.get("position_status") or "") != "ok":
+        return "complete"
+    return "maintain"
+
+
+def _signed_event_target_quantities(
+    active_event: dict[str, Any],
+    symbols_by_asset: dict[str, str],
+    stopped_symbols: Mapping[str, object],
+) -> dict[str, float]:
+    """Turn frozen event quantities back into signed per-asset quantities."""
+
+    weights = active_event.get("target_weights")
+    quantities = effective_event_target_quantities(active_event)
+    if isinstance(weights, dict) and not weights and not quantities:
+        return {}
+    if not isinstance(weights, dict) or not quantities:
+        raise ValueError("active target event lacks weights or quantities")
+    by_symbol = {str(symbol).upper(): str(asset) for asset, symbol in symbols_by_asset.items()}
+    by_asset: dict[str, tuple[str, float]] = {}
+    for raw_symbol, raw_quantity in quantities.items():
+        symbol = str(raw_symbol).upper()
+        quantity = float(raw_quantity)
+        if not isfinite(quantity):
+            raise ValueError(f"active event quantity for {symbol} is not finite")
+        asset = by_symbol.get(symbol)
+        if asset is None:
+            raise ValueError(f"active event quantity symbol {symbol} has no asset mapping")
+        if asset in by_asset:
+            raise ValueError(f"active event maps multiple quantities to asset {asset}")
+        by_asset[asset] = (symbol, abs(quantity))
+    stopped = {str(symbol).upper() for symbol in stopped_symbols}
+    result: dict[str, float] = {}
+    for raw_asset, raw_weight in weights.items():
+        asset = str(raw_asset)
+        weight = float(raw_weight)
+        if not isfinite(weight):
+            raise ValueError(f"active event weight for {asset} is not finite")
+        if abs(weight) <= 1e-15:
+            continue
+        frozen = by_asset.get(asset)
+        if frozen is None:
+            raise ValueError(f"active event weight for {asset} has no frozen quantity")
+        symbol, quantity = frozen
+        result[asset] = 0.0 if symbol in stopped else math.copysign(quantity, weight)
+    return result
+
+
+def _risk_cap_was_scaled(warnings: list[str]) -> bool:
+    """Whether the planner had to shrink the requested book for a hard cap."""
+
+    prefixes = (
+        "gross exposure scaled to",
+        "gross margin scaled to",
+        "actual gross risk reduced to the",
+    )
+    return any(str(warning).startswith(prefixes) for warning in warnings)
+
+
+def _risk_overlay_quantities(
+    active_event: dict[str, Any],
+    *,
+    positions: list[dict[str, Any]],
+    symbol_assets: Mapping[str, str],
+) -> dict[str, float]:
+    """Snapshot the effective quantities after a hard-risk-cap reduction."""
+
+    weights = active_event.get("target_weights")
+    if not isinstance(weights, dict):
+        raise ValueError("active target event has no target weights")
+    assets_by_symbol = {
+        str(symbol).upper(): str(asset) for symbol, asset in symbol_assets.items()
+    }
+    actual_by_symbol: dict[str, float] = {}
+    for row in positions:
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        total = float(row.get("total") or 0.0)
+        if not isfinite(total):
+            raise ValueError(f"risk overlay position {symbol} is not finite")
+        pos_side = str(row.get("posSide") or "").lower()
+        signed = total if pos_side == "long" or (pos_side in {"", "net"} and total > 0.0) else -abs(total)
+        actual_by_symbol[symbol] = actual_by_symbol.get(symbol, 0.0) + signed
+    quantities: dict[str, float] = {}
+    for raw_asset in weights:
+        asset = str(raw_asset)
+        symbols = [
+            symbol
+            for symbol, mapped_asset in assets_by_symbol.items()
+            if mapped_asset == asset
+        ]
+        if len(symbols) != 1:
+            raise ValueError(f"risk overlay cannot uniquely map asset {asset}")
+        symbol = symbols[0]
+        quantities[symbol] = abs(actual_by_symbol.get(symbol, 0.0))
+    return quantities
+
+
+def _event_completion_issues(
+    active_event: dict[str, Any],
+    *,
+    positions: list[dict[str, Any]],
+    symbol_assets: Mapping[str, str],
+    specs_by_symbol: Mapping[str, ContractSpec],
+) -> list[str]:
+    """Check the live book against the event's frozen quantity invariant."""
+
+    from scripts.audit_live_track import _event_quantity_issues  # noqa: PLC0415
+
+    target_quantities = effective_event_target_quantities(active_event)
+    target_weights = active_event.get("target_weights")
+    prices = active_event.get("prices")
+    stopped = active_event.get("stopped_symbols")
+    if not isinstance(target_weights, dict):
+        return ["active target event lacks frozen quantities or directions"]
+    if not target_weights and not target_quantities:
+        return []
+    if not target_quantities:
+        return ["active target event lacks frozen quantities or directions"]
+    return _event_quantity_issues(
+        target_quantities=target_quantities,
+        target_weights=target_weights,
+        symbol_assets=symbol_assets,
+        positions=positions,
+        specs_by_symbol=specs_by_symbol,
+        event_prices=prices if isinstance(prices, dict) else {},
+        stopped_symbols=stopped if isinstance(stopped, dict) else {},
+    )
+
+
+def _position_application_failures(
+    failures: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Failures that can leave an event's position book incomplete.
+
+    Isolated-margin adjustments are account maintenance rather than a change
+    in the signed target book; they can retry on later daily runs without
+    authorizing a stale target rebalance.
+    """
+
+    return [
+        dict(failure)
+        for failure in failures
+        if str(failure.get("action") or "").upper() != "MARGIN"
+    ]
+
+
+def _active_event_record(
+    plan: Any,
+    targets: dict[str, float],
+    specs_by_asset: dict[str, Any],
+    prices_by_asset: dict[str, float],
+    *,
+    signal_date: pd.Timestamp,
+    target_identity: str,
+    execution_hint: pd.Timestamp,
+    applied_at: str,
+    failures: list[dict[str, Any]],
+    previous: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Freeze the applied target event and its event-time position sizes."""
+
+    position_failures = _position_application_failures(failures)
+    same_event = (
+        isinstance(previous, dict)
+        and str(previous.get("signal_date") or "")
+        == str(pd.Timestamp(signal_date).date())
+        and str(previous.get("targets_sha256") or "") == str(target_identity)
+    )
+    event_applied_at = (
+        str(previous.get("applied_at") or applied_at)
+        if same_event and previous is not None and previous.get("applied_at")
+        else applied_at
+    )
+    stopped_symbols = (
+        dict(previous.get("stopped_symbols") or {})
+        if same_event
+        and previous is not None
+        and isinstance(previous.get("stopped_symbols"), dict)
+        else {}
+    )
+    return {
+        "signal_date": str(pd.Timestamp(signal_date).date()),
+        "targets_sha256": str(target_identity),
+        "execution_hint": pd.Timestamp(execution_hint).isoformat(),
+        "applied_at": event_applied_at,
+        "equity_at_execution": float(getattr(plan, "equity", 0.0)),
+        "target_weights": {
+            str(asset): float(weight) for asset, weight in targets.items()
+        },
+        "prices": {
+            str(asset): float(price) for asset, price in prices_by_asset.items()
+        },
+        "target_quantities": _event_target_quantities(
+            plan, targets, specs_by_asset, prices_by_asset
+        ),
+        "position_status": "ok" if not position_failures else "partial",
+        "position_failures": position_failures,
+        "stopped_symbols": stopped_symbols,
+    }
+
+
+def _event_target_quantities(
+    plan: Any,
+    targets: dict[str, float],
+    specs_by_asset: dict[str, Any],
+    prices_by_asset: dict[str, float],
+) -> dict[str, float]:
+    """Freeze an event's target size in coin quantity, not today's USD weight.
+
+    The research engine rebalances only when the target event changes.  Its
+    position quantities then drift with price.  Comparing a live account to
+    ``target_weight * today's equity`` would silently demand a daily rebalance
+    the strategy never performs.  This event-time quantity becomes the stable
+    audit anchor until the next target event.
+    """
+
+    quantities: dict[str, float] = {}
+    signed_targets = getattr(plan, "signed_target_notional", {}) or {}
+    for asset, weight in targets.items():
+        if abs(float(weight)) <= 1e-15:
+            continue
+        spec = specs_by_asset.get(asset)
+        price = float(prices_by_asset.get(asset, 0.0))
+        if spec is None or not isfinite(price) or price <= 0.0:
+            continue
+        notional = abs(float(signed_targets.get(asset, 0.0)))
+        if notional <= 0.0:
+            notional = abs(float(weight)) * float(getattr(plan, "equity", 0.0))
+        if notional <= 0.0:
+            continue
+        quantities[str(spec.symbol).upper()] = notional / price
+    return quantities
+
+
 def _manifest_spec_issues(
     manifest: dict[str, Any], args: argparse.Namespace
 ) -> list[str]:
@@ -543,6 +840,473 @@ def _closed_funding_from_history(
     return funding, notes
 
 
+def _record_stopped_fills(
+    active_event: dict[str, Any],
+    fills: list[Any],
+    *,
+    include_before_application: bool = False,
+) -> dict[str, Any]:
+    """Attach confirmed stop closures to the event whose target leg stopped."""
+
+    record = dict(active_event)
+    stopped = record.get("stopped_symbols")
+    stopped_map = dict(stopped) if isinstance(stopped, dict) else {}
+    applied_at: pd.Timestamp | None = None
+    if record.get("applied_at"):
+        try:
+            applied_at = pd.Timestamp(record["applied_at"])
+            if applied_at.tzinfo is None:
+                applied_at = applied_at.tz_localize("UTC")
+            else:
+                applied_at = applied_at.tz_convert("UTC")
+        except (TypeError, ValueError):
+            applied_at = None
+    for fill in fills:
+        if str(getattr(fill, "reason", "")) != "venue_strategy_stop":
+            continue
+        symbol = str(getattr(fill, "symbol", "") or "").upper()
+        if not symbol:
+            continue
+        if applied_at is not None:
+            try:
+                triggered_at = pd.Timestamp(getattr(fill, "triggered_at", ""))
+                if triggered_at.tzinfo is None:
+                    triggered_at = triggered_at.tz_localize("UTC")
+                else:
+                    triggered_at = triggered_at.tz_convert("UTC")
+            except (TypeError, ValueError):
+                triggered_at = None
+            if (
+                triggered_at is not None
+                and triggered_at < applied_at
+                and not include_before_application
+            ):
+                continue
+        stopped_map[symbol] = {
+            "order_id": str(getattr(fill, "order_id", "") or ""),
+            "strategy_order_id": str(
+                getattr(fill, "strategy_order_id", "") or ""
+            ),
+            "triggered_at": str(getattr(fill, "triggered_at", "") or ""),
+            "quantity": float(getattr(fill, "filled_size", 0.0)),
+            "requested_quantity": float(getattr(fill, "requested_size", 0.0) or 0.0),
+            "stop_loss": float(getattr(fill, "stop_loss", 0.0) or 0.0),
+            "stop_trigger_by": str(getattr(fill, "stop_trigger_by", "") or ""),
+            "stop_order_type": str(getattr(fill, "stop_order_type", "") or ""),
+        }
+    record["stopped_symbols"] = stopped_map
+    return record
+
+
+def _recover_venue_stop_fills(
+    client: Any,
+    *,
+    journal: pd.DataFrame,
+    state: dict[str, Any],
+    symbol_assets: dict[str, str],
+    run_at: datetime,
+) -> tuple[list[Any], list[dict[str, Any]]]:
+    """Import venue-triggered short stops that happened since the last run."""
+
+    previous_at: pd.Timestamp | None = None
+    raw_previous = state.get("stop_reconciliation_through")
+    if raw_previous in (None, ""):
+        raw_previous = state.get("last_run_at")
+    if raw_previous not in (None, ""):
+        previous_at = pd.Timestamp(raw_previous)
+    elif not journal.empty:
+        latest = latest_row(journal)
+        if latest and latest.get("run_at_utc"):
+            previous_at = pd.Timestamp(latest["run_at_utc"])
+    if previous_at is None:
+        previous_at = pd.Timestamp(run_at) - pd.Timedelta(days=1)
+    if previous_at.tzinfo is None:
+        previous_at = previous_at.tz_localize("UTC")
+    else:
+        previous_at = previous_at.tz_convert("UTC")
+    current = pd.Timestamp(run_at)
+    if current.tzinfo is None:
+        current = current.tz_localize("UTC")
+    else:
+        current = current.tz_convert("UTC")
+    if previous_at > current:
+        raise ValueError("execution state last_run_at is later than the current run")
+    # Re-scan a full day and rely on journal order ids for deduplication.  A
+    # venue history row can arrive late; a one-hour overlap can permanently
+    # miss it once the high-water mark has advanced.
+    start_ms = int((previous_at - pd.Timedelta(hours=24)).timestamp() * 1000)
+    end_ms = int((current + pd.Timedelta(minutes=5)).timestamp() * 1000)
+
+    strategy_rows = client.strategy_order_history(
+        start_time_ms=start_ms,
+        end_time_ms=end_ms,
+        limit=100,
+    )
+    order_rows = client.order_history_all(
+        start_time_ms=start_ms,
+        end_time_ms=end_ms,
+        limit=100,
+    )
+    known_order_ids: set[str] = set()
+    if not journal.empty:
+        for raw in journal["trades"]:
+            try:
+                trades = json.loads(raw or "[]")
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(trades, list):
+                continue
+            for trade in trades:
+                if isinstance(trade, dict) and trade.get("order_id"):
+                    known_order_ids.add(str(trade["order_id"]))
+    fills, errors = match_venue_stop_fills(
+        strategy_rows,
+        order_rows,
+        known_order_ids=known_order_ids,
+        symbol_assets=symbol_assets,
+    )
+    errors.extend(
+        _venue_stop_reconciliation_errors(
+            fills,
+            expected_stops=protected_short_stops(journal),
+            expected_short_qty=latest_short_quantities(journal),
+        )
+    )
+    return fills, errors
+
+
+def _closed_funding_for_report(
+    client: Any,
+    *,
+    previous: dict[str, Any] | None,
+    report: ExecutionReport,
+    run_at: datetime,
+) -> tuple[dict[str, float], list[str]]:
+    """Attribute the final funding of every cycle closed by this report."""
+
+    if previous is None or not previous.get("run_at_utc"):
+        return {}, []
+    try:
+        prior_positions = json.loads(previous.get("positions") or "[]")
+    except (TypeError, json.JSONDecodeError):
+        prior_positions = []
+    current_sides = {
+        str(row.get("symbol") or "").upper(): (
+            "short"
+            if str(row.get("posSide") or "").lower() == "short"
+            or (
+                str(row.get("posSide") or "").lower() in {"", "net"}
+                and float(row.get("total") or 0.0) < 0.0
+            )
+            else "long"
+        )
+        for row in report.positions_after
+        if str(row.get("symbol") or "")
+        and abs(float(row.get("total") or 0.0)) > 1e-12
+    }
+    needs_closed_funding = any(
+        isinstance(prior, dict)
+        and str(prior.get("symbol") or "")
+        and current_sides.get(str(prior.get("symbol") or "").upper())
+        != str(prior.get("side") or "").lower()
+        for prior in (prior_positions if isinstance(prior_positions, list) else [])
+    ) or any(str(fill.action).upper() == "CLOSE" for fill in report.fills)
+    if not needs_closed_funding:
+        return {}, []
+    try:
+        previous_at = pd.Timestamp(previous["run_at_utc"])
+        start_ms = int((previous_at - pd.Timedelta(hours=1)).timestamp() * 1000)
+        end_ms = int((pd.Timestamp(run_at) + pd.Timedelta(hours=1)).timestamp() * 1000)
+        history = client.position_history(
+            start_time_ms=start_ms,
+            end_time_ms=end_ms,
+        )
+        return _closed_funding_from_history(
+            history,
+            previous=previous,
+            current_positions=report.positions_after,
+            fills=report.fills,
+            previous_run_at=previous_at,
+            run_at=run_at,
+        )
+    except (BitgetAPIError, ValueError, OSError) as exc:
+        return {}, [f"资金费归因不完整：读取平仓持仓历史失败（{exc}）"]
+
+
+def _reconcile_only_status(
+    *,
+    previous_status: object,
+    active_event: dict[str, Any],
+    stop_errors: list[dict[str, Any]],
+) -> str:
+    """A read-only reconciliation may preserve but never upgrade run status."""
+
+    if (
+        stop_errors
+        or str(previous_status or "") != "ok"
+        or str(active_event.get("position_status") or "") != "ok"
+    ):
+        return "partial"
+    return "ok"
+
+
+def _reconcile_live_stops_from_context(
+    args: argparse.Namespace,
+    *,
+    client: Any,
+    state: dict[str, Any],
+    symbol_assets: Mapping[str, str],
+    account_fp: str,
+    run_at: datetime,
+) -> int:
+    """Repair journal/state for venue stops without planning any new risk."""
+
+    binding_issue = account_state_binding_issue(state, account_fp)
+    if binding_issue is not None:
+        raise SystemExit(binding_issue)
+    active_event = state.get("active_event")
+    if not isinstance(active_event, dict):
+        raise SystemExit("reconcile-only requires an active target event in execution state")
+    key = str(state.get("last_key") or "")
+    if not key:
+        raise SystemExit("reconcile-only requires the last persisted execution key")
+
+    journal = load_journal(args.journal_file)
+    stop_fills, stop_errors = _recover_venue_stop_fills(
+        client,
+        journal=journal,
+        state=state,
+        symbol_assets=dict(symbol_assets),
+        run_at=run_at,
+    )
+    positions = _stamp_assets(
+        client.current_positions(),
+        {asset: symbol for symbol, asset in symbol_assets.items()},
+    )
+    assets = client.account_assets()
+    usdt = next(
+        (
+            row
+            for row in assets.get("assets") or []
+            if isinstance(row, dict) and str(row.get("coin") or "").upper() == "USDT"
+        ),
+        {},
+    )
+    equity_value = assets.get("usdtEquity", assets.get("accountEquity"))
+    try:
+        equity = float(equity_value)
+        available = float(usdt.get("available"))
+        balance = float(usdt.get("balance"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("reconcile-only account snapshot has invalid equity/margin") from exc
+    if not all(isfinite(value) for value in (equity, available, balance)):
+        raise ValueError("reconcile-only account snapshot is not finite")
+
+    report = ExecutionReport(
+        signal_date=str(active_event.get("signal_date") or ""),
+        equity_before=equity,
+        equity_after=equity,
+        available_after=available,
+        balance_after=balance,
+        fills=list(stop_fills),
+        failures=list(stop_errors),
+        positions_after=positions,
+        traded=bool(stop_fills),
+    )
+    report.margin_mode = next(
+        (str(row.get("marginMode") or "") for row in positions if row.get("marginMode")),
+        "",
+    )
+    open_short_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in positions
+        if str(row.get("symbol") or "")
+        and (
+            str(row.get("posSide") or "").lower() == "short"
+            or (
+                str(row.get("posSide") or "").lower() in {"", "net"}
+                and float(row.get("total") or 0.0) < 0.0
+            )
+        )
+    }
+    report.normalized_short_stops = {
+        symbol: stop
+        for symbol, stop in protected_short_stops(journal).items()
+        if symbol in open_short_symbols
+    }
+    reconciled_event = _record_stopped_fills(
+        dict(active_event),
+        stop_fills,
+        include_before_application=True,
+    )
+    stop_high_water = run_at.isoformat() if not stop_errors else None
+
+    previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    prev_equity = (
+        float(previous["equity"])
+        if previous is not None and previous.get("equity") is not None
+        else None
+    )
+    capital_flow = _capital_flow_for_run(
+        journal,
+        args.capital_flows_file,
+        run_at=run_at,
+    )
+    closed_funding, funding_notes = _closed_funding_for_report(
+        client,
+        previous=previous,
+        report=report,
+        run_at=run_at,
+    )
+    notes = [
+        "只读止损对账：本次没有生成交易计划，也没有下任何新订单",
+        *funding_notes,
+    ]
+    entry = _journal_entry(
+        report,
+        signal_date=str(active_event.get("signal_date") or ""),
+        run_at=run_at,
+        prev_equity=prev_equity,
+        capital_flow=capital_flow,
+        warnings=notes,
+        previous=previous,
+        closed_position_funding=closed_funding,
+    )
+    status = _reconcile_only_status(
+        previous_status=state.get("last_status"),
+        active_event=active_event,
+        stop_errors=stop_errors,
+    )
+    message = format_execution_report(
+        report,
+        signal_date=str(active_event.get("signal_date") or ""),
+        spec=args.spec,
+        execution_hint=str(active_event.get("execution_hint") or ""),
+        targets=None,
+        planned_orders=[],
+        warnings=notes,
+        prev_equity=prev_equity,
+        capital_flow=capital_flow,
+        run_at=run_at,
+        target_rebalance_enabled=False,
+    )
+
+    def notify_reconcile() -> None:
+        token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise SystemExit("ATLAS20_TELEGRAM_BOT_TOKEN is not set")
+        chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
+        if not chat_ids:
+            raise SystemExit("ATLAS20_TELEGRAM_CHAT_ID is not set")
+        api_base = os.environ.get("ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org")
+        for chat_id in chat_ids:
+            send_telegram_message(message, token=token, chat_id=chat_id, api_base=api_base)
+
+    _persist_run_result(
+        json_out=args.json_out,
+        payload={
+            "spec": args.spec,
+            "mode": "reconcile_only",
+            "signal_date": str(active_event.get("signal_date") or ""),
+            "report": report.as_dict(),
+            "status": status,
+        },
+        journal_file=args.journal_file,
+        entry=entry,
+        state_file=args.state_file,
+        key=key,
+        status=status,
+        report=report,
+        account_fp=account_fp,
+        active_event=reconciled_event,
+        stop_reconciliation_through=stop_high_water,
+        mode="reconcile_only",
+        notify=(
+            notify_reconcile
+            if args.notify and (stop_fills or stop_errors)
+            else None
+        ),
+    )
+    if stop_fills or stop_errors:
+        print(message)
+    else:
+        print(f"reconcile-only: no new venue stop; high-water {run_at.isoformat()}")
+    return 1 if status != "ok" else 0
+
+
+def _venue_stop_reconciliation_errors(
+    fills: list[Any],
+    *,
+    expected_stops: dict[str, float],
+    expected_short_qty: dict[str, float],
+) -> list[dict[str, Any]]:
+    """Require every imported stop close to belong to the open journal cycle."""
+
+    errors: list[dict[str, Any]] = []
+    for fill in fills:
+        if str(getattr(fill, "reason", "")) != "venue_strategy_stop":
+            continue
+        symbol = str(getattr(fill, "symbol", "") or "").upper()
+        size = float(getattr(fill, "filled_size", 0.0))
+        expected_qty = float(expected_short_qty.get(symbol, 0.0))
+        expected_stop = float(expected_stops.get(symbol, 0.0))
+        if expected_qty <= 0.0 or expected_stop <= 0.0:
+            errors.append(
+                {
+                    "symbol": symbol or "*",
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{size:.12g}",
+                    "error": (
+                        "venue strategy stop has no open journal short cycle "
+                        "with a confirmed stop"
+                    ),
+                }
+            )
+            continue
+        if abs(size - expected_qty) > max(1e-9, expected_qty * 1e-8):
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{size:.12g}",
+                    "error": (
+                        "venue strategy stop quantity differs from the open journal "
+                        f"short ({size:.8g} vs {expected_qty:.8g})"
+                    ),
+                }
+            )
+        fill_stop = float(getattr(fill, "stop_loss", 0.0) or 0.0)
+        requested_stop = float(
+            getattr(fill, "requested_stop_loss", 0.0) or 0.0
+        )
+        tolerance = max(1e-9, abs(expected_stop) * 1e-8)
+        if (
+            fill_stop <= 0.0
+            or requested_stop <= 0.0
+            or abs(fill_stop - expected_stop) > tolerance
+            or abs(requested_stop - expected_stop) > tolerance
+            or str(getattr(fill, "stop_trigger_by", "")).lower()
+            != "mark"
+            or str(getattr(fill, "stop_order_type", "")).lower()
+            != "market"
+        ):
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{size:.12g}",
+                    "error": (
+                        "venue strategy stop contract differs from the journaled "
+                        f"stop ({fill_stop:.8g}/{expected_stop:.8g})"
+                    ),
+                }
+            )
+    return errors
+
+
 def _journal_entry(
     report: ExecutionReport,
     *,
@@ -722,6 +1486,9 @@ def _journal_entry(
                 "stop_trigger_by": fill.stop_trigger_by,
                 "stop_order_type": fill.stop_order_type,
                 "normalized_stop_loss": fill.normalized_stop_loss,
+                "reason": fill.reason,
+                "strategy_order_id": fill.strategy_order_id,
+                "triggered_at": fill.triggered_at,
             }
             for fill in report.fills
         ],
@@ -736,13 +1503,21 @@ def _write_state(
     report: ExecutionReport,
     *,
     account_fp: str = "",
+    active_event: dict[str, Any] | None = None,
+    stop_reconciliation_through: str | None = None,
+    mode: str = "execution",
 ) -> None:
     state = _read_state(path)
     if account_fp:
         state["account_fingerprint"] = account_fp
     state["last_key"] = key
     state["last_status"] = status
+    state["last_run_mode"] = mode
     state["last_run_at"] = datetime.now(timezone.utc).isoformat()
+    if active_event is not None:
+        state["active_event"] = active_event
+    if stop_reconciliation_through is not None:
+        state["stop_reconciliation_through"] = stop_reconciliation_through
     runs = state.get("runs")
     if not isinstance(runs, list):
         runs = []
@@ -750,6 +1525,7 @@ def _write_state(
         {
             "key": key,
             "status": status,
+            "mode": mode,
             "ran_at": state["last_run_at"],
             "fills": [fill.as_dict() for fill in report.fills],
             "failures": list(report.failures),
@@ -865,6 +1641,9 @@ def _persist_run_result(
     status: str,
     report: ExecutionReport,
     account_fp: str = "",
+    active_event: dict[str, Any] | None = None,
+    stop_reconciliation_through: str | None = None,
+    mode: str = "execution",
     notify: Callable[[], None] | None = None,
 ) -> None:
     """Persist artifacts in an order that never marks an unwritten run as done."""
@@ -881,7 +1660,16 @@ def _persist_run_result(
     upsert_entry(journal_file, entry)
     if notify is not None:
         notify()
-    _write_state(state_file, key, status, report, account_fp=account_fp)
+    _write_state(
+        state_file,
+        key,
+        status,
+        report,
+        account_fp=account_fp,
+        active_event=active_event,
+        stop_reconciliation_through=stop_reconciliation_through,
+        mode=mode,
+    )
 
 
 def _acquire_execution_lock(path: Path) -> TextIO | None:
@@ -908,12 +1696,361 @@ def _release_execution_lock(handle: TextIO) -> None:
     handle.close()
 
 
+def _protect_only_main(args: argparse.Namespace) -> int:
+    """Normalize stops and enforce risk reductions without opening risk."""
+
+    if not args.live:
+        raise SystemExit("--protect-only requires --live")
+    state = _read_state(args.state_file)
+    if not state:
+        raise SystemExit("protect-only requires an existing execution state")
+    active_event = state.get("active_event")
+    if not isinstance(active_event, dict):
+        raise SystemExit("protect-only requires an active target event")
+    key = str(state.get("last_key") or "")
+    if not key:
+        raise SystemExit("protect-only requires the last execution key")
+
+    symbols_by_asset = load_symbol_map(args.symbol_map)
+    relevant_symbols = spec_symbol_universe(symbols_by_asset)
+    session = requests.Session()
+    rows = fetch_public_instruments(session)
+    specs = specs_from_instruments(rows, relevant_symbols)
+    client = BitgetPrivateClient(BitgetCredentials.from_env())
+    account_fp = account_fingerprint(client.account_info())
+    binding_issue = account_state_binding_issue(state, account_fp)
+    if binding_issue is not None:
+        raise SystemExit(binding_issue)
+    account = account_state_from_bitget(client, relevant_symbols)
+    missing_specs = missing_contract_specs(specs, set(account.positions))
+    if missing_specs:
+        raise SystemExit(
+            "protect-only has no contract spec for " + ", ".join(missing_specs)
+        )
+
+    run_at = datetime.now(timezone.utc)
+    journal = load_journal(args.journal_file)
+    try:
+        stop_fills, stop_errors = _recover_venue_stop_fills(
+            client,
+            journal=journal,
+            state=state,
+            symbol_assets=symbol_to_asset_index(relevant_symbols),
+            run_at=run_at,
+        )
+    except (BitgetAPIError, ValueError, OSError) as exc:
+        stop_fills = []
+        stop_errors = [
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "short",
+                "size": "-",
+                "error": f"protect-only could not reconcile stop history ({exc})",
+            }
+        ]
+    if stop_fills:
+        account = account_state_from_bitget(client, relevant_symbols)
+
+    weights = active_event.get("target_weights")
+    weights = dict(weights) if isinstance(weights, dict) else {}
+    required_assets = set(account.positions)
+    required_symbols = {
+        position.symbol.upper() for position in account.positions.values()
+    }
+    prices, quotes, warnings = _live_quote_snapshot(
+        session,
+        set(relevant_symbols.values()),
+        required_symbols=required_symbols,
+        max_age_seconds=float(args.max_quote_age_seconds),
+        spread_warning_bps=float(args.spread_warning_bps),
+        mark_deviation_warning_bps=float(args.mark_deviation_warning_bps),
+    )
+    prices_by_asset: dict[str, float] = {}
+    for asset in required_assets:
+        symbol = account.positions[asset].symbol.upper()
+        if prices.get(symbol, 0.0) <= 0.0:
+            raise SystemExit(f"protect-only has no usable price for {symbol}")
+        prices_by_asset[asset] = prices[symbol]
+
+    stopped_symbols = (
+        dict(active_event.get("stopped_symbols") or {})
+        if isinstance(active_event.get("stopped_symbols"), dict)
+        else {}
+    )
+    stop_scope = _record_stopped_fills(
+        dict(active_event),
+        stop_fills,
+        include_before_application=True,
+    )
+    if isinstance(stop_scope.get("stopped_symbols"), dict):
+        stopped_symbols = stop_scope["stopped_symbols"]
+    plan_quantities = _signed_event_target_quantities(
+        active_event,
+        relevant_symbols,
+        stopped_symbols,
+    )
+    plan = build_execution_plan(
+        account,
+        weights,
+        specs,
+        prices_by_asset,
+        leverage=float(args.leverage),
+        long_buffer=float(args.long_buffer),
+        short_buffer=float(args.short_buffer),
+        short_stop_loss_pct=float(args.short_stop_loss_pct),
+        max_gross_exposure=(
+            float(args.max_gross_multiple) * account.equity
+            if account.equity > 0.0
+            else None
+        ),
+        taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
+        min_rebalance_usdt=float(args.min_rebalance_usdt),
+        rebalance_to_target=False,
+        target_quantities=plan_quantities,
+    )
+    plan, floor_blocked_orders = _apply_equity_floor(
+        plan,
+        floor_usdt=float(args.equity_floor),
+    )
+    if any(not order.reduce_only for order in plan.orders):
+        raise RuntimeError("protect-only planner produced a non-reducing order")
+    if quotes:
+        warnings.extend(
+            orderbook_warnings(
+                quotes,
+                [(order.symbol, order.side, order.notional) for order in plan.orders],
+            )
+        )
+
+    requested = {
+        "auto": "isolated",
+        "isolated": "isolated",
+        "crossed": "crossed",
+    }[args.margin_mode]
+    hold_mode = client.hold_mode()
+    journal_stops = protected_short_stops(journal)
+    for fill in stop_fills:
+        journal_stops.pop(fill.symbol.upper(), None)
+    report = execute_plan(
+        client,
+        plan,
+        signal_date=str(active_event.get("signal_date") or ""),
+        leverage=float(args.leverage),
+        margin_mode=requested,
+        require_isolated=bool(args.require_isolated),
+        known_protected_short_stops=journal_stops,
+        symbol_assets=symbol_to_asset_index(relevant_symbols),
+        short_stop_loss_pct=float(args.short_stop_loss_pct),
+        contract_specs_by_symbol={
+            spec.symbol.upper(): spec for spec in specs.values()
+        },
+        hold_mode=hold_mode,
+        client_oid_prefix=_attempt_client_oid_prefix(
+            key,
+            state,
+            account_fp=account_fp,
+        ),
+    )
+    report.fills = [*stop_fills, *report.fills]
+    report.failures.extend(stop_errors)
+    report.positions_after = _stamp_assets(report.positions_after, relevant_symbols)
+    for order in floor_blocked_orders:
+        report.failures.append(
+            {
+                "symbol": order.symbol,
+                "action": order.action,
+                "side": order.side,
+                "size": f"{order.size:.12g}",
+                "error": "protect-only blocked a non-reducing order",
+            }
+        )
+
+    protected_event = _record_stopped_fills(
+        dict(active_event),
+        stop_fills,
+        include_before_application=True,
+    )
+    if (
+        _risk_cap_was_scaled(plan.warnings)
+        and not _position_application_failures(report.failures)
+    ):
+        protected_event["risk_overlay"] = {
+            "reason": "risk_cap_scaled",
+            "applied_at": run_at.isoformat(),
+            "target_quantities": _risk_overlay_quantities(
+                protected_event,
+                positions=report.positions_after,
+                symbol_assets=symbol_to_asset_index(relevant_symbols),
+            ),
+        }
+    completion_issues = _event_completion_issues(
+        protected_event,
+        positions=report.positions_after,
+        symbol_assets=symbol_to_asset_index(relevant_symbols),
+        specs_by_symbol={spec.symbol.upper(): spec for spec in specs.values()},
+    )
+    for issue in completion_issues:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": f"protect-only position completion failed: {issue}",
+            }
+        )
+    position_failures = _position_application_failures(report.failures)
+    protected_event["position_status"] = "ok" if not position_failures else "partial"
+    protected_event["position_failures"] = position_failures
+    status = "ok" if not report.failures else "partial"
+    stop_high_water = run_at.isoformat() if not stop_errors else None
+
+    previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    prev_equity = (
+        float(previous["equity"])
+        if previous is not None and previous.get("equity") is not None
+        else None
+    )
+    prev_day_pnl = (
+        float(previous["day_pnl"])
+        if previous is not None and previous.get("day_pnl") is not None
+        else None
+    )
+    capital_flow = _capital_flow_for_run(
+        journal,
+        args.capital_flows_file,
+        run_at=run_at,
+    )
+    closed_funding, funding_notes = _closed_funding_for_report(
+        client,
+        previous=previous,
+        report=report,
+        run_at=run_at,
+    )
+    notes = [
+        "protect-only：只允许 reduce/close、止损归一和保证金维护；没有 OPEN/INCREASE",
+        *plan.warnings,
+        *warnings,
+        *funding_notes,
+    ]
+    entry = _journal_entry(
+        report,
+        signal_date=str(active_event.get("signal_date") or ""),
+        run_at=run_at,
+        prev_equity=prev_equity,
+        capital_flow=capital_flow,
+        warnings=notes,
+        previous=previous,
+        closed_position_funding=closed_funding,
+    )
+    message = format_execution_report(
+        report,
+        signal_date=str(active_event.get("signal_date") or ""),
+        spec=args.spec,
+        execution_hint=str(active_event.get("execution_hint") or ""),
+        targets=weights,
+        lot_notional={
+            asset: float(spec.min_order_qty or spec.quantity_multiplier)
+            * prices_by_asset[asset]
+            for asset, spec in specs.items()
+            if asset in prices_by_asset
+        },
+        planned_orders=[],
+        warnings=notes,
+        prev_equity=prev_equity,
+        prev_day_pnl=prev_day_pnl,
+        capital_flow=capital_flow,
+        run_at=run_at,
+        target_rebalance_enabled=False,
+        target_status_note="保护性维护：只降低风险并维护止损，不开仓",
+    )
+
+    def notify_protection() -> None:
+        token = os.environ.get("ATLAS20_TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise SystemExit("ATLAS20_TELEGRAM_BOT_TOKEN is not set")
+        chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
+        if not chat_ids:
+            raise SystemExit("ATLAS20_TELEGRAM_CHAT_ID is not set")
+        api_base = os.environ.get("ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org")
+        for chat_id in chat_ids:
+            send_telegram_message(message, token=token, chat_id=chat_id, api_base=api_base)
+
+    _persist_run_result(
+        json_out=args.json_out,
+        payload={
+            "spec": args.spec,
+            "mode": "protect_only",
+            "signal_date": str(active_event.get("signal_date") or ""),
+            "plan": plan.as_dict(),
+            "report": report.as_dict(),
+            "status": status,
+        },
+        journal_file=args.journal_file,
+        entry=entry,
+        state_file=args.state_file,
+        key=key,
+        status=status,
+        report=report,
+        account_fp=account_fp,
+        active_event=protected_event,
+        stop_reconciliation_through=stop_high_water,
+        mode="protect_only",
+        notify=(
+            notify_protection
+            if args.notify and (report.fills or report.failures)
+            else None
+        ),
+    )
+    if report.fills or report.failures:
+        print(message)
+    else:
+        print("protect-only: stops and risk book already correct; no order placed")
+    return 1 if report.failures else 0
+
+
+def _reconcile_only_main(args: argparse.Namespace) -> int:
+    """Load the account context for a no-order stop reconciliation."""
+
+    if not args.live:
+        raise SystemExit("--reconcile-only requires --live to read the real account")
+    state = _read_state(args.state_file)
+    if not state:
+        raise SystemExit("reconcile-only requires an existing execution state")
+    symbols_by_asset = load_symbol_map(args.symbol_map)
+    relevant_symbols = spec_symbol_universe(symbols_by_asset)
+    client = BitgetPrivateClient(BitgetCredentials.from_env())
+    account_fp = account_fingerprint(client.account_info())
+    binding_issue = account_state_binding_issue(state, account_fp)
+    if binding_issue is not None:
+        raise SystemExit(binding_issue)
+    # Validate that every venue position has a canonical asset mapping before
+    # writing a new journal snapshot.  This path never uses a contract spec or
+    # plans an order.
+    account_state_from_bitget(client, relevant_symbols)
+    return _reconcile_live_stops_from_context(
+        args,
+        client=client,
+        state=state,
+        symbol_assets=symbol_to_asset_index(relevant_symbols),
+        account_fp=account_fp,
+        run_at=datetime.now(timezone.utc),
+    )
+
+
 def _main(args: argparse.Namespace) -> int:
+    if args.reconcile_only and args.protect_only:
+        raise SystemExit("--reconcile-only and --protect-only are mutually exclusive")
+    if args.reconcile_only:
+        return _reconcile_only_main(args)
     if args.kill_switch.exists():
         raise SystemExit(
             f"kill switch present at {args.kill_switch}; refusing to trade "
             "(delete the file to resume)"
         )
+    if args.protect_only:
+        return _protect_only_main(args)
 
     signal_date, event_execution_hint, book = load_latest_targets(args.targets_file)
     manifest: dict[str, Any] | None = None
@@ -975,6 +2112,11 @@ def _main(args: argparse.Namespace) -> int:
             )
         if manifest.get("data_audit_passed") is not True:
             raise SystemExit("manifest records a failed data audit; refusing to execute")
+    fresh_target_event = (
+        _target_event_is_fresh(signal_date, manifest)
+        if manifest is not None
+        else False
+    )
     try:
         execution_hint = _effective_execution_hint(
             signal_end_date=manifest.get("signal_end_date") if manifest else None,
@@ -1111,37 +2253,6 @@ def _main(args: argparse.Namespace) -> int:
         if position.symbol.upper() in prices:
             prices_by_asset.setdefault(asset, prices[position.symbol.upper()])
 
-    plan = build_execution_plan(
-        account,
-        targets,
-        specs,
-        prices_by_asset,
-        leverage=float(args.leverage),
-        long_buffer=float(args.long_buffer),
-        short_buffer=float(args.short_buffer),
-        short_stop_loss_pct=float(args.short_stop_loss_pct),
-        max_gross_exposure=(
-            float(args.max_gross_multiple) * account.equity
-            if account.equity > 0.0
-            else None
-        ),
-        taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
-        min_rebalance_usdt=float(args.min_rebalance_usdt),
-    )
-    plan, floor_blocked_orders = _apply_equity_floor(
-        plan, floor_usdt=float(args.equity_floor)
-    )
-    if quotes:
-        warnings.extend(
-            orderbook_warnings(
-                quotes,
-                [
-                    (order.symbol, order.side, order.notional)
-                    for order in plan.orders
-                ],
-            )
-        )
-
     # Idempotency is per *run day and exact target book*.  Keying only on the
     # signal date would skip every unchanged day; keying only on the run day
     # lets a stale no-op block a later catch-up after the book is rebuilt.
@@ -1165,8 +2276,17 @@ def _main(args: argparse.Namespace) -> int:
         )
     already = state.get("last_key") == key and state.get("last_status") == "ok"
     if already and not args.force and args.live:
-        print(f"already executed {key} (status ok); nothing to do")
-        return 0
+        # A stop can trigger after the first successful run.  Do not return
+        # before the venue's closed-strategy history has been reconciled; the
+        # reconcile-only path cannot plan or place any order.
+        return _reconcile_live_stops_from_context(
+            args,
+            client=client,
+            state=state,
+            symbol_assets=symbol_to_asset_index(relevant_symbols),
+            account_fp=account_fp,
+            run_at=datetime.now(timezone.utc),
+        )
     client_oid_prefix = _attempt_client_oid_prefix(key, state, account_fp=account_fp)
 
     lot_notional = {
@@ -1174,7 +2294,6 @@ def _main(args: argparse.Namespace) -> int:
         for asset, spec in specs.items()
         if asset in prices_by_asset
     }
-    warnings = [*plan.warnings, *warnings]
     run_at = datetime.now(timezone.utc)
     journal = load_journal(args.journal_file)
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
@@ -1186,15 +2305,153 @@ def _main(args: argparse.Namespace) -> int:
     )
     if abs(capital_flow) > 0.005:
         warnings.append(f"外部资金流 {capital_flow:+.2f} USDT（已从盈亏中剔除）")
-    notes = list(warnings)
-    if freshness_note:
-        notes.append(freshness_note)
     prev_day_pnl = (
         float(previous["day_pnl"])
         if previous and previous.get("day_pnl") is not None
         else None
     )
 
+    stop_fills: list[Any] = []
+    stop_errors: list[dict[str, Any]] = []
+    stop_reconciliation_through: str | None = None
+    hold_mode = ""
+    requested = {
+        "auto": "isolated",
+        "isolated": "isolated",
+        "crossed": "crossed",
+    }[args.margin_mode]
+    if args.live:
+        try:
+            stop_fills, stop_errors = _recover_venue_stop_fills(
+                client,
+                journal=journal,
+                state=state,
+                symbol_assets=symbol_to_asset_index(relevant_symbols),
+                run_at=run_at,
+            )
+        except (BitgetAPIError, ValueError, OSError) as exc:
+            stop_errors = [
+                {
+                    "symbol": "*",
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": (
+                        "could not reconcile venue strategy stop history; "
+                        f"new risk is blocked ({exc})"
+                    ),
+                }
+            ]
+        if not stop_errors:
+            stop_reconciliation_through = run_at.isoformat()
+        if stop_fills:
+            # The first account read can race the exchange stop.  Re-read the
+            # actual book before planning so a just-closed leg cannot be sized
+            # as still open.
+            account = account_state_from_bitget(client, relevant_symbols)
+        hold_mode = client.hold_mode()
+
+    existing_active_event = state.get("active_event")
+    existing_active_event_ok = (
+        isinstance(existing_active_event, dict)
+        and str(existing_active_event.get("signal_date") or "")
+        == str(pd.Timestamp(signal_date).date())
+        and str(existing_active_event.get("targets_sha256") or "")
+        == str(target_identity)
+    )
+    plan_active_event = existing_active_event if existing_active_event_ok else None
+    if isinstance(plan_active_event, dict):
+        plan_active_event = _record_stopped_fills(plan_active_event, stop_fills)
+    # Any stop found in today's reconciliation scan blocks a same-run reopen,
+    # even when the process had not yet persisted the event's applied_at.  A
+    # later target event can authorize the symbol again; this run cannot.
+    stop_scope = dict(plan_active_event) if isinstance(plan_active_event, dict) else {
+        "stopped_symbols": {}
+    }
+    stop_scope = _record_stopped_fills(
+        stop_scope,
+        stop_fills,
+        include_before_application=True,
+    )
+    stopped_symbols = (
+        stop_scope.get("stopped_symbols")
+        if isinstance(stop_scope.get("stopped_symbols"), dict)
+        else {}
+    )
+    plan_mode = _event_plan_mode(
+        fresh_target_event=fresh_target_event,
+        active_event=plan_active_event if isinstance(plan_active_event, dict) else None,
+    )
+
+    plan_quantities: dict[str, float] | None = None
+    if isinstance(plan_active_event, dict) and plan_mode != "fresh":
+        plan_quantities = _signed_event_target_quantities(
+            plan_active_event,
+            relevant_symbols,
+            stopped_symbols,
+        )
+    stopped_assets = {
+        asset
+        for asset, symbol in relevant_symbols.items()
+        if str(symbol).upper() in {str(symbol).upper() for symbol in stopped_symbols}
+    }
+    plan_targets = {
+        asset: weight
+        for asset, weight in targets.items()
+        if asset not in stopped_assets
+    }
+    rebalance_to_target = plan_mode in {"fresh", "complete"} and not stop_errors
+    plan = build_execution_plan(
+        account,
+        plan_targets,
+        specs,
+        prices_by_asset,
+        leverage=float(args.leverage),
+        long_buffer=float(args.long_buffer),
+        short_buffer=float(args.short_buffer),
+        short_stop_loss_pct=float(args.short_stop_loss_pct),
+        max_gross_exposure=(
+            float(args.max_gross_multiple) * account.equity
+            if account.equity > 0.0
+            else None
+        ),
+        taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
+        min_rebalance_usdt=float(args.min_rebalance_usdt),
+        rebalance_to_target=rebalance_to_target,
+        target_quantities=plan_quantities,
+    )
+    plan, floor_blocked_orders = _apply_equity_floor(
+        plan, floor_usdt=float(args.equity_floor)
+    )
+    if quotes:
+        warnings.extend(
+            orderbook_warnings(
+                quotes,
+                [
+                    (order.symbol, order.side, order.notional)
+                    for order in plan.orders
+                ],
+            )
+        )
+    warnings = [*plan.warnings, *warnings]
+    if plan_mode == "complete":
+        warnings.append(
+            "正在按最近目标事件冻结的币数量补齐未完成的仓位；不会按今日权益重算目标"
+        )
+    elif plan_mode == "maintain" and not fresh_target_event:
+        warnings.append(
+            "今日没有新的目标事件：保留当前同向持仓漂移，不按旧事件权重日常再平衡；"
+            "只执行风险降低、止损和逐仓保证金维护"
+        )
+    if stop_errors:
+        warnings.append(
+            "止损成交历史未能完整对账：本轮禁止新开/加仓，只执行风险降低和账户维护"
+        )
+    notes = list(warnings)
+    if freshness_note:
+        notes.append(freshness_note)
+
+    planned_orders: list[Any]
     if not args.live:
         warnings.append("DRY RUN：本次没有真的下单（加 --live 才会执行）")
         report = ExecutionReport(
@@ -1217,12 +2474,9 @@ def _main(args: argparse.Namespace) -> int:
         )
         planned_orders = list(plan.orders)
     else:
-        hold_mode = client.hold_mode()
-        requested = {
-            "auto": "isolated",
-            "isolated": "isolated",
-            "crossed": "crossed",
-        }[args.margin_mode]
+        journal_stops = protected_short_stops(journal)
+        for fill in stop_fills:
+            journal_stops.pop(fill.symbol.upper(), None)
         report = execute_plan(
             client,
             plan,
@@ -1230,7 +2484,7 @@ def _main(args: argparse.Namespace) -> int:
             leverage=float(args.leverage),
             margin_mode=requested,
             require_isolated=bool(args.require_isolated),
-            known_protected_short_stops=protected_short_stops(journal),
+            known_protected_short_stops=journal_stops,
             symbol_assets=symbol_to_asset_index(relevant_symbols),
             short_stop_loss_pct=float(args.short_stop_loss_pct),
             contract_specs_by_symbol={
@@ -1239,6 +2493,10 @@ def _main(args: argparse.Namespace) -> int:
             hold_mode=hold_mode,
             client_oid_prefix=client_oid_prefix,
         )
+        report.fills = [*stop_fills, *report.fills]
+        if stop_fills:
+            report.traded = True
+        report.failures.extend(stop_errors)
         report.positions_after = _stamp_assets(
             report.positions_after, relevant_symbols
         )
@@ -1266,6 +2524,82 @@ def _main(args: argparse.Namespace) -> int:
                 "新的 open/increase 已被阻断，请复核并处理现有仓位"
             )
 
+    if isinstance(plan_active_event, dict) and existing_active_event_ok:
+        active_event = dict(plan_active_event)
+    elif fresh_target_event:
+        active_event = _active_event_record(
+            plan,
+            targets,
+            specs,
+            prices_by_asset,
+            signal_date=signal_date,
+            target_identity=target_identity,
+            execution_hint=execution_hint,
+            applied_at=run_at.isoformat(),
+            failures=report.failures,
+        )
+    else:
+        active_event = _active_event_record(
+            plan,
+            targets,
+            specs,
+            prices_by_asset,
+            signal_date=signal_date,
+            target_identity=target_identity,
+            execution_hint=execution_hint,
+            applied_at=str(state.get("last_run_at") or run_at.isoformat()),
+            failures=report.failures,
+        )
+        latest_journal_signal = (
+            str(latest_row(journal).get("signal_date"))
+            if not journal.empty and latest_row(journal) is not None
+            else ""
+        )
+        if state.get("last_status") != "ok" or latest_journal_signal != str(
+            pd.Timestamp(signal_date).date()
+        ):
+            active_event["position_status"] = "partial"
+    active_event = _record_stopped_fills(
+        active_event,
+        stop_fills,
+        include_before_application=True,
+    )
+    if (
+        _risk_cap_was_scaled(plan.warnings)
+        and not _position_application_failures(report.failures)
+    ):
+        active_event["risk_overlay"] = {
+            "reason": "risk_cap_scaled",
+            "applied_at": run_at.isoformat(),
+            "target_quantities": _risk_overlay_quantities(
+                active_event,
+                positions=report.positions_after,
+                symbol_assets=symbol_to_asset_index(relevant_symbols),
+            ),
+        }
+
+    completion_issues = _event_completion_issues(
+        active_event,
+        positions=report.positions_after,
+        symbol_assets=symbol_to_asset_index(relevant_symbols),
+        specs_by_symbol={
+            spec.symbol.upper(): spec for spec in specs.values()
+        },
+    )
+    for issue in completion_issues:
+        report.failures.append(
+            {
+                "symbol": "*",
+                "action": "VERIFY",
+                "side": "-",
+                "size": "-",
+                "error": f"active event position completion failed: {issue}",
+            }
+        )
+    position_failures = _position_application_failures(report.failures)
+    active_event["position_status"] = "ok" if not position_failures else "partial"
+    active_event["position_failures"] = position_failures
+
     status = "ok" if not report.failures else "partial"
     message = format_execution_report(
         report,
@@ -1281,6 +2615,16 @@ def _main(args: argparse.Namespace) -> int:
         capital_flow=capital_flow,
         run_at=run_at,
         event_age_days=event_age_days,
+        target_rebalance_enabled=plan_mode == "fresh",
+        target_status_note=(
+            "按冻结事件数量补齐未完成仓位，不按今日权益重算"
+            if plan_mode == "complete"
+            else (
+                "今日无新目标事件，不做权重再平衡"
+                if not fresh_target_event
+                else "最新目标事件已完整应用，不做旧权重再平衡"
+            )
+        ),
     )
     print(message)
 
@@ -1297,60 +2641,12 @@ def _main(args: argparse.Namespace) -> int:
             print(f"Notified execution report {key} to {chat_id}")
 
     if args.live:
-        closed_funding: dict[str, float] = {}
-        funding_notes: list[str] = []
-        needs_closed_funding = False
-        if previous is not None:
-            try:
-                prior_positions = json.loads(previous.get("positions") or "[]")
-            except (TypeError, json.JSONDecodeError):
-                prior_positions = []
-            current_sides = {
-                str(row.get("symbol") or "").upper(): (
-                    "short"
-                    if str(row.get("posSide") or "").lower() == "short"
-                    or (
-                        str(row.get("posSide") or "").lower() in {"", "net"}
-                        and float(row.get("total") or 0.0) < 0.0
-                    )
-                    else "long"
-                )
-                for row in report.positions_after
-                if str(row.get("symbol") or "")
-                and abs(float(row.get("total") or 0.0)) > 1e-12
-            }
-            for prior in prior_positions if isinstance(prior_positions, list) else []:
-                if not isinstance(prior, dict):
-                    continue
-                prior_symbol = str(prior.get("symbol") or "").upper()
-                prior_side = str(prior.get("side") or "").lower()
-                if prior_symbol and current_sides.get(prior_symbol) != prior_side:
-                    needs_closed_funding = True
-                    break
-            needs_closed_funding = needs_closed_funding or any(
-                str(fill.action).upper() == "CLOSE" for fill in report.fills
-            )
-        if needs_closed_funding and previous is not None and previous.get("run_at_utc"):
-            try:
-                previous_at = pd.Timestamp(previous["run_at_utc"])
-                start_ms = int((previous_at - pd.Timedelta(hours=1)).timestamp() * 1000)
-                end_ms = int((run_at + pd.Timedelta(hours=1)).timestamp() * 1000)
-                history = client.position_history(
-                    start_time_ms=start_ms,
-                    end_time_ms=end_ms,
-                )
-                closed_funding, funding_notes = _closed_funding_from_history(
-                    history,
-                    previous=previous,
-                    current_positions=report.positions_after,
-                    fills=report.fills,
-                    previous_run_at=previous_at,
-                    run_at=run_at,
-                )
-            except (BitgetAPIError, ValueError, OSError) as exc:
-                funding_notes.append(
-                    f"资金费归因不完整：读取平仓持仓历史失败（{exc}）"
-                )
+        closed_funding, funding_notes = _closed_funding_for_report(
+            client,
+            previous=previous,
+            report=report,
+            run_at=run_at,
+        )
         notes.extend(funding_notes)
         entry = _journal_entry(
             report,
@@ -1387,6 +2683,8 @@ def _main(args: argparse.Namespace) -> int:
             status=status,
             report=report,
             account_fp=account_fp,
+            active_event=active_event,
+            stop_reconciliation_through=stop_reconciliation_through,
             notify=notify_report if args.notify else None,
         )
         print(f"journal updated: {args.journal_file} ({entry.date})")

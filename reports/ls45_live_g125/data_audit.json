@@ -8531,6 +8531,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.1inch.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.1inch.fresh",
       "passed": true
@@ -8558,6 +8563,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.aave.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.aave.recent_gap",
       "passed": true
     },
     {
@@ -8591,6 +8601,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.algorand.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.algorand.fresh",
       "passed": true
@@ -8618,6 +8633,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.apecoin.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.apecoin.recent_gap",
       "passed": true
     },
     {
@@ -8651,6 +8671,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.aptos.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.aptos.fresh",
       "passed": true
@@ -8678,6 +8703,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.arbitrum.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.arbitrum.recent_gap",
       "passed": true
     },
     {
@@ -8711,6 +8741,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.aster-2.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.aster-2.fresh",
       "passed": true
@@ -8738,6 +8773,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.avalanche-2.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.avalanche-2.recent_gap",
       "passed": true
     },
     {
@@ -8771,6 +8811,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.axie-infinity.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.axie-infinity.fresh",
       "passed": true
@@ -8798,6 +8843,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.basic-attention-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.basic-attention-token.recent_gap",
       "passed": true
     },
     {
@@ -8831,6 +8881,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.binancecoin.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.binancecoin.fresh",
       "passed": true
@@ -8858,6 +8913,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.bitcoin.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.bitcoin.recent_gap",
       "passed": true
     },
     {
@@ -8891,6 +8951,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.bitcoin-cash.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.bitcoin-cash.fresh",
       "passed": true
@@ -8918,6 +8983,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.bitget-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.bitget-token.recent_gap",
       "passed": true
     },
     {
@@ -8951,6 +9021,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.bittensor.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.bittensor.fresh",
       "passed": true
@@ -8978,6 +9053,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.bitway.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.bitway.recent_gap",
       "passed": true
     },
     {
@@ -9011,6 +9091,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.canton-network.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.canton-network.fresh",
       "passed": true
@@ -9038,6 +9123,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.cardano.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.cardano.recent_gap",
       "passed": true
     },
     {
@@ -9071,6 +9161,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.celestia.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.celestia.fresh",
       "passed": true
@@ -9098,6 +9193,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.chainlink.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.chainlink.recent_gap",
       "passed": true
     },
     {
@@ -9131,6 +9231,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.chiliz.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.chiliz.fresh",
       "passed": true
@@ -9158,6 +9263,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.compound-governance-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.compound-governance-token.recent_gap",
       "passed": true
     },
     {
@@ -9191,6 +9301,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.cosmos.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.cosmos.fresh",
       "passed": true
@@ -9218,6 +9333,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.crypto-com-chain.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.crypto-com-chain.recent_gap",
       "passed": true
     },
     {
@@ -9251,6 +9371,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.curve-dao-token.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.curve-dao-token.fresh",
       "passed": true
@@ -9278,6 +9403,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.decentraland.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.decentraland.recent_gap",
       "passed": true
     },
     {
@@ -9311,6 +9441,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.dogecoin.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.dogecoin.fresh",
       "passed": true
@@ -9338,6 +9473,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.dydx-chain.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.dydx-chain.recent_gap",
       "passed": true
     },
     {
@@ -9371,6 +9511,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.elrond-erd-2.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.elrond-erd-2.fresh",
       "passed": true
@@ -9398,6 +9543,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.enjincoin.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.enjincoin.recent_gap",
       "passed": true
     },
     {
@@ -9431,6 +9581,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.ethena.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.ethena.fresh",
       "passed": true
@@ -9458,6 +9613,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.ethereum.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.ethereum.recent_gap",
       "passed": true
     },
     {
@@ -9491,6 +9651,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.ethereum-classic.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.ethereum-classic.fresh",
       "passed": true
@@ -9518,6 +9683,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.ethereum-name-service.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.ethereum-name-service.recent_gap",
       "passed": true
     },
     {
@@ -9551,6 +9721,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.fantom.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.fantom.fresh",
       "passed": true
@@ -9578,6 +9753,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.filecoin.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.filecoin.recent_gap",
       "passed": true
     },
     {
@@ -9611,6 +9791,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.gala.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.gala.fresh",
       "passed": true
@@ -9638,6 +9823,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.havven.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.havven.recent_gap",
       "passed": true
     },
     {
@@ -9671,6 +9861,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.hedera-hashgraph.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.hedera-hashgraph.fresh",
       "passed": true
@@ -9698,6 +9893,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.hyperliquid.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.hyperliquid.recent_gap",
       "passed": true
     },
     {
@@ -9731,6 +9931,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.immutable-x.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.immutable-x.fresh",
       "passed": true
@@ -9758,6 +9963,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.injective-protocol.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.injective-protocol.recent_gap",
       "passed": true
     },
     {
@@ -9791,6 +10001,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.internet-computer.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.internet-computer.fresh",
       "passed": true
@@ -9818,6 +10033,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.jupiter-exchange-solana.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.jupiter-exchange-solana.recent_gap",
       "passed": true
     },
     {
@@ -9851,6 +10071,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.kaspa.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.kaspa.fresh",
       "passed": true
@@ -9878,6 +10103,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.lido-dao.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.lido-dao.recent_gap",
       "passed": true
     },
     {
@@ -9911,6 +10141,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.litecoin.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.litecoin.fresh",
       "passed": true
@@ -9938,6 +10173,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.matic-network.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.matic-network.recent_gap",
       "passed": true
     },
     {
@@ -9971,6 +10211,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.memecore.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.memecore.fresh",
       "passed": true
@@ -9998,6 +10243,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.monero.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.monero.recent_gap",
       "passed": true
     },
     {
@@ -10031,6 +10281,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.morpho.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.morpho.fresh",
       "passed": true
@@ -10058,6 +10313,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.near.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.near.recent_gap",
       "passed": true
     },
     {
@@ -10091,6 +10351,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.neo.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.neo.fresh",
       "passed": true
@@ -10118,6 +10383,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.ondo-finance.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.ondo-finance.recent_gap",
       "passed": true
     },
     {
@@ -10151,6 +10421,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.optimism.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.optimism.fresh",
       "passed": true
@@ -10178,6 +10453,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.pancakeswap-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.pancakeswap-token.recent_gap",
       "passed": true
     },
     {
@@ -10211,6 +10491,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.pepe.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.pepe.fresh",
       "passed": true
@@ -10238,6 +10523,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.pi-network.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.pi-network.recent_gap",
       "passed": true
     },
     {
@@ -10271,6 +10561,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.polkadot.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.polkadot.fresh",
       "passed": true
@@ -10298,6 +10593,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.polygon-ecosystem-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.polygon-ecosystem-token.recent_gap",
       "passed": true
     },
     {
@@ -10331,6 +10631,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.pump-fun.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.pump-fun.fresh",
       "passed": true
@@ -10358,6 +10663,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.quant-network.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.quant-network.recent_gap",
       "passed": true
     },
     {
@@ -10391,6 +10701,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.render-token.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.render-token.fresh",
       "passed": true
@@ -10418,6 +10733,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.ripple.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.ripple.recent_gap",
       "passed": true
     },
     {
@@ -10451,6 +10771,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.sei-network.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.sei-network.fresh",
       "passed": true
@@ -10478,6 +10803,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.shiba-inu.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.shiba-inu.recent_gap",
       "passed": true
     },
     {
@@ -10511,6 +10841,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.sky.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.sky.fresh",
       "passed": true
@@ -10538,6 +10873,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.solana.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.solana.recent_gap",
       "passed": true
     },
     {
@@ -10571,6 +10911,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.stellar.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.stellar.fresh",
       "passed": true
@@ -10598,6 +10943,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.stepn.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.stepn.recent_gap",
       "passed": true
     },
     {
@@ -10631,6 +10981,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.sui.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.sui.fresh",
       "passed": true
@@ -10658,6 +11013,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.sushi.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.sushi.recent_gap",
       "passed": true
     },
     {
@@ -10691,6 +11051,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.terra-luna.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.terra-luna.fresh",
       "passed": true
@@ -10718,6 +11083,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.terra-luna-2.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.terra-luna-2.recent_gap",
       "passed": true
     },
     {
@@ -10751,6 +11121,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.tezos.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.tezos.fresh",
       "passed": true
@@ -10778,6 +11153,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.the-graph.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.the-graph.recent_gap",
       "passed": true
     },
     {
@@ -10811,6 +11191,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.the-open-network.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.the-open-network.fresh",
       "passed": true
@@ -10838,6 +11223,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.the-sandbox.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.the-sandbox.recent_gap",
       "passed": true
     },
     {
@@ -10871,6 +11261,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.theta-token.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.theta-token.fresh",
       "passed": true
@@ -10898,6 +11293,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.thorchain.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.thorchain.recent_gap",
       "passed": true
     },
     {
@@ -10931,6 +11331,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.tron.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.tron.fresh",
       "passed": true
@@ -10958,6 +11363,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.uniswap.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.uniswap.recent_gap",
       "passed": true
     },
     {
@@ -10991,6 +11401,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.vechain.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.vechain.fresh",
       "passed": true
@@ -11018,6 +11433,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.venice-token.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.venice-token.recent_gap",
       "passed": true
     },
     {
@@ -11051,6 +11471,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.world-liberty-financial.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.world-liberty-financial.fresh",
       "passed": true
@@ -11078,6 +11503,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.worldcoin-wld.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.worldcoin-wld.recent_gap",
       "passed": true
     },
     {
@@ -11111,6 +11541,11 @@
       "passed": true
     },
     {
+      "detail": "funding gap 8.00h exceeds interval 8.00h",
+      "name": "funding.zcash.recent_gap",
+      "passed": true
+    },
+    {
       "detail": "fresh",
       "name": "funding.zcash.fresh",
       "passed": true
@@ -11138,6 +11573,11 @@
     {
       "detail": "manifest last='2026-11-14 16:00:00+00:00' actual last=2026-11-14 16:00:00+00:00",
       "name": "funding.zilliqa.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "funding gap 4.00h exceeds interval 4.00h",
+      "name": "funding.zilliqa.recent_gap",
       "passed": true
     },
     {
@@ -11240,17 +11680,105 @@
       "contracts.json": "bad342192105cde0b142538f0bdc8337c484e584adbcf1abb50ecb259a5b690e",
       "coverage.json": "e02c455589c3f63cac8b1189fca27f4e9e895ffb9f6997ac7bd5762cbb511b7c",
       "data/processed/panel_daily.csv": "dbdefd6c5bc473fa008706bf654afed63af20d41bbf9d72ffe11d6911338dddc",
+      "funding/1inch.csv": "e158377928c2afb0edfe12aacd1e146758c7613667ffb876bfb1b74c6f177fb8",
+      "funding/aave.csv": "d586503f0b299cdf7e036415fea7f45ec33f7d106f10e19d893c37293f6414a6",
+      "funding/algorand.csv": "91b0de324146c748c300699016b556ad47eb4f39638d09d26353384a8e1e7a24",
+      "funding/apecoin.csv": "61f16f3afb7e78f87e97dc49b7e043d23d3e1e7f1c738a4035593ec4e704eae0",
+      "funding/aptos.csv": "5d47a167342367e3c40a824277c72fc15b49c7a243c70a33d330609a8bf4a0c2",
+      "funding/arbitrum.csv": "a5dc0fc82f690056db52ff4bd68e7dc3864432d9694b2c22693be39ee8a5da64",
+      "funding/aster-2.csv": "954a1273e9c8dd93608f2734861bf0c63443d8e1062b809cde67a42f6a2e6822",
+      "funding/avalanche-2.csv": "aca62420529bbc53330d55fb3a0f5b72918e2b59d26418cf2914d60f9f3fa6fe",
+      "funding/axie-infinity.csv": "33c3b93e68caab8c2106743e4c7e940c3dee30133fd74ebb1d89957a0155f7b6",
+      "funding/basic-attention-token.csv": "e260231cfc349e7a5b385679bf126b32607bf9f4fef71346732135922144b050",
+      "funding/binancecoin.csv": "196a8a0d75ce16eacd9b9ed06f36fdd14832528d1f9d0164a62981028ca312a7",
+      "funding/bitcoin-cash.csv": "a8f7c7b4d146859b46a0c277b1afe680d2e92741279b56169d4c7dbfd4c48b4f",
+      "funding/bitcoin.csv": "401b42412f0ceec8624362c10ca8198dde6507a05de08307585620167fb4043b",
+      "funding/bitget-token.csv": "efa3b4088e63c945ce9b9f0386e70acee6b8c2dbf58563796b7368c9af60db6d",
+      "funding/bittensor.csv": "e90fed17209c47111d938729ba533c3b45177df399d9520fd84e365501e9f05c",
+      "funding/bitway.csv": "f40ca9d12870313e6e02707ad36ebdd257838176e08b712f500f8d552daf6200",
+      "funding/canton-network.csv": "f976e370a8f6f28a1cf0b8b5efb4b9f2d95b5c44e4f8e6fba58c90d46745948a",
+      "funding/cardano.csv": "a7bb505fb3413035cafafd1a99041ebe2e1db4d78c2d41afb15175ff3f2dd724",
+      "funding/celestia.csv": "d2dae5cc35f5f7e1a3cc46b0e9ef0ef6a130a9e9fc5ed217a23448d1f1abb190",
+      "funding/chainlink.csv": "f1e4e07fd88ce401f10a45b04d212c211430dee04424ddb42a724b8f1ce74b43",
+      "funding/chiliz.csv": "2bcd9f6396a4415e4a502509cfbe2f38c337ab41b3f0672aa3e4251be1d539c3",
+      "funding/compound-governance-token.csv": "57d36bb32cef19a1a11dc7daaec0b288ed827aceefa566865c1aee51043990a7",
+      "funding/cosmos.csv": "17b52de4f5cfd3c51e21513d50d336ae481be475a075977af48a07412b52238c",
+      "funding/crypto-com-chain.csv": "1bd94086f4ba5a13cc528e335b429c3b4f232ec4a2476ba9f0ca6596623f61df",
+      "funding/curve-dao-token.csv": "6494dddc92f712232d57776409f52547e33530dc6f1b5c0a365554947baecc16",
+      "funding/decentraland.csv": "3bafd46a12553a6962c57bc85d3c14abd6234136b639e0fb81f3c0d8131d91f5",
+      "funding/dogecoin.csv": "faa1fea3e5a581e2494e28e10653092bdb4eb89bcac95e886795ad650a78e8ac",
+      "funding/dydx-chain.csv": "a2b36110bc9e94a0e0ee49d2168f6905974a1b9606cd5c5019b9994a280b71b3",
+      "funding/elrond-erd-2.csv": "b8a8e696319b04cd54e7b9b4535d806cc6fe244ddfba58132ca643421006dad1",
+      "funding/enjincoin.csv": "7a320bfce7462fd89ed966d085e22703b3f7ca27006b1f056ab8d0f7abedabcc",
+      "funding/ethena.csv": "68a36817f43c532a16595ce7ec29b65d6f85474552a3a012ef11134024b08cc1",
+      "funding/ethereum-classic.csv": "bbe26fca80c56032579f3ef6eea5430f76da34978bdd09b77c63c316ff45b2f8",
+      "funding/ethereum-name-service.csv": "27747f0625d70f706c6fb9ada49274e523802ac7621f670527f7da3427fa7e57",
+      "funding/ethereum.csv": "6eb7bc9ab728492cd86a7bce48572e086e208f0c61edfd90d262920ec1086459",
+      "funding/fantom.csv": "28af438aaa1d67e61f87d41151647bc97d0b967bdd752ee72c1f60c22fc3a2ca",
+      "funding/filecoin.csv": "eb340608f24b407aa42a77168bd9550f57103c3b8ccae6658e32f92c616ffb6b",
+      "funding/gala.csv": "3be261d3c601f8bf14893cf51c17491379a2d4c460496edafe835475309d226d",
+      "funding/havven.csv": "00bbc45b933f86a9ff269ec5d3a21971f8953a91f0007b477f66e326df32523c",
+      "funding/hedera-hashgraph.csv": "5ebb2c9cbf149f09cba759299487d6615685074491c334c366c461871e3ff148",
+      "funding/hyperliquid.csv": "24a51ec3f18cfb3ca39d716b4f69cecb359b9e451e9c4660f2532b0496709762",
+      "funding/immutable-x.csv": "463fd6f4cd11844358575da8887b3f8a4a951095f334889ebce2fa31f4a27515",
+      "funding/injective-protocol.csv": "db40c94f5864e53e8d4cac1635875195ca14686ace28929229e3b55a850a1ded",
+      "funding/internet-computer.csv": "eee20866df947e33169783ba844b262375c29d92b557d445c1d7fab88347b1f7",
+      "funding/jupiter-exchange-solana.csv": "6b9e4a6d7b157dce7090596ebc1211571debae50fefd6fc48c9a3ed8f6fdfdaa",
+      "funding/kaspa.csv": "5c29395d75d732403cac4ae2ee120d7ea828aa080ead161abf4770ec1f52ae2c",
+      "funding/lido-dao.csv": "95552e972c18e6aa615713bd24dd2aa4f30766fc98613a64e3e3d5f391f3ab65",
+      "funding/litecoin.csv": "5eebc4b0162f9e9d0c86c339bd4f74a234ec2da04dab8863cb0088efe59e0158",
+      "funding/matic-network.csv": "b04ea475a6a7f45afc80ef4843308efda6664c6007d77c7f835864d51c57e3d9",
+      "funding/memecore.csv": "8c66286f39bc56af916f480e2bd24e1ef4e3dccc1945fead0ee776f02a70e141",
+      "funding/monero.csv": "074d08f01651fdeef73caaa88806768163ebfa4fb656c88e8f16c6929582b81a",
+      "funding/morpho.csv": "cba2464df78c0d8810963dd14db5f7951da22f89af2d42aa1bfc809b64454bdc",
+      "funding/near.csv": "4668e2f62862ea800b135912663653a299b84a1cc98a101a56477bc432bf1914",
+      "funding/neo.csv": "bf43a6ff61efac818c842e38607c6223bbbcba70d08877293c0831af47868052",
+      "funding/ondo-finance.csv": "56a552267b09b45682b40492d636d9070f084b47db627d9eedd4665ff8d896a3",
+      "funding/optimism.csv": "ceb7b2afffa50dd4726fe9757b251ffa692fb958a4dbd10dc75631972e95a442",
+      "funding/pancakeswap-token.csv": "04f9e1fdb144d6c80113a0ac4fe555252a1bc68d2dff64e9a17c3e40e34d5f27",
+      "funding/pepe.csv": "e94d8c9a2362abb68ed6de5de4adacfef4b3fc566dc0a8802fd5776b38ea6fa0",
+      "funding/pi-network.csv": "476edb1e539b5de419d2212658c96db9e6b6044afb3d867857fef100afc668f1",
+      "funding/polkadot.csv": "f4a667c2374ca0a4875da910316ae98da5d4aa4273877d805530212caccf66bc",
+      "funding/polygon-ecosystem-token.csv": "b04ea475a6a7f45afc80ef4843308efda6664c6007d77c7f835864d51c57e3d9",
+      "funding/pump-fun.csv": "b62bf4263e91b559d81cdec2176d00ccbf171997602bb3ba464bcafb8bd49db4",
+      "funding/quant-network.csv": "e786992e837856dd4c121427a6db9aec48d53be366c5c48ae7665b13144a36bc",
+      "funding/render-token.csv": "98dd70f850f2c439090b35ea4612570b7dab3a9846adc87b12449d3eb2cd7545",
+      "funding/ripple.csv": "739610870821f2333122e7cfdde5c50689fe23161dffffe8baa481fb360dae80",
+      "funding/sei-network.csv": "8aee5a0bbd03516d7a62a207c676557a148e3e299c74a28bb4c41c02f3a3472b",
+      "funding/shiba-inu.csv": "65864739a7389d5dc26f2e7a98a10879bde6d156e243820ecaf4ae8bb64366a4",
+      "funding/sky.csv": "7d9af3fb4f1533558f86f3fed38dfa7bbfdbf9167a7e64db6d6166eed26775db",
+      "funding/solana.csv": "28334d141dafaf6a40f04dfb4aac7777c710ebfcf716092eb6599da809dd3736",
+      "funding/stellar.csv": "dc19abaaf9c3e28c44f7d60f3a5974a562051eb463d7d61be4e01bd67ed85253",
+      "funding/stepn.csv": "eea6d4796a1a11a9167ad8674438aa38fc66b11a86a2394f349f74a8d369ab88",
+      "funding/sui.csv": "f412a08829f38563f27e30cbb2b9fcaf9f851efc6764596e21a3c8c4bec53315",
+      "funding/sushi.csv": "466b75321cc7301c588561e3981dcd629f7997a09c997fbc5f55825909dd4a05",
+      "funding/terra-luna-2.csv": "7ca250b8ed6a371228782d7756f2bcb50f95ad4ff2a7d906ae4e70a5182e1828",
+      "funding/terra-luna.csv": "9b0f781c33e5abc98eb32ecacb0b27aa5114f183ad053587c88dc7593b86c109",
+      "funding/tezos.csv": "db63acce455da718a6410c7ae9b2a4ab7095f2c64c84406a8c4d27f3bf923204",
+      "funding/the-graph.csv": "5c00b7f2f292624f0396adc7da5690a58591d69b725994f4edf0d3e564904dc3",
+      "funding/the-open-network.csv": "ab5f313303606cd91619301b2fec17c4a37b361aa3eb2d22ab00645c99de331b",
+      "funding/the-sandbox.csv": "3b3e906cd6131f8c1b7f9bcac198c59e406fc33cb609172f37c51ceed0ef72c1",
+      "funding/theta-token.csv": "53f5a87ae431fe8798f11ce4ec6d909be321d1e620443579e514c06f3511bba8",
+      "funding/thorchain.csv": "c9e7e7b5c2e5af051c44344d9073c215501eabb5c7e8d7192c35f5f8a4667ee8",
+      "funding/tron.csv": "57cfa41f1aa9331e4575d178f01648a77d0a8c406c5956866790ef419b0fdcd4",
+      "funding/uniswap.csv": "b79eaa02a4f8bb49bc0769ec06f0c372fa1980cb329cd11d646dae119d36741a",
+      "funding/vechain.csv": "772c01c4281cbda538f57c58dbe8cc9ab5e57db4958a559a02b9ff79e7562995",
+      "funding/venice-token.csv": "42fee0dfb2c28d967e3d0d49424a61989b9aebefeb6a86a0961b843c7a805687",
+      "funding/world-liberty-financial.csv": "48e1081c88fd22bc0b7b05d95175b98ce331d8d3746a81052a08adbd7a2c122e",
+      "funding/worldcoin-wld.csv": "45468165bf1a4dc282659d228be0e4d4c65e55f8f092bfe3b1eb4f261fae6a02",
+      "funding/zcash.csv": "856abb7694cce166d0807bafa65e811f0d6017d030455e62f8c37e59e82a26a3",
+      "funding/zilliqa.csv": "ca50f28cad97aefa34f9443b9c19f55aa4f7b93a79404d8564beccb88aa1651a",
       "funding_manifest.json": "b23176ec1de447a270e1748479b894db1c662c8e89f7cfea9e78f0a9294da25e",
       "symbol_map.csv": "7a538b5157036fea03c349968e31ae7c8e10ce16c7c7926497268082a241db53"
     },
-    "fingerprint": "sha256:84e608091fe36c3c7364bf00fc51c8ca0de41e98f3cbb30ddf61940783c17419",
-    "manifest_sha256": "53cb438924147d3815e28a86aade98a76a810a5ff9aceca6382b402785470722",
+    "fingerprint": "sha256:d8d698ce7b59aa6c4e45dd59a9ef896119e53f6821a48f528f354eeac2d7f678",
+    "manifest_sha256": "22aac66304059e7b51893bd30360ea4f5caa9bc9c3356b6598d446105a511a04",
     "panel_path": "data/processed/panel_daily.csv",
     "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
   },
   "summary": {
-    "checks": 2229,
+    "checks": 2317,
     "funding": {
       "1inch": {
         "last": "2026-11-14 16:00:00+00:00",
@@ -11697,7 +12225,7 @@
     "hard_failures": 0,
     "last_mark": "2026-11-14 16:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-14T17:32:26.586527+00:00",
+    "now": "2026-11-14T20:07:10.350769+00:00",
     "panel_latest": "2026-11-13",
     "panel_latest_assets": 97,
     "warnings": 0

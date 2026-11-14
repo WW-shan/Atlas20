@@ -246,6 +246,8 @@ def build_execution_plan(
     min_rebalance_usdt: float = 0.0,
     min_margin_delta: float = 0.01,
     mirror_engine: bool = False,
+    rebalance_to_target: bool = True,
+    target_quantities: Mapping[str, float] | None = None,
 ) -> ExecutionPlan:
     """Build signed long/short orders that move the account to the target.
 
@@ -277,6 +279,11 @@ def build_execution_plan(
         raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
     warnings: list[str] = []
+    if not rebalance_to_target:
+        warnings.append(
+            "no new target event: same-side position drift is preserved; "
+            "only risk-reducing closes and account maintenance are enabled"
+        )
     risk_reducing_only = account.equity <= 0.0
     if risk_reducing_only:
         warnings.append(
@@ -301,19 +308,36 @@ def build_execution_plan(
         return long_margin_ratio if side == "long" else short_margin_ratio
 
     desired_signed: dict[str, float] = {}
-    for asset, raw_weight in targets.items():
-        if risk_reducing_only:
-            break
-        weight = float(raw_weight)
-        if abs(weight) <= _EPS:
-            continue
-        if asset not in prices or not (float(prices[asset]) > 0.0):
-            warnings.append(f"{asset}: no usable price; target dropped")
-            continue
-        if asset not in specs and not mirror_engine:
-            warnings.append(f"{asset}: no contract spec; target dropped")
-            continue
-        desired_signed[str(asset)] = weight * account.equity
+    if target_quantities is not None:
+        for asset, raw_quantity in target_quantities.items():
+            if risk_reducing_only:
+                break
+            quantity = float(raw_quantity)
+            if not math.isfinite(quantity):
+                raise ValueError(f"target quantity for {asset!r} must be finite")
+            if abs(quantity) <= _EPS:
+                continue
+            if asset not in prices or not (float(prices[asset]) > 0.0):
+                warnings.append(f"{asset}: no usable price; target dropped")
+                continue
+            if asset not in specs and not mirror_engine:
+                warnings.append(f"{asset}: no contract spec; target dropped")
+                continue
+            desired_signed[str(asset)] = quantity * float(prices[asset])
+    else:
+        for asset, raw_weight in targets.items():
+            if risk_reducing_only:
+                break
+            weight = float(raw_weight)
+            if abs(weight) <= _EPS:
+                continue
+            if asset not in prices or not (float(prices[asset]) > 0.0):
+                warnings.append(f"{asset}: no usable price; target dropped")
+                continue
+            if asset not in specs and not mirror_engine:
+                warnings.append(f"{asset}: no contract spec; target dropped")
+                continue
+            desired_signed[str(asset)] = weight * account.equity
 
     gross_requested = sum(abs(value) for value in desired_signed.values())
     gross_scale = 1.0
@@ -355,6 +379,31 @@ def build_execution_plan(
     def _side(position: PositionState) -> str:
         return "short" if str(position.side).lower() == "short" else "long"
 
+    maintenance_target_sizes: dict[str, float] = {}
+    if not rebalance_to_target and max_gross_exposure is not None:
+        actual_gross = sum(
+            position.size * float(prices_all.get(asset, 0.0))
+            for asset, position in positions.items()
+            if float(prices_all.get(asset, 0.0)) > 0.0
+        )
+        if actual_gross > float(max_gross_exposure) + _EPS:
+            maintenance_scale = float(max_gross_exposure) / actual_gross
+            warnings.append(
+                "actual gross risk reduced to the "
+                f"{float(max_gross_exposure):,.2f} USDT hard cap "
+                f"(scale {maintenance_scale:.4f}x)"
+            )
+            for asset, position in positions.items():
+                price = float(prices_all.get(asset, 0.0))
+                if price <= 0.0:
+                    continue
+                raw_target_size = position.size * maintenance_scale
+                maintenance_target_sizes[asset] = (
+                    raw_target_size
+                    if mirror_engine
+                    else _spec(asset).round_down_qty(raw_target_size)
+                )
+
     orders: list[OrderIntent] = []
     available = float(account.available_margin)
     final_sizes: dict[str, float] = {
@@ -390,6 +439,13 @@ def build_execution_plan(
             abs(target_signed) > _EPS
             and ((target_signed > 0.0) == (current_side == "long"))
         )
+        cap_target_size = maintenance_target_sizes.get(asset)
+        cap_forced = False
+        if same_side and not rebalance_to_target:
+            if cap_target_size is None or cap_target_size >= position.size - 1e-12:
+                continue
+            target_signed = float(cap_target_size) * price
+            cap_forced = True
         if same_side and abs(target_signed) / price >= position.size - 1e-12:
             continue
         action = "REDUCE" if same_side else "CLOSE"
@@ -406,10 +462,41 @@ def build_execution_plan(
             if action == "REDUCE" and not spec.is_tradeable(
                 size, price, floor_usdt=min_rebalance_usdt
             ):
-                warnings.append(
-                    f"{asset}: reduce of {size:.8g} below venue minimum; kept for now"
-                )
-                continue
+                if cap_forced:
+                    step = max(
+                        float(spec.quantity_multiplier),
+                        float(spec.min_order_qty),
+                        0.0,
+                    )
+                    required_notional = max(
+                        float(spec.minimum_notional(floor_usdt=min_rebalance_usdt)),
+                        float(spec.min_order_qty) * price,
+                    )
+                    if math.isfinite(step) and step > 0.0:
+                        steps = max(1, int(math.ceil(required_notional / price / step - 1e-12)))
+                        minimum_size = spec.round_down_qty(steps * step)
+                        if not spec.is_tradeable(
+                            minimum_size, price, floor_usdt=min_rebalance_usdt
+                        ):
+                            minimum_size = spec.round_down_qty(minimum_size + step)
+                        if minimum_size > 0.0:
+                            size = min(position.size, minimum_size)
+                    else:
+                        size = position.size
+                        warnings.append(
+                            f"{asset}: no valid quantity step for a gross-cap reduction; "
+                            "closing the full leg"
+                        )
+                    warnings.append(
+                        f"{asset}: gross-cap reduction below venue minimum; "
+                        f"using the minimum tradeable reduction {size:.8g}"
+                    )
+                    action = "REDUCE" if size < position.size - 1e-12 else "CLOSE"
+                else:
+                    warnings.append(
+                        f"{asset}: reduce of {size:.8g} below venue minimum; kept for now"
+                    )
+                    continue
             if size <= 0.0:
                 continue
         side = "sell" if current_side == "long" else "buy"
@@ -437,7 +524,13 @@ def build_execution_plan(
                 notional=size * price,
                 reduce_only=True,
                 reason=(
-                    "not in target book" if action == "CLOSE" else "rebalance to target"
+                    "gross cap risk reduction"
+                    if cap_forced
+                    else (
+                        "not in target book"
+                        if action == "CLOSE"
+                        else "rebalance to target"
+                    )
                 ),
                 pos_side=current_side,
             )
@@ -456,8 +549,10 @@ def build_execution_plan(
             available += cash_delta
 
     # Open or increase only after reductions have settled.  A flip is already
-    # represented as CLOSE then OPEN, never as a negative-size order.
-    for asset, target_signed in desired_signed.items():
+    # represented as CLOSE then OPEN, never as a negative-size order.  On a
+    # day without a new target event, an absent leg is deliberately not
+    # re-created from the stale book.
+    for asset, target_signed in (desired_signed if rebalance_to_target else {}).items():
         price = prices_all.get(asset)
         if price is None or price <= 0.0:
             continue

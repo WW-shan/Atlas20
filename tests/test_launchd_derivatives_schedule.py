@@ -194,6 +194,16 @@ def test_wrapper_runs_the_full_data_chain_audit_before_execution() -> None:
     assert "/usr/bin/make audit-data-chain" in script
 
 
+def test_wrapper_runs_an_independent_post_execution_audit() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+
+    execute_at = script.index("scripts/execute_live_plan.py --live --notify --require-isolated")
+    post_execution = script[execute_at:]
+    assert "scripts/monitor_live_track.py --notify" in post_execution
+    assert "execution_status" in post_execution
+    assert "monitor_status" in post_execution
+
+
 KEEP_AWAKE_PLIST = PROJECT_ROOT / "ops" / "com.atlas20.keep-awake.plist"
 
 
@@ -207,3 +217,18 @@ def test_keep_awake_agent_is_a_login_persistent_system_sleep_guard():
     assert payload["ThrottleInterval"] == 30
     assert payload["StandardOutPath"] == payload["StandardErrorPath"]
     assert payload["StandardOutPath"].endswith("Library/Logs/atlas20-keep-awake.log")
+
+
+def test_window_done_reconciles_stops_before_the_read_only_monitor() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+    skip_block = script[
+        script.index('if [ "$window_status" -eq 4 ]; then') :
+        script.index('elif [ "$window_status" -ne 0 ]; then')
+    ]
+
+    reconcile_at = skip_block.index("scripts/execute_live_plan.py")
+    assert "--protect-only" in skip_block[reconcile_at:]
+    monitor_at = skip_block.index("scripts/monitor_live_track.py --notify")
+    assert reconcile_at < monitor_at

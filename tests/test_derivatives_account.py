@@ -632,3 +632,37 @@ def test_unfilled_strategy_orders_accepts_the_v3_list_payload() -> None:
 
     assert rows[0]["symbol"] == "NEARUSDT"
     assert "/api/v3/trade/unfilled-strategy-orders" in session.calls[0]["url"]
+
+
+def test_strategy_order_history_uses_the_v3_history_endpoint() -> None:
+    session = _FakeSession(
+        [
+            _FakeResponse(
+                {
+                    "code": "00000",
+                    "data": {
+                        "list": [
+                            {
+                                "symbol": "NEARUSDT",
+                                "posSide": "short",
+                                "status": "success",
+                                "stopLoss": "6",
+                            }
+                        ],
+                        "cursor": None,
+                    },
+                }
+            )
+        ]
+    )
+    client = _client(session)
+
+    rows = client.strategy_order_history(
+        start_time_ms=1000,
+        end_time_ms=2000,
+        limit=100,
+    )
+
+    assert rows[0]["status"] == "success"
+    assert "/api/v3/trade/history-strategy-orders" in session.calls[0]["url"]
+    assert "startTime=1000" in session.calls[0]["url"]

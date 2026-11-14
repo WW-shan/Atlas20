@@ -437,6 +437,22 @@ def _read_funding(
                 f"manifest last={manifest_last!r} actual last={last}",
             )
         interval = float(pd.to_numeric(row.get("fund_interval"), errors="coerce")) if pd.notna(row.get("fund_interval")) else float("nan")
+        if np.isfinite(interval) and interval > 0.0 and len(clean) >= 2:
+            recent_cutoff = pd.Timestamp(_as_utc(now)) - pd.Timedelta(days=30)
+            recent_times = clean.loc[
+                clean["funding_time"] >= recent_cutoff, "funding_time"
+            ].sort_values()
+            if len(recent_times) >= 2:
+                recent_gaps = (
+                    recent_times.diff().dropna().dt.total_seconds().div(3600.0)
+                )
+                largest_gap = float(recent_gaps.max())
+                _check(
+                    report,
+                    f"funding.{asset}.recent_gap",
+                    largest_gap <= interval + 0.01,
+                    f"funding gap {largest_gap:.2f}h exceeds interval {interval:.2f}h",
+                )
         stale = False
         if pd.isna(last):
             stale = True
@@ -634,7 +650,16 @@ def audit_derivatives_data(
         )
     report.summary["funding"] = funding_summary
 
-    files = [panel_file, symbol_file, raw / "contracts.json", raw / "coverage.json", raw / "funding_manifest.json", *mark_paths]
+    funding_paths = sorted((raw / "funding").glob("*.csv"))
+    files = [
+        panel_file,
+        symbol_file,
+        raw / "contracts.json",
+        raw / "coverage.json",
+        raw / "funding_manifest.json",
+        *mark_paths,
+        *funding_paths,
+    ]
     provenance_paths = [path for path in files if path.is_file()]
     file_hashes = {str(path.relative_to(raw)) if path.is_relative_to(raw) else str(path): _file_sha256(path) for path in provenance_paths}
     report.provenance = {

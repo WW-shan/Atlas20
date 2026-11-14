@@ -5771,3 +5771,62 @@ Bitget 新标记 bar 尚未发布：88 个合约最后 mark 仍停在 2026-11-13
   权益 **503.4112 USDT**，仓位价值 **117.6033 USDT（0.234x）**，4 条空头、4 张可见止损、
   普通挂单 0；随后 `monitor_live_track` 为 `audit_exit=0`、`issues=[]`。再次用真实
   manifest/state 模拟，当前日返回 `3`（已完成），下一交易日 01:05 返回 `0`（允许重建）。
+
+### 00.150 2026-11-15 LS45-G125：逐节点实盘状态机、止损恢复与硬风险上限闭环
+
+本轮没有修改策略、冻结目标、杠杆或风险参数，也没有生成任何新的 alpha 订单。审计目标是把
+“定时 → 数据 → 合约映射 → 信号 → 计划 → 执行 → 止损/保证金 → journal → monitor → 恢复/幂等”
+按状态节点逐项闭合。发现并修复的剩余问题如下。
+
+- **旧目标不能每天重新贴权重，但 partial 事件必须能续作**：研究引擎只在目标事件变化时
+  rebalance；实盘现在把事件首次应用时的 `target_quantities` 冻结到 `active_event`。无新事件时
+  保留同方向价格漂移，只做风险降低、止损和保证金维护；旧事件 `partial` 的重试按冻结币数量补齐，
+  不再用今日权益乘以旧权重重算。margin-only 失败不改变 `position_status=ok`，但本次 run 仍为
+  `partial` 并继续重试 margin。
+- **交易所止损成交状态机**：Bitget 的策略止损行和真正 market close 是两个不同 order id。新增
+  `history-strategy-orders` 与 order history 的唯一匹配（symbol、side/posSide、数量、±10 秒触发
+  时间）；多候选、零候选、数量不一致均 hard failure。完整/部分止损都写入 journal，保留策略单 id、
+  执行单 id、请求数量、实际数量、均价、费用、触发时间和 mark/market 字段。
+- **止损后旧事件禁止重开**：`active_event.stopped_symbols` 记录已止损腿；旧事件重试时该 symbol
+  目标数量强制为 0，只允许把残余部分平掉；只有新的目标事件才重新授权开仓。当前扫描中发现的任何
+  止损也会在本次 run 阻止同 symbol 重开，即使进程在写入 `applied_at` 前崩溃。
+- **当日执行后止损不再等到下一日入账**：preflight 的 `DONE=4` 路径先运行
+  `execute_live_plan.py --protect-only`，它结构性地禁止 OPEN/INCREASE，只允许 reduce/close、止损
+  恢复/归一、gross cap 缩减和逐仓保证金维护；随后再运行独立只读 `monitor_live_track.py`。
+  `--reconcile-only` 保留为更窄的人工路径：只补 journal，不进入计划器、不调用下单函数。
+- **止损历史高水位防迟到**：`stop_reconciliation_through` 只在完整扫描成功后推进；每次扫描保留
+  24 小时重叠，并用 journal order id 去重，避免交易所迟到超过 1 小时的历史行被高水位永久跳过。
+  部分止损的 journal 实际数量与策略单请求数量分开保存，audit 分别核对，不会把两者混为一谈。
+- **硬 gross 上限不再依赖告警**：无新事件时若实际 gross 超过 1.25x equity，维护计划按当前各腿
+  名义比例做风险缩减；所需减量低于交易所最小下单额时使用最小可成交减仓，只有无法成交才平掉该腿。
+  `OPEN/INCREASE` 不会在保护模式出现。风险 cap 触发的有效数量记录在
+  `active_event.risk_overlay`，原始事件目标仍保留，下一目标事件才清除 overlay。
+- **完成状态来自真实持仓**：事件 `position_status` 由实际 signed quantity 对冻结/有效目标的事件容差
+  检查决定，不再只相信订单回报；`risk_overlay`、已止损腿、最小成交残差都有独立处理。执行状态的
+  `last_run_mode` 区分 `execution` / `protect_only` / `reconcile_only`。
+
+**真实账户与数据终局复核（2026-11-14 20:10 UTC）：**
+
+- `make audit-data`：**0 hard failure / 0 warning**，fingerprint
+  `sha256:d8d698ce7b59aa6c4e45dd59a9ef896119e53f6821a48f528f354eeac2d7f678`；
+- `make audit-data-chain`：**42 PASS / 9 WARN / 0 FAIL**；WARN 均为已声明的历史 feed/ended-feed/
+  survivorship 事项，live OOS 没有新增失败；
+- `make audit-symbols`：**88/88** mapped contracts online、2x、long/short/flip 和报价全部通过；
+- `make audit-signal`：冻结账本 **72 行**、重建账本 72 行、32 个重叠信号日、差异 **0**；
+- 真实 `make audit-live`：**37 项硬检查 + 1 项非硬提示，0 hard failure**；权益
+  **504.4440 USDT**、仓位价值 **116.5710 USDT（0.231x）**、4 条空头、4 张交易所可见
+  mark-price market stop、普通未成交订单 **0**、已触发策略止损 **0**；订单历史、funding、目标
+  数量、manifest fingerprint、isolated 2x 与强平前止损全部通过；
+- 真实 `protect-only` 输出 `stops and risk book already correct; no order placed`；
+  wrapper `ops/run_derivatives_daily.sh` 在 `DONE=4` 路径端到端返回 **0**，没有生成新订单；
+- `live_chain_preflight` 用当前真实状态模拟：2026-11-14 已完成返回 **4**；2026-11-15 01:05
+  返回 **0**，说明旧 manifest 不会截断下一交易日刷新；这两项取代 §00.149 的“3/0”描述；
+- `monitor_live_track --notify`：`audit_exit=0`、`issues=[]`，无异常通知。
+
+**验证：** Python **2348 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy、ESLint、tsc、
+Vite build、`sh -n ops/run_derivatives_daily.sh` 和 `git diff --check` 全部通过。
+
+**边界声明：** Bitget 的交易所止损在最后一轮 fallback 之后仍会立即执行并关闭风险；该时段的
+journal 补记依赖 19:00 monitor 告警、人工 protect/reconcile 或下一交易日执行器。这是自动维护频率
+边界，不是仓位失去止损。交易所故障、API 延迟、极端滑点、手动改单和不可预见的 venue 行为仍属于
+外部风险；本记录不声称未来实盘“零风险”或保证收益。

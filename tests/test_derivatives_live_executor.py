@@ -19,6 +19,7 @@ from atlas20.derivatives.live_executor import (
     execute_plan,
     format_execution_report,
     is_isolated_unsupported,
+    match_venue_stop_fills,
     wait_for_fill,
 )
 
@@ -416,6 +417,19 @@ def test_margin_failure_becomes_a_note_not_a_crash() -> None:
     assert any("40731" in note for note in report.margin_notes)
 
 
+def test_margin_failure_marks_the_run_partial_for_same_day_retry() -> None:
+    client = _FakeLiveClient(margin_error="margin adjustment rejected")
+    plan = _plan()
+
+    report = _run(client, plan)
+
+    assert report.fills
+    assert any(
+        failure["action"] == "MARGIN" and "margin adjustment rejected" in failure["error"]
+        for failure in report.failures
+    )
+
+
 def test_a_rejected_order_is_recorded_and_does_not_stop_the_run() -> None:
     client = _FakeLiveClient(place_error="Bitget HTTP 400: insufficient funds")
     plan = _plan()
@@ -631,6 +645,67 @@ def test_report_message_shows_real_positions_and_the_cross_warning() -> None:
     assert "规格要求逐仓" not in message
     assert "保证金" not in message
     assert len(message.splitlines()) <= 14
+
+
+def test_report_does_not_flag_intentional_drift_without_a_new_event() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=500.0,
+        equity_after=500.0,
+        positions_after=[
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "total": "9",
+                "avgPrice": "3.2",
+                "markPrice": "4.0",
+            }
+        ],
+        margin_mode="isolated",
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-11-13",
+        spec="SPEC",
+        targets={"near": -0.0625},
+        lot_notional={"near": 3.1},
+        target_rebalance_enabled=False,
+    )
+
+    assert "NEAR 目标" not in message
+    assert "不做权重再平衡" in message
+
+
+def test_report_labels_event_quantity_completion_without_weight_drift() -> None:
+    from atlas20.derivatives.live_executor import format_execution_report
+
+    message = format_execution_report(
+        ExecutionReport(
+            signal_date="2026-11-13",
+            equity_before=500.0,
+            equity_after=500.0,
+            positions_after=[
+                {
+                    "asset": "near",
+                    "symbol": "NEARUSDT",
+                    "posSide": "short",
+                    "total": "9",
+                    "avgPrice": "3.2",
+                    "markPrice": "3.1",
+                }
+            ],
+        ),
+        signal_date="2026-11-13",
+        spec="LS45-G125",
+        targets={"near": -0.0625},
+        target_rebalance_enabled=False,
+        target_status_note="按冻结事件数量补齐未完成仓位，不按今日权益重算",
+    )
+
+    assert "不按今日权益重算" in message
+    assert "今日无新目标事件" not in message
 
 
 def test_report_marks_the_first_day_and_empty_book() -> None:
@@ -1976,6 +2051,45 @@ def test_a_live_mark_market_strategy_stop_preserves_an_existing_short() -> None:
     assert not report.failures
 
 
+def test_a_stop_after_the_liquidation_price_is_not_treated_as_protection() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "liquidationPrice": "5.5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "stop-after-liquidation",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "20",
+                "stopLoss": "6",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_stops={"NEARUSDT": 6.0},
+    )
+
+    assert any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert any("liquidation" in item["error"] for item in report.failures)
+
+
 def test_a_modified_live_stop_is_restored_and_duplicates_are_removed() -> None:
     client = _FakeLiveClient(
         reject_isolated_orders=False,
@@ -2260,3 +2374,206 @@ def test_strategy_order_query_failure_still_allows_a_risk_reducing_close() -> No
     assert [row["side"] for row in client.placed] == ["sell"]
     assert report.failures == []
     assert any("strategy" in note for note in report.margin_notes)
+
+
+def test_successful_strategy_stop_is_matched_to_its_executed_order() -> None:
+    strategy_rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "type": "tpsl",
+            "status": "success",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "2000",
+        }
+    ]
+    order_rows = [
+        {
+            "orderId": "executed-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "orderStatus": "filled",
+            "qty": "10",
+            "cumExecQty": "10",
+            "avgPrice": "6.1",
+            "cumExecValue": "61",
+            "feeDetail": [{"fee": "0.0366", "feeCoin": "USDT"}],
+            "createdTime": "2005",
+            "updatedTime": "2006",
+            "clientOid": "generated-close",
+        }
+    ]
+
+    fills, errors = match_venue_stop_fills(
+        strategy_rows,
+        order_rows,
+        known_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert errors == []
+    assert len(fills) == 1
+    fill = fills[0]
+    assert fill.action == "CLOSE"
+    assert fill.reason == "venue_strategy_stop"
+    assert fill.strategy_order_id == "strategy-stop-1"
+    assert fill.order_id == "executed-stop-1"
+    assert fill.filled_size == pytest.approx(10.0)
+    assert fill.avg_price == pytest.approx(6.1)
+    assert fill.fee == pytest.approx(0.0366)
+    assert fill.position_side == "short"
+
+
+def test_already_journaled_strategy_stop_is_not_imported_twice() -> None:
+    strategy_rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "status": "success",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "2000",
+        }
+    ]
+    order_rows = [
+        {
+            "orderId": "executed-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "orderStatus": "filled",
+            "qty": "10",
+            "cumExecQty": "10",
+            "avgPrice": "6.1",
+            "cumExecValue": "61",
+            "createdTime": "2005",
+        }
+    ]
+
+    fills, errors = match_venue_stop_fills(
+        strategy_rows,
+        order_rows,
+        known_order_ids={"executed-stop-1"},
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert fills == []
+    assert errors == []
+
+
+def test_partial_strategy_stop_is_recorded_and_flagged() -> None:
+    strategy_rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "status": "success",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "2000",
+        }
+    ]
+    order_rows = [
+        {
+            "orderId": "executed-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "orderStatus": "filled",
+            "qty": "10",
+            "cumExecQty": "4",
+            "avgPrice": "6.1",
+            "cumExecValue": "24.4",
+            "createdTime": "2005",
+        }
+    ]
+
+    fills, errors = match_venue_stop_fills(
+        strategy_rows,
+        order_rows,
+        known_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert len(fills) == 1
+    assert fills[0].filled_size == pytest.approx(4.0)
+    assert len(errors) == 1
+    assert "quantity differs" in errors[0]["error"]
+
+
+def test_unrelated_successful_long_strategy_order_is_ignored() -> None:
+    fills, errors = match_venue_stop_fills(
+        [
+            {
+                "orderId": "long-tp",
+                "symbol": "NEARUSDT",
+                "posSide": "long",
+                "side": "sell",
+                "status": "success",
+                "qty": "10",
+                "updatedTime": "2000",
+            }
+        ],
+        [],
+        known_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert fills == []
+    assert errors == []
+
+
+def test_one_way_successful_buy_stop_is_matched_without_pos_side() -> None:
+    strategy_rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "net",
+            "side": "buy",
+            "type": "tpsl",
+            "status": "success",
+            "qty": "10",
+            "stopLoss": "6",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "2000",
+        }
+    ]
+    order_rows = [
+        {
+            "orderId": "executed-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "net",
+            "side": "buy",
+            "orderStatus": "filled",
+            "qty": "10",
+            "cumExecQty": "10",
+            "avgPrice": "6.1",
+            "cumExecValue": "61",
+            "createdTime": "2005",
+        }
+    ]
+
+    fills, errors = match_venue_stop_fills(
+        strategy_rows,
+        order_rows,
+        known_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert errors == []
+    assert len(fills) == 1
+    assert fills[0].position_side == "short"

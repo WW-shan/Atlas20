@@ -61,6 +61,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 from atlas20.derivatives.live_executor import short_stop_symbol_issue  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
+    effective_event_target_quantities,
     load_journal,
     net_capital_flow,
     protected_short_stops,
@@ -73,7 +74,6 @@ from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_TARGETS_FILE,
     TRACKED_SPEC,
     fetch_public_instruments,
-    fetch_public_prices,
     load_symbol_map,
     missing_asset_mappings,
     spec_symbol_universe,
@@ -388,6 +388,18 @@ def _fees(row: dict) -> float:
     return total
 
 
+def _journal_trade_rows(raw: object) -> list[dict]:
+    """Decode one journal trades cell, preserving malformed data as an error."""
+
+    try:
+        rows = json.loads(raw or "[]")
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid JSON: {exc}") from exc
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise ValueError("trades must be an array of objects")
+    return [dict(row) for row in rows]
+
+
 def _position_signed_qty(row: dict) -> float:
     """Signed quantity from both hedge and one-way position payloads."""
 
@@ -447,6 +459,25 @@ def _short_stop_expectation_gaps(
     return sorted(symbol for symbol in open_shorts if symbol and symbol not in expected)
 
 
+def _short_stop_liquidation_issues(
+    positions: list[dict],
+    *,
+    expected_stops: Mapping[str, float],
+) -> list[str]:
+    """Open shorts whose stop is not strictly before venue liquidation."""
+
+    issues: list[str] = []
+    for row in positions:
+        if _position_signed_qty(row) >= 0.0:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        stop = _num(expected_stops.get(symbol))
+        liquidation = _num(row.get("liquidationPrice"))
+        if not symbol or stop <= 0.0 or liquidation <= 0.0 or stop >= liquidation:
+            issues.append(symbol or "<missing-symbol>")
+    return sorted(set(issues))
+
+
 def _minimum_tradeable_qty(spec: ContractSpec, price: float) -> float | None:
     """Smallest exchange-step quantity that also clears the venue's USDT floor."""
 
@@ -476,6 +507,212 @@ def _minimum_trade_would_improve(
     else:
         proposed = max(0.0, actual_qty - minimum_qty)
     return abs(proposed - target_qty) < actual_gap - 1e-12
+
+
+def _active_event_state_issues(
+    state: Mapping[str, object],
+    *,
+    signal_date: pd.Timestamp,
+    journal: pd.DataFrame,
+    expected_targets_sha256: str | None = None,
+) -> list[str]:
+    """Verify the persisted active event and its strategy-stop provenance."""
+
+    issues: list[str] = []
+    last_status = str(state.get("last_status") or "")
+    if last_status != "ok":
+        issues.append(f"execution state last_status={last_status or '<missing>'}, expected ok")
+    event = state.get("active_event")
+    if not isinstance(event, dict):
+        return [*issues, "execution state has no active target event"]
+    expected_signal = str(pd.Timestamp(signal_date).date())
+    event_signal = str(event.get("signal_date") or "")
+    if event_signal != expected_signal:
+        issues.append(
+            f"active event signal_date {event_signal or '<missing>'} != {expected_signal}"
+        )
+    if expected_targets_sha256 is not None:
+        stored_hash = str(event.get("targets_sha256") or "")
+        if stored_hash != str(expected_targets_sha256):
+            issues.append(
+                "active event targets_sha256 does not match the current target book"
+            )
+    position_status = str(event.get("position_status") or "")
+    if position_status != "ok":
+        issues.append(
+            "active target event position application is incomplete "
+            f"(status={position_status or '<missing>'})"
+        )
+    if event.get("applied_at"):
+        try:
+            applied_at = pd.Timestamp(event["applied_at"])
+            if applied_at.tzinfo is None:
+                applied_at = applied_at.tz_localize("UTC")
+            else:
+                applied_at = applied_at.tz_convert("UTC")
+        except (TypeError, ValueError):
+            issues.append("active event applied_at is invalid")
+        else:
+            raw_high_water = state.get("stop_reconciliation_through")
+            try:
+                high_water = pd.Timestamp(raw_high_water)
+                if high_water.tzinfo is None:
+                    high_water = high_water.tz_localize("UTC")
+                else:
+                    high_water = high_water.tz_convert("UTC")
+            except (TypeError, ValueError):
+                high_water = None
+            if high_water is None or high_water < applied_at:
+                issues.append(
+                    "stop history high-water mark does not cover the active event"
+                )
+
+    journal_trades: dict[str, dict] = {}
+    if not journal.empty:
+        for value in journal["trades"]:
+            try:
+                rows = _journal_trade_rows(value)
+            except ValueError:
+                continue
+            for trade in rows:
+                order_id = str(trade.get("order_id") or "")
+                if order_id:
+                    journal_trades[order_id] = trade
+
+    risk_overlay = event.get("risk_overlay")
+    if risk_overlay is not None:
+        if not isinstance(risk_overlay, dict):
+            issues.append("active event risk_overlay is not an object")
+        else:
+            if str(risk_overlay.get("reason") or "") != "risk_cap_scaled":
+                issues.append("active event risk_overlay reason is invalid")
+            try:
+                overlay_at = pd.Timestamp(risk_overlay.get("applied_at"))
+                if overlay_at.tzinfo is None:
+                    overlay_at = overlay_at.tz_localize("UTC")
+                else:
+                    overlay_at = overlay_at.tz_convert("UTC")
+            except (TypeError, ValueError):
+                issues.append("active event risk_overlay applied_at is invalid")
+            overlay_quantities = risk_overlay.get("target_quantities")
+            if not isinstance(overlay_quantities, dict) or not overlay_quantities:
+                issues.append("active event risk_overlay target_quantities is invalid")
+            else:
+                for symbol, value in overlay_quantities.items():
+                    try:
+                        quantity = float(value)
+                    except (TypeError, ValueError):
+                        quantity = float("nan")
+                    if not str(symbol).strip() or not isfinite(quantity) or quantity < 0.0:
+                        issues.append("active event risk_overlay has an invalid quantity")
+                        break
+
+    stopped = event.get("stopped_symbols")
+    if isinstance(stopped, dict):
+        for raw_symbol, raw_record in stopped.items():
+            symbol = str(raw_symbol).upper()
+            if not isinstance(raw_record, dict):
+                issues.append(f"{symbol}: stopped_symbols record is invalid")
+                continue
+            order_id = str(raw_record.get("order_id") or "")
+            strategy_id = str(raw_record.get("strategy_order_id") or "")
+            trade = journal_trades.get(order_id)
+            expected_qty = _num(raw_record.get("quantity"))
+            if (
+                trade is None
+                or str(trade.get("reason") or "") != "venue_strategy_stop"
+                or str(trade.get("strategy_order_id") or "") != strategy_id
+                or str(trade.get("symbol") or "").upper() != symbol
+                or str(trade.get("action") or "").upper() != "CLOSE"
+                or str(trade.get("side") or "").lower() != "buy"
+                or str(trade.get("status") or "filled").lower() != "filled"
+                or abs(_num(trade.get("qty")) - expected_qty)
+                > max(1e-9, expected_qty * 1e-8)
+            ):
+                issues.append(
+                    f"{symbol}: stopped event is not backed by its journal stop trade"
+                )
+    return issues
+
+
+def _event_quantity_issues(
+    *,
+    target_quantities: Mapping[str, float],
+    target_weights: Mapping[str, float],
+    symbol_assets: Mapping[str, str],
+    positions: list[dict],
+    specs_by_symbol: Mapping[str, ContractSpec],
+    event_prices: Mapping[str, float],
+    stopped_symbols: Mapping[str, object],
+) -> list[str]:
+    """Compare live quantities with the quantity frozen at the target event.
+
+    Event-driven strategies let USD weight drift between target rows.  The
+    stable invariant is the coin quantity set at the last event, not today's
+    ``target weight × equity``.  A venue-triggered stop is the only accepted
+    reason for that leg to be flat before the next target event.
+    """
+
+    actual: dict[str, float] = {}
+    for row in positions:
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol:
+            actual[symbol] = actual.get(symbol, 0.0) + _position_signed_qty(row)
+
+    issues: list[str] = []
+    stopped = {str(symbol).upper() for symbol in stopped_symbols}
+    for symbol, raw_target_qty in target_quantities.items():
+        upper = str(symbol).upper()
+        target_qty = abs(_num(raw_target_qty))
+        if target_qty <= 0.0:
+            continue
+        asset = str(symbol_assets.get(upper, upper.removesuffix("USDT").lower())).lower()
+        target_weight = _num(target_weights.get(asset))
+        if target_weight == 0.0:
+            issues.append(f"{upper} 缺少事件目标方向")
+            continue
+        expected = target_qty if target_weight > 0.0 else -target_qty
+        got = actual.get(upper, 0.0)
+        price = _num(event_prices.get(asset))
+        spec = specs_by_symbol.get(upper)
+        minimum_qty = _minimum_tradeable_qty(spec, price) if spec is not None else None
+        lot_qty = max(
+            float(spec.min_order_qty or 0.0) if spec is not None else 0.0,
+            float(spec.quantity_multiplier or 0.0) if spec is not None else 0.0,
+        )
+        tolerance = max(
+            1.0 / price if price > 0.0 else 0.0,
+            0.01 * target_qty,
+            1.5 * lot_qty,
+        )
+        if upper in stopped:
+            if abs(got) <= tolerance:
+                continue
+            issues.append(
+                f"{upper} 已在旧事件中止损，下一目标事件前不得重开"
+            )
+            continue
+        if abs(got - expected) <= tolerance:
+            continue
+        same_side = got != 0.0 and (got > 0.0) == (expected > 0.0)
+        if (
+            same_side
+            and minimum_qty is not None
+            and not _minimum_trade_would_improve(
+                abs(got), target_qty, minimum_qty
+            )
+        ):
+            continue
+        if (
+            abs(got) <= 1e-12
+            and minimum_qty is not None
+            and not _minimum_trade_would_improve(0.0, target_qty, minimum_qty)
+        ):
+            continue
+        issues.append(
+            f"{upper} 目标数量 {target_qty:.8g} vs 实际 {got:.8g}"
+        )
+    return issues
 
 
 def _position_target_issues(
@@ -539,7 +776,10 @@ def _trade_mismatch(trade: dict, venue: dict) -> str | None:
             f"vs 交易所 {venue.get('cumExecQty')}/{venue.get('avgPrice')}/{_fees(venue):.8f}"
         )
     recorded_stop = trade.get("stop_loss")
-    if recorded_stop is not None:
+    if (
+        recorded_stop is not None
+        and str(trade.get("reason") or "") != "venue_strategy_stop"
+    ):
         venue_stop = _num(venue.get("stopLoss"))
         trigger = str(venue.get("slTriggerBy") or "").lower()
         order_type = str(venue.get("slOrderType") or "").lower()
@@ -601,6 +841,89 @@ def _venue_short_stop_gaps(
         if issue is not None:
             gaps.append(symbol)
     return sorted(set(gaps))
+
+
+def _short_stop_duplicate_issues(
+    positions: list[dict],
+    strategy_orders: list[dict],
+) -> list[str]:
+    """Open shorts with more than one active strategy stop."""
+
+    open_shorts = {
+        str(row.get("symbol") or "").upper()
+        for row in positions
+        if _position_signed_qty(row) < 0.0
+    }
+    counts: dict[str, int] = {}
+    for row in strategy_orders:
+        if _terminal_strategy_order(row):
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol in open_shorts:
+            counts[symbol] = counts.get(symbol, 0) + 1
+    return sorted(symbol for symbol, count in counts.items() if count > 1)
+
+
+def _strategy_stop_history_issues(
+    stopped_symbols: Mapping[str, object],
+    strategy_history: list[dict],
+) -> list[str]:
+    """Verify every imported stop in the venue's closed strategy history."""
+
+    by_id = {
+        str(row.get("orderId") or ""): row
+        for row in strategy_history
+        if str(row.get("orderId") or "")
+    }
+    issues: list[str] = []
+    for raw_symbol, raw_record in stopped_symbols.items():
+        symbol = str(raw_symbol).upper()
+        if not isinstance(raw_record, dict):
+            issues.append(f"{symbol}: stopped record is invalid")
+            continue
+        strategy_id = str(raw_record.get("strategy_order_id") or "")
+        row = by_id.get(strategy_id)
+        if row is None:
+            issues.append(f"{symbol}: strategy stop {strategy_id or '<missing>'} not found")
+            continue
+        try:
+            qty = _num(raw_record.get("quantity"))
+            requested_qty = _num(raw_record.get("requested_quantity")) or qty
+            stop = _num(raw_record.get("stop_loss"))
+            venue_qty = _num(row.get("qty"))
+            venue_stop = _num(row.get("stopLoss"))
+        except (TypeError, ValueError):
+            issues.append(f"{symbol}: stop history values are invalid")
+            continue
+        tolerance = max(1e-9, abs(stop) * 1e-8)
+        if (
+            str(row.get("symbol") or "").upper() != symbol
+            or str(row.get("status") or "").lower() != "success"
+            or str(row.get("posSide") or "").lower() not in {"", "short", "net"}
+            or str(row.get("side") or "").lower() != "buy"
+            or abs(venue_qty - requested_qty)
+            > max(1e-9, abs(requested_qty) * 1e-8)
+            or abs(venue_stop - stop) > tolerance
+            or str(row.get("slTriggerBy") or "").lower() != MARK_PRICE_TRIGGER
+            or str(row.get("slOrderType") or "").lower() != "market"
+        ):
+            issues.append(f"{symbol}: strategy stop history does not match the journal")
+            continue
+        try:
+            venue_time = pd.to_datetime(
+                int(row.get("updatedTime")), unit="ms", utc=True, errors="raise"
+            )
+            stored_time = pd.Timestamp(raw_record.get("triggered_at"))
+            if stored_time.tzinfo is None:
+                stored_time = stored_time.tz_localize("UTC")
+            else:
+                stored_time = stored_time.tz_convert("UTC")
+        except (TypeError, ValueError, OverflowError):
+            issues.append(f"{symbol}: strategy stop trigger timestamp is invalid")
+            continue
+        if abs((stored_time - venue_time).total_seconds()) > 1.0:
+            issues.append(f"{symbol}: strategy stop trigger timestamp differs from venue")
+    return issues
 
 
 def _orphan_strategy_order_issues(
@@ -885,7 +1208,6 @@ def main(argv: list[str] | None = None) -> int:
     target_gross = target_gross_weight(targets)
     relevant = spec_symbol_universe(symbol_map, targets)
     session = requests.Session()
-    prices = fetch_public_prices(session)
     specs = specs_from_instruments(fetch_public_instruments(session), relevant)
 
     equity, balance, isolated_margin, unrealised = _account_identity_components(
@@ -980,10 +1302,11 @@ def main(argv: list[str] | None = None) -> int:
         ", ".join(unknown_symbols) or "全部有唯一映射",
     )
     risk_issues = _position_risk_issues(positions)
+    risk_legs = sum(1 for row in positions if abs(_position_signed_qty(row)) > 1e-12)
     check(
         "每腿逐仓、2x 杠杆与保证金缓冲符合规格",
         not risk_issues,
-        "；".join(risk_issues) or "无持仓，或全部符合",
+        "；".join(risk_issues) or f"{risk_legs} 腿全部符合" if risk_legs else "无持仓",
     )
     try:
         account_info = client.account_info()
@@ -1019,6 +1342,16 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # -- ledger vs venue -------------------------------------------------
+    manifest_state: dict = {}
+    if args.manifest_file.exists():
+        try:
+            loaded_manifest = json.loads(
+                args.manifest_file.read_text(encoding="utf-8")
+            )
+            if isinstance(loaded_manifest, dict):
+                manifest_state = loaded_manifest
+        except (OSError, json.JSONDecodeError):
+            manifest_state = {}
     journal = load_journal(args.journal_file)
     if journal.empty:
         check("台账存在", False, f"{args.journal_file} 不存在或为空")
@@ -1063,6 +1396,22 @@ def main(argv: list[str] | None = None) -> int:
             "；".join(funding_errors) or "持仓未变化区间全部一致",
         )
 
+    active_event_issues = _active_event_state_issues(
+        state,
+        signal_date=signal_date,
+        journal=journal,
+        expected_targets_sha256=(
+            str(manifest_state.get("targets_sha256") or "")
+            if manifest_state.get("targets_sha256")
+            else None
+        ),
+    )
+    check(
+        "执行状态中的目标事件和止损触发记录完整",
+        not active_event_issues,
+        "; ".join(active_event_issues) or "active event 与 journal 一致",
+    )
+
     # -- trades vs venue order history -----------------------------------
     now_ms = int(checked_at.timestamp() * 1000)
     history_start_ms = now_ms - int(args.history_days) * 86_400_000
@@ -1080,7 +1429,12 @@ def main(argv: list[str] | None = None) -> int:
     mismatched: list[str] = []
     if not journal.empty:
         for _, row in journal.iterrows():
-            for trade in json.loads(row["trades"] or "[]"):
+            try:
+                trades = _journal_trade_rows(row["trades"])
+            except ValueError as exc:
+                mismatched.append(f"{row['date']}: 台账 trades JSON 无效（{exc}）")
+                continue
+            for trade in trades:
                 status = str(trade.get("status") or "filled").lower()
                 if status != "filled":
                     continue
@@ -1121,7 +1475,25 @@ def main(argv: list[str] | None = None) -> int:
         "当前空头止损可由交易所均价与价格步长独立重算",
         not stop_expectation_gaps,
         ", ".join(stop_expectation_gaps)
-        or "无空头仓，或全部可按 avgPrice × 1.20 重算",
+        or (
+            f"{len(position_expected_stops)} 条空头全部可按 avgPrice × 1.20 重算"
+            if position_expected_stops
+            else "无空头仓"
+        ),
+    )
+    stop_liquidation_issues = _short_stop_liquidation_issues(
+        positions,
+        expected_stops=position_expected_stops,
+    )
+    check(
+        "空头止损价格早于逐仓强平价",
+        not stop_liquidation_issues,
+        ", ".join(stop_liquidation_issues)
+        or (
+            f"{len(position_expected_stops)} 条空头全部 stop < liquidationPrice"
+            if position_expected_stops
+            else "无空头仓"
+        ),
     )
     expected_stops = protected_short_stops(journal)
     expected_stops.update(position_expected_stops)
@@ -1129,7 +1501,12 @@ def main(argv: list[str] | None = None) -> int:
     check(
         "空头入场成交记录包含已确认止损",
         not stop_gaps,
-        ", ".join(stop_gaps) or "无空头仓，或入场记录带止损",
+        ", ".join(stop_gaps)
+        or (
+            f"{len(position_expected_stops)} 条空头入场记录均带已确认止损"
+            if position_expected_stops
+            else "无空头仓"
+        ),
     )
     try:
         strategy_orders = client.unfilled_strategy_orders()
@@ -1147,6 +1524,15 @@ def main(argv: list[str] | None = None) -> int:
             ", ".join(venue_stop_gaps)
             or f"无缺口（当前未触发策略单 {len(strategy_orders)} 笔）",
         )
+        duplicate_stop_orders = _short_stop_duplicate_issues(
+            positions,
+            strategy_orders,
+        )
+        check(
+            "每个空头只有一张止损策略单",
+            not duplicate_stop_orders,
+            ", ".join(duplicate_stop_orders) or "每条空头最多一张",
+        )
         orphan_strategy_orders = _orphan_strategy_order_issues(
             positions,
             strategy_orders,
@@ -1157,35 +1543,120 @@ def main(argv: list[str] | None = None) -> int:
             ", ".join(orphan_strategy_orders) or "无孤立策略单",
         )
 
+    active_event = state.get("active_event")
+    stopped_symbols = (
+        active_event.get("stopped_symbols")
+        if isinstance(active_event, dict)
+        and isinstance(active_event.get("stopped_symbols"), dict)
+        else {}
+    )
+    try:
+        strategy_history = client.strategy_order_history(
+            start_time_ms=history_start_ms,
+            end_time_ms=now_ms,
+            limit=100,
+        )
+    except (BitgetAPIError, ValueError) as exc:
+        check(
+            "交易所已触发策略止损可查询",
+            False,
+            f"查询失败：{exc}",
+        )
+    else:
+        stop_history_issues = _strategy_stop_history_issues(
+            stopped_symbols, strategy_history
+        )
+        recorded_strategy_ids = {
+            str(record.get("strategy_order_id") or "")
+            for record in stopped_symbols.values()
+            if isinstance(record, dict)
+        }
+        applied_at = None
+        if isinstance(active_event, dict) and active_event.get("applied_at"):
+            try:
+                applied_at = pd.Timestamp(active_event["applied_at"])
+                if applied_at.tzinfo is None:
+                    applied_at = applied_at.tz_localize("UTC")
+                else:
+                    applied_at = applied_at.tz_convert("UTC")
+            except (TypeError, ValueError):
+                applied_at = None
+        unrecorded_strategy_ids: list[str] = []
+        for row in strategy_history:
+            if (
+                str(row.get("status") or "").lower() != "success"
+                or str(row.get("posSide") or "").lower() not in {"", "short", "net"}
+                or str(row.get("side") or "").lower() != "buy"
+            ):
+                continue
+            if applied_at is not None:
+                try:
+                    updated = pd.to_datetime(
+                        int(row.get("updatedTime")),
+                        unit="ms",
+                        utc=True,
+                        errors="raise",
+                    )
+                except (TypeError, ValueError, OverflowError):
+                    unrecorded_strategy_ids.append(
+                        str(row.get("orderId") or "<missing>") + ":invalid-time"
+                    )
+                    continue
+                if updated < applied_at:
+                    continue
+            strategy_id = str(row.get("orderId") or "")
+            if strategy_id and strategy_id not in recorded_strategy_ids:
+                unrecorded_strategy_ids.append(strategy_id)
+        check(
+            "所有已触发空头止损均进入 journal",
+            not stop_history_issues and not unrecorded_strategy_ids,
+            ", ".join(stop_history_issues + unrecorded_strategy_ids)
+            or f"已触发止损 {len(recorded_strategy_ids)} 笔全部对账",
+        )
+
     # -- signal vs book --------------------------------------------------
     def asset_of(symbol: str) -> str:
         upper = symbol.upper()
         return known_symbols.get(upper, upper.replace("USDT", "").lower())
 
     notional_by_asset: dict[str, float] = {}
-    signed_notional_by_asset: dict[str, float] = {}
     for row in positions:
         asset = asset_of(str(row.get("symbol") or ""))
-        signed = _position_signed_notional(row)
-        notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + abs(signed)
-        signed_notional_by_asset[asset] = signed_notional_by_asset.get(asset, 0.0) + signed
-    lot_by_asset = {
-        asset: float(spec.min_order_qty or spec.quantity_multiplier)
-        * _num(prices.get(relevant[asset].upper()))
-        for asset, spec in specs.items()
-    }
-    off_target = _position_target_issues(
-        targets=targets,
-        signed_notional_by_asset=signed_notional_by_asset,
-        equity=equity,
-        lot_notional_by_asset=lot_by_asset,
-        prices_by_asset={asset: _num(prices.get(relevant[asset].upper())) for asset in targets},
-        contract_specs_by_asset=specs,
+        notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + abs(
+            _position_signed_notional(row)
+        )
+    event_target_quantities = (
+        effective_event_target_quantities(active_event)
+        if isinstance(active_event, dict)
+        else {}
     )
+    event_target_weights = (
+        active_event.get("target_weights")
+        if isinstance(active_event, dict)
+        and isinstance(active_event.get("target_weights"), dict)
+        else {}
+    )
+    event_prices = (
+        active_event.get("prices")
+        if isinstance(active_event, dict) and isinstance(active_event.get("prices"), dict)
+        else {}
+    )
+    if isinstance(active_event, dict):
+        quantity_issues = _event_quantity_issues(
+            target_quantities=event_target_quantities,
+            target_weights=event_target_weights,
+            symbol_assets=known_symbols,
+            positions=positions,
+            specs_by_symbol={spec.symbol.upper(): spec for spec in specs.values()},
+            event_prices=event_prices,
+            stopped_symbols=stopped_symbols,
+        )
+    else:
+        quantity_issues = ["execution state has no active target event"]
     check(
-        "持仓与冻结目标一致（1%/1.5 个合约步长容差）",
-        not off_target,
-        "; ".join(off_target) or "全部吻合",
+        "持仓数量与最近目标事件一致（价格漂移不算偏差）",
+        not quantity_issues,
+        "; ".join(quantity_issues) or "每个目标事件腿数量吻合，已止损腿除外",
     )
 
     orphans = sorted(set(notional_by_asset) - set(targets))

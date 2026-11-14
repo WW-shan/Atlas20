@@ -103,6 +103,143 @@ def test_reduce_below_venue_minimum_keeps_the_position() -> None:
     assert any("kept for now" in warning for warning in plan.warnings)
 
 
+def test_non_event_maintenance_preserves_same_side_drift() -> None:
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=10.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=25.75,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=500.0, available_margin=0.0, positions={"near": position}),
+        {"near": -0.05},
+        {"near": _spec()},
+        {"near": 5.0},
+        rebalance_to_target=False,
+    )
+
+    assert plan.orders == []
+    assert plan.margin_intents == []
+    assert plan.expected_gross_notional == pytest.approx(50.0)
+
+
+def test_frozen_target_quantities_override_current_equity_weight_sizing() -> None:
+    """A partial event retry must finish the event, not resize to today's equity."""
+
+    plan = build_execution_plan(
+        AccountState(equity=1_000.0, available_margin=1_000.0),
+        {"near": 0.1},
+        {"near": _spec()},
+        {"near": 5.0},
+        target_quantities={"near": -10.0},
+    )
+
+    assert len(plan.orders) == 1
+    assert plan.orders[0].action == "OPEN"
+    assert plan.orders[0].size == pytest.approx(10.0)
+    assert plan.signed_target_notional == {"near": pytest.approx(-50.0)}
+
+
+def test_maintenance_closes_a_residual_stopped_leg_and_never_reopens_it() -> None:
+    residual = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=4.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=10.3,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=500.0, available_margin=0.0, positions={"near": residual}),
+        {"near": -0.05},
+        {"near": _spec()},
+        {"near": 5.0},
+        rebalance_to_target=False,
+        target_quantities={"near": 0.0},
+    )
+    missing = build_execution_plan(
+        AccountState(equity=500.0, available_margin=500.0),
+        {"near": -0.05},
+        {"near": _spec()},
+        {"near": 5.0},
+        rebalance_to_target=True,
+        target_quantities={"near": 0.0},
+    )
+
+    assert [(order.action, order.reduce_only) for order in plan.orders] == [
+        ("CLOSE", True)
+    ]
+    assert missing.orders == []
+
+
+def test_non_event_maintenance_reduces_gross_when_it_breaches_the_hard_cap() -> None:
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=100.0,
+        entry_price=2.0,
+        mark_price=2.0,
+        margin=120.0,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=0.0, positions={"near": position}),
+        {"near": -1.0},
+        {"near": _spec()},
+        {"near": 2.0},
+        max_gross_exposure=125.0,
+        rebalance_to_target=False,
+    )
+
+    assert len(plan.orders) == 1
+    assert plan.orders[0].action == "REDUCE"
+    assert plan.orders[0].size == pytest.approx(38.0)
+    assert plan.expected_gross_notional <= 125.0 + 1e-9
+    assert any("gross" in warning and "risk" in warning for warning in plan.warnings)
+
+
+def test_gross_cap_uses_the_minimum_tradeable_reduction_instead_of_closing_all() -> None:
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=100.0,
+        entry_price=2.0,
+        mark_price=2.0,
+        margin=120.0,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=1_000.0, available_margin=0.0, positions={"near": position}),
+        {"near": -0.2},
+        {"near": _spec()},
+        {"near": 2.0},
+        max_gross_exposure=199.5,
+        rebalance_to_target=False,
+    )
+
+    assert len(plan.orders) == 1
+    assert plan.orders[0].action == "REDUCE"
+    assert plan.orders[0].size == pytest.approx(3.0)
+    assert plan.expected_gross_notional <= 199.5 + 1e-9
+
+
+def test_non_event_maintenance_still_closes_out_of_book_risk() -> None:
+    position = _position("cardano", size=100.0, entry=0.5, mark=0.6, margin=30.9)
+    plan = build_execution_plan(
+        AccountState(equity=200.0, available_margin=0.0, positions={"cardano": position}),
+        {"near": 0.5},
+        {"near": _spec(), "cardano": _spec("ADAUSDT")},
+        {"near": 2.0, "cardano": 0.6},
+        rebalance_to_target=False,
+    )
+
+    assert [(order.asset, order.action) for order in plan.orders] == [("cardano", "CLOSE")]
+
+
 def test_drift_position_outside_the_target_book_is_closed() -> None:
     position = _position("cardano", size=100.0, entry=0.5, mark=0.6, margin=100.0 * 0.6 * DEFAULT_MARGIN)
     plan = build_execution_plan(

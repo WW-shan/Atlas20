@@ -357,3 +357,14 @@ def test_target_gross_weight_uses_absolute_long_and_short_notionals():
 
     assert target_gross_weight({"near": 0.8, "tron": -0.45}) == pytest.approx(1.25)
     assert target_gross_weight({"near": 0.8, "tron": -0.5}) > 1.25
+
+
+def test_plan_event_freshness_uses_the_latest_evaluated_data_day() -> None:
+    signal_date = pd.Timestamp("2026-11-13", tz="UTC")
+
+    assert plan_live_execution._target_event_is_fresh(
+        signal_date, pd.Timestamp("2026-11-13", tz="UTC")
+    )
+    assert not plan_live_execution._target_event_is_fresh(
+        signal_date, pd.Timestamp("2026-11-14", tz="UTC")
+    )

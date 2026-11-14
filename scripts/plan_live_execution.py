@@ -226,6 +226,16 @@ def canonical_asset_for(
     return key
 
 
+def _target_event_is_fresh(
+    signal_date: pd.Timestamp, signal_end_date: pd.Timestamp | None
+) -> bool:
+    """Whether the latest target row belongs to the latest evaluated day."""
+
+    if signal_end_date is None:
+        return False
+    return pd.Timestamp(signal_date).date() == pd.Timestamp(signal_end_date).date()
+
+
 def target_weights_from_book(
     book: pd.DataFrame,
     symbols_by_asset: dict[str, str] | LiveSymbolMap,
@@ -607,6 +617,7 @@ def main() -> None:
         if targets_hash_issue is not None:
             raise SystemExit(targets_hash_issue)
     signal_end_date = manifest_signal_end_date(args.manifest_file)
+    fresh_target_event = _target_event_is_fresh(signal_date, signal_end_date)
     execution_hint = pd.Timestamp(
         live_execution_hint_for_signal(signal_end_date or signal_date)
     )
@@ -686,6 +697,7 @@ def main() -> None:
         max_gross_exposure=float(args.max_gross_multiple) * account.equity,
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
+        rebalance_to_target=fresh_target_event,
     )
     message = format_execution_plan(
         plan,

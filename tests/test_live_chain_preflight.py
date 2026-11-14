@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from atlas20.derivatives.live_chain import file_sha256
-from scripts.live_chain_preflight import BLOCKED, main
+from scripts.live_chain_preflight import BLOCKED, DONE, main
 
 
 def _write_panel(
@@ -108,7 +108,7 @@ def test_window_check_blocks_when_today_already_traded(tmp_path: Path) -> None:
 
     code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T04:00:00+00:00"])
 
-    assert code == BLOCKED
+    assert code == DONE
 
 
 def test_window_check_retries_a_failed_day(tmp_path: Path) -> None:
@@ -192,7 +192,7 @@ def test_window_check_blocks_when_the_target_book_is_unchanged(tmp_path: Path) -
         ]
     )
 
-    assert code == BLOCKED
+    assert code == DONE
 
 
 def test_window_check_retries_when_the_manifest_is_behind_the_completed_day(
@@ -272,7 +272,7 @@ def test_window_check_blocks_only_when_the_manifest_is_fully_current(
         ]
     )
 
-    assert code == BLOCKED
+    assert code == DONE
 
 
 def test_window_check_rebuilds_when_the_target_file_disagrees_with_the_manifest(
