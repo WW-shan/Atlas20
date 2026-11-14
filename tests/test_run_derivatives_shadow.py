@@ -340,3 +340,64 @@ def test_execution_mark_audit_records_a_missing_0100_floor_bar() -> None:
     assert audit["missing_pair_count"] == 1
     assert audit["missing"][0]["signal_date"] == str(second_signal)
     assert audit["missing"][0]["asset"] == "bitcoin"
+
+
+def test_short_scale_rejects_non_positive_values() -> None:
+    from scripts.run_derivatives_shadow import _resolve_short_scale
+
+    assert _resolve_short_scale(2.0) == pytest.approx(2.0)
+    with pytest.raises(ValueError, match="short_scale"):
+        _resolve_short_scale(0.0)
+
+
+def test_short_config_scale_doubles_bear_and_exit_weights_without_mutation() -> None:
+    from scripts.run_derivatives_shadow import _scale_short_config
+
+    original = {
+        "bear_per_asset_weight": 0.0625,
+        "exit_per_asset_weight": 0.025,
+        "other": 1,
+    }
+    scaled = _scale_short_config(original, 2.0)
+
+    assert scaled["bear_per_asset_weight"] == pytest.approx(0.125)
+    assert scaled["exit_per_asset_weight"] == pytest.approx(0.05)
+    assert scaled["other"] == 1
+    assert original["bear_per_asset_weight"] == pytest.approx(0.0625)
+
+
+def test_short_schedule_is_capped_at_the_requested_gross() -> None:
+    from scripts.run_derivatives_shadow import _cap_short_schedule
+
+    signal = pd.Timestamp("2026-11-13", tz="UTC")
+    capped = _cap_short_schedule(
+        {
+            signal: pd.Series(
+                {"bitcoin": 0.25, "ethereum": 0.25, "solana": 0.25}
+            )
+        },
+        max_gross=0.50,
+    )
+
+    assert float(capped[signal].sum()) == pytest.approx(0.50)
+    assert capped[signal].to_dict() == pytest.approx(
+        {"bitcoin": 1 / 6, "ethereum": 1 / 6, "solana": 1 / 6}
+    )
+
+
+def test_max_margin_utilization_is_bounded() -> None:
+    from scripts.run_derivatives_shadow import _resolve_max_margin_utilization
+
+    assert _resolve_max_margin_utilization(0.90) == pytest.approx(0.90)
+    with pytest.raises(ValueError, match="max_margin_utilization"):
+        _resolve_max_margin_utilization(0.0)
+    with pytest.raises(ValueError, match="max_margin_utilization"):
+        _resolve_max_margin_utilization(1.01)
+
+
+def test_venue_leverage_is_positive_and_finite() -> None:
+    from scripts.run_derivatives_shadow import _resolve_venue_leverage
+
+    assert _resolve_venue_leverage(4.0) == pytest.approx(4.0)
+    with pytest.raises(ValueError, match="venue_leverage"):
+        _resolve_venue_leverage(0.0)

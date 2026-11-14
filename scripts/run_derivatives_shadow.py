@@ -635,6 +635,64 @@ def _resolve_max_total_gross(value: float | None) -> float:
     return resolved
 
 
+def _resolve_short_scale(value: float) -> float:
+    resolved = float(value)
+    if not np.isfinite(resolved) or resolved <= 0.0:
+        raise ValueError("short_scale must be positive and finite")
+    return resolved
+
+
+def _resolve_max_margin_utilization(value: float) -> float:
+    resolved = float(value)
+    if not np.isfinite(resolved) or not 0.0 < resolved <= 1.0:
+        raise ValueError("max_margin_utilization must be in (0, 1]")
+    return resolved
+
+
+def _resolve_venue_leverage(value: float) -> float:
+    resolved = float(value)
+    if not np.isfinite(resolved) or resolved <= 0.0:
+        raise ValueError("venue_leverage must be positive and finite")
+    return resolved
+
+
+def _scale_short_config(config: Mapping[str, object], scale: float) -> dict[str, object]:
+    """Return a copy with only the short request weights scaled."""
+
+    resolved = _resolve_short_scale(scale)
+    scaled = dict(config)
+    for key in ("bear_per_asset_weight", "exit_per_asset_weight"):
+        if key not in scaled:
+            raise ValueError(f"short config is missing {key}")
+        raw = float(scaled[key])
+        if not np.isfinite(raw) or raw < 0.0:
+            raise ValueError(f"{key} must be finite and non-negative")
+        scaled[key] = raw * resolved
+    return scaled
+
+
+def _cap_short_schedule(
+    schedule: Mapping[pd.Timestamp, pd.Series],
+    *,
+    max_gross: float,
+) -> dict[pd.Timestamp, pd.Series]:
+    """Cap each short schedule event at the requested gross."""
+
+    cap = _resolve_short_scale(max_gross)
+    capped: dict[pd.Timestamp, pd.Series] = {}
+    for raw_date, raw_target in schedule.items():
+        date = _as_utc(raw_date)
+        target = pd.to_numeric(pd.Series(raw_target), errors="coerce").astype(float)
+        target.index = target.index.astype(str)
+        if target.isna().any() or not np.isfinite(target.to_numpy()).all():
+            raise ValueError("short target weights must be finite")
+        total = float(target.sum())
+        if total > cap + 1e-15 and total > 0.0:
+            target = target * (cap / total)
+        capped[date] = target.sort_index()
+    return dict(sorted(capped.items()))
+
+
 def _contract_specs_from_symbol_map(symbol_map: pd.DataFrame) -> dict[str, ContractSpec]:
     """Build current-snapshot venue specs from the frozen symbol map."""
 
@@ -720,6 +778,29 @@ def main() -> None:
         help="override the frozen total gross cap; live candidate uses 1.25",
     )
     parser.add_argument(
+        "--short-scale",
+        type=float,
+        default=1.0,
+        help="scale the frozen short request weights; LS104 uses 2.0",
+    )
+    parser.add_argument(
+        "--max-margin-utilization",
+        type=float,
+        default=0.85,
+        help="portfolio isolated-margin utilization cap",
+    )
+    parser.add_argument(
+        "--venue-leverage",
+        type=float,
+        default=2.0,
+        help="venue leverage ceiling; LS104 uses 4.0",
+    )
+    parser.add_argument(
+        "--tracked-spec",
+        default=None,
+        help="manifest track identity when --trial-id is the underlying signal trial",
+    )
+    parser.add_argument(
         "--funding-source",
         choices=("zero", "binance-proxy", "bitget-exact"),
         default="zero",
@@ -770,8 +851,22 @@ def main() -> None:
         parser.error("--min-rebalance-usdt must be non-negative")
     try:
         max_total_gross = _resolve_max_total_gross(args.max_total_gross)
+        short_scale = _resolve_short_scale(args.short_scale)
+        max_margin_utilization = _resolve_max_margin_utilization(
+            args.max_margin_utilization
+        )
+        venue_leverage = _resolve_venue_leverage(args.venue_leverage)
     except ValueError as exc:
         parser.error(str(exc))
+    tracked_spec = str(args.tracked_spec or args.trial_id).strip()
+    if not tracked_spec:
+        parser.error("tracked_spec must not be empty")
+    # The signal builders read this module-level frozen config.  The script is
+    # intentionally single-run, so applying the explicit short scale here
+    # keeps LS45's default byte-for-byte behavior while allowing LS104 to
+    # request twice the short gross without a second strategy implementation.
+    FROZEN_CONFIG.clear()
+    FROZEN_CONFIG.update(_scale_short_config(FROZEN_CONFIG, short_scale))
     configure_logging("ERROR")
 
     symbol_map = load_symbol_map(args.raw_dir)
@@ -907,6 +1002,10 @@ def main() -> None:
             short_funding=funding,
             profit_lock_audit=profit_lock_audit,
         )
+        short_targets = _cap_short_schedule(
+            short_targets,
+            max_gross=0.25 * short_scale,
+        )
         short_targets = _cap_short_schedule_at_funding_end(
             short_targets,
             calendar=index,
@@ -1033,6 +1132,7 @@ def main() -> None:
                 else False
             ),
             max_gross_exposure=max_total_gross,
+            max_margin_utilization=max_margin_utilization,
             rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
             execution_hour=int(args.execution_hour),
             execution_minute=int(args.execution_minute),
@@ -1161,7 +1261,8 @@ def main() -> None:
     short_opens = int((short_side & (trades.get("action") == "open")).sum()) if not trades.empty else 0
     targets_sha256 = file_sha256(output_dir / "oos_targets.csv")
     summary = {
-        "tracked_spec": args.trial_id,
+        "tracked_spec": tracked_spec,
+        "signal_trial_id": args.trial_id,
         "research_only": True,
         "live_execution": False,
         "start": str(start),
@@ -1173,6 +1274,9 @@ def main() -> None:
         "days": int(len(daily)),
         "metric_days": int(len(metric_returns)),
         "cost_bps": float(args.cost_bps),
+        "short_scale": float(short_scale),
+        "max_margin_utilization": float(max_margin_utilization),
+        "venue_leverage": float(venue_leverage),
         "capital": float(args.capital),
         "engine_capital": engine_capital,
         "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
@@ -1286,7 +1390,8 @@ def main() -> None:
     (output_dir / "manifest.json").write_text(
         json.dumps(
             {
-                "tracked_spec": args.trial_id,
+                "tracked_spec": tracked_spec,
+                "signal_trial_id": args.trial_id,
                 "spec": _shadow_spec(args.trial_id),
                 "research_only": True,
                 "live_execution": False,
@@ -1296,6 +1401,9 @@ def main() -> None:
                 "signal_end_date": str(end_date.date()),
                 "engine_end": str(engine_end),
                 "max_total_gross": float(max_total_gross),
+                "short_scale": float(short_scale),
+                "max_margin_utilization": float(max_margin_utilization),
+                "venue_leverage": float(venue_leverage),
                 "frozen_config": {
                     **FROZEN_CONFIG,
                     "rebalance_no_trade_band": float(

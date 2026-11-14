@@ -77,3 +77,14 @@ def test_committed_manifest_matches_the_live_spec_pin() -> None:
         expected_frozen_config=LS45_G125_FROZEN_CONFIG,
         expected_top_level=LS45_G125_MANIFEST_TOP_LEVEL,
     ) == []
+
+
+def test_build_command_can_pin_the_ls104_aggressive_profile() -> None:
+    command = build_command(end_date="2026-11-13", track="ls104-g175-m090")
+
+    assert command[command.index("--trial-id") + 1] == LS45_CANDIDATE_ID
+    assert command[command.index("--short-scale") + 1] == "2.0"
+    assert command[command.index("--max-total-gross") + 1] == "1.75"
+    assert command[command.index("--max-margin-utilization") + 1] == "0.90"
+    assert command[command.index("--venue-leverage") + 1] == "4.0"
+    assert command[command.index("--output-dir") + 1] == "reports/ls45_live_g175"

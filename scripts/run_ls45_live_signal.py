@@ -20,6 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SHADOW_SCRIPT = "scripts/run_derivatives_shadow.py"
 LS45_CANDIDATE_ID = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 DEFAULT_OUTPUT_DIR = "reports/ls45_live_g125"
+LS104_OUTPUT_DIR = "reports/ls45_live_g175"
 DEFAULT_RAW_DIR = "data/raw/bitget_derivatives/merged_oos_20261112"
 DEFAULT_WARMUP_DIR = "data/raw/bitget_derivatives/merged_20261009"
 DEFAULT_START = "2026-09-22"
@@ -39,11 +40,19 @@ def build_command(
     *,
     end_date: str | None = None,
     config: str = "config/base.yaml",
-    output_dir: str = DEFAULT_OUTPUT_DIR,
+    output_dir: str | None = None,
+    track: str = "ls45-g125",
 ) -> list[str]:
     """Return the exact shadow-runner command for the LS45-G125 ledger."""
 
     normalized_end = _validated_end_date(end_date)
+    if track not in {"ls45-g125", "ls104-g175-m090"}:
+        raise ValueError(f"unsupported track: {track}")
+    is_ls104 = track == "ls104-g175-m090"
+    resolved_output = (
+        output_dir
+        or (LS104_OUTPUT_DIR if is_ls104 else DEFAULT_OUTPUT_DIR)
+    )
     command = [
         sys.executable,
         SHADOW_SCRIPT,
@@ -51,6 +60,14 @@ def build_command(
         config,
         "--trial-id",
         LS45_CANDIDATE_ID,
+        "--tracked-spec",
+        (
+            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+            if is_ls104
+            else "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+        ),
+        "--short-scale",
+        "2.0" if is_ls104 else "1.0",
         "--raw-dir",
         DEFAULT_RAW_DIR,
         "--warmup-raw-dir",
@@ -61,6 +78,10 @@ def build_command(
         DEFAULT_WARMUP_START,
         "--cost-bps",
         "20",
+        "--max-margin-utilization",
+        "0.90" if is_ls104 else "0.85",
+        "--venue-leverage",
+        "4.0" if is_ls104 else "2.0",
         "--capital",
         "1000",
         "--engine-capital",
@@ -77,13 +98,13 @@ def build_command(
         "--normalize-isolated-margin",
         "daily",
         "--max-total-gross",
-        "1.25",
+        "1.75" if is_ls104 else "1.25",
         "--funding-source",
         "bitget-exact",
         "--funding-missing-policy",
         "skip",
         "--output-dir",
-        output_dir,
+        resolved_output,
     ]
     if normalized_end is not None:
         command.extend(["--end-date", normalized_end])
@@ -94,13 +115,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--end-date", default=None)
-    parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--output-dir", default=None)
+    parser.add_argument(
+        "--track",
+        choices=("ls45-g125", "ls104-g175-m090"),
+        default="ls45-g125",
+    )
     args = parser.parse_args()
     try:
         command = build_command(
             end_date=args.end_date,
             config=args.config,
             output_dir=args.output_dir,
+            track=args.track,
         )
     except ValueError as exc:
         parser.error(str(exc))
