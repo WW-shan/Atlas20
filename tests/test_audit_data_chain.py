@@ -8,6 +8,7 @@ and some conditions could never be false at all.
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -42,7 +43,10 @@ def test_a_failing_check_is_never_downgraded_to_warn() -> None:
     assert _status() == "FAIL"
 
 
-@pytest.mark.parametrize(("ok", "warn", "expected"), [(True, False, "PASS"), (True, True, "WARN"), (False, False, "FAIL")])
+@pytest.mark.parametrize(
+    ("ok", "warn", "expected"),
+    [(True, False, "PASS"), (True, True, "WARN"), (False, False, "FAIL")],
+)
 def test_check_statuses(ok: bool, warn: bool, expected: str) -> None:
     audit.check("probe", ok, "detail", warn=warn)
 
@@ -57,7 +61,9 @@ _SHANGHAI_EARLY_MORNING = pd.Timestamp("2026-09-25 01:30", tz="Asia/Shanghai")
 
 
 def test_freshness_is_measured_against_the_latest_completed_utc_day() -> None:
-    ok, detail = audit.panel_freshness(pd.Timestamp("2026-09-23"), now=_SHANGHAI_EARLY_MORNING)
+    ok, detail = audit.panel_freshness(
+        pd.Timestamp("2026-09-23"), now=_SHANGHAI_EARLY_MORNING
+    )
 
     assert ok
     assert "0d behind" in detail
@@ -65,7 +71,9 @@ def test_freshness_is_measured_against_the_latest_completed_utc_day() -> None:
 
 
 def test_one_day_behind_is_allowed_while_the_provider_finalizes() -> None:
-    ok, _ = audit.panel_freshness(pd.Timestamp("2026-09-22"), now=_SHANGHAI_EARLY_MORNING)
+    ok, _ = audit.panel_freshness(
+        pd.Timestamp("2026-09-22"), now=_SHANGHAI_EARLY_MORNING
+    )
 
     assert ok
 
@@ -83,7 +91,9 @@ def test_a_panel_more_than_one_day_behind_fails(days_behind: int) -> None:
 
 
 def test_a_panel_row_for_an_unfinished_utc_day_fails() -> None:
-    ok, detail = audit.panel_freshness(pd.Timestamp("2026-09-24"), now=_SHANGHAI_EARLY_MORNING)
+    ok, detail = audit.panel_freshness(
+        pd.Timestamp("2026-09-24"), now=_SHANGHAI_EARLY_MORNING
+    )
 
     assert not ok
     assert "not closed" in detail
@@ -96,6 +106,53 @@ def test_a_pinned_end_date_is_the_freshness_reference() -> None:
 
     assert ok
     assert "0d behind" in detail
+
+
+def _cmc_cache_row(
+    day: str, close: float, cap: float, supply: float
+) -> dict[str, object]:
+    return {
+        "timeOpen": f"{day}T00:00:00.000Z",
+        "quote": {
+            "close": close,
+            "marketCap": cap,
+            "circulatingSupply": supply,
+            "volume": 1_000_000.0,
+        },
+    }
+
+
+def test_cmc_market_cap_supply_check_deduplicates_cache_windows_and_tolerates_known_supply_timing(
+    tmp_path: Path,
+) -> None:
+    row = _cmc_cache_row("2025-05-25", 1642.848406, 1_391_862_937.21, 604_489.12)
+    for index in range(3):
+        path = (
+            tmp_path / f"1518_1_2_{index}.json" if index else tmp_path / "1518_1_2.json"
+        )
+        path.write_text(json.dumps([row]), encoding="utf-8")
+        os.utime(path, (1_780_000_000 + index, 1_780_000_000 + index))
+
+    ok, detail = audit.cmc_market_cap_supply_report(
+        sorted(tmp_path.glob("1518_*.json"))
+    )
+
+    assert ok
+    assert "unique provider rows=1" in detail
+    assert "worst=" in detail
+
+
+def test_cmc_market_cap_supply_check_rejects_an_implausible_cap(tmp_path: Path) -> None:
+    path = tmp_path / "1518_1_2.json"
+    path.write_text(
+        json.dumps([_cmc_cache_row("2025-05-25", 100.0, 1_000.0, 1.0)]),
+        encoding="utf-8",
+    )
+
+    ok, detail = audit.cmc_market_cap_supply_report([path])
+
+    assert not ok
+    assert "implausible" in detail
 
 
 # -------------------------------------------------------------- interior gaps
@@ -128,7 +185,9 @@ def test_a_long_interior_gap_fails() -> None:
 
 
 def test_a_short_named_gap_warns() -> None:
-    panel = _panel({"link": _DAYS.difference([pd.Timestamp("2024-03-01")]), "bitcoin": _DAYS})
+    panel = _panel(
+        {"link": _DAYS.difference([pd.Timestamp("2024-03-01")]), "bitcoin": _DAYS}
+    )
 
     ok, detail, warn = audit.interior_gaps(panel, start=pd.Timestamp("2024-01-01"))
     audit.check(_GAP_NAME, ok, detail, warn=warn)
@@ -156,8 +215,10 @@ def test_gaps_before_the_traded_window_are_ignored_and_no_gap_passes() -> None:
 _REMOVAL_DAYS = pd.date_range("2024-03-01", periods=24, freq="D")
 
 
-def test_a_documented_removal_on_an_ended_feed_warns_not_fails() -> None:
-    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(_REMOVAL_DAYS)
+def test_a_documented_removal_on_an_ended_feed_is_handled() -> None:
+    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(
+        _REMOVAL_DAYS
+    )
     panel = _panel({"bitcoin": _DAYS, "ht": ended_days})
 
     ok, detail, warn = audit.interior_gaps(
@@ -165,7 +226,7 @@ def test_a_documented_removal_on_an_ended_feed_warns_not_fails() -> None:
     )
     audit.check(_GAP_NAME, ok, detail, warn=warn)
 
-    assert _status() == "WARN"
+    assert _status() == "PASS"
     assert "HT (24d, longest run 24d, 24d documented corruption removals)" in detail
     assert "documented corruption removals on an ended feed" in detail
 
@@ -183,16 +244,45 @@ def test_a_documented_removal_on_a_live_feed_still_fails() -> None:
 
 
 def test_a_long_gap_with_unexplained_days_still_fails() -> None:
-    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(_REMOVAL_DAYS)
+    ended_days = pd.date_range("2024-01-01", "2024-04-20", freq="D").difference(
+        _REMOVAL_DAYS
+    )
     panel = _panel({"bitcoin": _DAYS, "ht": ended_days})
 
     ok, detail, warn = audit.interior_gaps(
-        panel, start=pd.Timestamp("2024-01-01"), explained_missing={"ht": _REMOVAL_DAYS[:20]}
+        panel,
+        start=pd.Timestamp("2024-01-01"),
+        explained_missing={"ht": _REMOVAL_DAYS[:20]},
     )
     audit.check(_GAP_NAME, ok, detail, warn=warn)
 
     assert _status() == "FAIL"
     assert "broken feed" in detail
+
+
+def test_ended_feeds_pass_only_when_the_provider_end_is_classified() -> None:
+    early_end = pd.Series(
+        [pd.Timestamp("2025-05-27"), pd.Timestamp("2025-03-13")],
+        index=["eos", "huobi-token"],
+    )
+    symbols = {"eos": "EOS", "huobi-token": "HT"}
+    # data_quality.csv is read with read_csv(), so its coin ids are a column
+    # and the DataFrame index is a RangeIndex. Production uses that shape.
+    quality = pd.DataFrame(
+        {
+            "coin_id": ["eos", "huobi-token"],
+            "crosscheck_primary_ended": [True, True],
+        }
+    )
+
+    ok, detail = audit.ended_feed_verdict(early_end, quality, symbols)
+    assert ok
+    assert "EOS (to 2025-05-27)" in detail and "HT (to 2025-03-13)" in detail
+
+    quality.loc[quality["coin_id"] == "huobi-token", "crosscheck_primary_ended"] = False
+    ok, detail = audit.ended_feed_verdict(early_end, quality, symbols)
+    assert not ok
+    assert "unclassified HT" in detail
 
 
 # ---------------------------------------------------- empty CMC tail windows
@@ -266,7 +356,9 @@ def test_backfill_sized_empty_windows_are_left_to_the_backfill_check() -> None:
 _BUILD_STAMP = 1_780_000_000
 
 
-def _long_panel(coins: list[str], days: pd.DatetimeIndex, *, price: float = 1.0) -> pd.DataFrame:
+def _long_panel(
+    coins: list[str], days: pd.DatetimeIndex, *, price: float = 1.0
+) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -292,10 +384,16 @@ def _write_build(
 ) -> None:
     processed.mkdir(parents=True, exist_ok=True)
     coins = sorted(panel["coin_id"].unique())
-    panel.assign(date=panel["date"].dt.strftime("%Y-%m-%d")).to_csv(processed / "panel_daily.csv", index=False)
-    pd.DataFrame({"coin_id": coins, "symbol": [coin.upper() for coin in coins], "sector": "Other"}).to_csv(
-        processed / "metadata.csv", index=False
+    panel.assign(date=panel["date"].dt.strftime("%Y-%m-%d")).to_csv(
+        processed / "panel_daily.csv", index=False
     )
+    pd.DataFrame(
+        {
+            "coin_id": coins,
+            "symbol": [coin.upper() for coin in coins],
+            "sector": "Other",
+        }
+    ).to_csv(processed / "metadata.csv", index=False)
     if quality is None:
         quality = pd.DataFrame(
             {
@@ -319,7 +417,9 @@ def _config(tmp_path: Path):
 
 def _named(name: str) -> tuple[str, str, str]:
     matches = [result for result in audit.RESULTS if result[0] == name]
-    assert matches, f"no result named {name!r}: {[result[0] for result in audit.RESULTS]}"
+    assert matches, (
+        f"no result named {name!r}: {[result[0] for result in audit.RESULTS]}"
+    )
     return matches[-1]
 
 
@@ -333,7 +433,9 @@ def test_the_audit_certifies_the_persisted_build_not_a_rebuild(tmp_path: Path) -
     _write_build(tmp_path / "processed", persisted)
     rebuilt = _long_panel(["bitcoin", "ethereum", "monero"], _WEEK)
 
-    build = audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (rebuilt, pd.DataFrame()))
+    build = audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (rebuilt, pd.DataFrame())
+    )
 
     assert build is not None
     assert sorted(build.panel["coin_id"].unique()) == ["bitcoin", "ethereum"]
@@ -348,14 +450,18 @@ def test_a_matching_rebuild_passes(tmp_path: Path) -> None:
     persisted = _long_panel(["bitcoin", "ethereum"], _WEEK)
     _write_build(tmp_path / "processed", persisted)
 
-    audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (persisted.copy(), pd.DataFrame()))
+    audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (persisted.copy(), pd.DataFrame())
+    )
 
     assert _named(_NO_DRIFT)[1] == "PASS"
 
 
 def test_changed_values_and_new_days_are_reported_as_drift() -> None:
     persisted = _long_panel(["bitcoin"], _WEEK)
-    rebuilt = _long_panel(["bitcoin"], pd.date_range("2026-09-17", "2026-09-24", freq="D"))
+    rebuilt = _long_panel(
+        ["bitcoin"], pd.date_range("2026-09-17", "2026-09-24", freq="D")
+    )
     rebuilt.loc[rebuilt["date"] == pd.Timestamp("2026-09-20"), "price"] = 2.0
 
     ok, detail = audit.panel_drift(persisted, rebuilt)
@@ -366,7 +472,9 @@ def test_changed_values_and_new_days_are_reported_as_drift() -> None:
     assert "bitcoin@2026-09-20 price 1->2" in detail
 
 
-def test_a_failing_rebuild_is_reported_and_the_persisted_build_is_still_audited(tmp_path: Path) -> None:
+def test_a_failing_rebuild_is_reported_and_the_persisted_build_is_still_audited(
+    tmp_path: Path,
+) -> None:
     _write_build(tmp_path / "processed", _long_panel(["bitcoin"], _WEEK))
 
     def _refused() -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -392,14 +500,18 @@ def test_a_data_quality_file_from_another_build_fails(tmp_path: Path) -> None:
     )
     _write_build(tmp_path / "processed", panel, quality=stale_quality)
 
-    audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame()))
+    audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame())
+    )
 
     status, detail = _named(_ONE_BUILD)[1:]
     assert status == "FAIL"
     assert "ethereum" in detail and "huobi-token" in detail
 
 
-def test_an_admitted_coin_whose_history_predates_the_panel_is_not_a_mismatch(tmp_path: Path) -> None:
+def test_an_admitted_coin_whose_history_predates_the_panel_is_not_a_mismatch(
+    tmp_path: Path,
+) -> None:
     panel = _long_panel(["bitcoin"], _WEEK)
     quality = pd.DataFrame(
         {
@@ -411,16 +523,24 @@ def test_an_admitted_coin_whose_history_predates_the_panel_is_not_a_mismatch(tmp
     )
     _write_build(tmp_path / "processed", panel, quality=quality)
 
-    audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame()))
+    audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame())
+    )
 
     assert _named(_ONE_BUILD)[1] == "PASS"
 
 
 def test_artifacts_written_by_different_builds_fail(tmp_path: Path) -> None:
     panel = _long_panel(["bitcoin"], _WEEK)
-    _write_build(tmp_path / "processed", panel, stamps={"data_quality.csv": _BUILD_STAMP - 2 * 86_400})
+    _write_build(
+        tmp_path / "processed",
+        panel,
+        stamps={"data_quality.csv": _BUILD_STAMP - 2 * 86_400},
+    )
 
-    audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame()))
+    audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (panel.copy(), pd.DataFrame())
+    )
 
     status, detail = _named(_ONE_BUILD)[1:]
     assert status == "FAIL"
@@ -428,7 +548,9 @@ def test_artifacts_written_by_different_builds_fail(tmp_path: Path) -> None:
 
 
 def test_missing_persisted_artifacts_fail(tmp_path: Path) -> None:
-    build = audit.audit_processed_build(_config(tmp_path), rebuild=lambda: (pd.DataFrame(), pd.DataFrame()))
+    build = audit.audit_processed_build(
+        _config(tmp_path), rebuild=lambda: (pd.DataFrame(), pd.DataFrame())
+    )
 
     assert build is None
     status, detail = _named(_ONE_BUILD)[1:]
@@ -468,14 +590,23 @@ def test_the_engine_probe_passes_for_the_real_engine(policy: str) -> None:
     assert "4-day gap refused=True" in detail
 
 
-def _lenient_engine(name, asset_returns, targets, sector_by_coin, friction, initial_capital, **kwargs):
+def _lenient_engine(
+    name, asset_returns, targets, sector_by_coin, friction, initial_capital, **kwargs
+):
     """An engine that never raises, never sells and never records a carry."""
-    weights = pd.DataFrame(1.0, index=asset_returns.index, columns=asset_returns.columns)
-    return SimpleNamespace(weights=weights, gap_carries=pd.DataFrame(columns=["date", "asset", "weight", "event"]))
+    weights = pd.DataFrame(
+        1.0, index=asset_returns.index, columns=asset_returns.columns
+    )
+    return SimpleNamespace(
+        weights=weights,
+        gap_carries=pd.DataFrame(columns=["date", "asset", "weight", "event"]),
+    )
 
 
 @pytest.mark.parametrize("policy", ["carry", "error"])
-def test_the_engine_probe_fails_when_the_engine_is_lenient(policy: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_engine_probe_fails_when_the_engine_is_lenient(
+    policy: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(audit, "run_backtest", _lenient_engine)
 
     ok, detail = audit.engine_missing_return_probe(_friction(policy))
@@ -507,7 +638,9 @@ def test_the_leverage_probe_passes_when_the_engine_refuses_a_2x_cap() -> None:
     assert "refused" in detail
 
 
-def test_the_leverage_probe_fails_when_a_2x_cap_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_leverage_probe_fails_when_a_2x_cap_is_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(audit, "run_backtest", _lenient_engine)
 
     ok, detail = audit.leverage_refusal_probe(_friction("carry"))
@@ -532,7 +665,9 @@ def _toy_config():
     return config
 
 
-def _toy_market_inputs(missing_cap_on: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _toy_market_inputs(
+    missing_cap_on: str | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     days = pd.date_range("2021-01-01", "2021-08-31", freq="D")
     coins = {"bitcoin": 1e12, "ethereum": 5e11, "solana": 1e11}
     panel = pd.DataFrame(
@@ -551,7 +686,9 @@ def _toy_market_inputs(missing_cap_on: str | None = None) -> tuple[pd.DataFrame,
         ]
     )
     if missing_cap_on is not None:
-        gap = (panel["coin_id"] == "solana") & (panel["date"] == pd.Timestamp(missing_cap_on))
+        gap = (panel["coin_id"] == "solana") & (
+            panel["date"] == pd.Timestamp(missing_cap_on)
+        )
         panel.loc[gap, "market_cap"] = float("nan")
     metadata = pd.DataFrame(
         {
@@ -572,11 +709,17 @@ def test_audit_dates_cover_every_configured_rebalance_date_and_every_day() -> No
     dates, counts = audit.universe_audit_dates(index, config)
     frequency_only, _ = audit.universe_audit_dates(index, config, include_daily=False)
 
-    month_ends = get_rebalance_dates(index, config.start_timestamp, "monthly", "month_end")
+    month_ends = get_rebalance_dates(
+        index, config.start_timestamp, "monthly", "month_end"
+    )
     biweekly = get_rebalance_dates(index, config.start_timestamp, "biweekly", "14D")
     assert set(month_ends) | set(biweekly) == set(frequency_only)
     assert dates == list(index)
-    assert counts == {"monthly": len(month_ends), "biweekly": len(biweekly), "daily": len(index)}
+    assert counts == {
+        "monthly": len(month_ends),
+        "biweekly": len(biweekly),
+        "daily": len(index),
+    }
 
 
 def test_a_forward_filled_rank_on_a_month_end_is_caught() -> None:
@@ -585,7 +728,9 @@ def test_a_forward_filled_rank_on_a_month_end_is_caught() -> None:
     market = prepare_market_data(panel, metadata, config)
     index = market.returns.loc[config.start_timestamp : config.end_timestamp].index
     weekly = get_rebalance_dates(index, config.start_timestamp, "weekly", "7D")
-    assert pd.Timestamp("2021-06-30") not in weekly, "the old 7-day grid never looks at this month end"
+    assert pd.Timestamp("2021-06-30") not in weekly, (
+        "the old 7-day grid never looks at this month end"
+    )
 
     dates, _ = audit.universe_audit_dates(index, config)
     universe = build_rebalance_universe(market, dates, config)
@@ -624,6 +769,89 @@ def test_same_day_market_cap_ranks_pass_and_a_mismatch_fails() -> None:
     assert "@2021-07-31" in detail
 
 
+def test_survivorship_missing_members_must_be_explicitly_policy_excluded() -> None:
+    exclusions = {
+        "RAIN": "user exclusion",
+        "USTC": "stablecoin policy",
+        "BSV": "CoinGecko-unavailable legacy asset",
+    }
+
+    ok, detail = audit.survivorship_verdict(
+        {"RAIN": 174, "USTC": 160, "BSV": 69}, exclusions
+    )
+    assert ok
+    assert "policy-excluded" in detail and "RAIN (174d)" in detail
+
+    ok, detail = audit.survivorship_verdict({"MATIC": 123}, exclusions)
+    assert not ok
+    assert "unexplained" in detail and "MATIC (123d)" in detail
+
+
+def test_production_policy_declares_the_hard_survivorship_exclusions() -> None:
+    config = load_config("config/base.yaml")
+
+    assert "terrausd" in config.universe.stablecoin_ids
+    assert {"RAIN", "USTC", "BSV"} <= set(config.universe.cmc_policy_exclusions)
+    assert all(
+        reason.strip() for reason in config.universe.cmc_policy_exclusions.values()
+    )
+
+
+def test_exchange_gap_fills_require_exact_dates_sources_and_quality_counts() -> None:
+    price_source = "exchange_gap_fill:binance+gateio"
+    panel = pd.DataFrame(
+        [
+            {
+                "coin_id": "link",
+                "date": "2022-07-31",
+                "price_source": price_source,
+                "volume_source": price_source,
+                "market_cap_source": (
+                    "derived:binance+gateio_close_x_cmc_supply@2022-07-30"
+                ),
+            },
+            {
+                "coin_id": "bitcoin",
+                "date": "2022-07-31",
+                "price_source": "coinmarketcap",
+                "volume_source": "coinmarketcap",
+                "market_cap_source": "coinmarketcap",
+            },
+        ]
+    )
+    quality = pd.DataFrame(
+        {
+            "coin_id": ["link", "bitcoin"],
+            "provider_gap_fill_rows": [1, 0],
+            "provider_gap_fill_dates": ["2022-07-31", ""],
+            "provider_gap_fill_sources": ["binance,gateio", ""],
+        }
+    )
+
+    ok, detail = audit.gap_fill_provenance_check(panel, quality)
+    assert ok
+    assert "1" in detail and "exchange-sourced" in detail
+
+    panel.loc[0, "market_cap_source"] = "coinmarketcap"
+    ok, detail = audit.gap_fill_provenance_check(panel, quality)
+    assert not ok
+    assert "unmarked" in detail
+
+    panel.loc[0, "market_cap_source"] = (
+        "derived:binance+gateio_close_x_cmc_supply@2022-07-30"
+    )
+    quality.loc[0, "provider_gap_fill_dates"] = "2022-07-30"
+    ok, detail = audit.gap_fill_provenance_check(panel, quality)
+    assert not ok
+    assert "date-mismatch" in detail
+
+    quality.loc[0, "provider_gap_fill_dates"] = "2022-07-31"
+    quality.loc[0, "provider_gap_fill_sources"] = "binance"
+    ok, detail = audit.gap_fill_provenance_check(panel, quality)
+    assert not ok
+    assert "source-mismatch" in detail
+
+
 # ------------------------------------------------- price-level corruption
 #
 # CMC served Huobi Token at ~1/250,000th of its price for 34 days. The
@@ -632,7 +860,9 @@ def test_same_day_market_cap_ranks_pass_and_a_mismatch_fails() -> None:
 # 0 rows by construction while 34 had been removed.
 
 
-def _corrupted_prices(days: int = 260, block: tuple[int, int] = (100, 133)) -> pd.Series:
+def _corrupted_prices(
+    days: int = 260, block: tuple[int, int] = (100, 133)
+) -> pd.Series:
     index = pd.date_range("2025-01-01", periods=days, freq="D")
     prices = pd.Series(0.5, index=index)
     prices.iloc[block[0] : block[1] + 1] = 0.000002
@@ -641,11 +871,15 @@ def _corrupted_prices(days: int = 260, block: tuple[int, int] = (100, 133)) -> p
 
 def _clean_panel() -> pd.DataFrame:
     days = pd.date_range("2025-01-01", periods=260, freq="D")
-    return pd.DataFrame({"date": days, "coin_id": "bitcoin", "symbol": "BTC", "price": 50_000.0})
+    return pd.DataFrame(
+        {"date": days, "coin_id": "bitcoin", "symbol": "BTC", "price": 50_000.0}
+    )
 
 
 def _no_raw_history() -> dict[str, pd.Series]:
-    raise AssertionError("the processor's own count must be used when data_quality.csv has it")
+    raise AssertionError(
+        "the processor's own count must be used when data_quality.csv has it"
+    )
 
 
 def test_the_detector_flags_exactly_the_corrupted_block() -> None:
@@ -654,10 +888,16 @@ def test_the_detector_flags_exactly_the_corrupted_block() -> None:
 
 def test_removals_are_reported_from_the_processor_column() -> None:
     quality = pd.DataFrame(
-        {"coin_id": ["huobi-token", "bitcoin"], "symbol": ["HT", "BTC"], "level_corruption_rows": [34, 0]}
+        {
+            "coin_id": ["huobi-token", "bitcoin"],
+            "symbol": ["HT", "BTC"],
+            "level_corruption_rows": [34, 0],
+        }
     )
 
-    ok, detail, warn = audit.level_corruption_report(_clean_panel(), quality, raw_histories=_no_raw_history)
+    ok, detail, warn = audit.level_corruption_report(
+        _clean_panel(), quality, raw_histories=_no_raw_history
+    )
     audit.check("panel: no reverted price-level corruption", ok, detail, warn=warn)
 
     assert _status() == "WARN"
@@ -665,13 +905,38 @@ def test_removals_are_reported_from_the_processor_column() -> None:
     assert "level_corruption_rows" in detail
 
 
+def test_an_independently_disputed_corruption_removal_passes() -> None:
+    quality = pd.DataFrame(
+        {
+            "coin_id": ["huobi-token", "bitcoin"],
+            "symbol": ["HT", "BTC"],
+            "level_corruption_rows": [34, 0],
+            "level_corruption_disputed_rows": [34, 0],
+            "level_corruption_disputed_by": ["gateio", ""],
+        }
+    )
+
+    ok, detail, warn = audit.level_corruption_report(
+        _clean_panel(), quality, raw_histories=_no_raw_history
+    )
+    audit.check("panel: no reverted price-level corruption", ok, detail, warn=warn)
+
+    assert _status() == "PASS"
+    assert "independently disputed by gateio" in detail
+
+
 def test_without_the_column_the_filter_runs_on_the_unfiltered_raw_history() -> None:
-    quality = pd.DataFrame({"coin_id": ["huobi-token", "bitcoin"], "symbol": ["HT", "BTC"]})
+    quality = pd.DataFrame(
+        {"coin_id": ["huobi-token", "bitcoin"], "symbol": ["HT", "BTC"]}
+    )
 
     ok, detail, warn = audit.level_corruption_report(
         _clean_panel(),
         quality,
-        raw_histories=lambda: {"HT": _corrupted_prices(), "BTC": pd.Series(1.0, index=_corrupted_prices().index)},
+        raw_histories=lambda: {
+            "HT": _corrupted_prices(),
+            "BTC": pd.Series(1.0, index=_corrupted_prices().index),
+        },
     )
 
     assert ok and warn
@@ -681,10 +946,21 @@ def test_without_the_column_the_filter_runs_on_the_unfiltered_raw_history() -> N
 
 def test_corruption_left_in_the_persisted_panel_fails() -> None:
     prices = _corrupted_prices()
-    panel = pd.DataFrame({"date": prices.index, "coin_id": "huobi-token", "symbol": "HT", "price": prices.values})
-    quality = pd.DataFrame({"coin_id": ["huobi-token"], "symbol": ["HT"], "level_corruption_rows": [0]})
+    panel = pd.DataFrame(
+        {
+            "date": prices.index,
+            "coin_id": "huobi-token",
+            "symbol": "HT",
+            "price": prices.values,
+        }
+    )
+    quality = pd.DataFrame(
+        {"coin_id": ["huobi-token"], "symbol": ["HT"], "level_corruption_rows": [0]}
+    )
 
-    ok, detail, warn = audit.level_corruption_report(panel, quality, raw_histories=_no_raw_history)
+    ok, detail, warn = audit.level_corruption_report(
+        panel, quality, raw_histories=_no_raw_history
+    )
     audit.check("panel: no reverted price-level corruption", ok, detail, warn=warn)
 
     assert _status() == "FAIL"
@@ -692,9 +968,13 @@ def test_corruption_left_in_the_persisted_panel_fails() -> None:
 
 
 def test_no_corruption_anywhere_passes() -> None:
-    quality = pd.DataFrame({"coin_id": ["bitcoin"], "symbol": ["BTC"], "level_corruption_rows": [0]})
+    quality = pd.DataFrame(
+        {"coin_id": ["bitcoin"], "symbol": ["BTC"], "level_corruption_rows": [0]}
+    )
 
-    ok, detail, warn = audit.level_corruption_report(_clean_panel(), quality, raw_histories=_no_raw_history)
+    ok, detail, warn = audit.level_corruption_report(
+        _clean_panel(), quality, raw_histories=_no_raw_history
+    )
     audit.check("panel: no reverted price-level corruption", ok, detail, warn=warn)
 
     assert _status() == "PASS"
@@ -706,7 +986,10 @@ def test_documented_removals_are_read_from_the_quality_ranges() -> None:
             "coin_id": ["huobi-token", "bitcoin"],
             "symbol": ["HT", "BTC"],
             "level_corruption_rows": [34, 0],
-            "level_corruption_dates": ["2025-02-05..2025-02-28, 2025-03-02..2025-03-11", ""],
+            "level_corruption_dates": [
+                "2025-02-05..2025-02-28, 2025-03-02..2025-03-11",
+                "",
+            ],
         }
     )
 
@@ -718,10 +1001,14 @@ def test_documented_removals_are_read_from_the_quality_ranges() -> None:
 
 
 def test_documented_removals_fall_back_to_the_raw_filter_without_dates() -> None:
-    quality = pd.DataFrame({"coin_id": ["huobi-token"], "symbol": ["HT"], "level_corruption_rows": [34]})
+    quality = pd.DataFrame(
+        {"coin_id": ["huobi-token"], "symbol": ["HT"], "level_corruption_rows": [34]}
+    )
     prices = _corrupted_prices()
 
-    mapping = audit.documented_removal_dates(quality, raw_histories=lambda: {"HT": prices})
+    mapping = audit.documented_removal_dates(
+        quality, raw_histories=lambda: {"HT": prices}
+    )
 
     assert len(mapping["huobi-token"]) == 34
     assert prices.index[100] in mapping["huobi-token"]
@@ -764,64 +1051,182 @@ def _crosscheck_row(
 def test_a_historical_only_asset_warns_instead_of_failing_the_source_checks() -> None:
     admitted = pd.DataFrame(
         [
-            _crosscheck_row("EOS", passed=False, verified=False, historical=True, ended=True, overlap_days=0, confirmed_by=float("nan")),
-            _crosscheck_row("BTC", passed=True, verified=True, historical=False, ended=False, overlap_days=1000),
+            _crosscheck_row(
+                "EOS",
+                passed=False,
+                verified=False,
+                historical=True,
+                ended=True,
+                overlap_days=0,
+                confirmed_by=float("nan"),
+            ),
+            _crosscheck_row(
+                "BTC",
+                passed=True,
+                verified=True,
+                historical=False,
+                ended=False,
+                overlap_days=1000,
+            ),
         ]
     )
 
     ok, detail, warn = audit.admitted_agreement_check(admitted)
-    audit.check("cross-check: every admitted asset agrees with an independent provider", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: every admitted asset agrees with an independent provider",
+        ok,
+        detail,
+        warn=warn,
+    )
     assert _status() == "WARN"
     assert "still disagreeing=[]" in detail and "EOS" in detail
 
     ok, detail, warn = audit.admitted_source_check(admitted)
-    audit.check("cross-check: independent source available for every admitted asset", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: independent source available for every admitted asset",
+        ok,
+        detail,
+        warn=warn,
+    )
     assert _status() == "WARN"
     assert "assets without a usable independent source=[]" in detail and "EOS" in detail
 
     verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
     assert verdict is not None
     ok, detail, warn = verdict
-    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: ended series verify on their overlap", ok, detail, warn=warn
+    )
     assert _status() == "WARN"
-    assert "EOS (0d overlap vs no provider, 0d unverifiable tail)" in detail
+    assert "EOS (0d union overlap vs no provider, 0d unverifiable tail)" in detail
 
 
 def test_a_proven_disagreement_still_fails_next_to_a_historical_only_asset() -> None:
     admitted = pd.DataFrame(
         [
-            _crosscheck_row("CEL", passed=False, verified=False, historical=False, ended=False, overlap_days=200),
-            _crosscheck_row("EOS", passed=False, verified=False, historical=True, ended=True, overlap_days=0, confirmed_by=float("nan")),
+            _crosscheck_row(
+                "CEL",
+                passed=False,
+                verified=False,
+                historical=False,
+                ended=False,
+                overlap_days=200,
+            ),
+            _crosscheck_row(
+                "EOS",
+                passed=False,
+                verified=False,
+                historical=True,
+                ended=True,
+                overlap_days=0,
+                confirmed_by=float("nan"),
+            ),
         ]
     )
 
     ok, detail, warn = audit.admitted_agreement_check(admitted)
-    audit.check("cross-check: every admitted asset agrees with an independent provider", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: every admitted asset agrees with an independent provider",
+        ok,
+        detail,
+        warn=warn,
+    )
     assert _status() == "FAIL"
     assert "still disagreeing=['CEL']" in detail
 
     ok, detail, warn = audit.admitted_source_check(admitted)
-    audit.check("cross-check: independent source available for every admitted asset", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: independent source available for every admitted asset",
+        ok,
+        detail,
+        warn=warn,
+    )
     assert _status() == "FAIL"
     assert "['CEL']" in detail
 
     verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
     assert verdict is not None
     ok, detail, warn = verdict
-    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
-    assert _status() == "WARN"  # only EOS is an ended feed here, and it is historical-only
+    audit.check(
+        "cross-check: ended series verify on their overlap", ok, detail, warn=warn
+    )
+    assert (
+        _status() == "WARN"
+    )  # only EOS is an ended feed here, and it is historical-only
     assert "EOS" in detail
+
+
+def test_ended_overlap_uses_the_union_across_migrated_contracts() -> None:
+    admitted = pd.DataFrame(
+        [
+            _crosscheck_row(
+                "EOS",
+                passed=True,
+                verified=True,
+                historical=False,
+                ended=True,
+                overlap_days=57,
+            )
+        ]
+    )
+    admitted["crosscheck_independent_overlap_days"] = 2319
+    admitted["crosscheck_independent_sources"] = "binance,gateio"
+
+    verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
+
+    assert verdict is not None
+    ok, detail, warn = verdict
+    assert ok and not warn
+    assert "EOS (2319d union overlap vs binance,gateio, 0d unverifiable tail)" in detail
+
+
+def test_an_ended_feed_with_an_unverified_tail_warns() -> None:
+    admitted = pd.DataFrame(
+        [
+            _crosscheck_row(
+                "EOS",
+                passed=True,
+                verified=True,
+                historical=False,
+                ended=True,
+                overlap_days=100,
+                tail_days=3,
+            )
+        ]
+    )
+
+    verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
+
+    assert verdict is not None
+    ok, detail, warn = verdict
+    audit.check(
+        "cross-check: ended series verify on their overlap", ok, detail, warn=warn
+    )
+
+    assert _status() == "WARN"
+    assert "3d unverifiable tail" in detail
 
 
 def test_an_ended_feed_below_the_overlap_floor_still_fails() -> None:
     admitted = pd.DataFrame(
-        [_crosscheck_row("MATIC", passed=True, verified=True, historical=False, ended=True, overlap_days=3)]
+        [
+            _crosscheck_row(
+                "MATIC",
+                passed=True,
+                verified=True,
+                historical=False,
+                ended=True,
+                overlap_days=3,
+            )
+        ]
     )
 
     verdict = audit.ended_overlap_check(admitted, min_overlap_days=30)
     assert verdict is not None
     ok, detail, warn = verdict
-    audit.check("cross-check: ended series verify on their overlap", ok, detail, warn=warn)
+    audit.check(
+        "cross-check: ended series verify on their overlap", ok, detail, warn=warn
+    )
 
     assert _status() == "FAIL"
     assert "below the 30d floor: MATIC" in detail
@@ -838,7 +1243,9 @@ def _week_panel(last_volume_factor: float) -> pd.DataFrame:
             "coin_id": f"coin-{coin:02d}",
             "symbol": f"C{coin:02d}",
             "price": 1.0,
-            "volume_usd": 1e8 * (coin + 1) * (last_volume_factor if day == days[-1] else 1.0),
+            "volume_usd": 1e8
+            * (coin + 1)
+            * (last_volume_factor if day == days[-1] else 1.0),
             "market_cap": 1e10 * (coin + 1),
         }
         for day in days

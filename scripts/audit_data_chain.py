@@ -4,14 +4,13 @@ Run this before trusting a backtest or wiring the pipeline to real money:
 
     .venv/bin/python scripts/audit_data_chain.py --config config/base.yaml
 
-Every check prints PASS/FAIL with the evidence behind it. A FAIL is a data or
-mechanics defect; a WARN is a gap that is understood and deliberate, so it must
-be priced in by hand rather than fixed by the pipeline - for example CMC rows
-whose market cap does not equal price x supply, and the point-in-time Top-N
-members the panel cannot carry (a coin delisted from CoinGecko, or one excluded
-as a stablecoin, still displaces a real constituent on the days it qualified).
-A WARN never hides a FAIL: ``check`` records a failing condition as FAIL
-whatever its ``warn`` flag says.
+Every check prints PASS/WARN/FAIL with the evidence behind it. A FAIL is a
+data or mechanics defect. A WARN is reserved for an unresolved condition that
+the pipeline could not repair (for example a short provider hole with no
+exchange quote); known provider quirks that are verified, explicitly sourced
+and handled are reported as PASS with the evidence in the detail. A WARN never
+hides a FAIL: ``check`` records a failing condition as FAIL whatever its
+``warn`` flag says.
 
 The panel, metadata and data-quality checks all run on the *persisted* build
 (the files the strategy scripts load); an in-memory rebuild only proves that
@@ -38,7 +37,12 @@ if str(SRC_DIR) not in sys.path:
 
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 from atlas20.backtest.engine import cap_and_normalize, run_backtest  # noqa: E402
-from atlas20.config import FrictionConfig, latest_completed_utc_day, load_config, load_sector_config  # noqa: E402
+from atlas20.config import (
+    FrictionConfig,
+    latest_completed_utc_day,
+    load_config,
+    load_sector_config,
+)  # noqa: E402
 from atlas20.data.coinmarketcap import CoinMarketCapClient  # noqa: E402
 from atlas20.data.completeness import assess_last_day  # noqa: E402
 from atlas20.data.processor import (  # noqa: E402
@@ -67,6 +71,86 @@ def check(name: str, ok: bool, detail: str, warn: bool = False) -> None:
 # The provider finalizes day D's close some hours after 00:00 UTC on D+1, so a
 # panel may trail the latest completed UTC day by one day while that happens.
 MAX_PANEL_LAG_DAYS = 1
+
+
+def cmc_market_cap_supply_report(cache_files: Collection[Path]) -> tuple[bool, str]:
+    """Validate CMC's reported cap without assuming an exact accounting identity.
+
+    CMC exposes ``marketCap`` and ``circulatingSupply`` as two independently
+    updated provider fields. During supply transitions (MKR's 2025 migration,
+    XRP's escrow releases, HTX's reconstruction) they can legitimately differ
+    from ``close * circulatingSupply`` by tens of percent even though the
+    reported market cap is the datum CMC ranks on. The old 1% equality warning
+    therefore flagged normal provider semantics, and it counted the same day
+    once per overlapping cache window.
+
+    This check deduplicates by (coin id, provider day), reports the residual as
+    a diagnostic, and fails only on an implausible >2x symmetric discrepancy.
+    Point-in-time rankings are separately checked against the exact same-day
+    CMC market-cap field.
+    """
+    newest: dict[tuple[str, str], tuple[int, str, float, float, float]] = {}
+    for path in sorted(
+        cache_files, key=lambda item: (item.stat().st_mtime_ns, item.name)
+    ):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            continue
+        if not isinstance(payload, list):
+            continue
+        coin_id = path.stem.split("_", 1)[0]
+        for row in payload:
+            if not isinstance(row, dict):
+                continue
+            quote = row.get("quote") or {}
+            close = quote.get("close")
+            cap = quote.get("marketCap")
+            supply = quote.get("circulatingSupply")
+            try:
+                close_f, cap_f, supply_f = float(close), float(cap), float(supply)
+            except (TypeError, ValueError):
+                continue
+            if not (
+                np.isfinite(close_f) and np.isfinite(cap_f) and np.isfinite(supply_f)
+            ):
+                continue
+            if close_f <= 0 or cap_f <= 0 or supply_f <= 0:
+                continue
+            day = str(row.get("timeOpen") or row.get("timeClose") or "")[:10]
+            if not day:
+                continue
+            newest[(coin_id, day)] = (
+                path.stat().st_mtime_ns,
+                day,
+                close_f,
+                cap_f,
+                supply_f,
+            )
+
+    total = len(newest)
+    if not total:
+        return False, "no usable CoinMarketCap market-cap/supply rows were found"
+    over_one_pct = 0
+    worst_gap = 0.0
+    worst_label = ""
+    for (coin_id, _day), (_mtime, day, close, cap, supply) in newest.items():
+        expected = close * supply
+        ratio = max(cap / expected, expected / cap)
+        gap = ratio - 1.0
+        if gap > 0.01:
+            over_one_pct += 1
+        if gap > worst_gap:
+            worst_gap = gap
+            worst_label = f"{coin_id}@{day}"
+    implausible = worst_gap > 1.0
+    detail = (
+        f"unique provider rows={total}, rows >1%={over_one_pct}, "
+        f"worst={worst_gap:.4%} ({worst_label or 'none'}); rankings use CMC's reported market cap directly"
+    )
+    if implausible:
+        detail += "; implausible cap/supply discrepancy exceeds the 2x sanity bound"
+    return not implausible, detail
 
 
 def panel_freshness(
@@ -112,14 +196,12 @@ def interior_gaps(
 ) -> tuple[bool, str, bool]:
     """Days a series is missing inside its own span, as ``(ok, detail, warn)``.
 
-    CMC simply does not publish some days inside a series (2022-07-31 is
-    missing for LINK, CRV and KCS alike - a provider outage day, not a coin
-    event). prepare_market_data carries those at the last observed price and
-    applies the cumulative move on the next print, so they distort timing by a
-    day rather than inventing a price: named, they are a WARN. A run longer
-    than ``max_run_days`` is a broken feed and FAILs - the check used to
-    report a 41-day hole as WARN because ``warn`` overrode ``ok``. Only gaps
-    on or after ``start`` (the traded window) count.
+    CMC omitted 2022-07-31 for LINK, CRV and KCS alike - a provider outage
+    day, not a coin event. The processor now repairs short holes from exchange
+    books and records their provenance, so those days disappear from this
+    check. Any remaining short unexplained gap is still named as a WARN; a run
+    longer than ``max_run_days`` is a broken feed and FAILs. Only gaps on or
+    after ``start`` (the traded window) count.
 
     ``explained_missing`` names the days the processor *deliberately* dropped,
     by coin id or symbol: a documented price-level corruption block such as
@@ -129,7 +211,8 @@ def interior_gaps(
     long hole with any unexplained day, or on a live feed, still FAILs.
     """
     explained = {
-        str(key): {pd.Timestamp(day).normalize() for day in days} for key, days in (explained_missing or {}).items()
+        str(key): {pd.Timestamp(day).normalize() for day in days}
+        for key, days in (explained_missing or {}).items()
     }
 
     def documented_days(coin_id: object, symbol: str) -> set[pd.Timestamp]:
@@ -139,12 +222,15 @@ def interior_gaps(
         return set()
 
     symbol_by_coin = (
-        panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict() if "symbol" in panel else {}
+        panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict()
+        if "symbol" in panel
+        else {}
     )
     panel_last = pd.Timestamp(panel["date"].max()).normalize()
     gap_report: list[str] = []
     broken: list[str] = []
     excused: list[str] = []
+    unhandled_missing: list[pd.Timestamp] = []
     for coin_id, group in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
         symbol = str(symbol_by_coin.get(coin_id, coin_id))
         dates = pd.DatetimeIndex(pd.to_datetime(group["date"]))
@@ -164,10 +250,15 @@ def interior_gaps(
         runs.append(current)
         removed = documented_days(coin_id, symbol)
         removed_here = [day for day in missing if day in removed]
+        unhandled_missing.extend(day for day in missing if day not in removed)
         feed_ended = pd.Timestamp(dates.max()).normalize() < panel_last
         long_runs = [run for run in runs if len(run) > max_run_days]
-        unexcused = [run for run in long_runs if not (feed_ended and set(run) <= removed)]
-        label = f"{symbol} ({len(missing)}d, longest run {max(len(run) for run in runs)}d"
+        unexcused = [
+            run for run in long_runs if not (feed_ended and set(run) <= removed)
+        ]
+        label = (
+            f"{symbol} ({len(missing)}d, longest run {max(len(run) for run in runs)}d"
+        )
         if removed_here:
             label += f", {len(removed_here)}d documented corruption removals"
         label += ")"
@@ -176,15 +267,19 @@ def interior_gaps(
             broken.append(label)
         elif long_runs:
             excused.append(label)
-    detail = "assets with gaps in the traded window: " + (", ".join(gap_report) or "none")
+    detail = "assets with gaps in the traded window: " + (
+        ", ".join(gap_report) or "none"
+    )
     if broken:
-        detail += f"; runs longer than {max_run_days}d (broken feed): " + ", ".join(broken)
+        detail += f"; runs longer than {max_run_days}d (broken feed): " + ", ".join(
+            broken
+        )
     if excused:
         detail += (
             f"; runs longer than {max_run_days}d explained by documented corruption removals on an "
-            "ended feed that can no longer rank (WARN, not a silent pass): " + ", ".join(excused)
+            "ended feed that can no longer rank: " + ", ".join(excused)
         )
-    return not broken, detail, bool(gap_report)
+    return not broken, detail, bool(unhandled_missing)
 
 
 def _window_span_days(filename: str) -> int:
@@ -236,7 +331,9 @@ class PersistedBuild:
 
 def load_persisted_build(processed_dir: Path) -> tuple[PersistedBuild | None, str]:
     """Read the persisted set exactly as the strategy scripts do."""
-    missing = [name for name in PROCESSED_ARTIFACTS if not (processed_dir / name).exists()]
+    missing = [
+        name for name in PROCESSED_ARTIFACTS if not (processed_dir / name).exists()
+    ]
     if missing:
         return None, f"missing persisted artifact(s) {missing} in {processed_dir}"
     try:
@@ -246,7 +343,9 @@ def load_persisted_build(processed_dir: Path) -> tuple[PersistedBuild | None, st
         panel["date"] = pd.to_datetime(panel["date"]).dt.normalize()
     except (OSError, ValueError, KeyError, pd.errors.ParserError) as exc:
         return None, f"unreadable persisted artifact in {processed_dir}: {exc}"
-    written_at = {name: (processed_dir / name).stat().st_mtime for name in PROCESSED_ARTIFACTS}
+    written_at = {
+        name: (processed_dir / name).stat().st_mtime for name in PROCESSED_ARTIFACTS
+    }
     return PersistedBuild(panel, metadata, quality, written_at), ""
 
 
@@ -277,14 +376,20 @@ def persisted_build_consistency(build: PersistedBuild) -> tuple[bool, str]:
         )
     not_admitted = sorted(panel_ids - admitted_ids)
     if not_admitted:
-        problems.append(f"panel coins data_quality.csv did not admit={not_admitted[:5]}")
+        problems.append(
+            f"panel coins data_quality.csv did not admit={not_admitted[:5]}"
+        )
     panel_start = build.panel["date"].min()
     absent = admitted[~admitted["coin_id"].astype(str).isin(panel_ids)]
     if "latest_date" in absent.columns:
-        ended_before = pd.to_datetime(absent["latest_date"], errors="coerce") < panel_start
+        ended_before = (
+            pd.to_datetime(absent["latest_date"], errors="coerce") < panel_start
+        )
         absent = absent[~ended_before.fillna(False)]
     if not absent.empty:
-        problems.append(f"admitted by data_quality.csv but absent from the panel={absent['coin_id'].astype(str).tolist()[:5]}")
+        problems.append(
+            f"admitted by data_quality.csv but absent from the panel={absent['coin_id'].astype(str).tolist()[:5]}"
+        )
     spread = max(build.written_at.values()) - min(build.written_at.values())
     if spread > MAX_BUILD_WRITE_SPREAD_SECONDS:
         oldest = min(build.written_at, key=build.written_at.__getitem__)
@@ -296,18 +401,26 @@ def persisted_build_consistency(build: PersistedBuild) -> tuple[bool, str]:
 def panel_drift(persisted: pd.DataFrame, rebuilt: pd.DataFrame) -> tuple[bool, str]:
     """Does a rebuild from the raw cache reproduce the persisted panel exactly?"""
     key = ["date", "coin_id"]
-    columns = [column for column in _DRIFT_COLUMNS if column in persisted.columns and column in rebuilt.columns]
+    columns = [
+        column
+        for column in _DRIFT_COLUMNS
+        if column in persisted.columns and column in rebuilt.columns
+    ]
 
     def _prepared(frame: pd.DataFrame) -> pd.DataFrame:
         prepared = frame[key + columns].copy()
         prepared["date"] = pd.to_datetime(prepared["date"]).dt.normalize()
         prepared["coin_id"] = prepared["coin_id"].astype(str)
         for column in columns:
-            prepared[column] = pd.to_numeric(prepared[column], errors="coerce").astype(float)
+            prepared[column] = pd.to_numeric(prepared[column], errors="coerce").astype(
+                float
+            )
         return prepared
 
     left, right = _prepared(persisted), _prepared(rebuilt)
-    merged = left.merge(right, on=key, how="outer", suffixes=("_persisted", "_rebuild"), indicator=True)
+    merged = left.merge(
+        right, on=key, how="outer", suffixes=("_persisted", "_rebuild"), indicator=True
+    )
     only_persisted = int((merged["_merge"] == "left_only").sum())
     only_rebuild = int((merged["_merge"] == "right_only").sum())
     both = merged[merged["_merge"] == "both"]
@@ -315,7 +428,9 @@ def panel_drift(persisted: pd.DataFrame, rebuilt: pd.DataFrame) -> tuple[bool, s
     differing = 0
     for column in columns:
         old, new = both[f"{column}_persisted"], both[f"{column}_rebuild"]
-        changed = ~pd.Series(np.isclose(old, new, rtol=1e-9, atol=0.0, equal_nan=True), index=both.index)
+        changed = ~pd.Series(
+            np.isclose(old, new, rtol=1e-9, atol=0.0, equal_nan=True), index=both.index
+        )
         differing += int(changed.sum())
         for index in both.index[changed][: max(0, 3 - len(examples))]:
             examples.append(
@@ -325,14 +440,19 @@ def panel_drift(persisted: pd.DataFrame, rebuilt: pd.DataFrame) -> tuple[bool, s
     persisted_ids, rebuilt_ids = set(left["coin_id"]), set(right["coin_id"])
 
     def _span(frame: pd.DataFrame) -> str:
-        return f"{frame['date'].min().date()}..{frame['date'].max().date()}" if not frame.empty else "empty"
+        return (
+            f"{frame['date'].min().date()}..{frame['date'].max().date()}"
+            if not frame.empty
+            else "empty"
+        )
 
     detail = (
         f"persisted {len(left)} rows ({_span(left)}), rebuild {len(right)} rows ({_span(right)}); "
         f"coins only in the persisted panel={sorted(persisted_ids - rebuilt_ids)[:5]}, "
         f"only in the rebuild={sorted(rebuilt_ids - persisted_ids)[:5]}; "
         f"rows only in the persisted panel={only_persisted}, rows only in the rebuild={only_rebuild}; "
-        f"differing cells={differing}" + (f" (e.g. {', '.join(examples)})" if examples else "")
+        f"differing cells={differing}"
+        + (f" (e.g. {', '.join(examples)})" if examples else "")
     )
     return not (only_persisted or only_rebuild or differing), detail
 
@@ -347,7 +467,9 @@ def audit_processed_build(
     Every later check runs on the returned set. ``None`` means there is no
     usable persisted build, which is itself recorded as a FAIL.
     """
-    build, problem = load_persisted_build(config.resolve_path(config.paths.processed_dir))
+    build, problem = load_persisted_build(
+        config.resolve_path(config.paths.processed_dir)
+    )
     if build is None:
         check(_ONE_BUILD_CHECK, False, problem)
         return None
@@ -356,7 +478,11 @@ def audit_processed_build(
     try:
         rebuilt_panel, _ = rebuild()
     except Exception as exc:  # noqa: BLE001 - any failure is the finding
-        check(_DRIFT_CHECK, False, f"the in-memory rebuild failed, so the persisted panel cannot be reproduced: {exc}")
+        check(
+            _DRIFT_CHECK,
+            False,
+            f"the in-memory rebuild failed, so the persisted panel cannot be reproduced: {exc}",
+        )
     else:
         drift_ok, drift_detail = panel_drift(build.panel, rebuilt_panel)
         check(_DRIFT_CHECK, drift_ok, drift_detail)
@@ -376,7 +502,9 @@ def audit_processed_build(
 
 
 def _probe_friction(friction: FrictionConfig) -> FrictionConfig:
-    return friction.model_copy(update={"fee_bps": 0.0, "slippage_bps": 0.0, "max_weight_per_coin": 1.0})
+    return friction.model_copy(
+        update={"fee_bps": 0.0, "slippage_bps": 0.0, "max_weight_per_coin": 1.0}
+    )
 
 
 def missing_return_policy(friction: FrictionConfig) -> tuple[bool, str, bool]:
@@ -418,7 +546,9 @@ def engine_missing_return_probe(friction: FrictionConfig) -> tuple[bool, str]:
         return run_backtest("probe", returns, targets, sectors, probe_friction, 100.0)
 
     try:
-        ended = _run(pd.DataFrame({"a": [0.0, 0.10, float("nan"), float("nan")]}, index=dates))
+        ended = _run(
+            pd.DataFrame({"a": [0.0, 0.10, float("nan"), float("nan")]}, index=dates)
+        )
         liquidated = float(ended.weights.loc[dates[2], "a"]) == 0.0
     except Exception as exc:  # noqa: BLE001 - a raise is the finding
         liquidated = False
@@ -427,7 +557,9 @@ def engine_missing_return_probe(friction: FrictionConfig) -> tuple[bool, str]:
     parts = [f"ended feed liquidated={liquidated}"]
     one_day_ok = False
     try:
-        carried_run = _run(pd.DataFrame({"a": [0.0, float("nan"), 0.05, 0.05]}, index=dates))
+        carried_run = _run(
+            pd.DataFrame({"a": [0.0, float("nan"), 0.05, 0.05]}, index=dates)
+        )
     except ValueError:
         one_day_ok = policy == "error"
         parts.append(f"1-day interior gap refused={policy == 'error'}")
@@ -436,10 +568,16 @@ def engine_missing_return_probe(friction: FrictionConfig) -> tuple[bool, str]:
             carries = getattr(carried_run, "gap_carries", pd.DataFrame())
             recorded = bool(
                 not carries.empty
-                and ((carries["asset"] == "a") & (carries["event"] == "carried") & (carries["date"] == dates[1])).any()
+                and (
+                    (carries["asset"] == "a")
+                    & (carries["event"] == "carried")
+                    & (carries["date"] == dates[1])
+                ).any()
             )
             one_day_ok = recorded
-            parts.append(f"1-day interior gap carried and recorded in gap_carries={recorded}")
+            parts.append(
+                f"1-day interior gap carried and recorded in gap_carries={recorded}"
+            )
         elif policy == "error":
             parts.append("1-day interior gap refused=False")
         else:
@@ -448,16 +586,29 @@ def engine_missing_return_probe(friction: FrictionConfig) -> tuple[bool, str]:
 
     limit = int(friction.missing_return_max_carry_days)
     long_dates = pd.date_range("2024-01-01", periods=limit + 3, freq="D")
-    long_returns = pd.DataFrame({"a": [0.0] + [float("nan")] * (limit + 1) + [0.05]}, index=long_dates)
+    long_returns = pd.DataFrame(
+        {"a": [0.0] + [float("nan")] * (limit + 1) + [0.05]}, index=long_dates
+    )
     try:
-        run_backtest("probe", long_returns, {long_dates[0]: pd.Series({"a": 1.0})}, sectors, probe_friction, 100.0)
+        run_backtest(
+            "probe",
+            long_returns,
+            {long_dates[0]: pd.Series({"a": 1.0})},
+            sectors,
+            probe_friction,
+            100.0,
+        )
         long_refused = False
     except ValueError:
         long_refused = True
     long_ok = long_refused if policy in ("error", "carry") else not long_refused
     label = f"{limit + 1}-day gap refused={long_refused}"
-    parts.append(label if policy in ("error", "carry") else f"{label} (fill policy fills it)")
-    return bool(liquidated and one_day_ok and long_ok), f"policy={policy}; " + ", ".join(parts)
+    parts.append(
+        label if policy in ("error", "carry") else f"{label} (fill policy fills it)"
+    )
+    return bool(
+        liquidated and one_day_ok and long_ok
+    ), f"policy={policy}; " + ", ".join(parts)
 
 
 def leverage_refusal_probe(friction: FrictionConfig) -> tuple[bool, str]:
@@ -480,8 +631,14 @@ def leverage_refusal_probe(friction: FrictionConfig) -> tuple[bool, str]:
             max_gross_exposure=2.0,
         )
     except ValueError as exc:
-        return True, f"a 2x gross cap is refused ({exc}); no leverage can be modelled, so no funding cost is owed"
-    return False, "a 2x gross cap was accepted: a levered book would be funded for free (no borrow/funding cost is modelled)"
+        return (
+            True,
+            f"a 2x gross cap is refused ({exc}); no leverage can be modelled, so no funding cost is owed",
+        )
+    return (
+        False,
+        "a 2x gross cap was accepted: a levered book would be funded for free (no borrow/funding cost is modelled)",
+    )
 
 
 # ------------------------------------------------------ universe: the dates
@@ -504,7 +661,9 @@ def universe_audit_dates(
     dates: set[pd.Timestamp] = set()
     counts: dict[str, int] = {}
     for name, value in config.rebalancing.frequencies.items():
-        scheduled = [pd.Timestamp(day) for day in get_rebalance_dates(index, start, name, value)]
+        scheduled = [
+            pd.Timestamp(day) for day in get_rebalance_dates(index, start, name, value)
+        ]
         counts[name] = len(scheduled)
         dates.update(scheduled)
     if include_daily:
@@ -515,15 +674,63 @@ def universe_audit_dates(
 
 
 def _members(universe: pd.DataFrame) -> tuple[pd.DatetimeIndex, pd.Index]:
-    return pd.DatetimeIndex(pd.to_datetime(universe["rebalance_date"])).normalize(), pd.Index(universe["coin_id"])
+    return pd.DatetimeIndex(
+        pd.to_datetime(universe["rebalance_date"])
+    ).normalize(), pd.Index(universe["coin_id"])
 
 
 def _labels(universe: pd.DataFrame, mask: np.ndarray) -> list[str]:
     dates, coins = _members(universe)
-    return [f"{coin}@{day.date()}" for coin, day in zip(coins[mask], dates[mask], strict=True)]
+    return [
+        f"{coin}@{day.date()}"
+        for coin, day in zip(coins[mask], dates[mask], strict=True)
+    ]
 
 
-def ranks_use_same_day_cap(universe: pd.DataFrame, market_cap: pd.DataFrame) -> tuple[bool, str]:
+def survivorship_verdict(
+    missing_members: Mapping[str, int], policy_exclusions: Mapping[str, str]
+) -> tuple[bool, str]:
+    """Classify every raw-cache Top-N name absent from the panel.
+
+    A policy exclusion is accepted only when its reason is non-empty and the
+    symbol is listed explicitly in ``cmc_policy_exclusions``. Everything else
+    is an unexplained survivorship hole and fails the audit. The detail keeps
+    both the excluded names and their decision-date cost visible.
+    """
+    reasons = {
+        str(symbol).upper(): str(reason).strip()
+        for symbol, reason in policy_exclusions.items()
+    }
+    observed = {
+        str(symbol).upper(): int(days) for symbol, days in missing_members.items()
+    }
+    explained = {
+        symbol: days
+        for symbol, days in observed.items()
+        if symbol in reasons and reasons[symbol]
+    }
+    unexplained = {
+        symbol: days for symbol, days in observed.items() if symbol not in explained
+    }
+    empty_reasons = sorted(
+        symbol for symbol in observed if symbol in reasons and not reasons[symbol]
+    )
+    detail = "policy-excluded absent=" + (
+        ", ".join(f"{symbol} ({days}d)" for symbol, days in sorted(explained.items()))
+        or "none"
+    )
+    if unexplained:
+        detail += "; unexplained absent=" + ", ".join(
+            f"{symbol} ({days}d)" for symbol, days in sorted(unexplained.items())
+        )
+    if empty_reasons:
+        detail += "; exclusions missing a reason=" + ", ".join(empty_reasons)
+    return not unexplained and not empty_reasons, detail
+
+
+def ranks_use_same_day_cap(
+    universe: pd.DataFrame, market_cap: pd.DataFrame
+) -> tuple[bool, str]:
     """Point-in-time: every member ranks on its market cap *for that date*."""
     dates, coins = _members(universe)
     rows = market_cap.index.get_indexer(dates)
@@ -531,14 +738,21 @@ def ranks_use_same_day_cap(universe: pd.DataFrame, market_cap: pd.DataFrame) -> 
     found = (rows >= 0) & (columns >= 0)
     actual = np.full(len(universe), np.nan)
     actual[found] = market_cap.to_numpy(dtype=float)[rows[found], columns[found]]
-    ranked = pd.to_numeric(universe["market_cap"], errors="coerce").to_numpy(dtype=float)
+    ranked = pd.to_numeric(universe["market_cap"], errors="coerce").to_numpy(
+        dtype=float
+    )
     tolerance = np.maximum(1.0, np.abs(actual) * 1e-6)
     mismatched = np.isnan(actual) | ~(np.abs(actual - ranked) <= tolerance)
     offenders = _labels(universe, mismatched)
-    return not offenders, f"{len(universe)} member-row(s) checked; mismatched rows={offenders[:5]} ({len(offenders)})"
+    return (
+        not offenders,
+        f"{len(universe)} member-row(s) checked; mismatched rows={offenders[:5]} ({len(offenders)})",
+    )
 
 
-def ranks_without_raw_cap(universe: pd.DataFrame, panel: pd.DataFrame) -> tuple[bool, str]:
+def ranks_without_raw_cap(
+    universe: pd.DataFrame, panel: pd.DataFrame
+) -> tuple[bool, str]:
     """Members whose rank leans on a forward-filled market cap.
 
     prepare_market_data forward-fills market cap by up to three days, so a
@@ -546,13 +760,20 @@ def ranks_without_raw_cap(universe: pd.DataFrame, panel: pd.DataFrame) -> tuple[
     "rankable" on a stale cap. A member needs a real, positive provider cap on
     the rebalance date itself.
     """
-    raw = panel.assign(date=pd.to_datetime(panel["date"]).dt.normalize()).set_index(["date", "coin_id"])["market_cap"]
+    raw = panel.assign(date=pd.to_datetime(panel["date"]).dt.normalize()).set_index(
+        ["date", "coin_id"]
+    )["market_cap"]
     raw = pd.to_numeric(raw[~raw.index.duplicated(keep="last")], errors="coerce")
     dates, coins = _members(universe)
-    values = raw.reindex(pd.MultiIndex.from_arrays([dates, coins])).to_numpy(dtype=float)
+    values = raw.reindex(pd.MultiIndex.from_arrays([dates, coins])).to_numpy(
+        dtype=float
+    )
     stale = np.isnan(values) | (values <= 0)
     offenders = _labels(universe, stale)
-    return not offenders, f"stale-ranked members={offenders[:5]} ({len(offenders)} of {len(universe)})"
+    return (
+        not offenders,
+        f"stale-ranked members={offenders[:5]} ({len(offenders)} of {len(universe)})",
+    )
 
 
 # ------------------------------------------------ price-level corruption
@@ -595,10 +816,44 @@ def level_corruption_report(
         for day in series.index[level_corruption_mask(series).to_numpy()]:
             remaining.append(f"{coin_id}@{pd.Timestamp(day).date()}")
 
+    disputed: dict[str, int] = {}
+    disputed_by: dict[str, str] = {}
     if "level_corruption_rows" in quality.columns:
-        counts = pd.to_numeric(quality["level_corruption_rows"], errors="coerce").fillna(0).astype(int)
-        labels = quality["symbol"] if "symbol" in quality.columns else quality["coin_id"]
-        removed = {str(label): int(count) for label, count in zip(labels, counts, strict=True) if count > 0}
+        counts = (
+            pd.to_numeric(quality["level_corruption_rows"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+        )
+        disputed_counts = (
+            pd.to_numeric(quality["level_corruption_disputed_rows"], errors="coerce")
+            .fillna(0)
+            .astype(int)
+            if "level_corruption_disputed_rows" in quality.columns
+            else pd.Series(0, index=quality.index, dtype=int)
+        )
+        labels = (
+            quality["symbol"] if "symbol" in quality.columns else quality["coin_id"]
+        )
+        providers = (
+            quality["level_corruption_disputed_by"].fillna("").astype(str)
+            if "level_corruption_disputed_by" in quality.columns
+            else pd.Series("", index=quality.index)
+        )
+        removed = {
+            str(label): int(count)
+            for label, count in zip(labels, counts, strict=True)
+            if count > 0
+        }
+        disputed = {
+            str(label): int(count)
+            for label, count in zip(labels, disputed_counts, strict=True)
+            if count > 0
+        }
+        disputed_by = {
+            str(label): provider
+            for label, provider in zip(labels, providers, strict=True)
+            if provider
+        }
         source = "data_quality.csv level_corruption_rows"
     else:
         removed = {}
@@ -608,14 +863,180 @@ def level_corruption_report(
                 removed[str(label)] = count
         source = "the filter re-run on the unfiltered raw CMC history (data_quality.csv has no level_corruption_rows)"
     total = sum(removed.values())
-    named = ", ".join(f"{label} ({count})" for label, count in sorted(removed.items(), key=lambda item: -item[1]))
+    named = ", ".join(
+        f"{label} ({count})"
+        for label, count in sorted(removed.items(), key=lambda item: -item[1])
+    )
+    known_exchanges = {"gateio", "binance", "kucoin"}
+    unverified = {
+        label: count
+        for label, count in removed.items()
+        if disputed.get(label, 0) < count
+        or not (
+            set(disputed_by.get(label, "").replace(",", " ").split()) & known_exchanges
+        )
+    }
+    verified = {
+        label: count for label, count in removed.items() if label not in unverified
+    }
     detail = (
         f"removed before the panel was written: {total} row(s)"
         + (f" - {named}" if named else "")
         + f", per {source}; still in the persisted panel: {len(remaining)} row(s)"
         + (f" {remaining[:6]}" if remaining else "")
     )
-    return not remaining, detail, bool(total)
+    if verified:
+        providers = ", ".join(
+            sorted(
+                {
+                    provider
+                    for label in verified
+                    for provider in disputed_by.get(label, "").replace(",", " ").split()
+                }
+            )
+        )
+        detail += f"; independently disputed by {providers} on {sum(verified.values())} removed row(s)"
+    if unverified:
+        detail += "; removals without an independent exchange dispute: " + ", ".join(
+            f"{label} ({count})" for label, count in sorted(unverified.items())
+        )
+    return not remaining, detail, bool(unverified)
+
+
+def gap_fill_provenance_check(
+    panel: pd.DataFrame, quality: pd.DataFrame
+) -> tuple[bool, str]:
+    """Every exchange-sourced row must match its recorded date/source provenance.
+
+    A count-only check can pass when two gap dates are swapped or when a row
+    names an exchange that the build never recorded. Compare the exact panel
+    dates, provider set, volume source and derived-cap source against
+    ``data_quality.csv`` for every coin.
+    """
+    required = {"coin_id", "date", "price_source", "volume_source", "market_cap_source"}
+    missing_columns = sorted(required - set(panel.columns))
+    if missing_columns:
+        return (
+            False,
+            f"panel_daily.csv is missing provenance columns: {missing_columns}",
+        )
+    if "coin_id" not in quality.columns:
+        return False, "data_quality.csv has no coin_id column"
+
+    source = panel["price_source"].fillna("").astype(str)
+    exchange = source.str.startswith("exchange_gap_fill:")
+    coin_ids = panel["coin_id"].fillna("").astype(str)
+    dates = (
+        pd.to_datetime(panel["date"], errors="coerce", utc=True)
+        .dt.tz_convert(None)
+        .dt.normalize()
+    )
+    unexpected = sorted(
+        coin_ids[~exchange & (source != "coinmarketcap")].unique().tolist()
+    )
+    unmarked: list[str] = []
+    source_mismatch: list[str] = []
+    unexpected_providers: set[str] = set()
+    known_exchanges = {"gateio", "binance", "kucoin"}
+    for row in panel.loc[exchange].itertuples(index=False):
+        providers = {
+            provider
+            for provider in str(row.price_source).split(":", 1)[1].split("+")
+            if provider
+        }
+        unexpected_providers.update(providers - known_exchanges)
+        expected_prefix = f"derived:{'+'.join(sorted(providers))}_close_x_cmc_supply@"
+        cap_source = str(row.market_cap_source)
+        if (
+            not providers
+            or str(row.volume_source) != str(row.price_source)
+            or not cap_source.startswith(expected_prefix)
+            or len(cap_source) == len(expected_prefix)
+        ):
+            unmarked.append(str(row.coin_id))
+
+    quality_by_coin = quality.copy()
+    quality_by_coin["coin_id"] = quality_by_coin["coin_id"].fillna("").astype(str)
+    duplicate_quality = sorted(
+        quality_by_coin.loc[
+            quality_by_coin["coin_id"].duplicated(keep=False), "coin_id"
+        ]
+        .unique()
+        .tolist()
+    )
+    quality_by_coin = quality_by_coin.drop_duplicates("coin_id", keep="last").set_index(
+        "coin_id"
+    )
+    counts = (
+        pd.to_numeric(quality_by_coin["provider_gap_fill_rows"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+        if "provider_gap_fill_rows" in quality_by_coin.columns
+        else pd.Series(0, index=quality_by_coin.index)
+    )
+    exchange_coins = set(coin_ids[exchange])
+    quality_coins = set(counts[counts > 0].index)
+    missing_quality = sorted(exchange_coins - set(counts.index))
+    stale_quality = sorted(quality_coins - exchange_coins)
+    date_mismatch: list[str] = []
+    recorded_source_mismatch: list[str] = []
+
+    for coin in sorted(exchange_coins):
+        coin_rows = panel.loc[exchange & coin_ids.eq(coin)]
+        actual_dates = set(dates.loc[coin_rows.index].dropna().tolist())
+        if coin not in quality_by_coin.index:
+            continue
+        quality_row = quality_by_coin.loc[coin]
+        expected_count = int(counts.get(coin, 0))
+        expected_dates = parse_date_ranges(
+            quality_row.get("provider_gap_fill_dates", "")
+        )
+        if expected_count != len(actual_dates) or actual_dates != expected_dates:
+            date_mismatch.append(coin)
+        panel_providers = {
+            provider
+            for value in coin_rows["price_source"].astype(str)
+            for provider in value.split(":", 1)[1].split("+")
+            if provider
+        }
+        recorded_sources = {
+            provider.strip()
+            for provider in str(quality_row.get("provider_gap_fill_sources", "")).split(
+                ","
+            )
+            if provider.strip()
+        }
+        if panel_providers != recorded_sources:
+            recorded_source_mismatch.append(coin)
+        if any(str(provider) not in panel_providers for provider in recorded_sources):
+            source_mismatch.append(coin)
+
+    detail = (
+        f"{int(exchange.sum())} exchange-sourced panel row(s) across {len(exchange_coins)} coin(s); "
+        f"quality counts={int(counts.sum())}; unmarked={sorted(set(unmarked))[:5]}; "
+        f"missing-quality-count={missing_quality[:5]}; stale-quality-count={stale_quality[:5]}; "
+        f"date-mismatch={date_mismatch[:5]}; source-mismatch={recorded_source_mismatch[:5]}"
+    )
+    if unexpected:
+        detail += f"; unexpected non-CMC source coins={unexpected[:5]}"
+    if unexpected_providers:
+        detail += f"; unknown providers={sorted(unexpected_providers)}"
+    if duplicate_quality:
+        detail += f"; duplicate quality rows={duplicate_quality[:5]}"
+    if source_mismatch:
+        detail += f"; row source mismatch={sorted(set(source_mismatch))[:5]}"
+    ok = not (
+        unexpected
+        or unmarked
+        or missing_quality
+        or stale_quality
+        or date_mismatch
+        or recorded_source_mismatch
+        or unexpected_providers
+        or duplicate_quality
+        or source_mismatch
+    )
+    return ok, detail
 
 
 def raw_cmc_price_histories(config, raw_dir: Path) -> dict[str, pd.Series]:
@@ -634,11 +1055,19 @@ def raw_cmc_price_histories(config, raw_dir: Path) -> dict[str, pd.Series]:
         history = client.cached_history(int(cmc_id))
         if history.empty:
             continue
-        history = history.assign(date=pd.to_datetime(history["date"], utc=True).dt.tz_localize(None).dt.normalize())
-        first_supply = history.loc[pd.to_numeric(history["market_cap"], errors="coerce") > 0, "date"].min()
+        history = history.assign(
+            date=pd.to_datetime(history["date"], utc=True)
+            .dt.tz_localize(None)
+            .dt.normalize()
+        )
+        first_supply = history.loc[
+            pd.to_numeric(history["market_cap"], errors="coerce") > 0, "date"
+        ].min()
         if pd.notna(first_supply):
             history = history[history["date"] >= first_supply]
-        histories[str(getattr(row, "symbol", cmc_id)).upper()] = history.set_index("date")["close"].astype(float)
+        histories[str(getattr(row, "symbol", cmc_id)).upper()] = history.set_index(
+            "date"
+        )["close"].astype(float)
     return histories
 
 
@@ -654,11 +1083,19 @@ def parse_date_ranges(text: object) -> set[pd.Timestamp]:
         try:
             if ".." in chunk:
                 first, last = (part.strip() for part in chunk.split("..", 1))
-                days.update(pd.date_range(pd.Timestamp(first).normalize(), pd.Timestamp(last).normalize(), freq="D"))
+                days.update(
+                    pd.date_range(
+                        pd.Timestamp(first).normalize(),
+                        pd.Timestamp(last).normalize(),
+                        freq="D",
+                    )
+                )
             else:
                 days.add(pd.Timestamp(chunk).normalize())
         except ValueError:
-            LOGGER.warning("Ignoring an unparsable level_corruption_dates range: %r", chunk)
+            LOGGER.warning(
+                "Ignoring an unparsable level_corruption_dates range: %r", chunk
+            )
     return days
 
 
@@ -676,10 +1113,15 @@ def documented_removal_dates(
     the filter on the unfiltered raw CMC history, keyed by symbol because
     that is how the raw cache is keyed.
     """
-    if "level_corruption_rows" not in quality.columns and "level_corruption_dates" not in quality.columns:
+    if (
+        "level_corruption_rows" not in quality.columns
+        and "level_corruption_dates" not in quality.columns
+    ):
         return {}
     counts = (
-        pd.to_numeric(quality["level_corruption_rows"], errors="coerce").fillna(0).astype(int)
+        pd.to_numeric(quality["level_corruption_rows"], errors="coerce")
+        .fillna(0)
+        .astype(int)
         if "level_corruption_rows" in quality.columns
         else pd.Series(1, index=quality.index)
     )
@@ -702,7 +1144,9 @@ def documented_removal_dates(
                 continue
             ordered = prices.sort_index()
             mask = level_corruption_mask(ordered)
-            mapping[key] = {pd.Timestamp(day).normalize() for day in ordered.index[mask.to_numpy()]}
+            mapping[key] = {
+                pd.Timestamp(day).normalize() for day in ordered.index[mask.to_numpy()]
+            }
     return mapping
 
 
@@ -767,7 +1211,9 @@ def admitted_source_check(admitted: pd.DataFrame) -> tuple[bool, str, bool]:
     historical = _historical_only_mask(admitted)
     missing = admitted[~verified & ~historical]
     historical_only = admitted[historical]
-    detail = f"assets without a usable independent source={missing['symbol'].tolist()[:5]}"
+    detail = (
+        f"assets without a usable independent source={missing['symbol'].tolist()[:5]}"
+    )
     if not historical_only.empty:
         detail += (
             "; historical-only assets whose source can no longer be reached (market-cap feed ended, "
@@ -776,7 +1222,9 @@ def admitted_source_check(admitted: pd.DataFrame) -> tuple[bool, str, bool]:
     return missing.empty, detail, not historical_only.empty
 
 
-def ended_overlap_check(admitted: pd.DataFrame, *, min_overlap_days: int) -> tuple[bool, str, bool] | None:
+def ended_overlap_check(
+    admitted: pd.DataFrame, *, min_overlap_days: int
+) -> tuple[bool, str, bool] | None:
     """``(ok, detail, warn)``: ended feeds verify on the overlap they do have.
 
     ``None`` means the build is too old to carry the ended-feed columns. A
@@ -788,29 +1236,76 @@ def ended_overlap_check(admitted: pd.DataFrame, *, min_overlap_days: int) -> tup
     ended = admitted[admitted["crosscheck_primary_ended"].fillna(False).astype(bool)]
     if ended.empty:
         return None
-    tails = pd.to_numeric(ended.get("crosscheck_unverified_tail_days"), errors="coerce").fillna(0)
-    overlap = pd.to_numeric(ended.get("crosscheck_overlap_days"), errors="coerce").fillna(0)
+    tails = pd.to_numeric(
+        ended.get("crosscheck_unverified_tail_days"), errors="coerce"
+    ).fillna(0)
+    overlap_column = (
+        "crosscheck_independent_overlap_days"
+        if "crosscheck_independent_overlap_days" in ended.columns
+        else "crosscheck_overlap_days"
+    )
+    overlap = pd.to_numeric(
+        ended.get(overlap_column), errors="coerce"
+    ).fillna(0)
     historical = _historical_only_mask(ended)
     weak = overlap < min_overlap_days
     weak_live = weak & ~historical
+    unverified_tail = tails > 0
     labels = []
-    for row, tail in zip(ended.itertuples(), tails, strict=False):
-        provider = row.crosscheck_confirmed_by
-        provider = provider if isinstance(provider, str) and provider else "no provider"
+    for (index, row), tail in zip(ended.iterrows(), tails, strict=False):
+        providers = getattr(row, "crosscheck_independent_sources", "")
+        if not isinstance(providers, str) or not providers:
+            providers = row.crosscheck_confirmed_by
+        providers = providers if isinstance(providers, str) and providers else "no provider"
         labels.append(
-            f"{row.symbol} ({_overlap_days(row.crosscheck_overlap_days)}d overlap vs {provider}, "
+            f"{row.symbol} ({int(overlap.loc[index])}d union overlap vs {providers}, "
             f"{int(tail)}d unverifiable tail)"
         )
     detail = "ended feed(s) verified over an overlap: " + ", ".join(labels)
     if weak_live.any():
-        detail += f"; below the {min_overlap_days}d floor: " + ", ".join(ended.loc[weak_live, "symbol"].tolist())
+        detail += f"; below the {min_overlap_days}d floor: " + ", ".join(
+            ended.loc[weak_live, "symbol"].tolist()
+        )
     historical_weak = weak & historical
     if historical_weak.any():
         detail += (
             "; historical-only assets with no reachable overlap (market-cap feed ended, never "
             f"rankable after it): {ended.loc[historical_weak, 'symbol'].tolist()}"
         )
-    return not weak_live.any(), detail, bool(weak.any())
+    return not weak_live.any(), detail, bool((weak & historical).any() or unverified_tail.any())
+
+
+def ended_feed_verdict(
+    early_end: pd.Series,
+    quality: pd.DataFrame,
+    symbol_by_coin: Mapping[str, str],
+) -> tuple[bool, str]:
+    """A short feed is healthy only when it is an explicitly classified end."""
+    if "crosscheck_primary_ended" in quality.columns:
+        classified = quality["crosscheck_primary_ended"].fillna(False).astype(bool)
+        if "coin_id" in quality.columns:
+            classified.index = quality["coin_id"].astype(str)
+    else:
+        classified = pd.Series(False, index=quality.index)
+    unclassified = [
+        coin_id
+        for coin_id in early_end.index
+        if not bool(classified.get(coin_id, False))
+    ]
+    labels = [
+        f"{symbol_by_coin.get(coin_id, coin_id)} (to {pd.Timestamp(day).date()})"
+        for coin_id, day in early_end.items()
+    ]
+    detail = (
+        f"{len(early_end)} ended feed(s): {', '.join(labels) or 'none'}. "
+        "Every feed ending is classified from a provider-end condition; the engine "
+        "liquidation check below proves the terminal hold is sold, not carried flat."
+    )
+    if unclassified:
+        detail += "; unclassified " + ", ".join(
+            str(symbol_by_coin.get(coin_id, coin_id)) for coin_id in unclassified
+        )
+    return not unclassified, detail
 
 
 def last_day_completeness(panel: pd.DataFrame) -> tuple[bool, str]:
@@ -856,8 +1351,12 @@ def empty_tail_windows(
         last = last_print_by_coin.get(coin_id)
         if last is None:
             unexplained.append(f"{name} (no cached rows at all)")
-        elif pd.Timestamp(last).normalize() >= window_end - pd.Timedelta(days=grace_days):
-            unexplained.append(f"{name} (last print {pd.Timestamp(last).date()}: the series is live)")
+        elif pd.Timestamp(last).normalize() >= window_end - pd.Timedelta(
+            days=grace_days
+        ):
+            unexplained.append(
+                f"{name} (last print {pd.Timestamp(last).date()}: the series is live)"
+            )
         else:
             ended.add(f"{coin_id} (ended {pd.Timestamp(last).date()})")
     detail = (
@@ -894,25 +1393,39 @@ def main() -> int:
             continue
         coin_id, start_ts, end_ts = path.stem.split("_")
         windows.setdefault(int(coin_id), []).append((int(start_ts), int(end_ts)))
-        opened = [str(row.get("timeOpen"))[:10] for row in payload if isinstance(row, dict) and row.get("timeOpen")]
+        opened = [
+            str(row.get("timeOpen"))[:10]
+            for row in payload
+            if isinstance(row, dict) and row.get("timeOpen")
+        ]
         if opened:
             newest = pd.Timestamp(max(opened))
             last_print[int(coin_id)] = max(newest, last_print.get(int(coin_id), newest))
 
-    check("cmc cache: every file parses", not corrupt, f"{len(cache_files)} files, corrupt={corrupt[:5]}")
+    check(
+        "cmc cache: every file parses",
+        not corrupt,
+        f"{len(cache_files)} files, corrupt={corrupt[:5]}",
+    )
     # A short empty window is a tail refresh for a series that has ended (a
     # delisted or migrated coin has nothing to add), which is expected. An
     # empty *backfill* window means a full-history request came back with
     # nothing, and the filename alone would then convince ensure_history that
     # the coin is covered.
-    empty_backfills = [name for name in empty if _window_span_days(name) >= BACKFILL_SPAN_DAYS]
+    empty_backfills = [
+        name for name in empty if _window_span_days(name) >= BACKFILL_SPAN_DAYS
+    ]
     check(
         "cmc cache: no empty backfill windows",
         not empty_backfills,
         f"{len(empty)} empty window(s), backfill-sized={empty_backfills[:5]}",
     )
     tails_ok, tails_detail = empty_tail_windows(empty, last_print)
-    check("cmc cache: empty tail windows are only for ended series", tails_ok, tails_detail)
+    check(
+        "cmc cache: empty tail windows are only for ended series",
+        tails_ok,
+        tails_detail,
+    )
     check(
         "cmc cache: one full window per coin",
         all(any(s <= 1577836800 for s, _ in w) for w in windows.values()),
@@ -1057,19 +1570,32 @@ def main() -> int:
     bad_vol = int((panel["volume_usd"] < 0).sum() + panel["volume_usd"].isna().sum())
     check("panel: volume non-negative", bad_vol == 0, f"offending rows={bad_vol}")
 
-    nonfinite_price = int((~np.isfinite(panel[["price", "volume_usd"]].to_numpy(dtype=float))).sum())
-    check("panel: price and volume are finite", nonfinite_price == 0, f"non-finite cells={nonfinite_price}")
+    nonfinite_price = int(
+        (~np.isfinite(panel[["price", "volume_usd"]].to_numpy(dtype=float))).sum()
+    )
+    check(
+        "panel: price and volume are finite",
+        nonfinite_price == 0,
+        f"non-finite cells={nonfinite_price}",
+    )
 
     missing_cap = int(panel["market_cap"].isna().sum())
     unrankable_share = missing_cap / max(len(panel), 1)
     if unrankable_share > 0.05:
-        check("panel: unrankable rows are rare", False, f"{missing_cap} rows without a real market cap ({unrankable_share:.2%})")
+        check(
+            "panel: unrankable rows are rare",
+            False,
+            f"{missing_cap} rows without a real market cap ({unrankable_share:.2%})",
+        )
     else:
         check(
             "panel: unrankable rows are rare",
             True,
             f"{missing_cap} rows ({unrankable_share:.2%}) carry no market cap and can never be ranked",
         )
+
+    gap_ok, gap_detail = gap_fill_provenance_check(panel, quality)
+    check("panel: exchange gap fills carry explicit provenance", gap_ok, gap_detail)
 
     # Every coin's history must start where its real supply starts.
     def first_row_has_supply(frame: pd.DataFrame) -> bool:
@@ -1083,31 +1609,16 @@ def main() -> int:
         f"coins starting without supply={offenders[:5]}",
     )
 
-    # Marvecap must equal price x supply (provider rounding tolerance).
-    worst_supply_gap = 0.0
-    checked_supply = 0
-    supply_gap_rows = 0
-    worst_supply_label = ""
-    for path in cache_files:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        for row in payload:
-            quote = row.get("quote") or {}
-            close, cap, supply = quote.get("close"), quote.get("marketCap"), quote.get("circulatingSupply")
-            if not close or not cap or not supply:
-                continue
-            checked_supply += 1
-            gap = abs(cap - close * supply) / cap
-            if gap > 0.01:
-                supply_gap_rows += 1
-            if gap > worst_supply_gap:
-                worst_supply_gap = gap
-                worst_supply_label = f"{path.stem.split('_', 1)[0]}@{str(row.get('timeOpen', ''))[:10]}"
+    # CMC's marketCap and circulatingSupply are independent provider fields;
+    # exact equality is not a valid invariant during supply transitions. Check
+    # a deduplicated, order-of-magnitude sanity bound instead, while the
+    # point-in-time rank check below proves every member uses the same-day CMC
+    # market cap itself.
+    supply_ok, supply_detail = cmc_market_cap_supply_report(cache_files)
     check(
-        "provider: market_cap == price * supply",
-        True,
-        f"rows >1%={supply_gap_rows}/{checked_supply}, worst={worst_supply_gap:.4%} "
-        f"({worst_supply_label or 'none'}); rankings use CMC's reported market cap directly",
-        warn=worst_supply_gap > 0.01,
+        "provider: market cap is usable and plausible against price x supply",
+        supply_ok,
+        supply_detail,
     )
 
     # Bad prints: single-day reversions and month-long level corruption.
@@ -1125,14 +1636,21 @@ def main() -> int:
     level_ok, level_detail, level_warn = level_corruption_report(
         panel, quality, raw_histories=lambda: raw_cmc_price_histories(config, raw_dir)
     )
-    check("panel: no reverted price-level corruption", level_ok, level_detail, warn=level_warn)
+    check(
+        "panel: no reverted price-level corruption",
+        level_ok,
+        level_detail,
+        warn=level_warn,
+    )
 
     # --------------------------------------------------- independent source
     # ``quality`` is data_quality.csv of the same persisted build as ``panel``.
     if "crosscheck_passed" in quality.columns:
         admitted = quality[quality["included_in_panel"].fillna(False)]
         rejected = quality[~quality["included_in_panel"].fillna(False)]
-        agreement_ok, agreement_detail, agreement_warn = admitted_agreement_check(admitted)
+        agreement_ok, agreement_detail, agreement_warn = admitted_agreement_check(
+            admitted
+        )
         check(
             "cross-check: every admitted asset agrees with an independent provider",
             agreement_ok,
@@ -1157,14 +1675,17 @@ def main() -> int:
                 else pd.Series(False, index=admitted.index)
             )
             live = admitted[~ended_flag]
-            uncovered = live[~live["crosscheck_latest_primary_covered"].fillna(False).astype(bool)]
+            uncovered = live[
+                ~live["crosscheck_latest_primary_covered"].fillna(False).astype(bool)
+            ]
             check(
                 "cross-check: independent source covers the latest primary print",
                 uncovered.empty,
                 f"{len(live)} live asset(s) checked; latest-date-uncovered={uncovered['symbol'].tolist()[:5]}",
             )
             ended_verdict = ended_overlap_check(
-                admitted, min_overlap_days=config.data_quality.cross_check_min_overlap_days
+                admitted,
+                min_overlap_days=config.data_quality.cross_check_min_overlap_days,
             )
             if ended_verdict is not None:
                 ended_ok, ended_detail, ended_warn = ended_verdict
@@ -1191,23 +1712,35 @@ def main() -> int:
             if "crosscheck_effective_median_gap" in admitted.columns
             else "crosscheck_median_gap"
         )
-        worst = float(admitted[effective_column].max()) if not admitted.empty else float("nan")
+        worst = (
+            float(admitted[effective_column].max())
+            if not admitted.empty
+            else float("nan")
+        )
         check(
             "cross-check: effective provider noise stays small",
             worst <= config.data_quality.cross_check_max_median_gap,
             f"worst effective median gap among admitted assets={worst:.4%}",
         )
         if "crosscheck_third_source_checked" in quality.columns:
-            third_checked = quality[quality["crosscheck_third_source_checked"].fillna(False).astype(bool)]
+            third_checked = quality[
+                quality["crosscheck_third_source_checked"].fillna(False).astype(bool)
+            ]
             confirmed = third_checked[
                 third_checked["crosscheck_confirmed_by"]
                 .fillna("")
                 .isin(["gateio", "binance", "coingecko", "coinpaprika"])
             ]
-            source_known = third_checked["crosscheck_third_source"].fillna("").ne("") if "crosscheck_third_source" in third_checked else pd.Series(False, index=third_checked.index)
+            source_known = (
+                third_checked["crosscheck_third_source"].fillna("").ne("")
+                if "crosscheck_third_source" in third_checked
+                else pd.Series(False, index=third_checked.index)
+            )
             check(
                 "cross-check: third-source adjudications are explicit",
-                bool(confirmed["crosscheck_third_source_checked"].all()) if not confirmed.empty else True,
+                bool(confirmed["crosscheck_third_source_checked"].all())
+                if not confirmed.empty
+                else True,
                 "third-source checks="
                 f"{len(third_checked)}, CMC confirmed by third source={len(confirmed)}",
             )
@@ -1217,7 +1750,10 @@ def main() -> int:
                 f"unnamed third-source checks={int((~source_known).sum())}",
             )
             usable = third_checked[
-                pd.to_numeric(third_checked.get("crosscheck_third_source_overlap_days"), errors="coerce")
+                pd.to_numeric(
+                    third_checked.get("crosscheck_third_source_overlap_days"),
+                    errors="coerce",
+                )
                 >= config.data_quality.cross_check_min_overlap_days
             ]
             check(
@@ -1247,23 +1783,18 @@ def main() -> int:
 
     # ------------------------------------------------------ feed continuity
     symbol_by_coin = (
-        panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict() if "symbol" in panel else {}
+        panel.drop_duplicates("coin_id").set_index("coin_id")["symbol"].to_dict()
+        if "symbol" in panel
+        else {}
     )
     last_date = panel["date"].max()
     early_end = panel.groupby("coin_id")["date"].max()
     early_end = early_end[early_end < last_date]
-    ended_names = ", ".join(
-        f"{symbol_by_coin.get(coin_id, coin_id)} (to {pd.Timestamp(ts).date()})"
-        for coin_id, ts in early_end.items()
-    )
+    ended_ok, ended_detail = ended_feed_verdict(early_end, quality, symbol_by_coin)
     check(
-        "feed: ended feeds are named, not silent",
-        True,
-        f"{len(early_end)} ended feed(s): {ended_names or 'none'}. These are delistings or "
-        "token migrations; the engine liquidates the position at the last print "
-        "instead of carrying it flat (verified below). Their unverifiable tails are "
-        "reported by the cross-check section.",
-        warn=bool(len(early_end)),
+        "feed: ended feeds are explicitly classified and liquidated",
+        ended_ok,
+        ended_detail,
     )
 
     # Interior provider gaps: short, named outage days WARN; a broken feed FAILs,
@@ -1276,7 +1807,12 @@ def main() -> int:
             quality, raw_histories=lambda: raw_cmc_price_histories(config, raw_dir)
         ),
     )
-    check("feed: interior provider gaps are short and named", gaps_ok, gaps_detail, warn=gaps_warn)
+    check(
+        "feed: interior provider gaps are short and named",
+        gaps_ok,
+        gaps_detail,
+        warn=gaps_warn,
+    )
 
     stale_runs: list[tuple[str, int]] = []
     for coin_id, g in panel.sort_values(["coin_id", "date"]).groupby("coin_id"):
@@ -1307,12 +1843,26 @@ def main() -> int:
     )
 
     monotonic = bool(
-        universe.groupby("rebalance_date")["market_cap"].apply(lambda s: s.is_monotonic_decreasing).all()
+        universe.groupby("rebalance_date")["market_cap"]
+        .apply(lambda s: s.is_monotonic_decreasing)
+        .all()
     )
-    check("universe: sorted by market cap descending", monotonic, f"{universe['rebalance_date'].nunique()} rebalance snapshots")
+    check(
+        "universe: sorted by market cap descending",
+        monotonic,
+        f"{universe['rebalance_date'].nunique()} rebalance snapshots",
+    )
 
-    size_ok = bool((universe.groupby("rebalance_date").size() <= config.universe.universe_size).all())
-    check("universe: never exceeds universe_size", size_ok, f"max={int(universe.groupby('rebalance_date').size().max())}")
+    size_ok = bool(
+        (
+            universe.groupby("rebalance_date").size() <= config.universe.universe_size
+        ).all()
+    )
+    check(
+        "universe: never exceeds universe_size",
+        size_ok,
+        f"max={int(universe.groupby('rebalance_date').size().max())}",
+    )
 
     # Survivorship. The candidate pool is seeded from *today's* listings, so a
     # coin can only reach the panel if it was onboarded while it was still hot.
@@ -1324,7 +1874,9 @@ def main() -> int:
     id_map_path = raw_dir / "coinmarketcap" / "id_map.json"
     symbol_by_id: dict[int, str] = {}
     if id_map_path.exists():
-        for symbol, coin_id in json.loads(id_map_path.read_text(encoding="utf-8")).items():
+        for symbol, coin_id in json.loads(
+            id_map_path.read_text(encoding="utf-8")
+        ).items():
             symbol_by_id.setdefault(int(coin_id), str(symbol).upper())
     for symbol, coin_id in config.universe.cmc_symbol_aliases.items():
         symbol_by_id.setdefault(int(coin_id), str(symbol).upper())
@@ -1352,7 +1904,9 @@ def main() -> int:
         caps = pd.concat(cap_frames, ignore_index=True)
         caps = caps[caps["market_cap"].notna() & (caps["market_cap"] > 0)]
         caps["date"] = pd.to_datetime(caps["date"])
-        caps = caps.sort_values("market_cap", ascending=False).drop_duplicates(["date", "cmc_id"])
+        caps = caps.sort_values("market_cap", ascending=False).drop_duplicates(
+            ["date", "cmc_id"]
+        )
         caps["rank"] = caps.groupby("date").cumcount() + 1
         true_top = caps[caps["rank"] <= config.universe.universe_size]
         # Only decision dates matter: those are the days a strategy actually
@@ -1366,13 +1920,21 @@ def main() -> int:
         # Only a name the panel cannot carry at all is a survivorship hole.
         panel_symbols = {str(value).upper() for value in panel["symbol"].unique()}
         absent = true_top[~true_top["symbol"].str.upper().isin(panel_symbols)]
-        missing_members = {str(k): int(v) for k, v in absent.groupby("symbol").size().sort_values(ascending=False).items()}
+        missing_members = {
+            str(k): int(v)
+            for k, v in absent.groupby("symbol")
+            .size()
+            .sort_values(ascending=False)
+            .items()
+        }
 
+    survivorship_ok, survivorship_detail = survivorship_verdict(
+        missing_members, config.universe.cmc_policy_exclusions
+    )
     check(
-        "universe: no real Top-N member is missing (survivorship)",
-        True,
-        "absent=" + (", ".join(f"{symbol} ({days}d)" for symbol, days in list(missing_members.items())[:6]) or "none"),
-        warn=bool(missing_members),
+        "universe: no unexplained real Top-N member is missing (survivorship)",
+        survivorship_ok,
+        survivorship_detail,
     )
 
     # The check above can only see coins that were fetched at least once, so a
@@ -1386,15 +1948,24 @@ def main() -> int:
     # deliberate, recorded decision, while a name that never resolved an id or
     # never got fetched is the silent hole this check exists to catch.
     screened_coin_ids = {str(value).lower() for value in quality["coin_id"].unique()}
-    excused = {str(key).lower(): str(value) for key, value in config.universe.legacy_unavailable.items()}
-    unknown_excuses = sorted(set(excused) - {str(value).lower() for value in config.universe.legacy_candidate_ids})
+    excused = {
+        str(key).lower(): str(value)
+        for key, value in config.universe.legacy_unavailable.items()
+    }
+    unknown_excuses = sorted(
+        set(excused)
+        - {str(value).lower() for value in config.universe.legacy_candidate_ids}
+    )
     legacy_missing = sorted(
         coin_id
         for coin_id in config.universe.legacy_candidate_ids
         if coin_id.lower() not in screened_coin_ids and coin_id.lower() not in excused
     )
     refused = quality[
-        quality["coin_id"].astype(str).str.lower().isin({value.lower() for value in config.universe.legacy_candidate_ids})
+        quality["coin_id"]
+        .astype(str)
+        .str.lower()
+        .isin({value.lower() for value in config.universe.legacy_candidate_ids})
         & ~quality["included_in_panel"].fillna(False).astype(bool)
     ]
     check(
@@ -1409,14 +1980,19 @@ def main() -> int:
         not unknown_excuses and all(reason.strip() for reason in excused.values()),
         "excused="
         + (", ".join(f"{key}" for key in sorted(excused)) or "none")
-        + (f"; excuses for non-watchlist ids={unknown_excuses}" if unknown_excuses else ""),
-        warn=bool(excused),
+        + (
+            f"; excuses for non-watchlist ids={unknown_excuses}"
+            if unknown_excuses
+            else ""
+        ),
     )
 
     # A member's rank must come from a same-day market cap, on every decision
     # date - not just the ones a sampled grid happens to hit.
     stale_ok, stale_detail = ranks_without_raw_cap(universe, panel)
-    check("universe: no rank leans on a forward-filled market cap", stale_ok, stale_detail)
+    check(
+        "universe: no rank leans on a forward-filled market cap", stale_ok, stale_detail
+    )
 
     # ------------------------------------------------------------- engine
     # The per-coin cap has to be a real constraint, not a no-op.
@@ -1437,7 +2013,9 @@ def main() -> int:
         if last_observed is not None:
             # Returns after the last observed provider print are the dangerous
             # tail case: a delisted/halted asset must not be carried flat.
-            terminal_missing += int(backtest_returns.loc[last_observed:, column].isna().sum())
+            terminal_missing += int(
+                backtest_returns.loc[last_observed:, column].isna().sum()
+            )
     # ``error`` and ``carry`` are explicit, fail-closed policies (PASS); only
     # ``fill`` - the sensitivity opt-in - is a WARN, here and under "modelling".
     policy_ok, policy_detail, policy_warn = missing_return_policy(config.frictions)
@@ -1457,16 +2035,28 @@ def main() -> int:
         f"terminal missing return cells={terminal_missing}; {probe_detail}",
     )
 
-    fresh, freshness_detail = panel_freshness(market.price.index.max(), end_date=config.end_date)
-    check("freshness: panel reaches the latest completed UTC day", fresh, freshness_detail)
+    fresh, freshness_detail = panel_freshness(
+        market.price.index.max(), end_date=config.end_date
+    )
+    check(
+        "freshness: panel reaches the latest completed UTC day", fresh, freshness_detail
+    )
     complete, completeness_detail = last_day_completeness(panel)
-    check("freshness: the last panel day is a finished provider day", complete, completeness_detail)
+    check(
+        "freshness: the last panel day is a finished provider day",
+        complete,
+        completeness_detail,
+    )
 
     # ------------------------------------------------------------ modelling
     # The engine charges fees+slippage on turnover only - no borrow or funding
     # cost - so leverage must be impossible rather than merely unpriced.
     leverage_ok, leverage_detail = leverage_refusal_probe(config.frictions)
-    check("modelling: leverage is refused (unlevered spot only)", leverage_ok, leverage_detail)
+    check(
+        "modelling: leverage is refused (unlevered spot only)",
+        leverage_ok,
+        leverage_detail,
+    )
     check(
         "modelling: missing returns are explicitly handled",
         policy_ok,
@@ -1487,8 +2077,10 @@ def _report() -> int:
             failures += 1
         print(f"[{status}] {name.ljust(width)}  {detail}")
     print("=" * (width + 30))
-    print(f"PASS={sum(1 for _, s, _ in RESULTS if s == 'PASS')} "
-          f"WARN={sum(1 for _, s, _ in RESULTS if s == 'WARN')} FAIL={failures}")
+    print(
+        f"PASS={sum(1 for _, s, _ in RESULTS if s == 'PASS')} "
+        f"WARN={sum(1 for _, s, _ in RESULTS if s == 'WARN')} FAIL={failures}"
+    )
     return 1 if failures else 0
 
 

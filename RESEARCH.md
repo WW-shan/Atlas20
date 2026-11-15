@@ -86,7 +86,7 @@
 
 - **解读**：样本外开局为正，并跑赢同期 BTC；但 16 天远远不足以通过 DSR、PBO、参数邻域和多年份稳健性门槛。冠军仍然是 **provisional**，这段结果不能用来解除任何门槛，也不能反过来成为调参依据。
 - **最新信号（截至 2026-10-07）**：BTC 100D 闸门开启；12 个 sleeve 的聚合目标为 `NEAR 68.37%`，生产引擎当前漂移仓位为 `NEAR 70.62%`；最近一次目标日期为 2026-10-03，因此当前 `trade_required=false`；下一次检查日期为 2026-10-08。
-- **数据链修正（2026-10-08 刷新）**：EOS、HT、MKR 在迁移/退市后 CMC 仍打印 legacy 价格但 `marketCap=0`。处理器现在截断「最后一次正市值之后、超出 7 天宽限」的纯价格尾部，并把「市值 feed 已结束、当前独立缓存无法回看比对」的资产标记为 `crosscheck_historical_unverified`：历史保留（point-in-time 名单不重写），但市值结束日之后永不参与排名；审计对这类资产报 WARN 而非 FAIL，已证实的分歧仍然 FAIL。HT 的 34 行价格级损坏（已移除）在缺口检查中按文档化移除豁免为 WARN。数据链审计现为 **FAIL=0**（42 PASS / 9 WARN）。
+- **数据链修正（2026-10-08 刷新，2026-11-15 已被取代）**：EOS、HT、MKR 在迁移/退市后 CMC 仍打印 legacy 价格但 `marketCap=0`。处理器现在截断「最后一次正市值之后、超出 7 天宽限」的纯价格尾部，历史保留（point-in-time 名单不重写），但市值结束日之后永不参与排名。**2026-11-15 更新**：下载阶段已使用同一截断口径回溯真实结束日前历史；EOS 已由 Binance + Gate.io 的 1:1 `A` 后继合约覆盖 2,319 天，MKR 由 Binance 覆盖 1,768 天，MATIC 由 Binance `MATIC`→`POL` + Gate.io `POL` 覆盖 2,148 天，FTM 由 Binance 覆盖 2,006 天，HT 由 Gate.io 覆盖 2,210 天；五个 ended feed 的 CMC-only 尾差均为 0。HT 的 34 行损坏由 Gate.io 独立否定后才移除。数据链审计为 **52 PASS / 0 WARN / 0 FAIL**，详见 §4.2。
 - **对研究样本无影响（已核验）**：被截断的行全部在「最后一次正市值」之后；`build_rebalance_universe` 对 carry 来的市值明确拒绝排名（逐日记录 "no same-day market cap from CMC"）。在 2022-01-01 → 2026-10-07 的日频名单里，EOS、HT 从未进入 universe，MKR 最后一次进入是 2023-10-14（其市值 feed 结束于 2025-05-25），因此被截断的行不可能被选中或持有；冠军与 H2-H4（样本到 2026-09-21）的选币名单和组合收益不会因本次截断而改变。
 - **复现**：`.venv/bin/python scripts/run_phase_momentum_oos.py --end-date 2026-10-07`；最新信号 `.venv/bin/python scripts/run_phase_momentum_live_signal.py --output-dir reports/phase_momentum_live`。报告在 `reports/phase_momentum_oos_2026/`，不包含任何参数搜索。
 
@@ -1330,10 +1330,12 @@ Top50 + strict 流动性 + CTREND relative-strength top1 14D + BTC MA150 在 202
 
 ### 4.2 数据质量
 
-- 数据链审计：`scripts/audit_data_chain.py`，**43 PASS / 6 WARN / 0 FAIL**（2026-09-23 时点；**已被 §00.5 的 2026-10-08 结果取代：42 PASS / 9 WARN / 0 FAIL**）；
-- 被独立源拒绝的标的：CEL、HT（价格不一致），不进入排名/策略（**2026-10-08 更新：CEL 仍被拒绝；HT 的市值 feed 已结束、当前缓存无可比对区间，改为 historical-only——保留历史、市值结束后永不参与排名。见 §00.5**）；
-- RAIN 被流动性门槛排除；
-- 缺失行情策略为 `error`（2026-10-08 现状：`carry`，单次缺口 ≤3 天且逐条记入 `gap_carries`，更长即中止；结束的 feed 按最后价格卖出），不会把停牌/下架误当 0% 收益；
+- 数据链审计：`scripts/audit_data_chain.py`，**52 PASS / 0 WARN / 0 FAIL**（2026-11-15 刷新，取代 2026-09-23 的 43/6/0 与 2026-10-08 的 42/9/0）；
+- CEL 仍因无独立 CMC id / 无可用 CMC 序列而不可 onboard；HT 已恢复为可审计历史资产：市值 feed 于 2025-03-13 结束，之后永不参与排名；Gate.io 对 2,210 个重叠日及 34 行损坏给出独立证据；
+- RAIN、USTC、BSV 是显式且有成本的 point-in-time 排除（RAIN 用户级排除、USTC 稳定币政策、BSV CoinGecko 不可得）；审计仍会 FAIL 任何未解释的 Top-N 缺席；
+- CMC 的 `marketCap` 与 `circulatingSupply` 独立更新，旧 `price * supply` 精确等式不是有效不变量；审计改为按唯一 provider 行检查合理性并继续使用 CMC 同日市值排名；
+- CMC 短缺口（LINK/KCS 1 天、CRV 4 天，均围绕 2022-07-31；HT 1 天）只在交易所独立报价覆盖且彼此一致时修复；修复行在 panel 和 `data_quality.csv` 记录来源与 CMC supply 日期，不做静默拼接；
+- 缺失行情策略仍为 `carry`，单次缺口 ≤3 天且逐条记入 `gap_carries`，更长即中止；结束的 feed 按最后价格卖出，不会把停牌/下架误当 0% 收益；
 - 买入后行情终止：按最后一个有效收盘价强制退出并计成本，不继续假装能交易；
 - 研究脚本使用 `persist=False` 在内存中构建面板，不会覆盖 canonical `data/processed/panel_daily.csv`；
 - 每日刷新写盘前有回归闸门：如果新面板会让已有资产消失、或把面板起止日期往内/往回移动，直接报错并保留旧面板。
@@ -5809,8 +5811,9 @@ Bitget 新标记 bar 尚未发布：88 个合约最后 mark 仍停在 2026-11-13
 
 - `make audit-data`：**0 hard failure / 0 warning**，fingerprint
   `sha256:d8d698ce7b59aa6c4e45dd59a9ef896119e53f6821a48f528f354eeac2d7f678`；
-- `make audit-data-chain`：**42 PASS / 9 WARN / 0 FAIL**；WARN 均为已声明的历史 feed/ended-feed/
-  survivorship 事项，live OOS 没有新增失败；
+- `make audit-data-chain`：**42 PASS / 9 WARN / 0 FAIL**（历史快照）；WARN 均为已声明的历史
+  feed/ended-feed/survivorship 事项，live OOS 没有新增失败；**2026-11-15 已升级为
+  52 PASS / 0 WARN / 0 FAIL，见 §4.2 与最新验证记录**；
 - `make audit-symbols`：**88/88** mapped contracts online、2x、long/short/flip 和报价全部通过；
 - `make audit-signal`：冻结账本 **72 行**、重建账本 72 行、32 个重叠信号日、差异 **0**；
 - 真实 `make audit-live`：**37 项硬检查 + 1 项非硬提示，0 hard failure**；权益
@@ -6051,3 +6054,54 @@ monitor `issues=[]`。这是一次真实外部干预后的恢复，不是策略 
 随后又修复了保护性维护路径的报价兜底：`--protect-only` 不再要求所有已有腿都有新鲜公开
 ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，止损归一和风险降低不再被
 行情源短暂缺失无谓阻断。新开/加仓路径仍严格要求新鲜报价。该路径已有回归测试覆盖。
+
+### 00.154 2026-11-15 数据链 WARN 消因、缺口 provenance 加固与 profile 迁入仓库
+
+本轮不是把 WARN 改成 PASS，而是逐项追到 provider 语义或真实数据源：
+
+- **CMC `marketCap != price * circulatingSupply`**：`marketCap` 与
+  `circulatingSupply` 是 CMC 独立更新的两个字段，精确相等不是有效不变量。旧检查还把重叠缓存窗口
+  的同一天重复计数。现在按 `(cmc_id, date)` 去重；当前 211,863 个唯一 provider day 中，
+  50 天超过 1% 残差，最差 **40.1556%（MKR 2025-05-25）**，属于 supply 更新时点差；排名继续直接使用
+  CMC 同日 `marketCap`，只有超过 **2x** 的不可解释残差才 FAIL。
+- **未定价 funding 的 WARN**：canonical spot research 引擎继续拒绝任何 `max_gross_exposure > 1`
+  的杠杆回测，因此不会在未计资金费的模型里偷偷放杠杆；衍生品 live-parity 走独立账本，并使用
+  Bitget exact funding 与 funding freshness 硬门禁。该 WARN 由“明确拒绝未建模杠杆”和
+  “衍生品单独精确记账”消解，不是忽略成本。
+- **HT 34 行价格污染**：不再按启发式静默删除。Gate.io 对 34/34 行给出独立反向报价后，
+  `data_quality.csv` 才记录 `level_corruption_rows=34`、
+  `level_corruption_disputed_rows=34`、`level_corruption_disputed_by=gateio`；没有交易所反证时审计
+  仍会 WARN/FAIL。
+- **ended-feed 历史只抓尾部**：根因是下载阶段按“最后价格”判断是否结束，而不是按“最后正市值”。
+  下载与处理现统一使用 `_trim_market_cap_ended`；Gate.io ended-feed 按 400 天窗口分段回溯。
+  1:1 迁移后继合约只补原 pair 未覆盖的日期，原 pair 在重叠日优先。当前 ended-feed 的
+  **多源覆盖并集**为 EOS **2,319d（Binance + Gate.io `A`）**、FTM **2,006d vs Binance**、
+  HT **2,210d vs Gate.io**、MKR **1,768d vs Binance**、MATIC **2,148d
+  （Binance `MATIC`→`POL` + Gate.io `POL`）**；五个 ended feed 的 CMC-only 尾差均为 **0d**。
+- **短 CMC 缺口**：仅允许 ≤5 天、且每个缺失日都有交易所报价、所有报价交易所相差 ≤10% 的修复；
+  聚合源不得参与。当前共 **7 行 / 4 个资产**：
+  LINK 2022-07-31（Binance+Gate.io）、CRV 2022-07-28..31（Binance+Gate.io）、
+  KCS 2022-07-31（KuCoin）、HT 2022-07-31（Gate.io）。panel 逐列记录
+  `price_source` / `volume_source` / `market_cap_source`，市值按交易所 close × 最近真实 CMC supply
+  推导；审计逐币核对日期、provider 集合、成交量来源和市值推导来源。
+- **survivorship 缺席**：RAIN、USTC、BSV 作为显式 `universe.cmc_policy_exclusions` 保留可见成本
+  （分别为 174d / 160d / 69d 的 point-in-time Top-N 缺席）；任何未声明的历史 Top-N 缺席仍是 FAIL。
+
+数据落盘为 **184,026 行 / 102 个资产 / 2020-09-03..2026-11-14**；全部 admitted 资产
+`crosscheck_verified=True`，无仍留在 panel 的价格污染。`make audit-data-chain` 为
+**52 PASS / 0 WARN / 0 FAIL**；`audit-data` 与 `audit-data-ls104` 均为 **0 hard failure /
+0 warning**，data fingerprint 为
+`sha256:4985fb0c8bdb3c49a67a72cb6a6672deb9908f6261a92648d4f5dc65bcbe8eac`。
+
+非密钥 live profile 已从仓库外的 `~/.config/atlas20/track.env` 迁入仓库
+`config/track.env`，内容为 `ATLAS20_TRACK_PROFILE=ls104-g175-m090`。两个 live wrapper 都读取该
+文件；文件缺失或变量为空直接退出，**不再静默回退 LS45**。Bitget/Telegram 凭据仍只保存在仓库外
+私有目录，未提交。真实 monitor 在外部 track 文件不存在时仍正确选择 LS104。
+
+最终只读验证（2026-11-15 15:34 UTC 左右）：冻结账本 **72 行**、重建账本 **72 行**、
+32 个重叠信号日、差异 **0**；`targets_sha256=2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`。
+真实账户权益 **496.1142 USDT**、4 条空头、gross **265.6808 / 0.536x**、isolated margin
+**137.0366 / 0.276x**、4 张 20% mark-price stop、0 普通未成交单、无计划外仓位；
+`audit-live-ls104` 全部通过。88/88 映射合约支持 **4x isolated**，多空和翻转能力、
+报价全部通过。monitor 输出 `issues=[]`。全量验证为 Python **2,425 passed / 1 skipped**、
+前端 **249 passed**，Ruff、mypy、ESLint、tsc 和 shell syntax 全部通过。本轮验证没有下单。

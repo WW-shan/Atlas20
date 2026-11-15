@@ -16,6 +16,7 @@ import pytest
 
 from atlas20.config import load_config, load_sector_config
 from atlas20.data import processor
+from atlas20.data.crosscheck import IndependentSource
 
 
 def _write_candidates(raw_dir: Path, *assets: dict) -> None:
@@ -444,6 +445,8 @@ def test_level_corruption_a_venue_disputes_is_dropped(tmp_path):
     quality = pd.read_csv(tmp_path / "data" / "processed" / "data_quality.csv").set_index("coin_id")
     assert quality.loc["huobi-token", "level_corruption_rows"] == 30
     assert quality.loc["huobi-token", "level_corruption_confirmed_rows"] == 0
+    assert quality.loc["huobi-token", "level_corruption_disputed_rows"] == 30
+    assert quality.loc["huobi-token", "level_corruption_disputed_by"] == "gateio"
 
 
 def test_genuine_launch_rally_is_not_flagged(tmp_path):
@@ -1126,6 +1129,73 @@ def test_download_prefers_gateio_and_avoids_coingecko_chart_when_listed(tmp_path
     assert candidates[0]["gateio_pair"] == "BTC_USDT"
 
 
+
+def test_download_anchors_ended_feeds_to_the_last_real_market_cap(tmp_path, monkeypatch):
+    """A price-only legacy tail must not hide the last rankable provider day.
+
+    EOS, MKR and HT keep CMC price rows after marketCap becomes zero. The
+    downloader used to look only at the final price date, classify them live,
+    and request the trailing 400 days from a venue that had already delisted
+    them. The required window is the most recent 400 days ending at the last
+    date with a real market cap.
+    """
+    days = pd.date_range("2024-01-01", periods=200, freq="D")
+    config = _config(tmp_path, start=days[0], end=days[-1])
+    _write_candidates(tmp_path / "data" / "raw", _candidate("bitcoin", "BTC", 1))
+    seen: dict[str, object] = {}
+
+    class _FakeCoinGecko:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_top_markets(self, per_page, force=False):
+            return pd.DataFrame([{"id": "bitcoin", "symbol": "btc", "name": "Bitcoin", "market_cap": 1e9, "market_cap_rank": 1}])
+        def fetch_markets_by_ids(self, coin_ids, force=False): return pd.DataFrame()
+        def fetch_coin_metadata(self, coin_id, force=False): return {}
+        def fetch_daily_market_chart(self, coin_id, days_arg, force=False): return pd.DataFrame()
+
+    class _FakeCMC:
+        def __init__(self, *_args, **_kwargs): pass
+        def fetch_id_map(self, *, force=False, max_pages=6): return {"BTC": 1}
+        def ensure_history(self, coin_id, *, start, end, force=False):
+            return pd.DataFrame({
+                "date": days,
+                "close": [1.0] * len(days),
+                "volume_usd": [9e6] * len(days),
+                "market_cap": [1e9] * 100 + [0.0] * 100,
+                "circulating_supply": [1e9] * 100 + [0.0] * 100,
+            })
+
+    class _FakeGateIO:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}_USDT"
+        def fetch_daily_candles(self, symbol, force=False, start=None, end=None):
+            seen["gate_start"] = pd.Timestamp(start)
+            seen["gate_end"] = pd.Timestamp(end)
+            return pd.DataFrame({
+                "date": days[:100],
+                "gate_price": [1.0] * 100,
+                "gate_volume_usd": [9e6] * 100,
+            })
+
+    class _FakeBinance:
+        def __init__(self, *_args, **_kwargs): pass
+        def resolve_pair(self, symbol): return f"{symbol.upper()}USDT"
+        def fetch_daily_candles(self, symbol, *, start=None, end=None, force=False):
+            return pd.DataFrame()
+
+    class _FakeCoinPaprika:
+        def __init__(self, *_args, **_kwargs): pass
+
+    monkeypatch.setattr(processor, "CoinGeckoClient", _FakeCoinGecko)
+    monkeypatch.setattr(processor, "CoinMarketCapClient", _FakeCMC)
+    monkeypatch.setattr(processor, "GateIOClient", _FakeGateIO)
+    monkeypatch.setattr(processor, "BinanceClient", _FakeBinance)
+    monkeypatch.setattr(processor, "CoinPaprikaClient", _FakeCoinPaprika)
+
+    processor.download_and_cache_raw_data(config)
+
+    assert seen["gate_end"] == days[99]
+    assert seen["gate_start"] == days[0]
+
 def test_stale_second_source_blocks_asset_when_crosscheck_is_required(tmp_path):
     config = _config(tmp_path)
     config.data_quality.require_cross_check = True
@@ -1659,6 +1729,76 @@ def test_download_fetches_a_tie_break_when_the_venue_test_fails(tmp_path, monkey
     assert calls["chart"] == 1, "a venue-test failure needs the tie-break chart"
 
 
+
+def _gap_history() -> pd.DataFrame:
+    days = pd.date_range("2022-07-25", "2022-08-03", freq="D")
+    kept = days.difference(pd.date_range("2022-07-28", "2022-07-31", freq="D"))
+    return pd.DataFrame(
+        {
+            "date": kept,
+            "price": [1.0] * len(kept),
+            "volume_usd": [10_000_000.0] * len(kept),
+            "market_cap": [500_000_000.0] * len(kept),
+            "circulating_supply": [500_000_000.0] * len(kept),
+        }
+    )
+
+
+def _gap_source(name: str, price: float) -> IndependentSource:
+    days = pd.date_range("2022-07-25", "2022-08-03", freq="D")
+    column = f"{name}_price"
+    volume_column = f"{name}_volume_usd"
+    return IndependentSource(
+        name,
+        pd.DataFrame(
+            {
+                "date": days,
+                column: [price] * len(days),
+                volume_column: [12_000_000.0] * len(days),
+            }
+        ),
+        column,
+        volume_column,
+    )
+
+
+def test_short_provider_gap_is_repaired_from_agreeing_exchange_venues() -> None:
+    repaired, fills = processor._repair_provider_gaps(
+        _gap_history(),
+        [_gap_source("gateio", 1.00), _gap_source("binance", 1.02)],
+        max_gap_days=5,
+        max_source_gap=0.10,
+    )
+
+    inserted = repaired.set_index("date").loc["2022-07-28":"2022-07-31"]
+    assert len(inserted) == 4
+    assert inserted["price"].tolist() == pytest.approx([1.01] * 4)
+    assert inserted["market_cap"].tolist() == pytest.approx([505_000_000.0] * 4)
+    assert inserted["price_source"].str.contains("gateio").all()
+    assert inserted["price_source"].str.contains("binance").all()
+    assert len(fills) == 4
+    assert {fill["sources"] for fill in fills} == {"binance,gateio"}
+
+
+
+def test_short_provider_gap_windows_are_fetched_but_long_holes_are_not() -> None:
+    history = _gap_history()
+
+    windows = processor._short_provider_gap_windows(history, max_gap_days=5)
+
+    assert windows == [(pd.Timestamp("2022-07-28"), pd.Timestamp("2022-07-31"))]
+
+def test_provider_gap_is_not_repaired_when_exchange_venues_disagree() -> None:
+    repaired, fills = processor._repair_provider_gaps(
+        _gap_history(),
+        [_gap_source("gateio", 1.00), _gap_source("binance", 1.50)],
+        max_gap_days=5,
+        max_source_gap=0.10,
+    )
+
+    assert fills == []
+    assert "2022-07-28" not in set(repaired["date"].dt.strftime("%Y-%m-%d"))
+
 def test_market_cap_end_trims_the_price_only_tail() -> None:
     """EOS/MKR keep printing a legacy price after CMC stops publishing supply.
 
@@ -1697,3 +1837,60 @@ def test_market_cap_short_tail_is_not_treated_as_ended() -> None:
 
     assert ended is False
     assert trimmed["date"].max() == days[-1]
+
+
+
+def test_migrated_successors_fill_only_the_uncovered_tail_and_keep_primary_rows() -> None:
+    days = pd.date_range("2025-05-01", periods=4, freq="D")
+    primary = pd.DataFrame(
+        {
+            "date": days[:3],
+            "gate_price": [1.0, 2.0, 3.0],
+            "gate_volume_usd": [10.0, 20.0, 30.0],
+        }
+    )
+    continuation = pd.DataFrame(
+        {
+            "date": days[1:],
+            "gate_price": [99.0, 4.0, 5.0],
+            "gate_volume_usd": [99.0, 40.0, 50.0],
+        }
+    )
+
+    merged = processor._merge_primary_and_continuation(primary, continuation)
+
+    assert merged["date"].tolist() == list(days)
+    assert merged["gate_price"].tolist() == [1.0, 2.0, 3.0, 5.0]
+
+
+def test_production_config_maps_exact_migration_successors() -> None:
+    config = load_config("config/base.yaml")
+
+    assert config.providers.gateio.continuation_symbols == {"EOS": "A", "MATIC": "POL"}
+    assert config.providers.binance.continuation_symbols == {"MATIC": "POL"}
+
+
+def test_independent_coverage_unions_passing_venues_across_a_migration() -> None:
+    days = pd.date_range("2025-05-01", periods=4, freq="D")
+    history = pd.DataFrame({"date": days})
+    gate = IndependentSource(
+        "gateio",
+        pd.DataFrame({"date": days[:2], "gate_price": [1.0, 1.0]}),
+        "gate_price",
+    )
+    binance = IndependentSource(
+        "binance",
+        pd.DataFrame({"date": days[2:], "binance_price": [1.0, 1.0]}),
+        "binance_price",
+    )
+
+    class _Passed:
+        passed = True
+
+    overlap, latest, sources = processor._independent_coverage(
+        history, [gate, binance], {"gateio": _Passed(), "binance": _Passed()}
+    )
+
+    assert overlap == 4
+    assert latest == days[-1]
+    assert sources == "binance,gateio"

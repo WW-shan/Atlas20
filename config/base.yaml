@@ -162,6 +162,11 @@ universe:
     - usdb
     - ethena-usde
     - tether-gold
+    # TerraClassicUSD (USTC) was the old Terra USD stablecoin and carried a
+    # real $18.7B market cap before the May-2022 depeg. Stablecoins never enter
+    # the strategy universe, so it must be declared here rather than silently
+    # disappearing from the point-in-time survivor check.
+    - terrausd
   excluded_ids:
     - wrapped-bitcoin
     - weth
@@ -176,6 +181,25 @@ universe:
     # Explicit user-level exclusion: do not let a marginal-turnover 2026
     # entrant displace an established Top20 name in strategy selection.
     - rain
+  # The raw CMC cache can still rank these names in a historical Top-20 even
+  # though the strategy policy excludes them. The audit subtracts only this
+  # explicit set and keeps the measured decision-date cost visible; any other
+  # missing member remains a FAIL.
+  cmc_policy_exclusions:
+    RAIN: >-
+      Explicit user-level exclusion. RAIN ranked in a small 2026 window but was
+      rejected as a tradable strategy candidate; the audit sees 174 decision
+      dates where the raw CMC cache would otherwise place it in the Top-20.
+    USTC: >-
+      TerraClassicUSD is a USD-pegged stablecoin excluded by
+      universe.stablecoin_ids (CoinGecko id terrausd). It was top-20 on 160
+      decision dates before the May-2022 depeg, but stablecoins never occupy a
+      strategy slot.
+    BSV: >-
+      Bitcoin SV is the CoinGecko-deleted legacy watchlist coin documented in
+      universe.legacy_unavailable. It held a real Top-20 slot on 69 daily
+      decision dates in 2021-2022; with no candidate row it cannot be onboarded,
+      so the next-ranked eligible coin is promoted on those dates.
   name_exclusion_keywords:
     - usd
     - treasury
@@ -293,6 +317,11 @@ providers:
     rate_limit_seconds: 0.05
     quote_currency: USDT
     pair_aliases: {}
+    # The legacy pair ends at migration; append its 1:1 successor only for
+    # dates the primary pair does not cover. EOS -> Vaulta (A), MATIC -> POL.
+    continuation_symbols:
+      EOS: A
+      MATIC: POL
   # A second exchange venue. Gate.io alone cannot corroborate itself: when CMC
   # disagrees with it there is no way to tell which side is wrong. Binance's
   # api.binance.com answers 451 from this host and api.binance.us is a far
@@ -315,9 +344,26 @@ providers:
     # disagreement with CMC.
     min_daily_dollar_volume: 100000.0
     pair_aliases: {}
+    # Binance carries POL after the 2024 MATIC migration, covering the tail
+    # where the inherited MATICUSDT book has already stopped.
+    continuation_symbols:
+      MATIC: POL
   # CoinPaprika is the final fallback when neither the second source nor
   # CoinGecko can provide the tie-break vote. Its free historical endpoint is
   # limited to the trailing 365 days.
+  # KuCoin is a third exchange venue used only for explicitly configured
+  # symbols. KCS trades natively here; Gate.io and Binance do not list a KCS
+  # pair on the mirrors used by this project, so without KuCoin the one-day
+  # CMC outage on 2022-07-31 cannot be repaired from an order book.
+  kucoin:
+    base_url: https://api.kucoin.com
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff_seconds: 1.0
+    rate_limit_seconds: 0.1
+    quote_currency: USDT
+    pair_aliases:
+      KCS: KCS-USDT
   coinpaprika:
     base_url: https://api.coinpaprika.com/v1
     timeout_seconds: 30
@@ -365,3 +411,8 @@ data_quality:
   # Refuse assets whose independent source is missing or stale. This makes the
   # live universe fail closed instead of trading an unverified current print.
   require_cross_check: true
+  # CMC omitted 2022-07-31 for several assets and four days (2022-07-28..31)
+  # for CRV. A short provider hole is repaired only when an exchange venue
+  # quotes every missing day and cross-venue disagreement is at most 10%.
+  provider_gap_max_repair_days: 5
+  provider_gap_max_source_gap: 0.10

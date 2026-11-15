@@ -64,6 +64,66 @@ def test_fetch_daily_candles_normalizes_and_caches(tmp_path: Path) -> None:
     assert session.calls == 1
 
 
+
+class _RecordingSession:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+        del url, timeout
+        self.calls.append(dict(params))
+        start = int(params["from"])
+        end = int(params["to"])
+        return _FakeResponse([_candle(pd.Timestamp(start, unit="s", tz="UTC"), 1.0), _candle(pd.Timestamp(end, unit="s", tz="UTC"), 2.0)])
+
+
+def test_fetch_daily_candles_chunks_a_multi_year_ended_feed(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    session = _RecordingSession()
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_daily_candles(
+        "HT", start=pd.Timestamp("2020-01-01"), end=pd.Timestamp("2022-12-31")
+    )
+
+    assert len(session.calls) > 1, "Gate.io rejects a from/to span longer than its page limit"
+    assert all(int(call["to"]) - int(call["from"]) <= 400 * 86_400 for call in session.calls)
+    assert int(session.calls[0]["from"]) == int(
+        pd.Timestamp("2020-01-01", tz="UTC").timestamp()
+    )
+    assert int(session.calls[-1]["to"]) == int(
+        pd.Timestamp("2022-12-31", tz="UTC").timestamp()
+    )
+    assert len(frame) == 2 * len(session.calls)
+    assert frame["gate_price"].tolist()[:2] == [1.0, 2.0]
+
+
+class _PartialFailureSession(_RecordingSession):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+        del url, timeout
+        self.calls.append(dict(params))
+        if len(self.calls) == 1:
+            return _FakeResponse({"label": "INVALID_CURRENCY_PAIR"}, status_code=400)
+        start = int(params["from"])
+        return _FakeResponse([_candle(pd.Timestamp(start, unit="s", tz="UTC"), 2.0)])
+
+
+def test_fetch_daily_candles_skips_an_unlisted_prefix_window(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    session = _PartialFailureSession()
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_daily_candles(
+        "HT", start=pd.Timestamp("2020-01-01"), end=pd.Timestamp("2022-12-31")
+    )
+
+    assert len(session.calls) > 1
+    assert not frame.empty
+    assert set(frame["gate_price"]) == {2.0}
+
 def test_invalid_pair_is_not_cached_as_a_valid_series(tmp_path: Path) -> None:
     client = _client(tmp_path)
     client.session = _FakeSession({"label": "INVALID_CURRENCY_PAIR", "message": "bad pair"})  # type: ignore[assignment]

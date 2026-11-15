@@ -354,7 +354,7 @@ class CrossCheckDecision:
 
 # Exchange venues get the venue block test; aggregators keep the looser
 # tolerances their noisier snapshots need.
-EXCHANGE_VENUES = frozenset({"gateio", "binance"})
+EXCHANGE_VENUES = frozenset({"gateio", "binance", "kucoin"})
 
 
 @dataclass(frozen=True, eq=False)
@@ -364,6 +364,7 @@ class IndependentSource:
     name: str
     frame: pd.DataFrame
     column: str
+    volume_column: str | None = None
 
     @property
     def exchange_venue(self) -> bool:

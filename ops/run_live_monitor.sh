@@ -17,7 +17,7 @@ CONFIG_DIR="${ATLAS20_CONFIG_DIR:-$CONFIG_DIR}"
 
 BITGET_ENV="$CONFIG_DIR/bitget.env"
 TELEGRAM_ENV="$CONFIG_DIR/telegram.env"
-TRACK_ENV="$CONFIG_DIR/track.env"
+TRACK_ENV="$PROJECT_ROOT/config/track.env"
 
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
@@ -33,14 +33,23 @@ set -a
 . "$TELEGRAM_ENV"
 set +a
 
-if [ -r "$TRACK_ENV" ] && [ -z "${ATLAS20_TRACK_PROFILE+x}" ]; then
+if [ -z "${ATLAS20_TRACK_PROFILE+x}" ]; then
+  if [ ! -r "$TRACK_ENV" ]; then
+    print -u2 "missing track profile file: $TRACK_ENV"
+    print -u2 "missing ATLAS20_TRACK_PROFILE; refusing to monitor"
+    exit 1
+  fi
   set -a
   . "$TRACK_ENV"
   set +a
 fi
 
 cd "$PROJECT_ROOT"
-TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"
+TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-}"
+if [ -z "$TRACK_PROFILE" ]; then
+  print -u2 "missing ATLAS20_TRACK_PROFILE; refusing to monitor"
+  exit 1
+fi
 case "$TRACK_PROFILE" in
   ls45-g125)
     SPEC="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"

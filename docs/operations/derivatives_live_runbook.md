@@ -26,13 +26,15 @@
 | `ls45-g125` | `PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21` | 2x | 1.25x | 0.85 | `reports/ls45_live_g125/`, `data/ls45_g125_execution_state.json` |
 | `ls104-g175-m090` | `PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090` | 4x | 1.75x | 0.90 | `reports/ls45_live_g175/`, `data/ls45_g175_execution_state.json` |
 
-持久选择写入仓库外文件 `~/.config/atlas20/track.env`：
+持久选择写入仓库内、无凭据的 `config/track.env`：
 
 ```sh
 ATLAS20_TRACK_PROFILE=ls104-g175-m090
 ```
 
-wrapper 只在交互环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文件；因此紧急回滚可以临时用
+wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文件；文件缺失或变量为空会直接
+`exit 1`，不会再静默回退 LS45。LS45 只能通过显式设置
+`ATLAS20_TRACK_PROFILE=ls45-g125` 启用。因此紧急回滚可以临时用
 `ATLAS20_TRACK_PROFILE=ls45-g125 ops/run_derivatives_daily.sh ...` 覆盖，但已持有的 LS104
 仓位必须先按 LS104 目标降低到 LS45 的风险范围，不能只切配置留下超风险仓位。
 

@@ -24,10 +24,15 @@ and a React/Vite console for reviewing results.
 
 ## Current Live Track and Research Record
 
-The current live default is **`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`**
-on Bitget USDT-M: a signed long/short H5 book, 1.25x maximum gross notional,
-2x isolated leverage per leg with a 50% initial buffer, and a 20%
-mark-price market stop on every short entry/increase. Signal generation,
+The current live default is
+**`PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090`**
+on Bitget USDT-M: a signed long/short H5 book, 1.75x maximum gross notional,
+4x isolated venue leverage per leg with a 50% initial buffer and an explicit
+0.90 portfolio isolated-margin cap, plus a 20% mark-price market stop on every
+short entry/increase. The non-secret active profile is versioned at
+`config/track.env`; both live wrappers fail closed if it is missing or empty.
+Bitget and Telegram credentials remain in the external private config
+directory and are never committed. Signal generation,
 live-parity research and live execution now share one clock: 09:05 Beijing /
 01:05 UTC (T+1 +1h5m). Legacy 03:00 UTC reports are retained only for
 comparison. The live executor also requires a passing CMC/mark/funding/contract
@@ -351,7 +356,7 @@ Ruff, plus Python and frontend dependency audits.
 | Reports | Markdown, CSV, PNG, PDF fallback, zip bundle, manifest verification |
 | Deployment | Dockerfile, `apps/web/Dockerfile`, Docker Compose, GHCR image references |
 | Security | API key/JWT hooks, prod settings gates, report path validation, log redaction |
-| Live derivatives | frozen signed target book, isolated 2x legs, live short stops, reconciliation, atomic journal/state, same-day retry recovery |
+| Live derivatives | profile-pinned frozen signed target book, isolated 4x legs on LS104, live short stops, reconciliation, atomic journal/state, same-day retry recovery |
 | Workstation uptime | launchd execute/monitor jobs plus `com.atlas20.keep-awake` (`caffeinate -dimsu`) so sleep does not silently miss the window |
 
 See `docs/operations/` for backup, storage, logging, worker, security, and load
@@ -384,16 +389,22 @@ staged-capital plan are in [`docs/operations/go_live_plan.md`](docs/operations/g
 
 ## Data Stack
 
-- CoinMarketCap: the **only** historical provider. Every daily price, dollar
-  volume, market cap and circulating supply in the panel comes from one
-  snapshot.
+- CoinMarketCap: the primary historical provider and owner of every normal
+  panel row. Its reported market cap is the ranking value.
+- One explicit exception exists for a short CMC provider omission: if
+  exchange books quote every missing day and agree, the gap row uses the
+  exchange close and the latest real CMC circulating supply. The panel stores
+  per-column provenance and `data_quality.csv` stores the fill dates/sources;
+  the data-chain audit fails any exchange-sourced row without that record.
 - CoinGecko: candidate catalog (current top-N plus a legacy watchlist), coin
   metadata, and the fallback second-source check for assets Gate.io does not
-  list. It never supplies panel prices.
-- Gate.io: preferred second source for every listed asset. It has a generous
-  public candle API, covers the delisted CEL and HT pairs, and never rewrites a
-  panel value. A full refresh therefore does not depend on CoinGecko's small
+  list. It never supplies normal panel prices.
+- Gate.io: preferred exchange-venue source for every listed asset. It covers
+  delisted HT history and supplies the independent dispute for CMC's 34-row HT
+  corruption block. A full refresh does not depend on CoinGecko's small
   free-tier request budget.
+- KuCoin: third exchange venue used only for explicitly configured pairs. It
+  supplies the native KCS book and the one-day 2022-07-31 gap repair.
 - Binance: second exchange venue, reached through its official public data
   mirror `data-api.binance.vision`. `api.binance.com` answers HTTP 451 from
   this host, and `api.binance.us` is a different, much thinner book - 51 of the
@@ -404,7 +415,8 @@ staged-capital plan are in [`docs/operations/go_live_plan.md`](docs/operations/g
   $100k/day. Days below `providers.binance.min_daily_dollar_volume` are dropped
   rather than counted, so a thin day reads as "this venue cannot certify
   today" instead of as a disagreement with CMC. Like every other validator it
-  only votes; CMC still owns every panel value.
+  only votes; CMC owns every normal panel value, except the seven explicitly
+  source-labeled short-gap repairs described above.
 - CoinPaprika: fallback third source when Gate.io or CoinGecko cannot provide
   the adjudicating vote. Its free historical endpoint covers the trailing 365
   days, which matches the configured cross-check window.
@@ -627,25 +639,31 @@ Two biases had to be removed before any of these numbers meant anything:
 integrity, panel sanity, price-level corruption, latest-date independent-source
 coverage, terminal missing-return handling, feed continuity, point-in-time
 ranking, real point-in-time Top-N membership and execution freshness - and
-prints PASS/WARN/FAIL. Current state: 43 PASS, 6 WARN, 0 FAIL. The warnings are
+prints PASS/WARN/FAIL. Current state: 52 PASS, 0 WARN, 0 FAIL.
 
-* 37 CMC rows where reported market cap differs from `price * supply` by more
-  than 1% (rankings still use CMC's reported market cap directly);
-* the uncharged funding cost on leveraged exposure;
-* the point-in-time Top-N members the panel cannot carry, measured on the
-  strategy's real rebalance dates rather than on calendar days: USTC is missing
-  on 15 of them (excluded as a stablecoin by name) and BSV on 7 (delisted from
-  CoinGecko, which the panel is keyed on), so the next-ranked coin is promoted
-  in their place;
-* two ended feeds, MATIC (to 2025-03-24) and FTM (to 2025-01-13). Their series
-  stop because the tokens migrated; the engine liquidates a holding at the last
-  print instead of carrying it flat, and the audit records how many trailing
-  days rest on CoinMarketCap alone (MATIC 195 days, FTM 0). Both are verified
-  against Binance over their own length - 1,953 overlapping days for MATIC and
-  2,006 for FTM - because a delisted series has no current print for a venue to
-  confirm;
-* three short interior provider gaps (LINK 1 day, CRV 4 days, KCS 1 day, all
-  around 2022-07-31), which the panel carries at the last observed price.
+The previously reported conditions now have source-level handling rather than
+silenced labels:
+
+* CMC's `marketCap` and `circulatingSupply` are independently updated fields,
+  so the old exact `close * supply` equality warning was not a valid provider
+  invariant. The audit deduplicates overlapping cache windows, reports the
+  residual, and fails only on an implausible >2x discrepancy while ranking on
+  CMC's same-day reported market cap.
+* The 34 corrupted HT rows in early 2025 are removed only after Gate.io
+  independently disputes them; the removal dates and provider are recorded in
+  `data_quality.csv`.
+* EOS and MKR legacy price tails are trimmed at their last real market cap
+  before venue windows are chosen. EOS is covered by Binance plus Gate.io's
+  1:1 Vaulta (`A`) successor, MKR by Binance, and HT by Gate.io. MATIC is
+  covered by Binance's MATIC/POL history plus Gate.io POL, using 1:1 successor
+  mappings only on dates the original venue pair no longer covers.
+* The shared 2022-07-31 CMC omission is repaired for LINK and KCS, and the
+  four-day CRV hole is repaired from agreeing Gate.io/Binance books. KCS uses
+  its native KuCoin book. Every repaired row names its exchange source and the
+  CMC supply date used to derive its market cap in the panel and data-quality
+  artifacts.
+* The historical Top-20 slots for RAIN, USTC and BSV are explicit, measured
+  policy exclusions; any other absent raw-cache member fails the audit.
 
 Run it before trusting any backtest. Research scripts build their custom-window
 panels in memory (`persist=False`) and never overwrite the canonical processed

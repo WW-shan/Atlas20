@@ -20,10 +20,12 @@ The download fetches CoinGecko and CoinPaprika only when they are needed as a
 tie-break; the build then lets every cached source vote (see
 ``atlas20.data.crosscheck.adjudicate_sources``).
 
-CoinMarketCap is the only historical provider. Because price, volume and
-market cap come from one snapshot, the price/market-cap ratio is internally
-consistent and the point-in-time Top-N ranks are built from real supply data
-instead of a price-scaled proxy.
+CoinMarketCap remains the primary historical provider and owns the ranking
+market cap. The one explicit exception is a short CMC omission inside a live
+or ended series: if exchange order books quote every missing day and agree,
+the row is repaired from the venue close and the latest CMC circulating
+supply. Those rows carry per-column provenance in the panel and are counted in
+data_quality.csv; no silent splice is allowed.
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ from atlas20.data.coinmarketcap import CoinMarketCapClient
 from atlas20.data.coinpaprika import CoinPaprikaClient
 from atlas20.data.crosscheck import UNVERIFIED_REASONS, IndependentSource, adjudicate_sources, compare_daily_prices
 from atlas20.data.gateio import GateIOClient
+from atlas20.data.kucoin import KuCoinClient
 from atlas20.data.validation import summarize_market_history
 from atlas20.logging_utils import ensure_dir, get_logger
 from atlas20.sectors.mapping import resolve_sector_map
@@ -323,6 +326,7 @@ def download_and_cache_raw_data(
     cmc = CoinMarketCapClient(config.providers.coinmarketcap, raw_dir)
     gateio = GateIOClient(config.providers.gateio, raw_dir)
     binance = BinanceClient(config.providers.binance, raw_dir)
+    kucoin = KuCoinClient(config.providers.kucoin, raw_dir)
     coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     LOGGER.info("Fetching current top-%s candidate assets from CoinGecko", config.universe.current_top_n_candidates)
@@ -421,6 +425,21 @@ def download_and_cache_raw_data(
         if details:
             enriched_asset["history_fetch_warning"] = details
 
+        # The build trims a legacy price tail after CMC stops publishing a
+        # positive market cap. Apply the same rule here *before* choosing the
+        # venue window: otherwise EOS/MKR/HT look live, the downloader asks for
+        # the trailing 400 days of a pair the venue already delisted, and the
+        # independent-source check can never see the dates that mattered.
+        history, market_cap_ended = _trim_market_cap_ended(history)
+        if market_cap_ended:
+            enriched_asset["market_cap_ended"] = True
+            LOGGER.info(
+                "Downloader treating %s (%s) as ended at %s: CMC has no positive market cap after that date",
+                coin_id,
+                symbol,
+                pd.Timestamp(history["date"].max()).date(),
+            )
+
         # Anchor both venue windows to the asset's own last print, not to today.
         # A delisted pair has no candles in the trailing 400 days, so a
         # today-anchored window reads as "no independent source" and the asset
@@ -451,8 +470,8 @@ def download_and_cache_raw_data(
         secondary_source = "coingecko"
         gate_frame = pd.DataFrame()
         try:
-            gate_frame = gateio.fetch_daily_candles(
-                symbol, start=venue_start, end=venue_end, force=force
+            gate_frame = _fetch_daily_candles_with_continuation(
+                gateio, symbol, start=venue_start, end=venue_end, force=force
             )
         except Exception as exc:  # noqa: BLE001
             details = f"{details} | gateio_history_missing: {exc}".lstrip(" |")
@@ -466,7 +485,8 @@ def download_and_cache_raw_data(
         # before; days below its dollar-volume floor are dropped for the same
         # reason.
         try:
-            binance_frame = binance.fetch_daily_candles(
+            binance_frame = _fetch_daily_candles_with_continuation(
+                binance,
                 symbol,
                 start=venue_start.date(),
                 end=venue_end.date(),
@@ -475,8 +495,95 @@ def download_and_cache_raw_data(
         except Exception as exc:  # noqa: BLE001
             binance_frame = pd.DataFrame()
             LOGGER.warning("Binance history unavailable for %s (%s): %s", coin_id, symbol, exc)
-        if not binance_frame.empty:
+
+        kucoin_frame = pd.DataFrame()
+        if kucoin.has_configured_pair(symbol):
+            try:
+                kucoin_frame = _fetch_daily_candles_with_continuation(
+                    kucoin,
+                    symbol,
+                    start=venue_start,
+                    end=venue_end,
+                    force=force,
+                )
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("KuCoin history unavailable for %s (%s): %s", coin_id, symbol, exc)
+
+        # A live series only keeps a trailing 400-day venue window. CMC can
+        # still have a short historical omission inside that series (LINK,
+        # CRV and KCS all lost 2022-07-31), so explicitly fetch every short
+        # gap window from the exchange books. The build later repairs only
+        # dates those venues actually cover and agree on.
+        gap_frames: dict[str, list[pd.DataFrame]] = {
+            "gateio": [gate_frame] if not gate_frame.empty else [],
+            "binance": [binance_frame] if not binance_frame.empty else [],
+            "kucoin": [kucoin_frame] if not kucoin_frame.empty else [],
+        }
+        fetchers = {
+            "gateio": lambda symbol, **kwargs: _fetch_daily_candles_with_continuation(
+                gateio, symbol, **kwargs
+            ),
+            "binance": lambda symbol, **kwargs: _fetch_daily_candles_with_continuation(
+                binance, symbol, **kwargs
+            ),
+            "kucoin": lambda symbol, **kwargs: _fetch_daily_candles_with_continuation(
+                kucoin, symbol, **kwargs
+            ),
+        }
+        for gap_start, gap_end in _short_provider_gap_windows(
+            history, max_gap_days=config.data_quality.provider_gap_max_repair_days
+        ):
+            expected = {
+                pd.Timestamp(day).tz_localize(None)
+                if pd.Timestamp(day).tzinfo is not None
+                else pd.Timestamp(day).normalize()
+                for day in pd.date_range(gap_start, gap_end, freq="D")
+            }
+            for source_name, fetcher in fetchers.items():
+                if source_name == "kucoin" and not kucoin.has_configured_pair(symbol):
+                    continue
+                existing_dates: set[pd.Timestamp] = set()
+                for existing in gap_frames[source_name]:
+                    if existing is not None and not existing.empty and "date" in existing.columns:
+                        existing_dates.update(
+                            pd.to_datetime(existing["date"], errors="coerce", utc=True)
+                            .dropna()
+                            .dt.tz_convert(None)
+                            .dt.normalize()
+                            .tolist()
+                        )
+                if expected.issubset(existing_dates):
+                    continue
+                try:
+                    fetched = fetcher(
+                        symbol,
+                        start=gap_start,
+                        end=gap_end,
+                        force=force,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.info(
+                        "%s cannot supply CMC gap %s..%s for %s (%s): %s",
+                        source_name,
+                        gap_start.date(),
+                        gap_end.date(),
+                        coin_id,
+                        symbol,
+                        exc,
+                    )
+                    continue
+                if fetched is not None and not fetched.empty:
+                    gap_frames[source_name].append(fetched)
+
+        if gap_frames["gateio"]:
+            gate_frame = pd.concat(gap_frames["gateio"], ignore_index=True).drop_duplicates("date", keep="last")
+            enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
+        if gap_frames["binance"]:
+            binance_frame = pd.concat(gap_frames["binance"], ignore_index=True).drop_duplicates("date", keep="last")
             enriched_asset["binance_pair"] = binance.resolve_pair(symbol)
+        if gap_frames["kucoin"]:
+            kucoin_frame = pd.concat(gap_frames["kucoin"], ignore_index=True).drop_duplicates("date", keep="last")
+            enriched_asset["kucoin_pair"] = kucoin.resolve_pair(symbol)
 
         if not gate_frame.empty:
             enriched_asset["gateio_pair"] = gateio.resolve_pair(symbol)
@@ -780,7 +887,7 @@ def _judge_level_corruption(
     sources: list[IndependentSource],
     *,
     tolerance: float,
-) -> tuple[list[pd.Timestamp], list[pd.Timestamp]]:
+) -> tuple[list[pd.Timestamp], list[pd.Timestamp], dict[pd.Timestamp, set[str]]]:
     """Split flagged rows into (dropped, confirmed) using independent prints.
 
     The ring test cannot tell a provider level error from a genuine 20x round
@@ -794,10 +901,11 @@ def _judge_level_corruption(
     drop is now logged and counted in ``level_corruption_rows``.
     """
     if not flagged:
-        return [], []
+        return [], [], {}
     closes = history.set_index("date")["price"].astype(float)
     confirmed_days: list[pd.Timestamp] = []
     dropped_days: list[pd.Timestamp] = []
+    disputed_by: dict[pd.Timestamp, set[str]] = {}
     quotes = {source.name: _source_closes(source) for source in sources}
     for day in flagged:
         cmc_close = float(closes.get(day, np.nan))
@@ -810,13 +918,14 @@ def _judge_level_corruption(
             gap = max(cmc_close / quote, quote / cmc_close) - 1.0
             if gap > tolerance:
                 disputed = True
+                disputed_by.setdefault(day, set()).add(source.name)
             elif source.exchange_venue:
                 venue_confirms = True
         if venue_confirms and not disputed:
             confirmed_days.append(day)
         else:
             dropped_days.append(day)
-    return dropped_days, confirmed_days
+    return dropped_days, confirmed_days, disputed_by
 
 
 def _source_closes(source: IndependentSource) -> dict[pd.Timestamp, float]:
@@ -826,6 +935,283 @@ def _source_closes(source: IndependentSource) -> dict[pd.Timestamp, float]:
     dates = pd.to_datetime(frame["date"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
     values = pd.to_numeric(frame[source.column], errors="coerce")
     return {pd.Timestamp(day): float(value) for day, value in zip(dates, values, strict=True) if pd.notna(day) and pd.notna(value)}
+
+
+def _source_volumes(source: IndependentSource) -> dict[pd.Timestamp, float]:
+    frame = source.frame
+    column = source.volume_column
+    if column is None or frame is None or frame.empty or column not in frame.columns:
+        return {}
+    dates = pd.to_datetime(frame["date"], errors="coerce", utc=True).dt.tz_convert(None).dt.normalize()
+    values = pd.to_numeric(frame[column], errors="coerce")
+    return {
+        pd.Timestamp(day): float(value)
+        for day, value in zip(dates, values, strict=True)
+        if pd.notna(day) and pd.notna(value) and float(value) >= 0
+    }
+
+
+def _independent_coverage(
+    history: pd.DataFrame,
+    sources: list[IndependentSource],
+    verdicts: dict[str, object],
+) -> tuple[int, pd.Timestamp | None, str]:
+    """Union of primary days covered by at least one passing independent source.
+
+    ``compare_daily_prices`` reports per-source coverage. A migrated token can
+    be covered by one venue before the migration and another after it, so the
+    ended-feed tail must use the union rather than whichever source happened to
+    sort first. Only sources whose own comparison passed are allowed to vote.
+    """
+    primary_dates = set(
+        pd.to_datetime(history["date"], errors="coerce", utc=True)
+        .dropna()
+        .dt.tz_convert(None)
+        .dt.normalize()
+        .tolist()
+    )
+    covered: set[pd.Timestamp] = set()
+    passing_names: list[str] = []
+    for source in sources:
+        verdict = verdicts.get(source.name)
+        if verdict is None or not bool(getattr(verdict, "passed", False)):
+            continue
+        overlaps = primary_dates & set(_source_closes(source))
+        if overlaps:
+            covered.update(overlaps)
+            passing_names.append(source.name)
+    latest = max(covered) if covered else None
+    return len(covered), latest, ",".join(sorted(passing_names))
+
+
+def _continuation_symbol(client: object, symbol: str) -> str | None:
+    """Return a provider's configured successor ticker, when it has one."""
+    resolver = getattr(client, "continuation_symbol", None)
+    if not callable(resolver):
+        return None
+    value = resolver(symbol)
+    return str(value) if value else None
+
+
+def _merge_primary_and_continuation(
+    primary: pd.DataFrame,
+    continuation: pd.DataFrame,
+) -> pd.DataFrame:
+    """Prefer the original venue pair and append only its uncovered dates.
+
+    ``continuation`` is concatenated first and ``primary`` last, so
+    ``drop_duplicates(keep="last")`` resolves overlapping dates in favour of
+    the original contract. The successor is evidence only after a migration.
+    """
+    frames = [frame for frame in (continuation, primary) if frame is not None and not frame.empty]
+    if not frames:
+        return primary if primary is not None else continuation
+    combined = pd.concat(frames, ignore_index=True)
+    combined["date"] = pd.to_datetime(combined["date"], errors="coerce").dt.normalize()
+    return (
+        combined.dropna(subset=["date"])
+        .sort_values("date", kind="mergesort")
+        .drop_duplicates("date", keep="last")
+        .reset_index(drop=True)
+    )
+
+
+def _fetch_daily_candles_with_continuation(
+    client: object,
+    symbol: str,
+    *,
+    start: pd.Timestamp | str,
+    end: pd.Timestamp | str,
+    force: bool,
+) -> pd.DataFrame:
+    """Fetch the original pair plus a configured successor for a migration tail."""
+    primary = pd.DataFrame()
+    primary_error: Exception | None = None
+    try:
+        primary = client.fetch_daily_candles(  # type: ignore[attr-defined]
+            symbol, start=start, end=end, force=force
+        )
+    except Exception as exc:  # noqa: BLE001
+        primary_error = exc
+
+    continuation = pd.DataFrame()
+    continuation_symbol = _continuation_symbol(client, symbol)
+    if continuation_symbol is not None:
+        try:
+            continuation = client.fetch_daily_candles(  # type: ignore[attr-defined]
+                continuation_symbol, start=start, end=end, force=force
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning(
+                "Continuation history unavailable for %s via %s: %s",
+                symbol,
+                continuation_symbol,
+                exc,
+            )
+    if primary_error is not None and not continuation.empty:
+        LOGGER.warning(
+            "Using continuation history for %s after the original pair failed: %s",
+            symbol,
+            primary_error,
+        )
+    if primary.empty and continuation.empty and primary_error is not None:
+        raise primary_error
+    return _merge_primary_and_continuation(primary, continuation)
+
+
+def _load_daily_candles_with_continuation(client: object, symbol: str) -> pd.DataFrame:
+    """Load cached original and successor venue candles without network I/O."""
+    primary = client.load_daily_candles(symbol)  # type: ignore[attr-defined]
+    continuation_symbol = _continuation_symbol(client, symbol)
+    continuation = (
+        client.load_daily_candles(continuation_symbol)  # type: ignore[attr-defined]
+        if continuation_symbol is not None
+        else pd.DataFrame()
+    )
+    return _merge_primary_and_continuation(primary, continuation)
+
+
+def _short_provider_gap_windows(
+    history: pd.DataFrame, *, max_gap_days: int
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Interior CMC omissions short enough to repair from an exchange book."""
+    if history is None or history.empty:
+        return []
+    dates = pd.DatetimeIndex(
+        pd.to_datetime(history["date"], errors="coerce").dropna().dt.normalize().drop_duplicates()
+    ).sort_values()
+    if len(dates) < 2:
+        return []
+    missing = pd.date_range(dates.min(), dates.max(), freq="D").difference(dates)
+    if missing.empty:
+        return []
+    runs: list[list[pd.Timestamp]] = []
+    current = [pd.Timestamp(missing[0])]
+    for previous, following in zip(missing[:-1], missing[1:], strict=False):
+        if (following - previous).days == 1:
+            current.append(pd.Timestamp(following))
+        else:
+            runs.append(current)
+            current = [pd.Timestamp(following)]
+    runs.append(current)
+    return [
+        (pd.Timestamp(run[0]), pd.Timestamp(run[-1]))
+        for run in runs
+        if len(run) <= max_gap_days
+    ]
+
+
+def _repair_provider_gaps(
+    history: pd.DataFrame,
+    sources: list[IndependentSource],
+    *,
+    max_gap_days: int,
+    max_source_gap: float,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    """Fill short CMC omissions only when exchange order books quote them.
+
+    CMC omitted a shared provider day on 2022-07-31 and four days for CRV in
+    the same week. The engine can carry a short gap, but a four-day hole is
+    beyond its declared carry limit. Repair a missing day only from an
+    exchange venue (never an aggregator), never across a run longer than
+    ``max_gap_days``, and only when all quoting venues agree within
+    ``max_source_gap``. Circulating supply comes from the latest real CMC row;
+    the resulting market cap is explicitly marked as derived in the panel.
+    """
+    if history is None or history.empty:
+        return history, []
+    frame = history.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce").dt.normalize()
+    for column, source_name in (
+        ("price_source", "coinmarketcap"),
+        ("volume_source", "coinmarketcap"),
+        ("market_cap_source", "coinmarketcap"),
+    ):
+        if column not in frame.columns:
+            frame[column] = source_name
+    frame = frame.sort_values("date", kind="mergesort").reset_index(drop=True)
+    windows = _short_provider_gap_windows(frame, max_gap_days=max_gap_days)
+    if not windows:
+        return frame, []
+
+    exchange_sources = [source for source in sources if source.exchange_venue]
+    closes = {source.name: _source_closes(source) for source in exchange_sources}
+    volumes = {source.name: _source_volumes(source) for source in exchange_sources}
+    supplied = frame[["date", "circulating_supply"]].copy()
+    supplied["circulating_supply"] = pd.to_numeric(supplied["circulating_supply"], errors="coerce")
+    supplied = supplied[
+        supplied["circulating_supply"].notna() & (supplied["circulating_supply"] > 0)
+    ].sort_values("date")
+
+    fills: list[dict[str, object]] = []
+    rows: list[dict[str, object]] = []
+    for window_start, window_end in windows:
+        for day in pd.date_range(window_start, window_end, freq="D"):
+            quotes = {
+                source.name: closes[source.name][day]
+                for source in exchange_sources
+                if day in closes[source.name]
+            }
+            if not quotes:
+                continue
+            quote_values = list(quotes.values())
+            if len(quote_values) > 1:
+                low = min(quote_values)
+                high = max(quote_values)
+                if high / low - 1.0 > max_source_gap:
+                    LOGGER.warning(
+                        "Not repairing CMC gap %s: exchange venues disagree (%.4f..%.4f)",
+                        day.date(),
+                        low,
+                        high,
+                    )
+                    continue
+            prior_supply = supplied[supplied["date"] <= day]
+            future_supply = supplied[supplied["date"] > day]
+            supply_row = (
+                prior_supply.tail(1).iloc[0]
+                if not prior_supply.empty
+                else (future_supply.head(1).iloc[0] if not future_supply.empty else None)
+            )
+            if supply_row is None:
+                continue
+            supply = float(supply_row["circulating_supply"])
+            close = float(pd.Series(quote_values).median())
+            volume_values = [
+                volumes[source.name][day]
+                for source in exchange_sources
+                if day in volumes[source.name]
+            ]
+            volume = float(pd.Series(volume_values).median()) if volume_values else 0.0
+            providers = sorted(quotes)
+            provenance = "+".join(providers)
+            supply_date = pd.Timestamp(supply_row["date"]).date().isoformat()
+            row = {
+                "date": day,
+                "price": close,
+                "volume_usd": volume,
+                "market_cap": close * supply,
+                "circulating_supply": supply,
+                "price_source": f"exchange_gap_fill:{provenance}",
+                "volume_source": f"exchange_gap_fill:{provenance}",
+                "market_cap_source": f"derived:{provenance}_close_x_cmc_supply@{supply_date}",
+            }
+            rows.append(row)
+            fills.append(
+                {
+                    "date": day,
+                    "sources": ",".join(providers),
+                    "price": close,
+                    "volume_usd": volume,
+                    "supply": supply,
+                    "supply_date": supply_date,
+                }
+            )
+    if not rows:
+        return frame, []
+    repaired = pd.concat([frame, pd.DataFrame(rows)], ignore_index=True)
+    repaired = repaired.sort_values("date", kind="mergesort").reset_index(drop=True)
+    return repaired, fills
 
 
 def _date_ranges(days: list[pd.Timestamp]) -> str:
@@ -1008,6 +1394,7 @@ def build_processed_datasets(
     sector_map = resolve_sector_map(config, sector_config)
     gateio = GateIOClient(config.providers.gateio, raw_dir)
     binance = BinanceClient(config.providers.binance, raw_dir)
+    kucoin = KuCoinClient(config.providers.kucoin, raw_dir)
     coinpaprika = CoinPaprikaClient(config.providers.coinpaprika, raw_dir)
 
     id_map = _load_cached_id_map(raw_dir)
@@ -1060,11 +1447,18 @@ def build_processed_datasets(
         chart = _load_coingecko_chart(chart_path)
         gateio_pair = asset.get("gateio_pair")
         gate_frame = pd.DataFrame()
-        if gateio_pair is not None and not pd.isna(gateio_pair):
-            gate_frame = gateio.load_daily_candles(symbol)
-        binance_frame = binance.load_daily_candles(symbol)
+        if (
+            gateio_pair is not None
+            and not pd.isna(gateio_pair)
+        ) or gateio.continuation_symbol(symbol) is not None:
+            gate_frame = _load_daily_candles_with_continuation(gateio, symbol)
+        binance_frame = _load_daily_candles_with_continuation(binance, symbol)
+        kucoin_pair = asset.get("kucoin_pair")
+        kucoin_frame = pd.DataFrame()
+        if kucoin_pair is not None and not pd.isna(kucoin_pair):
+            kucoin_frame = _load_daily_candles_with_continuation(kucoin, symbol)
 
-        # Independent sources.  Gate.io and Binance are exchange venues;
+        # Independent sources.  Gate.io, Binance and KuCoin are exchange venues;
         # CoinGecko is an aggregator and carries the weakest evidence, but it
         # still counts as an independent vote when no order book covers a name.
         # CoinPaprika is the last-resort vote the download fetches when nothing
@@ -1075,13 +1469,29 @@ def build_processed_datasets(
         if pap_id is not None and not pd.isna(pap_id):
             pap_frame = coinpaprika.load_daily_history(str(pap_id))
         sources = [
-            IndependentSource("gateio", gate_frame, "gate_price"),
-            IndependentSource("binance", binance_frame, "binance_price"),
+            IndependentSource("gateio", gate_frame, "gate_price", "gate_volume_usd"),
+            IndependentSource("binance", binance_frame, "binance_price", "binance_volume_usd"),
+            IndependentSource("kucoin", kucoin_frame, "kucoin_price", "kucoin_volume_usd"),
             IndependentSource("coingecko", chart, "cg_price"),
             IndependentSource("coinpaprika", pap_frame, "pap_price"),
         ]
 
-        corrupted_days, confirmed_days = _judge_level_corruption(
+        history, gap_fills = _repair_provider_gaps(
+            history,
+            sources,
+            max_gap_days=config.data_quality.provider_gap_max_repair_days,
+            max_source_gap=config.data_quality.provider_gap_max_source_gap,
+        )
+        if gap_fills:
+            LOGGER.warning(
+                "Repaired %s short CMC provider gap row(s) for %s (%s) from %s",
+                len(gap_fills),
+                coin_id,
+                symbol,
+                ", ".join(sorted({str(fill["sources"]) for fill in gap_fills})),
+            )
+
+        corrupted_days, confirmed_days, corruption_disputes = _judge_level_corruption(
             history,
             loaded.level_corruption_dates,
             sources,
@@ -1128,6 +1538,9 @@ def build_processed_datasets(
             max_latest_staleness_days=config.data_quality.cross_check_max_latest_staleness_days,
             require_latest_coverage=not feed_ended,
             recent_days=None if feed_ended else config.data_quality.cross_check_recent_days,
+        )
+        independent_overlap_days, independent_latest_date, independent_sources = (
+            _independent_coverage(validation.history, sources, cross.verdicts)
         )
         # "Disagrees" and "could not be checked" are different states. A proven
         # disagreement blocks the asset; a missing second source is recorded
@@ -1184,6 +1597,24 @@ def build_processed_datasets(
                 "level_corruption_rows": len(corrupted_days),
                 "level_corruption_dates": _date_ranges(corrupted_days),
                 "level_corruption_confirmed_rows": len(confirmed_days),
+                "level_corruption_disputed_rows": sum(
+                    1 for day in corrupted_days if corruption_disputes.get(day)
+                ),
+                "level_corruption_disputed_by": ",".join(
+                    sorted(
+                        {
+                            provider
+                            for day in corrupted_days
+                            for provider in corruption_disputes.get(day, set())
+                        }
+                    )
+                ),
+                # Short CMC omissions repaired from agreeing exchange books.
+                "provider_gap_fill_rows": len(gap_fills),
+                "provider_gap_fill_dates": _date_ranges([pd.Timestamp(fill["date"]) for fill in gap_fills]),
+                "provider_gap_fill_sources": ",".join(
+                    sorted({str(fill["sources"]) for fill in gap_fills})
+                ),
                 # A panel row without a real positive cap cannot be ranked.
                 # Omit it rather than publishing a row that no strategy can use;
                 # the builder computes returns across the resulting provider gap.
@@ -1246,16 +1677,19 @@ def build_processed_datasets(
                     max(
                         int(
                             (
-                                pd.Timestamp(cross.latest_primary_date) - pd.Timestamp(cross.latest_secondary_date)
+                                pd.Timestamp(cross.latest_primary_date)
+                                - pd.Timestamp(independent_latest_date)
                             ).days
                         ),
                         0,
                     )
-                    if feed_ended
-                    and cross.latest_primary_date is not None
-                    and cross.latest_secondary_date is not None
+                    if cross.latest_primary_date is not None
+                    and independent_latest_date is not None
                     else 0
                 ),
+                "crosscheck_independent_overlap_days": independent_overlap_days,
+                "crosscheck_independent_latest_date": independent_latest_date,
+                "crosscheck_independent_sources": independent_sources,
                 "included_in_panel": bool(
                     admitted and not panel_window.empty and _valid_market_cap_mask(panel_window).any()
                 ),
@@ -1315,9 +1749,13 @@ def build_processed_datasets(
         framed["coin_id"] = coin_id
         framed["symbol"] = symbol
         framed["name"] = name
-        framed["price_source"] = "coinmarketcap"
-        framed["volume_source"] = "coinmarketcap"
-        framed["market_cap_source"] = "coinmarketcap"
+        for column, source_name in (
+            ("price_source", "coinmarketcap"),
+            ("volume_source", "coinmarketcap"),
+            ("market_cap_source", "coinmarketcap"),
+        ):
+            if column not in framed.columns:
+                framed[column] = source_name
         framed["current_market_cap"] = float(asset.get("market_cap") or 0.0)
         framed["current_rank"] = asset.get("market_cap_rank")
         panel_frames.append(
@@ -1423,7 +1861,8 @@ def build_processed_datasets(
         _write_csv_atomic(metadata, processed_dir / "metadata.csv", index=True)
         _write_csv_atomic(quality, processed_dir / "data_quality.csv", index=True)
         LOGGER.info(
-            "Processed dataset written: %s rows across %s assets (all market caps from CoinMarketCap)",
+            "Processed dataset written: %s rows across %s assets "
+            "(CMC primary; short exchange-sourced gap repairs are marked per row)",
             len(panel),
             metadata.shape[0],
         )

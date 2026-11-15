@@ -1,10 +1,10 @@
 """Data sufficiency checks for the CoinMarketCap primary data chain.
 
-Every price, volume and market-cap value in the processed panel comes from a
-single CMC snapshot.  Independent providers are used only to validate recent
-prints, not to splice or rewrite panel values.  There is no synthetic
-market-cap fallback: an asset that has no real supply history is simply not
-rankable.
+CoinMarketCap remains the primary source for every normal panel row.  The only
+splice allowed is a short, explicitly recorded provider-gap repair: an exchange
+close may fill a missing day, with market cap derived from that close and the
+latest real CMC circulating supply.  No synthetic supply is invented; an asset
+without real supply history remains unrankable.
 """
 
 from __future__ import annotations

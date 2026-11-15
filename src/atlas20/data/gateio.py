@@ -52,6 +52,12 @@ class GateIOClient:
         window = f"{pd.Timestamp(start).date().isoformat()}_{pd.Timestamp(end).date().isoformat()}"
         return directory / f"{pair}_{limit}_{window}.json"
 
+    def continuation_symbol(self, symbol: str) -> str | None:
+        """Return the configured successor ticker for a migrated asset."""
+        upper = symbol.upper()
+        continuation = self.config.continuation_symbols.get(upper) or self.config.continuation_symbols.get(symbol)
+        return str(continuation).upper() if continuation else None
+
     def resolve_pair(self, symbol: str) -> str:
         """Return the configured Gate.io pair for a CoinGecko ticker."""
         upper = symbol.upper()
@@ -150,18 +156,91 @@ class GateIOClient:
         holds nothing for a pair the venue delisted months ago.
         """
         pair = self.resolve_pair(symbol)
-        params: dict[str, Any] = {"currency_pair": pair, "interval": "1d", "limit": limit}
-        if start is not None:
-            params["from"] = int(pd.Timestamp(start).timestamp())
-        if end is not None:
-            params["to"] = int(pd.Timestamp(end).timestamp())
-        payload = self._request_json(
-            "spot/candlesticks",
-            params,
-            self._cache_path(pair, limit, start=start, end=end),
-            force=force,
+        if start is None or end is None:
+            params: dict[str, Any] = {"currency_pair": pair, "interval": "1d", "limit": limit}
+            if start is not None:
+                params["from"] = int(pd.Timestamp(start).timestamp())
+            if end is not None:
+                params["to"] = int(pd.Timestamp(end).timestamp())
+            payload = self._request_json(
+                "spot/candlesticks",
+                params,
+                self._cache_path(pair, limit, start=start, end=end),
+                force=force,
+            )
+            return self._frame_from_payload(payload)
+
+        # Gate rejects a from/to span longer than one page with HTTP 400,
+        # rather than truncating it. An ended series needs its whole history,
+        # so walk the range in page-sized windows and merge the responses. A
+        # normal live 400-day refresh remains one request.
+        start_ts = pd.Timestamp(start)
+        end_ts = pd.Timestamp(end)
+        if start_ts.tzinfo is None:
+            start_ts = start_ts.tz_localize("UTC")
+        else:
+            start_ts = start_ts.tz_convert("UTC")
+        if end_ts.tzinfo is None:
+            end_ts = end_ts.tz_localize("UTC")
+        else:
+            end_ts = end_ts.tz_convert("UTC")
+        if end_ts < start_ts:
+            raise ValueError(f"Gate.io window ends before it starts: {start_ts} > {end_ts}")
+        total_days = int((end_ts.normalize() - start_ts.normalize()).days) + 1
+        if total_days <= limit:
+            windows = [(start_ts, end_ts)]
+        else:
+            windows = []
+            cursor = start_ts
+            step = pd.Timedelta(days=max(int(limit) - 1, 1))
+            while cursor <= end_ts:
+                window_end = min(end_ts, cursor + step)
+                windows.append((cursor, window_end))
+                cursor = window_end + pd.Timedelta(days=1)
+
+        frames: list[pd.DataFrame] = []
+        errors: list[Exception] = []
+        for window_start, window_end in windows:
+            params = {
+                "currency_pair": pair,
+                "interval": "1d",
+                "limit": limit,
+                "from": int(window_start.timestamp()),
+                "to": int(window_end.timestamp()),
+            }
+            try:
+                payload = self._request_json(
+                    "spot/candlesticks",
+                    params,
+                    self._cache_path(pair, limit, start=window_start, end=window_end),
+                    force=force,
+                )
+            except (requests.RequestException, ValueError) as exc:
+                # A delisted pair is often absent from its earliest pages even
+                # though the later order-book history is present. Do not let
+                # one unlisted prefix erase the whole ended-series window.
+                errors.append(exc)
+                self.logger.info(
+                    "Gate.io %s has no candle page %s..%s: %s",
+                    pair,
+                    window_start.date(),
+                    window_end.date(),
+                    exc,
+                )
+                continue
+            frame = self._frame_from_payload(payload)
+            if not frame.empty:
+                frames.append(frame)
+        if not frames:
+            if errors:
+                raise errors[-1]
+            return self._frame_from_payload([])
+        return (
+            pd.concat(frames, ignore_index=True)
+            .sort_values("date", kind="mergesort")
+            .drop_duplicates("date", keep="last")
+            .reset_index(drop=True)
         )
-        return self._frame_from_payload(payload)
 
     def load_daily_candles(self, symbol: str) -> pd.DataFrame:
         """Load every cached Gate.io candle window for a symbol.

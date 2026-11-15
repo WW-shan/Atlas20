@@ -47,7 +47,7 @@ CONFIG_DIR="${ATLAS20_CONFIG_DIR:-$CONFIG_DIR}"
 
 BITGET_ENV="$CONFIG_DIR/bitget.env"
 TELEGRAM_ENV="$CONFIG_DIR/telegram.env"
-TRACK_ENV="$CONFIG_DIR/track.env"
+TRACK_ENV="$PROJECT_ROOT/config/track.env"
 
 # launchd starts jobs with a minimal PATH; systemd units start with almost
 # none. make, git and the venv python all need to be reachable.
@@ -65,10 +65,16 @@ set -a
 . "$TELEGRAM_ENV"
 set +a
 
-# Persistent track selection lives outside the repository so launchd and
-# systemd see the same choice as an interactive shell.  An explicit environment
-# variable wins, which keeps emergency rollback to LS45 one command away.
-if [ -r "$TRACK_ENV" ] && [ -z "${ATLAS20_TRACK_PROFILE+x}" ]; then
+# The non-secret profile pin lives in the repository so launchd, systemd and
+# an interactive shell all read the same tracked value. Credentials remain in
+# the external config directory. An explicit environment variable wins, which
+# keeps emergency rollback to LS45 one command away.
+if [ -z "${ATLAS20_TRACK_PROFILE+x}" ]; then
+  if [ ! -r "$TRACK_ENV" ]; then
+    echo "missing track profile file: $TRACK_ENV" >&2
+    echo "missing ATLAS20_TRACK_PROFILE; refusing to trade" >&2
+    exit 1
+  fi
   set -a
   . "$TRACK_ENV"
   set +a
@@ -78,7 +84,11 @@ cd "$PROJECT_ROOT"
 
 # One wrapper serves both frozen tracks without rewriting either profile's
 # target, state, journal, audit or kill-switch files.
-TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"
+TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-}"
+if [ -z "$TRACK_PROFILE" ]; then
+  echo "missing ATLAS20_TRACK_PROFILE; refusing to trade" >&2
+  exit 1
+fi
 case "$TRACK_PROFILE" in
   ls45-g125)
     SPEC="PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"

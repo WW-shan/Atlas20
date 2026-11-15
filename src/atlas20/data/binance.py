@@ -65,6 +65,12 @@ class BinanceClient:
         directory.mkdir(parents=True, exist_ok=True)
         return directory / f"{pair}_{start}_{end}.json"
 
+    def continuation_symbol(self, symbol: str) -> str | None:
+        """Return the configured successor ticker for a migrated asset."""
+        upper = symbol.upper()
+        continuation = self.config.continuation_symbols.get(upper) or self.config.continuation_symbols.get(symbol)
+        return str(continuation).upper() if continuation else None
+
     def resolve_pair(self, symbol: str) -> str:
         """Return the configured Binance pair for a ticker."""
         upper = symbol.upper()

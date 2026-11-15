@@ -179,7 +179,8 @@ def test_monitor_wrapper_follows_the_persisted_track_profile():
         encoding="utf-8"
     )
 
-    assert 'TRACK_ENV="$CONFIG_DIR/track.env"' in script
+    assert 'TRACK_ENV="$PROJECT_ROOT/config/track.env"' in script
+    assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
     assert "ls104-g175-m090" in script
     assert "reports/ls45_live_g175/oos_targets.csv" in script
     assert "data/ls45_g175_execution_state.json" in script
@@ -266,8 +267,11 @@ def test_wrapper_exposes_the_ls104_profile_without_overwriting_ls45() -> None:
     assert 'MARGIN_CAP="0.90"' in script
     assert 'LEVERAGE="4.0"' in script
     assert 'echo "Atlas20 track profile: $TRACK_PROFILE"' in script
-    # The default stays LS45 until the aggressive profile is explicitly selected.
-    assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"' in script
+    # A missing profile is a hard error: LS45 is an explicit rollback, never a
+    # silent fallback when the project configuration is missing or damaged.
+    assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-}"' in script
+    assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"' not in script
+    assert "missing ATLAS20_TRACK_PROFILE" in script
 
 
 def test_wrapper_bootstraps_only_an_empty_ls104_execution_state() -> None:
@@ -301,6 +305,61 @@ def test_wrapper_uses_profile_specific_kill_switches_and_one_global_lock() -> No
     assert "PRIOR_ORDER_ARG" not in script
 
 
+
+def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
+    profile_file = PROJECT_ROOT / "config" / "track.env"
+
+    assert profile_file.is_file()
+    profile_lines = [
+        line.strip()
+        for line in profile_file.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert profile_lines == ["ATLAS20_TRACK_PROFILE=ls104-g175-m090"]
+    for wrapper in ("run_derivatives_daily.sh", "run_live_monitor.sh"):
+        script = (PROJECT_ROOT / "ops" / wrapper).read_text(encoding="utf-8")
+        assert 'TRACK_ENV="$PROJECT_ROOT/config/track.env"' in script
+        assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
+
+
+def test_wrappers_fail_closed_without_a_track_profile(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    config = tmp_path / "credentials"
+    project.mkdir()
+    config.mkdir()
+    (config / "bitget.env").write_text("", encoding="utf-8")
+    (config / "telegram.env").write_text("", encoding="utf-8")
+    env = {
+        **os.environ,
+        "ATLAS20_PROJECT_ROOT": str(project),
+        "ATLAS20_CONFIG_DIR": str(config),
+    }
+    env.pop("ATLAS20_TRACK_PROFILE", None)
+    shells = [shutil.which("sh") or "/bin/sh"]
+    zsh = shutil.which("zsh")
+    if zsh is not None:
+        shells.append(zsh)
+
+    wrapper_shells = {
+        "run_derivatives_daily.sh": shells,
+        "run_live_monitor.sh": [zsh] if zsh is not None else shells,
+    }
+    for wrapper, selected_shells in wrapper_shells.items():
+        for shell in selected_shells:
+            result = subprocess.run(
+                [shell, str(PROJECT_ROOT / "ops" / wrapper)],
+                cwd=PROJECT_ROOT,
+                env=env,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 1, (
+                f"{wrapper} under {Path(shell).name} must refuse to run without a profile: "
+                f"stdout={result.stdout!r} stderr={result.stderr!r}"
+            )
+            assert "missing ATLAS20_TRACK_PROFILE" in result.stderr
+
 def test_wrapper_passes_prior_registry_as_two_arguments_under_sh_and_zsh(
     tmp_path: Path,
 ) -> None:
@@ -311,9 +370,6 @@ def test_wrapper_passes_prior_registry_as_two_arguments_under_sh_and_zsh(
     config.mkdir()
     (config / "bitget.env").write_text("", encoding="utf-8")
     (config / "telegram.env").write_text("", encoding="utf-8")
-    (config / "track.env").write_text(
-        "ATLAS20_TRACK_PROFILE=ls104-g175-m090\n", encoding="utf-8"
-    )
     python_bin.write_text(
         """#!/bin/sh
 case "$1" in

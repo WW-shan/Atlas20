@@ -83,6 +83,11 @@ class UniverseConfig(BaseModel):
     # out of the point-in-time Top-20 unnoticed (MATIC held a real Top-20 slot
     # on 123 of 215 rebalance dates and was absent until 2026-09-22).
     legacy_unavailable: dict[str, str] = Field(default_factory=dict)
+    # CMC symbols the strategy deliberately excludes from the point-in-time
+    # Top-N, with the measured cost and reason. These names remain visible in
+    # the raw CMC cache; the audit subtracts only those explicitly listed here
+    # and still fails every unexplained missing member.
+    cmc_policy_exclusions: dict[str, str] = Field(default_factory=dict)
     min_history_days: int = 90
     min_daily_dollar_volume: float = 25_000_000
     min_price: float = 1e-6
@@ -205,6 +210,10 @@ class GateIOConfig(BaseModel):
     # Manual escape hatch for symbols whose Gate.io pair differs from
     # ``<SYMBOL>_<quote_currency>``.
     pair_aliases: dict[str, str] = Field(default_factory=dict)
+    # A migrated token can keep its old CMC history after the native venue
+    # pair stops. These mappings add the successor contract as a date-disjoint
+    # continuation source; the primary pair always wins on overlapping dates.
+    continuation_symbols: dict[str, str] = Field(default_factory=dict)
 
 
 class BinanceConfig(BaseModel):
@@ -239,6 +248,24 @@ class BinanceConfig(BaseModel):
     min_daily_dollar_volume: float = 100_000.0
     # Manual escape hatch for symbols whose pair differs from <SYMBOL><quote>.
     pair_aliases: dict[str, str] = Field(default_factory=dict)
+    # Add a successor pair only after its predecessor stops. Examples are
+    # EOS->A and MATIC->POL; the original pair remains primary on overlaps.
+    continuation_symbols: dict[str, str] = Field(default_factory=dict)
+
+
+class KuCoinConfig(BaseModel):
+    """Native KuCoin venue used for KCS and explicit historical gap repair."""
+
+    base_url: str = "https://api.kucoin.com"
+    timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    rate_limit_seconds: float = 0.1
+    quote_currency: str = "USDT"
+    # KuCoin handles every listed pair by default, but this project only calls
+    # it for explicitly configured names. That keeps a 100-asset refresh from
+    # spending a request per coin on a venue that is mainly needed for KCS.
+    pair_aliases: dict[str, str] = Field(default_factory=dict)
 
 
 class CoinPaprikaConfig(BaseModel):
@@ -264,6 +291,7 @@ class ProvidersConfig(BaseModel):
     coinmarketcap: CoinMarketCapConfig = Field(default_factory=CoinMarketCapConfig)
     gateio: GateIOConfig = Field(default_factory=GateIOConfig)
     binance: BinanceConfig = Field(default_factory=BinanceConfig)
+    kucoin: KuCoinConfig = Field(default_factory=KuCoinConfig)
     coinpaprika: CoinPaprikaConfig = Field(default_factory=CoinPaprikaConfig)
 
 
@@ -301,6 +329,11 @@ class DataQualityConfig(BaseModel):
     # "disagreeing". The safe default is to refuse it: a live universe should
     # never trade a print that no independent source can currently confirm.
     require_cross_check: bool = True
+    # A provider can omit a short run of daily rows while its series stays
+    # live. Repair only short interior holes, and only when an exchange venue
+    # actually quotes every missing day; longer holes remain hard failures.
+    provider_gap_max_repair_days: int = Field(default=5, ge=1, le=30)
+    provider_gap_max_source_gap: float = Field(default=0.10, gt=0, le=0.25)
 
 
 class ResearchConfig(BaseModel):
