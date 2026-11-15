@@ -11,8 +11,11 @@ are; the read-only monitor follows the same rule one window later.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 import plistlib
 from pathlib import Path
+import shutil
+import subprocess
 from zoneinfo import ZoneInfo
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -216,7 +219,7 @@ def test_wrapper_runs_an_independent_post_execution_audit() -> None:
     execute_at = script.index("execution_status=0")
     post_execution = script[execute_at:]
     assert "scripts/execute_live_plan.py" in post_execution
-    assert "scripts/monitor_live_track.py" in post_execution
+    assert "run_monitor_audit" in post_execution
     assert "execution_status" in post_execution
     assert "monitor_status" in post_execution
 
@@ -247,7 +250,7 @@ def test_window_done_reconciles_stops_before_the_read_only_monitor() -> None:
 
     reconcile_at = skip_block.index("scripts/execute_live_plan.py")
     assert "--protect-only" in skip_block[reconcile_at:]
-    monitor_at = skip_block.index("scripts/monitor_live_track.py")
+    monitor_at = skip_block.index("run_monitor_audit")
     assert reconcile_at < monitor_at
 
 
@@ -294,5 +297,65 @@ def test_wrapper_uses_profile_specific_kill_switches_and_one_global_lock() -> No
         'PRIOR_ORDER_REGISTRY="reports/ls45_live_g175_live/prior_track_order_registry.json"'
         in script
     )
-    assert 'PRIOR_ORDER_ARG="--prior-track-registry $PRIOR_ORDER_REGISTRY"' in script
-    assert "$PRIOR_ORDER_ARG" in script
+    assert '--prior-track-registry "$PRIOR_ORDER_REGISTRY"' in script
+    assert "PRIOR_ORDER_ARG" not in script
+
+
+def test_wrapper_passes_prior_registry_as_two_arguments_under_sh_and_zsh(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    config = tmp_path / "config"
+    python_bin = project / ".venv" / "bin" / "python"
+    python_bin.parent.mkdir(parents=True)
+    config.mkdir()
+    (config / "bitget.env").write_text("", encoding="utf-8")
+    (config / "telegram.env").write_text("", encoding="utf-8")
+    (config / "track.env").write_text(
+        "ATLAS20_TRACK_PROFILE=ls104-g175-m090\n", encoding="utf-8"
+    )
+    python_bin.write_text(
+        """#!/bin/sh
+case "$1" in
+  scripts/live_chain_preflight.py) exit 4 ;;
+  scripts/execute_live_plan.py) exit 0 ;;
+  scripts/monitor_live_track.py)
+    printf '%s\\n' "$@" > "$ATLAS20_MONITOR_ARGS_FILE"
+    exit 0
+    ;;
+esac
+exit 0
+""",
+        encoding="utf-8",
+    )
+    python_bin.chmod(0o755)
+    args_file = tmp_path / "monitor-args.txt"
+    env = {
+        **os.environ,
+        "ATLAS20_PROJECT_ROOT": str(project),
+        "ATLAS20_CONFIG_DIR": str(config),
+        "ATLAS20_TRACK_PROFILE": "ls104-g175-m090",
+        "ATLAS20_MONITOR_ARGS_FILE": str(args_file),
+    }
+    shells = [shutil.which("sh") or "/bin/sh"]
+    zsh = shutil.which("zsh")
+    if zsh is not None:
+        shells.append(zsh)
+
+    for shell in shells:
+        subprocess.run(
+            [shell, str(PROJECT_ROOT / "ops" / "run_derivatives_daily.sh")],
+            cwd=PROJECT_ROOT,
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        args = args_file.read_text(encoding="utf-8").splitlines()
+        option_index = args.index("--prior-track-registry")
+        assert args[option_index + 1] == (
+            "reports/ls45_live_g175_live/prior_track_order_registry.json"
+        )
+        assert not any(
+            arg.startswith("--prior-track-registry ") for arg in args
+        ), f"{Path(shell).name} passed the option and path as one argument"

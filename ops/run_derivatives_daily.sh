@@ -135,10 +135,29 @@ BOOTSTRAP_ARG=""
 if [ "$TRACK_PROFILE" = "ls104-g175-m090" ] && [ ! -e "$STATE_FILE" ]; then
   BOOTSTRAP_ARG="--bootstrap-track"
 fi
-PRIOR_ORDER_ARG=""
-if [ -n "$PRIOR_ORDER_REGISTRY" ]; then
-  PRIOR_ORDER_ARG="--prior-track-registry $PRIOR_ORDER_REGISTRY"
-fi
+
+run_monitor_audit() {
+  if [ -n "$PRIOR_ORDER_REGISTRY" ]; then
+    .venv/bin/python scripts/monitor_live_track.py \
+      --notify --spec "$SPEC" \
+      --state-file "$STATE_FILE" \
+      --journal-file "$JOURNAL_FILE" \
+      --targets-file "$TARGETS_FILE" \
+      --manifest-file "$MANIFEST_FILE" \
+      --out "$HEALTH_JSON" \
+      --audit-out "$AUDIT_JSON" \
+      --prior-track-registry "$PRIOR_ORDER_REGISTRY"
+  else
+    .venv/bin/python scripts/monitor_live_track.py \
+      --notify --spec "$SPEC" \
+      --state-file "$STATE_FILE" \
+      --journal-file "$JOURNAL_FILE" \
+      --targets-file "$TARGETS_FILE" \
+      --manifest-file "$MANIFEST_FILE" \
+      --out "$HEALTH_JSON" \
+      --audit-out "$AUDIT_JSON"
+  fi
+}
 
 # --- 1. May this load trade? -------------------------------------------------
 # The preflight exits 3 when a documented reason says no (before the fill
@@ -186,14 +205,7 @@ if [ "$window_status" -eq 4 ]; then
     --max-margin-utilization "$MARGIN_CAP" || protect_status=$?
 
   monitor_status=0
-  .venv/bin/python scripts/monitor_live_track.py \
-    --notify --spec "$SPEC" \
-    --state-file "$STATE_FILE" \
-    --journal-file "$JOURNAL_FILE" \
-    --targets-file "$TARGETS_FILE" \
-    --manifest-file "$MANIFEST_FILE" \
-    --out "$HEALTH_JSON" \
-    --audit-out "$AUDIT_JSON" $PRIOR_ORDER_ARG || monitor_status=$?
+  run_monitor_audit || monitor_status=$?
 
   if [ "$protect_status" -ne 0 ]; then
     exit "$protect_status"
@@ -273,14 +285,7 @@ execution_status=0
   --max-margin-utilization "$MARGIN_CAP" $BOOTSTRAP_ARG || execution_status=$?
 
 monitor_status=0
-.venv/bin/python scripts/monitor_live_track.py \
-  --notify --spec "$SPEC" \
-  --state-file "$STATE_FILE" \
-  --journal-file "$JOURNAL_FILE" \
-  --targets-file "$TARGETS_FILE" \
-  --manifest-file "$MANIFEST_FILE" \
-  --out "$HEALTH_JSON" \
-  --audit-out "$AUDIT_JSON" $PRIOR_ORDER_ARG || monitor_status=$?
+run_monitor_audit || monitor_status=$?
 
 if [ "$execution_status" -ne 0 ]; then
   exit "$execution_status"
