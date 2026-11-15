@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -100,6 +100,7 @@ LS104_AUDIT ?= reports/ls45_live_g175_live/audit.json
 LS104_SIGNAL_EQUIVALENCE ?= reports/ls45_live_g175_live/signal_equivalence.json
 LS104_KILL ?= data/ls45_g175_execution.KILL
 LS104_LOCK ?= data/derivatives_execution.lock
+LS104_PLAN_STATE ?= data/ls45_g175_plan_state.json
 LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)
 LS104_PRIOR_ORDER_REGISTRY ?= reports/ls45_live_g175_live/prior_track_order_registry.json
 
@@ -183,6 +184,34 @@ execution-plan: $(VENV_STAMP)
 
 execution-plan-live: $(VENV_STAMP)
 	$(PYTHON) scripts/plan_live_execution.py --live --notify
+
+# Current LS104 read-only plan and executor dry-run.  Keep the legacy targets
+# above untouched for the LS45 fallback, but do not make an operator infer the
+# LS104 paths/limits from defaults that intentionally still describe LS45.
+execution-plan-live-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/plan_live_execution.py \
+		--live --notify \
+		--spec $(LS104_SPEC) \
+		--targets-file $(LS104_TARGETS) \
+		--manifest-file $(LS104_MANIFEST) \
+		--state-file $(LS104_PLAN_STATE) \
+		--leverage 4.0 \
+		--max-gross-multiple 1.75 \
+		--max-margin-utilization 0.90 \
+		--cost-bps 20.0
+
+execute-plan-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/execute_live_plan.py \
+		--spec $(LS104_SPEC) \
+		--targets-file $(LS104_TARGETS) \
+		--manifest-file $(LS104_MANIFEST) \
+		--state-file $(LS104_STATE) \
+		--journal-file $(LS104_JOURNAL) \
+		--kill-switch $(LS104_KILL) \
+		--lock-file $(LS104_LOCK) \
+		--leverage 4.0 \
+		--max-gross-multiple 1.75 \
+		--max-margin-utilization 0.90
 
 # Automated daily execution: reads the frozen book, sizes it from the real
 # balance, places the orders, and reports the *venue's* fills/positions.

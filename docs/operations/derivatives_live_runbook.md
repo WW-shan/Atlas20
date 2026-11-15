@@ -427,8 +427,9 @@ make audit-live-ls104
 make audit-data-chain             # CMC 缓存 → canonical panel → PIT universe 全链审计
 make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0  # 全部标的：4x、多空、翻转、止损和报价
 make derivatives-signal                 # Telegram 文本 dry-run
-make execution-plan-live                # 读真实账户，只发计划，不下单
-make execute-plan                       # 读真实账户，执行器 dry-run，不下单
+make execution-plan-live-ls104          # 当前 LS104：读真实账户，只发计划，不下单
+make execute-plan-ls104                 # 当前 LS104：读真实账户，执行器 dry-run，不下单
+# 仅回滚 LS45 时使用：make execution-plan-live / make execute-plan
 .venv/bin/python scripts/execute_live_plan.py \
   --live --notify --require-isolated --protect-only
                                         # 只减仓/止损/保证金维护；禁止开仓、加仓
