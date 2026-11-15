@@ -29,9 +29,24 @@ from scripts.audit_live_track import (
     _short_stop_gaps,
     _strategy_stop_history_issues,
     _short_stop_expectation_gaps,
+    _state_track_issue,
     _trade_mismatch,
     _unfilled_order_issues,
 )
+
+
+def test_state_track_guard_rejects_missing_and_cross_track_keys() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+
+    assert _state_track_issue({}, spec) is not None
+    assert "last_key" in str(_state_track_issue({"last_status": "ok"}, spec))
+    cross_track = {
+        "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|old"
+    }
+    issue = _state_track_issue(cross_track, spec)
+    assert issue is not None
+    assert "other track" in issue or "其他 track" in issue
+    assert _state_track_issue({"last_key": f"{spec}|2026-11-13|target|2026-11-15"}, spec) is None
 
 
 def test_execution_floor_issue_rejects_equity_below_the_live_minimum() -> None:

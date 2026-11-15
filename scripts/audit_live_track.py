@@ -638,6 +638,23 @@ def _active_event_state_issues(
     return issues
 
 
+def _state_track_issue(state: Mapping[str, object], expected_spec: str) -> str | None:
+    """Require the persisted execution key to belong to the audited track."""
+
+    if not state:
+        return "执行状态不可用"
+    last_key = str(state.get("last_key") or "").strip()
+    if not last_key:
+        return "执行状态非空但没有 last_key"
+    stored_spec = last_key.split("|", 1)[0]
+    if stored_spec != str(expected_spec):
+        return (
+            "执行状态属于其他 track: "
+            f"stored={stored_spec!r}, expected={str(expected_spec)!r}"
+        )
+    return None
+
+
 def _event_quantity_issues(
     *,
     target_quantities: Mapping[str, float],
@@ -1407,6 +1424,12 @@ def main(argv: list[str] | None = None) -> int:
         "执行状态绑定当前 Bitget 账户",
         binding_issue is None,
         binding_issue or "账户指纹一致",
+    )
+    state_track_issue = _state_track_issue(state, profile.spec)
+    check(
+        "执行状态属于当前冻结 track",
+        state_track_issue is None,
+        state_track_issue or f"last_key track={profile.spec}",
     )
 
     # -- ledger vs venue -------------------------------------------------

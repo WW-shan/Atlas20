@@ -114,7 +114,7 @@ from scripts.plan_live_execution import (  # noqa: E402
     target_gross_weight,
 )
 from scripts.send_derivatives_signal import load_latest_targets  # noqa: E402
-from scripts.send_telegram_signal import _chat_ids, _read_state, send_telegram_message  # noqa: E402
+from scripts.send_telegram_signal import _chat_ids, send_telegram_message  # noqa: E402
 
 DEFAULT_STATE_FILE = Path("data/ls45_g125_execution_state.json")
 DEFAULT_JOURNAL_FILE = Path("reports/ls45_live_g125_live/journal.csv")
@@ -124,6 +124,62 @@ DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/latest.json")
 DEFAULT_LOCK_FILE = Path("data/ls45_g125_execution.lock")
 DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
 DEFAULT_PANEL_FILE = Path("data/processed/panel_daily.csv")
+
+
+def _read_state(path: Path) -> dict[str, Any]:
+    """Read execution state strictly; corruption must never look like an empty run."""
+
+    state_path = Path(path)
+    if not state_path.exists():
+        return {}
+    try:
+        raw = state_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"execution state is unreadable: {state_path}: {exc}") from exc
+    try:
+        state = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"execution state is invalid JSON: {state_path}: {exc}") from exc
+    if not isinstance(state, dict):
+        raise ValueError(f"execution state is not a JSON object: {state_path}")
+    return state
+
+
+def _state_track_issue(state: Mapping[str, Any], spec: str) -> str | None:
+    """Reject a state file whose persisted key belongs to another track."""
+
+    if not state:
+        return None
+    last_key = str(state.get("last_key") or "").strip()
+    if not last_key:
+        return "execution state is non-empty but has no track key"
+    stored_track = last_key.split("|", 1)[0]
+    if stored_track != str(spec):
+        return (
+            "execution state belongs to another track: "
+            f"stored={stored_track!r}, expected={str(spec)!r}"
+        )
+    return None
+
+
+def _require_state_track(state: Mapping[str, Any], spec_or_name: str) -> None:
+    """Fail closed unless state belongs to the selected frozen live track."""
+
+    try:
+        profile = live_track_profile(str(spec_or_name))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    issue = _state_track_issue(state, profile.spec)
+    if issue is not None:
+        raise SystemExit(issue)
+
+
+def _require_existing_state_payload(state: Mapping[str, Any], path: Path) -> None:
+    """An existing state file may be absent, but it may not silently be `{}`."""
+
+    state_path = Path(path)
+    if state_path.exists() and not state:
+        raise SystemExit(f"execution state is empty: {state_path}")
 
 
 def _live_quote_snapshot(
@@ -705,6 +761,48 @@ def _event_target_quantities(
     return quantities
 
 
+def _profile_argument_issues(
+    args: argparse.Namespace, *, profile: Any | None = None
+) -> list[str]:
+    """Reject CLI values that drift from the selected frozen live profile."""
+
+    if profile is None:
+        try:
+            profile = live_track_profile(str(args.spec))
+        except ValueError as exc:
+            return [str(exc)]
+    expected_config = dict(profile.frozen_config)
+    expected_top_level = dict(profile.manifest_top_level)
+    issues: list[str] = []
+    if str(args.spec) != profile.spec:
+        issues.append(f"live --spec={args.spec!r}, expected {profile.spec!r}")
+    expected_args = {
+        "leverage": profile.venue_leverage,
+        "max_margin_utilization": profile.max_margin_utilization,
+        "max_gross_multiple": float(expected_config["max_total_gross"]),
+        "long_buffer": float(expected_config["long_buffer"]),
+        "short_buffer": float(expected_config["short_buffer"]),
+        "short_stop_loss_pct": float(expected_config["short_stop_loss_pct"]),
+        "cost_bps": float(expected_top_level["cost_bps"]),
+    }
+    for name, expected_value in expected_args.items():
+        raw_actual = getattr(args, name, None)
+        try:
+            actual_value = float(raw_actual)
+        except (TypeError, ValueError):
+            issues.append(
+                f"live {name}={raw_actual!r}, expected {float(expected_value):g}"
+            )
+            continue
+        if not isfinite(actual_value) or abs(
+            actual_value - float(expected_value)
+        ) > 1e-9:
+            issues.append(
+                f"live {name}={actual_value:g}, expected {float(expected_value):g}"
+            )
+    return issues
+
+
 def _manifest_spec_issues(
     manifest: dict[str, Any], args: argparse.Namespace
 ) -> list[str]:
@@ -715,41 +813,16 @@ def _manifest_spec_issues(
     except ValueError as exc:
         return [str(exc)]
     expected_config = dict(profile.frozen_config)
-    expected_config["long_buffer"] = float(args.long_buffer)
-    expected_config["short_buffer"] = float(args.short_buffer)
-    expected_config["short_stop_loss_pct"] = float(args.short_stop_loss_pct)
-    expected_config["max_total_gross"] = float(args.max_gross_multiple)
     expected_top_level = dict(profile.manifest_top_level)
-    expected_top_level["max_total_gross"] = float(args.max_gross_multiple)
-    expected_top_level["cost_bps"] = float(args.cost_bps)
-    margin_cap = float(
-        getattr(args, "max_margin_utilization", profile.max_margin_utilization)
+    issues = _profile_argument_issues(args, profile=profile)
+    issues.extend(
+        manifest_spec_issues(
+            manifest,
+            expected_spec=profile.spec,
+            expected_frozen_config=expected_config,
+            expected_top_level=expected_top_level,
+        )
     )
-    if "max_margin_utilization" in expected_top_level:
-        expected_top_level["max_margin_utilization"] = margin_cap
-    if "venue_leverage" in expected_top_level:
-        expected_top_level["venue_leverage"] = float(args.leverage)
-
-    issues = manifest_spec_issues(
-        manifest,
-        expected_spec=profile.spec,
-        expected_frozen_config=expected_config,
-        expected_top_level=expected_top_level,
-    )
-    if str(args.spec) != profile.spec:
-        issues.append(
-            f"live --spec={args.spec!r}, expected {profile.spec!r}"
-        )
-    if abs(float(args.leverage) - profile.venue_leverage) > 1e-9:
-        issues.append(
-            f"live leverage={float(args.leverage):g}x, expected "
-            f"{profile.venue_leverage:g}x isolated"
-        )
-    if abs(margin_cap - profile.max_margin_utilization) > 1e-9:
-        issues.append(
-            f"live max_margin_utilization={margin_cap:g}, expected "
-            f"{profile.max_margin_utilization:g}"
-        )
     return issues
 
 
@@ -1284,6 +1357,7 @@ def _reconcile_live_stops_from_context(
 ) -> int:
     """Repair journal/state for venue stops without planning any new risk."""
 
+    _require_state_track(state, args.spec)
     binding_issue = account_state_binding_issue(state, account_fp)
     if binding_issue is not None:
         raise SystemExit(binding_issue)
@@ -1738,6 +1812,10 @@ def _write_state(
     mode: str = "execution",
 ) -> None:
     state = _read_state(path)
+    expected_track = key.split("|", 1)[0]
+    track_issue = _state_track_issue(state, expected_track)
+    if track_issue is not None:
+        raise ValueError(track_issue)
     if account_fp:
         state["account_fingerprint"] = account_fp
     state["last_key"] = key
@@ -1908,6 +1986,14 @@ def _persist_run_result(
 ) -> None:
     """Persist artifacts in an order that never marks an unwritten run as done."""
 
+    # Validate the state before writing the journal or latest report.  A corrupt
+    # file must not be silently replaced with a fresh state after an execution.
+    state = _read_state(state_file)
+    if state_file.exists() and not state:
+        raise ValueError(f"execution state is empty: {state_file}")
+    track_issue = _state_track_issue(state, key.split("|", 1)[0])
+    if track_issue is not None:
+        raise ValueError(track_issue)
     journal = load_journal(journal_file)
     same_day = journal.loc[journal["date"].astype(str) == entry.date]
     if not same_day.empty:
@@ -1961,9 +2047,16 @@ def _protect_only_main(args: argparse.Namespace) -> int:
 
     if not args.live:
         raise SystemExit("--protect-only requires --live")
+    profile_issues = _profile_argument_issues(args)
+    if profile_issues:
+        raise SystemExit(
+            "protect-only profile parameters do not match the frozen live track: "
+            + "; ".join(profile_issues)
+        )
     state = _read_state(args.state_file)
     if not state:
         raise SystemExit("protect-only requires an existing execution state")
+    _require_state_track(state, args.spec)
     active_event = state.get("active_event")
     if not isinstance(active_event, dict):
         raise SystemExit("protect-only requires an active target event")
@@ -2291,6 +2384,7 @@ def _reconcile_only_main(args: argparse.Namespace) -> int:
     state = _read_state(args.state_file)
     if not state:
         raise SystemExit("reconcile-only requires an existing execution state")
+    _require_state_track(state, args.spec)
     symbols_by_asset = load_symbol_map(args.symbol_map)
     relevant_symbols = spec_symbol_universe(symbols_by_asset)
     client = BitgetPrivateClient(BitgetCredentials.from_env())
@@ -2324,6 +2418,9 @@ def _main(args: argparse.Namespace) -> int:
         )
     if args.protect_only:
         return _protect_only_main(args)
+    state = _read_state(args.state_file)
+    _require_existing_state_payload(state, args.state_file)
+    _require_state_track(state, args.spec)
 
     signal_date, event_execution_hint, book = load_latest_targets(args.targets_file)
     manifest: dict[str, Any] | None = None
@@ -2560,7 +2657,6 @@ def _main(args: argparse.Namespace) -> int:
         run_day,
         target_identity,
     )
-    state = _read_state(args.state_file)
     binding_issue = account_state_binding_issue(state, account_fp)
     if binding_issue is not None:
         raise SystemExit(
@@ -3080,6 +3176,13 @@ def _handle_fatal_execution(args: argparse.Namespace, exc: BaseException) -> int
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.live and not args.reconcile_only and not args.require_isolated:
+        return _handle_fatal_execution(
+            args,
+            SystemExit(
+                "live execution requires --require-isolated for the frozen live track"
+            ),
+        )
     lock: TextIO | None = None
     if args.live:
         try:

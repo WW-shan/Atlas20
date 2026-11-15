@@ -36,7 +36,7 @@ import json
 from math import isfinite
 from pathlib import Path
 import sys
-from typing import Iterable
+from typing import Any, Iterable
 
 import pandas as pd
 import requests
@@ -61,6 +61,8 @@ from atlas20.derivatives.execution import (  # noqa: E402
 from atlas20.derivatives.http import get_json_with_retries  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     live_execution_hint_for_signal,
+    live_track_profile,
+    manifest_spec_issues,
     manifest_targets_hash_issue,
 )
 from atlas20.derivatives.mapping import LiveSymbolMap  # noqa: E402
@@ -122,6 +124,69 @@ def manifest_signal_end_date(path: Path) -> pd.Timestamp | None:
     else:
         stamp = stamp.tz_convert("UTC")
     return stamp.normalize()
+
+
+def _profile_argument_issues(
+    args: argparse.Namespace, *, profile: Any | None = None
+) -> list[str]:
+    """Reject plan inputs that drift from the selected frozen live profile."""
+
+    if profile is None:
+        try:
+            profile = live_track_profile(str(args.spec))
+        except ValueError as exc:
+            return [str(exc)]
+    expected_config = dict(profile.frozen_config)
+    expected_top_level = dict(profile.manifest_top_level)
+    issues: list[str] = []
+    if str(args.spec) != profile.spec:
+        issues.append(f"plan --spec={args.spec!r}, expected {profile.spec!r}")
+    expected_args = {
+        "leverage": profile.venue_leverage,
+        "max_margin_utilization": profile.max_margin_utilization,
+        "max_gross_multiple": float(expected_config["max_total_gross"]),
+        "long_buffer": float(expected_config["long_buffer"]),
+        "short_buffer": float(expected_config["short_buffer"]),
+        "short_stop_loss_pct": float(expected_config["short_stop_loss_pct"]),
+        "cost_bps": float(expected_top_level["cost_bps"]),
+    }
+    for name, expected_value in expected_args.items():
+        raw_actual = getattr(args, name, None)
+        try:
+            actual_value = float(raw_actual)
+        except (TypeError, ValueError):
+            issues.append(
+                f"plan {name}={raw_actual!r}, expected {float(expected_value):g}"
+            )
+            continue
+        if not isfinite(actual_value) or abs(
+            actual_value - float(expected_value)
+        ) > 1e-9:
+            issues.append(
+                f"plan {name}={actual_value:g}, expected {float(expected_value):g}"
+            )
+    return issues
+
+
+def _manifest_spec_issues(
+    manifest: dict[str, Any], args: argparse.Namespace
+) -> list[str]:
+    """Compare a plan manifest with the selected profile, independent of CLI."""
+
+    try:
+        profile = live_track_profile(str(args.spec))
+    except ValueError as exc:
+        return [str(exc)]
+    issues = _profile_argument_issues(args, profile=profile)
+    issues.extend(
+        manifest_spec_issues(
+            manifest,
+            expected_spec=profile.spec,
+            expected_frozen_config=dict(profile.frozen_config),
+            expected_top_level=dict(profile.manifest_top_level),
+        )
+    )
+    return issues
 
 
 def load_symbol_map(path: Path) -> LiveSymbolMap:
@@ -610,12 +675,33 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="send even if this plan was already notified")
     args = parser.parse_args()
 
+    profile_issues = _profile_argument_issues(args)
+    if profile_issues:
+        raise SystemExit(
+            "execution plan parameters do not match the frozen live track: "
+            + "; ".join(profile_issues)
+        )
+    if args.live and not args.manifest_file.is_file():
+        raise SystemExit(
+            f"live execution planning requires the frozen manifest at {args.manifest_file}"
+        )
+
     symbols_by_asset = load_symbol_map(args.symbol_map)
     signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
     if args.manifest_file.is_file():
         manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
         if not isinstance(manifest, dict):
             raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
+        if args.live and not manifest.get("targets_sha256"):
+            raise SystemExit(
+                "live execution planning requires manifest targets_sha256"
+            )
+        manifest_issues = _manifest_spec_issues(manifest, args)
+        if manifest_issues:
+            raise SystemExit(
+                "frozen manifest does not match the execution plan profile: "
+                + "; ".join(manifest_issues)
+            )
         targets_hash_issue = manifest_targets_hash_issue(
             manifest,
             args.targets_file,

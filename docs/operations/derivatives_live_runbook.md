@@ -479,7 +479,7 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读。2026-11-15 真实账户输出为 **39 项硬检查 + 1 项非硬告警**；
+`scripts/audit_live_track.py` 只读。2026-11-15 真实账户输出为 **40 项硬检查 + 1 项非硬告警**；
 下面按检查族归纳：
 
 1. 冻结目标都有唯一 Bitget 合约映射；
@@ -495,7 +495,8 @@ make audit-live
 10. 所有持仓合约都能在冻结 symbol map 中唯一映射；
 11. 每腿 `marginMode=isolated`、杠杆为 profile 的 4x（LS104）/ 2x（LS45）、保证金缓冲不低于 45%；
 12. API key/账户分类未命中 copy-trading/elite 逐仓限制；
-13. 执行状态带账户指纹，且与当前 Bitget 账户一致；旧/未绑定 legacy state 失败；
+13. 执行状态带账户指纹，且与当前 Bitget 账户一致；`last_key` 的 track spec 也必须等于当前
+    profile，旧/未绑定/跨 track state 全部失败；
 14. journal 最新权益按实时 mark 和外部资金流折算后等于账户；专用对账容差为
     `max(0.10 USDT, 权益的 2bps)`，只吸收两次交易所请求之间的 mark 快照差，不改变策略风险门禁；
 15. journal PnL 链在剔除 capital flow 后连续；

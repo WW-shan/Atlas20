@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import argparse
+import sys
+
 import pandas as pd
 import pytest
 
@@ -66,6 +69,90 @@ def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
     path.write_text('{"signal_end_date": "2026-11-12"}', encoding="utf-8")
 
     assert manifest_signal_end_date(path) == pd.Timestamp("2026-11-12", tz="UTC")
+
+
+def test_live_plan_requires_a_frozen_manifest_before_reading_market_files(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plan_live_execution.py",
+            "--live",
+            "--manifest-file",
+            str(tmp_path / "missing.json"),
+        ],
+    )
+    monkeypatch.setattr(
+        plan_live_execution,
+        "load_symbol_map",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("market-file loading must not start without a live manifest")
+        ),
+    )
+
+    with pytest.raises(SystemExit, match="manifest"):
+        plan_live_execution.main()
+
+
+def _plan_profile_args(**overrides):
+    from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
+
+    values = {
+        "spec": LS104_G175_M090_SPEC,
+        "leverage": 4.0,
+        "long_buffer": 0.50,
+        "short_buffer": 0.50,
+        "short_stop_loss_pct": 0.20,
+        "max_gross_multiple": 1.75,
+        "max_margin_utilization": 0.90,
+        "cost_bps": 20.0,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+@pytest.mark.parametrize(
+    ("field", "forged_value", "arg_name"),
+    [
+        ("max_gross_multiple", 2.50, "max_gross_multiple"),
+        ("long_buffer", 0.10, "long_buffer"),
+        ("short_buffer", 0.10, "short_buffer"),
+        ("short_stop_loss_pct", 0.05, "short_stop_loss_pct"),
+        ("cost_bps", 0.0, "cost_bps"),
+    ],
+)
+def test_plan_manifest_cannot_override_the_pinned_ls104_profile(
+    field: str, forged_value: float, arg_name: str
+) -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+    )
+
+    config = dict(LS104_G175_M090_FROZEN_CONFIG)
+    top_level = dict(LS104_G175_M090_MANIFEST_TOP_LEVEL)
+    if field in config:
+        config[field] = forged_value
+    if field in top_level:
+        top_level[field] = forged_value
+    if field == "max_gross_multiple":
+        config["max_total_gross"] = forged_value
+        top_level["max_total_gross"] = forged_value
+    manifest = {
+        "tracked_spec": LS104_G175_M090_SPEC,
+        "frozen_config": config,
+        **top_level,
+    }
+
+    issues = plan_live_execution._manifest_spec_issues(
+        manifest,
+        _plan_profile_args(**{arg_name: forged_value}),
+    )
+
+    assert issues
 
 
 def test_public_prices_reject_non_positive_and_non_finite_values(monkeypatch) -> None:
