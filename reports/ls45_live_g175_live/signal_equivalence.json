@@ -1,8 +1,8 @@
 {
-  "checked_at": "2026-11-14T23:42:16.392468+00:00",
+  "checked_at": "2026-11-15T00:39:04.931046+00:00",
   "differences": [],
   "differing_rows": 0,
-  "end_date": "2026-11-13",
+  "end_date": "2026-11-14",
   "events_only_in_frozen": [],
   "events_only_in_replay": [],
   "expected_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",

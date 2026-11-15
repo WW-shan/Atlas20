@@ -131,7 +131,7 @@
       "passed": true
     },
     {
-      "detail": "panel reaches 2026-11-13",
+      "detail": "panel reaches 2026-11-14",
       "name": "panel.last_completed_day",
       "passed": true
     },
@@ -226,12 +226,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.1inch.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.1inch.required_bar",
       "passed": true
     },
@@ -321,12 +321,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.aave.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.aave.required_bar",
       "passed": true
     },
@@ -416,12 +416,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.algorand.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.algorand.required_bar",
       "passed": true
     },
@@ -511,12 +511,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.apecoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.apecoin.required_bar",
       "passed": true
     },
@@ -606,12 +606,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.aptos.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.aptos.required_bar",
       "passed": true
     },
@@ -701,12 +701,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.arbitrum.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.arbitrum.required_bar",
       "passed": true
     },
@@ -796,12 +796,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.aster-2.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.aster-2.required_bar",
       "passed": true
     },
@@ -891,12 +891,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.avalanche-2.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.avalanche-2.required_bar",
       "passed": true
     },
@@ -986,12 +986,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.axie-infinity.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.axie-infinity.required_bar",
       "passed": true
     },
@@ -1081,12 +1081,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.basic-attention-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.basic-attention-token.required_bar",
       "passed": true
     },
@@ -1176,12 +1176,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.binancecoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.binancecoin.required_bar",
       "passed": true
     },
@@ -1271,12 +1271,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.bitcoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.bitcoin.required_bar",
       "passed": true
     },
@@ -1371,12 +1371,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.bitcoin-cash.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.bitcoin-cash.required_bar",
       "passed": true
     },
@@ -1466,12 +1466,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.bitget-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.bitget-token.required_bar",
       "passed": true
     },
@@ -1561,12 +1561,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.bittensor.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.bittensor.required_bar",
       "passed": true
     },
@@ -1656,12 +1656,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.bitway.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.bitway.required_bar",
       "passed": true
     },
@@ -1751,12 +1751,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.canton-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.canton-network.required_bar",
       "passed": true
     },
@@ -1846,12 +1846,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.cardano.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.cardano.required_bar",
       "passed": true
     },
@@ -1941,12 +1941,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.celestia.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.celestia.required_bar",
       "passed": true
     },
@@ -2036,12 +2036,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.chainlink.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.chainlink.required_bar",
       "passed": true
     },
@@ -2131,12 +2131,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.chiliz.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.chiliz.required_bar",
       "passed": true
     },
@@ -2226,12 +2226,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.compound-governance-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.compound-governance-token.required_bar",
       "passed": true
     },
@@ -2321,12 +2321,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.cosmos.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.cosmos.required_bar",
       "passed": true
     },
@@ -2416,12 +2416,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.crypto-com-chain.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.crypto-com-chain.required_bar",
       "passed": true
     },
@@ -2511,12 +2511,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.curve-dao-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.curve-dao-token.required_bar",
       "passed": true
     },
@@ -2606,12 +2606,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.decentraland.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.decentraland.required_bar",
       "passed": true
     },
@@ -2701,12 +2701,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.dogecoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.dogecoin.required_bar",
       "passed": true
     },
@@ -2796,12 +2796,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.dydx-chain.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.dydx-chain.required_bar",
       "passed": true
     },
@@ -2891,12 +2891,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.elrond-erd-2.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.elrond-erd-2.required_bar",
       "passed": true
     },
@@ -2986,12 +2986,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.enjincoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.enjincoin.required_bar",
       "passed": true
     },
@@ -3081,12 +3081,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ethena.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ethena.required_bar",
       "passed": true
     },
@@ -3176,12 +3176,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ethereum.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ethereum.required_bar",
       "passed": true
     },
@@ -3271,12 +3271,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ethereum-classic.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ethereum-classic.required_bar",
       "passed": true
     },
@@ -3366,12 +3366,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ethereum-name-service.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ethereum-name-service.required_bar",
       "passed": true
     },
@@ -3461,12 +3461,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.fantom.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.fantom.required_bar",
       "passed": true
     },
@@ -3556,12 +3556,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.filecoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.filecoin.required_bar",
       "passed": true
     },
@@ -3651,12 +3651,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.gala.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.gala.required_bar",
       "passed": true
     },
@@ -3746,12 +3746,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.havven.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.havven.required_bar",
       "passed": true
     },
@@ -3841,12 +3841,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.hedera-hashgraph.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.hedera-hashgraph.required_bar",
       "passed": true
     },
@@ -3941,12 +3941,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.hyperliquid.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.hyperliquid.required_bar",
       "passed": true
     },
@@ -4036,12 +4036,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.immutable-x.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.immutable-x.required_bar",
       "passed": true
     },
@@ -4131,12 +4131,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.injective-protocol.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.injective-protocol.required_bar",
       "passed": true
     },
@@ -4226,12 +4226,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.internet-computer.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.internet-computer.required_bar",
       "passed": true
     },
@@ -4321,12 +4321,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.jupiter-exchange-solana.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.jupiter-exchange-solana.required_bar",
       "passed": true
     },
@@ -4416,12 +4416,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.kaspa.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.kaspa.required_bar",
       "passed": true
     },
@@ -4511,12 +4511,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.lido-dao.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.lido-dao.required_bar",
       "passed": true
     },
@@ -4606,12 +4606,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.litecoin.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.litecoin.required_bar",
       "passed": true
     },
@@ -4701,12 +4701,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.matic-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.matic-network.required_bar",
       "passed": true
     },
@@ -4796,12 +4796,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.memecore.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.memecore.required_bar",
       "passed": true
     },
@@ -4891,12 +4891,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.monero.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.monero.required_bar",
       "passed": true
     },
@@ -4986,12 +4986,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.morpho.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.morpho.required_bar",
       "passed": true
     },
@@ -5086,12 +5086,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.near.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.near.required_bar",
       "passed": true
     },
@@ -5181,12 +5181,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.neo.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.neo.required_bar",
       "passed": true
     },
@@ -5276,12 +5276,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ondo-finance.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ondo-finance.required_bar",
       "passed": true
     },
@@ -5371,12 +5371,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.optimism.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.optimism.required_bar",
       "passed": true
     },
@@ -5466,12 +5466,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.pancakeswap-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.pancakeswap-token.required_bar",
       "passed": true
     },
@@ -5561,12 +5561,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.pepe.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.pepe.required_bar",
       "passed": true
     },
@@ -5656,12 +5656,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.pi-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.pi-network.required_bar",
       "passed": true
     },
@@ -5751,12 +5751,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.polkadot.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.polkadot.required_bar",
       "passed": true
     },
@@ -5846,12 +5846,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.polygon-ecosystem-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.polygon-ecosystem-token.required_bar",
       "passed": true
     },
@@ -5941,12 +5941,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.pump-fun.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.pump-fun.required_bar",
       "passed": true
     },
@@ -6036,12 +6036,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.quant-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.quant-network.required_bar",
       "passed": true
     },
@@ -6131,12 +6131,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.render-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.render-token.required_bar",
       "passed": true
     },
@@ -6226,12 +6226,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.ripple.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.ripple.required_bar",
       "passed": true
     },
@@ -6321,12 +6321,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.sei-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.sei-network.required_bar",
       "passed": true
     },
@@ -6416,12 +6416,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.shiba-inu.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.shiba-inu.required_bar",
       "passed": true
     },
@@ -6511,12 +6511,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.sky.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.sky.required_bar",
       "passed": true
     },
@@ -6606,12 +6606,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.solana.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.solana.required_bar",
       "passed": true
     },
@@ -6701,12 +6701,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.stellar.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.stellar.required_bar",
       "passed": true
     },
@@ -6796,12 +6796,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.stepn.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.stepn.required_bar",
       "passed": true
     },
@@ -6891,12 +6891,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.sui.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.sui.required_bar",
       "passed": true
     },
@@ -6986,12 +6986,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.sushi.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.sushi.required_bar",
       "passed": true
     },
@@ -7081,12 +7081,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.terra-luna.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.terra-luna.required_bar",
       "passed": true
     },
@@ -7176,12 +7176,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.terra-luna-2.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.terra-luna-2.required_bar",
       "passed": true
     },
@@ -7271,12 +7271,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.tezos.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.tezos.required_bar",
       "passed": true
     },
@@ -7366,12 +7366,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.the-graph.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.the-graph.required_bar",
       "passed": true
     },
@@ -7461,12 +7461,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.the-open-network.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.the-open-network.required_bar",
       "passed": true
     },
@@ -7556,12 +7556,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.the-sandbox.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.the-sandbox.required_bar",
       "passed": true
     },
@@ -7651,12 +7651,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.theta-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.theta-token.required_bar",
       "passed": true
     },
@@ -7746,12 +7746,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.thorchain.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.thorchain.required_bar",
       "passed": true
     },
@@ -7841,12 +7841,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.tron.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.tron.required_bar",
       "passed": true
     },
@@ -7936,12 +7936,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.uniswap.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.uniswap.required_bar",
       "passed": true
     },
@@ -8031,12 +8031,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.vechain.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.vechain.required_bar",
       "passed": true
     },
@@ -8126,12 +8126,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.venice-token.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.venice-token.required_bar",
       "passed": true
     },
@@ -8221,12 +8221,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.world-liberty-financial.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.world-liberty-financial.required_bar",
       "passed": true
     },
@@ -8316,12 +8316,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.worldcoin-wld.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.worldcoin-wld.required_bar",
       "passed": true
     },
@@ -8416,12 +8416,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.zcash.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.zcash.required_bar",
       "passed": true
     },
@@ -8511,12 +8511,12 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-14 16:00:00+00:00 is before required 2026-11-14 00:00:00+00:00",
+      "detail": "last mark 2026-11-14 23:00:00+00:00 is before required 2026-11-14 23:00:00+00:00",
       "name": "marks.zilliqa.last_bar",
       "passed": true
     },
     {
-      "detail": "required mark bar 2026-11-14 00:00:00+00:00 present",
+      "detail": "required mark bar 2026-11-14 23:00:00+00:00 present",
       "name": "marks.zilliqa.required_bar",
       "passed": true
     },
@@ -11615,96 +11615,96 @@
   "passed": true,
   "provenance": {
     "files": {
-      "candles/1INCHUSDT_mark.csv": "8c3bc5284d2caa40dd26f5e45ed9b69987bb30091231e0a9c19a0b367440573e",
-      "candles/AAVEUSDT_mark.csv": "f0effae5f2411eaee06bbaaf21b3b88304dd9c8b0cdb37ee6738ad34c1c5552b",
-      "candles/ADAUSDT_mark.csv": "dface1ba173b3ad36bee63bbf2b9637fd10b6c24f86bff95256811d30a9a0321",
-      "candles/ALGOUSDT_mark.csv": "16348ff7465a3693dbf9d5f62111025c064f60149ee5923cc0d8cf6a9c70326c",
-      "candles/APEUSDT_mark.csv": "debab5f5575fd3be83c895989ca19699565d7e0b4a3f71f3584b209923332acd",
-      "candles/APTUSDT_mark.csv": "02fb074b700924c821304a5553d2d4af2d55472d1f7a462f801bde62aef725df",
-      "candles/ARBUSDT_mark.csv": "f219c452a2c422b0584bceb71b406c417f0a50390e67f32655f5d70909123fcd",
-      "candles/ASTERUSDT_mark.csv": "b6819a9c25a1ed37e68809311aeb5744edadeba839177a7d5d8a0332972f2286",
-      "candles/ATOMUSDT_mark.csv": "633f0ffc345b58bd41a26996780650446d521abb2138b82bb41e67cbf4d0a9e3",
-      "candles/AVAXUSDT_mark.csv": "300d430d39fc8fe4a0b250ad0350157d65f1a7b501249423454b13fbdc5731f6",
-      "candles/AXSUSDT_mark.csv": "ed54a6d102208cc796b7f77750e0f16b4b335882922b36878ca33733a35a8983",
-      "candles/BATUSDT_mark.csv": "729ac272c484be1723942e42422124508b0ab55da8dac0833a4fe6d8be5b6d8e",
-      "candles/BCHUSDT_mark.csv": "a541d327ee03182e4493d919c3ceccf0f290c1c4e52ac6117cdd51b77b58f6b8",
-      "candles/BGBUSDT_mark.csv": "e3ac53157e06e8e17d487ddacc2cacc96613badac9b2ec839db0fa4604e68d4d",
-      "candles/BNBUSDT_mark.csv": "047a66189461e615a43c7a771653abf842a6b3d5ae7c02684b5f8df437e0e04b",
-      "candles/BTCUSDT_mark.csv": "a19e8abfb242b16dcd7caf72f57d810106ce335c5123cb64a236ced30c488422",
-      "candles/BTWUSDT_mark.csv": "1baa78d18fe8a22d126484a8319cc971b8cb07a77fa7c79116bbb7e9b9fcb74f",
-      "candles/CAKEUSDT_mark.csv": "0acbc25f72f8ca8ab8869f6892842e66bc09bf53e38004a6ce0c0f8c1b6e6327",
-      "candles/CCUSDT_mark.csv": "b1626c3c123daf62aab2d5b9f60c18db697a32258053b4de3986273106deff00",
-      "candles/CHZUSDT_mark.csv": "58291cc8846158af2fa908e2829cf7629d25830ed40d528fb94767b3061e6144",
-      "candles/COMPUSDT_mark.csv": "aa895183a8375c47293fc028bcd9fb4f85a0392adf15072a372967c4f4d9aae6",
-      "candles/CROUSDT_mark.csv": "a9e62c8d6fa6033257902b9b385f075b8d402fd86552745472fe777fd51993ee",
-      "candles/CRVUSDT_mark.csv": "79b1591cd0c95dd40a1a1aeb2351acb387306ab1046924da04fd3c0fee32df28",
-      "candles/DOGEUSDT_mark.csv": "7fffaeea48d0e9f5c1a8dd17a3da25bdbdd8eba91a8fb665b094725757676e5e",
-      "candles/DOTUSDT_mark.csv": "98a349c9d302a72bf14d3e4e7168e862f8fca796cb2950bb07169e4278caf5d7",
-      "candles/DYDXUSDT_mark.csv": "dd37385e4e32381addc4acaebce7c164f47864dccc79eb3ef28ed592fcb61370",
-      "candles/EGLDUSDT_mark.csv": "2907df1c26b9ade3134d615b95f3ba3ae053153a6c18dc9b8212d9bf3604924a",
-      "candles/ENAUSDT_mark.csv": "477e7dc714da83502d0c97533592e33da6f2bd07e96aa3b4fbc650f10199a6d1",
-      "candles/ENJUSDT_mark.csv": "d2cec05412f392eab43848d875c7ec1bcfc885d384a9f098cda1f93a78060858",
-      "candles/ENSUSDT_mark.csv": "286b3e4efc28b0902a3fe60373cdcf50b39baf0090032ddc9ec3c0d2713f4143",
-      "candles/ETCUSDT_mark.csv": "355b115e86cd19c10c40027b9a174d45c43f3f1d7242bfca4c9d61778149f319",
-      "candles/ETHUSDT_mark.csv": "faf03dc9130786c20656044f1688859bc5bf29bfca798c2e8d0621beea2e8f25",
-      "candles/FILUSDT_mark.csv": "6ef54f5cf75bc77ceebbaab7d3cafbb625d8f30ccdb76ca2227e36171507d4f1",
-      "candles/GALAUSDT_mark.csv": "76d620138514e8ba0e470d804874d522e34a46e68217f65e8c9beb81e90206e6",
-      "candles/GMTUSDT_mark.csv": "63806457af6b04f360e898f93957badc839b51159114bbc497feb1e108497d68",
-      "candles/GRAMUSDT_mark.csv": "84d5ce6fb545da326546528dc19eb7613c6501aa0dd0b151f053ef1455915d8d",
-      "candles/GRTUSDT_mark.csv": "52d1c53f7dee2b2a22cfe51f98fe6b0ca2b674f7df65705c062bc6343c0cf215",
-      "candles/HBARUSDT_mark.csv": "5db603de5c5c7b16716eb61a34a4605614b668116eba5c414aad6b60b05ca1be",
-      "candles/HYPEUSDT_mark.csv": "1e07f7a7e77b8fa565293d32b5988cc7334ca1e9caf2939a1846b102a97e1cec",
-      "candles/ICPUSDT_mark.csv": "50a1c7fd56aea6929ea93bc99d27a2d83ac6797e712e9d77272c2344b38f878c",
-      "candles/IMXUSDT_mark.csv": "fb66f44ae622082be0ed2b59a43749f414944bc5616f54f296015003d9b97368",
-      "candles/INJUSDT_mark.csv": "14949e49270f917d6a8a949bc5dc603adcccad795f9e3bc7956530665a817d63",
-      "candles/JUPUSDT_mark.csv": "439c4aa444670946b72ed891f24d7fb5267df4f616961361cbe4fe9ab308ef81",
-      "candles/KASUSDT_mark.csv": "d81817db6b6bfdc04f8cff9ff2c1a09c14ae0cd4358e1145574909f336892a43",
-      "candles/LDOUSDT_mark.csv": "067b6e0f8eb2a691f2939fed201976a3ccdae7a9dcfb88cc04151a5f3600ed06",
-      "candles/LINKUSDT_mark.csv": "f41d071029b6e787a9aacb8b52edf061a6ced3cc2ae0131aa613691e38704b3f",
-      "candles/LTCUSDT_mark.csv": "f272ef9e436a475e0aad655c345fe1e577e5cb58641f8131e2de93d8e618cf97",
-      "candles/LUNAUSDT_mark.csv": "fb16f7f2b14c2049ab280a2f139786518b44f712880a4892248cad364b388aa9",
-      "candles/LUNCUSDT_mark.csv": "b99a9b2389a624dadc899e54279c4250b7480c730bfac0575e16f0369b75e436",
-      "candles/MANAUSDT_mark.csv": "3a6e3dd3f39ebdc674cdfe85cd6bd8e60933a53829e70770fec5603a0781c38b",
-      "candles/MORPHOUSDT_mark.csv": "450b673ffc944e6ce68f279e7c784f46e0551546ad93138b016c76e7d5740681",
-      "candles/MUSDT_mark.csv": "ab15cbd5c38799c6948a5dfa3696c1d74e9217e751cf5c9af0230c985d35b67d",
-      "candles/NEARUSDT_mark.csv": "a4c2c29152136c244acf6d545e0c4915c3a501ed9c6a2038e715c3a6d2eadb1a",
-      "candles/NEOUSDT_mark.csv": "210ee204f1991da00beb3621e5e50c189355515e9dd636f2241f732c87376d54",
-      "candles/ONDOUSDT_mark.csv": "3ceb1f909fb0c5e0442c1bb2ebb0ddd735a423128e8436160599fbbb07d59d14",
-      "candles/OPUSDT_mark.csv": "20ccb7ca3ad85ae1355a252fbd69da2c095347e47c249abbca0ac41b6b39e521",
-      "candles/PEPEUSDT_mark.csv": "9c6f5fe4d2729b639c46c11c8b2e635106ac318cd29a98c282ee7f8308084091",
-      "candles/PIUSDT_mark.csv": "ca8c93d6358ca7d1bbd5f027f9a6bea23bcf6a8c4e35cd2eda0072a001dd1a70",
-      "candles/POLUSDT_mark.csv": "ed844ecb6cfd97d77fea5a13db195b6921b46113978b4f92c1cd1ad5c81a80aa",
-      "candles/PUMPUSDT_mark.csv": "e99d5bc0637dfd863814d2ab5e19c626b0d36899a5500fe74e003d52e539f6f3",
-      "candles/QNTUSDT_mark.csv": "621f9e5fdb07d0dff8393fc5357ddc25e3d61c29d89a40877869738676b8e4a7",
-      "candles/RENDERUSDT_mark.csv": "b3437cd603248386a445c47dca895b4b7e11ff6d3ea614618d76864a1ac54150",
-      "candles/RUNEUSDT_mark.csv": "896eb675a32c2b9ff2ebfe107c6efcda0d21d6895d01ff74ea3b84ffa00a2016",
-      "candles/SANDUSDT_mark.csv": "04521a3c40297f57c9b5a64d0e9dd1261e02e486f06dcfec4dd448763e22f783",
-      "candles/SEIUSDT_mark.csv": "74edada18cbe7a157710dfc9753580c82fda7647b9d0415472f6ec83a0fd0f21",
-      "candles/SHIBUSDT_mark.csv": "83e5052dd40015bd399af2475ad2bf9597e60728ab61a081f323909cebc971d3",
-      "candles/SKYUSDT_mark.csv": "dc8964f356505a73fac7177914f45f705207c34fe2f151b380abe240ffce913c",
-      "candles/SNXUSDT_mark.csv": "51f317ca321811e1e4c817800b0b9264b006a62cd2a2ee9eb4ef1f210b7b0ab2",
-      "candles/SOLUSDT_mark.csv": "8ef8540e671f0addfe7dc861e5590006d1981731540ace03a34633bf2ef36520",
-      "candles/SUIUSDT_mark.csv": "784dd2997589d7f08f3b4e0ca9e301a4889f73de3fd07610355c71f84196c18c",
-      "candles/SUSDT_mark.csv": "ee80b6ed2b47d37bb3ad3606cd70fdd3f148ab105100e275aa42cd9b5cd4cc5d",
-      "candles/SUSHIUSDT_mark.csv": "83f5b66c4bf8949c3196a279e7d828d7cd71adbe5aaf8fb67a42a60de64ef117",
-      "candles/TAOUSDT_mark.csv": "1940f7348edac488ce5d1867a2602770beea0ff46521c0dd6a6ba607ccdfa7cf",
-      "candles/THETAUSDT_mark.csv": "fbea98ebbf72baf621e9946c3cf007fe8a3d7b3379cc8368c20e114bd4f38984",
-      "candles/TIAUSDT_mark.csv": "599d7c9d8c4256b4c4f0f88acac841d2247f31fc262db182518f54bbe0407fc3",
-      "candles/TRXUSDT_mark.csv": "b99e0a5079e92ef5661ec4febde6a24c6a393977e62b1fe720f86e4080dfbd90",
-      "candles/UNIUSDT_mark.csv": "07ed32c22dc6da450379438113d18f77a594d7d818327916355c32523f7e9c94",
-      "candles/VETUSDT_mark.csv": "3a07b04a91a92a5e6d8140b7b098f9ac200919267f525b085c6db7540ecf3ec9",
-      "candles/VVVUSDT_mark.csv": "1c425d6a5a38148fb3581fa187d1b48ef529b1e20419986381d18a27065214d6",
-      "candles/WLDUSDT_mark.csv": "902eaf50e989de3729dfc053157684539a6024fa14b967b774b9f420038b43b5",
-      "candles/WLFIUSDT_mark.csv": "83fa74e642d9489ebac7a1f531ff2bd6c3d25dfc950d6ddfc4340d003159d397",
-      "candles/XLMUSDT_mark.csv": "1dad4daf6e04fb37fe097d2ad9f4a6d5ba6902520c101accc3c884785c3185b3",
-      "candles/XMRUSDT_mark.csv": "7857bbb46ce9462f49e2500383d484bd9b2429f01a2de94c95ddbde5412f6c52",
-      "candles/XRPUSDT_mark.csv": "ae4d6821d52246d455250675f410eac1f38c1955ea5587fe83940942c238e521",
-      "candles/XTZUSDT_mark.csv": "f318ca95af43824bb6832aa88d5325237f8df43b7c69e85023080ddab1037ec6",
-      "candles/ZECUSDT_mark.csv": "3fd241a8e2ce9b3343bb88d23d7a87afa41ab16bec01ac72ac6fbbf5a1b2dc39",
-      "candles/ZILUSDT_mark.csv": "d578fc3cdd5e722f99c30110cac50b0b7f965be550486cc0cbbd442cd49abeb2",
+      "candles/1INCHUSDT_mark.csv": "af7b7a53de6b2f99a3b631d276f11592a74fe309219afae2e361798d03e328df",
+      "candles/AAVEUSDT_mark.csv": "7794b7981dfcd2e02a72bbb74e6af932ceb5973854b9cf29bcd7ff8c6d463b2b",
+      "candles/ADAUSDT_mark.csv": "dfa10d56a4816af5732192a81480dbe9193f85e5aeb62ff476da81c8e42b0a82",
+      "candles/ALGOUSDT_mark.csv": "eeb886c4668015391e5402d7d04d66878016eccf36105dcb34e2ccdd25855775",
+      "candles/APEUSDT_mark.csv": "db629dc84825086752adc35897493c1232cd13781e99da5648c89f791986e05b",
+      "candles/APTUSDT_mark.csv": "02dc66405adb0025db475ea48276fd4b61353ee9abf057c14aa460f6e4063555",
+      "candles/ARBUSDT_mark.csv": "89c1cda9d7086df7b68f113ea93fc1861df1d25dbcd9e78e3139547a5d20e815",
+      "candles/ASTERUSDT_mark.csv": "ecc13a26b1681136d86d08a35c5a2061af2971c7899891351dbb5b45274cdc2b",
+      "candles/ATOMUSDT_mark.csv": "05d5a4112fb63a3981ff9b548f4eb81dee8adf9f2a4dc7991078757b062c3cd5",
+      "candles/AVAXUSDT_mark.csv": "7aed3ffd1fb6475506e201fe21f4af7f863b9e315233f0c3383cccdd25f96680",
+      "candles/AXSUSDT_mark.csv": "f0af05fd9fc395efebc55c67f683d2863a57776cbab8b7cf3ba9824b2d0226a0",
+      "candles/BATUSDT_mark.csv": "c7669a12f7157a043769d9dbb7113dfe54ac45d8e814f161267e8c83891a0722",
+      "candles/BCHUSDT_mark.csv": "7e6e6152f1ccd587e68f23600e038d41e11435385061b277cb96db349256d0ad",
+      "candles/BGBUSDT_mark.csv": "601ad7df021af8ea29af8fc8aaf8012f006280674fca8e92ab69f6ddf4e6cde3",
+      "candles/BNBUSDT_mark.csv": "316ed4c4791d9b2b53ef7087330f1d0bc8f70ad2cef2d0cd760e1d9c3827d036",
+      "candles/BTCUSDT_mark.csv": "81e1800e4735dee32c561099117bb244f232f946130de961df042f138558c6e2",
+      "candles/BTWUSDT_mark.csv": "a9daec34945d35097e261526fc6ecd298af1a4508ad80892fe5917a8ee4e0557",
+      "candles/CAKEUSDT_mark.csv": "7e4dab0f69ee39db5a359496d19b32e1622693c3b7094bfe4d8c1f4c5bf24f2a",
+      "candles/CCUSDT_mark.csv": "14e010e21c55d55c73db324fc45b7f5bc9e8b60568194b380e141d63e893884c",
+      "candles/CHZUSDT_mark.csv": "5baa2eda4d2f0ce02bbad285010d39226e3b0072434492402b80b60619abc8b9",
+      "candles/COMPUSDT_mark.csv": "185ad0c40a69d4180f54be37e9c6fe3ed9c9a5c4bf2df78b8b2f57bc5e15e24f",
+      "candles/CROUSDT_mark.csv": "d75e2861b507c1f3e8db9e1fddf2d0cae8a7fb0a9d93bfff407a1b4b7f7a6053",
+      "candles/CRVUSDT_mark.csv": "0345011d64a7c2c5db327ffe9501342f3cea4a958a9ff29317d9077271c43a84",
+      "candles/DOGEUSDT_mark.csv": "1344f9fcdab41fb450ad0a7dca9950b8ea24121d59609a6ce6937f248e7a056c",
+      "candles/DOTUSDT_mark.csv": "3dc4fac82b8d567860080a43d3eecf3f63292762c6240514851094aa4258d8f4",
+      "candles/DYDXUSDT_mark.csv": "293859690c6c7892b046fea582d9fd03a5cd8ea65acacfa5ab0b0eb61e485341",
+      "candles/EGLDUSDT_mark.csv": "5b806bf853ffeba563a25a037cf05ec1b14da5aade5ce8245531d06482968fa7",
+      "candles/ENAUSDT_mark.csv": "fc61d74117d2875c7ccf20f25bf094e20659e84e3f6613a46ab895682b67482b",
+      "candles/ENJUSDT_mark.csv": "9fd481daf05a243ee7ee82aff61087df80dcd9ac321ce3a11512d18153efdf16",
+      "candles/ENSUSDT_mark.csv": "0d404c3f01bbb1812f4d9f33775442833da5fa467fbb1614bbf208511a6f85ed",
+      "candles/ETCUSDT_mark.csv": "905e969c3161fe529a4ac7a380ef640cc813676617cf75458ceb860dae93db45",
+      "candles/ETHUSDT_mark.csv": "511118d1c06c658d03e3a7c9c5683615b43eaf9bc4f045bbc66765f511f94784",
+      "candles/FILUSDT_mark.csv": "8253fd92e516ec95912a0f015f8d2685abd5d1bfab79658944be0316847fd1b3",
+      "candles/GALAUSDT_mark.csv": "418240f3ee3187fd89aaad683cb947bb86c8caf51112c983d29cfdf77065b9b9",
+      "candles/GMTUSDT_mark.csv": "068eaede97c3e66acf53103b8d2c335de897475affdeaa969db59f431210a388",
+      "candles/GRAMUSDT_mark.csv": "f18279f5077309675dd47a68800a4619518e17f9841c3108aef8ecda5d25d5aa",
+      "candles/GRTUSDT_mark.csv": "4b511dacec636cf9476ff7ba1b92acb791164dd99263d82028af070f0619cbf8",
+      "candles/HBARUSDT_mark.csv": "d280bff8223791441da44802b0a1f616c0af4a1497efcdd15f143bf95fa23e37",
+      "candles/HYPEUSDT_mark.csv": "92b9252f280d4b05788f84ba9b610a8515777889ee4661114aa98e682c857554",
+      "candles/ICPUSDT_mark.csv": "62fd4a082d51c3f41f4ff33ac06b3c0fe79ce44b7bb36570fa10dca6899670cf",
+      "candles/IMXUSDT_mark.csv": "71d244fc6e85491513b383b890193c02673296c63a68a8ed2be03d6c94bc34d6",
+      "candles/INJUSDT_mark.csv": "5d474ba23ddf3365997a7df965b14517d4f7f7ffc026bf725eca5c84becfcb5c",
+      "candles/JUPUSDT_mark.csv": "9231ca4a6278e6cc3b45a63bb316e9916d151854fc33ee572e7fb15e2016eff2",
+      "candles/KASUSDT_mark.csv": "a4f205d67b2cd51ec2a63bcc2f7326d3b0d0120c9cafad865d63580129e0bb43",
+      "candles/LDOUSDT_mark.csv": "13dc42214db93c5f47eff99820ea440c10a357d0abab0752e4325c67d728cc2e",
+      "candles/LINKUSDT_mark.csv": "3055b1cf5f3b4d07b3eb52777044bd5c7a4ef7bf643f86f906456452a8b5879f",
+      "candles/LTCUSDT_mark.csv": "7a71f2ea264f2f1c4088dcdd1a8e043166e4345869a4dd71c7d87216dbd117f0",
+      "candles/LUNAUSDT_mark.csv": "4217020405bce2051f5c01286d3f66db2b139084bd272da44297f5597b615062",
+      "candles/LUNCUSDT_mark.csv": "21cf7f1aa5ed5aa8a2c4d59ae8582c78d36b0b1ae42c4c34c45732d4472f63e7",
+      "candles/MANAUSDT_mark.csv": "21698fd7f34eefdc931d8958f6e2e067282743885b5c36b6e1d7416e56a1df3a",
+      "candles/MORPHOUSDT_mark.csv": "4bd16b170006b0587defb7d2a83a73716ecbd9aa9e23e405f602fd7e3ffc3fce",
+      "candles/MUSDT_mark.csv": "c817a22770496dd2f92ffee83896013def65862bfc3a09a600c6b1bf0636cb1f",
+      "candles/NEARUSDT_mark.csv": "c06bfeb33e1584cff1385ef6612031301f0a869cadd4af99550b62d6e8cd525f",
+      "candles/NEOUSDT_mark.csv": "7e4486eb10f5a33a9acbd7a7e83fa28486a935db5630a2c7e4eafb372db6ca49",
+      "candles/ONDOUSDT_mark.csv": "dc686fe9c36abda2be7920787872741c39a7482d38db46ee0372effb8ea1ecf9",
+      "candles/OPUSDT_mark.csv": "209485ff4559a3cf5ca18df5b7ac0986d92cec0fd27ac40c86345ae9afe3e787",
+      "candles/PEPEUSDT_mark.csv": "fc88cac91d0134663dfed33c376b91e5b422a4e04759bf38017f0ebf66048579",
+      "candles/PIUSDT_mark.csv": "448a5333074ab9f0b0a950710fb2c63d2085f82e53028ce47d8a41860b66ae43",
+      "candles/POLUSDT_mark.csv": "55e8d2aa52595760b9ae279784f84445a7d82154ec741cb5805bf2b515f3d2d6",
+      "candles/PUMPUSDT_mark.csv": "f057f4a969d7c28b5551c117069b8864a458507af752137ad10144aa8cd356c9",
+      "candles/QNTUSDT_mark.csv": "b1531ce3a00d475f06aafcbac3db2d116114b2b99de2a3ce8e77270b6342bb45",
+      "candles/RENDERUSDT_mark.csv": "299501b187e94b29646bd82faddbeca165eef877bb1dc8a5333820b220befefc",
+      "candles/RUNEUSDT_mark.csv": "8d532fe9ed2c3ff91dc9e4b49c2257233f29ec49ed9fad1e03dcfa1cba9748a3",
+      "candles/SANDUSDT_mark.csv": "ea8f32ecba12c9ddaf686481eb17517ab16679c5da84449055ce0859a0d3dd1a",
+      "candles/SEIUSDT_mark.csv": "d1d061ab2a35893e6c99cb74661ed7251cc19fa08a66777c31cf78907cb62e97",
+      "candles/SHIBUSDT_mark.csv": "76adcdcc54c8fe88ec97f8da5dd16b544a47c557fa5ff402e156f9597e916e9e",
+      "candles/SKYUSDT_mark.csv": "0280386cc9a59605cca191d4bc9de3b903e0d4c8348ee9b403d4728e64e8f3c2",
+      "candles/SNXUSDT_mark.csv": "f0ff6799af639fe0e0435abbbfe6a307421e2dbf7df00b831ad5e7a43df77f86",
+      "candles/SOLUSDT_mark.csv": "c9c4da7223c9c1fb93db6d2dc020c70bb53a71d43efea301fe9c95e7ae8be9fd",
+      "candles/SUIUSDT_mark.csv": "3e579518467c55cb659f014365de6c26f8d87393c49af3925b62ed84f24259aa",
+      "candles/SUSDT_mark.csv": "d6d6d0f922e93bda3ce4fedb83d95da6dd21375f45a29971ac1233dbe22968b3",
+      "candles/SUSHIUSDT_mark.csv": "b060326ad3fb28a0419647518470c7b595685229e8d763eaa6800d1f467b5e7d",
+      "candles/TAOUSDT_mark.csv": "3a49f9c557712b5866a3cd160635b48571c11bc5270c1a2dc3ac29b831f449ce",
+      "candles/THETAUSDT_mark.csv": "c750c2d009ab5d1ad173440f111abbc4cae1723f5d422981e4662c0b68b7823e",
+      "candles/TIAUSDT_mark.csv": "81618933d5608385901aaa0edfdc1b96eb48f22f99fbc676a78cff04fee95b92",
+      "candles/TRXUSDT_mark.csv": "7ccbe99876dbc2157291d6410d56d42ea41d239b89575134fd3e42f2c727169a",
+      "candles/UNIUSDT_mark.csv": "00816398ae81f6357f3177ae1e8513918e526a7c27e990c0e6b998c0142a8a27",
+      "candles/VETUSDT_mark.csv": "1852f5716aab6d0d8e86edc84caf1d7860480b07bfabbb699248eba5bac5a617",
+      "candles/VVVUSDT_mark.csv": "74e80606b1a2a6f4b3e081e0385b40d8980cd34a05e7c040a9a1cad4f7b3152c",
+      "candles/WLDUSDT_mark.csv": "7e13a92325afd478610a731fb65978ced6dda7b59ea553f254287dd04431c9db",
+      "candles/WLFIUSDT_mark.csv": "35dfe4d2731479575993eaed4554ddf50f73f9dbe3b4afc0affffe2eb3839a1e",
+      "candles/XLMUSDT_mark.csv": "2b8cad5523ff89bfa713e03f4a298620a65b8204131d0289ea92377f2459ffe0",
+      "candles/XMRUSDT_mark.csv": "c5cf508dbbf5c379f4696c25ef1423d74b734063a30d5ca294678db21361ea24",
+      "candles/XRPUSDT_mark.csv": "fa80b0f8881dfe410c38fb26ba22d6064d3d98f4a8968560ea3accd6bf89958f",
+      "candles/XTZUSDT_mark.csv": "517a85e38a43b059024540792e840bf923679980139c307980fdc46a47aa46f2",
+      "candles/ZECUSDT_mark.csv": "9f5b96213f03f02a5de702647b640196d2a8fd70a85ea9465ef1b7fac120fd25",
+      "candles/ZILUSDT_mark.csv": "902d87e06a31c1b0d7e884033061122aa899ea5fbe54b38e9b8c6534e3625dff",
       "contracts.json": "bad342192105cde0b142538f0bdc8337c484e584adbcf1abb50ecb259a5b690e",
-      "coverage.json": "e02c455589c3f63cac8b1189fca27f4e9e895ffb9f6997ac7bd5762cbb511b7c",
-      "data/processed/panel_daily.csv": "dbdefd6c5bc473fa008706bf654afed63af20d41bbf9d72ffe11d6911338dddc",
+      "coverage.json": "a7887d97f9b36d04f8a8e4c719f3069f4fa9cf75c95c9f16e58ead5c644b11ee",
+      "data/processed/panel_daily.csv": "9a96734fd8c82ff110d4d27a125866c61fec7deea45d18e2670e93191283c124",
       "funding/1inch.csv": "e158377928c2afb0edfe12aacd1e146758c7613667ffb876bfb1b74c6f177fb8",
       "funding/aave.csv": "d586503f0b299cdf7e036415fea7f45ec33f7d106f10e19d893c37293f6414a6",
       "funding/algorand.csv": "91b0de324146c748c300699016b556ad47eb4f39638d09d26353384a8e1e7a24",
@@ -11793,11 +11793,11 @@
       "funding/worldcoin-wld.csv": "45468165bf1a4dc282659d228be0e4d4c65e55f8f092bfe3b1eb4f261fae6a02",
       "funding/zcash.csv": "856abb7694cce166d0807bafa65e811f0d6017d030455e62f8c37e59e82a26a3",
       "funding/zilliqa.csv": "ca50f28cad97aefa34f9443b9c19f55aa4f7b93a79404d8564beccb88aa1651a",
-      "funding_manifest.json": "b23176ec1de447a270e1748479b894db1c662c8e89f7cfea9e78f0a9294da25e",
+      "funding_manifest.json": "c02822614d15d694925cdd7a66e1d6e2d42bce963c0d23a09280d708542c959d",
       "symbol_map.csv": "7a538b5157036fea03c349968e31ae7c8e10ce16c7c7926497268082a241db53"
     },
-    "fingerprint": "sha256:d8d698ce7b59aa6c4e45dd59a9ef896119e53f6821a48f528f354eeac2d7f678",
-    "manifest_sha256": "fad1e7b509ba20d140c68c456f904400ca60067bee10b88810300a5b837e1dd8",
+    "fingerprint": "sha256:d51bbb69df60d708691a96af0f60e133e94935314964330fce7fb7653a144b36",
+    "manifest_sha256": "4a86c295ae60533642b3b36053381b15eedfeae31e044d939a54a2cf3fcaffce",
     "panel_path": "data/processed/panel_daily.csv",
     "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
@@ -12248,10 +12248,10 @@
     },
     "funding_assets": 88,
     "hard_failures": 0,
-    "last_mark": "2026-11-14 16:00:00+00:00",
+    "last_mark": "2026-11-14 23:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-14T23:42:16.396078+00:00",
-    "panel_latest": "2026-11-13",
+    "now": "2026-11-15T00:39:04.930180+00:00",
+    "panel_latest": "2026-11-14",
     "panel_latest_assets": 97,
     "required_leverage": 4.0,
     "required_leverage_assets": [
