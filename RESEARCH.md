@@ -6100,8 +6100,9 @@ ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，
 
 最终只读验证（2026-11-15 15:34 UTC 左右）：冻结账本 **72 行**、重建账本 **72 行**、
 32 个重叠信号日、差异 **0**；`targets_sha256=2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`。
-真实账户权益 **496.1142 USDT**、4 条空头、gross **265.6808 / 0.536x**、isolated margin
-**137.0366 / 0.276x**、4 张 20% mark-price stop、0 普通未成交单、无计划外仓位；
-`audit-live-ls104` 全部通过。88/88 映射合约支持 **4x isolated**，多空和翻转能力、
-报价全部通过。monitor 输出 `issues=[]`。全量验证为 Python **2,425 passed / 1 skipped**、
+`audit-live-ls104` 当时读到权益 **496.1142 USDT**、4 条空头、gross
+**265.6808 / 0.536x**、isolated margin **137.0366 / 0.276x**、4 张 20% mark-price stop、
+0 普通未成交单、无计划外仓位；随后 monitor 快照为权益 **495.7007 USDT**、仓位
+**266.0761 USDT**。两份额外只读快照都是 0 hard failure。88/88 映射合约支持
+**4x isolated**，多空和翻转能力、报价全部通过。monitor 输出 `issues=[]`。全量验证为 Python **2,425 passed / 1 skipped**、
 前端 **249 passed**，Ruff、mypy、ESLint、tsc 和 shell syntax 全部通过。本轮验证没有下单。
