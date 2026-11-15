@@ -158,3 +158,14 @@ def test_ls104_make_target_bootstraps_an_absent_state_file_once() -> None:
 
     assert "LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)" in makefile
     assert "$(LS104_BOOTSTRAP_ARG)" in ls104
+
+
+def test_ls104_audit_ignores_only_the_exact_prior_track_order_registry() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    audit = makefile.split("audit-live-ls104:", 1)[1].split("\n\n", 1)[0]
+
+    assert (
+        "LS104_PRIOR_ORDER_REGISTRY ?= "
+        "reports/ls45_live_g175_live/prior_track_order_registry.json"
+    ) in makefile
+    assert "--prior-track-registry $(LS104_PRIOR_ORDER_REGISTRY)" in audit

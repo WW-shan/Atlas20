@@ -1365,6 +1365,7 @@ def _journal_entry(
     warnings: list[str],
     previous: dict[str, Any] | None = None,
     closed_position_funding: dict[str, float] | None = None,
+    bootstrap_track: bool = False,
 ) -> JournalEntry:
     equity = (
         report.equity_after
@@ -1446,7 +1447,12 @@ def _journal_entry(
                     candidate = float("nan")
                 if isfinite(candidate):
                     prior_funding = candidate
-            if same_cycle and prior_funding is not None:
+            if bootstrap_track and previous is None:
+                # A new track inherits the venue positions, not the previous
+                # track's funding history.  Keep the cumulative value as the
+                # next-run baseline without counting it in this track's PnL.
+                funding_delta = 0.0
+            elif same_cycle and prior_funding is not None:
                 funding_delta = funding_cumulative - prior_funding
             else:
                 funding_delta = funding_cumulative
@@ -2737,6 +2743,7 @@ def _main(args: argparse.Namespace) -> int:
             warnings=notes,
             previous=previous,
             closed_position_funding=closed_funding,
+            bootstrap_track=bootstrap_track,
         )
         _persist_run_result(
             json_out=args.json_out,

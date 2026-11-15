@@ -99,6 +99,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--audit-out", type=Path, default=DEFAULT_AUDIT_OUT)
+    parser.add_argument("--prior-track-registry", type=Path, default=None)
     parser.add_argument("--notify", action="store_true", help="send the alert to Telegram")
     parser.add_argument(
         "--always-report",
@@ -118,8 +119,9 @@ def _audit_command(
     manifest_file: Path = DEFAULT_MANIFEST_FILE,
     state_file: Path = DEFAULT_STATE_FILE,
     journal_file: Path = DEFAULT_JOURNAL_FILE,
+    prior_track_registry: Path | None = None,
 ) -> list[str]:
-    return [
+    command = [
         sys.executable,
         str(AUDIT_SCRIPT),
         "--spec",
@@ -137,6 +139,11 @@ def _audit_command(
         "--journal-file",
         str(journal_file),
     ]
+    if prior_track_registry is not None:
+        command.extend(
+            ["--prior-track-registry", str(prior_track_registry)]
+        )
+    return command
 
 
 def _audit_metrics(audit: dict) -> tuple[float | None, float | None]:
@@ -188,6 +195,7 @@ def _run_audit(
     manifest_file: Path = DEFAULT_MANIFEST_FILE,
     state_file: Path = DEFAULT_STATE_FILE,
     journal_file: Path = DEFAULT_JOURNAL_FILE,
+    prior_track_registry: Path | None = None,
 ) -> tuple[int, dict, str]:
     """Run the read-only audit in a subprocess and preserve failure diagnostics."""
 
@@ -211,6 +219,7 @@ def _run_audit(
                     manifest_file=manifest_file,
                     state_file=state_file,
                     journal_file=journal_file,
+                    prior_track_registry=prior_track_registry,
                 ),
                 cwd=str(PROJECT_ROOT),
                 capture_output=True,
@@ -301,6 +310,7 @@ def _main(args: argparse.Namespace) -> int:
         manifest_file=args.manifest_file,
         state_file=args.state_file,
         journal_file=args.journal_file,
+        prior_track_registry=args.prior_track_registry,
     )
     profile = live_track_profile(args.spec)
     spec_max_gross = float(profile.manifest_top_level["max_total_gross"])

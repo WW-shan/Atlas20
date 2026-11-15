@@ -90,6 +90,7 @@ case "$TRACK_PROFILE" in
     AUDIT_JSON="reports/ls45_live_g125_live/audit.json"
     HEALTH_JSON="reports/ls45_live_g125_live/health.json"
     KILL_FILE="data/ls45_g125_execution.KILL"
+    PRIOR_ORDER_REGISTRY=""
     SYMBOL_AUDIT_JSON="reports/ls45_live_g125_live/venue_symbol_audit.json"
     SIGNAL_TARGET="derivatives-ls45-signal"
     DATA_AUDIT_TARGET="audit-data"
@@ -108,6 +109,7 @@ case "$TRACK_PROFILE" in
     AUDIT_JSON="reports/ls45_live_g175_live/audit.json"
     HEALTH_JSON="reports/ls45_live_g175_live/health.json"
     KILL_FILE="data/ls45_g175_execution.KILL"
+    PRIOR_ORDER_REGISTRY="reports/ls45_live_g175_live/prior_track_order_registry.json"
     SYMBOL_AUDIT_JSON="reports/ls45_live_g175_live/venue_symbol_audit.json"
     SIGNAL_TARGET="derivatives-ls104-signal"
     DATA_AUDIT_TARGET="audit-data-ls104"
@@ -122,6 +124,7 @@ case "$TRACK_PROFILE" in
     ;;
 esac
 export ATLAS20_TRACK_PROFILE="$TRACK_PROFILE"
+echo "Atlas20 track profile: $TRACK_PROFILE"
 LOCK_FILE="data/derivatives_execution.lock"
 
 # A new track starts from an empty state/journal.  The first application of
@@ -131,6 +134,10 @@ LOCK_FILE="data/derivatives_execution.lock"
 BOOTSTRAP_ARG=""
 if [ "$TRACK_PROFILE" = "ls104-g175-m090" ] && [ ! -e "$STATE_FILE" ]; then
   BOOTSTRAP_ARG="--bootstrap-track"
+fi
+PRIOR_ORDER_ARG=""
+if [ -n "$PRIOR_ORDER_REGISTRY" ]; then
+  PRIOR_ORDER_ARG="--prior-track-registry $PRIOR_ORDER_REGISTRY"
 fi
 
 # --- 1. May this load trade? -------------------------------------------------
@@ -186,7 +193,7 @@ if [ "$window_status" -eq 4 ]; then
     --targets-file "$TARGETS_FILE" \
     --manifest-file "$MANIFEST_FILE" \
     --out "$HEALTH_JSON" \
-    --audit-out "$AUDIT_JSON" || monitor_status=$?
+    --audit-out "$AUDIT_JSON" $PRIOR_ORDER_ARG || monitor_status=$?
 
   if [ "$protect_status" -ne 0 ]; then
     exit "$protect_status"
@@ -273,7 +280,7 @@ monitor_status=0
   --targets-file "$TARGETS_FILE" \
   --manifest-file "$MANIFEST_FILE" \
   --out "$HEALTH_JSON" \
-  --audit-out "$AUDIT_JSON" || monitor_status=$?
+  --audit-out "$AUDIT_JSON" $PRIOR_ORDER_ARG || monitor_status=$?
 
 if [ "$execution_status" -ne 0 ]; then
   exit "$execution_status"

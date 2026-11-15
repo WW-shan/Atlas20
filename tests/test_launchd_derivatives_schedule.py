@@ -162,12 +162,26 @@ def test_monitor_wrapper_is_read_only_and_notify_only():
     script = (PROJECT_ROOT / "ops" / "run_live_monitor.sh").read_text(encoding="utf-8")
     assert "bitget.env" in script
     assert "telegram.env" in script
-    assert "monitor_live_track.py --notify" in script
+    assert "scripts/monitor_live_track.py" in script
+    assert "--notify" in script
     # The monitor must never place orders or run the trading chain.
     assert "execute-plan-live" not in script
     assert "place-order" not in script
     assert "ATLAS20_BITGET_API_KEY=" not in script
     assert "ATLAS20_TELEGRAM_BOT_TOKEN=" not in script
+
+
+def test_monitor_wrapper_follows_the_persisted_track_profile():
+    script = (PROJECT_ROOT / "ops" / "run_live_monitor.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'TRACK_ENV="$CONFIG_DIR/track.env"' in script
+    assert "ls104-g175-m090" in script
+    assert "reports/ls45_live_g175/oos_targets.csv" in script
+    assert "data/ls45_g175_execution_state.json" in script
+    assert "prior_track_order_registry.json" in script
+    assert "--prior-track-registry" in script
 
 def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     """Only a human may drop the window; the scheduled fires must obey it.
@@ -248,6 +262,7 @@ def test_wrapper_exposes_the_ls104_profile_without_overwriting_ls45() -> None:
     assert "data/ls45_g175_execution_state.json" in script
     assert 'MARGIN_CAP="0.90"' in script
     assert 'LEVERAGE="4.0"' in script
+    assert 'echo "Atlas20 track profile: $TRACK_PROFILE"' in script
     # The default stays LS45 until the aggressive profile is explicitly selected.
     assert 'TRACK_PROFILE="${ATLAS20_TRACK_PROFILE:-ls45-g125}"' in script
 
@@ -275,3 +290,9 @@ def test_wrapper_uses_profile_specific_kill_switches_and_one_global_lock() -> No
     assert 'LOCK_FILE="data/derivatives_execution.lock"' in script
     assert '--kill-switch "$KILL_FILE"' in script
     assert '--lock-file "$LOCK_FILE"' in script
+    assert (
+        'PRIOR_ORDER_REGISTRY="reports/ls45_live_g175_live/prior_track_order_registry.json"'
+        in script
+    )
+    assert 'PRIOR_ORDER_ARG="--prior-track-registry $PRIOR_ORDER_REGISTRY"' in script
+    assert "$PRIOR_ORDER_ARG" in script

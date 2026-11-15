@@ -5987,7 +5987,12 @@ LS45-G125 的同口径 20bps 为 65.2592x / 1.9792 / -34.06%，50bps 为
    仍执行；任何 margin remove 在 partial/failure 下被禁止。
 4. **新 track 一次性 bootstrap**：LS104 的 state/journal 从空文件开始，wrapper 在首个常规
    01:05 UTC 窗口用 `--bootstrap-track` 应用当前冻结账本；不复用 LS45 state/journal，不写入
-   虚假历史 PnL/funding。失败后由 active_event partial 路径续作，成功后才建立首个 journal 行。
+   虚假历史 PnL/funding。继承仓位的累计资金费仅保留为下一日差分基线，首个 journal 行的
+   `funding_total` 为 0。失败后由 active_event partial 路径续作，成功后才建立首个 journal 行。
+5. **迁移前订单逐笔豁免**：LS104 audit 使用
+   `reports/ls45_live_g175_live/prior_track_order_registry.json` 登记 LS45 已建立的 4 笔生产
+   open orderId；只把这些精确历史订单排除出“LS104 journal 漏记”反向核对。没有复制 LS45 的
+   PnL/funding 历史，也没有放宽对任何其他 Atlas20 订单的检查。
 
 **判定：** owner-approved aggressive live track，工程门禁按 LS104 profile 固定；12 个月独立
 OOS 仍未完成，50bps 最坏回撤仍接近 kill line。不得把历史 20bps 终值当作未来保证。实盘完成后

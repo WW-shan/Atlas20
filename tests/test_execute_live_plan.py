@@ -713,6 +713,38 @@ def test_journal_counts_the_full_funding_of_a_new_position_cycle() -> None:
     assert entry.funding_total == pytest.approx(-0.08)
 
 
+def test_track_bootstrap_keeps_inherited_funding_as_a_baseline_only() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-14",
+        equity_before=500.0,
+        equity_after=500.0,
+        positions_after=[
+            {
+                "asset": "near",
+                "symbol": "NEARUSDT",
+                "total": "9",
+                "posSide": "short",
+                "avgPrice": "3.2",
+                "markPrice": "3.0",
+                "totalFunding": "0.125",
+            }
+        ],
+    )
+
+    entry = execute_live_plan._journal_entry(
+        report,
+        signal_date="2026-11-14",
+        run_at=datetime(2026, 11, 15, 1, 5, tzinfo=timezone.utc),
+        prev_equity=None,
+        capital_flow=0.0,
+        warnings=[],
+        bootstrap_track=True,
+    )
+
+    assert entry.funding_total == 0.0
+    assert entry.positions[0]["funding_cumulative"] == pytest.approx(0.125)
+
+
 def test_journal_includes_funding_from_a_position_closed_during_the_day() -> None:
     report = ExecutionReport(
         signal_date="2026-11-03",

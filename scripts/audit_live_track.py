@@ -993,6 +993,15 @@ def _load_drill_order_ids(path: Path) -> set[str]:
     return ids
 
 
+def _load_prior_track_order_ids(path: Path) -> set[str]:
+    """Exact production order ids carried in from the pre-migration track."""
+
+    path = Path(path)
+    if not path.is_file():
+        raise ValueError(f"prior-track order registry is missing: {path}")
+    return _load_drill_order_ids(path)
+
+
 def _unjournaled_order_ids(
     history: list[dict],
     journal: pd.DataFrame,
@@ -1197,6 +1206,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
     parser.add_argument("--drill-registry", type=Path, default=DEFAULT_DRILL_REGISTRY)
+    parser.add_argument("--prior-track-registry", type=Path, default=None)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
     args = parser.parse_args(argv)
     checked_at = datetime.now(timezone.utc)
@@ -1248,6 +1258,25 @@ def main(argv: list[str] | None = None) -> int:
             True,
             f"{len(drill_order_ids)} 笔已登记；仅这些精确 orderId 不进入生产台账核对",
         )
+    prior_track_order_ids: set[str] = set()
+    if args.prior_track_registry is None:
+        check("prior-track 订单登记表可读", True, "未配置")
+    else:
+        try:
+            prior_track_order_ids = _load_prior_track_order_ids(
+                args.prior_track_registry
+            )
+        except ValueError as exc:
+            check("prior-track 订单登记表可读", False, str(exc))
+        else:
+            check(
+                "prior-track 订单登记表可读",
+                True,
+                (
+                    f"{len(prior_track_order_ids)} 笔迁移前生产订单已精确登记；"
+                    "仅这些 orderId 不计入新 track journal"
+                ),
+            )
 
     account_issues = _account_data_issues(assets)
     check(
@@ -1466,7 +1495,9 @@ def main(argv: list[str] | None = None) -> int:
         "; ".join(missing + mismatched) or f"核对 {len(by_id)} 笔订单",
     )
     unjournaled = _unjournaled_order_ids(
-        history, journal, ignored_order_ids=drill_order_ids
+        history,
+        journal,
+        ignored_order_ids=drill_order_ids | prior_track_order_ids,
     )
     check(
         "交易所已成交的 Atlas20 订单都已记账",

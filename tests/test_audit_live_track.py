@@ -1094,6 +1094,31 @@ def test_registered_venue_drill_orders_are_not_reported_as_missing_journal(tmp_p
     )
 
 
+def test_prior_track_order_registry_must_exist_when_configured(tmp_path) -> None:
+    from scripts.audit_live_track import _load_prior_track_order_ids
+
+    missing = tmp_path / "missing-prior-orders.json"
+    with pytest.raises(ValueError, match="prior-track order registry"):
+        _load_prior_track_order_ids(missing)
+
+    registry = tmp_path / "prior-orders.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "orders": [
+                    {
+                        "order_id": "pre-migration-1",
+                        "client_oid": "a20ls45",
+                        "purpose": "LS45 production position carried into LS104 baseline",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert _load_prior_track_order_ids(registry) == {"pre-migration-1"}
+
+
 def test_every_filled_strategy_order_must_appear_in_the_journal() -> None:
     from scripts.audit_live_track import _unjournaled_order_ids
 

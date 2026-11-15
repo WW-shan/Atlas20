@@ -258,6 +258,9 @@ def test_audit_command_carries_the_ls104_paths_and_spec(tmp_path: Path) -> None:
         manifest_file=Path("reports/ls45_live_g175/manifest.json"),
         state_file=Path("data/ls45_g175_execution_state.json"),
         journal_file=Path("reports/ls45_live_g175_live/journal.csv"),
+        prior_track_registry=Path(
+            "reports/ls45_live_g175_live/prior_track_order_registry.json"
+        ),
     )
 
     assert command[command.index("--spec") + 1] == LS104_G175_M090_SPEC
@@ -265,3 +268,7 @@ def test_audit_command_carries_the_ls104_paths_and_spec(tmp_path: Path) -> None:
     assert command[command.index("--manifest-file") + 1] == "reports/ls45_live_g175/manifest.json"
     assert command[command.index("--state-file") + 1] == "data/ls45_g175_execution_state.json"
     assert command[command.index("--journal-file") + 1] == "reports/ls45_live_g175_live/journal.csv"
+    assert (
+        command[command.index("--prior-track-registry") + 1]
+        == "reports/ls45_live_g175_live/prior_track_order_registry.json"
+    )

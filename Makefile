@@ -101,6 +101,7 @@ LS104_SIGNAL_EQUIVALENCE ?= reports/ls45_live_g175_live/signal_equivalence.json
 LS104_KILL ?= data/ls45_g175_execution.KILL
 LS104_LOCK ?= data/derivatives_execution.lock
 LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)
+LS104_PRIOR_ORDER_REGISTRY ?= reports/ls45_live_g175_live/prior_track_order_registry.json
 
 
 derivatives-ls104-signal: derivatives-live-data $(VENV_STAMP)
@@ -132,6 +133,7 @@ audit-live-ls104: $(VENV_STAMP)
 		--manifest-file $(LS104_MANIFEST) \
 		--state-file $(LS104_STATE) \
 		--journal-file $(LS104_JOURNAL) \
+		--prior-track-registry $(LS104_PRIOR_ORDER_REGISTRY) \
 		--json-out $(LS104_AUDIT)
 
 

@@ -67,6 +67,8 @@ com.atlas20.derivatives-execute
 LS104 首次运行且 `data/ls45_g175_execution_state.json` 不存在时，wrapper 额外传入
 `--bootstrap-track`。该旗标只允许 state、journal 均为空且 manifest 有 `targets_sha256`；它把当前
 冻结账本作为新 track 的首个事件应用，不重放 LS45 历史 PnL/funding，也不复用 LS45 state/journal。
+继承仓位的累计 `totalFunding` 只写入首行 positions 作为下一日差分基线；该行 `funding_total` 固定为
+0，不会把迁移前 funding 计入 LS104 收益。
 一旦 state 文件存在，后续重试只走 `active_event` 的 complete/maintain 路径。
 
 若窗口闸返回 `DONE=4`，wrapper 不刷新数据、不重读新的 alpha 目标，而是先运行：
@@ -399,6 +401,7 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
 | `reports/ls45_live_g175_live/journal.csv` | LS104 每日权益、仓位、成交、止损记录、notes |
 | `reports/ls45_live_g175_live/audit.json` | LS104 只读对账输出 |
 | `reports/ls45_live_g175_live/health.json` | LS104 巡检快照 |
+| `reports/ls45_live_g175_live/prior_track_order_registry.json` | LS45 迁移前已成交生产订单的精确 orderId 清单；只豁免这些历史单，不代表 PnL/funding 继承 |
 | `data/ls45_g175_execution_state.json` | LS104 幂等 key/status、`active_event`、风险 overlay、止损高水位 |
 | `data/ls45_g175_telegram_state.json` | LS104 Telegram 播报幂等状态 |
 | `data/ls45_g175_execution.KILL` | LS104 kill switch（存在即停止新执行） |
@@ -490,6 +493,7 @@ make audit-live
 16. journal `funding_total` 等于持仓未变化区间的累计资金费差；
 17. journal 每笔成交都能在交易所订单历史对上数量、均价、手续费；
 18. 交易所当前 prefix 的已成交 Atlas20 订单全部已记账（反向核对）；
+    唯一例外是 drill registry 和 LS104 迁移 registry 中逐笔登记的精确历史 orderId；未登记订单仍然硬失败；
 19. 每个当前空头都必须能由交易所 `avgPrice × 1.20` 和实时合约价格步长**独立重算**预期止损；缺 `avgPrice`、缺合约规格或无法重算都硬失败，不允许回退到 journal 旧值；
 20. 每个实际空头止损必须严格早于 Bitget 逐仓 `liquidationPrice`；缺强平价、非法强平价或 `stop >= liquidationPrice` 都硬失败；
 21. 空头 journal 入场必须记录已确认止损；
