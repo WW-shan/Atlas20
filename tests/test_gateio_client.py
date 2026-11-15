@@ -124,6 +124,37 @@ def test_fetch_daily_candles_skips_an_unlisted_prefix_window(tmp_path: Path) -> 
     assert not frame.empty
     assert set(frame["gate_price"]) == {2.0}
 
+def test_an_empty_success_payload_is_not_cached_as_coverage(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    session = _FakeSession([])
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_daily_candles(
+        "POL", start=pd.Timestamp("2020-01-01"), end=pd.Timestamp("2020-12-31")
+    )
+
+    assert frame.empty
+    assert session.calls == 1
+    assert not list((tmp_path / "gateio" / "candles").glob("POL_USDT_*.json"))
+
+
+def test_a_stale_empty_cached_window_is_removed_and_refetched(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    path = tmp_path / "gateio" / "candles" / "POL_USDT_400_2020-01-01_2020-12-31.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("[]", encoding="utf-8")
+    session = _FakeSession([_candle(pd.Timestamp("2020-06-01", tz="UTC"), 0.4)])
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_daily_candles(
+        "POL", start=pd.Timestamp("2020-01-01"), end=pd.Timestamp("2020-12-31")
+    )
+
+    assert len(frame) == 1
+    assert session.calls == 1
+    assert json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_invalid_pair_is_not_cached_as_a_valid_series(tmp_path: Path) -> None:
     client = _client(tmp_path)
     client.session = _FakeSession({"label": "INVALID_CURRENCY_PAIR", "message": "bad pair"})  # type: ignore[assignment]

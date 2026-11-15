@@ -69,9 +69,19 @@ class GateIOClient:
     def _request_json(self, endpoint: str, params: dict[str, Any], cache_path: Path, *, force: bool = False) -> Any:
         if cache_path.exists() and not force:
             try:
-                return json.loads(cache_path.read_text(encoding="utf-8"))
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
-                pass
+                cached = None
+            if isinstance(cached, list):
+                if cached:
+                    return cached
+                # An empty list is not evidence of covered history. It is
+                # common before a continuation pair's listing date, and caching
+                # it makes an otherwise valid provider look like a broken feed.
+                try:
+                    cache_path.unlink()
+                except OSError:
+                    pass
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         last_error: Exception | None = None
@@ -82,8 +92,9 @@ class GateIOClient:
                 payload = response.json()
                 if isinstance(payload, dict) and (payload.get("label") or payload.get("message")):
                     raise ValueError(f"Gate.io pair unavailable: {payload}")
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
-                cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+                if payload:
+                    cache_path.parent.mkdir(parents=True, exist_ok=True)
+                    cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 if self.config.rate_limit_seconds > 0:
                     time.sleep(self.config.rate_limit_seconds)
                 return payload

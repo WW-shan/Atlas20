@@ -6106,3 +6106,31 @@ ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，
 **266.0761 USDT**。两份额外只读快照都是 0 hard failure。88/88 映射合约支持
 **4x isolated**，多空和翻转能力、报价全部通过。monitor 输出 `issues=[]`。全量验证为 Python **2,425 passed / 1 skipped**、
 前端 **249 passed**，Ruff、mypy、ESLint、tsc 和 shell syntax 全部通过。本轮验证没有下单。
+
+### 00.155 2026-11-16 新数据全量复跑与 Gate.io 空缓存源头修复
+
+按“从 provider 重新下载”的方式全量复跑，而不是复用上一版 processed panel。第一次刷新抓到一个新的
+真实缺陷：Gate.io 对 POL 上市前的四个连续窗口返回成功的空列表，客户端仍把 `[]` 缓存成“已覆盖历史”，
+数据链因此出现 **1 FAIL**。修复位于客户端源头：空 success payload 不再写缓存；已存在的旧空缓存会被
+删除并按真实窗口重新请求。新增两个回归测试覆盖“空响应不缓存”和“旧空缓存删除后重取”。
+
+第二次全量刷新结果：
+
+- Gate.io 空 payload：**0**；`make audit-data-chain`：**52 PASS / 0 WARN / 0 FAIL**；
+- panel：**184,026 行 / 102 资产 / 2020-09-03..2026-11-14**，所有 admitted 资产
+  `crosscheck_verified=True`；
+- 7 条短缺口修复仍在，四个资产的来源与日期一致；EOS **2,319d**、MATIC **2,148d** 等五个
+  ended-feed 的多源并集覆盖保持不变，CMC-only 尾差全部为 **0d**；
+- LS104 目标账本仍为 **72 行**，`targets_sha256` 保持
+  `2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`，说明新数据没有改变
+  当前目标；
+- 新 manifest `data_fingerprint=sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b`；
+  `audit-data` 与 `audit-data-ls104` 均为 **0 hard failure / 0 warning**；
+- `audit-signal-ls104`：冻结/重建均 **72 行**、32 个重叠信号日、差异 **0**；
+- 真实 `audit-live-ls104`：权益 **496.2105 USDT**、仓位 **265.5499 USDT**、4 条空头、
+  gross **0.535x**、isolated margin **0.276x**、4 张 20% mark-price stop、0 普通未成交单、
+  无计划外仓位；88/88 映射合约支持 4x isolated，多空/翻转/报价全部通过；monitor `issues=[]`；
+- 执行器 dry-run 先被迟到保护正确拒绝；在人工确认真实账户后，以 `--allow-late-execution` 但不加
+  `--live` 再跑，生成计划但 **0 成交、0 下单**，state/journal 哈希前后完全不变；
+- 全量验证：Python **2,427 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy、ESLint、tsc
+  和 shell syntax 全部通过。
