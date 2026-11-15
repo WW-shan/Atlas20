@@ -1825,6 +1825,7 @@ def _write_state(
     active_event: dict[str, Any] | None = None,
     stop_reconciliation_through: str | None = None,
     mode: str = "execution",
+    telegram_sent_key: str | None = None,
 ) -> None:
     state = _read_state(path)
     expected_track = key.split("|", 1)[0]
@@ -1837,6 +1838,9 @@ def _write_state(
     state["last_status"] = status
     state["last_run_mode"] = mode
     state["last_run_at"] = datetime.now(timezone.utc).isoformat()
+    if telegram_sent_key is not None:
+        state["telegram_sent_key"] = telegram_sent_key
+        state["telegram_sent_at"] = state["last_run_at"]
     if active_event is not None:
         state["active_event"] = active_event
     if stop_reconciliation_through is not None:
@@ -2019,8 +2023,10 @@ def _persist_run_result(
         json.dumps(payload, indent=2, sort_keys=True, default=str),
     )
     upsert_entry(journal_file, entry)
+    telegram_sent_key: str | None = None
     if notify is not None:
         notify()
+        telegram_sent_key = key
     _write_state(
         state_file,
         key,
@@ -2030,6 +2036,7 @@ def _persist_run_result(
         active_event=active_event,
         stop_reconciliation_through=stop_reconciliation_through,
         mode=mode,
+        telegram_sent_key=telegram_sent_key,
     )
 
 

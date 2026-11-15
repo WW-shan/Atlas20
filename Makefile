@@ -114,7 +114,8 @@ derivatives-notify-ls104: $(VENV_STAMP)
 	$(PYTHON) scripts/send_derivatives_signal.py \
 		--targets-file $(LS104_TARGETS) \
 		--spec $(LS104_SPEC) \
-		--state-file $(LS104_TELEGRAM_STATE)
+		--state-file $(LS104_TELEGRAM_STATE) \
+		--execution-state-file $(LS104_STATE) $(ARGS)
 
 
 audit-data-ls104: $(VENV_STAMP)

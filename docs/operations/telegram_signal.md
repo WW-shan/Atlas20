@@ -111,18 +111,31 @@ sends one message per signal day with:
 .venv/bin/python scripts/send_derivatives_signal.py \
   --targets-file reports/ls45_live_g175/oos_targets.csv \
   --spec PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090 \
-  --state-file data/ls45_g175_telegram_state.json --dry-run
+  --state-file data/ls45_g175_telegram_state.json \
+  --execution-state-file data/ls45_g175_execution_state.json --dry-run
 
 # refresh the live mark tree and rebuild the LS104 ledger, then send one message
 make derivatives-live-data derivatives-ls104-signal derivatives-notify-ls104
 ```
 
 The message is notification-only: it never places an order, does not know any
-real position, and repeated runs for the same signal day are skipped by the
+real exchange position, and repeated runs for the same signal day are skipped by the
 `(spec, signal_date)` key in `data/ls45_g175_telegram_state.json`. If the modelled
 execution is more than `--max-signal-age-hours` (default 36h) in the past, the
 sender refuses to send and exits non-zero. Replay an old ledger deliberately
 with `--allow-stale-signal`.
+
+When `--execution-state-file` is supplied (the LS104 Makefile target always
+does), the sender uses the matching active event's `equity_at_execution` as the
+notional reference. If the state is missing, belongs to another track, or does
+not match the target signal/weights, it fails closed instead of silently
+falling back to the 1,000 USDT reference book.
+
+The executor records `telegram_sent_key` only after its Telegram send succeeds.
+The fallback sender compares that marker with `last_key` and skips when the
+same successful execution report was already delivered; `--force` is the
+explicit override for a deliberate resend. If the executor notification fails,
+the marker is not written, so the later fallback attempt remains active.
 
 On Ubuntu, install the derivatives execution timer for real trading. The signal
 timer is only for a notification-only deployment and is mutually exclusive with

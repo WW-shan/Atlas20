@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 import pytest
 
@@ -246,6 +248,115 @@ def test_main_uses_the_selected_ls104_profile_for_message_caps(
     assert seen["long_buffer"] == 0.50
     assert seen["short_buffer"] == 0.50
     assert seen["short_stop_loss_pct"] == 0.20
+
+
+def test_main_uses_the_active_event_equity_for_the_ls104_fallback_message(
+    tmp_path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
+    from scripts import send_derivatives_signal
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book().copy()
+    frame["signal_date"] = "2026-09-01 00:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 01:05:00+00:00"
+    frame.to_csv(path, index=False)
+    key = f"{LS104_G175_M090_SPEC}|2026-09-01|target-hash|2026-09-02"
+    execution_state = tmp_path / "execution_state.json"
+    execution_state.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "last_status": "ok",
+                "runs": [{"key": key}],
+                "active_event": {
+                    "signal_date": "2026-09-01",
+                    "targets_sha256": "target-hash",
+                    "target_weights": {"near": 0.7768, "zcash": 0.2138},
+                    "equity_at_execution": 507.94333735,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    seen: dict[str, object] = {}
+
+    def capture(_book, **kwargs):
+        seen.update(kwargs)
+        return "signal"
+
+    monkeypatch.setattr(send_derivatives_signal, "format_derivatives_message", capture)
+    send_derivatives_signal.main(
+        [
+            "--targets-file",
+            str(path),
+            "--spec",
+            LS104_G175_M090_SPEC,
+            "--state-file",
+            str(tmp_path / "telegram_state.json"),
+            "--execution-state-file",
+            str(execution_state),
+            "--dry-run",
+            "--allow-stale-signal",
+        ]
+    )
+
+    assert seen["capital"] == pytest.approx(507.94333735)
+
+
+def test_main_skips_the_fallback_when_the_executor_already_notified(
+    tmp_path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
+    from scripts import send_derivatives_signal
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book().copy()
+    frame["signal_date"] = "2026-09-01 00:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 01:05:00+00:00"
+    frame.to_csv(path, index=False)
+    key = f"{LS104_G175_M090_SPEC}|2026-09-01|target-hash|2026-09-02"
+    execution_state = tmp_path / "execution_state.json"
+    execution_state.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "last_status": "ok",
+                "telegram_sent_key": key,
+                "runs": [{"key": key}],
+                "active_event": {
+                    "signal_date": "2026-09-01",
+                    "targets_sha256": "target-hash",
+                    "target_weights": {"near": 0.7768, "zcash": 0.2138},
+                    "equity_at_execution": 507.94333735,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ATLAS20_TELEGRAM_CHAT_ID", "123")
+    monkeypatch.setenv("ATLAS20_TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setattr(
+        send_derivatives_signal,
+        "send_telegram_message",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("fallback must not resend after executor notification")
+        ),
+    )
+
+    send_derivatives_signal.main(
+        [
+            "--targets-file",
+            str(path),
+            "--spec",
+            LS104_G175_M090_SPEC,
+            "--state-file",
+            str(tmp_path / "telegram_state.json"),
+            "--execution-state-file",
+            str(execution_state),
+            "--allow-stale-signal",
+        ]
+    )
 
 
 def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None:

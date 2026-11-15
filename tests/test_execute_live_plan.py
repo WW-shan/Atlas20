@@ -1027,6 +1027,40 @@ def test_persisted_state_records_the_bitget_account_fingerprint(tmp_path: Path) 
     assert json.loads(state_path.read_text(encoding="utf-8"))["account_fingerprint"] == "account-fingerprint"
 
 
+def test_successful_notification_records_the_sent_execution_key(tmp_path: Path) -> None:
+    entry = JournalEntry(
+        date="2026-10-31",
+        run_at_utc="2026-10-31T03:06:16+00:00",
+        signal_date="2026-10-30",
+        equity=100.0,
+        position_value=0.0,
+        cash=100.0,
+        day_pnl=0.0,
+        day_return=0.0,
+        fees_today=0.0,
+        funding_total=0.0,
+        unrealised_pnl=0.0,
+    )
+    state_path = tmp_path / "state.json"
+    key = "SPEC|2026-10-30|target-hash|2026-10-31"
+    sent: list[bool] = []
+
+    execute_live_plan._persist_run_result(
+        json_out=tmp_path / "latest.json",
+        payload={"status": "ok"},
+        journal_file=tmp_path / "journal.csv",
+        entry=entry,
+        state_file=state_path,
+        key=key,
+        status="ok",
+        report=ExecutionReport(signal_date="2026-10-30"),
+        notify=lambda: sent.append(True),
+    )
+
+    assert sent == [True]
+    assert json.loads(state_path.read_text(encoding="utf-8"))["telegram_sent_key"] == key
+
+
 def test_same_day_retry_preserves_the_earlier_filled_trade(tmp_path: Path) -> None:
     from atlas20.derivatives.live_journal import load_journal
 

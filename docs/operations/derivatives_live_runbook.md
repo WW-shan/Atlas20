@@ -152,7 +152,7 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 ```
 
 若仍以 `signal_end_date + 1 day 00:00` 结束，目标账本虽然存在，最后一批 OPEN/CLOSE
-却不会进入回测成交、持仓、量化和止损统计；`audit-signal` 会因此硬失败。
+却不会进入回测成交、持仓、量化和止损统计；`audit-signal-ls104` 会因此硬失败。
 
 目标事件第一次应用时，计划器按当时真实权益 × 目标权重下单，并把每个腿的
 `target_quantities` 冻结到 `active_event`。此后：
@@ -202,10 +202,10 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 3. **数据与账本**：`make derivatives-live-data derivatives-ls104-signal`（当前 profile）
 4. **数据审计**：`make audit-data-ls104` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
    **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
-   `audit-data` 还校验 mark/funding 单调性、近期 funding 结算缺口、funding manifest 与实际最后时间一致，
+   `audit-data-ls104` 还校验 mark/funding 单调性、近期 funding 结算缺口、funding manifest 与实际最后时间一致，
    把每个 funding CSV 的字节哈希纳入 data fingerprint，并校验最新 panel 的 price/volume/market-cap 有效值；
    `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
-5. **全品种实时能力**：`make audit-symbols` 对全部映射资产逐项核对 Bitget v3 合约身份、
+5. **全品种实时能力**：`make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json` 对全部映射资产逐项核对 Bitget v3 合约身份、
    online/perpetual/USDT、报价新鲜度，并按 `--required-leverage 4.0` 验证 all-universe 杠杆能力，
    生成多单、空单止损和 long→short 翻转计划；
    `audit-data-ls104 --required-leverage 4.0` 进一步要求目标账本内每个资产支持 4x。
@@ -429,8 +429,8 @@ LS45-G125 的全部同名文件保留为独立回滚 profile，LS104 不覆盖�
 ```bash
 make audit-live-ls104
 make audit-data-chain             # CMC 缓存 → canonical panel → PIT universe 全链审计
-make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0  # 全部标的：4x、多空、翻转、止损和报价
-make derivatives-signal                 # Telegram 文本 dry-run
+make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json  # 全部标的：4x、多空、翻转、止损和报价
+make derivatives-notify-ls104 ARGS=--dry-run  # LS104 Telegram 文本 dry-run
 make execution-plan-live-ls104          # 当前 LS104：读真实账户，只发计划，不下单
 make execute-plan-ls104                 # 当前 LS104：读真实账户，执行器 dry-run，不下单
 make protect-live-ls104                 # 当前 LS104：只减仓/止损/保证金维护；禁止开仓、加仓
@@ -471,7 +471,7 @@ ops/run_derivatives_daily.sh --force    # 只跳过窗口闸
 
 ```bash
 make record-capital-flow AMOUNT=400 NOTE='入金'
-make audit-live
+make audit-live-ls104
 ```
 
 资金流从当日 PnL 中剔除；不要把它算成收益或亏损。
@@ -557,7 +557,7 @@ make audit-live
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.derivatives-execute
 tail -100 ~/Library/Logs/atlas20-derivatives-execute.log
-make audit-live
+make audit-live-ls104
 ```
 
 若在窗口内，下一次重试会自动补；窗口外需要人工确认后：
@@ -568,7 +568,7 @@ ops/run_derivatives_daily.sh --force
 
 ### 全链路核对失败
 
-先运行 `--protect-only`（或只补账时 `--reconcile-only`），再跑 `make audit-live` 并查看
+先运行 `--protect-only`（或只补账时 `--reconcile-only`），再跑 `make audit-live-ls104` 并查看
 `audit.json.checks` / `health.json.issues`；
 不要只看退出码。常见原因：
 

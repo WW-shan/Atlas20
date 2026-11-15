@@ -3,7 +3,9 @@
 Notification-only: this reads the daily target book written by
 ``scripts/run_ls45_live_signal.py``, formats one message with the signed
 long/short rebalance in USDT and the post-trade book, and posts it through the
-Bot API. It never places an order and does not know about any real account.
+Bot API. It never places an order and never reads the exchange account; when a
+local execution state is supplied, it uses the active event's frozen equity
+instead of a generic reference book.
 
 The derivatives book differs from the spot signal in units: weights are
 signed notional as a fraction of equity. The selected frozen profile supplies
@@ -33,6 +35,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.live_chain import (  # noqa: E402
+    execution_state_track_issue,
     live_execution_hint_for_signal,
     live_track_profile,
 )
@@ -116,6 +119,90 @@ def load_latest_targets(
             )
         book[column] = parsed.astype(float)
     return latest, execution_hint, book
+
+
+def _active_event_capital(
+    path: Path | None,
+    *,
+    spec: str,
+    signal_date: pd.Timestamp,
+    book: pd.DataFrame,
+) -> float | None:
+    """Return the equity frozen with the current live event, when available.
+
+    The fallback Telegram job runs after the executor and must not advertise a
+    generic 1,000-USDT reference book when a real event already has a frozen
+    account-equity anchor.  This is a read-only consistency check: the sender
+    never places an order and never reads the exchange account.
+    """
+
+    if path is None:
+        return None
+    state = _read_state(path)
+    if not state:
+        raise SystemExit(f"execution state is empty or unreadable: {path}")
+    issue = execution_state_track_issue(state, spec)
+    if issue is not None:
+        raise SystemExit(f"execution state does not belong to {spec}: {issue}")
+    event = state.get("active_event")
+    if not isinstance(event, dict):
+        raise SystemExit(f"execution state has no active_event: {path}")
+    event_signal = str(event.get("signal_date") or "")
+    expected_signal = str(pd.Timestamp(signal_date).date())
+    if event_signal != expected_signal:
+        raise SystemExit(
+            "execution state active_event signal_date does not match the target book: "
+            f"state={event_signal!r}, target={expected_signal!r}"
+        )
+    raw_weights = event.get("target_weights")
+    if not isinstance(raw_weights, dict):
+        raise SystemExit("execution state active_event target_weights is missing")
+    try:
+        event_weights = {str(asset): float(weight) for asset, weight in raw_weights.items()}
+        book_weights = {
+            str(record["asset"]): float(record["target_weight"])
+            for record in book.to_dict("records")
+            if abs(float(record["target_weight"])) > 1e-15
+        }
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SystemExit("execution state active_event target_weights is invalid") from exc
+    if event_weights.keys() != book_weights.keys() or any(
+        abs(event_weights[asset] - book_weights[asset]) > 1e-12
+        for asset in event_weights
+    ):
+        raise SystemExit("execution state active_event target_weights differ from the target book")
+    try:
+        equity = float(event.get("equity_at_execution"))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit("execution state active_event equity_at_execution is invalid") from exc
+    if not isfinite(equity) or equity <= 0.0:
+        raise SystemExit("execution state active_event equity_at_execution must be positive")
+    return equity
+
+
+def _executor_already_notified(
+    path: Path | None,
+    *,
+    spec: str,
+    signal_date: pd.Timestamp,
+) -> bool:
+    """Whether the executor recorded a successful notification for this event."""
+
+    if path is None:
+        return False
+    state = _read_state(path)
+    last_key = state.get("last_key")
+    sent_key = state.get("telegram_sent_key")
+    if not isinstance(last_key, str) or last_key != sent_key:
+        return False
+    if str(state.get("last_status") or "") != "ok":
+        return False
+    parts = last_key.split("|")
+    return (
+        len(parts) in {3, 4}
+        and parts[0] == spec
+        and parts[1] == str(pd.Timestamp(signal_date).date())
+    )
 
 
 def _lag_label(close_utc: pd.Timestamp, execution: pd.Timestamp) -> str:
@@ -278,6 +365,12 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--targets-file", type=Path, default=DEFAULT_TARGETS_FILE)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    parser.add_argument(
+        "--execution-state-file",
+        type=Path,
+        default=None,
+        help="use the active event equity for the live fallback message",
+    )
     parser.add_argument("--spec", default=TRACKED_SPEC)
     parser.add_argument("--force", action="store_true", help="send even if this signal date was already sent")
     parser.add_argument("--dry-run", action="store_true", help="print the message without sending")
@@ -311,7 +404,33 @@ def main(argv: list[str] | None = None) -> None:
             f"target ledger execution_hint {ledger_execution_hint} does not match "
             f"the live execution clock {execution_hint}"
         )
-    raw_capital = args.capital if args.capital is not None else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
+    active_event_capital = _active_event_capital(
+        args.execution_state_file,
+        spec=profile.spec,
+        signal_date=signal_date,
+        book=book,
+    )
+    if (
+        not args.dry_run
+        and not args.force
+        and _executor_already_notified(
+            args.execution_state_file,
+            spec=profile.spec,
+            signal_date=signal_date,
+        )
+    ):
+        print(
+            f"Executor already recorded Telegram delivery for {profile.spec}|{signal_date.date()}; "
+            "skipping fallback send"
+        )
+        return
+    raw_capital = (
+        args.capital
+        if args.capital is not None
+        else active_event_capital
+        if active_event_capital is not None
+        else os.environ.get("ATLAS20_TELEGRAM_CAPITAL", "1000")
+    )
     try:
         capital = float(raw_capital)
     except (TypeError, ValueError) as exc:

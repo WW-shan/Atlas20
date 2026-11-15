@@ -6094,8 +6094,9 @@ ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，
 **52 PASS / 0 WARN / 0 FAIL**；`audit-data` 与 `audit-data-ls104` 均为 **0 hard failure /
 0 warning**，data fingerprint 为
 `sha256:4985fb0c8bdb3c49a67a72cb6a6672deb9908f6261a92648d4f5dc65bcbe8eac`
-（§00.154 的旧指纹，已被 §00.155 的
-`sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b` 取代）。
+（§00.154 的旧指纹，先被 §00.155 的
+`sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b` 取代；
+本轮 funding/mark refresh 后进一步被 §00.156 的 `4a9ce78...` 取代）。
 
 非密钥 live profile 已从仓库外的 `~/.config/atlas20/track.env` 迁入仓库
 `config/track.env`，内容为 `ATLAS20_TRACK_PROFILE=ls104-g175-m090`。两个 live wrapper 都读取该
@@ -6151,20 +6152,21 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
 - `audit-data-chain`：**52 PASS / 0 WARN / 0 FAIL**；panel **184,026 行 / 102 资产**，
   最新日期 **2026-11-14**；重复 `(date, coin_id)`、未来日期、最新价格/市值/成交量硬错误
   均为 0。32 条历史 market-cap 缺失行被明确标为 unrankable，没有用 stale value 回填排名。
-- `audit-data-ls104`：**2,322 checks，0 hard failure / 0 warning**；manifest data fingerprint
-  为 `sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b`。
+- `audit-data-ls104`：**2,322 checks，0 hard failure / 0 warning**；刷新 funding/marks 并
+  重建 LS104 manifest 后，manifest data fingerprint 为
+  `sha256:4a9ce78ac23824ce120853cb16d9cb142b7292ca8aae621d5ea53affc00fb22c`。
 - `audit-signal-ls104`：冻结账本 **72 行**、重建账本 **72 行**、32 个重叠信号日、差异 **0**；
   最新事件日期 **2026-11-13**，四条目标均为 `-0.125`，targets hash
   `2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`。
 - `audit-live-ls104`：**41 checks（40 hard + 1 non-hard）全部通过，hard_failures=0**；
-  最近一次只读快照权益约 **493.9 USDT**、4 条空头、仓位约 **267.8 USDT**、gross **0.542x**、
-  isolated margin 约 **137.0 USDT / 0.277x**；4/4 当前空头均有且仅有一张 20% mark-price
+  最终只读快照权益约 **492.7 USDT**、4 条空头、仓位约 **269.0 USDT**、gross **0.546x**、
+  isolated margin 约 **137.0 USDT / 0.278x**；4/4 当前空头均有且仅有一张 20% mark-price
   market stop；0 普通未成交单、0 孤儿策略单、0 漏记成交。
 - `audit-symbols`：88/88 个已映射资产有在线 Bitget USDT-M perpetual，88/88 支持 4x，
   long/short/flip 88/88，报价全部新鲜；当前目标资产全部有唯一合约映射。
 - `monitor_live_track.py --quiet`：`issues=[]`。`live_chain_preflight.py --check panel`
   通过；当日完成后窗口预检返回“already completed”，不会重复交易。
-- 交付门禁：Python **2,476 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy strict、
+- 交付门禁：Python **2,479 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy strict、
   ESLint、tsc/Vite build、OpenAPI check、shell syntax 和 plist lint 全部通过。
 
 #### 本轮修复
@@ -6174,7 +6176,10 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
 2. planner 与 executor 对 100% cash 事件的 completed/partial 语义统一：空权重与空数量是
    合法目标，partial 事件会继续平掉尚未完成的腿。
 3. Telegram fallback 和 Makefile 通知目标改用 LS104 的 spec、targets、telegram state，
-   不再重建或播报 LS45；消息上限和 stop/buffer 参数从 selected frozen profile 读取。
+   不再重建或播报 LS45；消息上限和 stop/buffer 参数从 selected frozen profile 读取，
+   并从 active event 的 `equity_at_execution` 取名义基准，避免 fallback 仍按 1,000 USDT
+   参考账本给出手工下单规模。executor 成功发送后写入 `telegram_sent_key`，fallback 对
+   同一成功 execution key 默认跳过，只有显式 `--force` 才允许重复发送。
 4. runbook 的日常监控路径改为 `ls45_live_g175_live`/`ls45_live_g175`；systemd 执行
    service 的描述改为 selected live-track，避免把当前 LS104 误写成 LS45。
 
