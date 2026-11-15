@@ -210,6 +210,44 @@ def test_main_uses_the_single_0105_execution_clock(tmp_path, monkeypatch) -> Non
     ]
 
 
+def test_main_uses_the_selected_ls104_profile_for_message_caps(
+    tmp_path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
+    from scripts import send_derivatives_signal
+
+    path = tmp_path / "oos_targets.csv"
+    frame = _book().copy()
+    frame["signal_date"] = "2026-09-01 00:00:00+00:00"
+    frame["execution_hint"] = "2026-09-02 01:05:00+00:00"
+    frame.to_csv(path, index=False)
+    seen: dict[str, object] = {}
+
+    def capture(_book, **kwargs):
+        seen.update(kwargs)
+        return "signal"
+
+    monkeypatch.setattr(send_derivatives_signal, "format_derivatives_message", capture)
+    send_derivatives_signal.main(
+        [
+            "--targets-file",
+            str(path),
+            "--spec",
+            LS104_G175_M090_SPEC,
+            "--state-file",
+            str(tmp_path / "state.json"),
+            "--dry-run",
+            "--allow-stale-signal",
+        ]
+    )
+
+    assert seen["spec"] == LS104_G175_M090_SPEC
+    assert seen["leverage"] == 1.75
+    assert seen["long_buffer"] == 0.50
+    assert seen["short_buffer"] == 0.50
+    assert seen["short_stop_loss_pct"] == 0.20
+
+
 def test_main_refuses_to_send_a_long_stale_signal(tmp_path, monkeypatch) -> None:
     from scripts import send_derivatives_signal
 

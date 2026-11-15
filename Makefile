@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -101,12 +101,20 @@ LS104_SIGNAL_EQUIVALENCE ?= reports/ls45_live_g175_live/signal_equivalence.json
 LS104_KILL ?= data/ls45_g175_execution.KILL
 LS104_LOCK ?= data/derivatives_execution.lock
 LS104_PLAN_STATE ?= data/ls45_g175_plan_state.json
+LS104_TELEGRAM_STATE ?= data/ls45_g175_telegram_state.json
 LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)
 LS104_PRIOR_ORDER_REGISTRY ?= reports/ls45_live_g175_live/prior_track_order_registry.json
 
 
 derivatives-ls104-signal: derivatives-live-data $(VENV_STAMP)
 	$(PYTHON) scripts/run_ls45_live_signal.py --track ls104-g175-m090
+
+
+derivatives-notify-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/send_derivatives_signal.py \
+		--targets-file $(LS104_TARGETS) \
+		--spec $(LS104_SPEC) \
+		--state-file $(LS104_TELEGRAM_STATE)
 
 
 audit-data-ls104: $(VENV_STAMP)
@@ -183,7 +191,9 @@ execution-plan: $(VENV_STAMP)
 	$(PYTHON) scripts/plan_live_execution.py --equity $(or $(EQUITY),1000)
 
 execution-plan-live: $(VENV_STAMP)
-	$(PYTHON) scripts/plan_live_execution.py --live --notify
+	$(PYTHON) scripts/plan_live_execution.py \
+		--live --notify \
+		--execution-state-file data/ls45_g125_execution_state.json
 
 # Current LS104 read-only plan and executor dry-run.  Keep the legacy targets
 # above untouched for the LS45 fallback, but do not make an operator infer the
@@ -195,6 +205,7 @@ execution-plan-live-ls104: $(VENV_STAMP)
 		--targets-file $(LS104_TARGETS) \
 		--manifest-file $(LS104_MANIFEST) \
 		--state-file $(LS104_PLAN_STATE) \
+		--execution-state-file $(LS104_STATE) \
 		--leverage 4.0 \
 		--max-gross-multiple 1.75 \
 		--max-margin-utilization 0.90 \

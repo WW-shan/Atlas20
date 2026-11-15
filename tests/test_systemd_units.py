@@ -109,7 +109,7 @@ def test_derivatives_signal_fallback_rebuilds_and_audits_before_notifying() -> N
         ROOT / "ops" / "systemd" / "atlas20-derivatives-signal.service"
     ).read_text(encoding="utf-8")
 
-    assert "audit-data audit-data-chain derivatives-notify" in service
+    assert "audit-data-chain audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104" in service
 
 
 def test_makefile_refresh_target_rebuilds_the_panel() -> None:
@@ -132,8 +132,8 @@ def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
     assert "OnCalendar=*-*-* 04:15:00 UTC" in timer
     assert "Unit=atlas20-derivatives-signal.service" in timer
     assert (
-        "derivatives-live-data derivatives-ls45-signal audit-data "
-        "audit-data-chain derivatives-notify"
+        "derivatives-live-data derivatives-ls104-signal audit-data-chain "
+        "audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104"
     ) in service
     # The data-refresh timer must run before the 03:45 signal attempt.
     assert "00:50:00 UTC" in (

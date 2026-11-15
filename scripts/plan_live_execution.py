@@ -62,11 +62,13 @@ from atlas20.derivatives.execution import (  # noqa: E402
 from atlas20.derivatives.http import get_json_with_retries  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
     LIVE_MIN_REBALANCE_USDT,
+    execution_state_track_issue,
     live_execution_hint_for_signal,
     live_track_profile,
     manifest_spec_issues,
     manifest_targets_hash_issue,
 )
+from atlas20.derivatives.live_journal import effective_event_target_quantities  # noqa: E402
 from atlas20.derivatives.mapping import LiveSymbolMap  # noqa: E402
 from atlas20.logging_utils import atomic_write_text, ensure_dir  # noqa: E402
 
@@ -323,6 +325,106 @@ def _target_event_is_fresh(
     if signal_end_date is None:
         return False
     return pd.Timestamp(signal_date).date() == pd.Timestamp(signal_end_date).date()
+
+
+def _active_event_plan_quantities(
+    state_path: Path,
+    *,
+    spec: str,
+    signal_date: pd.Timestamp,
+    target_identity: str,
+    targets: Mapping[str, float],
+    symbols_by_asset: Mapping[str, str],
+) -> tuple[dict[str, float] | None, bool]:
+    """Return frozen quantities when the persisted event owns this target book.
+
+    A planner without a state file cannot know whether an unchanged target row
+    is a new event or the same event drifting with prices.  The executor has
+    that information in ``active_event``; this helper applies the same rule to
+    the manual planner so its margin preview cannot silently use a fresh
+    equity-weighted target instead of the frozen event quantities.
+    """
+
+    path = Path(state_path)
+    if not path.exists():
+        return None, False
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"execution state could not be read: {path}: {exc}") from exc
+    if not isinstance(state, dict):
+        raise SystemExit(f"execution state is not a JSON object: {path}")
+    issue = execution_state_track_issue(state, spec)
+    if issue is not None:
+        raise SystemExit(f"execution state does not belong to {spec}: {issue}")
+    event = state.get("active_event")
+    if not isinstance(event, dict):
+        return None, False
+    event_signal = str(event.get("signal_date") or "")
+    expected_signal = str(pd.Timestamp(signal_date).date())
+    if event_signal != expected_signal:
+        raise SystemExit(
+            "execution state active_event signal_date does not match the target book: "
+            f"state={event_signal!r}, target={expected_signal!r}"
+        )
+    event_identity = str(event.get("targets_sha256") or "")
+    if event_identity != str(target_identity):
+        raise SystemExit(
+            "execution state active_event targets_sha256 does not match the target book: "
+            f"state={event_identity!r}, target={str(target_identity)!r}"
+        )
+    event_weights = event.get("target_weights")
+    if not isinstance(event_weights, Mapping):
+        raise SystemExit("execution state active_event target_weights is missing")
+    try:
+        normalized_event_weights = {
+            str(asset): float(weight) for asset, weight in event_weights.items()
+        }
+        normalized_targets = {
+            str(asset): float(weight) for asset, weight in targets.items()
+        }
+    except (TypeError, ValueError) as exc:
+        raise SystemExit("execution state active_event target_weights is invalid") from exc
+    if normalized_event_weights != normalized_targets:
+        raise SystemExit("execution state active_event target_weights differ from the target book")
+    partial = str(event.get("position_status") or "") != "ok"
+    raw_quantities = effective_event_target_quantities(event)
+    if not raw_quantities:
+        if not normalized_event_weights:
+            # A 100% cash event legitimately freezes an empty book.  The
+            # executor treats it as a valid completion target when a close was
+            # only partially applied; keep the manual planner on that same path.
+            return {}, partial
+        raise SystemExit("execution state active_event has no frozen target quantities")
+    symbol_assets = symbol_to_asset_index(symbols_by_asset)
+    stopped = event.get("stopped_symbols")
+    stopped_symbols = (
+        {str(symbol).upper() for symbol in stopped}
+        if isinstance(stopped, Mapping)
+        else set()
+    )
+    quantities: dict[str, float] = {}
+    for raw_symbol, raw_quantity in raw_quantities.items():
+        symbol = str(raw_symbol).upper()
+        asset = symbol_assets.get(symbol)
+        if asset is None or asset not in targets:
+            raise SystemExit(
+                f"execution state active_event quantity {symbol!r} has no matching target asset"
+            )
+        try:
+            quantity = float(raw_quantity)
+        except (TypeError, ValueError) as exc:
+            raise SystemExit(f"execution state active_event quantity for {symbol} is invalid") from exc
+        if not isfinite(quantity) or quantity < 0.0:
+            raise SystemExit(f"execution state active_event quantity for {symbol} is invalid")
+        weight = float(targets[asset])
+        quantities[asset] = 0.0 if symbol in stopped_symbols else (-quantity if weight < 0.0 else quantity)
+    for asset, weight in targets.items():
+        if abs(float(weight)) > 1e-15 and asset not in quantities:
+            raise SystemExit(
+                f"execution state active_event has no frozen quantity for target asset {asset!r}"
+            )
+    return quantities, partial
 
 
 def target_weights_from_book(
@@ -696,6 +798,15 @@ def main() -> None:
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--notify", action="store_true", help="send the plan to Telegram")
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
+    parser.add_argument(
+        "--execution-state-file",
+        type=Path,
+        default=None,
+        help=(
+            "read the active frozen event from this execution state so a "
+            "no-new-event plan preserves event quantities"
+        ),
+    )
     parser.add_argument("--force", action="store_true", help="send even if this plan was already notified")
     args = parser.parse_args()
 
@@ -771,6 +882,28 @@ def main() -> None:
             f"{float(args.max_gross_multiple):g}x spec cap"
         )
     relevant_symbols = spec_symbol_universe(symbols_by_asset, targets)
+    target_identity = str(manifest.get("targets_sha256") or "") if manifest else ""
+    active_event_quantities: dict[str, float] | None = None
+    active_event_partial = False
+    if args.execution_state_file is not None and not fresh_target_event:
+        active_event_quantities, active_event_partial = _active_event_plan_quantities(
+            args.execution_state_file,
+            spec=args.spec,
+            signal_date=signal_date,
+            target_identity=target_identity,
+            targets=targets,
+            symbols_by_asset=relevant_symbols,
+        )
+    if args.live and not fresh_target_event and active_event_quantities is None:
+        state_hint = (
+            str(args.execution_state_file)
+            if args.execution_state_file is not None
+            else "<missing>"
+        )
+        raise SystemExit(
+            "live execution planning without a fresh target event requires "
+            f"--execution-state-file with an active frozen event; got {state_hint}"
+        )
 
     session = requests.Session()
     if args.prices_file is not None:
@@ -834,7 +967,8 @@ def main() -> None:
         max_margin_utilization=float(args.max_margin_utilization),
         taker_fee_rate=max(float(args.cost_bps), 0.0) / 10_000.0,
         min_rebalance_usdt=float(args.min_rebalance_usdt),
-        rebalance_to_target=fresh_target_event,
+        rebalance_to_target=fresh_target_event or active_event_partial,
+        target_quantities=active_event_quantities,
     )
     message = format_execution_plan(
         plan,

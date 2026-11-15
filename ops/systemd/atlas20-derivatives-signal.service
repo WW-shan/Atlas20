@@ -1,5 +1,5 @@
 [Unit]
-Description=Atlas20 LS45-G125 daily Telegram signal
+Description=Atlas20 LS104-G175-M090 daily Telegram signal (notification only)
 Documentation=file:/opt/atlas20/docs/operations/telegram_signal.md
 After=network-online.target
 Wants=network-online.target
@@ -8,4 +8,4 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/atlas20
 EnvironmentFile=-/etc/atlas20/telegram.env
-ExecStart=/usr/bin/make derivatives-live-data derivatives-ls45-signal audit-data audit-data-chain derivatives-notify
+ExecStart=/usr/bin/make derivatives-live-data derivatives-ls104-signal audit-data-chain audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104

@@ -540,11 +540,11 @@ make audit-live
 
 | 指标 | 位置 | 动作 |
 |---|---|---|
-| 执行状态 | `reports/ls45_live_g125_live/latest.json` | `status` 必须是 `ok`；`partial` 查 failures |
-| 对账 | `reports/ls45_live_g125_live/audit.json` | `hard_failures = 0` |
-| 巡检 | `reports/ls45_live_g125_live/health.json` | `issues` 为空 |
-| journal | `reports/ls45_live_g125_live/journal.csv` | 每日一行；同日重跑覆盖 |
-| 数据覆盖 | `reports/ls45_live_g125/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 的 2h provider gaps 单独查看，不能和 live OOS 覆盖混为一谈 |
+| 执行状态 | `reports/ls45_live_g175_live/latest.json` | `status` 必须是 `ok`；`partial` 查 failures |
+| 对账 | `reports/ls45_live_g175_live/audit.json` | `hard_failures = 0` |
+| 巡检 | `reports/ls45_live_g175_live/health.json` | `issues` 为空 |
+| journal | `reports/ls45_live_g175_live/journal.csv` | 每日一行；同日重跑覆盖 |
+| 数据覆盖 | `reports/ls45_live_g175/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 的 2h provider gaps 单独查看，不能和 live OOS 覆盖混为一谈 |
 | 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
 | funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属；同日 retry 不得把已有 funding 覆盖成 0 |
 

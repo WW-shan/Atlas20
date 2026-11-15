@@ -91,6 +91,110 @@ def test_manifest_signal_end_date_can_use_the_already_validated_payload(
     assert result == pd.Timestamp("2026-11-12", tz="UTC")
 
 
+def test_active_event_plan_quantities_use_the_frozen_event_sizes(tmp_path) -> None:
+    from scripts.plan_live_execution import _active_event_plan_quantities
+
+    target_identity = "target-hash"
+    key = f"SPEC|2026-11-13|{target_identity}|2026-11-15"
+    state = {
+        "last_key": key,
+        "last_status": "ok",
+        "runs": [{"key": key, "status": "ok"}],
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": target_identity,
+            "target_weights": {"near": -0.125, "zcash": 0.125},
+            "target_quantities": {"NEARUSDT": 10.0, "ZECUSDT": 2.0},
+            "position_status": "ok",
+        },
+    }
+    state_path = tmp_path / "state.json"
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    quantities, partial = _active_event_plan_quantities(
+        state_path,
+        spec="SPEC",
+        signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
+        target_identity=target_identity,
+        targets={"near": -0.125, "zcash": 0.125},
+        symbols_by_asset={"near": "NEARUSDT", "zcash": "ZECUSDT"},
+    )
+
+    assert quantities == {"near": -10.0, "zcash": 2.0}
+    assert partial is False
+
+
+def test_active_event_plan_quantities_reject_a_stale_target_book(tmp_path) -> None:
+    from scripts.plan_live_execution import _active_event_plan_quantities
+
+    key = "SPEC|2026-11-13|old-hash|2026-11-15"
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "last_status": "ok",
+                "runs": [{"key": key}],
+                "active_event": {
+                    "signal_date": "2026-11-13",
+                    "targets_sha256": "old-hash",
+                    "target_weights": {"near": -0.125},
+                    "target_quantities": {"NEARUSDT": 10.0},
+                    "position_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="targets_sha256"):
+        _active_event_plan_quantities(
+            state_path,
+            spec="SPEC",
+            signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
+            target_identity="new-hash",
+            targets={"near": -0.125},
+            symbols_by_asset={"near": "NEARUSDT"},
+        )
+
+
+def test_active_event_plan_quantities_supports_a_cash_event(tmp_path) -> None:
+    from scripts.plan_live_execution import _active_event_plan_quantities
+
+    target_identity = "cash-target-hash"
+    key = f"SPEC|2026-11-13|{target_identity}|2026-11-15"
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "last_status": "ok",
+                "runs": [{"key": key}],
+                "active_event": {
+                    "signal_date": "2026-11-13",
+                    "targets_sha256": target_identity,
+                    "target_weights": {},
+                    "target_quantities": {},
+                    "position_status": "partial",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    quantities, partial = _active_event_plan_quantities(
+        state_path,
+        spec="SPEC",
+        signal_date=pd.Timestamp("2026-11-13", tz="UTC"),
+        target_identity=target_identity,
+        targets={},
+        symbols_by_asset={"near": "NEARUSDT"},
+    )
+
+    assert quantities == {}
+    assert partial is True
+
+
 def test_live_plan_requires_a_frozen_manifest_before_reading_market_files(
     tmp_path, monkeypatch
 ) -> None:
@@ -200,6 +304,62 @@ def test_live_plan_parses_targets_from_the_manifest_bound_snapshot(
     monkeypatch.setattr(plan_live_execution, "load_latest_targets", capture_snapshot)
 
     with pytest.raises(SystemExit, match="target snapshot captured"):
+        plan_live_execution.main()
+
+
+def test_live_plan_requires_execution_state_when_latest_event_is_not_fresh(
+    tmp_path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import file_sha256
+
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text(
+        "signal_date,execution_hint,asset,target_weight,change_weight,action\n"
+        "2026-11-13T00:00:00Z,2026-11-14T01:05:00Z,near,-0.125,-0.125,OPEN\n",
+        encoding="utf-8",
+    )
+    profile = plan_live_execution.live_track_profile("ls45-g125")
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "tracked_spec": profile.spec,
+                "frozen_config": profile.frozen_config,
+                **profile.manifest_top_level,
+                "signal_end_date": "2026-11-14",
+                "index_end_date": "2026-11-14",
+                "targets_file": targets.name,
+                "targets_sha256": file_sha256(targets),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        plan_live_execution,
+        "load_symbol_map",
+        lambda _path: {"near": "NEARUSDT"},
+    )
+    monkeypatch.setattr(
+        plan_live_execution.requests,
+        "Session",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("network access must not start without the frozen event quantities")
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plan_live_execution.py",
+            "--live",
+            "--targets-file",
+            str(targets),
+            "--manifest-file",
+            str(manifest),
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="execution-state-file"):
         plan_live_execution.main()
 
 

@@ -6,10 +6,9 @@ long/short rebalance in USDT and the post-trade book, and posts it through the
 Bot API. It never places an order and does not know about any real account.
 
 The derivatives book differs from the spot signal in units: weights are
-signed notional as a fraction of equity. The LS45-G125 spec caps gross at
-1.25x and assigns a 50% initial isolated buffer to each leg. Short entries and
-increases carry a 20% mark-price stop. The message shows notional, side,
-reference isolated margin and that stop rule so manual execution is explicit.
+signed notional as a fraction of equity. The selected frozen profile supplies
+the gross cap, buffers, and short-stop rule; the message shows notional, side,
+reference isolated margin and that rule so manual execution is explicit.
 """
 
 # ruff: noqa: E402
@@ -33,7 +32,10 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.derivatives.live_chain import live_execution_hint_for_signal  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    live_execution_hint_for_signal,
+    live_track_profile,
+)
 from atlas20.derivatives.margin import initial_margin_ratio  # noqa: E402
 from atlas20.logging_utils import atomic_write_text  # noqa: E402
 from scripts.send_telegram_signal import (  # noqa: E402
@@ -298,6 +300,10 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
+    try:
+        profile = live_track_profile(str(args.spec))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
     execution_hint = pd.Timestamp(live_execution_hint_for_signal(signal_date))
     if ledger_execution_hint != execution_hint:
@@ -319,7 +325,11 @@ def main(argv: list[str] | None = None) -> None:
         execution_hint=execution_hint,
         research_execution_hint=None,
         capital=capital,
-        spec=args.spec,
+        spec=profile.spec,
+        leverage=float(profile.manifest_top_level["max_total_gross"]),
+        long_buffer=float(profile.frozen_config["long_buffer"]),
+        short_buffer=float(profile.frozen_config["short_buffer"]),
+        short_stop_loss_pct=float(profile.frozen_config["short_stop_loss_pct"]),
         now=pd.Timestamp.now(tz="UTC"),
     )
     if args.dry_run:
@@ -333,14 +343,14 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(
             f"signal {signal_date.date()} was meant to execute at {execution_hint} "
             f"({age_hours:.1f}h ago, limit {args.max_signal_age_hours:g}h); refusing to send a "
-            "stale instruction. Refresh the pipeline (make derivatives-live-data derivatives-ls45-signal) "
+            "stale instruction. Refresh the selected track pipeline and target ledger "
             "or pass --allow-stale-signal to replay the ledger."
         )
 
     chat_ids = _chat_ids(os.environ.get("ATLAS20_TELEGRAM_CHAT_ID"))
     if not chat_ids:
         raise SystemExit("ATLAS20_TELEGRAM_CHAT_ID is not set")
-    key = _state_key(args.spec, signal_date)
+    key = _state_key(profile.spec, signal_date)
     state = _read_state(args.state_file)
     sent_keys = state.get("sent_keys")
     if not isinstance(sent_keys, dict):
@@ -356,7 +366,7 @@ def main(argv: list[str] | None = None) -> None:
     api_base = os.environ.get("ATLAS20_TELEGRAM_API_BASE", "https://api.telegram.org")
     for chat_id in pending:
         send_telegram_message(message, token=token, chat_id=chat_id, api_base=api_base)
-        _mark_sent(args.state_file, chat_id, spec=args.spec, signal_date=signal_date)
+        _mark_sent(args.state_file, chat_id, spec=profile.spec, signal_date=signal_date)
         print(f"Sent derivatives signal for {key} to {chat_id}")
 
 

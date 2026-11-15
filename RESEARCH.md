@@ -6093,7 +6093,9 @@ ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，
 `crosscheck_verified=True`，无仍留在 panel 的价格污染。`make audit-data-chain` 为
 **52 PASS / 0 WARN / 0 FAIL**；`audit-data` 与 `audit-data-ls104` 均为 **0 hard failure /
 0 warning**，data fingerprint 为
-`sha256:4985fb0c8bdb3c49a67a72cb6a6672deb9908f6261a92648d4f5dc65bcbe8eac`。
+`sha256:4985fb0c8bdb3c49a67a72cb6a6672deb9908f6261a92648d4f5dc65bcbe8eac`
+（§00.154 的旧指纹，已被 §00.155 的
+`sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b` 取代）。
 
 非密钥 live profile 已从仓库外的 `~/.config/atlas20/track.env` 迁入仓库
 `config/track.env`，内容为 `ATLAS20_TRACK_PROFILE=ls104-g175-m090`。两个 live wrapper 都读取该
@@ -6136,3 +6138,73 @@ ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，
   `--live` 再跑，生成计划但 **0 成交、0 下单**，state/journal 哈希前后完全不变；
 - 全量验证：Python **2,427 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy、ESLint、tsc
   和 shell syntax 全部通过。
+
+### 00.156 2026-11-16 当前 LS104 全链路逐节点审计与实盘预览对齐
+
+本轮按“数据源 → panel → point-in-time universe → 冻结目标账本 → 实盘 state/journal →
+Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS104，并把审计中发现的两个人工预览
+缺口补上。结论必须分层表述：**冻结策略语义和目标事件一致，当前账户与账本门禁全部通过；
+真实成交路径不是回测的逐笔复制。**
+
+#### 已验证节点
+
+- `audit-data-chain`：**52 PASS / 0 WARN / 0 FAIL**；panel **184,026 行 / 102 资产**，
+  最新日期 **2026-11-14**；重复 `(date, coin_id)`、未来日期、最新价格/市值/成交量硬错误
+  均为 0。32 条历史 market-cap 缺失行被明确标为 unrankable，没有用 stale value 回填排名。
+- `audit-data-ls104`：**2,322 checks，0 hard failure / 0 warning**；manifest data fingerprint
+  为 `sha256:1fe0156c1eb169fdb229ecf5fc09527a0f07274c1fba96302362ae18c85ebb1b`。
+- `audit-signal-ls104`：冻结账本 **72 行**、重建账本 **72 行**、32 个重叠信号日、差异 **0**；
+  最新事件日期 **2026-11-13**，四条目标均为 `-0.125`，targets hash
+  `2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`。
+- `audit-live-ls104`：**41 checks（40 hard + 1 non-hard）全部通过，hard_failures=0**；
+  最近一次只读快照权益约 **493.9 USDT**、4 条空头、仓位约 **267.8 USDT**、gross **0.542x**、
+  isolated margin 约 **137.0 USDT / 0.277x**；4/4 当前空头均有且仅有一张 20% mark-price
+  market stop；0 普通未成交单、0 孤儿策略单、0 漏记成交。
+- `audit-symbols`：88/88 个已映射资产有在线 Bitget USDT-M perpetual，88/88 支持 4x，
+  long/short/flip 88/88，报价全部新鲜；当前目标资产全部有唯一合约映射。
+- `monitor_live_track.py --quiet`：`issues=[]`。`live_chain_preflight.py --check panel`
+  通过；当日完成后窗口预检返回“already completed”，不会重复交易。
+- 交付门禁：Python **2,476 passed / 1 skipped**，前端 **249 passed**；Ruff、mypy strict、
+  ESLint、tsc/Vite build、OpenAPI check、shell syntax 和 plist lint 全部通过。
+
+#### 本轮修复
+
+1. `plan_live_execution.py --live` 在没有新目标事件时必须读取 execution state 的
+   `active_event` 冻结数量；缺失或没有冻结事件时直接失败，禁止用今日权益重算旧目标。
+2. planner 与 executor 对 100% cash 事件的 completed/partial 语义统一：空权重与空数量是
+   合法目标，partial 事件会继续平掉尚未完成的腿。
+3. Telegram fallback 和 Makefile 通知目标改用 LS104 的 spec、targets、telegram state，
+   不再重建或播报 LS45；消息上限和 stop/buffer 参数从 selected frozen profile 读取。
+4. runbook 的日常监控路径改为 `ls45_live_g175_live`/`ls45_live_g175`；systemd 执行
+   service 的描述改为 selected live-track，避免把当前 LS104 误写成 LS45。
+
+#### 不能称为“逐笔完全一致”的部分
+
+- 回测 manifest 明确记录 `execution_price_model=mark_1h_open_floor`；实盘使用真实 ticker
+  + market order，成交价、spread、盘口深度和滑点不可能由 1H mark open 复现。
+- 回测的 2026-11-14 事件使用 engine capital **500 USDT** 和 01:00 mark 价格；LS104 首次
+  live bootstrap 实际在 **2026-11-15 01:10 UTC** 才应用冻结事件，event equity 为
+  **507.94333735 USDT**。因此事件币数分别约为 BCH 0.270→0.323481、HYPE 0.840→1.002319、
+  NEAR 17→21.350769、ZEC 0.064→0.074819，不能把两组数量当成同一笔。
+- 当前交易所实际数量为 BCH **0.320**、HYPE **1.000**、NEAR **21.000**、ZEC **0.074**，
+  与冻结事件数量的差异来自合约 quantity step/minimum；当前权重约 13.3%–13.6% 是价格漂移
+  后的正常结果，策略只在目标事件变化时重算币数。
+- journal 记录 **2026-11-15T09:02:14Z** BCH/HYPE/NEAR/ZEC 四条空头被外部全平，
+  **09:20:55Z** 按冻结事件数量恢复；这带来额外成交、手续费、funding 和实现路径差异，
+  不能从回测中消失。
+- 回测 stop 用 mark candle 的 open/high/low 近似触发；实盘用交易所 mark-price stop，
+  分钟级 wick、撮合和触发顺序仍可能不同。回测默认成本为 20 bps；当前合约审计读到
+  taker fee 6 bps，但真实 spread/冲击成本仍需由实际成交继续验证。
+
+#### 仍存在的覆盖限制
+
+- 当前 LS104 live-parity OOS 为 **54 个 daily row / 53 个有效收益日**（2026-09-22 →
+  2026-11-14），20bps multiple **0.9827408x**、Sharpe **0.06287**、MDD **-19.3218%**；
+  12 个月独立 OOS 仍未完成，不能把主样本 20bps 77.8524x 当作未来保证。
+- 当前 OOS mark coverage 为 **0 missing hours**，但历史 warmup 仍有 **28,371 missing
+  asset-hours / 26,265 个 2h provider gaps**；这是已披露的 warmup 限制，不是当前 live
+  OOS 缺口。
+- 最新 panel 的 97 个资产中有部分主流 CMC 名称没有 Bitget USDT-M perpetual；当前目标
+  资产均不受影响，但可执行 universe 不是 97/97 全覆盖。`data/data_freshness.json` 的
+  最后 heartbeat 仍是 **2026-09-21**，它是旧 API/UI 状态文件，不是本 live chain 的
+  数据门禁；live gate 使用 panel、marks、funding 和 manifest 指纹。

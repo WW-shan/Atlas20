@@ -89,33 +89,37 @@ message. Both attempts assume the Ubuntu data-refresh job has completed; adjust
 signal first, so a stale or partial panel makes the attempt fail instead of
 sending a stale message.
 
-## Derivatives track (`PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21`)
+## Derivatives track (`PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090`)
 
-The derivatives broadcast matches the current LS45-G125 Bitget USDT-M track:
-signed long/short target weights, 1.25x gross cap, isolated margin, 50% initial
-buffers per leg, and a 20% mark-price stop on every short entry/increase. It
-reads the frozen target book in `reports/ls45_live_g125/oos_targets.csv` and
+The derivatives broadcast matches the current LS104-G175-M090 Bitget USDT-M
+track: signed long/short target weights, 1.75x gross cap, isolated margin, 50%
+initial buffers per leg, and a 20% mark-price stop on every short
+entry/increase. It reads the frozen target book in
+`reports/ls45_live_g175/oos_targets.csv` and
 sends one message per signal day with:
 
 - signed `BUY`/`SELL` notional and weight changes in pp;
 - long and short legs separately labelled, never hidden behind absolute values;
-- reference isolated margin, total gross (`sum(abs(notional))`), and the 1.25x cap;
+- reference isolated margin, total gross (`sum(abs(notional))`), and the 1.75x cap;
 - the single execution time (T+1 01:05 UTC, 09:05 Beijing);
 - the target ledger's `execution_hint`, which must be the same T+1 01:05 UTC clock;
 - a short-risk line stating that entries carry a 20% mark-price market stop;
 - a warning when the execution time has already passed.
 
 ```bash
-# preview the latest LS45 message (no credentials needed)
-make derivatives-signal
+# preview the latest LS104 message (no credentials needed)
+.venv/bin/python scripts/send_derivatives_signal.py \
+  --targets-file reports/ls45_live_g175/oos_targets.csv \
+  --spec PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090 \
+  --state-file data/ls45_g175_telegram_state.json --dry-run
 
-# refresh the live mark tree and rebuild the LS45 ledger, then send one message
-make derivatives-live-data derivatives-ls45-signal derivatives-notify
+# refresh the live mark tree and rebuild the LS104 ledger, then send one message
+make derivatives-live-data derivatives-ls104-signal derivatives-notify-ls104
 ```
 
 The message is notification-only: it never places an order, does not know any
 real position, and repeated runs for the same signal day are skipped by the
-`(spec, signal_date)` key in `data/ls45_g125_telegram_state.json`. If the modelled
+`(spec, signal_date)` key in `data/ls45_g175_telegram_state.json`. If the modelled
 execution is more than `--max-signal-age-hours` (default 36h) in the past, the
 sender refuses to send and exits non-zero. Replay an old ledger deliberately
 with `--allow-stale-signal`.
@@ -142,6 +146,6 @@ The real execution timer fires at 01:05 / 01:35 / 03:05 / 03:35 / 04:35 /
 
 The spot sender records the last successful `(trial_id, as_of)` pair in
 `data/telegram_signal_state.json`; the derivatives sender records
-`(spec, signal_date)` per chat id in `data/ls45_g125_telegram_state.json`.
+`(spec, signal_date)` per chat id in `data/ls45_g175_telegram_state.json`.
 A repeated timer or manual run for the same day is skipped. State is written only
 after Telegram confirms `ok: true`, so a failed send can be retried safely.
