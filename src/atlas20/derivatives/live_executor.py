@@ -1360,8 +1360,9 @@ def execute_plan(
     """Trade ``plan`` on the live account and report the real outcome.
 
     Orders are attempted in plan order (reductions first, as the planner emits
-    them).  A rejected order is recorded and the remaining orders still run:
-    the next daily plan re-reads the account, so a missed leg self-corrects.
+    them).  A rejected or non-terminal order blocks every following
+    OPEN/INCREASE in the same run; reductions and closes may still proceed.
+    The next daily plan re-reads the account, so a missed leg self-corrects.
     """
 
     if require_isolated and margin_mode != MARGIN_MODE_ISOLATED:

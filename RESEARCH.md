@@ -6043,7 +6043,11 @@ market stop，0 笔未成交普通单、0 hard failure。
    不能用于事件持有期的价格漂移，否则会产生假告警。
 
 同日 retry 的 journal 合并会保留先前快照的资金费，不再因为后续空仓/重开而把
-`funding_total` 覆盖成 0。验证结果：`make test` **2394 passed, 1 skipped**；frontend
+`funding_total` 覆盖成 0。验证结果：`make test` **2400 passed, 1 skipped**；frontend
 **249 passed**；`make lint`、`make typecheck` 通过；`audit-data-ls104` 0 hard failure /
 0 warning；`audit-signal-ls104` 72/72 行、0 差异；`audit-live-ls104` 全部通过；
 monitor `issues=[]`。这是一次真实外部干预后的恢复，不是策略 alpha 的新证据。
+
+随后又修复了保护性维护路径的报价兜底：`--protect-only` 不再要求所有已有腿都有新鲜公开
+ticker；持有腿使用交易所 `markPrice` 作为平仓/减仓定价兜底，止损归一和风险降低不再被
+行情源短暂缺失无谓阻断。新开/加仓路径仍严格要求新鲜报价。该路径已有回归测试覆盖。

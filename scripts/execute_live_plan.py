@@ -2015,23 +2015,34 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     weights = active_event.get("target_weights")
     weights = dict(weights) if isinstance(weights, dict) else {}
     required_assets = set(account.positions)
-    required_symbols = {
-        position.symbol.upper() for position in account.positions.values()
-    }
-    prices, quotes, warnings = _live_quote_snapshot(
-        session,
-        set(relevant_symbols.values()),
-        required_symbols=required_symbols,
-        max_age_seconds=float(args.max_quote_age_seconds),
-        spread_warning_bps=float(args.spread_warning_bps),
-        mark_deviation_warning_bps=float(args.mark_deviation_warning_bps),
-    )
+    try:
+        _prices, quotes, warnings = _live_quote_snapshot(
+            session,
+            set(relevant_symbols.values()),
+            # Protect-only never opens risk.  A held leg must still be closable
+            # when the public ticker is missing or stale, so use the venue's
+            # authoritative mark as the fallback below instead of failing before
+            # stop normalization or a risk-reducing exit can run.
+            required_symbols=set(),
+            max_age_seconds=float(args.max_quote_age_seconds),
+            spread_warning_bps=float(args.spread_warning_bps),
+            mark_deviation_warning_bps=float(args.mark_deviation_warning_bps),
+        )
+    except QuoteError as exc:
+        _prices, quotes = {}, {}
+        warnings = [f"protect-only public ticker unavailable; using venue marks: {exc}"]
     prices_by_asset: dict[str, float] = {}
     for asset in required_assets:
-        symbol = account.positions[asset].symbol.upper()
-        if prices.get(symbol, 0.0) <= 0.0:
-            raise SystemExit(f"protect-only has no usable price for {symbol}")
-        prices_by_asset[asset] = prices[symbol]
+        position = account.positions[asset]
+        price, price_warning = _held_position_price(
+            position.symbol,
+            venue_mark=position.mark_price,
+            quotes=quotes,
+            max_age_seconds=float(args.max_quote_age_seconds),
+        )
+        prices_by_asset[asset] = price
+        if price_warning is not None:
+            warnings.append(price_warning)
 
     stopped_symbols = (
         dict(active_event.get("stopped_symbols") or {})

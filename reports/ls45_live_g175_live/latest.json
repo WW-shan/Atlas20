@@ -1,59 +1,59 @@
 {
   "mode": "protect_only",
   "plan": {
-    "equity": 492.56725183,
-    "expected_gross_notional": 268.91252,
-    "expected_margin": 138.4899478,
+    "equity": 492.81019183,
+    "expected_gross_notional": 268.93896,
+    "expected_margin": 138.50356440000002,
     "leverage": 4.0,
     "margin_intents": [
       {
-        "amount": 0.04101957404500922,
-        "asset": "hyperliquid",
-        "operation": "remove",
+        "amount": 0.03790218302095383,
+        "asset": "bitcoin-cash",
+        "operation": "add",
         "pos_side": "short",
-        "reason": "isolated margin to 51.5% of 68.01 USDT notional",
+        "reason": "isolated margin to 51.5% of 66.75 USDT notional",
+        "symbol": "BCHUSDT"
+      },
+      {
+        "amount": 0.0643750000000054,
+        "asset": "hyperliquid",
+        "operation": "add",
+        "pos_side": "short",
+        "reason": "isolated margin to 51.5% of 68.14 USDT notional",
         "symbol": "HYPEUSDT"
       },
       {
-        "amount": 0.02811015337422873,
+        "amount": 0.07245137715212024,
         "asset": "near",
-        "operation": "remove",
+        "operation": "add",
         "pos_side": "short",
-        "reason": "isolated margin to 51.5% of 66.73 USDT notional",
+        "reason": "isolated margin to 51.5% of 66.71 USDT notional",
         "symbol": "NEARUSDT"
-      },
-      {
-        "amount": 0.10422915229641205,
-        "asset": "zcash",
-        "operation": "remove",
-        "pos_side": "short",
-        "reason": "isolated margin to 51.5% of 67.40 USDT notional",
-        "symbol": "ZECUSDT"
       }
     ],
     "orders": [],
     "signed_target_notional": {
-      "bitcoin-cash": -67.5040857691805,
-      "hyperliquid": -68.16372501780717,
-      "near": -67.84206883573312,
-      "zcash": -68.14740843347147
+      "bitcoin-cash": -67.47820726208094,
+      "hyperliquid": -68.29502884360684,
+      "near": -67.82498822044795,
+      "zcash": -68.08456045625935
     },
     "target_margin_ratio": 0.515,
     "target_notional": {
-      "bitcoin-cash": 67.5040857691805,
-      "hyperliquid": 68.16372501780717,
-      "near": 67.84206883573312,
-      "zcash": 68.14740843347147
+      "bitcoin-cash": 67.47820726208094,
+      "hyperliquid": 68.29502884360684,
+      "near": 67.82498822044795,
+      "zcash": 68.08456045625935
     },
     "warnings": [
       "no new target event: same-side position drift is preserved; only risk-reducing closes and account maintenance are enabled"
     ]
   },
   "report": {
-    "available_after": 355.40577182,
-    "balance_after": 355.40577182,
-    "equity_after": 493.19463183,
-    "equity_before": 493.03949183,
+    "available_after": 355.20631414,
+    "balance_after": 355.20631414,
+    "equity_after": 492.76643183,
+    "equity_before": 492.81291183,
     "failures": [],
     "fills": [],
     "margin_mode": "isolated",
@@ -64,7 +64,7 @@
       "NEARUSDT": 3.8159,
       "ZECUSDT": 1095.24
     },
-    "position_value": 268.56612,
+    "position_value": 269.00862,
     "positions_after": [
       {
         "asset": "hyperliquid",
@@ -79,21 +79,21 @@
         "frozen": "0",
         "holdMode": "hedge_mode",
         "leverage": "4",
-        "liquidationPrice": "101.399",
+        "liquidationPrice": "101.475",
         "marginCoin": "USDT",
         "marginMode": "isolated",
-        "markPrice": "68.004",
+        "markPrice": "68.161",
         "mmr": "0.01",
         "openFeeTotal": "-0.0402564",
         "posSide": "short",
-        "positionBalance": "35.02618",
+        "positionBalance": "35.10446",
         "positionStatus": "normal",
-        "profitRate": "-0.0541223494828318",
+        "profitRate": "-0.0634599416463533",
         "symbol": "HYPEUSDT",
         "total": "1",
         "totalFunding": "0",
-        "unrealisedPnl": "-0.91",
-        "updatedTime": "1794737858583"
+        "unrealisedPnl": "-1.067",
+        "updatedTime": "1794738829480"
       },
       {
         "asset": "zcash",
@@ -111,17 +111,17 @@
         "liquidationPrice": "1371.7",
         "marginCoin": "USDT",
         "marginMode": "isolated",
-        "markPrice": "909.63",
+        "markPrice": "910.08",
         "mmr": "0.01",
         "openFeeTotal": "-0.04052388",
         "posSide": "short",
         "positionBalance": "34.6801",
         "positionStatus": "normal",
-        "profitRate": "0.0134223716045225",
+        "profitRate": "0.0114549229979964",
         "symbol": "ZECUSDT",
         "total": "0.074",
         "totalFunding": "0",
-        "unrealisedPnl": "0.22718",
+        "unrealisedPnl": "0.19388",
         "updatedTime": "1794737858232"
       },
       {
@@ -137,21 +137,21 @@
         "frozen": "0",
         "holdMode": "hedge_mode",
         "leverage": "4",
-        "liquidationPrice": "4.7898",
+        "liquidationPrice": "4.7937",
         "marginCoin": "USDT",
         "marginMode": "isolated",
-        "markPrice": "3.1699",
+        "markPrice": "3.1781",
         "mmr": "0.0066",
         "openFeeTotal": "-0.04006674",
         "posSide": "short",
-        "positionBalance": "34.287876",
+        "positionBalance": "34.3711515",
         "positionStatus": "normal",
-        "profitRate": "0.0125488945716418",
+        "profitRate": "0.0022588010228955",
         "symbol": "NEARUSDT",
         "total": "21",
         "totalFunding": "0",
-        "unrealisedPnl": "0.21",
-        "updatedTime": "1794737858916"
+        "unrealisedPnl": "0.0378",
+        "updatedTime": "1794738829846"
       },
       {
         "asset": "bitcoin-cash",
@@ -166,21 +166,21 @@
         "frozen": "0",
         "holdMode": "hedge_mode",
         "leverage": "4",
-        "liquidationPrice": "313.25",
+        "liquidationPrice": "313.37",
         "marginCoin": "USDT",
         "marginMode": "isolated",
-        "markPrice": "208.38",
+        "markPrice": "208.63",
         "mmr": "0.01",
         "openFeeTotal": "-0.03996486",
         "posSide": "short",
-        "positionBalance": "34.341024",
+        "positionBalance": "34.37892618",
         "positionStatus": "normal",
-        "profitRate": "-0.0044033096483081",
+        "profitRate": "-0.0091960276328613",
         "symbol": "BCHUSDT",
         "total": "0.32",
         "totalFunding": "0",
-        "unrealisedPnl": "-0.0735",
-        "updatedTime": "1794737859221"
+        "unrealisedPnl": "-0.1535",
+        "updatedTime": "1794738828028"
       }
     ],
     "signal_date": "2026-11-13",

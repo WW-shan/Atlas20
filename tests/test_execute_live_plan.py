@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from datetime import datetime, timezone
 import json
@@ -7,10 +8,16 @@ import json
 import pytest
 import pandas as pd
 
-from atlas20.derivatives.execution import ExecutionPlan, MarginIntent, OrderIntent
+from atlas20.derivatives.execution import (
+    AccountState,
+    ExecutionPlan,
+    MarginIntent,
+    OrderIntent,
+    PositionState,
+)
 from atlas20.derivatives.live_executor import ExecutionReport, OrderFill
 from atlas20.derivatives.live_journal import JournalEntry
-from atlas20.derivatives.quotes import ExecutionQuote
+from atlas20.derivatives.quotes import ExecutionQuote, QuoteError
 from scripts import execute_live_plan
 from scripts.plan_live_execution import account_state_from_bitget
 
@@ -88,6 +95,154 @@ def test_stale_quote_for_a_held_leg_falls_back_to_the_venue_mark() -> None:
 
     assert price == pytest.approx(5.25)
     assert "stale" in warning.lower()
+
+
+@pytest.mark.parametrize("quote_mode", ["stale", "ticker_error"])
+def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
+    tmp_path: Path, monkeypatch, quote_mode: str
+) -> None:
+    class _StopAfterPrices(Exception):
+        pass
+
+    stale_quote = ExecutionQuote(
+        symbol="NEARUSDT",
+        last_price=5.0,
+        mark_price=5.1,
+        bid_price=4.9,
+        ask_price=5.0,
+        bid_size=10.0,
+        ask_size=10.0,
+        observed_at=pd.Timestamp("2026-01-01T00:00:00Z"),
+        received_at=pd.Timestamp("2026-01-01T00:10:00Z"),
+    )
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=1.0,
+        entry_price=5.0,
+        mark_price=5.25,
+        margin=2.0,
+    )
+    account = AccountState(
+        equity=100.0,
+        available_margin=100.0,
+        positions={"near": position},
+    )
+    state = {
+        "last_key": "SPEC|2026-11-13|2026-11-15",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "target_weights": {},
+            "target_quantities": {},
+        },
+    }
+    args = argparse.Namespace(
+        live=True,
+        state_file=tmp_path / "state.json",
+        symbol_map=tmp_path / "symbols.csv",
+        journal_file=tmp_path / "journal.csv",
+        max_quote_age_seconds=120.0,
+        spread_warning_bps=50.0,
+        mark_deviation_warning_bps=100.0,
+        leverage=4.0,
+        long_buffer=0.50,
+        short_buffer=0.50,
+        short_stop_loss_pct=0.20,
+        max_gross_multiple=1.75,
+        max_margin_utilization=0.90,
+        cost_bps=20.0,
+        min_rebalance_usdt=5.0,
+        equity_floor=20.0,
+    )
+
+    monkeypatch.setattr(execute_live_plan, "_read_state", lambda _path: state)
+    monkeypatch.setattr(
+        execute_live_plan,
+        "load_symbol_map",
+        lambda _path: {"near": "NEARUSDT"},
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "spec_symbol_universe",
+        lambda _symbols: {"near": "NEARUSDT"},
+    )
+    monkeypatch.setattr(execute_live_plan.requests, "Session", lambda: object())
+    monkeypatch.setattr(
+        execute_live_plan,
+        "fetch_public_instruments",
+        lambda _session: [],
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "specs_from_instruments",
+        lambda _rows, _symbols: {},
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "BitgetCredentials",
+        type("_Credentials", (), {"from_env": staticmethod(lambda: object())}),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "BitgetPrivateClient",
+        lambda _credentials: type(
+            "_Client", (), {"account_info": lambda self: {}}
+        )(),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "account_fingerprint",
+        lambda _payload: "account-fingerprint",
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "account_state_binding_issue",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "account_state_from_bitget",
+        lambda *_args, **_kwargs: account,
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "missing_contract_specs",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(execute_live_plan, "load_journal", lambda _path: pd.DataFrame())
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_recover_venue_stop_fills",
+        lambda *_args, **_kwargs: ([], []),
+    )
+    observed: dict[str, object] = {}
+
+    def _quotes(*_args, required_symbols=None, **_kwargs):
+        assert set(required_symbols or set()) == set()
+        observed["required_symbols"] = set(required_symbols or set())
+        if quote_mode == "ticker_error":
+            raise QuoteError("ticker endpoint unavailable")
+        return {}, {"NEARUSDT": stale_quote}, []
+
+    monkeypatch.setattr(execute_live_plan, "_live_quote_snapshot", _quotes)
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_signed_event_target_quantities",
+        lambda *_args, **_kwargs: {},
+    )
+
+    def _build_plan(_account, _weights, _specs, prices_by_asset, **_kwargs):
+        observed["prices_by_asset"] = dict(prices_by_asset)
+        raise _StopAfterPrices
+
+    monkeypatch.setattr(execute_live_plan, "build_execution_plan", _build_plan)
+
+    with pytest.raises(_StopAfterPrices):
+        execute_live_plan._protect_only_main(args)
+
+    assert observed["required_symbols"] == set()
+    assert observed["prices_by_asset"] == {"near": pytest.approx(5.25)}
 
 
 def _valid_manifest_payload(**overrides):
