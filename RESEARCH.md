@@ -5995,6 +5995,15 @@ LS45-G125 的同口径 20bps 为 65.2592x / 1.9792 / -34.06%，50bps 为
    `reports/ls45_live_g175_live/prior_track_order_registry.json` 登记 LS45 已建立的 4 笔生产
    open orderId；只把这些精确历史订单排除出“LS104 journal 漏记”反向核对。没有复制 LS45 的
    PnL/funding 历史，也没有放宽对任何其他 Atlas20 订单的检查。
+6. **launchd zsh 参数安全**：主 wrapper 由 launchd 用 `/bin/zsh` 调用，不能依赖未加引号字符串
+   做参数分词；`--prior-track-registry` 与其路径改为显式分开传递，并增加真实 `sh`/`zsh`
+   wrapper 回归测试。首次执行后的 monitor 曾因该问题 exit 2，修复后同一真实账户巡检 exit 0。
+
+**首次实盘激活（2026-11-15 09:05 北京）：** BCH/HYPE/NEAR/ZEC 四笔空头加仓全部成交；实际
+gross 253.95 / equity 505.29 = **0.503x**，isolated margin 129.64 = **25.7% equity**，全部
+4x isolated、每腿约 51.5% margin buffer、每空头一张 20% mark-price market stop。post-trade
+`audit-live-ls104` 全部通过，0 hard failure；state `position_status=ok`，journal 首日成交、
+止损、订单历史和 targets hash 全部闭合。
 
 **判定：** owner-approved aggressive live track，工程门禁按 LS104 profile 固定；12 个月独立
 OOS 仍未完成，50bps 最坏回撤仍接近 kill line。不得把历史 20bps 终值当作未来保证。实盘完成后

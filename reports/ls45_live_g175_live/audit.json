@@ -1,0 +1,250 @@
+{
+  "checked_at": "2026-11-15T01:15:07.287938+00:00",
+  "checks": [
+    {
+      "check": "冻结目标都有唯一 Bitget 合约映射",
+      "detail": "全部有唯一映射",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "venue drill 订单登记表可读",
+      "detail": "6 笔已登记；仅这些精确 orderId 不进入生产台账核对",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "prior-track 订单登记表可读",
+      "detail": "4 笔迁移前生产订单已精确登记；仅这些 orderId 不计入新 track journal",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账户 API 必需字段完整且有限",
+      "detail": "全部有效",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账户权益 >= 执行下限 20.00 USDT",
+      "detail": "权益 506.02 USDT",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "持仓 API 必需字段完整且有限",
+      "detail": "全部有效",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "同一合约没有重复或反向对冲腿",
+      "detail": "无重复或反向腿",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前无未成交普通订单",
+      "detail": "0 笔",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
+      "detail": "506.0235 vs 369.0378 + 130.4182 + 6.5676 = 506.0235",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "仓位市值 = Σ 数量 × 标记价",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 253.2237",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "所有持仓合约都在冻结映射中",
+      "detail": "全部有唯一映射",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "每腿逐仓、4x 杠杆与保证金缓冲符合规格",
+      "detail": "4 腿全部符合",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "API key 具备逐仓合约交易能力（或未见已知限制）",
+      "detail": "未发现 copy-trading/elite 或只读限制",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "执行状态绑定当前 Bitget 账户",
+      "detail": "账户指纹一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账最新一行 = 当前账户（按实时标记价折算）",
+      "detail": "台账 2026-11-15 equity=506.0076；折算后应为 506.0215，交易所 506.0235",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账 PnL 链一致",
+      "detail": "0 个相邻日全部一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "资金费按累计差记账",
+      "detail": "持仓未变化区间全部一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "执行状态中的目标事件和止损触发记录完整",
+      "detail": "active event 与 journal 一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "台账成交都能在交易所订单历史里对上",
+      "detail": "核对 4 笔订单",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "交易所已成交的 Atlas20 订单都已记账",
+      "detail": "无漏记成交",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前空头止损可由交易所均价与价格步长独立重算",
+      "detail": "4 条空头全部可按 avgPrice × 1.20 重算",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "空头止损价格早于逐仓强平价",
+      "detail": "4 条空头全部 stop < liquidationPrice",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "空头入场成交记录包含已确认止损",
+      "detail": "4 条空头入场记录均带已确认止损",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "当前空头仓位都有交易所可见的止损保护",
+      "detail": "无缺口（当前未触发策略单 4 笔）",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "每个空头只有一张止损策略单",
+      "detail": "每条空头最多一张",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "策略单都对应预期的当前空头止损",
+      "detail": "无孤立策略单",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "所有已触发空头止损均进入 journal",
+      "detail": "已触发止损 0 笔全部对账",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "持仓数量与最近目标事件一致（价格漂移不算偏差）",
+      "detail": "每个目标事件腿数量吻合，已止损腿除外",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "无计划外持仓",
+      "detail": "无",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "冻结目标 gross <= 1.75x（规格上限）",
+      "detail": "目标 gross 0.5000x",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "总名义 <= 1.75x 权益（规格上限）",
+      "detail": "gross 253.22 / equity 506.02 = 0.500x",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "组合保证金占用 <= 90%",
+      "detail": "isolated margin 130.42 / equity 506.02 = 0.258x",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "mark 数据新鲜（<= 30h）",
+      "detail": "最新 mark 2026-11-15 00:00:00+00:00（1.3h 前）",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "账本已评估到最新可判定日（无跳过）",
+      "detail": "账本评估到 2026-11-14 / 数据到 2026-11-14",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "manifest 与当前 PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090 冻结规格一致",
+      "detail": "规格、参数与成本口径一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "目标账本与 manifest 内容哈希一致",
+      "detail": "targets_sha256 一致",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "数据可靠性审计通过",
+      "detail": "0 warning(s)",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "manifest data_fingerprint = 当前输入指纹",
+      "detail": "manifest=sha256:9f2bbe3158b8cc2d84e634f51a4f4e98d08ac99aada387bb94c1a912c79cb942 current=sha256:9f2bbe3158b8cc2d84e634f51a4f4e98d08ac99aada387bb94c1a912c79cb942",
+      "hard": true,
+      "ok": true
+    },
+    {
+      "check": "信号事件距今（事件驱动，非每日变化）",
+      "detail": "最近一次仓位变化 2026-11-13（2 天前；无变化＝继续持有）",
+      "hard": false,
+      "ok": true
+    },
+    {
+      "check": "台账信号日 = 冻结账本最新信号日",
+      "detail": "台账 2026-11-13 vs 账本 2026-11-13",
+      "hard": true,
+      "ok": true
+    }
+  ],
+  "equity": 506.02349565,
+  "hard_failures": 0,
+  "position_value": 253.22374,
+  "signal_date": "2026-11-13",
+  "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+}
