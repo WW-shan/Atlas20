@@ -5975,6 +5975,8 @@ LS45-G125 的同口径 20bps 为 65.2592x / 1.9792 / -34.06%，50bps 为
 - data audit 0 hard failure / 0 warning；signal equivalence 72/72、0 差异；
 - manifest 使用独立 `track_spec=docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md`，
   与原 LS45 signal spec 分开记录。
+- 2026-11-14 最新 OOS 刷新：54 个 daily row、multiple **0.9827388707x**、Sharpe
+  **0.06285**、MDD **-19.3218%**；目标事件和 targets hash 均未变化。
 
 逐节点审核还修复了三个执行层问题：
 
