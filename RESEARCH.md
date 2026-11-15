@@ -6010,3 +6010,40 @@ gross 253.95 / equity 505.29 = **0.503x**，isolated margin 129.64 = **25.7% equ
 OOS 仍未完成，50bps 最坏回撤仍接近 kill line。不得把历史 20bps 终值当作未来保证。实盘完成后
 必须补记 post-trade audit（0 hard failure、4x isolated、每空头一张 stop、margin >=45%、
 gross <=1.75x、margin utilization <=0.90、无计划外订单）。
+
+### 00.153 2026-11-15 LS104 外部全平恢复与对账补强
+
+2026-11-15 09:02:14 UTC，交易所真实账户出现 4 笔**非 Atlas20 executor** 的市价买回订单，
+把 BCH/HYPE/NEAR/ZEC 四条空头同时全平；这些订单的 clientOid 由交易所生成，不带
+`a20`/`atlas20` 前缀。09:20:55 UTC 按 `active_event.target_quantities` 的冻结数量恢复：
+
+| 资产 | 恢复数量 | 成交均价 | 交易所手续费 | 20% stop |
+|---|---:|---:|---:|---:|
+| BCHUSDT | 0.32 | 208.1503125 | 0.03996486 | 249.79 |
+| HYPEUSDT | 1 | 67.094 | 0.04025640 | 80.513 |
+| NEARUSDT | 21 | 3.1799 | 0.04006674 | 3.8159 |
+| ZECUSDT | 0.074 | 912.7 | 0.04052388 | 1095.24 |
+
+恢复后的 journal 首行（09:37:21 UTC）为 equity **494.786512**、position value
+**266.957440**、fees_today **0.40302439**、funding_total **-0.01318370**，共 12 笔同日
+成交（4 笔旧 INCREASE、4 笔外部平仓、4 笔恢复 OPEN）。09:41 UTC 独立 audit 为
+equity **493.4652**、gross **268.3004 / 0.544x**、isolated margin **137.4814 / 0.279x**，
+4 条空头全部 4x isolated、每腿 margin buffer 约 51.5%、每条恰好一张 20% mark-price
+market stop，0 笔未成交普通单、0 hard failure。
+
+本次修复的四个对账缺口：
+
+1. `_unjournaled_order_ids` 不再只检查 `a20`/`atlas20` clientOid，而是检查全部 tracked
+   symbol 的已成交订单；手动/交易所 UI/风控订单必须进入 journal，或由精确登记表豁免。
+2. `--reconcile-only`/`--protect-only` 会把未匹配的外部成交导入为
+   `EXTERNAL_OPEN`/`EXTERNAL_CLOSE`，保留真实数量、均价、手续费和时间戳；外部平仓资金费
+   从 position history 归属。
+3. 台账与订单历史均价允许不超过**半个价格 tick**的 order-info 舍入差；超过该范围的差异仍硬失败。
+4. monitor 的仓位漂移检查改用 `active_event` 冻结数量；旧权重 × 今日权益只适用于新事件，
+   不能用于事件持有期的价格漂移，否则会产生假告警。
+
+同日 retry 的 journal 合并会保留先前快照的资金费，不再因为后续空仓/重开而把
+`funding_total` 覆盖成 0。验证结果：`make test` **2394 passed, 1 skipped**；frontend
+**249 passed**；`make lint`、`make typecheck` 通过；`audit-data-ls104` 0 hard failure /
+0 warning；`audit-signal-ls104` 72/72 行、0 差异；`audit-live-ls104` 全部通过；
+monitor `issues=[]`。这是一次真实外部干预后的恢复，不是策略 alpha 的新证据。

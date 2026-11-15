@@ -767,11 +767,26 @@ def _position_target_issues(
     return issues
 
 
-def _trade_mismatch(trade: dict, venue: dict) -> str | None:
+def _trade_mismatch(
+    trade: dict,
+    venue: dict,
+    *,
+    price_multiplier: float | None = None,
+) -> str | None:
     """Return the first reproducibility mismatch for one journaled fill."""
 
     same_qty = abs(_num(venue.get("cumExecQty")) - _num(trade.get("qty"))) <= 1e-9
-    same_price = abs(_num(venue.get("avgPrice")) - _num(trade.get("avg_price"))) <= 1e-6
+    venue_price = _num(venue.get("avgPrice"))
+    # Order-info returns the venue's rounded average price while history can
+    # expose the unrounded fill average.  A half price tick is the widest
+    # legitimate difference between those two representations; do not hide a
+    # materially different fill behind a fixed absolute epsilon.
+    price_tolerance = (
+        max(1e-9, abs(float(price_multiplier)) / 2.0 + 1e-12)
+        if price_multiplier is not None and float(price_multiplier) > 0.0
+        else max(1e-9, abs(venue_price) * 1e-6)
+    )
+    same_price = abs(venue_price - _num(trade.get("avg_price"))) <= price_tolerance
     same_fee = abs(_fees(venue) - _num(trade.get("fee"))) <= 1e-6
     if not (same_qty and same_price and same_fee):
         return (
@@ -1007,8 +1022,15 @@ def _unjournaled_order_ids(
     journal: pd.DataFrame,
     *,
     ignored_order_ids: set[str] | None = None,
+    tracked_symbols: set[str] | None = None,
 ) -> list[str]:
-    """Filled/partially filled Atlas20 orders missing from the local ledger."""
+    """Filled/partially filled venue orders missing from the local ledger.
+
+    The clientOid prefix is not an authorization boundary: a manual close or
+    an exchange-generated order can change the strategy book without carrying
+    an Atlas20 prefix.  Audit every tracked symbol, and require an exact
+    registry exception for known drill / pre-migration orders.
+    """
 
     journaled: set[str] = set()
     if not journal.empty:
@@ -1023,10 +1045,15 @@ def _unjournaled_order_ids(
                 if isinstance(trade, dict) and trade.get("order_id"):
                     journaled.add(str(trade["order_id"]))
     ignored = {str(value) for value in (ignored_order_ids or set())}
+    tracked = (
+        {str(value).upper() for value in tracked_symbols}
+        if tracked_symbols is not None
+        else None
+    )
     missing: list[str] = []
     for row in history:
-        client_oid = str(row.get("clientOid") or "")
-        if not client_oid.startswith(("a20", "atlas20")):
+        symbol = str(row.get("symbol") or "").upper()
+        if tracked is not None and symbol not in tracked:
             continue
         qty = _num(row.get("cumExecQty"))
         if qty <= 1e-12:
@@ -1486,7 +1513,20 @@ def main(argv: list[str] | None = None) -> int:
                     if str(row["date"]) >= (checked_at - timedelta(days=args.history_days - 1)).strftime("%Y-%m-%d"):
                         missing.append(order_id)
                     continue
-                mismatch = _trade_mismatch(trade, venue)
+                symbol = str(venue.get("symbol") or trade.get("symbol") or "").upper()
+                price_multiplier = next(
+                    (
+                        spec.price_multiplier
+                        for spec in specs.values()
+                        if spec.symbol.upper() == symbol
+                    ),
+                    None,
+                )
+                mismatch = _trade_mismatch(
+                    trade,
+                    venue,
+                    price_multiplier=price_multiplier,
+                )
                 if mismatch is not None:
                     mismatched.append(f"{order_id}: {mismatch}")
     check(
@@ -1498,6 +1538,7 @@ def main(argv: list[str] | None = None) -> int:
         history,
         journal,
         ignored_order_ids=drill_order_ids | prior_track_order_ids,
+        tracked_symbols=set(known_symbols),
     )
     check(
         "交易所已成交的 Atlas20 订单都已记账",

@@ -338,6 +338,56 @@ def test_protected_short_stops_refreshes_from_a_quiet_position_snapshot() -> Non
     assert protected_short_stops(journal) == {"NEARUSDT": 6.7}
 
 
+def test_external_close_ends_the_old_short_cycle_before_a_reopen() -> None:
+    journal = pd.DataFrame(
+        [
+            {
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": 6.0,
+                            "requested_stop_loss": 6.0,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        },
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "EXTERNAL_CLOSE",
+                            "side": "buy",
+                            "qty": 10.0,
+                        },
+                    ]
+                )
+            },
+            {
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": 7.0,
+                            "requested_stop_loss": 7.0,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        }
+                    ]
+                )
+            },
+        ]
+    )
+
+    assert protected_short_stops(journal) == {"NEARUSDT": 7.0}
+
+
 def test_protected_short_symbols_survives_a_quiet_hold_day() -> None:
     journal = pd.DataFrame(
         [
@@ -533,6 +583,26 @@ def test_trade_mismatch_checks_the_attached_short_stop() -> None:
     mismatch = _trade_mismatch(trade, venue)
     assert mismatch is not None
     assert "止损" in mismatch
+
+
+def test_trade_mismatch_allows_order_info_price_rounding_only_within_half_tick() -> None:
+    trade = {
+        "qty": 0.32,
+        "avg_price": 208.15,
+        "fee": 0.03996486,
+    }
+    venue = {
+        "cumExecQty": "0.32",
+        "avgPrice": "208.1503125",
+        "feeDetail": [{"fee": "0.03996486"}],
+    }
+
+    assert _trade_mismatch(trade, venue, price_multiplier=0.01) is None
+    assert _trade_mismatch(
+        {**trade, "avg_price": 208.14},
+        venue,
+        price_multiplier=0.01,
+    ) is not None
 
 
 def test_open_short_requires_a_recorded_stop_trade() -> None:
@@ -1139,13 +1209,18 @@ def test_every_filled_strategy_order_must_appear_in_the_journal() -> None:
         ]
     )
     history = [
-        {"orderId": "1", "clientOid": "a20one", "orderStatus": "filled", "cumExecQty": "2"},
-        {"orderId": "2", "clientOid": "a20two", "orderStatus": "filled", "cumExecQty": "3"},
-        {"orderId": "3", "clientOid": "manual", "orderStatus": "filled", "cumExecQty": "4"},
-        {"orderId": "4", "clientOid": "a20zero", "orderStatus": "cancelled", "cumExecQty": "0"},
+        {"orderId": "1", "clientOid": "a20one", "symbol": "NEARUSDT", "orderStatus": "filled", "cumExecQty": "2"},
+        {"orderId": "2", "clientOid": "a20two", "symbol": "NEARUSDT", "orderStatus": "filled", "cumExecQty": "3"},
+        {"orderId": "3", "clientOid": "manual", "symbol": "NEARUSDT", "orderStatus": "filled", "cumExecQty": "4"},
+        {"orderId": "4", "clientOid": "a20zero", "symbol": "NEARUSDT", "orderStatus": "cancelled", "cumExecQty": "0"},
+        {"orderId": "5", "clientOid": "outside", "symbol": "BTCUSDT", "orderStatus": "filled", "cumExecQty": "1"},
     ]
 
-    assert _unjournaled_order_ids(history, journal) == ["2"]
+    assert _unjournaled_order_ids(
+        history,
+        journal,
+        tracked_symbols={"NEARUSDT"},
+    ) == ["2", "3"]
 
 
 def test_latest_journal_short_quantities_ignore_other_sides() -> None:

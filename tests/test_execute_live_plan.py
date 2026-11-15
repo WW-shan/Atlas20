@@ -505,6 +505,49 @@ def test_same_day_retry_replaces_a_stale_signal_age_note() -> None:
     assert merged.notes == ["stable context", "retry with the current signal"]
 
 
+def test_same_day_retry_does_not_erase_funding_from_an_earlier_snapshot() -> None:
+    previous = JournalEntry(
+        date="2026-11-15",
+        run_at_utc="2026-11-15T06:35:00+00:00",
+        signal_date="2026-11-13",
+        equity=496.6,
+        position_value=262.6,
+        cash=364.2,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.08,
+        funding_total=-0.00636286,
+        unrealised_pnl=-2.8,
+        trades=[
+            {
+                "order_id": "earlier-fill",
+                "status": "filled",
+                "fee": 0.32,
+            }
+        ],
+        notes=[],
+    )
+    current = JournalEntry(
+        date="2026-11-15",
+        run_at_utc="2026-11-15T09:20:55+00:00",
+        signal_date="2026-11-13",
+        equity=493.3,
+        position_value=268.5,
+        cash=355.5,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.24,
+        funding_total=0.0,
+        unrealised_pnl=-0.47,
+        notes=["reopened from frozen quantities"],
+    )
+
+    merged = execute_live_plan._merge_same_day_entry(previous.as_row(), current)
+
+    assert merged.funding_total == pytest.approx(-0.00636286)
+    assert merged.fees_today == pytest.approx(0.32)
+
+
 def test_external_deposit_is_excluded_from_daily_pnl() -> None:
     report = ExecutionReport(
         signal_date="2026-11-03",
@@ -891,6 +934,51 @@ def test_closed_funding_history_is_not_needed_for_a_position_that_still_held() -
     )
 
     assert funding == {}
+    assert notes == []
+
+
+def test_external_close_funding_uses_the_close_timestamp_when_snapshot_is_later() -> None:
+    class HistoryClient:
+        def position_history(self, **kwargs):
+            return [
+                {
+                    "positionId": "external-close-cycle",
+                    "symbol": "NEARUSDT",
+                    "posSide": "short",
+                    "createdTime": "1794665688412",
+                    "updatedTime": "1794733334207",
+                    "totalFunding": "-0.01318370",
+                }
+            ]
+
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=493.5,
+        equity_after=493.5,
+        positions_after=[],
+        fills=[
+            _venue_stop_fill(
+                action="EXTERNAL_CLOSE",
+                stop_loss=None,
+                requested_stop_loss=None,
+                reason="external_venue_order",
+                strategy_order_id="",
+                triggered_at="2026-11-15T09:02:14.206000+00:00",
+            )
+        ],
+    )
+
+    funding, notes = execute_live_plan._closed_funding_for_report(
+        HistoryClient(),
+        previous={
+            "run_at_utc": "2026-11-15T09:20:55+00:00",
+            "positions": "[]",
+        },
+        report=report,
+        run_at=datetime(2026, 11, 15, 9, 27, tzinfo=timezone.utc),
+    )
+
+    assert funding == {"NEARUSDT": pytest.approx(-0.01318370)}
     assert notes == []
 
 
@@ -1516,6 +1604,78 @@ def test_recovery_imports_a_strategy_stop_once_and_links_it_to_the_short_cycle()
     assert fills[0].reason == "venue_strategy_stop"
     assert client.strategy_window["start_time_ms"] < 1794700800000
     assert client.order_window["end_time_ms"] > 1794700800000
+
+
+def test_recovery_imports_an_unmatched_manual_close_from_order_history() -> None:
+    class ExternalClient:
+        def strategy_order_history(self, **kwargs):
+            return []
+
+        def order_history_all(self, **kwargs):
+            return [
+                {
+                    "orderId": "manual-close-1",
+                    "clientOid": "1505786230590259207",
+                    "symbol": "NEARUSDT",
+                    "posSide": "short",
+                    "side": "buy",
+                    "orderStatus": "filled",
+                    "qty": "21",
+                    "cumExecQty": "21",
+                    "avgPrice": "3.1552",
+                    "cumExecValue": "66.2592",
+                    "feeDetail": [{"fee": "0.03975552", "feeCoin": "USDT"}],
+                    "createdTime": "1794733334205",
+                    "updatedTime": "1794733334206",
+                }
+            ]
+
+    fills, errors = execute_live_plan._recover_venue_stop_fills(
+        ExternalClient(),
+        journal=pd.DataFrame(columns=["trades"]),
+        state={"last_run_at": "2026-11-15T06:35:00+00:00"},
+        symbol_assets={"NEARUSDT": "near"},
+        run_at=datetime(2026, 11, 15, 9, 10, tzinfo=timezone.utc),
+    )
+
+    assert errors == []
+    assert len(fills) == 1
+    fill = fills[0]
+    assert fill.order_id == "manual-close-1"
+    assert fill.reason == "external_venue_order"
+    assert fill.action == "EXTERNAL_CLOSE"
+    assert fill.asset == "near"
+    assert fill.filled_size == pytest.approx(21.0)
+    assert fill.avg_price == pytest.approx(3.1552)
+    assert fill.fee == pytest.approx(0.03975552)
+
+
+def test_external_one_way_reduce_only_buy_is_classified_as_a_short_close() -> None:
+    fills = execute_live_plan._external_order_fills(
+        [
+            {
+                "orderId": "one-way-close-1",
+                "clientOid": "manual-one-way",
+                "symbol": "NEARUSDT",
+                "side": "buy",
+                "reduceOnly": "YES",
+                "orderStatus": "filled",
+                "qty": "5",
+                "cumExecQty": "5",
+                "avgPrice": "3.2",
+                "cumExecValue": "16",
+                "feeDetail": [{"fee": "0.01", "feeCoin": "USDT"}],
+                "updatedTime": "1794733334206",
+            }
+        ],
+        known_order_ids=set(),
+        matched_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+    )
+
+    assert len(fills) == 1
+    assert fills[0].position_side == "short"
+    assert fills[0].action == "EXTERNAL_CLOSE"
 
 
 def test_journal_preserves_strategy_stop_provenance() -> None:

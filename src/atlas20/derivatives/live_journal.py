@@ -189,6 +189,8 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
         explicit = str(trade.get("position_side") or "").lower()
         side = str(trade.get("side") or "").lower()
         action = str(trade.get("action") or "").upper()
+        if action.startswith("EXTERNAL_"):
+            action = action.removeprefix("EXTERNAL_")
         if explicit in {"long", "short"}:
             return explicit, action
         if side == "sell" and action in {"OPEN", "INCREASE"}:

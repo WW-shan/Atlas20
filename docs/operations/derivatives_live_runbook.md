@@ -531,7 +531,7 @@ make audit-live
 | journal | `reports/ls45_live_g125_live/journal.csv` | 每日一行；同日重跑覆盖 |
 | 数据覆盖 | `reports/ls45_live_g125/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 的 2h provider gaps 单独查看，不能和 live OOS 覆盖混为一谈 |
 | 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
-| funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属 |
+| funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属；同日 retry 不得把已有 funding 覆盖成 0 |
 
 ---
 
@@ -587,4 +587,8 @@ ops/run_derivatives_daily.sh --force
 - 最后一轮 06:35 UTC 执行后若交易所止损才触发，Bitget 会立即执行止损并关闭风险；journal 补记由
   19:00 巡检告警、人工 `--protect-only`/`--reconcile-only` 或下一交易日执行器完成。该窗口是
   自动维护频率限制，不是仓位失保。
+- 交易所 UI、风控或人工操作产生的外部成交通常不带 Atlas20 clientOid；`--reconcile-only`/
+  `--protect-only` 会把未匹配成交导入为 `EXTERNAL_OPEN`/`EXTERNAL_CLOSE`，audit 对全部 tracked
+  symbol 的已成交订单做反向核对。monitor 用 `active_event` 的冻结数量检查漂移，不用旧权重乘
+  今日权益；外部成交必须补账后才能重新声明 `ok`。
 - 任何参数变更都必须新建 track/spec，不得静默改写本账本。

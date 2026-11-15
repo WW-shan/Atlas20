@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-15T01:18:15.153760+00:00",
+  "checked_at": "2026-11-15T09:45:16.918546+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -27,7 +27,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 505.65 USDT",
+      "detail": "权益 492.33 USDT",
       "hard": true,
       "ok": true
     },
@@ -51,13 +51,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "505.6484 vs 368.9181 + 130.5378 + 6.1924 = 505.6484",
+      "detail": "492.3346 vs 354.9412 + 138.7998 + -1.4063 = 492.3346",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 253.5954",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 269.4261",
       "hard": true,
       "ok": true
     },
@@ -87,7 +87,7 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-15 equity=505.7107；折算后应为 505.6534，交易所 505.6484",
+      "detail": "台账 2026-11-15 equity=492.3248；折算后应为 492.3862，交易所 492.3346",
       "hard": true,
       "ok": true
     },
@@ -111,7 +111,7 @@
     },
     {
       "check": "台账成交都能在交易所订单历史里对上",
-      "detail": "核对 4 笔订单",
+      "detail": "核对 12 笔订单",
       "hard": true,
       "ok": true
     },
@@ -183,19 +183,19 @@
     },
     {
       "check": "总名义 <= 1.75x 权益（规格上限）",
-      "detail": "gross 253.60 / equity 505.65 = 0.502x",
+      "detail": "gross 269.43 / equity 492.33 = 0.547x",
       "hard": true,
       "ok": true
     },
     {
       "check": "组合保证金占用 <= 90%",
-      "detail": "isolated margin 130.54 / equity 505.65 = 0.258x",
+      "detail": "isolated margin 138.80 / equity 492.33 = 0.282x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-15 00:00:00+00:00（1.3h 前）",
+      "detail": "最新 mark 2026-11-15 08:00:00+00:00（1.8h 前）",
       "hard": true,
       "ok": true
     },
@@ -225,7 +225,7 @@
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:9f2bbe3158b8cc2d84e634f51a4f4e98d08ac99aada387bb94c1a912c79cb942 current=sha256:9f2bbe3158b8cc2d84e634f51a4f4e98d08ac99aada387bb94c1a912c79cb942",
+      "detail": "manifest=sha256:64510c7e61a0e3c45558af35426799d90748e2646a5b63b3f5a4b1b8ca50d7de current=sha256:64510c7e61a0e3c45558af35426799d90748e2646a5b63b3f5a4b1b8ca50d7de",
       "hard": true,
       "ok": true
     },
@@ -242,9 +242,9 @@
       "ok": true
     }
   ],
-  "equity": 505.64835565,
+  "equity": 492.33461183,
   "hard_failures": 0,
-  "position_value": 253.5954,
+  "position_value": 269.42614000000003,
   "signal_date": "2026-11-13",
   "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
 }

@@ -14,6 +14,7 @@ from scripts.monitor_live_track import (
     _audit_command,
     _audit_failure_details,
     _audit_metrics,
+    _event_position_issues,
     _execution_freshness,
     _gross_ratio,
     _ledger_change,
@@ -176,6 +177,65 @@ def test_monitor_compares_signed_short_notional_to_the_signed_target() -> None:
 
     assert actual["near"] == pytest.approx(-100.0)
     assert actual["tron"] == pytest.approx(-20.0)
+
+
+def test_monitor_compares_frozen_event_quantity_not_drifting_notional_weight() -> None:
+    from atlas20.derivatives.execution import ContractSpec
+
+    state = {
+        "active_event": {
+            "target_quantities": {"HYPEUSDT": 1.0, "ZECUSDT": 0.074},
+            "target_weights": {"hyperliquid": -0.125, "zcash": -0.125},
+            "prices": {"hyperliquid": 67.0, "zcash": 900.0},
+            "stopped_symbols": {},
+        }
+    }
+    positions = [
+        {"symbol": "HYPEUSDT", "total": "1", "posSide": "short", "markPrice": "68"},
+        {"symbol": "ZECUSDT", "total": "0.074", "posSide": "short", "markPrice": "910"},
+    ]
+
+    issues = _event_position_issues(
+        state,
+        positions,
+        {"hyperliquid": "HYPEUSDT", "zcash": "ZECUSDT"},
+        {
+            "hyperliquid": ContractSpec("HYPEUSDT", min_order_qty=0.1),
+            "zcash": ContractSpec("ZECUSDT", min_order_qty=0.001),
+        },
+    )
+
+    assert issues == []
+
+
+def test_monitor_flags_a_partial_event_quantity_and_an_extra_leg() -> None:
+    from atlas20.derivatives.execution import ContractSpec
+
+    state = {
+        "active_event": {
+            "target_quantities": {"HYPEUSDT": 1.0},
+            "target_weights": {"hyperliquid": -0.125},
+            "prices": {"hyperliquid": 67.0},
+            "stopped_symbols": {},
+        }
+    }
+    positions = [
+        {"symbol": "HYPEUSDT", "total": "0.5", "posSide": "short", "markPrice": "68"},
+        {"symbol": "ZECUSDT", "total": "0.074", "posSide": "short", "markPrice": "910"},
+    ]
+
+    issues = _event_position_issues(
+        state,
+        positions,
+        {"hyperliquid": "HYPEUSDT", "zcash": "ZECUSDT"},
+        {
+            "hyperliquid": ContractSpec("HYPEUSDT", min_order_qty=0.1),
+            "zcash": ContractSpec("ZECUSDT", min_order_qty=0.001),
+        },
+    )
+
+    assert any("HYPEUSDT" in issue for issue in issues)
+    assert any("ZECUSDT" in issue and "计划外" in issue for issue in issues)
 
 
 def test_audit_timeout_becomes_a_diagnostic_instead_of_an_unhandled_exception(tmp_path, monkeypatch) -> None:

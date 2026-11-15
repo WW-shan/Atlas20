@@ -70,6 +70,8 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 )
 from atlas20.derivatives.live_executor import (  # noqa: E402
     ExecutionReport,
+    OrderFill,
+    _fee_from_detail,
     execute_plan,
     format_execution_report,
     match_venue_stop_fills,
@@ -799,7 +801,7 @@ def _closed_funding_from_history(
         action = str(
             getattr(fill, "action", "") if not isinstance(fill, dict) else fill.get("action") or ""
         ).upper()
-        if action != "CLOSE":
+        if action not in {"CLOSE", "EXTERNAL_CLOSE"}:
             continue
         symbol = str(
             getattr(fill, "symbol", "") if not isinstance(fill, dict) else fill.get("symbol") or ""
@@ -819,6 +821,34 @@ def _closed_funding_from_history(
         end = end.tz_localize("UTC")
     else:
         end = end.tz_convert("UTC")
+
+    # An external close can arrive between the last journal snapshot and the
+    # current reconciliation run.  The same-day snapshot may already describe
+    # the reopened book, so the journal timestamp alone is not a sufficient
+    # lower bound for finding the closed position-history cycle.
+    for fill in fills:
+        action = str(
+            getattr(fill, "action", "") if not isinstance(fill, dict) else fill.get("action") or ""
+        ).upper()
+        if action not in {"CLOSE", "EXTERNAL_CLOSE"}:
+            continue
+        raw_triggered = (
+            getattr(fill, "triggered_at", "")
+            if not isinstance(fill, dict)
+            else fill.get("triggered_at") or ""
+        )
+        if not raw_triggered:
+            continue
+        try:
+            triggered = pd.Timestamp(raw_triggered)
+        except (TypeError, ValueError):
+            continue
+        if triggered.tzinfo is None:
+            triggered = triggered.tz_localize("UTC")
+        else:
+            triggered = triggered.tz_convert("UTC")
+        if triggered < start:
+            start = triggered - pd.Timedelta(seconds=1)
 
     funding: dict[str, float] = {}
     matched: set[str] = set()
@@ -946,6 +976,113 @@ def _record_stopped_fills(
     return record
 
 
+def _external_order_fills(
+    order_rows: list[dict[str, Any]],
+    *,
+    known_order_ids: set[str],
+    matched_order_ids: set[str],
+    symbol_assets: Mapping[str, str],
+) -> list[OrderFill]:
+    """Import venue fills that did not come from the Atlas20 executor.
+
+    The exchange can close or change a leg from its UI, a risk process, or a
+    manual order.  Those fills must enter the same journal as executor fills;
+    otherwise the ledger silently drifts from the venue.  Orders carrying an
+    Atlas20 clientOid are deliberately left to the crash-recovery path, which
+    validates their clientOid and intent before accepting them.
+    """
+
+    assets_by_symbol = {
+        str(symbol).upper(): str(asset).lower()
+        for symbol, asset in symbol_assets.items()
+    }
+    fills: list[OrderFill] = []
+    for row in order_rows:
+        order_id = str(row.get("orderId") or "").strip()
+        client_oid = str(row.get("clientOid") or "").strip()
+        if (
+            not order_id
+            or order_id in known_order_ids
+            or order_id in matched_order_ids
+            or client_oid.startswith(("a20", "atlas20"))
+        ):
+            continue
+        if str(row.get("orderStatus") or row.get("status") or "").lower() != "filled":
+            continue
+        try:
+            filled_size = float(row.get("cumExecQty") or row.get("qty") or 0.0)
+            avg_price = float(row.get("avgPrice") or row.get("price") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if not (isfinite(filled_size) and isfinite(avg_price)):
+            continue
+        if filled_size <= 1e-12 or avg_price <= 0.0:
+            continue
+        symbol = str(row.get("symbol") or "").upper()
+        asset = assets_by_symbol.get(symbol)
+        if asset is None:
+            continue
+        side = str(row.get("side") or "").lower()
+        if side not in {"buy", "sell"}:
+            continue
+        reduce_only = str(row.get("reduceOnly") or "").lower() in {"yes", "true", "1"}
+        pos_side = str(row.get("posSide") or "").lower()
+        if pos_side in {"long", "short"}:
+            position_side = pos_side
+        elif reduce_only:
+            position_side = "short" if side == "buy" else "long"
+        else:
+            position_side = "long" if side == "buy" else "short"
+        closes_position = (
+            reduce_only
+            or (side == "buy" and position_side == "short")
+            or (side == "sell" and position_side == "long")
+        )
+        try:
+            fee, fee_coin = _fee_from_detail(row)
+        except (TypeError, ValueError):
+            fee, fee_coin = 0.0, "USDT"
+        notional_raw = row.get("cumExecValue")
+        try:
+            notional = float(notional_raw) if notional_raw not in (None, "") else 0.0
+        except (TypeError, ValueError):
+            notional = 0.0
+        if not isfinite(notional) or notional <= 0.0:
+            notional = filled_size * avg_price
+        updated_raw = row.get("updatedTime") or row.get("createdTime")
+        try:
+            updated_ms = int(updated_raw)
+        except (TypeError, ValueError):
+            updated_ms = 0
+        triggered_at = (
+            pd.to_datetime(updated_ms, unit="ms", utc=True).isoformat()
+            if updated_ms > 0
+            else ""
+        )
+        fills.append(
+            OrderFill(
+                asset=asset,
+                symbol=symbol,
+                action="EXTERNAL_CLOSE" if closes_position else "EXTERNAL_OPEN",
+                side=side,
+                stop_loss=None,
+                requested_size=filled_size,
+                filled_size=filled_size,
+                avg_price=avg_price,
+                notional=notional,
+                fee=fee,
+                fee_coin=fee_coin,
+                order_id=order_id,
+                status="filled",
+                position_side=position_side,
+                client_oid=client_oid,
+                reason="external_venue_order",
+                triggered_at=triggered_at,
+            )
+        )
+    return fills
+
+
 def _recover_venue_stop_fills(
     client: Any,
     *,
@@ -1013,6 +1150,16 @@ def _recover_venue_stop_fills(
         known_order_ids=known_order_ids,
         symbol_assets=symbol_assets,
     )
+    fills.extend(
+        _external_order_fills(
+            order_rows,
+            known_order_ids=known_order_ids,
+            matched_order_ids={
+                str(getattr(fill, "order_id", "") or "") for fill in fills
+            },
+            symbol_assets=symbol_assets,
+        )
+    )
     errors.extend(
         _venue_stop_reconciliation_errors(
             fills,
@@ -1058,7 +1205,10 @@ def _closed_funding_for_report(
         and current_sides.get(str(prior.get("symbol") or "").upper())
         != str(prior.get("side") or "").lower()
         for prior in (prior_positions if isinstance(prior_positions, list) else [])
-    ) or any(str(fill.action).upper() == "CLOSE" for fill in report.fills)
+    ) or any(
+        str(fill.action).upper() in {"CLOSE", "EXTERNAL_CLOSE"}
+        for fill in report.fills
+    )
     if not needs_closed_funding:
         return {}, []
     try:
@@ -1190,6 +1340,7 @@ def _reconcile_live_stops_from_context(
     stop_high_water = run_at.isoformat() if not stop_errors else None
 
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = (
         float(previous["equity"])
         if previous is not None and previous.get("equity") is not None
@@ -1202,7 +1353,7 @@ def _reconcile_live_stops_from_context(
     )
     closed_funding, funding_notes = _closed_funding_for_report(
         client,
-        previous=previous,
+        previous=funding_previous,
         report=report,
         run_at=run_at,
     )
@@ -1392,7 +1543,7 @@ def _journal_entry(
     reset_symbols = {
         str(fill.symbol).upper()
         for fill in report.fills
-        if str(fill.action).upper() == "CLOSE"
+        if str(fill.action).upper() in {"CLOSE", "EXTERNAL_CLOSE"}
     }
     for row in report.positions_after:
         try:
@@ -1646,6 +1797,18 @@ def _capital_flow_for_run(
     )
 
 
+def _same_day_row(journal: pd.DataFrame, run_at: datetime) -> dict[str, Any] | None:
+    """Latest already-written row for the current UTC day, if one exists."""
+
+    if journal.empty:
+        return None
+    day = run_at.date().isoformat()
+    same_day = journal.loc[journal["date"].astype(str) == day]
+    if same_day.empty:
+        return None
+    return same_day.sort_values("run_at_utc").iloc[-1].to_dict()
+
+
 def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> JournalEntry:
     """Keep every same-day execution while refreshing the end-of-day snapshot."""
 
@@ -1671,6 +1834,18 @@ def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> Jo
         if not isfinite(fee):
             raise ValueError("journal trade fee is not finite")
         fees += fee
+    funding_total = float(current.funding_total)
+    try:
+        prior_funding = float(previous.get("funding_total") or 0.0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("journal funding_total is not numeric") from exc
+    if not isfinite(funding_total) or not isfinite(prior_funding):
+        raise ValueError("journal funding_total is not finite")
+    # A later same-day reconciliation can observe a flat/reopened book and
+    # therefore have no current cumulative funding to subtract.  That is not
+    # evidence that earlier same-day funding disappeared.
+    if abs(funding_total) <= 1e-12 and abs(prior_funding) > 1e-12:
+        funding_total = prior_funding
 
     prior_notes = _decoded_notes(previous.get("notes"))
     # A retry refreshes volatile run facts instead of appending every observed
@@ -1681,7 +1856,13 @@ def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> Jo
         note for note in prior_notes if not any(note.startswith(prefix) for prefix in volatile_prefixes)
     ]
     notes = list(dict.fromkeys([*stable_prior, *current.notes]))
-    return replace(current, fees_today=round(fees, 8), trades=trades, notes=notes)
+    return replace(
+        current,
+        fees_today=round(fees, 8),
+        funding_total=round(funding_total, 8),
+        trades=trades,
+        notes=notes,
+    )
 
 
 def _persist_run_result(
@@ -1962,6 +2143,7 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     stop_high_water = run_at.isoformat() if not stop_errors else None
 
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = (
         float(previous["equity"])
         if previous is not None and previous.get("equity") is not None
@@ -1979,7 +2161,7 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     )
     closed_funding, funding_notes = _closed_funding_for_report(
         client,
-        previous=previous,
+        previous=funding_previous,
         report=report,
         run_at=run_at,
     )
@@ -2373,6 +2555,7 @@ def _main(args: argparse.Namespace) -> int:
             "不会重放历史盈亏或历史成交"
         )
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
+    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
     capital_flow = _capital_flow_for_run(
         journal,
@@ -2729,7 +2912,7 @@ def _main(args: argparse.Namespace) -> int:
     if args.live:
         closed_funding, funding_notes = _closed_funding_for_report(
             client,
-            previous=previous,
+            previous=funding_previous,
             report=report,
             run_at=run_at,
         )
@@ -2749,6 +2932,7 @@ def _main(args: argparse.Namespace) -> int:
             json_out=args.json_out,
             payload={
                 "spec": args.spec,
+                "mode": "execution",
                 "signal_date": str(signal_date.date()),
                 "execution_hint": str(execution_hint),
                 "live_execution_hint": str(execution_hint),

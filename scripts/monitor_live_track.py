@@ -13,8 +13,8 @@ Checks:
 
 1. the full live audit (venue vs ledger, target alignment, gross cap, mark
    freshness, ...) - any hard failure is an alert;
-2. position drift vs the frozen target beyond what the 5 USDT rebalance
-   threshold would correct on the next run;
+2. position quantity drift vs the active event's frozen quantities beyond the
+   venue lot tolerance; price-driven notional weight drift is not an alert;
 3. gross notional / equity and isolated-margin utilization within the selected
    track profile caps;
 4. execution freshness: the last successful run is too old, or today's run is
@@ -46,9 +46,11 @@ for path in (PROJECT_ROOT, PROJECT_ROOT / "src"):
         sys.path.insert(0, str(path))
 
 from atlas20.derivatives.account import BitgetCredentials, BitgetPrivateClient  # noqa: E402
+from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.live_chain import live_track_profile  # noqa: E402
 from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
+    effective_event_target_quantities,
     latest_row,
     load_journal,
     net_capital_flow,
@@ -59,13 +61,13 @@ from scripts.audit_live_track import (  # noqa: E402
     DEFAULT_JOURNAL_FILE,
     DEFAULT_MANIFEST_FILE,
     DEFAULT_TARGETS_FILE,
+    _event_quantity_issues,
     _position_signed_notional,
     _unknown_position_symbols,
 )
 from scripts.plan_live_execution import (  # noqa: E402
     DEFAULT_SYMBOL_MAP,
     fetch_public_instruments,
-    fetch_public_prices,
     load_symbol_map,
     missing_asset_mappings,
     missing_contract_specs,
@@ -253,6 +255,55 @@ def _position_notional(positions: list[dict], symbol_map: dict[str, str]) -> dic
     return out
 
 
+def _event_position_issues(
+    state: dict,
+    positions: list[dict],
+    symbol_map: dict[str, str],
+    specs: dict[str, ContractSpec],
+) -> list[str]:
+    """Compare the live book to the quantities frozen by the active event.
+
+    The target ledger is event-driven: after an event is applied, price moves
+    change the *notional weight* while the correct quantity stays frozen.  A
+    monitor that re-multiplies the old weight by today's equity creates false
+    drift alerts.  Use the same quantity invariant as ``audit-live``.
+    """
+
+    active_event = state.get("active_event")
+    if not isinstance(active_event, dict):
+        return ["执行状态没有 active target event"]
+    quantities = effective_event_target_quantities(active_event)
+    if not quantities:
+        return ["执行状态 active target event 缺少冻结目标数量"]
+    weights = active_event.get("target_weights")
+    prices = active_event.get("prices")
+    stopped = active_event.get("stopped_symbols")
+    specs_by_symbol = {
+        str(getattr(spec, "symbol", "")).upper(): spec
+        for spec in specs.values()
+        if str(getattr(spec, "symbol", "")).strip()
+    }
+    issues = _event_quantity_issues(
+        target_quantities=quantities,
+        target_weights=weights if isinstance(weights, dict) else {},
+        symbol_assets=symbol_to_asset_index(symbol_map),
+        positions=positions,
+        specs_by_symbol=specs_by_symbol,
+        event_prices=prices if isinstance(prices, dict) else {},
+        stopped_symbols=stopped if isinstance(stopped, dict) else {},
+    )
+    target_symbols = {str(symbol).upper() for symbol in quantities}
+    actual_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in positions
+        if abs(_position_signed_notional(row)) > 1e-12
+    }
+    extra = sorted(actual_symbols - target_symbols)
+    if extra:
+        issues.append("计划外持仓: " + ", ".join(extra))
+    return issues
+
+
 def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
     """Fail unless the latest daily run is both successful and recent."""
 
@@ -325,7 +376,6 @@ def _main(args: argparse.Namespace) -> int:
     targets = target_weights_from_book(book, symbol_map)
 
     session = requests.Session()
-    prices = fetch_public_prices(session)
     specs = specs_from_instruments(
         fetch_public_instruments(session),
         spec_symbol_universe(symbol_map, targets),
@@ -361,27 +411,15 @@ def _main(args: argparse.Namespace) -> int:
             )
         )
 
-    actual = _position_notional(positions, symbol_map)
-    if equity is not None:
-        for asset, weight in targets.items():
-            symbol = symbol_map.get(asset, f"{asset.upper()}USDT")
-            price = float(prices.get(symbol.upper()) or 0.0)
-            spec = specs.get(asset)
-            lot_notional = (
-                float(spec.min_order_qty or spec.quantity_multiplier) * price
-                if spec is not None and price > 0
-                else 0.0
-            )
-            want = weight * equity
-            got = actual.get(asset, 0.0)
-            # The executor only trades gaps above 5 USDT; anything larger that
-            # survives to a monitor run means the rebalance did not land.
-            tolerance = max(5.0, 0.02 * abs(want), 1.5 * lot_notional)
-            if abs(got - want) > tolerance:
-                direction = "低" if got < want else "高"
-                issues.append(
-                    f"{asset.upper()} 仓位偏离冻结目标 {abs(got - want):.1f} USDT（实际 {got:.1f} / 目标 {want:.1f}，偏{direction}）"
-                )
+    try:
+        state_payload = json.loads(args.state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        state_payload = {}
+        issues.append(f"执行状态不可读：{exc}")
+    if not isinstance(state_payload, dict):
+        state_payload = {}
+        issues.append("执行状态不是 JSON 对象")
+    issues.extend(_event_position_issues(state_payload, positions, symbol_map, specs))
 
     ratio = (
         _gross_ratio(gross=gross, equity=equity)
