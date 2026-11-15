@@ -284,6 +284,7 @@ def build_execution_plan(
         raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
 
     warnings: list[str] = []
+    open_blocked_by_skipped_reduce = False
     if not rebalance_to_target:
         warnings.append(
             "no new target event: same-side position drift is preserved; "
@@ -498,11 +499,13 @@ def build_execution_plan(
                     )
                     action = "REDUCE" if size < position.size - 1e-12 else "CLOSE"
                 else:
+                    open_blocked_by_skipped_reduce = True
                     warnings.append(
                         f"{asset}: reduce of {size:.8g} below venue minimum; kept for now"
                     )
                     continue
             if size <= 0.0:
+                open_blocked_by_skipped_reduce = True
                 continue
         side = "sell" if current_side == "long" else "buy"
         fee = size * price * taker_fee_rate
@@ -558,6 +561,11 @@ def build_execution_plan(
     # day without a new target event, an absent leg is deliberately not
     # re-created from the stale book.
     for asset, target_signed in (desired_signed if rebalance_to_target else {}).items():
+        if open_blocked_by_skipped_reduce:
+            warnings.append(
+                f"{asset}: open skipped because a prior reduce was below the venue minimum"
+            )
+            continue
         price = prices_all.get(asset)
         if price is None or price <= 0.0:
             continue

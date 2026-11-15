@@ -29,7 +29,7 @@
     "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930"
   },
   "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-  "last_run_at": "2026-11-15T09:45:16.278203+00:00",
+  "last_run_at": "2026-11-15T10:17:40.058400+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
@@ -456,7 +456,15 @@
       "mode": "protect_only",
       "ran_at": "2026-11-15T09:45:16.278203+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
+      "mode": "protect_only",
+      "ran_at": "2026-11-15T10:17:40.058400+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-15T09:45:04.081315+00:00"
+  "stop_reconciliation_through": "2026-11-15T10:17:27.422475+00:00"
 }

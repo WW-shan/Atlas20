@@ -150,6 +150,31 @@ def _live_quote_snapshot(
     return prices, quotes, warnings
 
 
+def _held_position_price(
+    symbol: str,
+    *,
+    venue_mark: float,
+    quotes: Mapping[str, ExecutionQuote],
+    max_age_seconds: float,
+) -> tuple[float, str | None]:
+    """Choose a close-sizing price without requiring a fresh quote for an exit."""
+
+    if not isfinite(float(max_age_seconds)) or float(max_age_seconds) < 0.0:
+        raise ValueError("max quote age must be finite and non-negative")
+    upper = str(symbol).strip().upper()
+    quote = quotes.get(upper)
+    if quote is not None and quote.age_seconds <= float(max_age_seconds):
+        return float(quote.last_price), None
+    mark = float(venue_mark)
+    if not isfinite(mark) or mark <= 0.0:
+        raise ValueError(f"held position {upper} has no usable venue mark")
+    reason = "missing" if quote is None else "stale"
+    return mark, (
+        f"{upper}: {reason} public quote; using venue mark {mark:.8g} "
+        "for close sizing"
+    )
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -2494,8 +2519,20 @@ def _main(args: argparse.Namespace) -> int:
             raise SystemExit(f"no usable price for {symbol}")
         prices_by_asset[asset] = prices[symbol]
     for asset, position in account.positions.items():
-        if position.symbol.upper() in prices:
-            prices_by_asset.setdefault(asset, prices[position.symbol.upper()])
+        if asset in prices_by_asset:
+            continue
+        if args.prices_file is not None and position.symbol.upper() in prices:
+            prices_by_asset[asset] = prices[position.symbol.upper()]
+            continue
+        held_price, held_warning = _held_position_price(
+            position.symbol,
+            venue_mark=position.mark_price,
+            quotes=quotes,
+            max_age_seconds=float(args.max_quote_age_seconds),
+        )
+        prices_by_asset[asset] = held_price
+        if held_warning is not None:
+            warnings.append(held_warning)
 
     # Idempotency is per *run day and exact target book*.  Keying only on the
     # signal date would skip every unchanged day; keying only on the run day

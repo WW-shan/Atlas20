@@ -1478,6 +1478,37 @@ def test_short_order_with_the_wrong_stop_price_is_emergency_closed() -> None:
     assert report.fills[-1].action == "EMERGENCY_CLOSE"
 
 
+def test_emergency_close_cancels_an_unconfirmed_short_stop_order() -> None:
+    class _InvalidStopClient(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            result = super().place_order(**kwargs)
+            if kwargs.get("side") == "sell" and kwargs.get("pos_side") == "short":
+                self.strategy_orders.append(
+                    {
+                        "orderId": "invalid-stop",
+                        "symbol": kwargs["symbol"],
+                        "posSide": "short",
+                        "orderStatus": "live",
+                        "side": "buy",
+                        "qty": str(kwargs["qty"]),
+                        "stopLoss": "999",
+                        "slTriggerBy": "mark",
+                        "slOrderType": "market",
+                    }
+                )
+            return result
+
+    client = _InvalidStopClient(reject_isolated_orders=False, echo_stop_loss=False)
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-0.4, short_stop_loss_pct=0.20),
+    )
+
+    assert report.fills[-1].action == "EMERGENCY_CLOSE"
+    assert client.strategy_orders == []
+
+
 def test_unconfirmed_stop_on_a_short_increase_closes_the_whole_short_leg() -> None:
     client = _FakeLiveClient(
         reject_isolated_orders=False,
@@ -1573,6 +1604,54 @@ def test_failed_close_blocks_the_opposite_side_open() -> None:
 
     assert client.placed == []
     assert any("opposite-side open was blocked" in item["error"] for item in report.failures)
+
+
+def test_failed_close_blocks_all_following_opens_in_a_rotation() -> None:
+    class _FailShortClose(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            if kwargs.get("symbol") == "NEARUSDT" and kwargs.get("side") == "buy":
+                raise BitgetAPIError("close rejected")
+            return super().place_order(**kwargs)
+
+    near = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=20.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=51.5,
+    )
+    account = AccountState(
+        equity=100.0,
+        available_margin=100.0,
+        positions={"near": near},
+    )
+    plan = build_execution_plan(
+        account,
+        {"bch": -0.4},
+        {"near": _spec(), "bch": _spec("BCHUSDT")},
+        {"near": 5.0, "bch": 10.0},
+    )
+    client = _FailShortClose(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
+
+    report = _run(client, plan)
+
+    assert all(order.get("symbol") != "BCHUSDT" for order in client.placed)
+    assert any("open blocked" in item["error"].lower() for item in report.failures)
 
 
 def test_hedge_mode_short_close_uses_buy_and_short_position_side() -> None:

@@ -103,6 +103,21 @@ def test_reduce_below_venue_minimum_keeps_the_position() -> None:
     assert any("kept for now" in warning for warning in plan.warnings)
 
 
+def test_skipped_reduce_blocks_other_opens_in_the_same_rotation() -> None:
+    position = _position(size=175.0, entry=2.0, mark=2.0, margin=180.25)
+    plan = build_execution_plan(
+        AccountState(equity=200.0, available_margin=100.0, positions={"near": position}),
+        {"near": 1.74, "bch": 0.01},
+        {"near": _spec(), "bch": _spec("BCHUSDT", min_order_usdt=1.0)},
+        {"near": 2.0, "bch": 2.0},
+        max_gross_exposure=350.0,
+        max_margin_utilization=1.0,
+    )
+
+    assert all(order.symbol != "BCHUSDT" for order in plan.orders)
+    assert any("open skipped" in warning for warning in plan.warnings)
+
+
 def test_non_event_maintenance_preserves_same_side_drift() -> None:
     position = PositionState(
         asset="near",

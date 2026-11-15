@@ -10,6 +10,7 @@ import pandas as pd
 from atlas20.derivatives.execution import ExecutionPlan, MarginIntent, OrderIntent
 from atlas20.derivatives.live_executor import ExecutionReport, OrderFill
 from atlas20.derivatives.live_journal import JournalEntry
+from atlas20.derivatives.quotes import ExecutionQuote
 from scripts import execute_live_plan
 from scripts.plan_live_execution import account_state_from_bitget
 
@@ -63,6 +64,30 @@ def test_live_quote_snapshot_returns_prices_and_execution_warnings() -> None:
     assert prices == {"BTCUSDT": pytest.approx(100.0)}
     assert quotes["BTCUSDT"].mark_price == pytest.approx(100.1)
     assert any("BTCUSDT" in warning for warning in warnings)
+
+
+def test_stale_quote_for_a_held_leg_falls_back_to_the_venue_mark() -> None:
+    quote = ExecutionQuote(
+        symbol="NEARUSDT",
+        last_price=5.0,
+        mark_price=5.1,
+        bid_price=4.9,
+        ask_price=5.0,
+        bid_size=10.0,
+        ask_size=10.0,
+        observed_at=pd.Timestamp("2026-01-01T00:00:00Z"),
+        received_at=pd.Timestamp("2026-01-01T00:10:00Z"),
+    )
+
+    price, warning = execute_live_plan._held_position_price(
+        "NEARUSDT",
+        venue_mark=5.25,
+        quotes={"NEARUSDT": quote},
+        max_age_seconds=120.0,
+    )
+
+    assert price == pytest.approx(5.25)
+    assert "stale" in warning.lower()
 
 
 def _valid_manifest_payload(**overrides):

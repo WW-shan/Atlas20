@@ -1235,6 +1235,70 @@ def _reconcile_short_stop_orders(
         return None, _error_text(exc)
 
 
+def _cancel_symbol_strategy_orders(
+    client: LiveTradingClient,
+    report: ExecutionReport,
+    *,
+    symbol: str,
+) -> None:
+    """Best-effort removal of every active strategy order on one closed leg."""
+
+    upper = symbol.upper()
+    try:
+        rows = client.unfilled_strategy_orders(category=UTA_CATEGORY)
+    except (BitgetAPIError, ValueError) as exc:
+        report.failures.append(
+            {
+                "symbol": upper,
+                "action": "VERIFY",
+                "side": "short",
+                "size": "-",
+                "error": (
+                    "could not query strategy orders before emergency close: "
+                    f"{_error_text(exc)}"
+                ),
+            }
+        )
+        return
+    for row in rows:
+        if str(row.get("symbol") or "").upper() != upper or _terminal_strategy_order(row):
+            continue
+        order_id = str(row.get("orderId") or "")
+        client_oid = str(row.get("clientOid") or "")
+        if not order_id and not client_oid:
+            report.failures.append(
+                {
+                    "symbol": upper,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": "active strategy order has neither orderId nor clientOid",
+                }
+            )
+            continue
+        try:
+            client.cancel_strategy_order(
+                order_id=order_id or None,
+                client_oid=None if order_id else client_oid,
+            )
+            report.margin_notes.append(
+                f"{upper}: 紧急平仓前已撤销策略单 {order_id or client_oid}"
+            )
+        except (BitgetAPIError, ValueError) as exc:
+            report.failures.append(
+                {
+                    "symbol": upper,
+                    "action": "VERIFY",
+                    "side": "short",
+                    "size": "-",
+                    "error": (
+                        "could not cancel strategy order before emergency close: "
+                        f"{_error_text(exc)}"
+                    ),
+                }
+            )
+
+
 def _short_stop_confirmed(requested: float | None, payload: dict[str, Any]) -> bool:
     if requested is None:
         return False
@@ -1384,6 +1448,7 @@ def execute_plan(
     leverage_done: set[tuple[str, str]] = set()
     blocked_open_keys: set[tuple[str, str]] = set()
     blocked_open_assets: set[str] = set()
+    blocked_all_opens_by_failure = False
     stop_emergency_attempted: set[str] = set()
     halt_all_orders = not preflight_ok
 
@@ -1489,17 +1554,6 @@ def execute_plan(
             )
             continue
         symbol = order.symbol
-        if blocked_all_opens and not order.reduce_only:
-            report.failures.append(
-                {
-                    "symbol": symbol,
-                    "action": order.action,
-                    "side": order.side,
-                    "size": f"{order.size:.12g}",
-                    "error": "open blocked because the account is not fully isolated",
-                }
-            )
-            continue
         if not order.reduce_only and order.asset in blocked_open_assets:
             report.failures.append(
                 {
@@ -1510,6 +1564,22 @@ def execute_plan(
                     "error": (
                         "opposite-side open was blocked because the prior close failed"
                     ),
+                }
+            )
+            continue
+        if blocked_all_opens and not order.reduce_only:
+            reason = (
+                "open blocked because a prior reduction/close failed"
+                if blocked_all_opens_by_failure
+                else "open blocked because the account is not fully isolated"
+            )
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": reason,
                 }
             )
             continue
@@ -1689,6 +1759,11 @@ def execute_plan(
                         f"{symbol}: 下单响应不明确，已按 clientOid 回查确认"
                     )
         except (BitgetAPIError, ValueError) as exc:
+            # A failed order leaves the account different from the plan.  Do
+            # not let a later OPEN/INCREASE compound that residual state in the
+            # same run.
+            blocked_all_opens = True
+            blocked_all_opens_by_failure = True
             if order.action == "CLOSE":
                 blocked_open_assets.add(order.asset)
             report.failures.append(
@@ -1720,6 +1795,8 @@ def execute_plan(
                 )
         if not order_id:
             report.traded = True
+            blocked_all_opens = True
+            blocked_all_opens_by_failure = True
             if order.action == "CLOSE":
                 blocked_open_assets.add(order.asset)
             report.failures.append(
@@ -1886,6 +1963,9 @@ def execute_plan(
             )
         if order.stop_loss is not None and not stop_confirmed:
             stop_emergency_attempted.add(symbol.upper())
+            blocked_all_opens = True
+            blocked_all_opens_by_failure = True
+            _cancel_symbol_strategy_orders(client, report, symbol=symbol)
             report.failures.append(
                 {
                     "symbol": symbol,
@@ -1992,6 +2072,8 @@ def execute_plan(
                         }
                     )
         if status != _FILLED:
+            blocked_all_opens = True
+            blocked_all_opens_by_failure = True
             if order.action == "CLOSE":
                 blocked_open_assets.add(order.asset)
             error = (
@@ -2132,6 +2214,7 @@ def execute_plan(
             )
             if qty <= 0.0:
                 continue
+            _cancel_symbol_strategy_orders(client, report, symbol=symbol)
             try:
                 closed = client.place_order(
                     symbol=symbol,

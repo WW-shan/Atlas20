@@ -455,6 +455,9 @@ ops/run_derivatives_daily.sh --force    # 只跳过窗口闸
 但仍允许 reduce/close、止损核对、记账和告警。这样不会因为“余额太小”把现有风险锁在仓位里。
 任何已存在的异常策略单（例如无持仓的 TP/SL、long 上的策略单、short 上非 mark/market stop）
 都会在真实下单前阻断新风险；策略单接口不可用时，开仓同样 fail closed，减仓/平仓仍继续。
+同一轮中任何下单失败、未终态或成交数量/价格回读异常，都会阻断后续所有 OPEN/INCREASE；已经
+发出的 reduce/close 仍可继续执行，下一窗口按真实账户重新规划。若空头止损无法确认而触发紧急平仓，
+执行器会先撤销该 symbol 的活动策略单，再市价买回整条空头腿，避免留下孤立止损单。
 
 ### 7.3 资金流
 
@@ -471,7 +474,7 @@ make audit-live
 
 ## 8. `audit-live` 的硬校验
 
-`scripts/audit_live_track.py` 只读。2026-11-14 真实账户输出为 **37 项硬检查 + 1 项非硬告警**；
+`scripts/audit_live_track.py` 只读。2026-11-15 真实账户输出为 **39 项硬检查 + 1 项非硬告警**；
 下面按检查族归纳：
 
 1. 冻结目标都有唯一 Bitget 合约映射；
