@@ -1939,7 +1939,8 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
         def current_positions(self):
             return []
 
-    signal_date = pd.Timestamp.now(tz="UTC").normalize() - pd.Timedelta(days=1)
+    signal_date = pd.Timestamp.now(tz="UTC").normalize() - pd.Timedelta(days=2)
+    execution_hint = signal_date + pd.Timedelta(days=1, hours=1, minutes=5)
     state_path = tmp_path / "state.json"
     state_path.write_text(
         json.dumps(
@@ -1950,8 +1951,8 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
                 "active_event": {
                     "signal_date": str(signal_date.date()),
                     "targets_sha256": "",
-                    "execution_hint": "2026-11-15T01:05:00+00:00",
-                    "applied_at": "2026-11-15T01:06:00+00:00",
+                    "execution_hint": execution_hint.isoformat(),
+                    "applied_at": (execution_hint + pd.Timedelta(minutes=1)).isoformat(),
                     "equity_at_execution": 500.0,
                     "target_weights": {"near": -0.1},
                     "prices": {"near": 5.0},
