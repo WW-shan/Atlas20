@@ -67,8 +67,9 @@ com.atlas20.derivatives-execute
 LS104 首次运行且 `data/ls45_g175_execution_state.json` 不存在时，wrapper 额外传入
 `--bootstrap-track`。该旗标只允许 state、journal 均为空且 manifest 有 `targets_sha256`；它把当前
 冻结账本作为新 track 的首个事件应用，不重放 LS45 历史 PnL/funding，也不复用 LS45 state/journal。
-继承仓位的累计 `totalFunding` 只写入首行 positions 作为下一日差分基线；该行 `funding_total` 固定为
-0，不会把迁移前 funding 计入 LS104 收益。
+继承仓位的累计 `totalFunding` 只写入首行 positions 作为下一日差分基线；bootstrap 首次写入时该行
+`funding_total=0`，不会把迁移前 funding 计入 LS104 收益。同日后续 protect-only 若重写该行，只记录
+bootstrap 之后新发生的 funding 差分。
 一旦 state 文件存在，后续重试只走 `active_event` 的 complete/maintain 路径。
 
 若窗口闸返回 `DONE=4`，wrapper 不刷新数据、不重读新的 alpha 目标，而是先运行：
