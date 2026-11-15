@@ -31,6 +31,7 @@ Account snapshot JSON schema (``--account-file``)::
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import json
 from math import isfinite
@@ -60,6 +61,7 @@ from atlas20.derivatives.execution import (  # noqa: E402
 )
 from atlas20.derivatives.http import get_json_with_retries  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
+    LIVE_MIN_REBALANCE_USDT,
     live_execution_hint_for_signal,
     live_track_profile,
     manifest_spec_issues,
@@ -98,18 +100,24 @@ def _finite_float(value: object, field: str, *, positive: bool = False) -> float
     return number
 
 
-def manifest_signal_end_date(path: Path) -> pd.Timestamp | None:
+def manifest_signal_end_date(
+    path: Path,
+    *,
+    payload: Mapping[str, Any] | None = None,
+) -> pd.Timestamp | None:
     """Return the manifest's evaluated signal date, or None when absent."""
 
     manifest_path = Path(path)
-    if not manifest_path.is_file():
-        return None
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise SystemExit(f"manifest {manifest_path} could not be read: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise SystemExit(f"manifest {manifest_path} is not a JSON object")
+    if payload is None:
+        if not manifest_path.is_file():
+            return None
+        try:
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SystemExit(f"manifest {manifest_path} could not be read: {exc}") from exc
+        if not isinstance(loaded, dict):
+            raise SystemExit(f"manifest {manifest_path} is not a JSON object")
+        payload = loaded
     raw = payload.get("signal_end_date")
     if raw in (None, ""):
         return None
@@ -149,6 +157,7 @@ def _profile_argument_issues(
         "short_buffer": float(expected_config["short_buffer"]),
         "short_stop_loss_pct": float(expected_config["short_stop_loss_pct"]),
         "cost_bps": float(expected_top_level["cost_bps"]),
+        "min_rebalance_usdt": LIVE_MIN_REBALANCE_USDT,
     }
     for name, expected_value in expected_args.items():
         raw_actual = getattr(args, name, None)
@@ -187,6 +196,21 @@ def _manifest_spec_issues(
         )
     )
     return issues
+
+
+def _offline_market_override_issue(args: argparse.Namespace) -> str | None:
+    """Reject fixture market data when reading the real account."""
+
+    if not args.live:
+        return None
+    if args.prices_file is not None:
+        return "--prices-file is forbidden with --live; use the exchange ticker snapshot"
+    if args.instruments_file is not None:
+        return (
+            "--instruments-file is forbidden with --live; use the live Bitget "
+            "instrument snapshot"
+        )
+    return None
 
 
 def load_symbol_map(path: Path) -> LiveSymbolMap:
@@ -666,7 +690,7 @@ def main() -> None:
         help="portfolio isolated-margin utilization cap",
     )
     parser.add_argument("--cost-bps", type=float, default=20.0, help="for reporting only")
-    parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
+    parser.add_argument("--min-rebalance-usdt", type=float, default=LIVE_MIN_REBALANCE_USDT)
     parser.add_argument("--instruments-file", type=Path, default=None)
     parser.add_argument("--prices-file", type=Path, default=None)
     parser.add_argument("--json-out", type=Path, default=None)
@@ -681,17 +705,22 @@ def main() -> None:
             "execution plan parameters do not match the frozen live track: "
             + "; ".join(profile_issues)
         )
+    offline_market_issue = _offline_market_override_issue(args)
+    if offline_market_issue is not None:
+        raise SystemExit(offline_market_issue)
     if args.live and not args.manifest_file.is_file():
         raise SystemExit(
             f"live execution planning requires the frozen manifest at {args.manifest_file}"
         )
 
-    symbols_by_asset = load_symbol_map(args.symbol_map)
-    signal_date, ledger_execution_hint, book = load_latest_targets(args.targets_file)
+    manifest: dict[str, Any] | None = None
     if args.manifest_file.is_file():
-        manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
-        if not isinstance(manifest, dict):
+        manifest_payload = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+        if not isinstance(manifest_payload, dict):
             raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
+        manifest = manifest_payload
+    targets_content: bytes | None = None
+    if manifest is not None:
         if args.live and not manifest.get("targets_sha256"):
             raise SystemExit(
                 "live execution planning requires manifest targets_sha256"
@@ -702,13 +731,28 @@ def main() -> None:
                 "frozen manifest does not match the execution plan profile: "
                 + "; ".join(manifest_issues)
             )
+        try:
+            targets_content = args.targets_file.read_bytes()
+        except OSError as exc:
+            raise SystemExit(
+                f"targets file {args.targets_file} could not be read: {exc}"
+            ) from exc
         targets_hash_issue = manifest_targets_hash_issue(
             manifest,
             args.targets_file,
+            content=targets_content,
         )
         if targets_hash_issue is not None:
             raise SystemExit(targets_hash_issue)
-    signal_end_date = manifest_signal_end_date(args.manifest_file)
+    symbols_by_asset = load_symbol_map(args.symbol_map)
+    signal_date, ledger_execution_hint, book = load_latest_targets(
+        args.targets_file,
+        content=targets_content,
+    )
+    signal_end_date = manifest_signal_end_date(
+        args.manifest_file,
+        payload=manifest,
+    )
     fresh_target_event = _target_event_is_fresh(signal_date, signal_end_date)
     execution_hint = pd.Timestamp(
         live_execution_hint_for_signal(signal_end_date or signal_date)

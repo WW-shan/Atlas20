@@ -43,8 +43,8 @@ import pandas as pd
 
 from atlas20.data.completeness import assess_last_day
 
-#: The single LS45 execution clock, in UTC: 09:05 Beijing.  Signal ledgers,
-#: backtests, preflight and the live executor all target this same minute.
+#: The single selected live-track execution clock, in UTC: 09:05 Beijing. Signal
+#: ledgers, backtests, preflight and the live executor all target this minute.
 LIVE_EXECUTION_UTC = time(1, 5)
 DEFAULT_SCHEDULED_UTC = LIVE_EXECUTION_UTC
 
@@ -52,6 +52,10 @@ DEFAULT_SCHEDULED_UTC = LIVE_EXECUTION_UTC
 #: this the rebalance is skipped and the 19:00 monitor reports the gap, because
 #: executing a daily signal many hours late is a different trade.
 DEFAULT_CATCHUP_HOURS = 6.0
+LIVE_MAX_QUOTE_AGE_SECONDS = 120.0
+LIVE_EQUITY_FLOOR_USDT = 20.0
+LIVE_MIN_REBALANCE_USDT = 5.0
+LIVE_MAX_MARK_STALENESS_HOURS = 30.0
 
 PANEL_FILENAME = "panel_daily.csv"
 # The live universe is a point-in-time Top20; a panel with only the old
@@ -167,6 +171,57 @@ def live_track_profile(name_or_spec: str) -> LiveTrackProfile:
         if candidate.spec == key:
             return candidate
     raise ValueError(f"unknown live track: {name_or_spec!r}")
+
+
+def execution_state_track_issue(
+    state: Mapping[str, object],
+    expected_spec: str,
+    *,
+    empty_issue: str | None = None,
+) -> str | None:
+    """Validate every persisted execution identity against one frozen track."""
+
+    if not state:
+        return empty_issue
+    expected = str(expected_spec)
+
+    def key_issue(raw_key: object, label: str) -> str | None:
+        if not isinstance(raw_key, str) or not raw_key.strip():
+            return f"{label} has no track key"
+        parts = raw_key.strip().split("|")
+        stored_track = parts[0]
+        if stored_track != expected:
+            return (
+                f"{label} belongs to another track: "
+                f"stored={stored_track!r}, expected={expected!r}"
+            )
+        if len(parts) not in (3, 4) or any(not part.strip() for part in parts):
+            return f"{label} is malformed: {raw_key!r}"
+        for date_part in (parts[1], parts[-1]):
+            try:
+                date.fromisoformat(date_part)
+            except ValueError:
+                return f"{label} has an invalid date: {raw_key!r}"
+        return None
+
+    last_key = state.get("last_key")
+    if not isinstance(last_key, str) or not last_key.strip():
+        return "execution state is non-empty but last_key is missing"
+    issue = key_issue(last_key, "execution state last_key")
+    if issue is not None:
+        return issue
+
+    runs = state.get("runs")
+    if not isinstance(runs, list):
+        return "execution state runs must be an array"
+    for index, row in enumerate(runs):
+        label = f"execution state runs[{index}]"
+        if not isinstance(row, Mapping):
+            return f"{label} is not an object"
+        issue = key_issue(row.get("key"), label)
+        if issue is not None:
+            return issue
+    return None
 
 
 def as_utc(moment: datetime) -> datetime:
@@ -317,6 +372,8 @@ def file_sha256(path: Path) -> str:
 def manifest_targets_hash_issue(
     manifest: Mapping[str, Any],
     targets_file: Path,
+    *,
+    content: bytes | None = None,
 ) -> str | None:
     """Check that the target CSV is the exact file covered by its manifest.
 
@@ -331,11 +388,15 @@ def manifest_targets_hash_issue(
     path = Path(targets_file)
     if not path.is_file():
         return f"targets file is missing: {path}"
-    actual = file_sha256(path)
+    actual = (
+        hashlib.sha256(content).hexdigest()
+        if content is not None
+        else file_sha256(path)
+    )
     if actual != expected:
         return (
             f"targets_sha256 mismatch: manifest={expected}, actual={actual}; "
-            "rebuild the LS45 signal"
+            "rebuild the selected track signal"
         )
     recorded_name = str(manifest.get("targets_file") or "")
     if recorded_name and Path(recorded_name).name != path.name:

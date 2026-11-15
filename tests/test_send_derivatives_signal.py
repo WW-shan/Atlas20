@@ -141,6 +141,31 @@ def test_load_latest_targets_picks_last_signal_date(tmp_path) -> None:
     assert len(book) == 2
 
 
+def test_load_latest_targets_can_parse_the_same_snapshot_that_was_hashed(tmp_path) -> None:
+    from scripts.send_derivatives_signal import load_latest_targets
+
+    path = tmp_path / "oos_targets.csv"
+    snapshot = _book().to_csv(index=False).encode("utf-8")
+    path.write_text(
+        pd.DataFrame(
+            {
+                "signal_date": ["2026-10-10 00:00:00+00:00"],
+                "execution_hint": ["2026-10-11 01:05:00+00:00"],
+                "asset": ["zcash"],
+                "target_weight": [-0.25],
+                "change_weight": [-1.0],
+                "action": ["SELL"],
+            }
+        ).to_csv(index=False),
+        encoding="utf-8",
+    )
+
+    signal_date, _, book = load_latest_targets(path, content=snapshot)
+
+    assert signal_date == pd.Timestamp("2026-10-08", tz="UTC")
+    assert set(book["asset"]) == {"near", "zcash"}
+
+
 def test_load_latest_targets_rejects_missing_columns(tmp_path) -> None:
     from scripts.send_derivatives_signal import load_latest_targets
 

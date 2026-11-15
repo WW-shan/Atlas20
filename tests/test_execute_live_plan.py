@@ -101,6 +101,12 @@ def test_stale_quote_for_a_held_leg_falls_back_to_the_venue_mark() -> None:
 def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
     tmp_path: Path, monkeypatch, quote_mode: str
 ) -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+    )
+
     class _StopAfterPrices(Exception):
         pass
 
@@ -130,20 +136,39 @@ def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
         positions={"near": position},
     )
     state = {
-        "last_key": (
-            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
-            "|2026-11-13|2026-11-15"
-        ),
+        "last_key": f"{LS104_G175_M090_SPEC}|2026-11-13|target-a|2026-11-15",
+        "runs": [
+            {
+                "key": (
+                    f"{LS104_G175_M090_SPEC}|2026-11-13|target-a|2026-11-15"
+                )
+            }
+        ],
         "active_event": {
             "signal_date": "2026-11-13",
+            "targets_sha256": "target-a",
             "target_weights": {},
             "target_quantities": {},
         },
     }
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "tracked_spec": LS104_G175_M090_SPEC,
+                "frozen_config": LS104_G175_M090_FROZEN_CONFIG,
+                **LS104_G175_M090_MANIFEST_TOP_LEVEL,
+                "targets_sha256": "target-a",
+            }
+        ),
+        encoding="utf-8",
+    )
     args = argparse.Namespace(
         live=True,
-        spec="PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+        spec=LS104_G175_M090_SPEC,
         state_file=tmp_path / "state.json",
+        manifest_file=manifest,
+        targets_file=tmp_path / "oos_targets.csv",
         symbol_map=tmp_path / "symbols.csv",
         journal_file=tmp_path / "journal.csv",
         max_quote_age_seconds=120.0,
@@ -157,8 +182,10 @@ def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
         max_gross_multiple=1.75,
         max_margin_utilization=0.90,
         cost_bps=20.0,
+        catchup_hours=6.0,
         min_rebalance_usdt=5.0,
         equity_floor=20.0,
+        max_mark_staleness_hours=30.0,
     )
 
     monkeypatch.setattr(execute_live_plan, "_read_state", lambda _path: state)
@@ -268,6 +295,11 @@ def test_protect_only_rejects_profile_parameter_drift_before_network(
         short_buffer=0.50,
         short_stop_loss_pct=0.05,
         cost_bps=20.0,
+        catchup_hours=6.0,
+        max_quote_age_seconds=120.0,
+        equity_floor=20.0,
+        min_rebalance_usdt=5.0,
+        max_mark_staleness_hours=30.0,
     )
     args.state_file.write_text(
         json.dumps(
@@ -321,6 +353,11 @@ def _manifest_args(**overrides):
         "cost_bps": 20.0,
         "leverage": 2.0,
         "max_margin_utilization": 0.85,
+        "catchup_hours": 6.0,
+        "max_quote_age_seconds": 120.0,
+        "equity_floor": 20.0,
+        "min_rebalance_usdt": 5.0,
+        "max_mark_staleness_hours": 30.0,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -395,6 +432,29 @@ def test_live_manifest_rejects_a_second_execution_clock() -> None:
     assert any("execution_utc" in issue for issue in issues)
 
 
+@pytest.mark.parametrize(
+    ("arg_name", "value"),
+    [
+        ("catchup_hours", 24.0),
+        ("max_quote_age_seconds", 86_400.0),
+        ("equity_floor", 0.0),
+        ("min_rebalance_usdt", 999.0),
+        ("max_mark_staleness_hours", 999.0),
+    ],
+)
+def test_live_profile_pin_rejects_mutable_safety_controls(
+    arg_name: str, value: float
+) -> None:
+    cli_name = "--" + arg_name.replace("_", "-")
+    args = execute_live_plan.parse_args(
+        ["--live", "--require-isolated", cli_name, str(value)]
+    )
+
+    issues = execute_live_plan._profile_argument_issues(args)
+
+    assert any(arg_name in issue for issue in issues)
+
+
 def test_live_execution_rejects_a_data_fingerprint_mismatch(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -429,6 +489,49 @@ def test_live_execution_rejects_a_data_fingerprint_mismatch(
         ["--live", "--require-isolated", "--manifest-file", str(manifest), "--force"]
     )
     with pytest.raises(SystemExit, match="data_fingerprint"):
+        execute_live_plan._main(args)
+
+
+def test_live_execution_parses_targets_from_the_manifest_bound_snapshot(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import file_sha256
+
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text(
+        "signal_date,execution_hint,asset,target_weight,change_weight,action\n"
+        "2026-11-13T00:00:00Z,2026-11-14T01:05:00Z,near,-0.125,-0.125,OPEN\n",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            _valid_manifest_payload(
+                targets_file=targets.name,
+                targets_sha256=file_sha256(targets),
+            )
+        ),
+        encoding="utf-8",
+    )
+    args = execute_live_plan.parse_args(
+        [
+            "--live",
+            "--require-isolated",
+            "--targets-file",
+            str(targets),
+            "--manifest-file",
+            str(manifest),
+        ]
+    )
+
+    def capture_snapshot(path, *, content=None):
+        assert path == targets
+        assert content == targets.read_bytes()
+        raise SystemExit("target snapshot captured")
+
+    monkeypatch.setattr(execute_live_plan, "load_latest_targets", capture_snapshot)
+
+    with pytest.raises(SystemExit, match="target snapshot captured"):
         execute_live_plan._main(args)
 
 
@@ -624,6 +727,11 @@ def test_protect_only_rejects_state_from_a_different_track_before_network(
         short_buffer=0.50,
         short_stop_loss_pct=0.20,
         cost_bps=20.0,
+        catchup_hours=6.0,
+        max_quote_age_seconds=120.0,
+        equity_floor=20.0,
+        min_rebalance_usdt=5.0,
+        max_mark_staleness_hours=30.0,
     )
     monkeypatch.setattr(
         execute_live_plan,
@@ -634,6 +742,75 @@ def test_protect_only_rejects_state_from_a_different_track_before_network(
     )
 
     with pytest.raises(SystemExit, match="track"):
+        execute_live_plan._protect_only_main(args)
+
+
+def test_protect_only_rejects_an_active_event_not_bound_to_the_manifest(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import (
+        LS104_G175_M090_FROZEN_CONFIG,
+        LS104_G175_M090_MANIFEST_TOP_LEVEL,
+        LS104_G175_M090_SPEC,
+    )
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "tracked_spec": LS104_G175_M090_SPEC,
+                "frozen_config": LS104_G175_M090_FROZEN_CONFIG,
+                **LS104_G175_M090_MANIFEST_TOP_LEVEL,
+                "targets_sha256": "manifest-target",
+            }
+        ),
+        encoding="utf-8",
+    )
+    state_path = tmp_path / "state.json"
+    key = f"{LS104_G175_M090_SPEC}|2026-11-13|stale-target|2026-11-15"
+    state_path.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "runs": [{"key": key}],
+                "active_event": {
+                    "signal_date": "2026-11-13",
+                    "targets_sha256": "stale-target",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = argparse.Namespace(
+        live=True,
+        spec=LS104_G175_M090_SPEC,
+        state_file=state_path,
+        manifest_file=manifest,
+        targets_file=tmp_path / "oos_targets.csv",
+        symbol_map=tmp_path / "symbols.csv",
+        journal_file=tmp_path / "journal.csv",
+        leverage=4.0,
+        max_gross_multiple=1.75,
+        max_margin_utilization=0.90,
+        long_buffer=0.50,
+        short_buffer=0.50,
+        short_stop_loss_pct=0.20,
+        cost_bps=20.0,
+        catchup_hours=6.0,
+        max_quote_age_seconds=120.0,
+        equity_floor=20.0,
+        min_rebalance_usdt=5.0,
+        max_mark_staleness_hours=30.0,
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "load_symbol_map",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("network setup must not start with a stale active event")
+        ),
+    )
+
+    with pytest.raises(SystemExit, match="targets_sha256"):
         execute_live_plan._protect_only_main(args)
 
 
@@ -683,7 +860,104 @@ def test_state_track_issue_rejects_non_empty_state_without_a_key() -> None:
     )
 
     assert issue is not None
-    assert "no track key" in issue
+    assert "last_key" in issue
+
+
+def test_state_track_issue_rejects_a_malformed_track_key() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": f"{spec}|old",
+            "runs": [{"key": f"{spec}|old"}],
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "malformed" in issue
+
+
+def test_state_track_issue_rejects_an_invalid_run_date() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": f"{spec}|2026-11-13|target-a|not-a-date",
+            "runs": [{"key": f"{spec}|2026-11-13|target-a|not-a-date"}],
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "invalid date" in issue
+
+
+def test_state_track_issue_rejects_cross_track_run_history() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+    current = f"{spec}|2026-11-13|target-a|2026-11-15"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": current,
+            "runs": [
+                {"key": current},
+                {
+                    "key": (
+                        "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+                        "|2026-11-13|target-b|2026-11-15"
+                    )
+                },
+            ],
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "runs[1]" in issue
+    assert "another track" in issue
+
+
+def test_state_track_issue_requires_a_runs_array() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": f"{spec}|2026-11-13|target-a|2026-11-15",
+            "runs": None,
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "runs" in issue
+
+
+@pytest.mark.parametrize("override", ["prices-file", "instruments-file"])
+def test_live_execution_rejects_offline_market_overrides_before_loading_targets(
+    tmp_path: Path, monkeypatch, override: str
+) -> None:
+    args = execute_live_plan.parse_args(
+        [
+            "--live",
+            "--require-isolated",
+            f"--{override}",
+            str(tmp_path / f"{override}.json"),
+        ]
+    )
+    loaded_targets = False
+
+    def fail_if_targets_are_loaded(*_args, **_kwargs):
+        nonlocal loaded_targets
+        loaded_targets = True
+        raise AssertionError("offline market overrides must be rejected before target loading")
+
+    monkeypatch.setattr(execute_live_plan, "load_latest_targets", fail_if_targets_are_loaded)
+
+    with pytest.raises(SystemExit, match=override):
+        execute_live_plan._main(args)
+
+    assert loaded_targets is False
 
 
 def test_state_is_not_marked_complete_when_notification_fails(tmp_path: Path) -> None:
@@ -1460,7 +1734,7 @@ def test_live_execution_requires_a_manifest_even_for_a_recent_event_book(
     monkeypatch.setattr(
         execute_live_plan,
         "load_latest_targets",
-        lambda _: (
+        lambda _, **_kwargs: (
             signal_date,
             event_hint,
             pd.DataFrame([{"asset": "near", "target_weight": 0.0}]),
@@ -1495,7 +1769,7 @@ def test_live_execution_rejects_a_manifest_without_evaluation_dates(
     monkeypatch.setattr(
         execute_live_plan,
         "load_latest_targets",
-        lambda _: (
+        lambda _, **_kwargs: (
             signal_date,
             execution_hint,
             pd.DataFrame([{"asset": "near", "target_weight": 0.0}]),
@@ -1546,7 +1820,7 @@ def test_live_execution_uses_the_daily_manifest_hint_for_an_unchanged_event_book
     monkeypatch.setattr(
         execute_live_plan,
         "load_latest_targets",
-        lambda _: (
+        lambda _, **_kwargs: (
             event_signal_date,
             event_hint,
             pd.DataFrame([{"asset": "near", "target_weight": 0.0}]),
@@ -2507,7 +2781,7 @@ def test_dry_run_does_not_write_live_state_or_journal(tmp_path: Path, monkeypatc
     monkeypatch.setattr(
         execute_live_plan,
         "load_latest_targets",
-        lambda _: (
+        lambda _, **_kwargs: (
             signal_date,
             signal_date + pd.Timedelta(days=1, hours=1, minutes=5),
             pd.DataFrame(columns=["asset", "target_weight"]),
@@ -2579,9 +2853,18 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
             {
                 "account_fingerprint": "account-a",
                 "last_key": (
-                    "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|old"
+                    "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+                    "|2026-11-13|target-a|2026-11-15"
                 ),
                 "last_status": "partial",
+                "runs": [
+                    {
+                        "key": (
+                            "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
+                            "|2026-11-13|target-a|2026-11-15"
+                        )
+                    }
+                ],
                 "active_event": {
                     "signal_date": str(signal_date.date()),
                     "targets_sha256": "",
@@ -2631,7 +2914,7 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
     monkeypatch.setattr(
         execute_live_plan,
         "load_latest_targets",
-        lambda _: (
+        lambda _, **_kwargs: (
             signal_date,
             signal_date + pd.Timedelta(days=1, hours=1, minutes=5),
             pd.DataFrame([{"asset": "near", "target_weight": -0.1}]),
@@ -3032,6 +3315,14 @@ def test_reconcile_only_imports_a_post_execution_stop_once_and_attributes_fundin
         ),
         "last_status": "ok",
         "last_run_at": "2026-11-15T01:06:00+00:00",
+            "runs": [
+                {
+                    "key": (
+                        "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+                        "|2026-11-13|target-a|2026-11-15"
+                    )
+                }
+            ],
         "active_event": active_event,
         "stop_reconciliation_through": "2026-11-15T01:06:00+00:00",
     }

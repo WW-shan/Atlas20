@@ -42,8 +42,8 @@ today's daily run still reconciles even when the latest strategy event is
 several days old.
 
 The current live decision is a direct owner-approved live test, not a claim of
-long-run out-of-sample validation. `RESEARCH.md` section 00.141 is the
-authoritative research record; the implementation and recovery rules are in
+long-run out-of-sample validation. `RESEARCH.md` sections 00.152–00.155 are the
+authoritative research and live-hardening record; the implementation and recovery rules are in
 [`docs/operations/derivatives_live_runbook.md`](docs/operations/derivatives_live_runbook.md).
 
 ### Historical H5 spot-long phase (superseded for live)
@@ -333,16 +333,16 @@ npm --prefix apps/web test
 npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 npm --prefix apps/web run openapi:check
-.venv/bin/python -m pip_audit --strict .
+.venv/bin/pip-audit --strict .
 npm --prefix apps/web audit --audit-level=moderate --registry=https://registry.npmjs.org
 ```
 
 `make test` runs the Python suite through pytest inside `.venv`; `make lint`
 and `make typecheck` run Ruff and mypy through the same virtual environment.
 
-Current local verification for this release line covers 2,119 Python tests plus
-249 Vitest tests, frontend build, strict API mypy, generated OpenAPI types, and
-Ruff, plus Python and frontend dependency audits.
+Current local verification covers the complete Python and Vitest suites,
+frontend build, strict API mypy, generated OpenAPI types, Ruff, and Python and
+frontend dependency audits.
 
 ## Operations Surface
 

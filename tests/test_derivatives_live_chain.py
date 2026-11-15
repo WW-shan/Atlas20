@@ -363,6 +363,22 @@ def test_manifest_target_hash_detects_a_partial_target_rewrite(tmp_path: Path) -
     assert "targets_sha256" in issue
 
 
+def test_manifest_target_hash_can_validate_one_in_memory_snapshot(tmp_path: Path) -> None:
+    import hashlib
+
+    from atlas20.derivatives.live_chain import manifest_targets_hash_issue
+
+    targets = tmp_path / "oos_targets.csv"
+    snapshot = b"asset,target_weight\nnear,0.25\n"
+    targets.write_bytes(b"asset,target_weight\nnear,-0.25\n")
+    manifest = {
+        "targets_file": targets.name,
+        "targets_sha256": hashlib.sha256(snapshot).hexdigest(),
+    }
+
+    assert manifest_targets_hash_issue(manifest, targets, content=snapshot) is None
+
+
 def test_ls104_profile_pins_aggressive_sizing_and_margin_budget() -> None:
     from atlas20.derivatives.live_chain import (
         LS104_G175_M090_FROZEN_CONFIG,

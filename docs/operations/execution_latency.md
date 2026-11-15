@@ -1,8 +1,9 @@
 # Atlas20 Execution Latency Operations
 
-> **Live note (2026-11-14):** the owner approved the +1h5m live fast path for
-> the current LS45-G125 track. The **research** fill convention remains T+1 +3h;
-> live execution starts at 01:05 UTC. See “Current live schedule”.
+> **Historical note (2026-11-16):** this document records the 2026-11-14 latency
+> investigation for LS45-G125 and is superseded for live operations. The current
+> track is LS104-G175-M090, and its signal ledger, live-parity research and live
+> execution all use T+1 01:05 UTC. See the live runbook and RESEARCH §00.152–00.155.
 
 How to shorten the gap between the 00:00 UTC signal close and the live fill, and
 why that is the one remaining compliant lever on the frozen champion.
@@ -32,11 +33,11 @@ needs the owner's sign-off.
 on the selection history, not on execution. Only data no trial has seen can move
 them. This work is operational; the champion stays provisional either way.
 
-## Current live schedule (2026-11-14)
+## Historical live schedule (2026-11-14; superseded)
 
-The production track is LS45-G125. Research still fills at T+1 +3h, while live
-execution deliberately uses T+1 **01:05 UTC** (+1h5m) after the early panel
-refresh. Target weights come from the latest event row; the daily execution
+The production track at that time was LS45-G125. Its research and live fills
+still differed. The current LS104 track uses T+1 **01:05 UTC** (+1h5m) for both
+research and live execution. Target weights come from the latest event row; the daily execution
 timestamp comes from the manifest's latest completed data day plus one day and
 01:05 UTC. That distinction matters because the event book can stay unchanged
 for many days while the executor still reconciles and journals every day.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 import pandas as pd
@@ -71,6 +72,25 @@ def test_manifest_signal_end_date_uses_daily_execution_clock(tmp_path) -> None:
     assert manifest_signal_end_date(path) == pd.Timestamp("2026-11-12", tz="UTC")
 
 
+def test_manifest_signal_end_date_can_use_the_already_validated_payload(
+    tmp_path,
+) -> None:
+    from scripts.plan_live_execution import manifest_signal_end_date
+
+    path = tmp_path / "manifest.json"
+    path.write_text(
+        json.dumps({"signal_end_date": "2026-11-20"}),
+        encoding="utf-8",
+    )
+
+    result = manifest_signal_end_date(
+        path,
+        payload={"signal_end_date": "2026-11-12"},
+    )
+
+    assert result == pd.Timestamp("2026-11-12", tz="UTC")
+
+
 def test_live_plan_requires_a_frozen_manifest_before_reading_market_files(
     tmp_path, monkeypatch
 ) -> None:
@@ -96,6 +116,93 @@ def test_live_plan_requires_a_frozen_manifest_before_reading_market_files(
         plan_live_execution.main()
 
 
+@pytest.mark.parametrize("override", ["prices-file", "instruments-file"])
+def test_live_plan_rejects_offline_market_overrides_before_loading_market_files(
+    tmp_path, monkeypatch, override: str
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plan_live_execution.py",
+            "--live",
+            "--manifest-file",
+            str(manifest),
+            f"--{override}",
+            str(tmp_path / f"{override}.json"),
+        ],
+    )
+    monkeypatch.setattr(
+        plan_live_execution,
+        "load_symbol_map",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("offline market overrides must be rejected first")
+        ),
+    )
+
+    with pytest.raises(SystemExit, match=override):
+        plan_live_execution.main()
+
+
+def test_live_plan_parses_targets_from_the_manifest_bound_snapshot(
+    tmp_path, monkeypatch
+) -> None:
+    from atlas20.derivatives.live_chain import file_sha256
+
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text(
+        "signal_date,execution_hint,asset,target_weight,change_weight,action\n"
+        "2026-11-13T00:00:00Z,2026-11-14T01:05:00Z,near,-0.125,-0.125,OPEN\n",
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "tracked_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                "frozen_config": {
+                    **plan_live_execution.live_track_profile("ls45-g125").frozen_config
+                },
+                **plan_live_execution.live_track_profile(
+                    "ls45-g125"
+                ).manifest_top_level,
+                "targets_file": targets.name,
+                "targets_sha256": file_sha256(targets),
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        plan_live_execution,
+        "load_symbol_map",
+        lambda _path: {"near": "NEARUSDT"},
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "plan_live_execution.py",
+            "--live",
+            "--targets-file",
+            str(targets),
+            "--manifest-file",
+            str(manifest),
+        ],
+    )
+
+    def capture_snapshot(path, *, content=None):
+        assert path == targets
+        assert content == targets.read_bytes()
+        raise SystemExit("target snapshot captured")
+
+    monkeypatch.setattr(plan_live_execution, "load_latest_targets", capture_snapshot)
+
+    with pytest.raises(SystemExit, match="target snapshot captured"):
+        plan_live_execution.main()
+
+
 def _plan_profile_args(**overrides):
     from atlas20.derivatives.live_chain import LS104_G175_M090_SPEC
 
@@ -108,6 +215,7 @@ def _plan_profile_args(**overrides):
         "max_gross_multiple": 1.75,
         "max_margin_utilization": 0.90,
         "cost_bps": 20.0,
+        "min_rebalance_usdt": 5.0,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -153,6 +261,14 @@ def test_plan_manifest_cannot_override_the_pinned_ls104_profile(
     )
 
     assert issues
+
+
+def test_plan_profile_pin_rejects_a_mutable_rebalance_threshold() -> None:
+    args = _plan_profile_args(min_rebalance_usdt=999.0)
+
+    issues = plan_live_execution._profile_argument_issues(args)
+
+    assert any("min_rebalance_usdt" in issue for issue in issues)
 
 
 def test_public_prices_reject_non_positive_and_non_finite_values(monkeypatch) -> None:

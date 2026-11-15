@@ -52,6 +52,8 @@ from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.execution import ContractSpec  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
+    LIVE_MAX_MARK_STALENESS_HOURS,
+    execution_state_track_issue,
     live_track_profile,
     manifest_spec_issues,
     manifest_staleness_hours,
@@ -641,18 +643,28 @@ def _active_event_state_issues(
 def _state_track_issue(state: Mapping[str, object], expected_spec: str) -> str | None:
     """Require the persisted execution key to belong to the audited track."""
 
-    if not state:
-        return "执行状态不可用"
-    last_key = str(state.get("last_key") or "").strip()
-    if not last_key:
-        return "执行状态非空但没有 last_key"
-    stored_spec = last_key.split("|", 1)[0]
-    if stored_spec != str(expected_spec):
-        return (
-            "执行状态属于其他 track: "
-            f"stored={stored_spec!r}, expected={str(expected_spec)!r}"
-        )
-    return None
+    return execution_state_track_issue(
+        state,
+        expected_spec,
+        empty_issue="执行状态不可用",
+    )
+
+
+def _target_hash_audit(
+    manifest: Mapping[str, object],
+    targets_file: Path,
+    *,
+    content: bytes | None = None,
+) -> tuple[bool, str, bool]:
+    """Return the target-hash verdict; a missing hash is always a hard failure."""
+
+    recorded = bool(manifest.get("targets_sha256"))
+    issue = manifest_targets_hash_issue(manifest, targets_file, content=content)
+    if issue is not None:
+        return False, issue, True
+    if not recorded:
+        return False, "manifest 缺少 targets_sha256；请重建冻结账本", True
+    return True, "targets_sha256 一致", True
 
 
 def _event_quantity_issues(
@@ -1264,7 +1276,18 @@ def main(argv: list[str] | None = None) -> int:
     assets = client.account_assets()
     positions = client.current_positions()
     symbol_map = load_symbol_map(args.symbol_map)
-    signal_date, execution_hint, book = load_latest_targets(args.targets_file)
+    targets_content: bytes | None = None
+    if args.targets_file.is_file():
+        try:
+            targets_content = args.targets_file.read_bytes()
+        except OSError as exc:
+            raise SystemExit(
+                f"targets file {args.targets_file} could not be read: {exc}"
+            ) from exc
+    signal_date, execution_hint, book = load_latest_targets(
+        args.targets_file,
+        content=targets_content,
+    )
     targets = target_weights_from_book(book, symbol_map)
     missing_mappings = missing_asset_mappings(symbol_map, targets)
     target_gross = target_gross_weight(targets)
@@ -1806,8 +1829,8 @@ def main(argv: list[str] | None = None) -> int:
         index_end = str(manifest.get("index_end_date") or "")
         signal_end = str(manifest.get("signal_end_date") or "")
         check(
-            "mark 数据新鲜（<= 30h）",
-            staleness <= 30.0,
+            f"mark 数据新鲜（<= {LIVE_MAX_MARK_STALENESS_HOURS:g}h）",
+            staleness <= LIVE_MAX_MARK_STALENESS_HOURS,
             f"最新 mark {manifest.get('last_mark')}（{staleness:.1f}h 前）",
         )
         check(
@@ -1830,21 +1853,16 @@ def main(argv: list[str] | None = None) -> int:
             not manifest_issues,
             "; ".join(manifest_issues) or "规格、参数与成本口径一致",
         )
-        targets_hash_issue = manifest_targets_hash_issue(
+        targets_hash_ok, targets_hash_detail, targets_hash_hard = _target_hash_audit(
             manifest,
             args.targets_file,
+            content=targets_content,
         )
-        targets_hash_recorded = bool(manifest.get("targets_sha256"))
         check(
             "目标账本与 manifest 内容哈希一致",
-            targets_hash_issue is None and targets_hash_recorded,
-            targets_hash_issue
-            or (
-                "targets_sha256 一致"
-                if targets_hash_recorded
-                else "manifest 缺少 targets_sha256；请重建冻结账本"
-            ),
-            hard=targets_hash_recorded,
+            targets_hash_ok,
+            targets_hash_detail,
+            hard=targets_hash_hard,
         )
         required_short_assets = {
             asset for asset, weight in targets.items() if weight < 0.0

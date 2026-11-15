@@ -39,11 +39,13 @@ def test_changelog_has_v022_release_prep_entry():
     assert "Release verification now mirrors CI" in changelog
 
 
-def test_readme_quality_gate_counts_match_current_suite():
+def test_readme_quality_gate_documents_the_current_suite():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "2,119 Python tests plus" in readme
-    assert "249 Vitest tests" in readme
+    assert "complete Python and Vitest suites" in readme
+    assert ".venv/bin/pip-audit --strict ." in readme
+    assert ".venv/bin/python -m pip_audit --strict ." not in readme
+    assert "RESEARCH.md` sections 00.152–00.155" in readme
 
 
 def test_release_metadata_matches_v022_tag():

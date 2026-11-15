@@ -14,7 +14,7 @@
 > - 实盘主任务在 **01:05 UTC** 运行；
 > - 成本口径 20 bps，funding 使用 Bitget exact；
 > - 当前策略书：`docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md`；
-> - 研究记录：`RESEARCH.md` §00.152；回测产物：`reports/ls104_g175_m090_20261115/`；
+> - 研究记录：`RESEARCH.md` §00.152；执行与数据链硬化见 §00.153–00.155；回测产物：`reports/ls104_g175_m090_20261115/`；
 > - 实盘冻结账本：`reports/ls45_live_g175/`。
 >
 > 本文只描述执行与恢复，不允许在实盘中临时改参数。运行时代码和状态优先于本文摘要。
@@ -222,7 +222,7 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 
 执行器自身还有：
 
-- 持有 `data/ls45_g125_execution.lock` 的进程级 `flock`；另一个实例直接退出；
+- 持有 `data/derivatives_execution.lock` 的进程级 `flock`（LS45/LS104 共用）；另一个实例直接退出；
 - mark 新鲜度硬阈值 30h；
 - 目标账本评估日必须等于数据最新可判定日；
 - `manifest.targets_sha256` 必须与 `oos_targets.csv` 字节哈希一致，防止“新账本 + 旧 manifest”
@@ -254,12 +254,14 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 kill switch：
 
 ```bash
-touch data/ls45_g125_execution.KILL   # 立即阻止新的执行
-rm data/ls45_g125_execution.KILL      # 恢复
+touch data/ls45_g175_execution.KILL   # LS104 当前 track：立即阻止新的执行
+rm data/ls45_g175_execution.KILL      # LS104 当前 track：恢复
+
+touch data/ls45_g125_execution.KILL   # LS45 rollback only
+rm data/ls45_g125_execution.KILL      # LS45 rollback only
 ```
 
-LS104 使用 `data/ls45_g175_execution.KILL`。kill switch 路径必须与当前 profile 一致，不能误以为
-LS45 的开关会阻断 LS104。
+kill switch 路径必须与当前 profile 一致，不能误以为 LS45 的开关会阻断 LS104。
 
 注意：kill switch 阻止完整执行链和 `--protect-only` 的风险维护，不会自动平仓；已有仓位仍由交易所
 止损及人工操作管理。只有 `--reconcile-only` 可在 kill switch 存在时运行，因为它只补记已经发生的
@@ -431,14 +433,13 @@ make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0  # 全部标的：4x、多空、�
 make derivatives-signal                 # Telegram 文本 dry-run
 make execution-plan-live-ls104          # 当前 LS104：读真实账户，只发计划，不下单
 make execute-plan-ls104                 # 当前 LS104：读真实账户，执行器 dry-run，不下单
-# 仅回滚 LS45 时使用：make execution-plan-live / make execute-plan
-.venv/bin/python scripts/execute_live_plan.py \
-  --live --notify --require-isolated --protect-only
-                                        # 只减仓/止损/保证金维护；禁止开仓、加仓
-.venv/bin/python scripts/execute_live_plan.py \
-  --live --notify --reconcile-only      # 只补记 journal；不计划、不下单
+make protect-live-ls104                 # 当前 LS104：只减仓/止损/保证金维护；禁止开仓、加仓
+make reconcile-live-ls104               # 当前 LS104：只补记 journal；不计划、不下单
 ops/run_live_monitor.sh                 # 只在异常时发 Telegram
 ```
+
+LS104 维护命令必须使用上面两个带 profile 路径、spec 和风险参数的 Makefile target。裸跑
+`scripts/execute_live_plan.py` 会使用脚本内保留的 LS45 回滚默认值，不是当前 live track。
 
 ### 7.2 手动执行链
 
@@ -482,6 +483,10 @@ make audit-live
 `scripts/audit_live_track.py` 只读。2026-11-15 真实账户输出为 **40 项硬检查 + 1 项非硬告警**；
 下面按检查族归纳：
 
+实盘执行器还会把 catch-up 窗口、报价最大年龄、权益下限、最小调仓额和 mark 最大陈旧度钉在 profile
+默认值上；`--live` 下禁止 `--prices-file` / `--instruments-file` 离线覆盖。`--protect-only` 还必须
+验证 `active_event.targets_sha256` 与当前 manifest 完全一致。
+
 1. 冻结目标都有唯一 Bitget 合约映射；
 2. venue drill 精确 `orderId` 登记表可读；只豁免登记过的 drill 订单；
 3. 账户 API 必需字段完整且有限；
@@ -495,8 +500,8 @@ make audit-live
 10. 所有持仓合约都能在冻结 symbol map 中唯一映射；
 11. 每腿 `marginMode=isolated`、杠杆为 profile 的 4x（LS104）/ 2x（LS45）、保证金缓冲不低于 45%；
 12. API key/账户分类未命中 copy-trading/elite 逐仓限制；
-13. 执行状态带账户指纹，且与当前 Bitget 账户一致；`last_key` 的 track spec 也必须等于当前
-    profile，旧/未绑定/跨 track state 全部失败；
+13. 执行状态带账户指纹，且与当前 Bitget 账户一致；`last_key` 和每个 `runs[*].key` 的 track spec
+    都必须等于当前 profile，`runs` 必须是完整数组；旧/未绑定/跨 track state 全部失败；
 14. journal 最新权益按实时 mark 和外部资金流折算后等于账户；专用对账容差为
     `max(0.10 USDT, 权益的 2bps)`，只吸收两次交易所请求之间的 mark 快照差，不改变策略风险门禁；
 15. journal PnL 链在剔除 capital flow 后连续；
@@ -517,7 +522,8 @@ make audit-live
 29. mark 数据 ≤ 30h，且 manifest 必须有真实 `last_mark`；
 30. 账本评估日 = 数据最新可判定日；
 31. manifest 的 `tracked_spec`、`frozen_config`、成本、funding source、venue leverage、margin cap 和 gross cap 与当前 profile 完全一致；
-32. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；
+32. `oos_targets.csv` 的 SHA-256 与 manifest `targets_sha256` 完全一致；manifest 缺少
+    `targets_sha256` 也是硬失败；
 33. `audit-data` 必须 0 hard failure / 0 warning；输入指纹覆盖 panel、symbol map、contracts、coverage、funding manifest、全部 mark CSV 和全部 funding CSV；
 34. manifest 的 `data_fingerprint` 必须等于当前输入指纹；
 35. journal 信号日 = 冻结账本最新信号日。

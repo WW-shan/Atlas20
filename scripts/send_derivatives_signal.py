@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import io
 import json
 from math import isfinite
 import os
@@ -53,11 +54,15 @@ DEFAULT_STATE_FILE = Path("data/ls45_g125_telegram_state.json")
 CAPITAL_SCALE = 1000.0
 
 
-def load_latest_targets(path: Path) -> tuple[pd.Timestamp, pd.Timestamp, pd.DataFrame]:
+def load_latest_targets(
+    path: Path,
+    *,
+    content: bytes | None = None,
+) -> tuple[pd.Timestamp, pd.Timestamp, pd.DataFrame]:
     """Latest signal row-set from the OOS target ledger."""
 
     try:
-        frame = pd.read_csv(path)
+        frame = pd.read_csv(io.BytesIO(content) if content is not None else path)
     except FileNotFoundError as exc:
         raise SystemExit(f"targets file not found: {path}") from exc
     required = {

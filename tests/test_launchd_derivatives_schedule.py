@@ -322,6 +322,27 @@ def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
         assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
 
 
+def test_ls104_maintenance_targets_are_profile_bound() -> None:
+    expected = {
+        "protect-live-ls104": "--protect-only",
+        "reconcile-live-ls104": "--reconcile-only",
+    }
+
+    for target, mode in expected.items():
+        command = subprocess.check_output(
+            ["make", "-n", target],
+            cwd=PROJECT_ROOT,
+            text=True,
+        )
+        assert (
+            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+            in command
+        )
+        assert "data/ls45_g175_execution_state.json" in command
+        assert "reports/ls45_live_g175_live/journal.csv" in command
+        assert mode in command
+
+
 def test_wrappers_fail_closed_without_a_track_profile(tmp_path: Path) -> None:
     project = tmp_path / "project"
     config = tmp_path / "credentials"

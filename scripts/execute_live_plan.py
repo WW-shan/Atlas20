@@ -62,6 +62,12 @@ from atlas20.derivatives.bitget import BitgetAPIError  # noqa: E402
 from atlas20.derivatives.data_audit import audit_derivatives_data  # noqa: E402
 from atlas20.derivatives.execution import ContractSpec, build_execution_plan  # noqa: E402
 from atlas20.derivatives.live_chain import (  # noqa: E402
+    DEFAULT_CATCHUP_HOURS,
+    LIVE_EQUITY_FLOOR_USDT,
+    LIVE_MAX_MARK_STALENESS_HOURS,
+    LIVE_MAX_QUOTE_AGE_SECONDS,
+    LIVE_MIN_REBALANCE_USDT,
+    execution_state_track_issue,
     live_execution_hint_for_signal,
     live_track_profile,
     manifest_spec_issues,
@@ -148,18 +154,7 @@ def _read_state(path: Path) -> dict[str, Any]:
 def _state_track_issue(state: Mapping[str, Any], spec: str) -> str | None:
     """Reject a state file whose persisted key belongs to another track."""
 
-    if not state:
-        return None
-    last_key = str(state.get("last_key") or "").strip()
-    if not last_key:
-        return "execution state is non-empty but has no track key"
-    stored_track = last_key.split("|", 1)[0]
-    if stored_track != str(spec):
-        return (
-            "execution state belongs to another track: "
-            f"stored={stored_track!r}, expected={str(spec)!r}"
-        )
-    return None
+    return execution_state_track_issue(state, spec)
 
 
 def _require_state_track(state: Mapping[str, Any], spec_or_name: str) -> None:
@@ -180,6 +175,21 @@ def _require_existing_state_payload(state: Mapping[str, Any], path: Path) -> Non
     state_path = Path(path)
     if state_path.exists() and not state:
         raise SystemExit(f"execution state is empty: {state_path}")
+
+
+def _offline_market_override_issue(args: argparse.Namespace) -> str | None:
+    """Reject fixture market data on the path that can place real orders."""
+
+    if not args.live:
+        return None
+    if args.prices_file is not None:
+        return "--prices-file is forbidden with --live; use the exchange ticker snapshot"
+    if args.instruments_file is not None:
+        return (
+            "--instruments-file is forbidden with --live; use the live Bitget "
+            "instrument snapshot"
+        )
+    return None
 
 
 def _live_quote_snapshot(
@@ -274,7 +284,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--catchup-hours",
         type=float,
-        default=6.0,
+        default=DEFAULT_CATCHUP_HOURS,
         help="hours after execution_hint during which a normal run is allowed",
     )
     parser.add_argument("--manifest-file", type=Path, default=DEFAULT_MANIFEST_FILE)
@@ -288,7 +298,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-mark-staleness-hours",
         type=float,
-        default=30.0,
+        default=LIVE_MAX_MARK_STALENESS_HOURS,
         help="refuse to trade when the frozen mark tree is older than this",
     )
     parser.add_argument(
@@ -297,7 +307,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=7.0,
         help="warn (do not block) when the newest book change is older than this",
     )
-    parser.add_argument("--equity-floor", type=float, default=20.0)
+    parser.add_argument("--equity-floor", type=float, default=LIVE_EQUITY_FLOOR_USDT)
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--long-buffer", type=float, default=0.50)
     parser.add_argument("--short-buffer", type=float, default=0.50)
@@ -305,11 +315,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-gross-multiple", type=float, default=1.25)
     parser.add_argument("--max-margin-utilization", type=float, default=0.85)
     parser.add_argument("--cost-bps", type=float, default=20.0)
-    parser.add_argument("--min-rebalance-usdt", type=float, default=5.0)
+    parser.add_argument("--min-rebalance-usdt", type=float, default=LIVE_MIN_REBALANCE_USDT)
     parser.add_argument(
         "--max-quote-age-seconds",
         type=float,
-        default=120.0,
+        default=LIVE_MAX_QUOTE_AGE_SECONDS,
         help="refuse to trade when Bitget's ticker timestamp is older than this",
     )
     parser.add_argument(
@@ -784,6 +794,11 @@ def _profile_argument_issues(
         "short_buffer": float(expected_config["short_buffer"]),
         "short_stop_loss_pct": float(expected_config["short_stop_loss_pct"]),
         "cost_bps": float(expected_top_level["cost_bps"]),
+        "catchup_hours": DEFAULT_CATCHUP_HOURS,
+        "max_quote_age_seconds": LIVE_MAX_QUOTE_AGE_SECONDS,
+        "equity_floor": LIVE_EQUITY_FLOOR_USDT,
+        "min_rebalance_usdt": LIVE_MIN_REBALANCE_USDT,
+        "max_mark_staleness_hours": LIVE_MAX_MARK_STALENESS_HOURS,
     }
     for name, expected_value in expected_args.items():
         raw_actual = getattr(args, name, None)
@@ -2063,6 +2078,30 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     key = str(state.get("last_key") or "")
     if not key:
         raise SystemExit("protect-only requires the last execution key")
+    if not args.manifest_file.is_file():
+        raise SystemExit(
+            f"protect-only requires the frozen manifest at {args.manifest_file}"
+        )
+    manifest_payload = json.loads(args.manifest_file.read_text(encoding="utf-8"))
+    if not isinstance(manifest_payload, dict):
+        raise SystemExit(f"manifest {args.manifest_file} is not a JSON object")
+    manifest_issues = _manifest_spec_issues(manifest_payload, args)
+    if manifest_issues:
+        raise SystemExit(
+            "protect-only manifest does not match the selected frozen track: "
+            + "; ".join(manifest_issues)
+        )
+    manifest_target_identity = str(manifest_payload.get("targets_sha256") or "")
+    active_target_identity = str(active_event.get("targets_sha256") or "")
+    if (
+        not manifest_target_identity
+        or active_target_identity != manifest_target_identity
+    ):
+        raise SystemExit(
+            "protect-only active_event targets_sha256 is not bound to the manifest: "
+            f"active_event={active_target_identity!r}, "
+            f"manifest={manifest_target_identity!r}"
+        )
 
     symbols_by_asset = load_symbol_map(args.symbol_map)
     relevant_symbols = spec_symbol_universe(symbols_by_asset)
@@ -2409,6 +2448,9 @@ def _reconcile_only_main(args: argparse.Namespace) -> int:
 def _main(args: argparse.Namespace) -> int:
     if args.reconcile_only and args.protect_only:
         raise SystemExit("--reconcile-only and --protect-only are mutually exclusive")
+    offline_market_issue = _offline_market_override_issue(args)
+    if offline_market_issue is not None:
+        raise SystemExit(offline_market_issue)
     if args.reconcile_only:
         return _reconcile_only_main(args)
     if args.kill_switch.exists():
@@ -2422,7 +2464,6 @@ def _main(args: argparse.Namespace) -> int:
     _require_existing_state_payload(state, args.state_file)
     _require_state_track(state, args.spec)
 
-    signal_date, event_execution_hint, book = load_latest_targets(args.targets_file)
     manifest: dict[str, Any] | None = None
     if args.manifest_file.exists():
         payload = json.loads(args.manifest_file.read_text(encoding="utf-8"))
@@ -2434,6 +2475,7 @@ def _main(args: argparse.Namespace) -> int:
             f"live execution requires the frozen manifest at {args.manifest_file}; "
             "refusing to trade without an evaluated-date and mark-freshness proof"
         )
+    targets_content: bytes | None = None
     if manifest is not None:
         if args.live and not manifest.get("targets_sha256"):
             raise SystemExit(
@@ -2446,12 +2488,23 @@ def _main(args: argparse.Namespace) -> int:
                 "frozen manifest does not match the current live track "
                 "specification: " + "; ".join(manifest_issues)
             )
+        try:
+            targets_content = args.targets_file.read_bytes()
+        except OSError as exc:
+            raise SystemExit(
+                f"targets file {args.targets_file} could not be read: {exc}"
+            ) from exc
         targets_hash_issue = manifest_targets_hash_issue(
             manifest,
             args.targets_file,
+            content=targets_content,
         )
         if targets_hash_issue is not None:
             raise SystemExit(targets_hash_issue)
+    signal_date, event_execution_hint, book = load_latest_targets(
+        args.targets_file,
+        content=targets_content,
+    )
     if manifest is not None and (args.live or args.require_data_audit):
         required_assets = {
             str(record["asset"]) for record in book.to_dict("records")
