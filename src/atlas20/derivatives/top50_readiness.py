@@ -8,6 +8,7 @@ existing raw evidence trees.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, time
 from pathlib import Path
@@ -1013,6 +1014,236 @@ def publish_readiness_payload(
     return paths
 
 
+EVENTS = (
+    "TOP50_ENTER",
+    "TOP50_DATA_READY",
+    "TOP50_DATA_BLOCKED",
+    "TOP20_ENTER",
+)
+
+
+def _default_state() -> dict[str, object]:
+    return {
+        "version": 1,
+        "initialized": False,
+        "last_as_of": None,
+        "members": [],
+        "top20": [],
+        "member_status": {},
+        "notifications": {"sent_keys": {}, "pending": {}},
+    }
+
+
+def load_state(path: Path) -> dict[str, object]:
+    """Load the readiness state, returning a deterministic empty baseline."""
+
+    path = Path(path)
+    if not path.is_file():
+        return _default_state()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"top50 state is unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("top50 state must be a JSON object")
+    state = _default_state()
+    state.update(payload)
+    notifications = state.get("notifications")
+    if not isinstance(notifications, dict):
+        notifications = {}
+    sent_keys = notifications.get("sent_keys")
+    pending = notifications.get("pending")
+    state["notifications"] = {
+        "sent_keys": sent_keys if isinstance(sent_keys, dict) else {},
+        "pending": pending if isinstance(pending, dict) else {},
+    }
+    return state
+
+
+def write_state(path: Path, state: dict[str, object]) -> None:
+    atomic_write_text(
+        Path(path),
+        json.dumps(state, indent=2, sort_keys=True, default=str) + "\n",
+    )
+
+
+def notification_key(event: str, coin_id: str, as_of: str) -> str:
+    if event not in EVENTS:
+        raise ValueError(f"unsupported event {event}")
+    return f"{event}|{coin_id}|{as_of}"
+
+
+def format_event_message(event: dict[str, str]) -> str:
+    lines = [
+        f"Atlas20 Top50 {event['event']}",
+        f"日期: {event['as_of']}",
+        f"币种: {event['symbol']} ({event['coin_id']})",
+        f"状态: {event['status']}",
+    ]
+    if event["event"] == "TOP50_ENTER":
+        lines.append("开始构建/审核完整数据。")
+    elif event["event"] == "TOP50_DATA_READY":
+        lines.append("数据完整，进入 Top20 时可直接构建信号。")
+    elif event["event"] == "TOP50_DATA_BLOCKED":
+        lines.append("数据审核失败，该币不能进入新风险。")
+    elif event["event"] == "TOP20_ENTER":
+        lines.append("已进入 Top20；READY 时无需临时下载历史数据。")
+    if event["event"] in {"TOP50_DATA_BLOCKED", "TOP20_ENTER"} and event["status"] != "READY":
+        lines.append("未进入信号；禁止用第 51 名掩盖数据故障。")
+    if event.get("details"):
+        lines.extend(["", "缺口:", event["details"]])
+    return "\n".join(lines)
+
+
+def _event(
+    event_type: str,
+    *,
+    coin_id: str,
+    symbol: str,
+    as_of: str,
+    status: str,
+    failure_details: object,
+) -> dict[str, str]:
+    details: list[str] = []
+    if isinstance(failure_details, list):
+        details = [str(item) for item in failure_details]
+    rendered = "\n".join(details[:5])
+    if len(details) > 5:
+        rendered += f"\n... {len(details) - 5} more"
+    return {
+        "event": event_type,
+        "coin_id": coin_id,
+        "symbol": symbol,
+        "as_of": as_of,
+        "status": status,
+        "details": rendered,
+        "key": notification_key(event_type, coin_id, as_of),
+    }
+
+
+def build_notification_events(
+    previous: dict[str, object],
+    payload: dict[str, object],
+    *,
+    initialized: bool,
+) -> tuple[dict[str, str], ...]:
+    """Build membership and status-change events without a first-run flood."""
+
+    if not initialized:
+        return ()
+    as_of = str(payload.get("as_of") or "")
+    if not as_of:
+        raise ValueError("readiness payload has no as_of")
+    previous_members = {str(item) for item in previous.get("members", [])}
+    previous_top20 = {str(item) for item in previous.get("top20", [])}
+    raw_status = previous.get("member_status")
+    previous_status = raw_status if isinstance(raw_status, dict) else {}
+    members = payload.get("members")
+    top20 = payload.get("top20")
+    if not isinstance(members, list) or not isinstance(top20, list):
+        raise ValueError("readiness payload must contain member lists")
+
+    events: list[dict[str, str]] = []
+    for item in members:
+        if not isinstance(item, dict):
+            continue
+        coin_id = str(item.get("coin_id") or "")
+        if not coin_id:
+            continue
+        status = str(item.get("status") or "BLOCKED")
+        symbol = str(item.get("symbol") or "")
+        is_new = coin_id not in previous_members
+        if is_new:
+            events.append(
+                _event(
+                    "TOP50_ENTER",
+                    coin_id=coin_id,
+                    symbol=symbol,
+                    as_of=as_of,
+                    status=status,
+                    failure_details=item.get("failure_details"),
+                )
+            )
+        if is_new or str(previous_status.get(coin_id) or "") != status:
+            event_type = (
+                "TOP50_DATA_READY" if status == "READY" else "TOP50_DATA_BLOCKED"
+            )
+            events.append(
+                _event(
+                    event_type,
+                    coin_id=coin_id,
+                    symbol=symbol,
+                    as_of=as_of,
+                    status=status,
+                    failure_details=item.get("failure_details"),
+                )
+            )
+    for item in top20:
+        if not isinstance(item, dict):
+            continue
+        coin_id = str(item.get("coin_id") or "")
+        if coin_id and coin_id not in previous_top20:
+            events.append(
+                _event(
+                    "TOP20_ENTER",
+                    coin_id=coin_id,
+                    symbol=str(item.get("symbol") or ""),
+                    as_of=as_of,
+                    status=str(item.get("status") or "BLOCKED"),
+                    failure_details=item.get("failure_details"),
+                )
+            )
+    return tuple(events)
+
+
+def queue_notification_events(
+    state: dict[str, object],
+    events: Iterable[dict[str, str]],
+) -> None:
+    notifications = state.setdefault(
+        "notifications", {"sent_keys": {}, "pending": {}}
+    )
+    if not isinstance(notifications, dict):
+        raise ValueError("state notifications must be an object")
+    sent_keys = notifications.setdefault("sent_keys", {})
+    pending = notifications.setdefault("pending", {})
+    if not isinstance(sent_keys, dict) or not isinstance(pending, dict):
+        raise ValueError("state notification ledgers must be objects")
+    for event in events:
+        key = str(event["key"])
+        if key not in sent_keys:
+            pending.setdefault(key, dict(event))
+
+
+def record_notification_result(
+    state: dict[str, object],
+    event: dict[str, str],
+    *,
+    sent: bool,
+    error: str | None,
+    sent_at: str | None,
+) -> None:
+    notifications = state.setdefault(
+        "notifications", {"sent_keys": {}, "pending": {}}
+    )
+    if not isinstance(notifications, dict):
+        raise ValueError("state notifications must be an object")
+    sent_keys = notifications.setdefault("sent_keys", {})
+    pending = notifications.setdefault("pending", {})
+    if not isinstance(sent_keys, dict) or not isinstance(pending, dict):
+        raise ValueError("state notification ledgers must be objects")
+    key = str(event["key"])
+    if sent:
+        pending.pop(key, None)
+        sent_keys[key] = {"sent_at": sent_at}
+    else:
+        pending[key] = {
+            **event,
+            "last_error": error,
+            "attempted_at": sent_at,
+        }
+
+
 def rank_current_candidates(
     *,
     config_path: Path,
@@ -1054,23 +1285,31 @@ def rank_current_candidates(
 
 __all__ = [
     "CoverageEvidence",
+    "EVENTS",
     "TOP20_SIZE",
     "TOP50_SIZE",
     "VENUE_UNAVAILABLE",
     "SelectionMember",
     "SelectionSkip",
     "Top50Selection",
+    "assess_selection",
+    "audit_failures_by_member",
+    "audit_selected_top50",
+    "build_notification_events",
     "check_funding_coverage",
     "check_mark_coverage",
     "check_market_alignment",
     "check_market_execution_coverage",
     "check_panel_history",
     "collect_member_evidence",
-    "assess_selection",
-    "audit_failures_by_member",
-    "audit_selected_top50",
+    "format_event_message",
+    "load_state",
+    "notification_key",
     "publish_readiness_payload",
+    "queue_notification_events",
     "rank_current_candidates",
-    "write_scoped_audit_inputs",
+    "record_notification_result",
     "select_executable_top50",
+    "write_scoped_audit_inputs",
+    "write_state",
 ]

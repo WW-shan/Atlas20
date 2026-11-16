@@ -536,3 +536,153 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
     assert len(payload["members"]) == 50
     assert len(payload["top20"]) == 20
     assert [item["final_rank"] for item in payload["top20"]] == list(range(1, 21))
+
+
+def _payload() -> dict[str, object]:
+    return {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": [
+            {
+                "final_rank": 1,
+                "coin_id": "bitcoin",
+                "symbol": "BTC",
+                "status": "READY",
+                "failure_details": [],
+            },
+            {
+                "final_rank": 2,
+                "coin_id": "ethereum",
+                "symbol": "ETH",
+                "status": "READY",
+                "failure_details": [],
+            },
+        ],
+        "top20": [
+            {
+                "final_rank": 2,
+                "coin_id": "ethereum",
+                "symbol": "ETH",
+                "status": "READY",
+                "failure_details": [],
+            }
+        ],
+    }
+
+
+def test_first_run_initializes_without_fifty_messages() -> None:
+    from atlas20.derivatives.top50_readiness import build_notification_events
+
+    events = build_notification_events({}, _payload(), initialized=False)
+
+    assert events == ()
+
+
+def test_new_top50_and_top20_members_emit_one_event_each() -> None:
+    from atlas20.derivatives.top50_readiness import build_notification_events
+
+    events = build_notification_events(
+        {
+            "members": ["bitcoin"],
+            "top20": ["bitcoin"],
+            "member_status": {"bitcoin": "READY"},
+        },
+        _payload(),
+        initialized=True,
+    )
+
+    assert [event["event"] for event in events] == [
+        "TOP50_ENTER",
+        "TOP50_DATA_READY",
+        "TOP20_ENTER",
+    ]
+    assert {event["coin_id"] for event in events} == {"ethereum"}
+    assert len({event["key"] for event in events}) == 3
+
+
+def test_member_status_change_emits_blocked_once() -> None:
+    from atlas20.derivatives.top50_readiness import build_notification_events
+
+    payload = _payload()
+    payload["members"][1]["status"] = "BLOCKED"
+    payload["members"][1]["failure_details"] = ["live_mark: missing hour"]
+    payload["top20"][0]["status"] = "BLOCKED"
+    events = build_notification_events(
+        {
+            "members": ["bitcoin", "ethereum"],
+            "top20": ["ethereum"],
+            "member_status": {"bitcoin": "READY", "ethereum": "READY"},
+        },
+        payload,
+        initialized=True,
+    )
+
+    assert [event["event"] for event in events] == ["TOP50_DATA_BLOCKED"]
+    assert "missing hour" in events[0]["details"]
+
+
+def test_failed_delivery_stays_pending_and_success_is_deduplicated(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import (
+        load_state,
+        queue_notification_events,
+        record_notification_result,
+        write_state,
+    )
+
+    event = {
+        "key": "TOP50_ENTER|ethereum|2026-11-15",
+        "event": "TOP50_ENTER",
+        "coin_id": "ethereum",
+        "symbol": "ETH",
+        "as_of": "2026-11-15",
+        "status": "READY",
+        "details": "",
+    }
+    state = {
+        "version": 1,
+        "notifications": {"sent_keys": {}, "pending": {}},
+    }
+    queue_notification_events(state, (event,))
+    record_notification_result(
+        state,
+        event,
+        sent=False,
+        error="telegram down",
+        sent_at="2026-11-15T10:00:00Z",
+    )
+    assert event["key"] in state["notifications"]["pending"]
+
+    record_notification_result(
+        state,
+        event,
+        sent=True,
+        error=None,
+        sent_at="2026-11-15T10:01:00Z",
+    )
+    assert event["key"] in state["notifications"]["sent_keys"]
+    assert event["key"] not in state["notifications"]["pending"]
+
+    path = tmp_path / "top50_state.json"
+    write_state(path, state)
+    assert load_state(path)["notifications"]["sent_keys"][event["key"]]
+
+
+def test_format_event_message_marks_blocked_top20_without_rank51_fallback() -> None:
+    from atlas20.derivatives.top50_readiness import format_event_message
+
+    message = format_event_message(
+        {
+            "key": "TOP20_ENTER|ethereum|2026-11-15",
+            "event": "TOP20_ENTER",
+            "coin_id": "ethereum",
+            "symbol": "ETH",
+            "as_of": "2026-11-15",
+            "status": "BLOCKED",
+            "details": "live_mark: missing hour",
+        }
+    )
+
+    assert "TOP20_ENTER" in message
+    assert "BLOCKED" in message
+    assert "missing hour" in message
+    assert "禁止用第 51 名" in message
