@@ -35,6 +35,13 @@ def test_build_command_pins_the_single_0105_execution_clock() -> None:
     assert command[command.index("--min-rebalance-usdt") + 1] == "5"
     assert command[command.index("--engine-capital") + 1] == "500"
     assert "--contract-specs-from-symbol-map" in command
+    assert command[command.index("--market-raw-dir") + 1] == (
+        "data/raw/bitget_derivatives/merged_oos_20261112"
+    )
+    assert command[command.index("--warmup-market-raw-dir") + 1] == (
+        "data/raw/bitget_derivatives/merged_market_20261009"
+    )
+    assert "--require-market-fills" in command
 
 
 def test_build_command_rejects_invalid_end_date() -> None:

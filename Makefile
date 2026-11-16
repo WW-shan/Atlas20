@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-signal audit-signal-ls104 audit-symbols audit-live audit-live-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -74,7 +74,7 @@ derivatives-live-data: $(VENV_STAMP)
 		--output-dir $(DERIVATIVES_LIVE_RAW_DIR) \
 		--start $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)-datetime.timedelta(days=3)).date())") \
 		--end $(shell $(PYTHON) -c "import datetime;print((datetime.datetime.now(datetime.UTC)+datetime.timedelta(days=1)).date())") \
-		--types mark \
+		--types mark,market \
 		--wait-for-live-mark-seconds $(DERIVATIVES_LIVE_MARK_WAIT_SECONDS) \
 		--wait-for-live-mark-poll-seconds $(DERIVATIVES_LIVE_MARK_POLL_SECONDS) \
 		--execution-utc 01:05
@@ -106,8 +106,21 @@ LS104_BOOTSTRAP_ARG = $(if $(wildcard $(LS104_STATE)),,--bootstrap-track)
 LS104_PRIOR_ORDER_REGISTRY ?= reports/ls45_live_g175_live/prior_track_order_registry.json
 
 
-derivatives-ls104-signal: derivatives-live-data $(VENV_STAMP)
-	$(PYTHON) scripts/run_ls45_live_signal.py --track ls104-g175-m090
+# Rebuild the frozen LS104 ledger without downloading.  When the UTC day has
+# just rolled over and the panel/01:00 mark are not ready yet, an end-date pin
+# is the last fully evaluated signal day; it lets the same target ledger be
+# audited repeatedly while the data chain catches up.
+LS104_SIGNAL_END_DATE ?= $(shell $(PYTHON) scripts/resolve_signal_end_date.py --panel data/processed/panel_daily.csv --raw-dir $(DERIVATIVES_LIVE_RAW_DIR) --execution-utc 01:05 2>/dev/null || true)
+
+derivatives-ls104-signal: $(VENV_STAMP)
+	$(PYTHON) scripts/run_ls45_live_signal.py --track ls104-g175-m090 --allow-final-provisional-fill $(if $(LS104_SIGNAL_END_DATE),--end-date $(LS104_SIGNAL_END_DATE))
+
+
+# Intraday, non-trading refresh.  The daily executor is intentionally limited
+# to its T+1 window; this target keeps marks/funding and the frozen LS104
+# manifest fresh between executions without ever calling the executor.
+derivatives-refresh-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/refresh_derivatives_data.py
 
 
 derivatives-notify-ls104: $(VENV_STAMP)
@@ -126,6 +139,21 @@ audit-data-ls104: $(VENV_STAMP)
 		--markdown-out reports/ls45_live_g175/data_audit.md \
 		--required-leverage 4.0 \
 		--require-all-funding-fresh
+	$(MAKE) audit-market-cap-gaps
+
+
+audit-market-cap-gaps: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_market_cap_gaps.py \
+		--config config/base.yaml \
+		--panel data/processed/panel_daily.csv \
+		--csv-out reports/ls45_live_g175/market_cap_gaps.csv \
+		--json-out reports/ls45_live_g175/market_cap_gaps.json
+
+
+audit-symbols-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_venue_symbols.py \
+		--required-leverage 4.0 \
+		--out reports/ls45_live_g175_live/venue_symbol_audit.json
 
 
 audit-signal-ls104: $(VENV_STAMP)

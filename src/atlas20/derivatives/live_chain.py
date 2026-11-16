@@ -120,8 +120,9 @@ LS104_G175_M090_MANIFEST_TOP_LEVEL: dict[str, Any] = {
     "allow_incomplete_marks": False,
     "cost_bps": 20.0,
     "data_audit_required": True,
-    "execution_price_model": "mark_1h_open_floor",
+    "execution_price_model": "market_1h_open_floor",
     "execution_utc": "01:05",
+    "fill_price_source": "bitget_market_1h_open",
     "funding_source": "bitget-exact",
     "max_margin_utilization": 0.90,
     "max_total_gross": 1.75,
@@ -221,6 +222,19 @@ def execution_state_track_issue(
         issue = key_issue(row.get("key"), label)
         if issue is not None:
             return issue
+
+    active_event = state.get("active_event")
+    if active_event is not None:
+        if not isinstance(active_event, Mapping):
+            return "execution state active_event must be an object"
+        event_track = active_event.get("track_spec")
+        if not isinstance(event_track, str) or not event_track.strip():
+            return "execution state active_event has no track identity"
+        if event_track.strip() != expected:
+            return (
+                "execution state active_event belongs to another track: "
+                f"stored={event_track!r}, expected={expected!r}"
+            )
     return None
 
 

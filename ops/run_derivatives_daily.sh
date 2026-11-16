@@ -261,17 +261,26 @@ elif [ "$panel_status" -ne 0 ]; then
 fi
 
 # --- 3/4. The chain itself ---------------------------------------------------
-# Refresh the Bitget mark tree, rebuild the selected frozen ledger, then execute.
-# The executor refuses to trade on stale data, so this order is mandatory.
-# A human `--force` catch-up also passes the executor's explicit late-window
-# acknowledgement; scheduled fires never receive that argument.
-/usr/bin/make derivatives-live-data "$SIGNAL_TARGET"
-/usr/bin/make audit-data-chain
-.venv/bin/python scripts/audit_venue_symbols.py \
-  --required-leverage "$LEVERAGE" \
-  --out "$SYMBOL_AUDIT_JSON"
-/usr/bin/make "$DATA_AUDIT_TARGET"
-/usr/bin/make "$SIGNAL_AUDIT_TARGET"
+# The 08:55 Beijing prepare job refreshes marks/funding, rebuilds the frozen
+# ledger and runs every audit.  The 09:05 Beijing execution fire may reuse that
+# receipt only when it is fresh and still matches the current manifest and
+# audit files.  Otherwise it falls back to the full chain, which is slower but
+# still fail-closed.  This is what keeps the strategy clock at 01:05 instead of
+# turning a 5-10 minute data rebuild into an accidental 01:10 fill.
+receipt_status=0
+.venv/bin/python scripts/refresh_derivatives_data.py \
+  --check-receipt --max-age-minutes 30 || receipt_status=$?
+if [ "$receipt_status" -ne 0 ]; then
+  /usr/bin/make derivatives-live-data "$SIGNAL_TARGET"
+  /usr/bin/make audit-data-chain
+  .venv/bin/python scripts/audit_venue_symbols.py \
+    --required-leverage "$LEVERAGE" \
+    --out "$SYMBOL_AUDIT_JSON"
+  /usr/bin/make "$DATA_AUDIT_TARGET"
+  /usr/bin/make "$SIGNAL_AUDIT_TARGET"
+else
+  echo "using the fresh prepare receipt; skipping the slow rebuild before execution"
+fi
 
 # Independent post-trade verification.  The executor already validates its own
 # fills and stops, but a read-only full-account audit here catches any mismatch

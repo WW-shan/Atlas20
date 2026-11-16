@@ -26,7 +26,8 @@
       "near": -0.0625,
       "zcash": -0.0625
     },
-    "targets_sha256": "e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871"
+    "targets_sha256": "e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871",
+    "track_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
   },
   "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|2026-11-13|e7049b2dda6bc7e6338939cb7d763e09341eb71d6845f54b91c12587b4dfc871|2026-11-14",
   "last_run_at": "2026-11-14T20:14:25.589031+00:00",

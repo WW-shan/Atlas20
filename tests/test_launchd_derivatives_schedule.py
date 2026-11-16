@@ -322,6 +322,24 @@ def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
         assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
 
 
+def test_macos_derivatives_refresh_is_separate_and_does_not_trade() -> None:
+    plist = PROJECT_ROOT / "ops" / "com.atlas20.derivatives-refresh.plist"
+    text = plist.read_text(encoding="utf-8")
+    assert "com.atlas20.derivatives-refresh" in text
+    for local_time in (
+        "<key>Hour</key>\n\t\t\t<integer>8</integer>",
+        "<key>Hour</key>\n\t\t\t<integer>15</integer>",
+        "<key>Hour</key>\n\t\t\t<integer>21</integer>",
+        "<key>Hour</key>\n\t\t\t<integer>3</integer>",
+    ):
+        assert local_time in text
+    for minute in ("35", "55"):
+        assert f"<key>Minute</key>\n\t\t\t<integer>{minute}</integer>" in text
+    assert "ops/run_derivatives_refresh.sh" in text
+    assert "execute_live_plan.py" not in text
+    assert "run_derivatives_daily.sh" not in text
+
+
 def test_ls104_maintenance_targets_are_profile_bound() -> None:
     expected = {
         "protect-live-ls104": "--protect-only",

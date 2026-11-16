@@ -19,6 +19,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+import pandas as pd
 import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -139,6 +140,7 @@ def build_venue_symbol_audit(
     equity_reference: float = 500.0,
     max_quote_age_seconds: float = 120.0,
     required_leverage: float = 2.0,
+    panel_assets: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic, read-only venue-symbol capability report."""
 
@@ -323,11 +325,35 @@ def build_venue_symbol_audit(
     if not fresh_quotes:
         issues.append(f"not every mapped symbol has a quote within {max_quote_age_seconds:g}s")
     max_age = max((quotes[symbol].age_seconds for symbol in unique_symbols if symbol in quotes), default=None)
+    latest_panel_assets = (
+        sorted({str(asset).strip().lower() for asset in panel_assets if str(asset).strip()})
+        if panel_assets is not None
+        else None
+    )
+    mapped_asset_ids = {str(asset).strip().lower() for asset in symbol_map}
+    panel_unmapped_assets = (
+        sorted(set(latest_panel_assets).difference(mapped_asset_ids))
+        if latest_panel_assets is not None
+        else None
+    )
+    panel_executable_assets = (
+        len(latest_panel_assets) - len(panel_unmapped_assets or [])
+        if latest_panel_assets is not None
+        else None
+    )
     report = {
         "generated_at": moment.isoformat(),
         "equity_reference": float(equity_reference),
         "max_quote_age_seconds": float(max_quote_age_seconds),
         "required_leverage": float(required_leverage),
+        "panel_assets": len(latest_panel_assets) if latest_panel_assets is not None else None,
+        "panel_executable_assets": panel_executable_assets,
+        "panel_unmapped_assets": panel_unmapped_assets,
+        "panel_executable_coverage": (
+            panel_executable_assets / len(latest_panel_assets)
+            if latest_panel_assets and panel_executable_assets is not None
+            else None
+        ),
         "mapped_assets": len(symbol_map),
         "unique_symbols": len(unique_symbols),
         "v3_instruments": len(instruments),
@@ -359,9 +385,22 @@ def build_venue_symbol_audit(
     return report
 
 
+def latest_panel_asset_ids(path: Path) -> list[str]:
+    """Return the asset ids on the newest date in a processed panel."""
+
+    frame = pd.read_csv(path, usecols=["date", "coin_id"])
+    dates = pd.to_datetime(frame["date"], utc=True, format="mixed", errors="coerce")
+    if dates.isna().all():
+        raise ValueError(f"panel {path} has no valid dates")
+    latest = dates.max()
+    assets = frame.loc[dates == latest, "coin_id"].dropna().astype(str)
+    return sorted({asset.strip().lower() for asset in assets if asset.strip()})
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--symbol-map", type=Path, default=DEFAULT_SYMBOL_MAP)
+    parser.add_argument("--panel", type=Path, default=Path("data/processed/panel_daily.csv"))
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--equity", type=float, default=500.0)
     parser.add_argument("--max-quote-age-seconds", type=float, default=120.0)
@@ -378,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     ):
         raise SystemExit("equity, quote age and required leverage must be positive")
     symbol_map = load_symbol_map(args.symbol_map)
+    panel_assets = latest_panel_asset_ids(args.panel)
     session = requests.Session()
     instruments = fetch_public_instruments(session)
     symbols = sorted({str(symbol).upper() for symbol in symbol_map.values()})
@@ -389,6 +429,7 @@ def main(argv: list[str] | None = None) -> int:
         equity_reference=float(args.equity),
         max_quote_age_seconds=float(args.max_quote_age_seconds),
         required_leverage=float(args.required_leverage),
+        panel_assets=panel_assets,
     )
     ensure_dir(args.out.parent)
     atomic_write_text(args.out, json.dumps(report, indent=2, sort_keys=True, default=str))
@@ -396,6 +437,10 @@ def main(argv: list[str] | None = None) -> int:
         key: report[key]
         for key in (
             "passed",
+            "panel_assets",
+            "panel_executable_assets",
+            "panel_executable_coverage",
+            "panel_unmapped_assets",
             "mapped_assets",
             "unique_symbols",
             "mapped_specs",

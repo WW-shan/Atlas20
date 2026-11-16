@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.atlas20.derivatives-refresh</string>
+	<!--
+	  Refreshes Bitget marks/funding and rebuilds the frozen LS104 manifest
+	  between the daily executor windows.  It never places orders, sends
+	  Telegram messages, or sources trading credentials.  The shared execution
+	  lock makes a fire skip rather than race a live execution.
+
+	  Schedule: 08:35/08:55/15:05/21:05/03:05 Beijing =
+	  00:35/00:55/07:05/13:05/19:05 UTC.  The 08:35 fire is the normal
+	  pre-execution prepare; 08:55 is the catch-up and skips itself when the
+	  08:35 receipt is still valid.  The 09:05 Beijing (01:05 UTC) executor
+	  then reuses the fresh receipt instead of spending the fill window on a
+	  data rebuild.
+	-->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>/Users/ww/Project/Atlas20/ops/run_derivatives_refresh.sh</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>/Users/ww/Project/Atlas20</string>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>8</integer>
+			<key>Minute</key>
+			<integer>35</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>8</integer>
+			<key>Minute</key>
+			<integer>55</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>3</integer>
+			<key>Minute</key>
+			<integer>5</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>15</integer>
+			<key>Minute</key>
+			<integer>5</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>21</integer>
+			<key>Minute</key>
+			<integer>5</integer>
+		</dict>
+	</array>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>300</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-derivatives-refresh.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ww/Library/Logs/atlas20-derivatives-refresh.log</string>
+</dict>
+</plist>

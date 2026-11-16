@@ -6,6 +6,7 @@ import pytest
 from scripts.audit_signal_equivalence import (
     _compare_target_ledgers,
     _latest_action_execution_issues,
+    _manifest_execution_model_issues,
 )
 
 
@@ -23,6 +24,25 @@ def _ledger(weight: float = -0.25) -> pd.DataFrame:
             }
         ]
     )
+
+
+def test_manifest_execution_model_requires_market_fills() -> None:
+    manifest = {
+        "live_parity": True,
+        "execution_price_model": "market_1h_open_floor",
+        "fill_price_source": "bitget_market_1h_open",
+        "fill_downgrade_count": 0,
+        "market_fill_fingerprint": "sha256:market",
+    }
+
+    assert _manifest_execution_model_issues(manifest) == []
+
+    manifest["fill_price_source"] = "bitget_mark_1h_open"
+    manifest["execution_price_model"] = "mark_1h_open_floor"
+    issues = _manifest_execution_model_issues(manifest)
+
+    assert any("fill_price_source" in issue for issue in issues)
+    assert any("execution_price_model" in issue for issue in issues)
 
 
 def test_signal_equivalence_accepts_an_identical_signed_ledger() -> None:

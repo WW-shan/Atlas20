@@ -101,6 +101,7 @@ def test_active_event_plan_quantities_use_the_frozen_event_sizes(tmp_path) -> No
         "last_status": "ok",
         "runs": [{"key": key, "status": "ok"}],
         "active_event": {
+            "track_spec": "SPEC",
             "signal_date": "2026-11-13",
             "targets_sha256": target_identity,
             "target_weights": {"near": -0.125, "zcash": 0.125},
@@ -136,6 +137,7 @@ def test_active_event_plan_quantities_reject_a_stale_target_book(tmp_path) -> No
                 "last_status": "ok",
                 "runs": [{"key": key}],
                 "active_event": {
+                    "track_spec": "SPEC",
                     "signal_date": "2026-11-13",
                     "targets_sha256": "old-hash",
                     "target_weights": {"near": -0.125},
@@ -171,6 +173,7 @@ def test_active_event_plan_quantities_supports_a_cash_event(tmp_path) -> None:
                 "last_status": "ok",
                 "runs": [{"key": key}],
                 "active_event": {
+                    "track_spec": "SPEC",
                     "signal_date": "2026-11-13",
                     "targets_sha256": target_identity,
                     "target_weights": {},

@@ -6213,3 +6213,87 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
   资产均不受影响，但可执行 universe 不是 97/97 全覆盖。`data/data_freshness.json` 的
   最后 heartbeat 仍是 **2026-09-21**，它是旧 API/UI 状态文件，不是本 live chain 的
   数据门禁；live gate 使用 panel、marks、funding 和 manifest 指纹。
+
+### 00.157 2026-11-16 warmup 缺口修复、market-fill 正式重建与执行前置准备
+
+本轮把上一节列出的“历史事实/真实市场约束”逐项落到可复现证据，而不是继续用
+`--allow-*` 或放宽阈值绕过。
+
+#### 1. 历史 warmup mark 缺口已修复为 0
+
+- `scripts/repair_bitget_mark_gaps.py` 只修资产**首次与最后观测之间**的内部缺口，
+  不伪造上市前/退市后的 bar；按窗口重取、按批落盘、失败不覆盖原文件。
+- 全量运行结果：87 个 normal 合约，`missing_before=25,555`，`missing_after=0`，
+  取回 `76,665` 行，`errors=[]`；随后 dry-run 全量复扫仍为 **0 missing / 0 windows**。
+- 旧的 28,371 asset-hours / 26,265 个 2h provider gaps 是旧 pager 的 100-row
+  边界丢 bar 与 coverage 把“资产结束后”误算成缺口叠加的结果；修复后 warmup
+  覆盖与 live OOS 覆盖分开报告：live OOS 仍为 **0 missing hours**。
+
+#### 2. 历史 market-cap 与可执行 universe
+
+- 32 条不可排名历史行全部是 CMC 原始 `marketCap=0 / circulatingSupply=0`，
+  `unexplained_rows=0`，没有用 stale 值回填；当前 4 个受影响资产最新市值有效，
+  `matic-network` 已结束。
+- 最新 panel **97** 个资产中 **86** 个有 Bitget USDT-M perpetual；11 个 CMC 名称
+  没有合约，不能伪造。当前 4 个目标资产全部可执行；未来轮入必须继续经过
+  `audit_venue_symbols.py` 与 `audit_data_chain.py`。
+
+#### 3. funding 自动刷新
+
+- 新增 `scripts/refresh_derivatives_data.py`、macOS launchd
+  `com.atlas20.derivatives-refresh`、systemd `atlas20-derivatives-refresh`。
+- 刷新链只做 `derivatives-live-data` → `derivatives-ls104-signal` →
+  `audit-data-chain` → `audit-data-ls104` → `audit-symbols-ls104` →
+  `audit-signal-ls104`；不调用 executor、不发送 Telegram、不触碰 state/journal。
+- 与 executor 共用 `data/derivatives_execution.lock`，busy 时跳过；成功后写
+  `reports/ls45_live_g175_live/prepared.json`，记录 manifest/targets/data/market-fill
+  指纹和 audit 文件哈希。
+
+#### 4. market-fill 正式重建
+
+- 引擎的 scheduled fill 现在使用 `<symbol>_market.csv` 的 1H last-price open；
+  `mark` 仍用于估值、资金费和止损触发。manifest 记录
+  `execution_price_model=market_1h_open_floor`、
+  `fill_price_source=bitget_market_1h_open`、`fill_downgrade_count=0`、
+  `market_fill_fingerprint`。
+- **关键修正**：market fill 的 floor 解析必须与 mark 的 floor 解析使用同一根 bar。
+  之前出现 `mark` 解析到 01:00、market 解析到 00:00 的错位；现在两者都由
+  `execution_price_snap` 决定，测试锁定 `2026-01-02 01:00` 的 market open。
+- 正式 LS104 重建（2026-09-22 起，20bps，4x isolated）：
+  - 截至 2026-11-14 的 54 个日行：`multiple=0.9829085380910398`、
+    `Sharpe=0.06491775440648555`、`MDD=-0.19304855354414596`；
+  - 截至 2026-11-15 的最新 55 个日行 / 54 个有效收益日：
+    `multiple=0.9590973533873869`、`Sharpe=-0.2323679567117728`、
+    `MDD=-0.19304855354414596`；
+  - 两版 `targets_sha256` 均为 `2ef4e701...3930`，差异只来自多计入
+    2026-11-15 这一天及 market-fill 价格，不是目标事件变化。
+- 当前 OOS 触发 0 次 stop_loss；stop 模型仍记录为
+  `mark_trigger_market_open_on_gap_else_trigger_plus_slippage`，即 gap 时用
+  market open、盘中触发用 trigger+5bps，绝不声称逐分钟复现交易所撮合。
+
+#### 5. 执行时点
+
+- 2026-11-15 首次 LS104 bootstrap 的真实成交约在 **01:10:59 UTC**，因为当天
+  01:05 启动后仍要下载 88 个合约的 mark/funding、重建 54 天账本、跑 6 分钟级
+  的 `audit-data-chain`。回测的 01:05 事件实际用 01:00 mark/market open；这
+  5 分钟模型偏移与 6 分钟操作延迟是两件事，不能混为一谈。
+- 新增 **08:35 / 08:55 北京（00:35 / 00:55 UTC）prepare**：
+  - 00:35 正常跑完整数据+信号+审计并写 receipt；
+  - 00:55 只做 catch-up，receipt 仍新鲜时直接 no-op；
+  - 00:50 UTC 后不再启动新的长 prepare，避免持有执行锁跨过 01:05；
+  - 01:05 的 execute wrapper 只有 receipt 新鲜且 manifest/audit 哈希一致时才跳过
+    重建，否则 fail-closed 回退到完整链。
+- 因此正常情况下 01:05 的 executor 不再花 5-10 分钟重建；实际成交时点会从
+  01:10:59 收敛到 01:05 后的秒级/分钟级。交易所 ticker、spread、盘口冲击和
+  market order 滑点仍不可能由 1H bar 完全复现。
+
+#### 6. 仍未对齐/不可伪造的部分
+
+- 回测用 1H bar open；实盘用 ticker + market order，分钟级价格路径不可由 1H
+  数据唯一恢复。
+- 2026-11-15 09:02 UTC 交易所外部全平、09:20 UTC 冻结事件恢复是真实事件，
+  不回写成回测路径；它带来额外手续费、funding 和实现路径差异。
+- 合约 quantity step / minimum 导致的量化误差、真实 spread/冲击、以及
+  stop 的分钟级触发顺序，只能继续用实盘成交和 `audit-live` 观察。
+- 当前 live-parity OOS 只有 54 天；12 个月独立 OOS 仍未完成，不能把主样本
+  77.8524x 当作未来保证。

@@ -689,6 +689,7 @@ def _active_event_record(
     specs_by_asset: dict[str, Any],
     prices_by_asset: dict[str, float],
     *,
+    track_spec: str,
     signal_date: pd.Timestamp,
     target_identity: str,
     execution_hint: pd.Timestamp,
@@ -718,6 +719,7 @@ def _active_event_record(
         else {}
     )
     return {
+        "track_spec": str(track_spec),
         "signal_date": str(pd.Timestamp(signal_date).date()),
         "targets_sha256": str(target_identity),
         "execution_hint": pd.Timestamp(execution_hint).isoformat(),
@@ -2997,6 +2999,7 @@ def _main(args: argparse.Namespace) -> int:
             targets,
             specs,
             prices_by_asset,
+            track_spec=args.spec,
             signal_date=signal_date,
             target_identity=target_identity,
             execution_hint=execution_hint,
@@ -3009,6 +3012,7 @@ def _main(args: argparse.Namespace) -> int:
             targets,
             specs,
             prices_by_asset,
+            track_spec=args.spec,
             signal_date=signal_date,
             target_identity=target_identity,
             execution_hint=execution_hint,

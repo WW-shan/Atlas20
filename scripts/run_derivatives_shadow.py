@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 import sys
 from datetime import datetime, timezone
-from typing import Mapping
+from typing import Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -302,7 +302,12 @@ def _mark_coverage(
         if index.empty:
             continue
         assets_with_observations += 1
-        expected = pd.date_range(index.min(), end, freq="h", inclusive="left")
+        # A delisted/short-history asset is not expected to print after its
+        # last observed mark.  Count only the interval in which it actually
+        # has observations; otherwise a normal end-of-series is misreported as
+        # thousands of provider gap hours.
+        observed_end = min(end, index.max() + pd.Timedelta(hours=1))
+        expected = pd.date_range(index.min(), observed_end, freq="h", inclusive="left")
         expected_hours = max(expected_hours, len(expected))
         expected_asset_hours_sum += len(expected)
         missing = expected.difference(index)
@@ -330,11 +335,13 @@ def _mark_coverage(
     }
 
 
-def _mark_tree_provenance(
+def _candle_tree_provenance(
     raw_dir: Path,
     symbol_map: pd.DataFrame,
+    *,
+    candle_type: str,
 ) -> dict[str, object]:
-    """Hash every mapped mark file and report symbols without a local file.
+    """Hash every mapped candle file and report symbols without a local file.
 
     The live data audit fingerprints the *current* raw tree.  Historical
     stateful research also consumes a separate warmup tree, so that tree needs
@@ -355,7 +362,7 @@ def _mark_tree_provenance(
         symbol = str(raw_symbol).strip()
         if not symbol or symbol.lower() in {"nan", "none"}:
             continue
-        path = raw_dir / "candles" / f"{symbol}_mark.csv"
+        path = raw_dir / "candles" / f"{symbol}_{candle_type}.csv"
         if path.is_file():
             paths.add(path)
         else:
@@ -373,8 +380,86 @@ def _mark_tree_provenance(
     return {
         "raw_dir": str(raw_dir),
         "files": files,
-        "mark_file_count": len(files),
+        "file_count": len(files),
         "missing_symbols": sorted(missing_symbols),
+        "fingerprint": fingerprint,
+    }
+
+
+def _mark_tree_provenance(
+    raw_dir: Path,
+    symbol_map: pd.DataFrame,
+) -> dict[str, object]:
+    """Backward-compatible mark-candle provenance record."""
+
+    payload = _candle_tree_provenance(raw_dir, symbol_map, candle_type="mark")
+    return {
+        **payload,
+        "mark_file_count": int(payload["file_count"]),
+    }
+
+
+def _load_market_fill_candles(
+    *,
+    execution_dir: Path | None,
+    warmup_dir: Path | None,
+    symbol_map: pd.DataFrame,
+    required_assets: Iterable[str] | None = None,
+    require_all_mapped: bool = False,
+) -> tuple[dict[str, pd.DataFrame], dict[str, object]]:
+    """Load last-price candles for scheduled fills and fingerprint both trees."""
+
+    execution = (
+        load_mark_candles(execution_dir, symbol_map, candle_type="market")
+        if execution_dir is not None
+        else {}
+    )
+    warmup = (
+        load_mark_candles(warmup_dir, symbol_map, candle_type="market")
+        if warmup_dir is not None
+        else {}
+    )
+    candles = _merge_mark_maps(warmup, execution)
+    if required_assets is None:
+        required = (
+            {
+                str(record["coin_id"])
+                for record in symbol_map.to_dict("records")
+                if str(record.get("bitget_symbol") or "").strip()
+                and str(record.get("contract_status") or "normal").strip().lower()
+                == "normal"
+            }
+            if require_all_mapped
+            else set(candles)
+        )
+    else:
+        required = {str(asset) for asset in required_assets}
+    missing = sorted(required.difference(candles))
+    if missing:
+        raise ValueError("missing market fill candles for: " + ", ".join(missing))
+
+    files: dict[str, str] = {}
+    trees: dict[str, object] = {}
+    for label, directory in (("warmup", warmup_dir), ("execution", execution_dir)):
+        if directory is None:
+            trees[label] = None
+            continue
+        provenance = _candle_tree_provenance(directory, symbol_map, candle_type="market")
+        trees[label] = provenance
+        for name, digest in dict(provenance["files"]).items():
+            files[f"{label}/{name}"] = str(digest)
+    payload = "\n".join(f"{name}\0{digest}" for name, digest in sorted(files.items())).encode()
+    fingerprint = "sha256:" + hashlib.sha256(payload).hexdigest() if files else None
+    return candles, {
+        "source": "bitget_market_1h_open",
+        "execution_dir": None if execution_dir is None else str(execution_dir),
+        "warmup_dir": None if warmup_dir is None else str(warmup_dir),
+        "assets": sorted(candles),
+        "missing_symbols": missing,
+        "missing_required_assets": missing,
+        "file_count": len(files),
+        "files": files,
+        "trees": trees,
         "fingerprint": fingerprint,
     }
 
@@ -386,6 +471,7 @@ def _execution_mark_audit(
     execution_hour: int = 1,
     execution_minute: int = 5,
     execution_price_snap: str = "floor",
+    max_lag_minutes: float = 60.0,
     start: pd.Timestamp | None = None,
 ) -> dict[str, object]:
     """Check that every target change has a usable execution bar.
@@ -399,6 +485,7 @@ def _execution_mark_audit(
     window_start = None if start is None else _as_utc(start)
     exact_bar_count = 0
     floor_resolved_count = 0
+    provisional_resolved_count = 0
     required_pair_count = 0
     missing: list[dict[str, str]] = []
     previous_assets: set[str] = set()
@@ -431,24 +518,27 @@ def _execution_mark_audit(
             if execution_time in index:
                 exact_bar_count += 1
                 continue
+            max_lag = pd.Timedelta(minutes=float(max_lag_minutes))
+            lag = None
             if execution_price_snap == "floor":
                 earlier = index[index <= execution_time]
-                resolved = bool(
-                    len(earlier)
-                    and execution_time - earlier[-1] <= pd.Timedelta(hours=1)
-                )
+                if len(earlier):
+                    lag = execution_time - earlier[-1]
+                resolved = lag is not None and lag <= max_lag
             elif execution_price_snap == "ceil":
                 later = index[index >= execution_time]
-                resolved = bool(
-                    len(later)
-                    and later[0] - execution_time <= pd.Timedelta(hours=1)
-                )
+                if len(later):
+                    lag = later[0] - execution_time
+                resolved = lag is not None and lag <= max_lag
             elif execution_price_snap == "exact":
                 resolved = False
             else:
                 raise ValueError("execution_price_snap must be 'exact', 'floor', or 'ceil'")
             if resolved:
-                floor_resolved_count += 1
+                if lag is not None and lag > pd.Timedelta(hours=1):
+                    provisional_resolved_count += 1
+                else:
+                    floor_resolved_count += 1
                 continue
             missing.append(
                 {
@@ -466,9 +556,42 @@ def _execution_mark_audit(
         "resolved_pair_count": exact_bar_count + floor_resolved_count,
         "exact_bar_count": exact_bar_count,
         "floor_resolved_count": floor_resolved_count,
+        "provisional_resolved_count": provisional_resolved_count,
         "missing_pair_count": len(missing),
         "missing": missing,
     }
+
+
+def _fill_required_assets(
+    targets: Mapping[pd.Timestamp, pd.Series],
+    *,
+    start: pd.Timestamp,
+    execution_hour: int = 1,
+    execution_minute: int = 5,
+) -> set[str]:
+    """Assets that can open, change or close after the evaluated start."""
+
+    required: set[str] = set()
+    previous: set[str] = set()
+    seen_evaluation_signal = False
+    for signal_time in sorted(targets):
+        execution_time = _execution_hint(
+            signal_time,
+            execution_hour=execution_hour,
+            execution_minute=execution_minute,
+        )
+        raw = pd.to_numeric(pd.Series(targets[signal_time]), errors="coerce")
+        raw.index = raw.index.astype(str)
+        current = {
+            str(asset)
+            for asset, weight in raw.items()
+            if pd.notna(weight) and abs(float(weight)) > 1e-15
+        }
+        if execution_time >= start:
+            required.update(current | (previous if seen_evaluation_signal else set()))
+            seen_evaluation_signal = True
+        previous = current
+    return required
 
 
 def _merge_mark_maps(
@@ -756,6 +879,32 @@ def main() -> None:
         default=None,
         help="optional full-history mark tree used to rebuild stateful signals before the OOS window",
     )
+    parser.add_argument(
+        "--market-raw-dir",
+        type=Path,
+        default=None,
+        help="tree containing <symbol>_market.csv last-price candles for OOS fills",
+    )
+    parser.add_argument(
+        "--warmup-market-raw-dir",
+        type=Path,
+        default=None,
+        help="warmup tree containing <symbol>_market.csv last-price candles",
+    )
+    parser.add_argument(
+        "--require-market-fills",
+        action="store_true",
+        help="fail unless every asset that can trade has a usable market fill candle",
+    )
+    parser.add_argument(
+        "--allow-final-provisional-fill",
+        action="store_true",
+        help=(
+            "allow the newest signal's execution to use the last observed hourly "
+            "bar when the D+1 01:00 bar has not been published yet; the manifest "
+            "records the exact provisional lag"
+        ),
+    )
     parser.add_argument("--start-date", default=OOS_START)
     parser.add_argument("--warmup-start", default=DEFAULT_WARMUP_START)
     parser.add_argument(
@@ -868,6 +1017,8 @@ def main() -> None:
         parser.error("--execution-minute must be in [0, 59]")
     if args.min_rebalance_usdt < 0.0:
         parser.error("--min-rebalance-usdt must be non-negative")
+    if args.require_market_fills and args.market_raw_dir is None:
+        parser.error("--require-market-fills requires --market-raw-dir")
     try:
         max_total_gross = _resolve_max_total_gross(args.max_total_gross)
         short_scale = _resolve_short_scale(args.short_scale)
@@ -912,6 +1063,21 @@ def main() -> None:
     end_date = pd.Timestamp(signal_end_day).normalize()
     if end_date <= start:
         raise SystemExit("no completed signal days in the requested OOS window")
+    # A pinned end-date is a point-in-time rebuild: audit the inputs as they
+    # stood just after that day's UTC close, not against a later wall clock
+    # whose panel refresh may not have run yet.
+    audit_now = datetime.now(timezone.utc)
+    expected_panel_day = None
+    if args.end_date is not None:
+        # A pinned end-date is a point-in-time rebuild.  Cap the audit clock
+        # at the last observed mark (plus one hour) so later rows in the same
+        # raw tree are not mislabelled as future, and compare the panel with
+        # the explicitly pinned day rather than the wall-clock day.
+        audit_now = min(
+            audit_now,
+            (last_mark + pd.Timedelta(hours=1)).to_pydatetime(),
+        )
+        expected_panel_day = end_date.date()
     engine_end = _engine_end_for_signal_end(
         end_date,
         execution_hour=int(args.execution_hour),
@@ -1064,12 +1230,28 @@ def main() -> None:
         short_targets,
         max_total_gross=max_total_gross,
     )
+    execution_max_lag_minutes = 60.0
+    provisional_latest_signal = False
+    if args.allow_final_provisional_fill and combined:
+        latest_signal_time = max(combined)
+        latest_execution_time = _execution_hint(
+            latest_signal_time,
+            execution_hour=int(args.execution_hour),
+            execution_minute=int(args.execution_minute),
+        )
+        if latest_execution_time > last_mark:
+            execution_max_lag_minutes = max(
+                60.0,
+                (latest_execution_time - last_mark).total_seconds() / 60.0 + 1.0,
+            )
+            provisional_latest_signal = True
     execution_mark_audit = _execution_mark_audit(
         combined,
         marks,
         execution_hour=int(args.execution_hour),
         execution_minute=int(args.execution_minute),
         execution_price_snap=str(args.execution_price_snap),
+        max_lag_minutes=execution_max_lag_minutes,
         start=start,
     )
     if int(execution_mark_audit["missing_pair_count"]) > 0 and not args.allow_incomplete_marks:
@@ -1082,6 +1264,28 @@ def main() -> None:
             "--allow-incomplete-marks only for a deliberately labelled diagnostic"
         )
     latest_target = combined[max(combined)] if combined else pd.Series(dtype=float)
+    fill_required_assets = _fill_required_assets(
+        combined,
+        start=start,
+        execution_hour=int(args.execution_hour),
+        execution_minute=int(args.execution_minute),
+    )
+    market_fill_candles: dict[str, pd.DataFrame] = {}
+    market_fill_provenance: dict[str, object] = {
+        "source": None,
+        "assets": [],
+        "missing_required_assets": [],
+        "file_count": 0,
+        "fingerprint": None,
+    }
+    if args.market_raw_dir is not None or args.warmup_market_raw_dir is not None:
+        market_fill_candles, market_fill_provenance = _load_market_fill_candles(
+            execution_dir=args.market_raw_dir,
+            warmup_dir=args.warmup_market_raw_dir,
+            symbol_map=symbol_map,
+            required_assets=fill_required_assets if args.require_market_fills else None,
+            require_all_mapped=bool(args.require_market_fills),
+        )
     required_short_assets = {
         str(asset) for asset, weight in latest_target.items() if float(weight) < 0.0
     }
@@ -1089,7 +1293,8 @@ def main() -> None:
         args.raw_dir,
         args.panel,
         args.raw_dir / "symbol_map.csv",
-        now=datetime.now(timezone.utc),
+        now=audit_now,
+        expected_panel_day=expected_panel_day,
         required_short_assets=required_short_assets,
         required_leverage_assets={str(asset) for asset in latest_target.index},
         required_leverage=float(venue_leverage),
@@ -1117,6 +1322,7 @@ def main() -> None:
     result = run_derivative_backtest(
         marks,
         combined,
+        market_candles=market_fill_candles or None,
         funding_rates=funding if not funding.empty else None,
         funding_intervals_hours=funding_intervals if not funding.empty else None,
         config=DerivativeBacktestConfig(
@@ -1157,6 +1363,7 @@ def main() -> None:
             execution_hour=int(args.execution_hour),
             execution_minute=int(args.execution_minute),
             execution_price_snap=str(args.execution_price_snap),
+            execution_price_max_lag_minutes=execution_max_lag_minutes,
             contract_specs=contract_specs,
             min_rebalance_usdt=float(args.min_rebalance_usdt),
             normalize_isolated_margin=str(args.normalize_isolated_margin),
@@ -1167,6 +1374,14 @@ def main() -> None:
         start_time=start,
         end_time=engine_end,
     )
+    if args.require_market_fills and not result.fill_downgrades.empty:
+        missing_fill_assets = sorted(
+            set(result.fill_downgrades["asset"].astype(str))
+        )
+        raise SystemExit(
+            "market fill candles were not usable at every scheduled execution: "
+            + ", ".join(missing_fill_assets)
+        )
     daily = _daily_frame(result, start=start, end_date=end_date, last_mark=last_mark)
     oos_returns = pd.Series(
         daily["daily_return"].to_numpy(dtype=float),
@@ -1205,6 +1420,7 @@ def main() -> None:
     result.order_skips.to_csv(output_dir / "oos_order_skips.csv", index=False)
     result.mark_carries.to_csv(output_dir / "oos_mark_carries.csv", index=False)
     result.fill_downgrades.to_csv(output_dir / "oos_fill_downgrades.csv", index=False)
+    result.stop_events.to_csv(output_dir / "oos_stop_events.csv", index=False)
     pd.DataFrame(
         execution_mark_audit["missing"],
         columns=["signal_date", "execution_hint", "asset", "reason"],
@@ -1280,6 +1496,37 @@ def main() -> None:
         )
     short_opens = int((short_side & (trades.get("action") == "open")).sum()) if not trades.empty else 0
     targets_sha256 = file_sha256(output_dir / "oos_targets.csv")
+    pd.DataFrame(
+        [
+            {
+                "targets_sha256": targets_sha256,
+                "signal_end_date": str(end_date.date()),
+                "last_mark": str(last_mark),
+                "execution_price_model": execution_price_model,
+                "fill_price_source": (
+                    "bitget_market_1h_open" if market_fill_candles else "bitget_mark_1h_open"
+                ),
+                "market_fill_fingerprint": market_fill_provenance.get("fingerprint"),
+                "fill_downgrade_count": int(len(result.fill_downgrades)),
+                "live_parity": bool(live_parity),
+            }
+        ]
+    ).to_csv(output_dir / "signal_receipt.csv", index=False)
+    stop_fill_downgrades = (
+        not result.stop_events.empty
+        and bool((result.stop_events["fill_source"] == "mark_open_gap").any())
+    )
+    live_parity = bool(
+        args.contract_specs_from_symbol_map
+        and market_fill_candles
+        and result.fill_downgrades.empty
+        and not stop_fill_downgrades
+    )
+    execution_price_model = (
+        f"market_1h_open_{args.execution_price_snap}"
+        if market_fill_candles
+        else _execution_price_model(str(args.execution_price_snap))
+    )
     summary = {
         "tracked_spec": tracked_spec,
         "signal_trial_id": args.trial_id,
@@ -1300,10 +1547,24 @@ def main() -> None:
         "capital": float(args.capital),
         "engine_capital": engine_capital,
         "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
-        "execution_price_model": _execution_price_model(str(args.execution_price_snap)),
-        "execution_price_resolution": "configured_snap_within_60_minutes",
+        "execution_price_model": execution_price_model,
+        "execution_price_resolution": (
+            f"configured_snap_within_{execution_max_lag_minutes:g}_minutes"
+        ),
+        "final_execution_provisional": provisional_latest_signal,
+        "final_execution_mark_lag_minutes": (
+            round(execution_max_lag_minutes, 3) if provisional_latest_signal else None
+        ),
+        "execution_mark_provisional_pair_count": int(
+            execution_mark_audit["provisional_resolved_count"]
+        ),
         "execution_source": "signal_ledger_daily_close_next_day",
-        "live_parity": bool(args.contract_specs_from_symbol_map),
+        "live_parity": live_parity,
+        "fill_price_source": (
+            "bitget_market_1h_open" if market_fill_candles else "bitget_mark_1h_open"
+        ),
+        "market_fill_asset_count": int(len(market_fill_candles)),
+        "market_fill_provenance": market_fill_provenance,
         "contract_spec_source": (
             "symbol_map_current_snapshot_approximation"
             if args.contract_specs_from_symbol_map
@@ -1321,6 +1582,12 @@ def main() -> None:
             else 0.0
         ),
         "fill_downgrade_count": int(len(result.fill_downgrades)),
+        "stop_event_count": int(len(result.stop_events)),
+        "stop_fill_model": (
+            "mark_trigger_market_open_on_gap_else_trigger_plus_slippage"
+            if len(result.stop_events)
+            else None
+        ),
         "execution_mark_audit": execution_mark_audit,
         "warmup_data_fingerprint": warmup_mark_provenance["fingerprint"],
         "warmup_mark_file_count": warmup_mark_provenance["mark_file_count"],
@@ -1460,12 +1727,30 @@ def main() -> None:
                 "cost_bps": float(args.cost_bps),
                 "engine_capital": engine_capital,
                 "execution_utc": f"{int(args.execution_hour):02d}:{int(args.execution_minute):02d}",
-                "execution_price_model": _execution_price_model(
-                    str(args.execution_price_snap)
+                "execution_price_model": execution_price_model,
+                "execution_price_resolution": (
+                    f"configured_snap_within_{execution_max_lag_minutes:g}_minutes"
                 ),
-                "execution_price_resolution": "configured_snap_within_60_minutes",
+                "final_execution_provisional": provisional_latest_signal,
+                "final_execution_mark_lag_minutes": (
+                    round(execution_max_lag_minutes, 3)
+                    if provisional_latest_signal
+                    else None
+                ),
+                "execution_mark_provisional_pair_count": int(
+                    execution_mark_audit["provisional_resolved_count"]
+                ),
                 "execution_source": "signal_ledger_daily_close_next_day",
-                "live_parity": bool(args.contract_specs_from_symbol_map),
+                "live_parity": live_parity,
+                "fill_price_source": (
+                    "bitget_market_1h_open" if market_fill_candles else "bitget_mark_1h_open"
+                ),
+                "market_fill_asset_count": int(len(market_fill_candles)),
+                "market_fill_fingerprint": market_fill_provenance["fingerprint"],
+                "market_fill_files": market_fill_provenance.get("files", {}),
+                "market_fill_missing_symbols": market_fill_provenance.get(
+                    "missing_symbols", []
+                ),
                 "contract_spec_source": (
                     "symbol_map_current_snapshot_approximation"
                     if args.contract_specs_from_symbol_map
@@ -1475,6 +1760,12 @@ def main() -> None:
                 "normalize_isolated_margin": str(args.normalize_isolated_margin),
                 "mark_carry_count": int(len(result.mark_carries)),
                 "fill_downgrade_count": int(len(result.fill_downgrades)),
+                "stop_event_count": int(len(result.stop_events)),
+                "stop_fill_model": (
+                    "mark_trigger_market_open_on_gap_else_trigger_plus_slippage"
+                    if len(result.stop_events)
+                    else None
+                ),
                 "execution_mark_audit": execution_mark_audit,
                 "targets_file": "oos_targets.csv",
                 "targets_sha256": targets_sha256,
@@ -1588,7 +1879,10 @@ def main() -> None:
         f"margin cap {max_margin_utilization:.0%}, venue leverage {venue_leverage:g}x",
         f"- cost: {float(args.cost_bps):g} bps; capital reference: {args.capital:,.0f} units",
         f"- execution: {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
-        f"price model {_execution_price_model(str(args.execution_price_snap))}",
+        f"price model {execution_price_model}",
+        f"- scheduled fills: {summary['fill_price_source']} across "
+        f"{summary['market_fill_asset_count']} asset(s); "
+        f"downgrades {summary['fill_downgrade_count']}",
         f"- engine end: {engine_end} (includes the final T+1 execution; "
         f"daily metrics end {end_date.date()})",
         f"- target ledger: oos_targets.csv; sha256 {summary['targets_sha256']}",

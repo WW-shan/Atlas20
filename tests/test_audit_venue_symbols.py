@@ -92,3 +92,19 @@ def test_venue_symbol_audit_uses_the_profiles_required_leverage() -> None:
     assert report["required_leverage"] == 4.0
     assert report["required_leverage_supported"] == 0
     assert any("4x outside leverage range" in issue for issue in report["issues"])
+
+
+def test_venue_symbol_audit_reports_data_universe_vs_executable_subset() -> None:
+    report = build_venue_symbol_audit(
+        symbol_map=_symbol_map(),
+        instruments=[_instrument()],
+        quotes={"TRXUSDT": _quote()},
+        now=datetime(2026, 11, 14, 12, 0, 1, tzinfo=timezone.utc),
+        panel_assets=["tron", "maker", "yearn-finance"],
+    )
+
+    assert report["passed"] is True
+    assert report["panel_assets"] == 3
+    assert report["panel_executable_assets"] == 1
+    assert report["panel_unmapped_assets"] == ["maker", "yearn-finance"]
+    assert report["panel_executable_coverage"] == 1 / 3

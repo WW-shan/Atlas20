@@ -53,6 +53,7 @@ class DerivativeBacktestConfig:
     execution_hour: int = 3
     execution_minute: int = 0
     execution_price_snap: str = "exact"
+    execution_price_max_lag_minutes: float = 60.0
     execution_lag_days: int = 1
     contract_specs: Mapping[str, ContractSpec] | None = None
     min_rebalance_usdt: float = 0.0
@@ -87,6 +88,11 @@ class DerivativeBacktestConfig:
             raise ValueError("short_stop_loss_pct must be in (0, 1) when set")
         if self.long_stop_loss_pct is not None and not 0.0 < self.long_stop_loss_pct < 1.0:
             raise ValueError("long_stop_loss_pct must be in (0, 1) when set")
+        if (
+            not np.isfinite(float(self.execution_price_max_lag_minutes))
+            or float(self.execution_price_max_lag_minutes) <= 0.0
+        ):
+            raise ValueError("execution_price_max_lag_minutes must be positive")
         for window in self.short_stop_reentry_block_windows:
             if len(window) != 3:
                 raise ValueError(
@@ -206,6 +212,7 @@ class DerivativeBacktestResult:
     order_skips: pd.DataFrame
     mark_carries: pd.DataFrame
     fill_downgrades: pd.DataFrame
+    stop_events: pd.DataFrame
 
 
 _TRADE_COLUMNS = [
@@ -231,9 +238,21 @@ _LIQUIDATION_COLUMNS = [
     "quantity",
     "margin_before",
     "bad_debt",
+    "fill_source",
 ]
 _MARK_CARRY_COLUMNS = ["timestamp", "asset", "last_mark_time", "hours", "price"]
-_FILL_DOWNGRADE_COLUMNS = ["timestamp", "asset", "mark_price"]
+_FILL_DOWNGRADE_COLUMNS = ["timestamp", "asset", "mark_price", "context"]
+_STOP_EVENT_COLUMNS = [
+    "timestamp",
+    "asset",
+    "side",
+    "trigger_price",
+    "execution_price",
+    "fill_source",
+    "mark_open",
+    "mark_high",
+    "market_open",
+]
 _MARGIN_EVENT_COLUMNS = [
     "timestamp",
     "asset",
@@ -346,23 +365,27 @@ def _resolve_time(
     index: pd.DatetimeIndex,
     *,
     snap: str,
+    max_lag_minutes: float = 60.0,
 ) -> pd.Timestamp:
     target = _as_utc(target)
     if target in index:
         return target
     if snap == "exact":
         raise ValueError(f"no exact mark candle at execution time {target}")
+    max_lag = pd.Timedelta(minutes=float(max_lag_minutes))
     if snap == "floor":
         earlier = index[index <= target]
-        if earlier.empty or target - earlier[-1] > pd.Timedelta(hours=1):
+        if earlier.empty or target - earlier[-1] > max_lag:
             raise ValueError(
-                f"no mark candle at or within one hour before execution time {target}"
+                f"no mark candle at or within one hour "
+                f"({float(max_lag_minutes):.0f} minutes) before execution time {target}"
             )
         return pd.Timestamp(earlier[-1])
     later = index[index >= target]
-    if later.empty or later[0] - target > pd.Timedelta(hours=1):
+    if later.empty or later[0] - target > max_lag:
         raise ValueError(
-            f"no mark candle at or within one hour after execution time {target}"
+            f"no mark candle at or within one hour "
+            f"({float(max_lag_minutes):.0f} minutes) after execution time {target}"
         )
     return pd.Timestamp(later[0])
 
@@ -510,7 +533,12 @@ def run_derivative_backtest(
         raise ValueError("no hourly mark candles in the requested evaluation window")
     execution_times: dict[pd.Timestamp, pd.Series] = {}
     for time, target in target_schedule.items():
-        resolved = _resolve_time(time, index, snap=cfg.execution_price_snap)
+        resolved = _resolve_time(
+            time,
+            index,
+            snap=cfg.execution_price_snap,
+            max_lag_minutes=float(cfg.execution_price_max_lag_minutes),
+        )
         if resolved in execution_times:
             # Two signals sliding onto the same hourly bar would silently drop
             # one rebalance, so this is a hard error rather than last-wins.
@@ -529,6 +557,7 @@ def run_derivative_backtest(
     trades: list[dict[str, object]] = []
     funding_events: list[dict[str, object]] = []
     liquidation_events: list[dict[str, object]] = []
+    stop_events: list[dict[str, object]] = []
     mark_carries: list[dict[str, object]] = []
     downgrade_events: list[dict[str, object]] = []
     position_entries: list[dict[str, object]] = []
@@ -625,9 +654,21 @@ def run_derivative_backtest(
         if frame is not None:
             if timestamp in frame.index:
                 resolved = timestamp
-            else:
+            elif cfg.execution_price_snap == "floor":
+                earlier = frame.index[frame.index <= timestamp]
+                if (
+                    not earlier.empty
+                    and timestamp - earlier[-1]
+                    <= pd.Timedelta(minutes=float(cfg.execution_price_max_lag_minutes))
+                ):
+                    resolved = earlier[-1]
+            elif cfg.execution_price_snap == "ceil":
                 later = frame.index[frame.index >= timestamp]
-                if not later.empty and later[0] - timestamp <= pd.Timedelta(hours=1):
+                if (
+                    not later.empty
+                    and later[0] - timestamp
+                    <= pd.Timedelta(minutes=float(cfg.execution_price_max_lag_minutes))
+                ):
                     resolved = later[0]
         if resolved is None:
             if cfg.fill_missing_policy == "error":
@@ -637,10 +678,19 @@ def run_derivative_backtest(
                     "timestamp": timestamp,
                     "asset": asset,
                     "mark_price": mark(asset, timestamp, "open"),
+                    "context": "scheduled_rebalance",
                 }
             )
             return mark(asset, timestamp, "open")
         return float(frame.at[resolved, "open"])
+
+    def immediate_market_open(asset: str, timestamp: pd.Timestamp) -> float | None:
+        """Exact-hour last-price open, if the venue tree has that bar."""
+
+        frame = fills.get(asset)
+        if frame is None or timestamp not in frame.index:
+            return None
+        return float(frame.at[timestamp, "open"])
 
     def venue_spec(asset: str) -> ContractSpec | None:
         if contract_specs is None:
@@ -852,10 +902,23 @@ def run_derivative_backtest(
                 trigger = open_price if open_price >= theoretical else theoretical
                 if open_price < theoretical and float(candle["high"]) < theoretical:
                     return
+        market_open = immediate_market_open(asset, timestamp)
         if position.side > 0:
-            execution_price = trigger * (1.0 - cfg.liquidation_slippage_bps / 10_000.0)
+            if open_price <= theoretical and market_open is not None:
+                execution_base = market_open
+                fill_source = "market_open_gap"
+            else:
+                execution_base = trigger
+                fill_source = "trigger_plus_slippage"
+            execution_price = execution_base * (1.0 - cfg.liquidation_slippage_bps / 10_000.0)
         else:
-            execution_price = trigger * (1.0 + cfg.liquidation_slippage_bps / 10_000.0)
+            if open_price >= theoretical and market_open is not None:
+                execution_base = market_open
+                fill_source = "market_open_gap"
+            else:
+                execution_base = trigger
+                fill_source = "trigger_plus_slippage"
+            execution_price = execution_base * (1.0 + cfg.liquidation_slippage_bps / 10_000.0)
         margin_before = position.margin
         bad_debt = close_position(
             asset,
@@ -875,6 +938,7 @@ def run_derivative_backtest(
                 "quantity": position.quantity,
                 "margin_before": margin_before,
                 "bad_debt": bad_debt,
+                "fill_source": fill_source,
             }
         )
 
@@ -888,10 +952,22 @@ def run_derivative_backtest(
         candle = bar(asset, timestamp)
         trigger = position.entry_price * (1.0 - float(cfg.long_stop_loss_pct))
         open_price = float(candle["open"])
+        market_open = immediate_market_open(asset, timestamp)
         if open_price <= trigger:
-            raw_execution = open_price
+            raw_execution = market_open if market_open is not None else open_price
+            fill_source = "market_open_gap" if market_open is not None else "mark_open_gap"
+            if market_open is None:
+                downgrade_events.append(
+                    {
+                        "timestamp": timestamp,
+                        "asset": asset,
+                        "mark_price": open_price,
+                        "context": "long_stop_gap",
+                    }
+                )
         elif float(candle["low"]) <= trigger:
             raw_execution = trigger
+            fill_source = "trigger_plus_slippage"
         else:
             return
         execution_price = raw_execution * (1.0 - cfg.liquidation_slippage_bps / 10_000.0)
@@ -900,6 +976,19 @@ def run_derivative_backtest(
             timestamp,
             execution_price,
             reason="stop_loss",
+        )
+        stop_events.append(
+            {
+                "timestamp": timestamp,
+                "asset": asset,
+                "side": "long",
+                "trigger_price": trigger,
+                "execution_price": execution_price,
+                "fill_source": fill_source,
+                "mark_open": open_price,
+                "mark_high": float(candle["high"]),
+                "market_open": market_open,
+            }
         )
 
     def stop_out_short(asset: str, timestamp: pd.Timestamp) -> None:
@@ -918,10 +1007,22 @@ def run_derivative_backtest(
             # cannot fire at a price the venue can never hold.
             trigger = float(spec.round_up_price(trigger))
         open_price = float(candle["open"])
+        market_open = immediate_market_open(asset, timestamp)
         if open_price >= trigger:
-            raw_execution = open_price
+            raw_execution = market_open if market_open is not None else open_price
+            fill_source = "market_open_gap" if market_open is not None else "mark_open_gap"
+            if market_open is None:
+                downgrade_events.append(
+                    {
+                        "timestamp": timestamp,
+                        "asset": asset,
+                        "mark_price": open_price,
+                        "context": "short_stop_gap",
+                    }
+                )
         elif float(candle["high"]) >= trigger:
             raw_execution = trigger
+            fill_source = "trigger_plus_slippage"
         else:
             return
         execution_price = raw_execution * (1.0 + cfg.liquidation_slippage_bps / 10_000.0)
@@ -930,6 +1031,19 @@ def run_derivative_backtest(
             timestamp,
             execution_price,
             reason="stop_loss",
+        )
+        stop_events.append(
+            {
+                "timestamp": timestamp,
+                "asset": asset,
+                "side": "short",
+                "trigger_price": trigger,
+                "execution_price": execution_price,
+                "fill_source": fill_source,
+                "mark_open": open_price,
+                "mark_high": float(candle["high"]),
+                "market_open": market_open,
+            }
         )
         active_windows = [
             window
@@ -1509,6 +1623,7 @@ def run_derivative_backtest(
         order_skips=pd.DataFrame(order_skips, columns=_ORDER_SKIP_COLUMNS),
         mark_carries=pd.DataFrame(mark_carries, columns=_MARK_CARRY_COLUMNS),
         fill_downgrades=pd.DataFrame(downgrade_events, columns=_FILL_DOWNGRADE_COLUMNS),
+        stop_events=pd.DataFrame(stop_events, columns=_STOP_EVENT_COLUMNS),
     )
 
 

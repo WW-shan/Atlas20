@@ -12,7 +12,7 @@ converted into zero-filled data.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -487,6 +487,7 @@ def audit_derivatives_data(
     manifest_path: str | Path | None = None,
     *,
     now: datetime | None = None,
+    expected_panel_day: date | None = None,
     min_panel_assets: int = 20,
     required_short_assets: Iterable[str] | None = None,
     required_leverage_assets: Iterable[str] | None = None,
@@ -524,7 +525,11 @@ def audit_derivatives_data(
     if panel is not None and symbol_map is not None:
         _check_panel_symbol_alignment(panel, symbol_map, report)
     if panel is not None and not panel.empty:
-        last_completed = moment.date() - timedelta(days=1)
+        last_completed = (
+            expected_panel_day
+            if expected_panel_day is not None
+            else moment.date() - timedelta(days=1)
+        )
         latest = panel["date"].max().date()
         _check(
             report,

@@ -145,6 +145,7 @@ def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
             }
         ],
         "active_event": {
+            "track_spec": LS104_G175_M090_SPEC,
             "signal_date": "2026-11-13",
             "targets_sha256": "target-a",
             "target_weights": {},
@@ -308,7 +309,10 @@ def test_protect_only_rejects_profile_parameter_drift_before_network(
                     "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
                     "|2026-11-13|2026-11-15"
                 ),
-                "active_event": {"signal_date": "2026-11-13"},
+                "active_event": {
+                    "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+                    "signal_date": "2026-11-13",
+                },
             }
         ),
         encoding="utf-8",
@@ -608,7 +612,10 @@ def test_live_execution_rejects_state_from_a_different_track_before_loading_targ
                     "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
                     "|2026-11-13|target-a|2026-11-15"
                 ),
-                "active_event": {"signal_date": "2026-11-13"},
+                "active_event": {
+                    "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+                    "signal_date": "2026-11-13",
+                },
             }
         ),
         encoding="utf-8",
@@ -709,7 +716,10 @@ def test_protect_only_rejects_state_from_a_different_track_before_network(
         json.dumps(
             {
                 "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|old",
-                "active_event": {"signal_date": "2026-11-13"},
+                "active_event": {
+                    "track_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                    "signal_date": "2026-11-13",
+                },
             }
         ),
         encoding="utf-8",
@@ -774,6 +784,7 @@ def test_protect_only_rejects_an_active_event_not_bound_to_the_manifest(
                 "last_key": key,
                 "runs": [{"key": key}],
                 "active_event": {
+                    "track_spec": LS104_G175_M090_SPEC,
                     "signal_date": "2026-11-13",
                     "targets_sha256": "stale-target",
                 },
@@ -824,7 +835,10 @@ def test_reconcile_only_rejects_state_from_a_different_track_before_network(
         json.dumps(
             {
                 "last_key": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21|old",
-                "active_event": {"signal_date": "2026-11-13"},
+                "active_event": {
+                    "track_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                    "signal_date": "2026-11-13",
+                },
             }
         ),
         encoding="utf-8",
@@ -916,6 +930,46 @@ def test_state_track_issue_rejects_cross_track_run_history() -> None:
     assert issue is not None
     assert "runs[1]" in issue
     assert "another track" in issue
+
+
+def test_state_track_issue_rejects_cross_track_active_event() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+    current = f"{spec}|2026-11-13|target-a|2026-11-15"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": current,
+            "runs": [{"key": current}],
+            "active_event": {
+                "track_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
+                "signal_date": "2026-11-13",
+                "targets_sha256": "target-a",
+            },
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "active_event" in issue
+    assert "another track" in issue
+
+
+def test_state_track_issue_rejects_active_event_without_a_track_identity() -> None:
+    spec = "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+    current = f"{spec}|2026-11-13|target-a|2026-11-15"
+
+    issue = execute_live_plan._state_track_issue(
+        {
+            "last_key": current,
+            "runs": [{"key": current}],
+            "active_event": {"signal_date": "2026-11-13"},
+        },
+        spec,
+    )
+
+    assert issue is not None
+    assert "active_event" in issue
+    assert "track" in issue
 
 
 def test_state_track_issue_requires_a_runs_array() -> None:
@@ -2503,6 +2557,7 @@ def test_active_event_record_freezes_signal_date_and_position_targets() -> None:
         {"near": -0.1},
         {"near": ContractSpec("NEARUSDT")},
         {"near": 5.0},
+        track_spec="PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
         signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
         target_identity="sha256:target",
         execution_hint=pd.Timestamp("2026-11-14T01:05:00Z"),
@@ -2512,6 +2567,7 @@ def test_active_event_record_freezes_signal_date_and_position_targets() -> None:
 
     assert record["signal_date"] == "2026-11-13"
     assert record["targets_sha256"] == "sha256:target"
+    assert record["track_spec"] == "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
     assert record["position_status"] == "ok"
     assert record["target_quantities"] == {"NEARUSDT": pytest.approx(10.0)}
 
@@ -2546,6 +2602,7 @@ def test_persisted_state_keeps_the_active_target_event(tmp_path: Path) -> None:
     )
     state_path = tmp_path / "state.json"
     active_event = {
+        "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
         "signal_date": "2026-11-13",
         "targets_sha256": "sha256:target",
         "target_quantities": {"NEARUSDT": 10.0},
@@ -2847,6 +2904,7 @@ def test_dry_run_does_not_write_live_state_or_journal(tmp_path: Path, monkeypatc
     args = execute_live_plan.parse_args(
         [
             "--allow-late-execution",
+                "--allow-stale-signal",
             "--prices-file",
             str(prices),
             "--state-file",
@@ -2900,6 +2958,7 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
                     }
                 ],
                 "active_event": {
+                    "track_spec": "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21",
                     "signal_date": str(signal_date.date()),
                     "targets_sha256": "",
                     "execution_hint": execution_hint.isoformat(),
@@ -3068,6 +3127,7 @@ def test_same_event_record_retry_preserves_first_application_and_stops() -> None
         signed_target_notional={"near": -50.0},
     )
     prior = {
+        "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
         "signal_date": "2026-11-13",
         "targets_sha256": "target-a",
         "execution_hint": "2026-11-14T01:05:00+00:00",
@@ -3093,6 +3153,7 @@ def test_same_event_record_retry_preserves_first_application_and_stops() -> None
         {"near": -0.1},
         {"near": ContractSpec("NEARUSDT")},
         {"near": 5.0},
+        track_spec="PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
         signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
         target_identity="target-a",
         execution_hint=pd.Timestamp("2026-11-14T01:05:00Z"),
@@ -3329,6 +3390,7 @@ def test_reconcile_only_imports_a_post_execution_stop_once_and_attributes_fundin
     upsert_entry(journal_path, current)
     state_path = tmp_path / "state.json"
     active_event = {
+            "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
         "signal_date": "2026-11-13",
         "targets_sha256": "target-a",
         "execution_hint": "2026-11-15T01:05:00+00:00",

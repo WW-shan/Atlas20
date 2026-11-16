@@ -193,6 +193,23 @@ def test_mark_coverage_does_not_count_pre_listing_history_as_a_gap() -> None:
     assert coverage["expected_hours"] == 4
 
 
+def test_mark_coverage_does_not_count_post_delisting_history_as_a_gap() -> None:
+    from scripts.run_derivatives_shadow import _mark_coverage
+
+    start = pd.Timestamp("2026-01-01", tz="UTC")
+    end = start + pd.Timedelta(hours=6)
+    ended = pd.DataFrame(
+        {"close": [1.0, 1.0]},
+        index=pd.date_range(start + pd.Timedelta(hours=2), periods=2, freq="h"),
+    )
+
+    coverage = _mark_coverage({"ended": ended}, start=start, end=end)
+
+    assert coverage["missing_hours"] == 0
+    assert coverage["expected_hours"] == 2
+    assert coverage["assets_with_gaps"] == 0
+
+
 def test_execution_mark_availability_uses_the_0105_floor_clock() -> None:
     from scripts.run_derivatives_backtest import _has_execution_mark
 
@@ -312,6 +329,75 @@ def test_mark_tree_provenance_hashes_each_symbol_file(tmp_path) -> None:
     assert provenance["fingerprint"].startswith("sha256:")
 
 
+def test_market_fill_candles_merge_warmup_and_oos_trees(tmp_path) -> None:
+    from scripts.run_derivatives_shadow import _load_market_fill_candles
+
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "near", "bitget_symbol": "NEARUSDT", "contract_status": "normal"}]
+    )
+    warmup = tmp_path / "warmup"
+    execution = tmp_path / "execution"
+    for directory, stamp, value in (
+        (warmup, "2026-01-01T00:00:00Z", 1.0),
+        (execution, "2026-01-02T00:00:00Z", 2.0),
+    ):
+        (directory / "candles").mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "open_time": stamp,
+                    "open": value,
+                    "high": value + 0.1,
+                    "low": value - 0.1,
+                    "close": value,
+                }
+            ]
+        ).to_csv(directory / "candles" / "NEARUSDT_market.csv", index=False)
+
+    candles, provenance = _load_market_fill_candles(
+        execution_dir=execution,
+        warmup_dir=warmup,
+        symbol_map=symbol_map,
+        require_all_mapped=True,
+    )
+
+    assert list(candles["near"]["open"]) == [1.0, 2.0]
+    assert provenance["file_count"] == 2
+    assert provenance["missing_symbols"] == []
+    assert str(provenance["fingerprint"]).startswith("sha256:")
+
+
+def test_market_fill_candles_fail_closed_for_a_mapped_asset(tmp_path) -> None:
+    from scripts.run_derivatives_shadow import _load_market_fill_candles
+
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "near", "bitget_symbol": "NEARUSDT", "contract_status": "normal"}]
+    )
+
+    with pytest.raises(ValueError, match="missing market fill candles"):
+        _load_market_fill_candles(
+            execution_dir=tmp_path / "execution",
+            warmup_dir=tmp_path / "warmup",
+            symbol_map=symbol_map,
+            require_all_mapped=True,
+        )
+
+
+def test_market_fill_requirements_ignore_warmup_only_assets() -> None:
+    from scripts.run_derivatives_shadow import _fill_required_assets
+
+    targets = {
+        pd.Timestamp("2021-01-01", tz="UTC"): pd.Series({"old": 1.0}),
+        pd.Timestamp("2026-09-22", tz="UTC"): pd.Series({"near": -0.25}),
+        pd.Timestamp("2026-09-23", tz="UTC"): pd.Series({"zcash": -0.25}),
+    }
+
+    assert _fill_required_assets(
+        targets,
+        start=pd.Timestamp("2026-09-22", tz="UTC"),
+    ) == {"near", "zcash"}
+
+
 def test_execution_mark_audit_records_a_missing_0100_floor_bar() -> None:
     from scripts.run_derivatives_shadow import _execution_mark_audit
 
@@ -424,3 +510,26 @@ def test_ls104_manifest_pins_the_aggressive_track_design_not_the_ls45_baseline()
     assert _track_spec_for(
         "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
     ) == "docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md"
+
+
+def test_execution_mark_audit_marks_only_the_final_pre_0100_delay_as_provisional() -> None:
+    from scripts.run_derivatives_shadow import _execution_mark_audit
+
+    frame_index = pd.DatetimeIndex(["2026-11-15T00:00:00Z"])
+    frame = pd.DataFrame(
+        {"open": [1.0], "high": [1.0], "low": [1.0], "close": [1.0]},
+        index=frame_index,
+    )
+
+    audit = _execution_mark_audit(
+        {pd.Timestamp("2026-11-14", tz="UTC"): pd.Series({"bitcoin": -0.125})},
+        {"bitcoin": frame},
+        execution_hour=1,
+        execution_minute=5,
+        execution_price_snap="floor",
+        max_lag_minutes=66.0,
+    )
+
+    assert audit["missing_pair_count"] == 0
+    assert audit["provisional_resolved_count"] == 1
+    assert audit["floor_resolved_count"] == 0

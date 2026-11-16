@@ -141,6 +141,27 @@ def _merge_candles(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
     return combined.reset_index(drop=True)
 
 
+def _merge_coverage_rows(
+    existing: object,
+    refreshed: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Replace refreshed symbol/type rows without dropping other coverage."""
+
+    prior = [dict(row) for row in existing if isinstance(row, dict)] if isinstance(existing, list) else []
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in prior:
+        symbol = str(row.get("bitget_symbol") or "").strip().upper()
+        candle_type = str(row.get("candle_type") or "").strip().lower()
+        if symbol and candle_type:
+            by_key[(symbol, candle_type)] = row
+    for row in refreshed:
+        symbol = str(row.get("bitget_symbol") or "").strip().upper()
+        candle_type = str(row.get("candle_type") or "").strip().lower()
+        if symbol and candle_type:
+            by_key[(symbol, candle_type)] = dict(row)
+    return [by_key[key] for key in sorted(by_key)]
+
+
 
 def _window_status(
     frame: pd.DataFrame,
@@ -441,11 +462,21 @@ def _download_funding(
             "last": str(merged["funding_time"].max()),
             "cached": False,
         }
+    manifest_path = output_dir / "funding_manifest.json"
+    persisted: dict[str, Any] = {}
+    if manifest_path.is_file():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = None
+        if isinstance(existing, dict):
+            persisted = existing
+    persisted.update(manifest)
     atomic_write_text(
-        output_dir / "funding_manifest.json",
-        json.dumps(manifest, indent=2, sort_keys=True),
+        manifest_path,
+        json.dumps(persisted, indent=2, sort_keys=True),
     )
-    return manifest
+    return persisted
 
 
 def _parse_clock(value: str) -> time:
@@ -652,6 +683,13 @@ def main() -> None:
             row["first"] = refreshed["open_time"].min() if not refreshed.empty else pd.NaT
             row["last"] = refreshed["open_time"].max() if not refreshed.empty else pd.NaT
             row["max_gap_hours"] = _max_gap_hours_within_windows(refreshed, windows)
+        try:
+            existing_coverage = json.loads(
+                (output_dir / "coverage.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            existing_coverage = []
+        coverage_rows = _merge_coverage_rows(existing_coverage, coverage_rows)
         coverage = pd.DataFrame(coverage_rows)
         _write_csv_atomic(coverage, output_dir / "coverage.csv")
         atomic_write_text(
@@ -664,6 +702,13 @@ def main() -> None:
                 f"{required_last} for {len(stale_marks)} symbol(s): "
                 + ", ".join(stale_marks[:10])
             )
+    try:
+        existing_coverage = json.loads(
+            (output_dir / "coverage.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        existing_coverage = []
+    coverage_rows = _merge_coverage_rows(existing_coverage, coverage_rows)
     coverage = pd.DataFrame(coverage_rows)
     _write_csv_atomic(coverage, output_dir / "coverage.csv")
     atomic_write_text(

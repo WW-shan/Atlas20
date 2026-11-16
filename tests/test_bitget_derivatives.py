@@ -357,6 +357,69 @@ def test_stale_cached_funding_is_refetched_and_history_is_merged(tmp_path) -> No
     assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
 
 
+def test_partial_funding_refresh_preserves_other_manifest_entries(tmp_path) -> None:
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    class _FundingClient:
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-14T00:00:00Z")],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    (output_dir / "funding_manifest.json").write_text(
+        json.dumps(
+            {
+                "bitcoin": {"symbol": "BTCUSDT", "last": "2026-11-10T00:00:00Z"},
+                "ethereum": {"symbol": "ETHUSDT", "last": "2026-11-10T00:00:00Z"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        _FundingClient(),
+        symbol_map,
+        output_dir,
+        force=True,
+        now=pd.Timestamp("2026-11-14T01:05:00Z"),
+    )
+
+    persisted = json.loads((output_dir / "funding_manifest.json").read_text())
+    assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
+    assert persisted["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
+    assert persisted["ethereum"]["last"] == "2026-11-10T00:00:00Z"
+
+
+def test_partial_candle_refresh_preserves_other_coverage_rows() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_coverage_rows
+
+    merged = _merge_coverage_rows(
+        [
+            {"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "candle_type": "mark", "rows": 1},
+            {"coin_id": "ethereum", "bitget_symbol": "ETHUSDT", "candle_type": "mark", "rows": 2},
+        ],
+        [
+            {"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "candle_type": "market", "rows": 3},
+        ],
+    )
+
+    assert merged == [
+        {"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "candle_type": "mark", "rows": 1},
+        {"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "candle_type": "market", "rows": 3},
+        {"coin_id": "ethereum", "bitget_symbol": "ETHUSDT", "candle_type": "mark", "rows": 2},
+    ]
+
+
 def test_live_mark_tail_retry_merges_the_new_completed_hour(tmp_path) -> None:
     from scripts import download_bitget_derivatives_data as downloader
 

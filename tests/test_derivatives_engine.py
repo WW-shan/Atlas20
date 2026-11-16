@@ -317,6 +317,106 @@ def test_short_stop_trigger_uses_the_venue_price_grid() -> None:
     assert stop["price"] == pytest.approx(120.1)
 
 
+def test_short_stop_gap_fills_at_the_market_open() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    marks = {"BTC": _flat_frame(index)}
+    marks["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        130.0,
+        132.0,
+        129.0,
+        131.0,
+    ]
+    market = {"BTC": _flat_frame(index)}
+    market["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        128.0,
+        133.0,
+        127.0,
+        131.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        market_candles=market,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            short_stop_loss_pct=0.20,
+        ),
+    )
+
+    stop = result.trades.loc[result.trades["reason"] == "stop_loss"].iloc[0]
+    assert stop["price"] == pytest.approx(128.0)
+    event = result.stop_events.iloc[0]
+    assert event["fill_source"] == "market_open_gap"
+    assert event["market_open"] == pytest.approx(128.0)
+
+
+def test_short_stop_intrabar_uses_trigger_plus_slippage() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    marks = {"BTC": _flat_frame(index)}
+    marks["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        125.0,
+        100.0,
+        125.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=5.0,
+            fee_buffer=0.0,
+            short_stop_loss_pct=0.20,
+        ),
+    )
+
+    stop = result.trades.loc[result.trades["reason"] == "stop_loss"].iloc[0]
+    assert stop["price"] == pytest.approx(120.0 * 1.0005)
+    event = result.stop_events.iloc[0]
+    assert event["fill_source"] == "trigger_plus_slippage"
+
+
+def test_short_stop_gap_without_market_candle_is_reported_as_a_downgrade() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    marks = {"BTC": _flat_frame(index)}
+    marks["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        130.0,
+        132.0,
+        129.0,
+        131.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            short_stop_loss_pct=0.20,
+        ),
+    )
+
+    event = result.stop_events.iloc[0]
+    assert event["fill_source"] == "mark_open_gap"
+    downgrade = result.fill_downgrades.iloc[0]
+    assert downgrade["context"] == "short_stop_gap"
+    assert downgrade["mark_price"] == pytest.approx(130.0)
+
+
 def test_short_stop_loss_rejects_invalid_percentage() -> None:
     with pytest.raises(ValueError, match="short_stop_loss_pct"):
         DerivativeBacktestConfig(short_stop_loss_pct=1.0)
@@ -1107,6 +1207,33 @@ def test_missing_market_candle_for_a_fill_fails_closed_by_default() -> None:
                 fee_buffer=0.0,
             ),
         )
+
+
+def test_market_fill_uses_the_floor_bar_matching_the_mark_snap() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    marks = {"BTC": _flat_frame(index)}
+    market = {"BTC": _flat_frame(index, value=101.0)}
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        marks,
+        targets,
+        market_candles=market,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            execution_hour=1,
+            execution_minute=5,
+            execution_price_snap="floor",
+        ),
+    )
+
+    trade = result.trades.iloc[0]
+    assert pd.Timestamp(trade["timestamp"]) == pd.Timestamp("2026-01-02T01:00:00Z")
+    assert trade["price"] == pytest.approx(101.0)
 
 
 def test_missing_market_candle_can_downgrade_to_mark_with_an_explicit_policy() -> None:

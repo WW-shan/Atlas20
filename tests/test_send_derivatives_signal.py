@@ -270,6 +270,7 @@ def test_main_uses_the_active_event_equity_for_the_ls104_fallback_message(
                 "last_status": "ok",
                 "runs": [{"key": key}],
                 "active_event": {
+                        "track_spec": LS104_G175_M090_SPEC,
                     "signal_date": "2026-09-01",
                     "targets_sha256": "target-hash",
                     "target_weights": {"near": 0.7768, "zcash": 0.2138},
@@ -325,6 +326,7 @@ def test_main_skips_the_fallback_when_the_executor_already_notified(
                 "telegram_sent_key": key,
                 "runs": [{"key": key}],
                 "active_event": {
+                        "track_spec": LS104_G175_M090_SPEC,
                     "signal_date": "2026-09-01",
                     "targets_sha256": "target-hash",
                     "target_weights": {"near": 0.7768, "zcash": 0.2138},

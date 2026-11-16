@@ -21,6 +21,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from typing import Mapping
 
 import pandas as pd
 
@@ -273,6 +274,7 @@ def _rebuild_replay(
             end_date=end_date,
             output_dir=str(output_dir),
             track=track,
+            allow_final_provisional_fill=(track == "ls104-g175-m090"),
         )
         subprocess.run(command, cwd=PROJECT_ROOT, check=True)
         path = output_dir / "oos_targets.csv"
@@ -284,6 +286,50 @@ def _rebuild_replay(
             "positions": pd.read_csv(output_dir / "oos_positions.csv"),
             "order_skips": pd.read_csv(output_dir / "oos_order_skips.csv"),
         }
+
+
+def _manifest_execution_model_issues(manifest: Mapping[str, object]) -> list[str]:
+    """Require the promoted ledger to use the same taker fill model as live."""
+
+    issues: list[str] = []
+    if manifest.get("live_parity") is not True:
+        issues.append("manifest live_parity is not true")
+    if str(manifest.get("fill_price_source") or "") != "bitget_market_1h_open":
+        issues.append(
+            "manifest fill_price_source is not bitget_market_1h_open: "
+            f"{manifest.get('fill_price_source')!r}"
+        )
+    if not str(manifest.get("execution_price_model") or "").startswith(
+        "market_1h_open_"
+    ):
+        issues.append(
+            "manifest execution_price_model is not market_1h_open_*: "
+            f"{manifest.get('execution_price_model')!r}"
+        )
+    try:
+        downgrade_count = int(manifest.get("fill_downgrade_count") or 0)
+    except (TypeError, ValueError):
+        downgrade_count = -1
+    if downgrade_count != 0:
+        issues.append(
+            "manifest has unusable market fill downgrades: "
+            f"{manifest.get('fill_downgrade_count')!r}"
+        )
+    if not str(manifest.get("market_fill_fingerprint") or "").startswith("sha256:"):
+        issues.append("manifest has no market_fill_fingerprint")
+    try:
+        stop_count = int(manifest.get("stop_event_count") or 0)
+    except (TypeError, ValueError):
+        stop_count = -1
+    if stop_count < 0:
+        issues.append("manifest stop_event_count is invalid")
+    elif stop_count > 0 and str(manifest.get("stop_fill_model") or "") != (
+        "mark_trigger_market_open_on_gap_else_trigger_plus_slippage"
+    ):
+        issues.append(
+            "manifest has stop events without the market-aware stop fill model"
+        )
+    return issues
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -307,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"target ledger not found: {args.targets_file}")
     manifest = json.loads(args.manifest_file.read_text(encoding="utf-8"))
     spec = str(manifest.get("tracked_spec") or "")
+    execution_model_issues = _manifest_execution_model_issues(manifest)
     expected_spec = profile.spec
     end_date = str(manifest.get("end_date") or "")
     if not end_date:
@@ -332,7 +379,12 @@ def main(argv: list[str] | None = None) -> int:
 
     comparison = _compare_target_ledgers(frozen, replay)
     execution_passed = execution_issues is not None and not execution_issues
-    passed = bool(comparison["passed"]) and spec == expected_spec and execution_passed
+    passed = (
+        bool(comparison["passed"])
+        and spec == expected_spec
+        and execution_passed
+        and not execution_model_issues
+    )
     payload = {
         "spec": spec,
         "expected_spec": expected_spec,
@@ -343,6 +395,7 @@ def main(argv: list[str] | None = None) -> int:
         "latest_action_execution_issues": (
             ["execution artifacts were not rebuilt"] if execution_issues is None else execution_issues
         ),
+        "execution_model_issues": execution_model_issues,
         "passed": passed,
     }
     output = ensure_dir(args.json_out.parent)
@@ -366,7 +419,9 @@ def main(argv: list[str] | None = None) -> int:
         print("  ❌ execution: replay artifacts were not rebuilt")
     if spec != expected_spec:
         print(f"  ❌ manifest spec {spec!r} != {expected_spec!r}")
-        print(f"  结论: {'一致（同一套冻结信号计算）' if passed else '不一致，必须停下排查'}")
+    for issue in execution_model_issues:
+        print(f"  ❌ execution model: {issue}")
+    print(f"  结论: {'一致（同一套冻结信号计算）' if passed else '不一致，必须停下排查'}")
     return 0 if passed else 1
 
 

@@ -48,7 +48,8 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 刷新 Bitget mark → 生成当前 profile 账本 → 数据/信号/venue 审计 → 按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| `com.atlas20.derivatives-refresh` | **08:35、08:55**、15:05、21:05、03:05 | 非交易刷新：Bitget mark/funding → LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:55 在 08:35 receipt 仍新鲜时 no-op，00:50 UTC 后不再启动长 prepare | `~/Library/Logs/atlas20-derivatives-refresh.log` |
+| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 优先复用 08:35/08:55 的新鲜 prepare receipt；否则 fail-closed 回退完整刷新链。按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
 | `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
@@ -107,6 +108,31 @@ bar。下载器会在严格审计前做一次有上限的条件等待：
 
 2026-11-14 的失败是交易所发布延迟，而不是信号或下单逻辑错误。修复不会放宽 mark 完整性，
 也不会在数据缺失时下单。
+
+### 1.1.1 01:05 执行前置准备（prepare receipt）
+
+01:05 是策略时钟，不是“开始下载 88 个合约并重跑 54 天回测”的时钟。为避免把 5-10 分钟
+的数据/审计工作变成 01:10 之后的成交，正常路径改为：
+
+```text
+08:35 北京  prepare: data + LS104 signal + audit-data-chain
+            + audit-data-ls104 + audit-symbols-ls104 + audit-signal-ls104
+            -> reports/ls45_live_g175_live/prepared.json
+08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op
+09:05 北京  execute: 只接受 receipt 仍新鲜（默认 <= 30 分钟）、
+            manifest/targets/data/market-fill 指纹与 audit 文件哈希全部一致；
+            否则回退完整链，绝不使用过期 receipt
+```
+
+00:50 UTC 之后 prepare 不再启动新的长任务，避免持有 `data/derivatives_execution.lock`
+跨过 01:05。08:35 prepare 会先等待 `data/.daily-refresh.lock` 释放并确认 panel 已到
+最近完成日，再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它
+完成而不是读取半成品。若当天 08:35/08:55 都失败，09:05 会走完整链并接受相应延迟；
+这是安全回退，不是正常路径。
+
+2026-11-15 首次 LS104 bootstrap 的真实成交约 **01:10:59 UTC**；根因是当天 01:05 才启动
+mark/funding 下载、54 天账本重建和 `audit-data-chain`，不是信号本身偏离。该事实保留在
+RESEARCH 记录中，不回写成 01:05。
 
 ### 1.2 Ubuntu（可选，不能与 macOS 同时跑）
 
@@ -544,7 +570,7 @@ make audit-live-ls104
 | 对账 | `reports/ls45_live_g175_live/audit.json` | `hard_failures = 0` |
 | 巡检 | `reports/ls45_live_g175_live/health.json` | `issues` 为空 |
 | journal | `reports/ls45_live_g175_live/journal.csv` | 每日一行；同日重跑覆盖 |
-| 数据覆盖 | `reports/ls45_live_g175/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 的 2h provider gaps 单独查看，不能和 live OOS 覆盖混为一谈 |
+| 数据覆盖 | `reports/ls45_live_g175/manifest.json` | 当前 OOS `mark_coverage.missing_hours = 0`，mark 新鲜 ≤ 30h；历史 warmup 缺口已由 `repair_bitget_mark_gaps.py` 修到 0（87 个合约，25,555 → 0），不能和 live OOS 覆盖混为一谈 |
 | 空头止损 | `audit-live` 输出 | 所有空头必须有 `stop_loss` |
 | funding | Bitget `position-history.totalFunding` + journal | 当前持仓每日只记 `本次累计 - 上次累计`；平仓日从 position history 取最终累计并扣除上次基线；同一天多次开平分开归属；同日 retry 不得把已有 funding 覆盖成 0 |
 

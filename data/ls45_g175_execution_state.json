@@ -26,10 +26,11 @@
       "near": -0.125,
       "zcash": -0.125
     },
-    "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930"
+    "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930",
+    "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
   },
-  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-  "last_run_at": "2026-11-15T14:27:26.859530+00:00",
+  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+  "last_run_at": "2026-11-16T01:35:20.657605+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
@@ -488,7 +489,25 @@
       "mode": "protect_only",
       "ran_at": "2026-11-15T14:27:26.859530+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "execution",
+      "ran_at": "2026-11-16T01:22:57.310668+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "protect_only",
+      "ran_at": "2026-11-16T01:35:20.657605+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-15T14:27:08.768684+00:00"
+  "stop_reconciliation_through": "2026-11-16T01:35:09.464257+00:00",
+  "telegram_sent_at": "2026-11-16T01:22:57.310668+00:00",
+  "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16"
 }

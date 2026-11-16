@@ -24,6 +24,7 @@ DEFAULT_OUTPUT_DIR = "reports/ls45_live_g125"
 LS104_OUTPUT_DIR = "reports/ls45_live_g175"
 DEFAULT_RAW_DIR = "data/raw/bitget_derivatives/merged_oos_20261112"
 DEFAULT_WARMUP_DIR = "data/raw/bitget_derivatives/merged_20261009"
+DEFAULT_WARMUP_MARKET_DIR = "data/raw/bitget_derivatives/merged_market_20261009"
 DEFAULT_START = "2026-09-22"
 DEFAULT_WARMUP_START = "2021-01-01"
 
@@ -43,6 +44,7 @@ def build_command(
     config: str = "config/base.yaml",
     output_dir: str | None = None,
     track: str = "ls45-g125",
+    allow_final_provisional_fill: bool = False,
 ) -> list[str]:
     """Return the exact shadow-runner command for the selected live profile."""
 
@@ -73,6 +75,11 @@ def build_command(
         DEFAULT_RAW_DIR,
         "--warmup-raw-dir",
         DEFAULT_WARMUP_DIR,
+        "--market-raw-dir",
+        DEFAULT_RAW_DIR,
+        "--warmup-market-raw-dir",
+        DEFAULT_WARMUP_MARKET_DIR,
+        "--require-market-fills",
         "--start-date",
         DEFAULT_START,
         "--warmup-start",
@@ -107,6 +114,8 @@ def build_command(
         "--output-dir",
         resolved_output,
     ]
+    if allow_final_provisional_fill:
+        command.append("--allow-final-provisional-fill")
     if normalized_end is not None:
         command.extend(["--end-date", normalized_end])
     return command
@@ -122,6 +131,11 @@ def main() -> int:
         choices=("ls45-g125", "ls104-g175-m090"),
         default="ls45-g125",
     )
+    parser.add_argument(
+        "--allow-final-provisional-fill",
+        action="store_true",
+        help="allow the newest signal to use the last observed bar before 01:00 publishes",
+    )
     args = parser.parse_args()
     try:
         command = build_command(
@@ -129,6 +143,7 @@ def main() -> int:
             config=args.config,
             output_dir=args.output_dir,
             track=args.track,
+            allow_final_provisional_fill=bool(args.allow_final_provisional_fill),
         )
     except ValueError as exc:
         parser.error(str(exc))
