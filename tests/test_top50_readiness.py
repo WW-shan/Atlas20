@@ -129,3 +129,117 @@ def test_rank_current_candidates_uses_production_point_in_time_builder(tmp_path)
     assert ranked["universe_rank"].tolist() == list(range(1, 61))
     assert ranked["coin_id"].tolist()[:3] == ["coin-01", "coin-02", "coin-03"]
     assert "coin-61" not in set(ranked["coin_id"])
+
+
+def _ohlc(times: list[str]) -> pd.DataFrame:
+    index = pd.to_datetime(times, utc=True)
+    return pd.DataFrame(
+        {
+            "open_time": index,
+            "open": 1.0,
+            "high": 1.1,
+            "low": 0.9,
+            "close": 1.0,
+        }
+    )
+
+
+def test_panel_coverage_rejects_missing_completed_day() -> None:
+    from atlas20.derivatives.top50_readiness import check_panel_history
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-03"], utc=True),
+            "coin_id": ["bitcoin", "bitcoin"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 10.0],
+            "market_cap": [100.0, 100.0],
+        }
+    )
+
+    result = check_panel_history(panel, coin_id="bitcoin", latest_day=date(2026, 1, 3))
+
+    assert result.missing_intervals == 1
+    assert any("missing CMC day 2026-01-02" in item for item in result.failures)
+
+
+def test_mark_coverage_rejects_interior_gap(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_mark_coverage
+
+    path = tmp_path / "BTC_mark.csv"
+    _ohlc(
+        [
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T01:00:00Z",
+            "2026-01-01T03:00:00Z",
+        ]
+    ).to_csv(path, index=False)
+
+    result = check_mark_coverage(
+        path,
+        start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        required_end=pd.Timestamp("2026-01-01T04:00:00Z"),
+    )
+
+    assert result.missing_intervals == 1
+    assert any("missing hour 2026-01-01T02:00:00+00:00" in item for item in result.failures)
+
+
+def test_market_coverage_requires_one_usable_floor_bar_per_execution_day(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_execution_coverage
+
+    path = tmp_path / "BTC_market.csv"
+    _ohlc(["2026-01-01T01:00:00Z", "2026-01-03T01:00:00Z"]).to_csv(path, index=False)
+
+    result = check_market_execution_coverage(
+        path,
+        required_first_day=date(2026, 1, 1),
+        end_day=date(2026, 1, 3),
+    )
+
+    assert result.missing_intervals == 1
+    assert any("2026-01-02" in item for item in result.failures)
+
+
+def test_market_alignment_rejects_an_inside_timestamp_without_mark(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_alignment
+
+    mark = tmp_path / "BTC_mark.csv"
+    market = tmp_path / "BTC_market.csv"
+    _ohlc(
+        ["2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z", "2026-01-01T03:00:00Z"]
+    ).to_csv(mark, index=False)
+    _ohlc(
+        ["2026-01-01T01:00:00Z", "2026-01-01T02:30:00Z", "2026-01-01T03:00:00Z"]
+    ).to_csv(market, index=False)
+
+    result = check_market_alignment(market, (mark,))
+
+    assert result.missing_intervals == 1
+    assert any("2026-01-01T02:30:00+00:00" in item for item in result.failures)
+
+
+def test_funding_coverage_uses_the_declared_contract_interval(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_funding_coverage
+
+    path = tmp_path / "BTC_funding.csv"
+    pd.DataFrame(
+        {
+            "funding_time": [
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T04:00:00Z",
+                "2026-01-01T12:00:00Z",
+            ],
+            "funding_rate": [0.0001, 0.0001, 0.0001],
+        }
+    ).to_csv(path, index=False)
+
+    result = check_funding_coverage(
+        path,
+        required_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        required_end=pd.Timestamp("2026-01-01T12:00:00Z"),
+        interval_hours=4.0,
+    )
+
+    assert result.missing_intervals == 1
+    assert any("irregular funding interval" in item for item in result.failures)
