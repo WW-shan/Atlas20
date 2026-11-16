@@ -92,25 +92,22 @@ def build_backfill_commands(
     *,
     session: ReadinessSession,
     selection: Top50Selection,
-    blocked_members: set[str],
+    warmup_members: set[str],
+    live_members: set[str],
     python: str,
     oos_start: pd.Timestamp,
     warmup_end: pd.Timestamp,
     end: pd.Timestamp,
 ) -> list[list[str]]:
-    """Return the exact existing-tool commands for mapped blocked members."""
+    """Return existing-tool commands only for the evidence layers that failed."""
 
     selected_ids = {member.coin_id for member in selection.members}
-    unknown = set(blocked_members).difference(selected_ids)
+    unknown = (set(warmup_members) | set(live_members)).difference(selected_ids)
     if unknown:
         raise ValueError(
-            "blocked_members are not selected mapped members: "
+            "backfill members are not selected mapped members: "
             + ", ".join(sorted(unknown))
         )
-    blocked = sorted(blocked_members)
-    if not blocked:
-        return []
-    symbols = ",".join(blocked)
     downloader = [
         python,
         str(Path("scripts") / "download_bitget_derivatives_data.py"),
@@ -119,73 +116,111 @@ def build_backfill_commands(
     ]
     warmup_end_date = _as_utc(warmup_end).date().isoformat()
     live_end_date = (_as_utc(end) + pd.Timedelta(days=1)).date().isoformat()
-    return [
-        [
-            *downloader,
-            "--output-dir",
-            str(session.warmup_mark_dir),
-            "--start",
-            _as_utc(session.warmup_start).date().isoformat(),
-            "--end",
-            warmup_end_date,
-            "--types",
-            "mark",
-            "--skip-funding",
-            "--symbols",
-            symbols,
-        ],
-        [
-            *downloader,
-            "--output-dir",
-            str(session.warmup_market_dir),
-            "--start",
-            _as_utc(session.warmup_start).date().isoformat(),
-            "--end",
-            warmup_end_date,
-            "--types",
-            "market",
-            "--skip-funding",
-            "--symbols",
-            symbols,
-        ],
-        [
-            *downloader,
-            "--output-dir",
-            str(session.raw_dir),
-            "--start",
-            _as_utc(oos_start).date().isoformat(),
-            "--end",
-            live_end_date,
-            "--types",
-            "mark,market",
-            "--symbols",
-            symbols,
-        ],
-        [
-            python,
-            str(Path("scripts") / "repair_bitget_mark_gaps.py"),
-            "--raw-dir",
-            str(session.warmup_mark_dir),
-            "--start",
-            _as_utc(session.warmup_start).date().isoformat(),
-            "--end",
-            warmup_end_date,
-            "--symbols",
-            symbols,
-        ],
-        [
-            python,
-            str(Path("scripts") / "repair_bitget_mark_gaps.py"),
-            "--raw-dir",
-            str(session.raw_dir),
-            "--start",
-            _as_utc(oos_start).date().isoformat(),
-            "--end",
-            live_end_date,
-            "--symbols",
-            symbols,
-        ],
-    ]
+    commands: list[list[str]] = []
+    if warmup_members:
+        symbols = ",".join(sorted(warmup_members))
+        commands.extend(
+            [
+                [
+                    *downloader,
+                    "--output-dir",
+                    str(session.warmup_mark_dir),
+                    "--start",
+                    _as_utc(session.warmup_start).date().isoformat(),
+                    "--end",
+                    warmup_end_date,
+                    "--types",
+                    "mark",
+                    "--skip-funding",
+                    "--symbols",
+                    symbols,
+                ],
+                [
+                    *downloader,
+                    "--output-dir",
+                    str(session.warmup_market_dir),
+                    "--start",
+                    _as_utc(session.warmup_start).date().isoformat(),
+                    "--end",
+                    warmup_end_date,
+                    "--types",
+                    "market",
+                    "--skip-funding",
+                    "--symbols",
+                    symbols,
+                ],
+                [
+                    python,
+                    str(Path("scripts") / "repair_bitget_mark_gaps.py"),
+                    "--raw-dir",
+                    str(session.warmup_mark_dir),
+                    "--start",
+                    _as_utc(session.warmup_start).date().isoformat(),
+                    "--end",
+                    warmup_end_date,
+                    "--symbols",
+                    symbols,
+                ],
+            ]
+        )
+    if live_members:
+        symbols = ",".join(sorted(live_members))
+        commands.extend(
+            [
+                [
+                    *downloader,
+                    "--output-dir",
+                    str(session.raw_dir),
+                    "--start",
+                    _as_utc(oos_start).date().isoformat(),
+                    "--end",
+                    live_end_date,
+                    "--types",
+                    "mark,market",
+                    "--symbols",
+                    symbols,
+                ],
+                [
+                    python,
+                    str(Path("scripts") / "repair_bitget_mark_gaps.py"),
+                    "--raw-dir",
+                    str(session.raw_dir),
+                    "--start",
+                    _as_utc(oos_start).date().isoformat(),
+                    "--end",
+                    live_end_date,
+                    "--symbols",
+                    symbols,
+                ],
+            ]
+        )
+    return commands
+
+
+def _backfill_scopes(
+    payload: dict[str, object],
+    blocked: set[str],
+) -> tuple[set[str], set[str]]:
+    warmup: set[str] = set()
+    live: set[str] = set()
+    members = payload.get("members")
+    if not isinstance(members, list):
+        return warmup, live
+    for item in members:
+        if not isinstance(item, dict):
+            continue
+        coin_id = str(item.get("coin_id") or "")
+        if coin_id not in blocked:
+            continue
+        details = item.get("failure_details")
+        rendered = (
+            [str(value) for value in details] if isinstance(details, list) else []
+        )
+        if any(value.startswith(("warmup_mark:", "warmup_market:")) for value in rendered):
+            warmup.add(coin_id)
+        if any(value.startswith(("live_mark:", "live_market:", "funding:")) for value in rendered):
+            live.add(coin_id)
+    return warmup, live
 
 
 def _run_subprocess(command: list[str], *, cwd: Path) -> int:
@@ -248,10 +283,12 @@ def run_readiness_cycle(
     )
     commands: list[list[str]] = []
     if backfill and blocked and not dry_run:
+        warmup_members, live_members = _backfill_scopes(payload, blocked)
         commands = build_backfill_commands(
             session=session,
             selection=selection,
-            blocked_members=blocked,
+            warmup_members=warmup_members,
+            live_members=live_members,
             python=sys.executable,
             oos_start=session.oos_start,
             warmup_end=session.warmup_end,
@@ -263,9 +300,10 @@ def run_readiness_cycle(
                 raise RuntimeError(
                     f"top50 backfill command failed ({completed}): {' '.join(command)}"
                 )
-        payload, blocked = assess_fn(
-            **_assessment_kwargs(session, selection=selection, now=moment)
-        )
+        if commands:
+            payload, blocked = assess_fn(
+                **_assessment_kwargs(session, selection=selection, now=moment)
+            )
 
     previous = load_state(session.state_path)
     initialized = bool(previous.get("initialized"))

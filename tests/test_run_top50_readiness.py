@@ -100,7 +100,8 @@ def test_backfill_planner_uses_existing_downloaders_for_only_blocked_members(
     commands = build_backfill_commands(
         session=_session(tmp_path),
         selection=_selection(2),
-        blocked_members={"coin-2"},
+        warmup_members={"coin-2"},
+        live_members={"coin-2"},
         python="/venv/python",
         oos_start=pd.Timestamp("2026-09-01", tz="UTC"),
         warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
@@ -139,7 +140,8 @@ def test_backfill_planner_rejects_an_unselected_member(tmp_path) -> None:
         build_backfill_commands(
             session=_session(tmp_path),
             selection=_selection(2),
-            blocked_members={"bitcoin"},
+            warmup_members={"bitcoin"},
+            live_members=set(),
             python="/venv/python",
             oos_start=pd.Timestamp("2026-09-01", tz="UTC"),
             warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
@@ -241,7 +243,7 @@ def test_cycle_backfills_once_then_reassesses(tmp_path) -> None:
     )
 
     assert result["payload"]["ready"] is True
-    assert len(commands) == 5
+    assert len(commands) == 2
     assert not assessments
 
 
@@ -316,3 +318,22 @@ def test_main_skips_when_the_execution_lock_is_held(tmp_path) -> None:
         lock.release()
 
     assert code == 0
+
+
+def test_backfill_planner_live_only_does_not_rebuild_warmup(tmp_path) -> None:
+    from scripts.run_top50_readiness import build_backfill_commands
+
+    commands = build_backfill_commands(
+        session=_session(tmp_path),
+        selection=_selection(2),
+        warmup_members=set(),
+        live_members={"coin-2"},
+        python="/venv/python",
+        oos_start=pd.Timestamp("2026-09-01", tz="UTC"),
+        warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
+        end=pd.Timestamp("2026-11-17", tz="UTC"),
+    )
+
+    assert len(commands) == 2
+    assert all("warmup" not in " ".join(command) for command in commands)
+    assert all("--symbols coin-2" in " ".join(command) for command in commands)
