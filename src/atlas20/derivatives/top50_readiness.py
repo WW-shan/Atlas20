@@ -19,6 +19,12 @@ from typing import Any
 import pandas as pd
 
 from atlas20.config import load_config
+from atlas20.derivatives.data_audit import (
+    DataAuditReport,
+    audit_derivatives_data,
+    required_last_mark_time,
+)
+from atlas20.logging_utils import atomic_write_text
 from atlas20.universe.builder import build_rebalance_universe, prepare_market_data
 
 TOP50_SIZE = 50
@@ -601,6 +607,412 @@ def check_funding_coverage(
     )
 
 
+def write_scoped_audit_inputs(
+    *,
+    output_dir: Path,
+    selection: Top50Selection,
+    panel_path: Path,
+    symbol_map_path: Path,
+) -> tuple[Path, Path]:
+    """Write the exact panel and map slices consumed by the existing audit."""
+
+    wanted = {member.coin_id for member in selection.members}
+    panel = pd.read_csv(panel_path)
+    mapping = pd.read_csv(symbol_map_path)
+    for label, frame in (("panel", panel), ("symbol map", mapping)):
+        if "coin_id" not in frame.columns:
+            raise ValueError(f"{label} has no coin_id column")
+        observed = set(frame["coin_id"].astype(str))
+        missing = wanted.difference(observed)
+        if missing:
+            raise ValueError(
+                f"scoped {label} does not cover selected member(s): "
+                + ", ".join(sorted(missing))
+            )
+    scoped_panel = panel.loc[panel["coin_id"].astype(str).isin(wanted)].copy()
+    scoped_map = mapping.loc[mapping["coin_id"].astype(str).isin(wanted)].copy()
+    if scoped_map["coin_id"].astype(str).duplicated().any():
+        raise ValueError("scoped symbol map contains a duplicate coin_id")
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    panel_out = output_dir / "panel_top50.csv"
+    map_out = output_dir / "symbol_map_top50.csv"
+    scoped_panel.to_csv(panel_out, index=False)
+    scoped_map.to_csv(map_out, index=False)
+    return panel_out, map_out
+
+
+def audit_selected_top50(
+    *,
+    raw_dir: Path,
+    scoped_panel: Path,
+    scoped_symbol_map: Path,
+    selection: Top50Selection,
+    now: pd.Timestamp,
+) -> DataAuditReport:
+    """Run the existing derivatives audit over only the selected members."""
+
+    assets = {member.coin_id for member in selection.members}
+    return audit_derivatives_data(
+        raw_dir,
+        scoped_panel,
+        scoped_symbol_map,
+        now=_utc_stamp(now).to_pydatetime(),
+        expected_panel_day=selection.as_of,
+        min_panel_assets=len(selection.members),
+        required_leverage_assets=assets,
+        required_funding_assets=assets,
+        required_leverage=4.0,
+        require_all_funding_fresh=True,
+    )
+
+
+def audit_failures_by_member(
+    report: DataAuditReport,
+    selection: Top50Selection,
+) -> dict[str, list[str]]:
+    """Attribute audit failures to selected members or to the global inputs."""
+
+    failures: dict[str, list[str]] = {
+        member.coin_id: [] for member in selection.members
+    }
+    failures["global"] = []
+    selected = set(failures).difference({"global"})
+    for check in report.checks:
+        if bool(check.get("passed")):
+            continue
+        name = str(check.get("name") or "")
+        detail = str(check.get("detail") or "")
+        rendered = f"{name}: {detail}"
+        parts = name.split(".", 2)
+        asset = parts[1] if len(parts) == 3 and parts[0] in {
+            "contracts",
+            "funding",
+            "marks",
+        } else ""
+        if asset in selected:
+            failures[asset].append(rendered)
+        else:
+            failures["global"].append(rendered)
+    if not report.passed and not report.checks:
+        failures["global"].append("audit failed without detailed checks")
+    return failures
+
+
+def _coverage_payload(coverage: CoverageEvidence) -> dict[str, object]:
+    return {
+        "first": coverage.first,
+        "last": coverage.last,
+        "rows": coverage.rows,
+        "missing_intervals": coverage.missing_intervals,
+        "failures": list(coverage.failures),
+    }
+
+
+def _contract_open_day(map_row: pd.Series | dict[str, object]) -> date | None:
+    raw = map_row.get("open_time")
+    try:
+        stamp = pd.Timestamp(raw)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(stamp):
+        return None
+    return _utc_stamp(stamp).date()
+
+
+def collect_member_evidence(
+    *,
+    member: SelectionMember,
+    map_row: pd.Series | dict[str, object],
+    panel: pd.DataFrame,
+    warmup_mark_path: Path,
+    warmup_market_path: Path,
+    live_mark_path: Path,
+    live_market_path: Path,
+    funding_path: Path,
+    warmup_start: pd.Timestamp,
+    warmup_end: pd.Timestamp,
+    oos_start: pd.Timestamp,
+    latest_signal_day: date,
+    now: pd.Timestamp,
+) -> dict[str, object]:
+    """Collect JSON-safe evidence for one mapped Top50 member."""
+
+    failures: list[str] = []
+    open_day = _contract_open_day(map_row)
+    if open_day is None:
+        failures.append("contract open_time is missing or invalid")
+        open_day = min(_utc_stamp(warmup_start).date(), latest_signal_day)
+    warmup_expected_day = max(_utc_stamp(warmup_start).date(), open_day)
+    live_expected_day = max(_utc_stamp(oos_start).date(), open_day)
+    required_last = required_last_mark_time(_utc_stamp(now).to_pydatetime())
+    live_end = required_last + pd.Timedelta(hours=1)
+
+    cmc = check_panel_history(
+        panel,
+        coin_id=member.coin_id,
+        latest_day=latest_signal_day,
+    )
+    warmup_mark = check_mark_coverage(
+        warmup_mark_path,
+        start=pd.Timestamp(warmup_expected_day, tz="UTC"),
+        required_end=_utc_stamp(warmup_end),
+        now=_utc_stamp(now),
+    )
+    live_mark = check_mark_coverage(
+        live_mark_path,
+        start=pd.Timestamp(live_expected_day, tz="UTC"),
+        required_end=live_end,
+        now=_utc_stamp(now),
+    )
+    warmup_market = check_market_execution_coverage(
+        warmup_market_path,
+        required_first_day=warmup_expected_day,
+        end_day=_utc_stamp(warmup_end).date(),
+        now=_utc_stamp(now),
+    )
+    live_market = check_market_execution_coverage(
+        live_market_path,
+        required_first_day=live_expected_day,
+        end_day=latest_signal_day + pd.Timedelta(days=1),
+        now=_utc_stamp(now),
+    )
+    warmup_alignment = check_market_alignment(warmup_market_path, (warmup_mark_path,))
+    live_alignment = check_market_alignment(
+        live_market_path, (warmup_mark_path, live_mark_path)
+    )
+    try:
+        interval_hours = float(map_row.get("fund_interval"))
+    except (TypeError, ValueError):
+        interval_hours = float("nan")
+    funding = check_funding_coverage(
+        funding_path,
+        required_start=pd.Timestamp(live_expected_day, tz="UTC"),
+        required_end=required_last,
+        interval_hours=interval_hours,
+        now=_utc_stamp(now),
+    )
+
+    evidence = {
+        "cmc": cmc,
+        "warmup_mark": warmup_mark,
+        "warmup_market": warmup_market,
+        "live_mark": live_mark,
+        "live_market": live_market,
+        "funding": funding,
+    }
+    for label, coverage in evidence.items():
+        failures.extend(f"{label}: {item}" for item in coverage.failures)
+    failures.extend(f"warmup_market_alignment: {item}" for item in warmup_alignment.failures)
+    failures.extend(f"live_market_alignment: {item}" for item in live_alignment.failures)
+
+    return {
+        "final_rank": member.final_rank,
+        "original_rank": member.original_rank,
+        "coin_id": member.coin_id,
+        "symbol": member.symbol,
+        "bitget_symbol": member.bitget_symbol,
+        "panel_symbol": member.panel_symbol,
+        "contract_open_time": None if open_day is None else open_day.isoformat(),
+        "cmc": _coverage_payload(cmc),
+        "warmup_mark": _coverage_payload(warmup_mark),
+        "warmup_market": _coverage_payload(warmup_market),
+        "live_mark": _coverage_payload(live_mark),
+        "live_market": _coverage_payload(live_market),
+        "funding": _coverage_payload(funding),
+        "warmup_market_alignment": _coverage_payload(warmup_alignment),
+        "live_market_alignment": _coverage_payload(live_alignment),
+        "audit_failures": [],
+        "status": "READY" if not failures else "BLOCKED",
+        "failure_details": failures,
+    }
+
+
+def _payload_fingerprint(payload: dict[str, object]) -> str:
+    canonical_payload = {
+        key: value
+        for key, value in payload.items()
+        if key not in {"fingerprint", "generated_at"}
+    }
+    canonical = json.dumps(
+        canonical_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def assess_selection(
+    *,
+    selection: Top50Selection,
+    panel_path: Path,
+    symbol_map_path: Path,
+    raw_dir: Path,
+    warmup_mark_dir: Path,
+    warmup_market_dir: Path,
+    reports_dir: Path,
+    warmup_start: pd.Timestamp,
+    warmup_end: pd.Timestamp,
+    oos_start: pd.Timestamp,
+    latest_signal_day: date,
+    now: pd.Timestamp,
+) -> tuple[dict[str, object], set[str]]:
+    """Collect member evidence, apply the existing audit and build Top20."""
+
+    panel = pd.read_csv(panel_path)
+    mapping = pd.read_csv(symbol_map_path)
+    wanted = {member.coin_id for member in selection.members}
+    mapping = mapping.loc[mapping["coin_id"].astype(str).isin(wanted)].copy()
+    if set(mapping["coin_id"].astype(str)) != wanted:
+        raise ValueError("symbol map does not cover every selected member")
+    mapping = mapping.set_index("coin_id", drop=False)
+    scoped_panel, scoped_map = write_scoped_audit_inputs(
+        output_dir=Path(reports_dir) / "audit_inputs",
+        selection=selection,
+        panel_path=panel_path,
+        symbol_map_path=symbol_map_path,
+    )
+    audit_report = audit_selected_top50(
+        raw_dir=raw_dir,
+        scoped_panel=scoped_panel,
+        scoped_symbol_map=scoped_map,
+        selection=selection,
+        now=now,
+    )
+    audit_failures = audit_failures_by_member(audit_report, selection)
+    members: list[dict[str, object]] = []
+    for member in selection.members:
+        map_row = mapping.loc[member.coin_id]
+        symbol = member.bitget_symbol
+        evidence = collect_member_evidence(
+            member=member,
+            map_row=map_row,
+            panel=panel,
+            warmup_mark_path=Path(warmup_mark_dir) / "candles" / f"{symbol}_mark.csv",
+            warmup_market_path=Path(warmup_market_dir)
+            / "candles"
+            / f"{symbol}_market.csv",
+            live_mark_path=Path(raw_dir) / "candles" / f"{symbol}_mark.csv",
+            live_market_path=Path(raw_dir) / "candles" / f"{symbol}_market.csv",
+            funding_path=Path(raw_dir) / "funding" / f"{member.coin_id}.csv",
+            warmup_start=warmup_start,
+            warmup_end=warmup_end,
+            oos_start=oos_start,
+            latest_signal_day=latest_signal_day,
+            now=now,
+        )
+        member_audit_failures = list(audit_failures.get(member.coin_id, []))
+        global_audit_failures = list(audit_failures.get("global", []))
+        audit_detail = member_audit_failures + global_audit_failures
+        evidence["audit_failures"] = audit_detail
+        if audit_detail:
+            details = list(evidence["failure_details"])
+            details.extend(f"audit: {item}" for item in audit_detail)
+            evidence["failure_details"] = details
+            evidence["status"] = "BLOCKED"
+        members.append(evidence)
+
+    top20 = [dict(item) for item in members[:TOP20_SIZE]]
+    ready = (
+        len(members) == TOP50_SIZE
+        and len(top20) == TOP20_SIZE
+        and all(item["status"] == "READY" for item in members)
+    )
+    audit_payload = audit_report.as_dict()
+    audit_summary = {
+        "passed": audit_report.passed,
+        "hard_failures": list(audit_report.hard_failures),
+        "warnings": list(audit_report.warnings),
+        "provenance": dict(audit_report.provenance),
+        "summary": dict(audit_report.summary),
+    }
+    payload: dict[str, object] = {
+        "as_of": selection.as_of.isoformat(),
+        "generated_at": _utc_stamp(now).isoformat(),
+        "ready": ready,
+        "candidate_count": selection.candidate_count,
+        "source_fingerprint": selection.source_fingerprint,
+        "latest_signal_day": latest_signal_day.isoformat(),
+        "warmup_start": _utc_stamp(warmup_start).isoformat(),
+        "warmup_end": _utc_stamp(warmup_end).isoformat(),
+        "oos_start": _utc_stamp(oos_start).isoformat(),
+        "members": members,
+        "top20": top20,
+        "skipped": [
+            {
+                "original_rank": item.original_rank,
+                "coin_id": item.coin_id,
+                "symbol": item.symbol,
+                "reason": item.reason,
+            }
+            for item in selection.skipped
+        ],
+        "audit": audit_summary,
+        "audit_detail": audit_payload,
+    }
+    blocked = {
+        str(item["coin_id"])
+        for item in members
+        if item["status"] != "READY"
+    }
+    return payload, blocked
+
+
+def publish_readiness_payload(
+    *,
+    reports_dir: Path,
+    payload: dict[str, object],
+    audit_payload: dict[str, object],
+) -> dict[str, Path]:
+    """Atomically publish current evidence and only current-day ready pointers."""
+
+    body = dict(payload)
+    members = body.get("members")
+    top20 = body.get("top20")
+    if not isinstance(members, list) or not isinstance(top20, list):
+        raise ValueError("readiness payload must contain members and top20 lists")
+    if bool(body.get("ready")):
+        if len(members) != TOP50_SIZE:
+            raise ValueError("ready payload must contain exactly 50 members")
+        if len(top20) != TOP20_SIZE:
+            raise ValueError("ready payload must contain exactly 20 top20 members")
+        if any(item.get("status") != "READY" for item in members):
+            raise ValueError("ready payload contains a non-READY member")
+    body["fingerprint"] = _payload_fingerprint(body)
+    text = json.dumps(body, indent=2, sort_keys=True, default=str) + "\n"
+    reports_dir = Path(reports_dir)
+    history = reports_dir / "history" / f"{body['as_of']}.json"
+    latest = reports_dir / "latest.json"
+    top50_path = reports_dir / "top50.csv"
+    top20_path = reports_dir / "top20.csv"
+    audit_path = reports_dir / "audit" / f"{body['as_of']}.json"
+    atomic_write_text(history, text)
+    atomic_write_text(latest, text)
+    atomic_write_text(
+        audit_path,
+        json.dumps(audit_payload, indent=2, sort_keys=True, default=str) + "\n",
+    )
+    pd.DataFrame(members).to_csv(top50_path, index=False)
+    pd.DataFrame(top20).to_csv(top20_path, index=False)
+    paths = {
+        "history": history,
+        "latest": latest,
+        "top50": top50_path,
+        "top20": top20_path,
+        "audit": audit_path,
+        "latest_ready": reports_dir / "latest_ready.json",
+    }
+    if bool(body["ready"]):
+        ready_history = reports_dir / "ready" / f"{body['as_of']}.json"
+        atomic_write_text(ready_history, text)
+        atomic_write_text(paths["latest_ready"], text)
+        paths["ready_history"] = ready_history
+    else:
+        paths["latest_ready"].unlink(missing_ok=True)
+    return paths
+
+
 def rank_current_candidates(
     *,
     config_path: Path,
@@ -653,6 +1065,12 @@ __all__ = [
     "check_market_alignment",
     "check_market_execution_coverage",
     "check_panel_history",
+    "collect_member_evidence",
+    "assess_selection",
+    "audit_failures_by_member",
+    "audit_selected_top50",
+    "publish_readiness_payload",
     "rank_current_candidates",
+    "write_scoped_audit_inputs",
     "select_executable_top50",
 ]
