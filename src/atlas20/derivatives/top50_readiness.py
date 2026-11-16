@@ -31,6 +31,7 @@ from atlas20.universe.builder import build_rebalance_universe, prepare_market_da
 TOP50_SIZE = 50
 TOP20_SIZE = 20
 VENUE_UNAVAILABLE = "VENUE_UNAVAILABLE"
+DUPLICATE_CONTRACT = "DUPLICATE_CONTRACT"
 
 
 @dataclass(frozen=True)
@@ -173,9 +174,15 @@ def select_executable_top50(
             )
             continue
         if venue_symbol in used_symbols:
-            raise ValueError(
-                f"duplicate Bitget contract {venue_symbol} in executable top{size}"
+            skipped.append(
+                SelectionSkip(
+                    original_rank=original_rank,
+                    coin_id=coin_id,
+                    symbol=symbol,
+                    reason=DUPLICATE_CONTRACT,
+                )
             )
+            continue
         used_symbols.add(venue_symbol)
         members.append(
             SelectionMember(
@@ -417,7 +424,20 @@ def check_mark_coverage(
     start_utc = _utc_stamp(start)
     end_utc = _utc_stamp(required_end)
     if end_utc <= start_utc:
-        raise ValueError("required_end must be after start")
+        failures.append(
+            f"required completed mark start {start_utc.isoformat()} is not before "
+            f"required end {end_utc.isoformat()}"
+        )
+        if times.empty:
+            return CoverageEvidence(None, None, rows, 0, tuple(failures))
+        unique_times = times.drop_duplicates()
+        return CoverageEvidence(
+            unique_times.min().isoformat(),
+            unique_times.max().isoformat(),
+            rows,
+            0,
+            tuple(failures),
+        )
     if times.empty:
         return CoverageEvidence(
             None,
@@ -469,6 +489,19 @@ def check_market_execution_coverage(
             tuple(failures + ["empty market file"]),
         )
     unique_times = times.drop_duplicates()
+    if required_first_day > end_day:
+        failures.append(
+            "market execution start "
+            f"{required_first_day.isoformat()} is after checked-through "
+            f"{end_day.isoformat()}"
+        )
+        return CoverageEvidence(
+            unique_times.min().isoformat(),
+            unique_times.max().isoformat(),
+            rows,
+            0,
+            tuple(failures),
+        )
     if unique_times.min().date() > required_first_day:
         failures.append(
             "market starts "
@@ -598,6 +631,11 @@ def check_market_file_range(
     unique_times = times.drop_duplicates()
     first_day = unique_times.min().date()
     last_day = unique_times.max().date()
+    if required_first_day > required_last_day:
+        failures.append(
+            f"warmup market start {required_first_day} is after required end "
+            f"{required_last_day}"
+        )
     if first_day > required_last_day:
         failures.append(
             f"market starts {first_day}, after required end {required_last_day}"
@@ -696,6 +734,18 @@ def check_funding_coverage(
         failures.append("funding rate exceeds 10% per settlement")
     required_start_ts = _utc_stamp(required_start)
     required_end_ts = _utc_stamp(required_end)
+    if required_end_ts < required_start_ts:
+        failures.append(
+            f"funding required end {required_end_ts.isoformat()} is before "
+            f"required start {required_start_ts.isoformat()}"
+        )
+        return CoverageEvidence(
+            times.min().isoformat(),
+            times.max().isoformat(),
+            len(frame),
+            0,
+            tuple(failures),
+        )
     if now is not None and times.max() > _utc_stamp(now):
         failures.append(f"future funding timestamp {times.max()}")
     missing_settlements = pd.DatetimeIndex([])
@@ -1095,12 +1145,27 @@ def validate_ready_payload(payload: dict[str, object]) -> None:
     audit = payload.get("audit")
     if not isinstance(audit, dict) or audit.get("passed") is not True:
         raise ValueError("ready payload audit did not pass")
+    input_files = payload.get("input_files")
+    if not isinstance(input_files, dict):
+        raise ValueError("ready payload has no input file commitments")
+    for name in ("panel", "metadata", "symbol_map"):
+        digest = input_files.get(name)
+        if (
+            not isinstance(digest, str)
+            or not digest.startswith("sha256:")
+            or len(digest) != 71
+            or any(character not in "0123456789abcdef" for character in digest[7:])
+        ):
+            raise ValueError(
+                f"ready payload has an invalid {name} file commitment"
+            )
 
 
 def assess_selection(
     *,
     selection: Top50Selection,
     panel_path: Path,
+    metadata_path: Path,
     symbol_map_path: Path,
     raw_dir: Path,
     warmup_mark_dir: Path,
@@ -1116,6 +1181,16 @@ def assess_selection(
 
     panel = pd.read_csv(panel_path)
     mapping = pd.read_csv(symbol_map_path)
+    panel_digest = _file_sha256(panel_path)
+    metadata_digest = _file_sha256(metadata_path)
+    symbol_map_digest = _file_sha256(symbol_map_path)
+    if not panel_digest or not metadata_digest or not symbol_map_digest:
+        raise ValueError("cannot fingerprint missing readiness input files")
+    input_files = {
+        "panel": panel_digest,
+        "metadata": metadata_digest,
+        "symbol_map": symbol_map_digest,
+    }
     wanted = {member.coin_id for member in selection.members}
     mapping = mapping.loc[mapping["coin_id"].astype(str).isin(wanted)].copy()
     if set(mapping["coin_id"].astype(str)) != wanted:
@@ -1188,6 +1263,7 @@ def assess_selection(
         "ready": ready,
         "candidate_count": selection.candidate_count,
         "source_fingerprint": selection.source_fingerprint,
+        "input_files": input_files,
         "latest_signal_day": latest_signal_day.isoformat(),
         "warmup_start": _utc_stamp(warmup_start).isoformat(),
         "warmup_end": _utc_stamp(warmup_end).isoformat(),
@@ -1582,9 +1658,16 @@ def reconcile_notification_queue(
         event_type = str(event.get("event") or "")
         coin_id = str(event.get("coin_id") or "")
         member = member_by_coin.get(coin_id)
+        if member is None:
+            if event_type in {
+                "TOP50_ENTER",
+                "TOP50_DATA_READY",
+                "TOP50_DATA_BLOCKED",
+                "TOP20_ENTER",
+            }:
+                pending.pop(key, None)
+            continue
         if event_type in {"TOP50_DATA_READY", "TOP50_DATA_BLOCKED"}:
-            if member is None:
-                continue
             final_status = str(member.get("status") or "BLOCKED")
             final_event = (
                 "TOP50_DATA_READY"
@@ -1604,15 +1687,12 @@ def reconcile_notification_queue(
             if event_type == "TOP20_ENTER" and coin_id not in top20_ids:
                 pending.pop(key, None)
                 continue
-            if member is not None:
-                pending[key] = {
-                    **event,
-                    "symbol": str(member.get("symbol") or ""),
-                    "status": str(member.get("status") or "BLOCKED"),
-                    "details": _render_failure_details(
-                        member.get("failure_details")
-                    ),
-                }
+            pending[key] = {
+                **event,
+                "symbol": str(member.get("symbol") or ""),
+                "status": str(member.get("status") or "BLOCKED"),
+                "details": _render_failure_details(member.get("failure_details")),
+            }
 
 
 def record_notification_result(
@@ -1685,6 +1765,7 @@ def rank_current_candidates(
 
 __all__ = [
     "CoverageEvidence",
+    "DUPLICATE_CONTRACT",
     "EVENTS",
     "TOP20_SIZE",
     "TOP50_SIZE",

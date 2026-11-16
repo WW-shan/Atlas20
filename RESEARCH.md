@@ -6824,9 +6824,10 @@ download_bitget_derivatives_data.py
 
 实际结果：
 
-- 50 个合约、**1901 requests**；
-- 50/50 mark 与 50/50 market 均覆盖 **2026-09-01 00:00Z → 2026-11-16 18:00Z**；
-- 50 个 mark 文件均为 **1843 rows**，50 个 market 文件均为 **1843 rows**，无重复时间戳，
+- 最终增量 refresh 覆盖全部 88 个已映射合约、**177 requests**；
+- Top50 的 50/50 mark 与 50/50 market 均覆盖
+  **2026-09-01 00:00Z → 2026-11-16 21:00Z**；
+- 50 个 mark 文件均为 **1846 rows**，50 个 market 文件均为 **1846 rows**，无重复时间戳，
   mark 小时内部缺口为 0；
 - 原 `repair_bitget_mark_gaps.py`：50/50 为 `0 missing → 0`；
 - exact funding 覆盖：最早起于 **2026-08-13 20:00Z**，最晚首条为 **2026-08-14 00:00Z**，
@@ -6857,10 +6858,12 @@ download_bitget_derivatives_data.py
 #### 4. 指纹、幂等与现有 LS104 隔离
 
 - readiness 数据指纹：
-  `sha256:6b01d18fc7a1fc587e4f41734cfc18a78ee665dfe3c4b6292ec2e79f084c16b4`；
+  `sha256:b16451744fd5c33f89e6575d3d518e1682b525e96032ab59b6a40370d148a9fb`；
 - 指纹现在逐成员提交 warmup mark、warmup market、live mark、live market 与 funding 共
   **250 个原始文件的 SHA-256**；ready payload 同时拒绝重复 coin_id、重复 Bitget 合约、
   非连续 final rank 或与 Top50 前 20 不一致的 Top20；`top50.csv`/`top20.csv` 改为原子写；
+- readiness fingerprint 同时提交完整 `panel_daily.csv`、`metadata.csv` 和 `symbol_map.csv`
+  文件哈希；CMC 历史值、eligibility metadata 或合约映射字节变化都会改变数据身份；
 - 自动回填命令返回非零或直接抛异常时，先把受影响成员写成 `BLOCKED`、发布报告/state 并排队
   Telegram，再向调度器返回失败；不会因为回填进程先失败而丢失新进 Top50 的数据告警；
 - 修复了审计墙钟进入指纹的问题：相同原始文件、相同 `now` 重复运行 fingerprint 不变；
@@ -6881,25 +6884,29 @@ download_bitget_derivatives_data.py
 - 运行时钟若早于 state 的 `last_as_of`，发布被拒绝；dry-run 可回看历史，但真实发布不能倒退。
 - USDT-M 映射只接受 `normal + perpetual + quoteCoin=USDT`；直连 base 为 USDC/交割/offline
   时会继续尝试已登记 alias，而不是错误地把不合格合约固定为不可用。
+- 两个 CMC coin_id 因 rebrand 映射到同一合约时记录 `DUPLICATE_CONTRACT` 并顺延下一名；
+  不会把同一交易标的重复计入 Top50，也不会让整轮 readiness 无报告停机。
 - OHLC 的 `NaN/±inf`、非正价格和非法 high/low 关系均 fail closed；funding 按合约声明的
   4h/8h cadence、listing 后首个结算相位和 boundary 内应存在的 settlement 检查。
+- 新合约尚无任何已完成 live bar 时发布明确 BLOCKED，而不是在 coverage 函数里抛异常；
+  回填失败会同步把 Top50 与 Top20 中同一成员都改成 BLOCKED，避免报告内部状态冲突。
 
 补齐 raw market 后，按现有信号链重建 LS104 manifest：
 
 - `reports/ls45_live_g175/oos_targets.csv` SHA-256 保持 **2ef4e701...**，冻结 target 行不变；
 - `data/ls45_g175_execution_state.json` 与 live journal SHA-256 保持原值；
 - manifest 的 `market_fill_fingerprint` 更新为
-  `sha256:466b1b97fea3dbbc822e73716f499b5223efca169919bf2603f4f9b26f891d3c`；
+  `sha256:a3053054506f0726dddd145badd67a87ad3f1aaee06ec8a5f1cd7715d3a6fe51`；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，**0 differences**；
 - `audit-data-ls104`：**PASS，0 hard failure，0 warning**，data fingerprint
-  `sha256:a344c79829e70f35ab41cbf4ca7543bcf3a27ec8080653f84e0b1d266f878d06`；
+  `sha256:101baa3f3d21a109b419839c1e739962fde82d79bd5b706122277cfdf1fb67e4`；
 - `audit_market_cap_gaps.py`：PASS，32 行均为 `provider_zero_supply`，0 unexplained。
 - `audit-data-chain`：52 PASS / 0 WARN / 0 FAIL；
 - readiness 50 个成员逐一与 venue audit 联结：50/50 均 `long_ok=True`、`short_ok=True`、
   `flip_ok=True`；全量 88 个已映射合约同样通过 4x、long、short、flip；
 - 最终 integrity 补丁后再次用相同输入运行 readiness，指纹稳定为
-  `sha256:6b01d18f...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
-- 最终代码门禁：Python **2688 passed / 1 skipped**，前端 **249 passed**，`make lint`、
+  `sha256:b1645174...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
+- 最终代码门禁：Python **2694 passed / 1 skipped**，前端 **249 passed**，`make lint`、
   `make typecheck`、`make build` 和新模块 strict mypy 全部通过；
 - `audit-accounting-ls104`：**44 PASS / 0 FAIL**；独立事件重放、55 日权益路径与
   1322 小时 gross 路径均与报告一致。
@@ -6916,9 +6923,9 @@ download_bitget_derivatives_data.py
 - Telegram fallback 只在代码层和 schedule contract 中验证，真实 bot 投递仍应在部署后做一次
   受控事件演练；
 - Top50 readiness 是日频收盘后流程，不是盘中上新扫描；
-- 最终真实账户审计 `audit-live-ls104` 已通过：权益 **489.1454 USDT**、4 条当前持仓腿、
+- 最终真实账户审计 `audit-live-ls104` 已通过 **42/42**：权益 **490.9142 USDT**、4 条当前持仓腿、
   逐仓/4x/保证金缓冲、账户恒等式、订单历史与 journal、空头 20% stop 及其唯一性、
-  目标 gross 0.5000x、实际 gross 0.557x、isolated margin 0.280x 全部核对一致；
+  目标 gross 0.5000x、实际 gross 0.552x、isolated margin 0.279x 全部核对一致；
 - `audit-funding-semantics-ls104` 通过 **4 个 position cycle**，最大绝对 funding 误差
   **3.89997e-05**；
 - Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；

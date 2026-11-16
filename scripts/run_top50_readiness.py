@@ -331,6 +331,7 @@ def _assessment_kwargs(
     return {
         "selection": selection,
         "panel_path": session.panel_path,
+        "metadata_path": session.metadata_path,
         "symbol_map_path": session.symbol_map_path,
         "raw_dir": session.raw_dir,
         "warmup_mark_dir": session.warmup_mark_dir,
@@ -403,8 +404,10 @@ def _mark_members_blocked(
     coin_ids: set[str],
     detail: str,
 ) -> None:
-    member_rows = payload.get("members")
-    if isinstance(member_rows, list):
+    for collection in ("members", "top20"):
+        member_rows = payload.get(collection)
+        if not isinstance(member_rows, list):
+            continue
         for member in member_rows:
             if not isinstance(member, dict):
                 continue

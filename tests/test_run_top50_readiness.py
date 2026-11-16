@@ -71,6 +71,11 @@ def _ready_payload(count: int = 50) -> dict[str, object]:
         "top20": [dict(item) for item in members[:20]],
         "skipped": [],
         "audit": {"passed": True, "hard_failures": [], "warnings": []},
+        "input_files": {
+            "panel": "sha256:" + "1" * 64,
+            "metadata": "sha256:" + "2" * 64,
+            "symbol_map": "sha256:" + "3" * 64,
+        },
         "audit_detail": {"passed": True, "checks": []},
     }
 
@@ -579,9 +584,14 @@ def test_cycle_publishes_blocked_alert_before_raising_backfill_failure(
     report = json.loads((session.reports_dir / "latest.json").read_text())
     assert report["ready"] is False
     assert report["members"][0]["status"] == "BLOCKED"
+    assert report["top20"][0]["status"] == "BLOCKED"
     assert any(
         "backfill command" in detail
         for detail in report["members"][0]["failure_details"]
+    )
+    assert any(
+        "backfill command" in detail
+        for detail in report["top20"][0]["failure_details"]
     )
     assert session.state_path.is_file()
     assert any("TOP50_DATA_BLOCKED" in message for message in sent)

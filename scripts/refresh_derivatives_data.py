@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -33,12 +34,23 @@ DEFAULT_RECEIPT = PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "prepared.j
 DEFAULT_MANIFEST = PROJECT_ROOT / "reports" / "ls45_live_g175" / "manifest.json"
 DEFAULT_PANEL = PROJECT_ROOT / "data" / "processed" / "panel_daily.csv"
 DEFAULT_PANEL_LOCK = PROJECT_ROOT / "data" / ".daily-refresh.lock"
-AUDIT_FILES = (
-    PROJECT_ROOT / "reports" / "ls45_live_g175" / "data_audit.json",
-    PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "signal_equivalence.json",
-    PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "venue_symbol_audit.json",
-    PROJECT_ROOT / "reports" / "ls45_live_g175" / "contract_spec_snapshots.json",
+AUDIT_FILE_NAMES = (
+    "reports/ls45_live_g175/data_audit.json",
+    "reports/ls45_live_g175_live/signal_equivalence.json",
+    "reports/ls45_live_g175_live/venue_symbol_audit.json",
+    "reports/ls45_live_g175/contract_spec_snapshots.json",
 )
+AUDIT_FILES = tuple(PROJECT_ROOT / name for name in AUDIT_FILE_NAMES)
+RECEIPT_MANIFEST_FIELDS = (
+    "targets_sha256",
+    "data_fingerprint",
+    "fill_price_source",
+    "market_fill_fingerprint",
+    "execution_price_model",
+    "signal_end_date",
+    "last_mark",
+)
+RECEIPT_TRACK = "ls104-g175-m090"
 
 
 def _sha256(path: Path) -> str:
@@ -55,11 +67,31 @@ def write_prepare_receipt(
     manifest_path: Path,
     receipt_path: Path,
 ) -> dict[str, object]:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     project_root = Path(project_root).resolve()
+    manifest_path = Path(manifest_path).resolve()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a JSON object")
+    missing_manifest = [
+        key
+        for key in RECEIPT_MANIFEST_FIELDS
+        if manifest.get(key) in (None, "")
+    ]
+    if missing_manifest:
+        raise ValueError(
+            "manifest is missing required receipt fields: "
+            + ", ".join(missing_manifest)
+        )
+    audit_paths = [Path(project_root) / name for name in AUDIT_FILE_NAMES]
+    missing_audits = [str(path) for path in audit_paths if not path.is_file()]
+    if missing_audits:
+        raise FileNotFoundError(
+            "cannot write prepare receipt; missing audit file(s): "
+            + ", ".join(missing_audits)
+        )
     receipt = {
         "prepared_at": datetime.now(timezone.utc).isoformat(),
-        "track": "ls104-g175-m090",
+        "track": RECEIPT_TRACK,
         "manifest_path": str(manifest_path),
         "manifest_sha256": _sha256(manifest_path),
         "targets_sha256": manifest.get("targets_sha256"),
@@ -70,9 +102,7 @@ def write_prepare_receipt(
         "signal_end_date": manifest.get("signal_end_date"),
         "last_mark": manifest.get("last_mark"),
         "audit_files": {
-            str(path.relative_to(project_root)): _sha256(path)
-            for path in AUDIT_FILES
-            if path.is_file()
+            name: _sha256(Path(project_root) / name) for name in AUDIT_FILE_NAMES
         },
     }
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
@@ -274,7 +304,7 @@ def check_prepare_receipt(
 ) -> tuple[bool, str]:
     """Return whether a prepare receipt still proves the current frozen book."""
 
-    if max_age_minutes < 0.0:
+    if not math.isfinite(float(max_age_minutes)) or max_age_minutes < 0.0:
         return False, "max age must be non-negative"
     if not receipt_path.is_file():
         return False, f"prepare receipt missing: {receipt_path}"
@@ -286,6 +316,17 @@ def check_prepare_receipt(
         return False, f"prepare receipt unreadable: {exc}"
     if not isinstance(receipt, dict):
         return False, "prepare receipt is not a JSON object"
+    if receipt.get("track") != RECEIPT_TRACK:
+        return False, "prepare receipt track does not match"
+    expected_manifest_path = (
+        Path(project_root) / "reports" / "ls45_live_g175" / "manifest.json"
+    ).resolve()
+    try:
+        receipt_manifest_path = Path(str(receipt.get("manifest_path") or "")).resolve()
+    except (OSError, RuntimeError):
+        return False, "prepare receipt manifest path is invalid"
+    if receipt_manifest_path != expected_manifest_path:
+        return False, "prepare receipt manifest path does not match"
     try:
         prepared_at = datetime.fromisoformat(
             str(receipt.get("prepared_at") or "").replace("Z", "+00:00")
@@ -304,20 +345,43 @@ def check_prepare_receipt(
             f"prepare receipt is stale ({age_minutes:.1f}m > "
             f"{float(max_age_minutes):g}m)"
         )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    for key in (
-        "targets_sha256",
-        "data_fingerprint",
-        "fill_price_source",
-        "market_fill_fingerprint",
-        "execution_price_model",
-        "signal_end_date",
-    ):
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, f"manifest unreadable: {exc}"
+    if not isinstance(manifest, dict):
+        return False, "manifest is not a JSON object"
+    missing_manifest = [
+        key
+        for key in RECEIPT_MANIFEST_FIELDS
+        if manifest.get(key) in (None, "")
+    ]
+    if missing_manifest:
+        return False, (
+            "manifest is missing required receipt fields: "
+            + ", ".join(missing_manifest)
+        )
+    for key in RECEIPT_MANIFEST_FIELDS:
         if receipt.get(key) != manifest.get(key):
             return False, f"prepare receipt {key} does not match manifest"
     if receipt.get("manifest_sha256") != _sha256(manifest_path):
         return False, "prepare receipt manifest hash does not match"
-    for name, digest in dict(receipt.get("audit_files") or {}).items():
+    raw_audit_files = receipt.get("audit_files")
+    if not isinstance(raw_audit_files, dict):
+        return False, "prepare receipt audit_files must be an object"
+    expected_audits = set(AUDIT_FILE_NAMES)
+    observed_audits = set(raw_audit_files)
+    if observed_audits != expected_audits:
+        missing = sorted(expected_audits.difference(observed_audits))
+        extra = sorted(observed_audits.difference(expected_audits))
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing))
+        if extra:
+            details.append("unexpected=" + ",".join(extra))
+        return False, "prepare receipt audit_files are incomplete: " + "; ".join(details)
+    for name in AUDIT_FILE_NAMES:
+        digest = raw_audit_files[name]
         path = Path(project_root) / name
         if not path.is_file() or _sha256(path) != str(digest):
             return False, f"audit file changed after prepare: {name}"

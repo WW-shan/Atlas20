@@ -747,37 +747,43 @@ ops/run_derivatives_daily.sh --force
 - 无合约递补：`htx-dao`（原始 32）与 `mantle`（原始 35）跳过；`optimism`（原始 51）、
   `gala`（原始 52）进入最终 49/50；
 - Top20 handoff：**20/20 READY**；
-- 真实 live OOS market 补齐：50 个选中合约，原 downloader 1901 requests，mark/market 均覆盖
-  **2026-09-01 00:00Z → 2026-11-16 18:00Z**，全量审计 0 duplicate / 0 interior gap；
+- 最终增量 refresh 覆盖 88 个已映射合约、177 requests；50 个选中合约的 mark/market 均覆盖
+  **2026-09-01 00:00Z → 2026-11-16 21:00Z**，各 1846 rows，全量审计 0 duplicate / 0 interior gap；
 - 原 `repair_bitget_mark_gaps.py`：50 个合约 `0 missing → 0`；
 - scoped `audit_derivatives_data`：0 hard failure / 0 warning；
-- 数据指纹：`sha256:6b01d18fc7a1fc587e4f41734cfc18a78ee665dfe3c4b6292ec2e79f084c16b4`；
+- 数据指纹：`sha256:b16451744fd5c33f89e6575d3d518e1682b525e96032ab59b6a40370d148a9fb`；
   同输入重复运行 fingerprint 不变；
 - 指纹逐成员提交 5 类原始文件、合计 250 个 SHA-256；ready payload 强制 50 个唯一
   coin_id/合约、连续 final rank 和 Top20=Top50 前 20，CSV 使用原子写；
+- 指纹同时提交完整 CMC `panel_daily.csv`、`metadata.csv`、`symbol_map.csv` 的文件哈希；
 - 自动回填命令非零退出或抛异常时，先持久化受影响成员的 `BLOCKED` 报告/state 并排队
   Telegram，再向上返回失败；不允许静默跳过新成员或掩盖为第 51 名；
 - CMC 历史 32 个 provider-zero cap 行由现有 `audit_market_cap_gaps.py` 明示为
   `provider_zero_supply`，其中 4 个当前 Top50 成员只作为 warning，不使用 carry/stale cap；
 - 3 个合约的 warmup market 首笔成交晚于首条 mark（INJ/LDO/OP），保留 warning，
   不影响 live OOS 每日执行覆盖；
+- 无合约与 rebrand 导致的重复合约会分别记录 `VENUE_UNAVAILABLE` / `DUPLICATE_CONTRACT`
+  并顺延；新合约没有已完成 live bar、回填失败或 Top20/Top50 状态不同步都会 fail closed；
 - `oos_targets.csv` 哈希不变：`2ef4e701...`；execution state 与 journal 哈希不变；
   manifest 因 `market_fill_fingerprint` 从旧值更新为
-  `sha256:466b1b97fea3dbbc822e73716f499b5223efca169919bf2603f4f9b26f891d3c`；
+  `sha256:a3053054506f0726dddd145badd67a87ad3f1aaee06ec8a5f1cd7715d3a6fe51`；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，0 differences；
 - `audit-data-ls104`：PASS，0 hard failure，0 warning；data fingerprint
-  `sha256:a344c79829e70f35ab41cbf4ca7543bcf3a27ec8080653f84e0b1d266f878d06`；
+  `sha256:101baa3f3d21a109b419839c1e739962fde82d79bd5b706122277cfdf1fb67e4`；
 - 最终日频尾部检查发现 13 个 4h funding 成员缺 20:00Z settlement；修复成员级 audit
   funding 回填分层后，13 个成员以 599 requests 补齐，mark repair `0 missing -> 0`，
   最终 50/50 READY；
 - `audit_market_cap_gaps.py`：PASS，32 行 all `provider_zero_supply`，0 unexplained。
+- `reports/ls45_live_g175_live/prepared.json` 在最终 refresh 后通过 `--check-receipt`，
+  必须精确提交四份审计文件、track、manifest path 和 `last_mark`；targets hash 仍为
+  `2ef4e701...`，manifest/data/market-fill 三个哈希与当前产物一致；
 - `audit-accounting-ls104`：44 PASS / 0 FAIL；55 日权益与 1322 小时 gross 独立重放一致；
-- 最终代码门禁：Python 2688 passed / 1 skipped，前端 249 passed；lint、typecheck、build
+- 最终代码门禁：Python 2694 passed / 1 skipped，前端 249 passed；lint、typecheck、build
   和新模块 strict mypy 均通过。
 
-最终真实账户审计 `audit-live-ls104` 已通过：权益 489.1454 USDT、4 条当前持仓腿、
+最终真实账户审计 `audit-live-ls104` 已通过 42/42：权益 490.9142 USDT、4 条当前持仓腿、
 逐仓/4x/保证金缓冲、账户恒等式、订单历史与 journal、空头 20% stop 及其唯一性、
-目标 gross 0.5000x、实际 gross 0.557x、isolated margin 0.280x 全部核对一致。
+目标 gross 0.5000x、实际 gross 0.552x、isolated margin 0.279x 全部核对一致。
 `audit-funding-semantics-ls104` 的 4 个 position cycle 也通过，最大绝对 funding
 误差 3.89997e-05。
 

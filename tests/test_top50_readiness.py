@@ -64,14 +64,19 @@ def test_selection_fails_closed_when_ranked_pool_cannot_fill_fifty() -> None:
         )
 
 
-def test_selection_rejects_two_coin_ids_on_the_same_contract() -> None:
+def test_selection_skips_a_duplicate_contract_and_backfills() -> None:
     from atlas20.derivatives.top50_readiness import select_executable_top50
 
-    ranked = _ranked(50)
+    ranked = _ranked(51)
     mapping = _mapped(ranked, set())
     mapping.loc[1, "bitget_symbol"] = mapping.loc[0, "bitget_symbol"]
-    with pytest.raises(ValueError, match="duplicate Bitget contract"):
-        select_executable_top50(ranked, mapping, as_of=date(2026, 11, 15))
+    result = select_executable_top50(ranked, mapping, as_of=date(2026, 11, 15))
+
+    assert len(result.members) == 50
+    assert result.members[-1].original_rank == 51
+    assert [(row.original_rank, row.reason) for row in result.skipped] == [
+        (2, "DUPLICATE_CONTRACT")
+    ]
 
 
 def test_selection_rejects_duplicate_coin_or_rank() -> None:
@@ -449,6 +454,11 @@ def test_publish_only_creates_latest_ready_for_complete_fifty(tmp_path) -> None:
         **blocked,
         "ready": True,
         "audit": {"passed": True, "hard_failures": [], "warnings": []},
+        "input_files": {
+            "panel": "sha256:" + "1" * 64,
+            "metadata": "sha256:" + "2" * 64,
+            "symbol_map": "sha256:" + "3" * 64,
+        },
         "members": [
             {
                 "final_rank": index,
@@ -669,8 +679,12 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
             }
         ).to_csv(funding_dir / f"{member.coin_id}.csv", index=False)
     panel_path = tmp_path / "panel.csv"
+    metadata_path = tmp_path / "metadata.csv"
     map_path = tmp_path / "symbol_map.csv"
     pd.DataFrame(panel_rows).to_csv(panel_path, index=False)
+    pd.DataFrame({"coin_id": [member.coin_id for member in selection.members]}).to_csv(
+        metadata_path, index=False
+    )
     pd.DataFrame(map_rows).to_csv(map_path, index=False)
     monkeypatch.setattr(
         readiness,
@@ -681,6 +695,7 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
     payload, blocked = readiness.assess_selection(
         selection=selection,
         panel_path=panel_path,
+        metadata_path=metadata_path,
         symbol_map_path=map_path,
         raw_dir=live_dir,
         warmup_mark_dir=warmup_mark_dir.parent,
@@ -698,6 +713,10 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
     assert len(payload["members"]) == 50
     assert len(payload["top20"]) == 20
     assert [item["final_rank"] for item in payload["top20"]] == list(range(1, 21))
+    assert set(payload["input_files"]) == {"panel", "metadata", "symbol_map"}
+    assert all(
+        str(digest).startswith("sha256:") for digest in payload["input_files"].values()
+    )
 
 
 def _payload() -> dict[str, object]:
@@ -963,6 +982,99 @@ def test_reconcile_pending_keeps_only_the_final_status_for_the_day() -> None:
     assert ready["key"] in pending
     assert previous_day["key"] in pending
     assert already_sent["key"] not in pending
+
+
+def test_reconcile_drops_unsent_entry_events_after_same_day_exit() -> None:
+    from atlas20.derivatives.top50_readiness import reconcile_notification_queue
+
+    enter = {
+        "key": "TOP50_ENTER|coin-1|2026-11-15",
+        "event": "TOP50_ENTER",
+        "coin_id": "coin-1",
+        "symbol": "C1",
+        "as_of": "2026-11-15",
+        "status": "READY",
+        "details": "",
+    }
+    top20 = {
+        **enter,
+        "key": "TOP20_ENTER|coin-1|2026-11-15",
+        "event": "TOP20_ENTER",
+    }
+    state = {
+        "version": 1,
+        "notifications": {
+            "sent_keys": {},
+            "pending": {enter["key"]: enter, top20["key"]: top20},
+        },
+    }
+
+    reconcile_notification_queue(
+        state,
+        {"as_of": "2026-11-15", "members": [], "top20": []},
+    )
+
+    assert state["notifications"]["pending"] == {}
+
+
+def test_new_listing_without_a_completed_live_bar_blocks_instead_of_raising(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives.top50_readiness import collect_member_evidence
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01"], utc=True),
+            "coin_id": ["coin-1"],
+            "price": [1.0],
+            "volume_usd": [10.0],
+            "market_cap": [100.0],
+        }
+    )
+    warmup_mark = tmp_path / "C1USDT_mark.csv"
+    warmup_market = tmp_path / "C1USDT_market.csv"
+    live_mark = tmp_path / "C1USDT_live_mark.csv"
+    live_market = tmp_path / "C1USDT_live_market.csv"
+    funding = tmp_path / "coin-1.csv"
+    _ohlc(["2026-01-02T01:00:00Z"]).to_csv(warmup_mark, index=False)
+    _ohlc(["2026-01-02T01:00:00Z"]).to_csv(warmup_market, index=False)
+    _ohlc(["2026-01-02T01:00:00Z"]).to_csv(live_mark, index=False)
+    _ohlc(["2026-01-02T01:00:00Z"]).to_csv(live_market, index=False)
+    pd.DataFrame(
+        {
+            "funding_time": pd.to_datetime(["2026-01-02T00:00:00Z"], utc=True),
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding, index=False)
+    map_row = pd.Series(
+        {
+            "coin_id": "coin-1",
+            "panel_symbol": "C1",
+            "bitget_symbol": "C1USDT",
+            "contract_status": "normal",
+            "open_time": "2026-01-02T01:00:00Z",
+            "fund_interval": 8.0,
+        }
+    )
+
+    evidence = collect_member_evidence(
+        member=_selection().members[0],
+        map_row=map_row,
+        panel=panel,
+        warmup_mark_path=warmup_mark,
+        warmup_market_path=warmup_market,
+        live_mark_path=live_mark,
+        live_market_path=live_market,
+        funding_path=funding,
+        warmup_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        latest_signal_day=date(2026, 1, 1),
+        now=pd.Timestamp("2026-01-02T00:35:00Z"),
+    )
+
+    assert evidence["status"] == "BLOCKED"
+    assert any("required completed mark start" in item for item in evidence["failure_details"])
 
 
 def test_format_event_message_marks_blocked_top20_without_rank51_fallback() -> None:
@@ -1382,4 +1494,33 @@ def test_publish_rejects_ready_payload_when_audit_did_not_pass(tmp_path) -> None
             reports_dir=tmp_path,
             payload=payload,
             audit_payload={"passed": False, "hard_failures": ["audit failed"]},
+        )
+
+
+def test_publish_rejects_ready_payload_without_input_file_commitments(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {
+            "final_rank": index,
+            "coin_id": f"coin-{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "status": "READY",
+        }
+        for index in range(1, 51)
+    ]
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": members[:20],
+        "skipped": [],
+        "audit": {"passed": True, "hard_failures": [], "warnings": []},
+    }
+
+    with pytest.raises(ValueError, match="input file commitments"):
+        publish_readiness_payload(
+            reports_dir=tmp_path,
+            payload=payload,
+            audit_payload={"passed": True},
         )
