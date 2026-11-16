@@ -6784,3 +6784,105 @@ LaunchAgent 和 systemd timer 都新增北京 **13:05（05:05Z）** 的非交易
 launchd 链路，在已声明的输入和正常网络/交易所条件下已经真实跑通，已知代码
 fail-closed 门禁为 0 硬失败；不能承诺“绝对零风险”或“所有 bug 已找到”，尤其不能
 用这一段替代对外部 key 操作、交易所故障和真实 tick 滑点的证明。
+
+### 00.162 2026-11-17 可执行 Top50 数据就绪、Top20 handoff 与真实 market 回填
+
+本轮按负责人要求，把“进入 Top20 后才发现历史数据不够”的问题前移为每日 Top50 readiness。
+实现只复用现有 CMC 面板、Bitget `symbol_map.csv`、mark/market/funding 目录、原 downloader、
+原 `repair_bitget_mark_gaps.py` 和原 `audit_derivatives_data`，没有新增行情源或第二套字段格式。
+
+#### 1. CMC 排名、无合约递补与 Top20 handoff
+
+- as-of：**2026-11-15**，最新完整 CMC 日线；
+- eligible candidate pool：**52** 个，来自原 `build_rebalance_universe`，没有用当前名称或外部榜单
+  回填当日排名；
+- Bitget 无 USDT-M perpetual：
+  - `htx-dao`（HTX），原始 rank **32**；
+  - `mantle`（MNT），原始 rank **35**；
+- 两个无合约成员不占 Top50 名额，按原序顺延；`optimism`（原始 51）与 `gala`（原始 52）
+  进入最终 rank 49/50；
+- 最终 **50/50 READY**，Top20 handoff **20/20 READY**；
+- 成员状态、final/original rank、skip 轨迹、每段 coverage 和 failures 保存在
+  `reports/top50_data_readiness/latest.json`、`top50.csv`、`top20.csv`，并同时写
+  `history/2026-11-15.json` 与 `ready/2026-11-15.json`。
+
+本轮的“无合约顺延”只形成独立的 executable-universe readiness evidence，没有静默改写当前
+LS104 的 point-in-time CMC Top20 universe。可执行 universe 若未来晋级实盘，必须另立 track/spec
+并重新完成研究、回测和 owner 晋级审批。
+
+#### 2. 数据完整性和真实回填
+
+真实 dry audit 首先发现 live OOS `market` 文件只覆盖 2026-11-12 之后；50 个 Top50 成员各缺
+20–72 个每日 01:05 执行点。随后只针对 live evidence 层调用现有下载器：
+
+```text
+download_bitget_derivatives_data.py
+  --output-dir data/raw/bitget_derivatives/merged_oos_20261112
+  --start 2026-09-01 --end 2026-11-17
+  --types mark,market --symbols <50 selected coin ids>
+```
+
+实际结果：
+
+- 50 个合约、**1901 requests**；
+- 50/50 mark 与 50/50 market 均覆盖 **2026-09-01 00:00Z → 2026-11-16 18:00Z**；
+- 50 个 mark 文件均为 **1843 rows**，50 个 market 文件均为 **1843 rows**，无重复时间戳，
+  mark 小时内部缺口为 0；
+- 原 `repair_bitget_mark_gaps.py`：50/50 为 `0 missing → 0`；
+- exact funding 覆盖：最早起于 **2026-08-13 20:00Z**，最晚首条为 **2026-08-14 00:00Z**，
+  50/50 最新 settlement 均为 **2026-11-16 16:00Z**；contract-declared interval、
+  publication 和 live OOS coverage 由原 audit 验证；
+- scoped `audit_derivatives_data`：**0 hard failure / 0 warning**。
+
+#### 3. 非阻断 warning 的明确含义
+
+- 4 个当前 Top50 成员（NEAR、PEPE、POL、RENDER）存在历史 CMC provider-zero cap 行。
+  这些行不被 carry 成有效排名；最新 cap 全部有效。现有 `audit_market_cap_gaps.py` 将
+  32 行全部归类为 `provider_zero_supply`，0 unexplained，因此记录 warning 而非把历史
+  不可排名行伪装成当前故障；
+- 3 个合约（INJ、LDO、OP）warmup market 的首笔成交晚于首条 mark 1–2 天以上。warmup
+  market 只要求文件可读、OHLC 合法并覆盖 warmup 尾部；首段静默是真实成交稀疏，记录
+  warning。真正用于 T+1 执行的 live OOS 仍要求每个交易日 01:05 前有不超过 60 分钟的
+  floor market bar，该硬门禁已全部通过；
+- contract snapshot 当前没有可用 `openTime`（字段为空），因此数据起点由实际首条 mark
+  推断，并在报告中写 `start_source=first_observed_bar`。这是 observed inference，不是
+  exchange listing metadata。
+
+#### 4. 指纹、幂等与现有 LS104 隔离
+
+- readiness 数据指纹：
+  `sha256:7d05e7cf2729ec74d99b8bf7d2fa590f8cb53586f491a8e621fa03c3a461646a`；
+- 修复了审计墙钟进入指纹的问题：相同原始文件、相同 `now` 重复运行 fingerprint 不变；
+  `generated_at` 仍可变化，但不再污染数据身份；
+- 首次初始化建立 state 基线，不发送 50 条历史 Telegram；后续仅按
+  `(event, coin_id, as_of)` 发送 `TOP50_ENTER`、`TOP50_DATA_READY/BLOCKED`、`TOP20_ENTER`；
+- `data/top50_readiness_state.json` 当前 `pending={}`、`sent_keys={}`，符合首次初始化不刷屏；
+- Top50 readiness 进入现有 08:35/08:55 derivatives prepare，在 LS104 signal rebuild 前执行；
+  新增 09:45 Telegram-only fallback job 的代码和 plist，wrapper 不读取 Bitget 交易凭据。
+
+补齐 raw market 后，按现有信号链重建 LS104 manifest：
+
+- `reports/ls45_live_g175/oos_targets.csv` SHA-256 保持 **2ef4e701...**，冻结 target 行不变；
+- `data/ls45_g175_execution_state.json` 与 live journal SHA-256 保持原值；
+- manifest 的 `market_fill_fingerprint` 更新为
+  `sha256:57d9ab54d8e1a39f30f54d17d4ce2cc2aef474b46e43cce19d04a75f5ea1023d`；
+- `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，**0 differences**；
+- `audit-data-ls104`：**PASS，0 hard failure，0 warning**，data fingerprint
+  `sha256:abe781bcd4ba119be5a3927741dac2a78218ba12160a2f453ff088dab2fbea09`；
+- `audit_market_cap_gaps.py`：PASS，32 行均为 `provider_zero_supply`，0 unexplained。
+
+#### 5. 结论与残余边界
+
+现阶段，“CMC 当日排名 → 无合约过滤/顺延 → Top50 全量成员证据 → Top20 readiness handoff”已在
+真实 2026-11-15 数据上跑通，50/50 成员具备无需临时补历史的 mark、market、funding 和 venue
+证据。Top20 成员进入策略时不需要重新下载历史数据。
+
+仍未完成或不能夸大的部分：
+
+- 当前 LS104 live track 仍使用原 CMC Top20 universe；“无合约顺延”尚未成为 live universe；
+- Telegram fallback 只在代码层和 schedule contract 中验证，真实 bot 投递仍应在部署后做一次
+  受控事件演练；
+- Top50 readiness 是日频收盘后流程，不是盘中上新扫描；
+- Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；
+- warmup market 的首段稀疏成交和 CMC provider-zero cap 不应被描述成“历史所有字段逐小时
+  完美”，但它们已被明确记录且不影响当前 live OOS 执行闸门。
