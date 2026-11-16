@@ -13,7 +13,9 @@ def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> N
     )
 
     assert commands == [
-        ["/usr/bin/make", "derivatives-live-data", "derivatives-ls104-signal"],
+        ["/usr/bin/make", "derivatives-live-data"],
+        ["/usr/bin/make", "top50-readiness-unlocked"],
+        ["/usr/bin/make", "derivatives-ls104-signal"],
         ["/usr/bin/make", "audit-data-chain"],
         ["/usr/bin/make", "audit-data-ls104"],
         ["/usr/bin/make", "audit-symbols-ls104"],
@@ -72,6 +74,7 @@ def test_refresh_skips_when_the_execution_lock_is_held(
                 str(lock_path),
                 "--execution-lock-wait-seconds",
                 "0",
+                "--skip-panel-wait",
             ]
         )
     finally:

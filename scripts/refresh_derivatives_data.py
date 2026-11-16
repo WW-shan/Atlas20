@@ -98,7 +98,9 @@ def build_refresh_commands(
     """
 
     return [
-        [make_command, "derivatives-live-data", "derivatives-ls104-signal"],
+        [make_command, "derivatives-live-data"],
+        [make_command, "top50-readiness-unlocked"],
+        [make_command, "derivatives-ls104-signal"],
         [make_command, "audit-data-chain"],
         [make_command, "audit-data-ls104"],
         [make_command, "audit-symbols-ls104"],

@@ -28,7 +28,10 @@ for path in (PROJECT_ROOT, SRC_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from atlas20.derivatives.live_chain import last_completed_utc_day  # noqa: E402
+from atlas20.derivatives.live_chain import (  # noqa: E402
+    last_completed_utc_day,
+    panel_lags_last_completed_day,
+)
 from atlas20.derivatives.top50_readiness import (  # noqa: E402
     Top50Selection,
     assess_selection,
@@ -366,27 +369,38 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--notify", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--no-backfill", action="store_true")
+    parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK)
+    parser.add_argument("--wait-seconds", type=float, default=900.0)
+    parser.add_argument("--no-lock", action="store_true")
     args = parser.parse_args(argv)
+    if args.wait_seconds < 0.0:
+        parser.error("--wait-seconds must be non-negative")
 
-    # The live-facing wrapper may call this from inside the execution lock.
-    # Bound how long a manual run waits when that lock is already held.
+    moment = (
+        _as_utc(datetime.fromisoformat(args.now.replace("Z", "+00:00")))
+        if args.now
+        else pd.Timestamp.now(tz="UTC")
+    )
     lock_file = None
-    if not args.dry_run:
+    if not args.dry_run and not args.no_lock:
         from filelock import FileLock, Timeout
 
-        lock = FileLock(str(DEFAULT_LOCK))
+        lock = FileLock(str(args.lock_file))
         try:
-            lock.acquire(timeout=15 * 60)
+            lock.acquire(timeout=float(args.wait_seconds))
         except Timeout:
-            print(f"another execution/refresh holds {DEFAULT_LOCK}; skipping", file=sys.stderr)
+            print(
+                f"another execution/refresh holds {args.lock_file}; skipping",
+                file=sys.stderr,
+            )
             return 0
         lock_file = lock
     try:
-        moment = (
-            _as_utc(datetime.fromisoformat(args.now.replace("Z", "+00:00")))
-            if args.now
-            else pd.Timestamp.now(tz="UTC")
-        )
+        if panel_lags_last_completed_day(args.panel, moment.to_pydatetime()):
+            raise SystemExit(
+                "panel does not carry the last completed UTC day for "
+                f"{moment.isoformat()}: {args.panel}"
+            )
         session = ReadinessSession(
             project_root=PROJECT_ROOT,
             config_path=args.config,
@@ -398,7 +412,7 @@ def main(argv: list[str] | None = None) -> int:
             symbol_map_path=args.symbol_map or args.raw_dir / "symbol_map.csv",
             state_path=args.state_file,
             reports_dir=args.reports_dir,
-            lock_path=DEFAULT_LOCK,
+            lock_path=args.lock_file,
             oos_start=_as_utc(args.oos_start),
             warmup_start=_as_utc(args.warmup_start),
             warmup_end=_as_utc(args.warmup_end),

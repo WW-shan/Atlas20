@@ -271,3 +271,48 @@ def test_cycle_no_backfill_stops_after_the_blocked_assessment(tmp_path) -> None:
     assert commands == []
     assert result["payload"]["ready"] is False
     assert result["blocked"] == ["coin-1"]
+
+
+def test_main_refuses_a_stale_panel_without_acquiring_a_lock(tmp_path) -> None:
+    from scripts.run_top50_readiness import main
+
+    panel = tmp_path / "panel.csv"
+    pd.DataFrame({"date": ["2026-11-14"], "coin_id": ["bitcoin"]}).to_csv(
+        panel, index=False
+    )
+
+    with pytest.raises(SystemExit, match="panel does not carry"):
+        main(
+            [
+                "--panel",
+                str(panel),
+                "--now",
+                "2026-11-16T18:00:00Z",
+                "--no-lock",
+                "--dry-run",
+            ]
+        )
+
+
+def test_main_skips_when_the_execution_lock_is_held(tmp_path) -> None:
+    from filelock import FileLock
+    from scripts.run_top50_readiness import main
+
+    lock_path = tmp_path / "execution.lock"
+    lock = FileLock(str(lock_path))
+    lock.acquire(timeout=0)
+    try:
+        code = main(
+            [
+                "--lock-file",
+                str(lock_path),
+                "--wait-seconds",
+                "0",
+                "--now",
+                "2026-11-16T18:00:00Z",
+            ]
+        )
+    finally:
+        lock.release()
+
+    assert code == 0
