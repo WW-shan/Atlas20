@@ -69,6 +69,18 @@ def test_derivatives_job_retries_failed_runs_inside_the_catchup_window():
     assert max(times) <= (7, 5)
 
 
+def test_refresh_precedes_the_final_retry_after_the_0400_utc_settlement():
+    refresh_times = _scheduled_utc_times(
+        PROJECT_ROOT / "ops" / "com.atlas20.derivatives-refresh.plist"
+    )
+
+    # The 14:35 Beijing retry is 06:35 UTC.  With the one-hour publication
+    # allowance, the 04:00 UTC settlement becomes mandatory at 05:00 UTC.
+    # A refresh at 05:05 UTC must therefore exist and finish before the retry.
+    assert (5, 5) in refresh_times
+    assert (6, 35) > (5, 5)
+
+
 def _wrapper_project_root(wrapper_path: Path) -> str:
     """The deployed path the wrapper itself declares, e.g. /Users/ww/Project/Atlas20.
 

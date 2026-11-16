@@ -131,9 +131,21 @@ def test_derivatives_refresh_is_a_separate_non_trading_job() -> None:
         encoding="utf-8"
     )
 
-    for clock in ("00:35:00", "00:55:00", "07:05:00", "13:05:00", "19:05:00"):
+    for clock in (
+        "00:35:00",
+        "00:55:00",
+        "05:05:00",
+        "07:05:00",
+        "13:05:00",
+        "19:05:00",
+    ):
         assert f"OnCalendar=*-*-* {clock} UTC" in timer
-    assert timer.index("00:35:00") < timer.index("00:55:00") < timer.index("07:05:00")
+    assert (
+        timer.index("00:35:00")
+        < timer.index("00:55:00")
+        < timer.index("05:05:00")
+        < timer.index("07:05:00")
+    )
     assert "Unit=atlas20-derivatives-refresh.service" in timer
     assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_refresh.sh" in service
     assert "execute_live_plan.py" not in service

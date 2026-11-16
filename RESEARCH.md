@@ -6755,6 +6755,14 @@ state、journal、latest 或任何审计文件；所有成功都来自真实只�
 derivatives refresh、09:05 execute 的实际生产时序验证过；若在结算后、刷新前
 手工强制 execute，monitor 会正确暴露 stale funding，而不是静默使用旧缓存。
 
+进一步按完整 retry 时钟检查后，发现了一个结构性刷新空窗：北京 14:35
+（06:35Z）的最后一次 execute 重试会让 HYPE 的 04:00Z settlement 超过 1 小时
+发布宽限而成为必需，但原下一次 derivatives refresh 要到 15:05。结果是即使正常
+交易日也可能在这一重试上重复出现 settlement-coverage 告警。现在在 macOS
+LaunchAgent 和 systemd timer 都新增北京 **13:05（05:05Z）** 的非交易 refresh：
+它在 04:00 settlement 已成为 public 后读取，并在最后一次 14:35 重试前完成；
+09:05/09:35/11:05/11:35/12:35 各重试的 funding 必需边界不变。
+
 #### 5. 仍需负责人确认或属于不可消除边界
 
 - **外部平仓来源**：2026-11-15 09:02Z 四条空头在同一毫秒窗口被 `close_short`
