@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -102,6 +103,41 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
                     "rows": len(funding_times),
                     "symbol": "BTCUSDT",
                 }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    publication = raw / "funding_publication.json"
+    publication.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "generated_at": "2026-11-14T01:05:00+00:00",
+                "assets": {
+                    "bitcoin": {
+                        "symbol": "BTCUSDT",
+                        "funding_sha256": hashlib.sha256(
+                            (funding / "bitcoin.csv").read_bytes()
+                        ).hexdigest(),
+                        "funding_last": str(funding_times[-1]),
+                        "funding_rate": 0.0001,
+                        "history_last": str(funding_times[-1]),
+                        "history_request_time": "2026-11-14T01:00:00+00:00",
+                        "current_settlement_time": str(funding_times[-1]),
+                        "current_funding_rate": 0.0001,
+                        "current_request_time": "2026-11-14T01:05:00+00:00",
+                        "api_interval_hours": 8.0,
+                        "contract_interval_hours": 8.0,
+                        "interval_matches_contract": True,
+                        "history_rate_at_current_settlement": 0.0001,
+                        "rate_relation": "match",
+                        "latest_source": "history",
+                        "verified_at": "2026-11-14T01:05:00+00:00",
+                        "publication_lag_seconds": 32700.0,
+                        "history_lag_seconds": 32400.0,
+                    }
+                },
             }
         ),
         encoding="utf-8",
@@ -580,6 +616,16 @@ def test_required_funding_freshness_is_informational_when_calendar_is_complete(
     manifest["bitcoin"]["last"] = "2026-11-14 00:00:00+00:00"
     manifest["bitcoin"]["rows"] = len(frame)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    entry = publication["assets"]["bitcoin"]
+    entry["funding_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    entry["funding_last"] = "2026-11-14 00:00:00+00:00"
+    entry["history_last"] = "2026-11-14 00:00:00+00:00"
+    entry["current_settlement_time"] = "2026-11-14 00:00:00+00:00"
+    entry["publication_lag_seconds"] = 3900.0
+    entry["history_lag_seconds"] = 3600.0
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
 
     report = audit_derivatives_data(
         paths["raw"],
@@ -636,3 +682,215 @@ def test_absurd_funding_rate_is_rejected(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("rate_sanity" in item for item in report.hard_failures)
+
+
+def test_funding_timestamp_grid_must_match_the_declared_interval(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = pd.concat(
+        [
+            frame,
+            pd.DataFrame(
+                {
+                    "symbol": ["BTCUSDT"],
+                    "funding_time": ["2026-11-13T04:00:00+00:00"],
+                    "funding_rate": [0.0001],
+                }
+            ),
+        ],
+        ignore_index=True,
+    ).sort_values("funding_time")
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths, require_all_funding_fresh=True)
+
+    assert report.passed is False
+    assert any("observed_gap_grid" in item for item in report.hard_failures)
+
+
+def test_funding_interval_history_rejects_eight_hour_rows_for_declared_four(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    symbol_map = pd.read_csv(paths["symbol_map"])
+    symbol_map.loc[symbol_map["coin_id"] == "bitcoin", "fund_interval"] = 4
+    symbol_map.to_csv(paths["symbol_map"], index=False)
+    contracts_path = paths["raw"] / "contracts.json"
+    contracts = json.loads(contracts_path.read_text(encoding="utf-8"))
+    contracts[0]["fundInterval"] = "4"
+    contracts_path.write_text(json.dumps(contracts), encoding="utf-8")
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("funding.bitcoin.interval_history" in item for item in report.hard_failures)
+
+
+def test_funding_interval_history_rejects_four_hour_rows_for_declared_eight(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = pd.concat(
+        [
+            frame,
+            pd.DataFrame(
+                {
+                    "symbol": ["BTCUSDT"],
+                    "funding_time": ["2026-11-13T04:00:00+00:00"],
+                    "funding_rate": [0.0001],
+                }
+            ),
+        ],
+        ignore_index=True,
+    ).sort_values("funding_time")
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("funding.bitcoin.interval_history" in item for item in report.hard_failures)
+
+
+def test_funding_interval_history_checks_older_than_the_recent_gap_window(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    symbol_map = pd.read_csv(paths["symbol_map"])
+    symbol_map.loc[symbol_map["coin_id"] == "bitcoin", "fund_interval"] = 4
+    symbol_map.to_csv(paths["symbol_map"], index=False)
+    contracts_path = paths["raw"] / "contracts.json"
+    contracts = json.loads(contracts_path.read_text(encoding="utf-8"))
+    contracts[0]["fundInterval"] = "4"
+    contracts_path.write_text(json.dumps(contracts), encoding="utf-8")
+
+    old_eight_hour = pd.date_range(
+        "2026-09-01T00:00:00Z", "2026-09-30T20:00:00Z", freq="8h"
+    )
+    recent_four_hour = pd.date_range(
+        "2026-10-01T00:00:00Z", "2026-11-13T16:00:00Z", freq="4h"
+    )
+    times = old_eight_hour.append(recent_four_hour)
+    pd.DataFrame(
+        {
+            "symbol": "BTCUSDT",
+            "funding_time": times,
+            "funding_rate": 0.0001,
+        }
+    ).to_csv(paths["raw"] / "funding" / "bitcoin.csv", index=False)
+    manifest_path = paths["raw"] / "funding_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bitcoin"]["first"] = str(times[0])
+    manifest["bitcoin"]["last"] = str(times[-1])
+    manifest["bitcoin"]["rows"] = len(times)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("funding.bitcoin.interval_history" in item for item in report.hard_failures)
+
+
+def test_funding_audit_summary_records_the_observed_cadence(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+
+    report = _audit(paths)
+
+    assert report.passed is True
+    assert report.summary["funding"]["bitcoin"]["observed_interval_hours"] == 8.0
+    assert report.summary["funding"]["bitcoin"]["interval_matches_contract"] is True
+
+
+
+def test_required_funding_needs_matching_publication_evidence(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    (paths["raw"] / "funding_publication.json").unlink()
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any(
+        "funding.bitcoin.publication_evidence" in item
+        for item in report.hard_failures
+    )
+
+
+def test_publication_evidence_cannot_predate_latest_settlement(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    publication["assets"]["bitcoin"]["verified_at"] = "2026-11-13T15:00:00+00:00"
+    publication["assets"]["bitcoin"]["publication_lag_seconds"] = -3600.0
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any(
+        "funding.bitcoin.publication_time" in item
+        for item in report.hard_failures
+    )
+
+
+def test_publication_evidence_rejects_a_current_rate_conflict(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    entry = publication["assets"]["bitcoin"]
+    entry["rate_relation"] = "conflict"
+    entry["current_funding_rate"] = 0.0009
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any(
+        "funding.bitcoin.publication_rate" in item
+        for item in report.hard_failures
+    )
+
+
+def test_publication_evidence_must_match_the_funding_file_hash(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    publication["assets"]["bitcoin"]["funding_sha256"] = "0" * 64
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any(
+        "funding.bitcoin.publication_hash" in item
+        for item in report.hard_failures
+    )
+
+
+def test_required_empty_funding_file_fails_closed_without_crashing(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    pd.DataFrame(columns=["symbol", "funding_time", "funding_rate"]).to_csv(
+        path, index=False
+    )
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    publication["assets"]["bitcoin"]["funding_sha256"] = hashlib.sha256(
+        path.read_bytes()
+    ).hexdigest()
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any(
+        "funding.bitcoin.publication_evidence" in item
+        for item in report.hard_failures
+    )

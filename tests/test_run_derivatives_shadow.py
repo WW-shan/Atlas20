@@ -560,3 +560,16 @@ def test_signal_receipt_metadata_is_initialized_before_it_is_written() -> None:
     receipt_write = source.index('output_dir / "signal_receipt.csv"')
     assert source.index("execution_price_model = (") < receipt_write
     assert source.index("live_parity = bool(") < receipt_write
+
+
+def test_contract_spec_provenance_names_the_snapshot_without_claiming_history() -> None:
+    from scripts.run_derivatives_shadow import _contract_spec_provenance
+
+    provenance = _contract_spec_provenance(True)
+
+    assert provenance["contract_spec_source"] == "bitget_contract_snapshot_symbol_map"
+    assert provenance["contract_spec_coverage"] == "point_in_time_snapshots_not_daily_history"
+    assert _contract_spec_provenance(False) == {
+        "contract_spec_source": "ideal_unquantized",
+        "contract_spec_coverage": "not_quantized",
+    }

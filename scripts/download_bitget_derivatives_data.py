@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import argparse
 from datetime import time
+import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -371,6 +373,68 @@ def _coverage_row(
     }
 
 
+def _file_sha256(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_funding_publication(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    assets = payload.get("assets")
+    return dict(assets) if isinstance(assets, dict) else {}
+
+
+def _timestamp_ms(value: object) -> pd.Timestamp | None:
+    try:
+        milliseconds = int(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if milliseconds <= 0:
+        return None
+    return pd.Timestamp(milliseconds, unit="ms", tz="UTC")
+
+
+def _current_funding_observation(
+    row: dict[str, Any],
+) -> tuple[pd.Timestamp | None, float | None, float | None]:
+    """Derive the last settled timestamp/rate from Bitget current-fund-rate.
+
+    ``nextUpdate`` is the next settlement instant and ``fundingRateInterval``
+    is the exchange's declared cadence.  Therefore the most recently settled
+    funding timestamp is exactly ``nextUpdate - interval``.  This endpoint is
+    independent of the paginated history endpoint and has remained available
+    when history publication lagged during the live incident.
+    """
+
+    next_update = _timestamp_ms(row.get("nextUpdate"))
+    try:
+        interval = float(row.get("fundingRateInterval"))
+        rate = float(row.get("lastFundingRate"))
+    except (TypeError, ValueError):
+        return None, None, None
+    if (
+        next_update is None
+        or not math.isfinite(interval)
+        or interval <= 0.0
+        or not math.isfinite(rate)
+    ):
+        return None, None, None
+    settlement = next_update - pd.Timedelta(hours=interval)
+    return settlement, rate, interval
+
+
 def _download_funding(
     client: BitgetClient,
     symbol_map: pd.DataFrame,
@@ -381,9 +445,13 @@ def _download_funding(
 ) -> dict[str, Any]:
     """Refresh stale funding caches while retaining older local history.
 
-    The Bitget funding endpoint returns a rolling window.  A cache that was
-    written once must therefore be periodically refreshed, or a future short
-    target will fail the live data audit even though the mark feed is current.
+    The Bitget funding history endpoint returns a rolling window and can lag a
+    settlement.  Every refresh therefore also reads the independent
+    ``current-fund-rate`` endpoint: its ``lastFundingRate`` plus
+    ``nextUpdate - fundingRateInterval`` identifies the latest settled row.
+    The observation time and source are retained in ``funding_publication.json``
+    so the data audit can prove that a required settlement was actually visible
+    to this process, rather than inferring publication from wall-clock time.
     """
 
     current = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
@@ -392,6 +460,9 @@ def _download_funding(
     else:
         current = current.tz_convert("UTC")
     funding_dir = ensure_dir(output_dir / "funding")
+    publication_path = output_dir / "funding_publication.json"
+    previous_publication = _load_funding_publication(publication_path)
+    publication_entries: dict[str, Any] = {}
     manifest: dict[str, Any] = {}
     for record in symbol_map.to_dict("records"):
         if not record.get("bitget_symbol"):
@@ -418,6 +489,17 @@ def _download_funding(
         interval_raw = pd.to_numeric(record.get("fund_interval"), errors="coerce")
         interval_hours = float(interval_raw) if pd.notna(interval_raw) else 0.0
         last_cached = cached["funding_time"].max() if not cached.empty else pd.NaT
+        cached_hash = _file_sha256(path)
+        previous_entry = previous_publication.get(coin_id)
+        preserved_entry = (
+            previous_entry
+            if isinstance(previous_entry, dict)
+            and cached_hash is not None
+            and previous_entry.get("funding_sha256") == cached_hash
+            and str(previous_entry.get("funding_last") or "")
+            == (str(last_cached) if not pd.isna(last_cached) else "")
+            else None
+        )
         # A cache is only fresh for its own settlement clock plus one hour of
         # provider publication lag.  The old max(12h, interval) rule let a 4h
         # asset miss two settlements while still being declared fresh, so the
@@ -440,6 +522,8 @@ def _download_funding(
                     "last": str(cached["funding_time"].max()),
                     "cached": True,
                 }
+                if preserved_entry is not None:
+                    publication_entries[coin_id] = preserved_entry
                 continue
         def cached_entry(error: str | None = None) -> dict[str, Any]:
             entry: dict[str, Any] = {
@@ -453,8 +537,15 @@ def _download_funding(
                 entry["refresh_error"] = error
             return entry
 
+        history_request_time_ms: int | None = None
+        history_frame = pd.DataFrame()
         try:
-            frame = client.fetch_funding_history(symbol)
+            history_frame = client.fetch_funding_history(symbol)
+            raw_history_time = history_frame.attrs.get("request_time_ms")
+            if raw_history_time is None:
+                raw_history_time = getattr(client, "last_request_time_ms", None)
+            if raw_history_time is not None:
+                history_request_time_ms = int(raw_history_time)
         except Exception as exc:  # noqa: BLE001 - one bad contract must not abort the audit
             LOGGER.warning("funding %s (%s) failed: %s", coin_id, symbol, exc)
             # A transient endpoint failure is not evidence that the cached
@@ -466,8 +557,10 @@ def _download_funding(
                 if not cached.empty
                 else {"symbol": symbol, "available": False, "error": str(exc)}
             )
+            if preserved_entry is not None:
+                publication_entries[coin_id] = preserved_entry
             continue
-        if frame.empty:
+        if history_frame.empty:
             manifest[coin_id] = (
                 cached_entry("no funding rows returned")
                 if not cached.empty
@@ -477,8 +570,24 @@ def _download_funding(
                     "reason": "no funding rows",
                 }
             )
+            if preserved_entry is not None:
+                publication_entries[coin_id] = preserved_entry
             continue
-        frames = [item for item in (cached, frame) if not item.empty]
+        history_frame["funding_time"] = pd.to_datetime(
+            history_frame["funding_time"], utc=True, errors="coerce"
+        )
+        history_frame["funding_rate"] = pd.to_numeric(
+            history_frame["funding_rate"], errors="coerce"
+        )
+        history_frame = history_frame.dropna(
+            subset=["funding_time", "funding_rate"]
+        ).sort_values("funding_time")
+        history_last = (
+            pd.Timestamp(history_frame["funding_time"].max())
+            if not history_frame.empty
+            else pd.NaT
+        )
+        frames = [item for item in (cached, history_frame) if not item.empty]
         merged = pd.concat(frames, ignore_index=True)
         merged["funding_time"] = pd.to_datetime(
             merged["funding_time"], utc=True, errors="coerce"
@@ -490,13 +599,175 @@ def _download_funding(
             .sort_values("funding_time")
             .reset_index(drop=True)
         )
+
+        current_row: dict[str, Any] = {}
+        current_request_time_ms: int | None = None
+        current_error: str | None = None
+        current_settlement: pd.Timestamp | None = None
+        current_rate: float | None = None
+        api_interval_hours: float | None = None
+        current_funding_fn = getattr(client, "fetch_current_funding", None)
+        if callable(current_funding_fn):
+            try:
+                raw_current = current_funding_fn(symbol)
+                if isinstance(raw_current, dict):
+                    current_row = dict(raw_current)
+                raw_current_time = getattr(client, "last_request_time_ms", None)
+                if raw_current_time is not None:
+                    current_request_time_ms = int(raw_current_time)
+                current_settlement, current_rate, api_interval_hours = (
+                    _current_funding_observation(current_row)
+                )
+            except Exception as exc:  # noqa: BLE001 - history remains usable
+                current_error = str(exc)
+                LOGGER.warning(
+                    "current funding %s (%s) failed: %s", coin_id, symbol, exc
+                )
+
+        rate_relation = "unavailable"
+        latest_source = "history"
+        history_rate_at_current: float | None = None
+        if current_settlement is not None and current_rate is not None:
+            existing = merged.loc[merged["funding_time"] == current_settlement]
+            history_matches = history_frame.loc[
+                history_frame["funding_time"] == current_settlement
+            ]
+            if not history_matches.empty:
+                history_rate_at_current = float(
+                    history_matches["funding_rate"].iloc[-1]
+                )
+            if current_settlement > history_last or history_last is pd.NaT:
+                if existing.empty:
+                    merged = pd.concat(
+                        [
+                            merged,
+                            pd.DataFrame(
+                                {
+                                    "symbol": [symbol],
+                                    "funding_time": [current_settlement],
+                                    "funding_rate": [current_rate],
+                                }
+                            ),
+                        ],
+                        ignore_index=True,
+                    )
+                    rate_relation = "fallback"
+                    latest_source = "current_fund_rate"
+                else:
+                    existing_rate = float(existing["funding_rate"].iloc[-1])
+                    if math.isclose(
+                        existing_rate,
+                        current_rate,
+                        rel_tol=1e-12,
+                        abs_tol=1e-12,
+                    ):
+                        rate_relation = "match"
+                    else:
+                        rate_relation = "conflict"
+                    latest_source = "history"
+            elif current_settlement == history_last:
+                existing_rate = (
+                    float(existing["funding_rate"].iloc[-1])
+                    if not existing.empty
+                    else None
+                )
+                if existing_rate is None:
+                    merged = pd.concat(
+                        [
+                            merged,
+                            pd.DataFrame(
+                                {
+                                    "symbol": [symbol],
+                                    "funding_time": [current_settlement],
+                                    "funding_rate": [current_rate],
+                                }
+                            ),
+                        ],
+                        ignore_index=True,
+                    )
+                    rate_relation = "fallback"
+                    latest_source = "current_fund_rate"
+                elif math.isclose(
+                    existing_rate,
+                    current_rate,
+                    rel_tol=1e-12,
+                    abs_tol=1e-12,
+                ):
+                    rate_relation = "match"
+                else:
+                    rate_relation = "conflict"
+            else:
+                rate_relation = "history_ahead"
+
+        merged = (
+            merged.drop_duplicates("funding_time", keep="last")
+            .sort_values("funding_time")
+            .reset_index(drop=True)
+        )
         _write_csv_atomic(merged, path)
+        actual_last = pd.Timestamp(merged["funding_time"].max())
+        actual_rate = float(merged["funding_rate"].iloc[-1])
         manifest[coin_id] = {
             "symbol": symbol,
             "rows": int(len(merged)),
             "first": str(merged["funding_time"].min()),
-            "last": str(merged["funding_time"].max()),
+            "last": str(actual_last),
             "cached": False,
+        }
+
+        request_times = [
+            value
+            for value in (history_request_time_ms, current_request_time_ms)
+            if value is not None
+        ]
+        verified_at = (
+            pd.Timestamp(max(request_times), unit="ms", tz="UTC")
+            if request_times
+            else None
+        )
+        history_requested_at = (
+            pd.Timestamp(history_request_time_ms, unit="ms", tz="UTC")
+            if history_request_time_ms is not None
+            else None
+        )
+        publication_entries[coin_id] = {
+            "symbol": symbol,
+            "funding_sha256": _file_sha256(path),
+            "funding_last": str(actual_last),
+            "funding_rate": actual_rate,
+            "history_last": None if pd.isna(history_last) else str(history_last),
+            "history_request_time": (
+                history_requested_at.isoformat() if history_requested_at else None
+            ),
+            "current_settlement_time": (
+                current_settlement.isoformat() if current_settlement else None
+            ),
+            "current_funding_rate": current_rate,
+            "current_request_time": (
+                pd.Timestamp(current_request_time_ms, unit="ms", tz="UTC").isoformat()
+                if current_request_time_ms is not None
+                else None
+            ),
+            "api_interval_hours": api_interval_hours,
+            "contract_interval_hours": interval_hours if interval_hours > 0.0 else None,
+            "interval_matches_contract": bool(
+                api_interval_hours is not None
+                and interval_hours > 0.0
+                and math.isclose(api_interval_hours, interval_hours, abs_tol=1e-9)
+            ),
+            "history_rate_at_current_settlement": history_rate_at_current,
+            "rate_relation": rate_relation,
+            "latest_source": latest_source,
+            "verified_at": verified_at.isoformat() if verified_at else None,
+            "publication_lag_seconds": (
+                (verified_at - actual_last).total_seconds() if verified_at else None
+            ),
+            "history_lag_seconds": (
+                (history_requested_at - history_last).total_seconds()
+                if history_requested_at is not None and not pd.isna(history_last)
+                else None
+            ),
+            "current_funding_error": current_error,
         }
     manifest_path = output_dir / "funding_manifest.json"
     persisted: dict[str, Any] = {}
@@ -512,7 +783,106 @@ def _download_funding(
         manifest_path,
         json.dumps(persisted, indent=2, sort_keys=True),
     )
+    publication_payload = {
+        "version": 1,
+        "generated_at": current.isoformat(),
+        "assets": {
+            **previous_publication,
+            **publication_entries,
+        },
+    }
+    atomic_write_text(
+        publication_path,
+        json.dumps(publication_payload, indent=2, sort_keys=True),
+    )
     return persisted
+
+
+def _archive_contract_snapshot(
+    output_dir: Path,
+    contracts: list[dict[str, Any]],
+    *,
+    captured_at: pd.Timestamp,
+    request_time_ms: int | None,
+) -> dict[str, Any]:
+    """Persist contract metadata change points with content identity.
+
+    Repeated observations of unchanged metadata update ``last_seen_at`` in the
+    index instead of writing a large duplicate file.  A changed payload creates
+    a new immutable snapshot, which lets later research distinguish a genuine
+    venue specification change from using today's contract table as history.
+    """
+
+    moment = pd.Timestamp(captured_at)
+    if moment.tzinfo is None:
+        moment = moment.tz_localize("UTC")
+    else:
+        moment = moment.tz_convert("UTC")
+    canonical = json.dumps(contracts, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    snapshot_dir = ensure_dir(output_dir / "contract_snapshots")
+    index_path = snapshot_dir / "index.json"
+    payload: dict[str, Any] = {}
+    if index_path.is_file():
+        try:
+            existing = json.loads(index_path.read_text(encoding="utf-8"))
+            if isinstance(existing, dict):
+                payload = existing
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    snapshots = payload.get("snapshots")
+    entries = list(snapshots) if isinstance(snapshots, list) else []
+    request_time = (
+        pd.Timestamp(request_time_ms, unit="ms", tz="UTC").isoformat()
+        if request_time_ms is not None
+        else None
+    )
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or entry.get("sha256") != digest:
+            continue
+        updated = dict(entry)
+        updated["last_seen_at"] = moment.isoformat()
+        updated["last_request_time"] = request_time
+        entries[index] = updated
+        atomic_write_text(
+            index_path,
+            json.dumps(
+                {"version": 1, "snapshots": entries}, indent=2, sort_keys=True
+            )
+            + "\n",
+        )
+        return updated
+
+    filename = f"contracts_{moment.strftime('%Y%m%dT%H%M%SZ')}_{digest[:12]}.json"
+    snapshot_path = snapshot_dir / filename
+    snapshot_payload = {
+        "captured_at": moment.isoformat(),
+        "request_time": request_time,
+        "contracts_sha256": digest,
+        "rows": len(contracts),
+        "contracts": contracts,
+    }
+    atomic_write_text(
+        snapshot_path,
+        json.dumps(snapshot_payload, indent=2, sort_keys=True) + "\n",
+    )
+    entry = {
+        "path": str(snapshot_path.relative_to(output_dir)),
+        "sha256": digest,
+        "rows": len(contracts),
+        "first_seen_at": moment.isoformat(),
+        "last_seen_at": moment.isoformat(),
+        "first_request_time": request_time,
+        "last_request_time": request_time,
+    }
+    entries.append(entry)
+    entries.sort(key=lambda item: str(item.get("first_seen_at") or ""))
+    atomic_write_text(
+        index_path,
+        json.dumps({"version": 1, "snapshots": entries}, indent=2, sort_keys=True)
+        + "\n",
+    )
+    return entry
 
 
 def _parse_clock(value: str) -> time:
@@ -594,6 +964,12 @@ def main() -> None:
     _write_csv_atomic(symbol_map, output_dir / "symbol_map.csv")
     atomic_write_text(
         output_dir / "contracts.json", json.dumps(contracts, indent=2, sort_keys=True)
+    )
+    _archive_contract_snapshot(
+        output_dir,
+        contracts,
+        captured_at=pd.Timestamp.now(tz="UTC"),
+        request_time_ms=getattr(client, "last_request_time_ms", None),
     )
     LOGGER.info("Bitget contracts: %s; mapped coins: %s", len(contracts), int(symbol_map["bitget_symbol"].ne("").sum()))
 

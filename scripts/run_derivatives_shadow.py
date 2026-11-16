@@ -835,6 +835,20 @@ def _cap_short_schedule(
     return dict(sorted(capped.items()))
 
 
+def _contract_spec_provenance(contract_specs_from_symbol_map: bool) -> dict[str, str]:
+    """Describe contract metadata without overstating historical coverage."""
+
+    if contract_specs_from_symbol_map:
+        return {
+            "contract_spec_source": "bitget_contract_snapshot_symbol_map",
+            "contract_spec_coverage": "point_in_time_snapshots_not_daily_history",
+        }
+    return {
+        "contract_spec_source": "ideal_unquantized",
+        "contract_spec_coverage": "not_quantized",
+    }
+
+
 def _contract_specs_from_symbol_map(symbol_map: pd.DataFrame) -> dict[str, ContractSpec]:
     """Build current-snapshot venue specs from the frozen symbol map."""
 
@@ -1591,11 +1605,7 @@ def main() -> None:
         ),
         "market_fill_asset_count": int(len(market_fill_candles)),
         "market_fill_provenance": market_fill_provenance,
-        "contract_spec_source": (
-            "symbol_map_current_snapshot_approximation"
-            if args.contract_specs_from_symbol_map
-            else "ideal_unquantized"
-        ),
+        **_contract_spec_provenance(args.contract_specs_from_symbol_map),
         "min_rebalance_usdt": float(args.min_rebalance_usdt),
         "normalize_isolated_margin": str(args.normalize_isolated_margin),
         "order_skip_count": int(len(result.order_skips)),
@@ -1777,11 +1787,7 @@ def main() -> None:
                 "market_fill_missing_symbols": market_fill_provenance.get(
                     "missing_symbols", []
                 ),
-                "contract_spec_source": (
-                    "symbol_map_current_snapshot_approximation"
-                    if args.contract_specs_from_symbol_map
-                    else "ideal_unquantized"
-                ),
+                **_contract_spec_provenance(args.contract_specs_from_symbol_map),
                 "min_rebalance_usdt": float(args.min_rebalance_usdt),
                 "normalize_isolated_margin": str(args.normalize_isolated_margin),
                 "mark_carry_count": int(len(result.mark_carries)),

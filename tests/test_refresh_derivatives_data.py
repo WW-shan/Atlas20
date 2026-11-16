@@ -17,6 +17,7 @@ def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> N
         ["/usr/bin/make", "audit-data-chain"],
         ["/usr/bin/make", "audit-data-ls104"],
         ["/usr/bin/make", "audit-symbols-ls104"],
+        ["/usr/bin/make", "audit-contract-specs-ls104"],
         ["/usr/bin/make", "audit-signal-ls104"],
     ]
     assert not any("execute_live_plan.py" in " ".join(command) for command in commands)

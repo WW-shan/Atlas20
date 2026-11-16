@@ -9886,8 +9886,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.1inch.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.1inch.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:13.667000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27734s)",
+      "name": "funding.1inch.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 8e-05 matches history/current evidence (match)",
+      "name": "funding.1inch.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.1inch.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.1inch.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.1inch.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.1inch.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.1inch.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.1inch.fresh",
       "passed": true
     },
     {
@@ -9926,8 +9971,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.aave.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.aave.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:16.286000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27736s)",
+      "name": "funding.aave.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -9.1e-05 matches history/current evidence (match)",
+      "name": "funding.aave.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.aave.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.aave.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.aave.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.aave.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.aave.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.aave.fresh",
       "passed": true
     },
     {
@@ -9966,8 +10056,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.algorand.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.algorand.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:18.902000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27739s)",
+      "name": "funding.algorand.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000148 matches history/current evidence (match)",
+      "name": "funding.algorand.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.algorand.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.algorand.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.algorand.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.algorand.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.algorand.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.algorand.fresh",
       "passed": true
     },
     {
@@ -10006,8 +10141,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.apecoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.apecoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:23.022000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27743s)",
+      "name": "funding.apecoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.apecoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.apecoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.apecoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.apecoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.apecoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.apecoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.apecoin.fresh",
       "passed": true
     },
     {
@@ -10046,8 +10226,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.aptos.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.aptos.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:25.722000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27746s)",
+      "name": "funding.aptos.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -4e-05 matches history/current evidence (match)",
+      "name": "funding.aptos.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.aptos.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.aptos.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.aptos.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.aptos.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.aptos.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.aptos.fresh",
       "passed": true
     },
     {
@@ -10086,8 +10311,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.arbitrum.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.arbitrum.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:28.417000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27748s)",
+      "name": "funding.arbitrum.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -4.2e-05 matches history/current evidence (match)",
+      "name": "funding.arbitrum.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.arbitrum.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.arbitrum.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.arbitrum.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.arbitrum.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.arbitrum.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.arbitrum.fresh",
       "passed": true
     },
     {
@@ -10126,8 +10396,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.aster-2.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.aster-2.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:34.099000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13354s)",
+      "name": "funding.aster-2.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.aster-2.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.aster-2.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.aster-2.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.aster-2.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.aster-2.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.aster-2.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.aster-2.fresh",
       "passed": true
     },
     {
@@ -10166,8 +10481,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.avalanche-2.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.avalanche-2.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:36.742000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27757s)",
+      "name": "funding.avalanche-2.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -7.7e-05 matches history/current evidence (match)",
+      "name": "funding.avalanche-2.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.avalanche-2.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.avalanche-2.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.avalanche-2.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.avalanche-2.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.avalanche-2.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.avalanche-2.fresh",
       "passed": true
     },
     {
@@ -10206,8 +10566,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.axie-infinity.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.axie-infinity.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:40.942000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13361s)",
+      "name": "funding.axie-infinity.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.axie-infinity.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.axie-infinity.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.axie-infinity.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.axie-infinity.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.axie-infinity.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.axie-infinity.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.axie-infinity.fresh",
       "passed": true
     },
     {
@@ -10246,8 +10651,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.basic-attention-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.basic-attention-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:43.471000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27763s)",
+      "name": "funding.basic-attention-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.basic-attention-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.basic-attention-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.basic-attention-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.basic-attention-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.basic-attention-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.basic-attention-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.basic-attention-token.fresh",
       "passed": true
     },
     {
@@ -10286,8 +10736,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.binancecoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.binancecoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:46.700000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27767s)",
+      "name": "funding.binancecoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -3.5e-05 matches history/current evidence (match)",
+      "name": "funding.binancecoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.binancecoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.binancecoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.binancecoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.binancecoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.binancecoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.binancecoin.fresh",
       "passed": true
     },
     {
@@ -10326,8 +10821,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.bitcoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.bitcoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:49.314000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27769s)",
+      "name": "funding.bitcoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -2.5e-05 matches history/current evidence (match)",
+      "name": "funding.bitcoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.bitcoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.bitcoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.bitcoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.bitcoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.bitcoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.bitcoin.fresh",
       "passed": true
     },
     {
@@ -10363,6 +10903,41 @@
     {
       "detail": "manifest last='2026-11-16 08:00:00+00:00' actual last=2026-11-16 08:00:00+00:00",
       "name": "funding.bitcoin-cash.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.bitcoin-cash.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.bitcoin-cash.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:51.938000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27772s)",
+      "name": "funding.bitcoin-cash.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000128 matches history/current evidence (match)",
+      "name": "funding.bitcoin-cash.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.bitcoin-cash.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.bitcoin-cash.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.bitcoin-cash.interval_history",
       "passed": true
     },
     {
@@ -10416,8 +10991,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.bitget-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.bitget-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:54.747000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27775s)",
+      "name": "funding.bitget-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5.9e-05 matches history/current evidence (match)",
+      "name": "funding.bitget-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.bitget-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.bitget-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.bitget-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.bitget-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.bitget-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.bitget-token.fresh",
       "passed": true
     },
     {
@@ -10456,8 +11076,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.bittensor.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.bittensor.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:42:58.744000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13379s)",
+      "name": "funding.bittensor.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 6e-06 matches history/current evidence (match)",
+      "name": "funding.bittensor.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.bittensor.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.bittensor.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.bittensor.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.bittensor.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.bittensor.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.bittensor.fresh",
       "passed": true
     },
     {
@@ -10496,8 +11161,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.bitway.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.bitway.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:04.583000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13385s)",
+      "name": "funding.bitway.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.bitway.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.bitway.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.bitway.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.bitway.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.bitway.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.bitway.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.bitway.fresh",
       "passed": true
     },
     {
@@ -10536,8 +11246,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.canton-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.canton-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:09.238000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13389s)",
+      "name": "funding.canton-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.canton-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.canton-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.canton-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.canton-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.canton-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.canton-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.canton-network.fresh",
       "passed": true
     },
     {
@@ -10576,8 +11331,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.cardano.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.cardano.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:11.864000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27792s)",
+      "name": "funding.cardano.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -9.4e-05 matches history/current evidence (match)",
+      "name": "funding.cardano.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.cardano.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.cardano.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.cardano.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.cardano.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.cardano.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.cardano.fresh",
       "passed": true
     },
     {
@@ -10616,8 +11416,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.celestia.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.celestia.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:17.095000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13397s)",
+      "name": "funding.celestia.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -1.5e-05 matches history/current evidence (match)",
+      "name": "funding.celestia.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.celestia.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.celestia.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.celestia.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.celestia.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.celestia.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.celestia.fresh",
       "passed": true
     },
     {
@@ -10656,8 +11501,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.chainlink.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.chainlink.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:21.303000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27801s)",
+      "name": "funding.chainlink.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000117 matches history/current evidence (match)",
+      "name": "funding.chainlink.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.chainlink.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.chainlink.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.chainlink.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.chainlink.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.chainlink.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.chainlink.fresh",
       "passed": true
     },
     {
@@ -10696,8 +11586,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.chiliz.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.chiliz.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:23.951000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27804s)",
+      "name": "funding.chiliz.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.chiliz.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.chiliz.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.chiliz.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.chiliz.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.chiliz.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.chiliz.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.chiliz.fresh",
       "passed": true
     },
     {
@@ -10736,8 +11671,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.compound-governance-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.compound-governance-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:27.073000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27807s)",
+      "name": "funding.compound-governance-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000339 matches history/current evidence (match)",
+      "name": "funding.compound-governance-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.compound-governance-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.compound-governance-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.compound-governance-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.compound-governance-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.compound-governance-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.compound-governance-token.fresh",
       "passed": true
     },
     {
@@ -10776,8 +11756,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.cosmos.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.cosmos.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:29.720000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27810s)",
+      "name": "funding.cosmos.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000122 matches history/current evidence (match)",
+      "name": "funding.cosmos.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.cosmos.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.cosmos.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.cosmos.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.cosmos.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.cosmos.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.cosmos.fresh",
       "passed": true
     },
     {
@@ -10816,8 +11841,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.crypto-com-chain.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.crypto-com-chain.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:32.901000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27813s)",
+      "name": "funding.crypto-com-chain.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5e-06 matches history/current evidence (match)",
+      "name": "funding.crypto-com-chain.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.crypto-com-chain.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.crypto-com-chain.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.crypto-com-chain.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.crypto-com-chain.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.crypto-com-chain.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.crypto-com-chain.fresh",
       "passed": true
     },
     {
@@ -10856,8 +11926,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.curve-dao-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.curve-dao-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:36.497000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27816s)",
+      "name": "funding.curve-dao-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-06 matches history/current evidence (match)",
+      "name": "funding.curve-dao-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.curve-dao-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.curve-dao-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.curve-dao-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.curve-dao-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.curve-dao-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.curve-dao-token.fresh",
       "passed": true
     },
     {
@@ -10896,8 +12011,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.decentraland.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.decentraland.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:39.714000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27820s)",
+      "name": "funding.decentraland.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.decentraland.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.decentraland.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.decentraland.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.decentraland.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.decentraland.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.decentraland.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.decentraland.fresh",
       "passed": true
     },
     {
@@ -10936,8 +12096,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.dogecoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.dogecoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:43.306000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27823s)",
+      "name": "funding.dogecoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -1.6e-05 matches history/current evidence (match)",
+      "name": "funding.dogecoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.dogecoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.dogecoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.dogecoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.dogecoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.dogecoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.dogecoin.fresh",
       "passed": true
     },
     {
@@ -10976,8 +12181,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.dydx-chain.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.dydx-chain.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:46.588000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27827s)",
+      "name": "funding.dydx-chain.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.dydx-chain.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.dydx-chain.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.dydx-chain.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.dydx-chain.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.dydx-chain.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.dydx-chain.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.dydx-chain.fresh",
       "passed": true
     },
     {
@@ -11016,8 +12266,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.elrond-erd-2.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.elrond-erd-2.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:50.262000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27830s)",
+      "name": "funding.elrond-erd-2.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.elrond-erd-2.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.elrond-erd-2.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.elrond-erd-2.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.elrond-erd-2.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.elrond-erd-2.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.elrond-erd-2.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.elrond-erd-2.fresh",
       "passed": true
     },
     {
@@ -11056,8 +12351,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.enjincoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.enjincoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:55.311000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13435s)",
+      "name": "funding.enjincoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.enjincoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.enjincoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.enjincoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.enjincoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.enjincoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.enjincoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.enjincoin.fresh",
       "passed": true
     },
     {
@@ -11096,8 +12436,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ethena.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ethena.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:43:59.547000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13440s)",
+      "name": "funding.ethena.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 2.2e-05 matches history/current evidence (match)",
+      "name": "funding.ethena.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.ethena.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.ethena.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.ethena.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.ethena.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.ethena.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ethena.fresh",
       "passed": true
     },
     {
@@ -11136,8 +12521,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ethereum.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ethereum.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:02.253000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27842s)",
+      "name": "funding.ethereum.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -1.7e-05 matches history/current evidence (match)",
+      "name": "funding.ethereum.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.ethereum.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.ethereum.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.ethereum.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.ethereum.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.ethereum.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ethereum.fresh",
       "passed": true
     },
     {
@@ -11176,8 +12606,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ethereum-classic.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ethereum-classic.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:04.680000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27845s)",
+      "name": "funding.ethereum-classic.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.ethereum-classic.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.ethereum-classic.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.ethereum-classic.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.ethereum-classic.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.ethereum-classic.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.ethereum-classic.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ethereum-classic.fresh",
       "passed": true
     },
     {
@@ -11216,8 +12691,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ethereum-name-service.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ethereum-name-service.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:07.574000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27848s)",
+      "name": "funding.ethereum-name-service.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.ethereum-name-service.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.ethereum-name-service.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.ethereum-name-service.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.ethereum-name-service.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.ethereum-name-service.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.ethereum-name-service.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ethereum-name-service.fresh",
       "passed": true
     },
     {
@@ -11256,8 +12776,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.fantom.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.fantom.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:11.785000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13452s)",
+      "name": "funding.fantom.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.00014 matches history/current evidence (match)",
+      "name": "funding.fantom.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.fantom.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.fantom.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.fantom.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.fantom.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.fantom.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.fantom.fresh",
       "passed": true
     },
     {
@@ -11296,8 +12861,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.filecoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.filecoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:14.637000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27855s)",
+      "name": "funding.filecoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5.3e-05 matches history/current evidence (match)",
+      "name": "funding.filecoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.filecoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.filecoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.filecoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.filecoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.filecoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.filecoin.fresh",
       "passed": true
     },
     {
@@ -11336,8 +12946,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.gala.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.gala.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:17.791000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27858s)",
+      "name": "funding.gala.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -1.3e-05 matches history/current evidence (match)",
+      "name": "funding.gala.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.gala.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.gala.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.gala.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.gala.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.gala.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.gala.fresh",
       "passed": true
     },
     {
@@ -11376,8 +13031,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.havven.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.havven.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:20.415000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27860s)",
+      "name": "funding.havven.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.havven.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.havven.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.havven.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.havven.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.havven.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.havven.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.havven.fresh",
       "passed": true
     },
     {
@@ -11416,8 +13116,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.hedera-hashgraph.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.hedera-hashgraph.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:23.302000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27863s)",
+      "name": "funding.hedera-hashgraph.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000174 matches history/current evidence (match)",
+      "name": "funding.hedera-hashgraph.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.hedera-hashgraph.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.hedera-hashgraph.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.hedera-hashgraph.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.hedera-hashgraph.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.hedera-hashgraph.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.hedera-hashgraph.fresh",
       "passed": true
     },
     {
@@ -11453,6 +13198,41 @@
     {
       "detail": "manifest last='2026-11-16 12:00:00+00:00' actual last=2026-11-16 12:00:00+00:00",
       "name": "funding.hyperliquid.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.hyperliquid.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.hyperliquid.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:28.531000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13469s)",
+      "name": "funding.hyperliquid.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 8e-06 matches history/current evidence (match)",
+      "name": "funding.hyperliquid.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.hyperliquid.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.hyperliquid.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.hyperliquid.interval_history",
       "passed": true
     },
     {
@@ -11506,8 +13286,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.immutable-x.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.immutable-x.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:32.661000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13473s)",
+      "name": "funding.immutable-x.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.immutable-x.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.immutable-x.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.immutable-x.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.immutable-x.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.immutable-x.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.immutable-x.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.immutable-x.fresh",
       "passed": true
     },
     {
@@ -11546,8 +13371,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.injective-protocol.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.injective-protocol.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:35.497000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27875s)",
+      "name": "funding.injective-protocol.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000221 matches history/current evidence (match)",
+      "name": "funding.injective-protocol.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.injective-protocol.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.injective-protocol.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.injective-protocol.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.injective-protocol.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.injective-protocol.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.injective-protocol.fresh",
       "passed": true
     },
     {
@@ -11586,8 +13456,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.internet-computer.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.internet-computer.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:37.806000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27878s)",
+      "name": "funding.internet-computer.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000123 matches history/current evidence (match)",
+      "name": "funding.internet-computer.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.internet-computer.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.internet-computer.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.internet-computer.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.internet-computer.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.internet-computer.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.internet-computer.fresh",
       "passed": true
     },
     {
@@ -11626,8 +13541,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.jupiter-exchange-solana.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.jupiter-exchange-solana.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:42.089000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13482s)",
+      "name": "funding.jupiter-exchange-solana.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -8.3e-05 matches history/current evidence (match)",
+      "name": "funding.jupiter-exchange-solana.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.jupiter-exchange-solana.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.jupiter-exchange-solana.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.jupiter-exchange-solana.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.jupiter-exchange-solana.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.jupiter-exchange-solana.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.jupiter-exchange-solana.fresh",
       "passed": true
     },
     {
@@ -11666,8 +13626,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.kaspa.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.kaspa.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:45.777000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13486s)",
+      "name": "funding.kaspa.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -7.6e-05 matches history/current evidence (match)",
+      "name": "funding.kaspa.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.kaspa.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.kaspa.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.kaspa.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.kaspa.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.kaspa.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.kaspa.fresh",
       "passed": true
     },
     {
@@ -11706,8 +13711,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.lido-dao.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.lido-dao.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:49.250000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27889s)",
+      "name": "funding.lido-dao.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.lido-dao.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.lido-dao.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.lido-dao.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.lido-dao.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.lido-dao.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.lido-dao.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.lido-dao.fresh",
       "passed": true
     },
     {
@@ -11746,8 +13796,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.litecoin.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.litecoin.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:51.973000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27892s)",
+      "name": "funding.litecoin.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -9.8e-05 matches history/current evidence (match)",
+      "name": "funding.litecoin.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.litecoin.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.litecoin.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.litecoin.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.litecoin.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.litecoin.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.litecoin.fresh",
       "passed": true
     },
     {
@@ -11786,8 +13881,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.matic-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.matic-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:44:55.687000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13496s)",
+      "name": "funding.matic-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.matic-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.matic-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.matic-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.matic-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.matic-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.matic-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.matic-network.fresh",
       "passed": true
     },
     {
@@ -11826,8 +13966,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.memecore.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.memecore.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:00.419000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13500s)",
+      "name": "funding.memecore.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.memecore.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.memecore.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.memecore.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.memecore.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.memecore.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.memecore.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.memecore.fresh",
       "passed": true
     },
     {
@@ -11866,8 +14051,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.monero.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.monero.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:02.761000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27903s)",
+      "name": "funding.monero.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.monero.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.monero.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.monero.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.monero.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.monero.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.monero.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.monero.fresh",
       "passed": true
     },
     {
@@ -11906,8 +14136,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.morpho.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.morpho.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:06.887000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13507s)",
+      "name": "funding.morpho.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 4e-05 matches history/current evidence (match)",
+      "name": "funding.morpho.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.morpho.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.morpho.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.morpho.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.morpho.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.morpho.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.morpho.fresh",
       "passed": true
     },
     {
@@ -11943,6 +14218,41 @@
     {
       "detail": "manifest last='2026-11-16 08:00:00+00:00' actual last=2026-11-16 08:00:00+00:00",
       "name": "funding.near.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.near.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.near.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:09.346000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27909s)",
+      "name": "funding.near.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -3.7e-05 matches history/current evidence (match)",
+      "name": "funding.near.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.near.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.near.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.near.interval_history",
       "passed": true
     },
     {
@@ -11996,8 +14306,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.neo.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.neo.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:11.872000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27912s)",
+      "name": "funding.neo.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -7.9e-05 matches history/current evidence (match)",
+      "name": "funding.neo.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.neo.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.neo.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.neo.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.neo.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.neo.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.neo.fresh",
       "passed": true
     },
     {
@@ -12036,8 +14391,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ondo-finance.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ondo-finance.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:15.643000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13516s)",
+      "name": "funding.ondo-finance.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 8e-06 matches history/current evidence (match)",
+      "name": "funding.ondo-finance.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.ondo-finance.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.ondo-finance.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.ondo-finance.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.ondo-finance.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.ondo-finance.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ondo-finance.fresh",
       "passed": true
     },
     {
@@ -12076,8 +14476,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.optimism.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.optimism.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:17.811000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27918s)",
+      "name": "funding.optimism.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 1.2e-05 matches history/current evidence (match)",
+      "name": "funding.optimism.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.optimism.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.optimism.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.optimism.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.optimism.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.optimism.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.optimism.fresh",
       "passed": true
     },
     {
@@ -12116,8 +14561,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.pancakeswap-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.pancakeswap-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:21.797000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13522s)",
+      "name": "funding.pancakeswap-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -2e-06 matches history/current evidence (match)",
+      "name": "funding.pancakeswap-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.pancakeswap-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.pancakeswap-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.pancakeswap-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.pancakeswap-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.pancakeswap-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.pancakeswap-token.fresh",
       "passed": true
     },
     {
@@ -12156,8 +14646,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.pepe.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.pepe.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:24.861000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27925s)",
+      "name": "funding.pepe.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000294 matches history/current evidence (match)",
+      "name": "funding.pepe.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.pepe.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.pepe.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.pepe.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.pepe.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.pepe.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.pepe.fresh",
       "passed": true
     },
     {
@@ -12196,8 +14731,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.pi-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.pi-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:29.594000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13530s)",
+      "name": "funding.pi-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -7.5e-05 matches history/current evidence (match)",
+      "name": "funding.pi-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.pi-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.pi-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.pi-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.pi-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.pi-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.pi-network.fresh",
       "passed": true
     },
     {
@@ -12236,8 +14816,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.polkadot.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.polkadot.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:33.195000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27933s)",
+      "name": "funding.polkadot.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 2.7e-05 matches history/current evidence (match)",
+      "name": "funding.polkadot.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.polkadot.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.polkadot.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.polkadot.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.polkadot.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.polkadot.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.polkadot.fresh",
       "passed": true
     },
     {
@@ -12276,8 +14901,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.polygon-ecosystem-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.polygon-ecosystem-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:37.143000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13537s)",
+      "name": "funding.polygon-ecosystem-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.polygon-ecosystem-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.polygon-ecosystem-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.polygon-ecosystem-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.polygon-ecosystem-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.polygon-ecosystem-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.polygon-ecosystem-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.polygon-ecosystem-token.fresh",
       "passed": true
     },
     {
@@ -12316,8 +14986,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.pump-fun.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.pump-fun.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:41.471000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13541s)",
+      "name": "funding.pump-fun.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.pump-fun.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.pump-fun.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.pump-fun.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.pump-fun.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.pump-fun.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.pump-fun.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.pump-fun.fresh",
       "passed": true
     },
     {
@@ -12356,8 +15071,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.quant-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.quant-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:44.079000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27944s)",
+      "name": "funding.quant-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5.8e-05 matches history/current evidence (match)",
+      "name": "funding.quant-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.quant-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.quant-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.quant-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.quant-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.quant-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.quant-network.fresh",
       "passed": true
     },
     {
@@ -12396,8 +15156,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.render-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.render-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:47.462000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13547s)",
+      "name": "funding.render-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000108 matches history/current evidence (match)",
+      "name": "funding.render-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.render-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.render-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.render-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.render-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.render-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.render-token.fresh",
       "passed": true
     },
     {
@@ -12436,8 +15241,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.ripple.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.ripple.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:50.141000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27950s)",
+      "name": "funding.ripple.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -6.4e-05 matches history/current evidence (match)",
+      "name": "funding.ripple.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.ripple.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.ripple.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.ripple.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.ripple.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.ripple.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.ripple.fresh",
       "passed": true
     },
     {
@@ -12476,8 +15326,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.sei-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.sei-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:52.285000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27952s)",
+      "name": "funding.sei-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 1.8e-05 matches history/current evidence (match)",
+      "name": "funding.sei-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.sei-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.sei-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.sei-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.sei-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.sei-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.sei-network.fresh",
       "passed": true
     },
     {
@@ -12516,8 +15411,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.shiba-inu.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.shiba-inu.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:54.576000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27955s)",
+      "name": "funding.shiba-inu.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -8e-06 matches history/current evidence (match)",
+      "name": "funding.shiba-inu.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.shiba-inu.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.shiba-inu.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.shiba-inu.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.shiba-inu.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.shiba-inu.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.shiba-inu.fresh",
       "passed": true
     },
     {
@@ -12556,8 +15496,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.sky.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.sky.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:45:58.989000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13559s)",
+      "name": "funding.sky.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000153 matches history/current evidence (match)",
+      "name": "funding.sky.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.sky.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.sky.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.sky.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.sky.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.sky.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.sky.fresh",
       "passed": true
     },
     {
@@ -12596,8 +15581,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.solana.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.solana.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:01.306000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27961s)",
+      "name": "funding.solana.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000225 matches history/current evidence (match)",
+      "name": "funding.solana.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.solana.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.solana.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.solana.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.solana.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.solana.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.solana.fresh",
       "passed": true
     },
     {
@@ -12636,8 +15666,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.stellar.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.stellar.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:04.470000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27964s)",
+      "name": "funding.stellar.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000192 matches history/current evidence (match)",
+      "name": "funding.stellar.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.stellar.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.stellar.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.stellar.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.stellar.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.stellar.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.stellar.fresh",
       "passed": true
     },
     {
@@ -12676,8 +15751,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.stepn.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.stepn.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:08.895000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13569s)",
+      "name": "funding.stepn.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000293 matches history/current evidence (match)",
+      "name": "funding.stepn.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.stepn.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.stepn.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.stepn.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.stepn.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.stepn.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.stepn.fresh",
       "passed": true
     },
     {
@@ -12716,8 +15836,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.sui.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.sui.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:11.233000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27971s)",
+      "name": "funding.sui.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-06 matches history/current evidence (match)",
+      "name": "funding.sui.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.sui.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.sui.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.sui.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.sui.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.sui.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.sui.fresh",
       "passed": true
     },
     {
@@ -12756,8 +15921,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.sushi.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.sushi.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:13.778000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27974s)",
+      "name": "funding.sushi.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.sushi.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.sushi.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.sushi.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.sushi.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.sushi.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.sushi.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.sushi.fresh",
       "passed": true
     },
     {
@@ -12796,8 +16006,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.terra-luna.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.terra-luna.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:16.630000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27977s)",
+      "name": "funding.terra-luna.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000161 matches history/current evidence (match)",
+      "name": "funding.terra-luna.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.terra-luna.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.terra-luna.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.terra-luna.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.terra-luna.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.terra-luna.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.terra-luna.fresh",
       "passed": true
     },
     {
@@ -12836,8 +16091,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.terra-luna-2.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.terra-luna-2.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:21.284000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13581s)",
+      "name": "funding.terra-luna-2.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.terra-luna-2.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.terra-luna-2.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.terra-luna-2.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.terra-luna-2.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.terra-luna-2.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.terra-luna-2.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.terra-luna-2.fresh",
       "passed": true
     },
     {
@@ -12876,8 +16176,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.tezos.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.tezos.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:25.873000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13586s)",
+      "name": "funding.tezos.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.tezos.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.tezos.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.tezos.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.tezos.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.tezos.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.tezos.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.tezos.fresh",
       "passed": true
     },
     {
@@ -12916,8 +16261,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.the-graph.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.the-graph.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:29.699000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27990s)",
+      "name": "funding.the-graph.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000224 matches history/current evidence (match)",
+      "name": "funding.the-graph.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.the-graph.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.the-graph.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.the-graph.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.the-graph.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.the-graph.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.the-graph.fresh",
       "passed": true
     },
     {
@@ -12956,8 +16346,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.the-open-network.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.the-open-network.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:35.296000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13595s)",
+      "name": "funding.the-open-network.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000146 matches history/current evidence (match)",
+      "name": "funding.the-open-network.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.the-open-network.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.the-open-network.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.the-open-network.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.the-open-network.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.the-open-network.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.the-open-network.fresh",
       "passed": true
     },
     {
@@ -12996,8 +16431,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.the-sandbox.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.the-sandbox.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:38.229000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 27998s)",
+      "name": "funding.the-sandbox.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5.6e-05 matches history/current evidence (match)",
+      "name": "funding.the-sandbox.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.the-sandbox.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.the-sandbox.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.the-sandbox.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.the-sandbox.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.the-sandbox.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.the-sandbox.fresh",
       "passed": true
     },
     {
@@ -13036,8 +16516,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.theta-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.theta-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:46:40.766000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28001s)",
+      "name": "funding.theta-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.theta-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.theta-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.theta-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.theta-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.theta-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.theta-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.theta-token.fresh",
       "passed": true
     },
     {
@@ -13076,8 +16601,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.thorchain.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.thorchain.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:58.676000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28079s)",
+      "name": "funding.thorchain.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.001319 matches history/current evidence (match)",
+      "name": "funding.thorchain.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.thorchain.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.thorchain.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.thorchain.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.thorchain.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.thorchain.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.thorchain.fresh",
       "passed": true
     },
     {
@@ -13116,8 +16686,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.tron.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.tron.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:48:01.520000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28082s)",
+      "name": "funding.tron.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000371 matches history/current evidence (match)",
+      "name": "funding.tron.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.tron.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.tron.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.tron.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.tron.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.tron.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.tron.fresh",
       "passed": true
     },
     {
@@ -13156,8 +16771,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.uniswap.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.uniswap.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:48:03.779000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28084s)",
+      "name": "funding.uniswap.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -6e-05 matches history/current evidence (match)",
+      "name": "funding.uniswap.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.uniswap.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.uniswap.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.uniswap.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.uniswap.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.uniswap.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.uniswap.fresh",
       "passed": true
     },
     {
@@ -13196,8 +16856,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.vechain.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.vechain.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:14.423000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28034s)",
+      "name": "funding.vechain.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 0.0001 matches history/current evidence (match)",
+      "name": "funding.vechain.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.vechain.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.vechain.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.vechain.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.vechain.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.vechain.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.vechain.fresh",
       "passed": true
     },
     {
@@ -13236,8 +16941,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.venice-token.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.venice-token.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:18.333000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13638s)",
+      "name": "funding.venice-token.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.venice-token.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.venice-token.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.venice-token.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.venice-token.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.venice-token.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.venice-token.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.venice-token.fresh",
       "passed": true
     },
     {
@@ -13276,8 +17026,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.world-liberty-financial.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.world-liberty-financial.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:22.449000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13642s)",
+      "name": "funding.world-liberty-financial.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -2.6e-05 matches history/current evidence (match)",
+      "name": "funding.world-liberty-financial.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.world-liberty-financial.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.world-liberty-financial.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.world-liberty-financial.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.world-liberty-financial.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.world-liberty-financial.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.world-liberty-financial.fresh",
       "passed": true
     },
     {
@@ -13316,8 +17111,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.worldcoin-wld.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.worldcoin-wld.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:25.484000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28045s)",
+      "name": "funding.worldcoin-wld.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -0.000177 matches history/current evidence (match)",
+      "name": "funding.worldcoin-wld.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.worldcoin-wld.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.worldcoin-wld.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.worldcoin-wld.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 8.00h exceeds interval 8.00h",
       "name": "funding.worldcoin-wld.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 284 expected settlements present through 2026-11-16 08:00:00+00:00",
+      "name": "funding.worldcoin-wld.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.worldcoin-wld.fresh",
       "passed": true
     },
     {
@@ -13353,6 +17193,41 @@
     {
       "detail": "manifest last='2026-11-16 08:00:00+00:00' actual last=2026-11-16 08:00:00+00:00",
       "name": "funding.zcash.manifest_matches",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.zcash.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.zcash.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:27.681000+00:00 after settlement 2026-11-16 08:00:00+00:00 (lag 28048s)",
+      "name": "funding.zcash.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate -5.6e-05 matches history/current evidence (match)",
+      "name": "funding.zcash.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 8h matches contract 8h",
+      "name": "funding.zcash.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 283 observed gaps are multiples of 8h",
+      "name": "funding.zcash.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 283 gaps match the declared 8h cadence",
+      "name": "funding.zcash.interval_history",
       "passed": true
     },
     {
@@ -13406,8 +17281,53 @@
       "passed": true
     },
     {
+      "detail": "publication evidence is not bound to the current funding file bytes",
+      "name": "funding.zilliqa.publication_hash",
+      "passed": true
+    },
+    {
+      "detail": "publication evidence covers the current funding tail",
+      "name": "funding.zilliqa.publication_evidence",
+      "passed": true
+    },
+    {
+      "detail": "verified at 2026-11-16 15:47:33.118000+00:00 after settlement 2026-11-16 12:00:00+00:00 (lag 13653s)",
+      "name": "funding.zilliqa.publication_time",
+      "passed": true
+    },
+    {
+      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "name": "funding.zilliqa.publication_rate",
+      "passed": true
+    },
+    {
+      "detail": "venue current-fund-rate interval 4h matches contract 4h",
+      "name": "funding.zilliqa.publication_interval",
+      "passed": true
+    },
+    {
+      "detail": "all 568 observed gaps are multiples of 4h",
+      "name": "funding.zilliqa.observed_gap_grid",
+      "passed": true
+    },
+    {
+      "detail": "all 568 gaps match the declared 4h cadence",
+      "name": "funding.zilliqa.interval_history",
+      "passed": true
+    },
+    {
       "detail": "funding gap 4.00h exceeds interval 4.00h",
       "name": "funding.zilliqa.recent_gap",
+      "passed": true
+    },
+    {
+      "detail": "all 569 expected settlements present through 2026-11-16 12:00:00+00:00",
+      "name": "funding.zilliqa.settlement_coverage",
+      "passed": true
+    },
+    {
+      "detail": "fresh",
+      "name": "funding.zilliqa.fresh",
       "passed": true
     }
   ],
@@ -13593,455 +17513,1248 @@
       "funding/worldcoin-wld.csv": "98064d79f57abc7fe3a0a0bf6a1d64e9c4ec3dc644d86a89a291d879e5502d15",
       "funding/zcash.csv": "ba301a0b6238d1cd57f254aa9992657d0f506aa0df9b756e316d5a35368b6fc6",
       "funding/zilliqa.csv": "a2d0326287019b04c281de8c7cb1e75cb5bc051fbd6bef9ea16b7c698caec9ae",
-      "funding_manifest.json": "edc556861d98068bd6a190938c792444c6bdfbd0ee2f048ad69049071916f14d",
+      "funding_manifest.json": "8d15812fdd1b3bc7133ffca238a63c3ab9030a552393b121c5c9398ca324a6da",
+      "funding_publication.json": "26b53a52f66941fb133c1321cb68a2f891bd00f683987114bcb91e15da711d72",
       "symbol_map.csv": "7a538b5157036fea03c349968e31ae7c8e10ce16c7c7926497268082a241db53"
     },
-    "fingerprint": "sha256:fdd11c8e9eb6c7c354153b90655a00eec125afcf159600d161ac4e4ea81b2aba",
-    "manifest_sha256": "73316f6ba2370d09fa5c3d480cd4489db24f7ee8279db99201c2fa7a0305abe2",
+    "fingerprint": "sha256:88e52ed55cdddc6e8643c63e56bdf7406e4878ce3e1b4464119ec7f19312749d",
+    "manifest_sha256": "f6bc64fa6b5d24a66ff5efec0ea72aed0fa3acd7a2620d4dfd19dd5c64d11467",
     "panel_path": "data/processed/panel_daily.csv",
     "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
   },
   "summary": {
-    "checks": 2682,
+    "checks": 3466,
     "funding": {
       "1inch": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27733.667,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:13.667000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "aave": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27736.286,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:16.286000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "algorand": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27738.902,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:18.902000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "apecoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27743.022,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:23.022000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "aptos": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27745.722,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:25.722000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "arbitrum": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27748.417,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:28.417000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "aster-2": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13354.099,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:34.099000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "avalanche-2": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27756.742,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:36.742000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "axie-infinity": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13360.942,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:40.942000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "basic-attention-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27763.471,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:43.471000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "binancecoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27766.7,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:46.700000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "bitcoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27769.314,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:49.314000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "bitcoin-cash": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27771.938,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:51.938000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "bitget-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27774.747,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:54.747000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "bittensor": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13378.744,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:42:58.744000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "bitway": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13384.583,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:04.583000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "canton-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13389.238,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:09.238000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "cardano": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27791.864,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:11.864000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "celestia": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13397.095,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:17.095000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "chainlink": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27801.303,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:21.303000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "chiliz": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27803.951,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:23.951000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "compound-governance-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27807.073,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:27.073000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "cosmos": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27809.72,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:29.720000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "crypto-com-chain": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27812.901,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:32.901000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "curve-dao-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27816.497,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:36.497000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "decentraland": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27819.714,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:39.714000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "dogecoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27823.306,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:43.306000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "dydx-chain": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27826.588,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:46.588000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "elrond-erd-2": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27830.262,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:50.262000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "enjincoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13435.311,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:55.311000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "ethena": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13439.547,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:43:59.547000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "ethereum": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27842.253,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:02.253000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "ethereum-classic": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27844.68,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:04.680000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "ethereum-name-service": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27847.574,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:07.574000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "fantom": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13451.785,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:11.785000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "filecoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27854.637,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:14.637000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "gala": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27857.791,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:17.791000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "havven": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27860.415,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:20.415000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "hedera-hashgraph": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27863.302,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:23.302000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "hyperliquid": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13468.531,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:28.531000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "immutable-x": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13472.661,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:32.661000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "injective-protocol": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27875.497,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:35.497000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "internet-computer": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27877.806,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:37.806000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "jupiter-exchange-solana": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13482.089,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:42.089000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "kaspa": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13485.777,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:45.777000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "lido-dao": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27889.25,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:49.250000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "litecoin": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27891.973,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:51.973000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "matic-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13495.687,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:44:55.687000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "memecore": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13500.419,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:00.419000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "monero": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27902.761,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:02.761000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "morpho": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13506.887,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:06.887000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "near": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27909.346,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:09.346000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "neo": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27911.872,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:11.872000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "ondo-finance": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13515.643,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:15.643000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "optimism": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27917.811,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:17.811000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "pancakeswap-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13521.797,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:21.797000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "pepe": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27924.861,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:24.861000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "pi-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13529.594,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:29.594000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "polkadot": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27933.195,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:33.195000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "polygon-ecosystem-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13537.143,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:37.143000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "pump-fun": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13541.471,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:41.471000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "quant-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27944.079,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:44.079000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "render-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13547.462,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:47.462000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "ripple": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27950.141,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:50.141000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "sei-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27952.285,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:52.285000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "shiba-inu": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27954.576,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:54.576000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "sky": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13558.989,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:45:58.989000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "solana": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27961.306,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:01.306000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "stellar": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27964.47,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:04.470000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "stepn": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13568.895,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:08.895000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "sui": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27971.233,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:11.233000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "sushi": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27973.778,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:13.778000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "terra-luna": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27976.63,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:16.630000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "terra-luna-2": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13581.284,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:21.284000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "tezos": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13585.873,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:25.873000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "the-graph": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27989.699,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:29.699000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "the-open-network": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13595.296,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:35.296000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "the-sandbox": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 27998.229,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:38.229000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "theta-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28000.766,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:46:40.766000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "thorchain": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28078.676,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:58.676000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "tron": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28081.52,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:48:01.520000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "uniswap": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28083.779,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:48:03.779000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "vechain": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28034.423,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:14.423000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "venice-token": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13638.333,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:18.333000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "world-liberty-financial": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13642.449,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:22.449000+00:00"
+        },
         "rows": 569,
         "stale": false
       },
       "worldcoin-wld": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28045.484,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:25.484000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "zcash": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 08:00:00+00:00",
+        "observed_interval_hours": 8.0,
+        "publication": {
+          "api_interval_hours": 8.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 28047.681,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:27.681000+00:00"
+        },
         "rows": 284,
         "stale": false
       },
       "zilliqa": {
+        "interval_matches_contract": true,
         "last": "2026-11-16 12:00:00+00:00",
+        "observed_interval_hours": 4.0,
+        "publication": {
+          "api_interval_hours": 4.0,
+          "latest_source": "history",
+          "publication_lag_seconds": 13653.118,
+          "rate_relation": "match",
+          "verified_at": "2026-11-16T15:47:33.118000+00:00"
+        },
         "rows": 569,
         "stale": false
       }
@@ -14050,7 +18763,7 @@
     "hard_failures": 0,
     "last_mark": "2026-11-16 12:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-16T13:20:34.591558+00:00",
+    "now": "2026-11-16T16:13:57.245331+00:00",
     "panel_latest": "2026-11-15",
     "panel_latest_assets": 97,
     "required_leverage": 4.0,

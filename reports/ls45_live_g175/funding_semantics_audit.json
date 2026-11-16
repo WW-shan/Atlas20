@@ -1,0 +1,172 @@
+{
+  "cycle_count": 4,
+  "cycles": [
+    {
+      "absolute_error": 2.6458859999999853e-05,
+      "closed_at": "2026-11-15T09:02:14.207000+00:00",
+      "detail": "3 settlement(s); tolerance=0.0001; fills=3",
+      "opened_at": "2026-11-14T14:14:49.887000+00:00",
+      "passed": true,
+      "position_id": "1505502509756694529",
+      "reconstructed_funding": 0.0008948611400000001,
+      "relative_error": 0.028718425736985905,
+      "reported_funding": 0.00092132,
+      "settlement_rows": [
+        {
+          "amount": 0.0009015090000000001,
+          "funding_rate": 3e-05,
+          "funding_time": "2026-11-14T16:00:00+00:00",
+          "mark_price": 858.58,
+          "position_qty": 0.035
+        },
+        {
+          "amount": 5.9914400000000004e-05,
+          "funding_rate": 2e-06,
+          "funding_time": "2026-11-15T00:00:00+00:00",
+          "mark_price": 855.92,
+          "position_qty": 0.035
+        },
+        {
+          "amount": -6.656226e-05,
+          "funding_rate": -1e-06,
+          "funding_time": "2026-11-15T08:00:00+00:00",
+          "mark_price": 899.49,
+          "position_qty": 0.07400000000000001
+        }
+      ],
+      "settlements": 3,
+      "side": "short",
+      "symbol": "ZECUSDT"
+    },
+    {
+      "absolute_error": 4.675299999999877e-06,
+      "closed_at": "2026-11-15T09:02:14.207000+00:00",
+      "detail": "3 settlement(s); tolerance=0.0001; fills=3",
+      "opened_at": "2026-11-14T14:14:48.412000+00:00",
+      "passed": true,
+      "position_id": "1505502503570096129",
+      "reconstructed_funding": -0.0017467947,
+      "relative_error": 0.0026693577394987507,
+      "reported_funding": -0.00175147,
+      "settlement_rows": [
+        {
+          "amount": 0.0005594040000000001,
+          "funding_rate": 2e-05,
+          "funding_time": "2026-11-14T16:00:00+00:00",
+          "mark_price": 3.1078,
+          "position_qty": 9.0
+        },
+        {
+          "amount": -0.003689748,
+          "funding_rate": -0.000136,
+          "funding_time": "2026-11-15T00:00:00+00:00",
+          "mark_price": 3.0145,
+          "position_qty": 9.0
+        },
+        {
+          "amount": 0.0013835493,
+          "funding_rate": 2.1e-05,
+          "funding_time": "2026-11-15T08:00:00+00:00",
+          "mark_price": 3.1373,
+          "position_qty": 21.0
+        }
+      ],
+      "settlements": 3,
+      "side": "short",
+      "symbol": "NEARUSDT"
+    },
+    {
+      "absolute_error": 3.899969999999987e-05,
+      "closed_at": "2026-11-15T09:02:14.207000+00:00",
+      "detail": "5 settlement(s); tolerance=0.0001; fills=3",
+      "opened_at": "2026-11-14T14:14:46.896000+00:00",
+      "passed": true,
+      "position_id": "1505502497211531265",
+      "reconstructed_funding": -0.0030554497,
+      "relative_error": 0.0129290059507036,
+      "reported_funding": -0.00301645,
+      "settlement_rows": [
+        {
+          "amount": -0.00042411263999999997,
+          "funding_rate": -1.4e-05,
+          "funding_time": "2026-11-14T16:00:00+00:00",
+          "mark_price": 65.856,
+          "position_qty": 0.46
+        },
+        {
+          "amount": 0.0005192802000000001,
+          "funding_rate": 1.8e-05,
+          "funding_time": "2026-11-14T20:00:00+00:00",
+          "mark_price": 62.715,
+          "position_qty": 0.46
+        },
+        {
+          "amount": 0.00067239074,
+          "funding_rate": 2.3e-05,
+          "funding_time": "2026-11-15T00:00:00+00:00",
+          "mark_price": 63.553,
+          "position_qty": 0.46
+        },
+        {
+          "amount": -0.0019761,
+          "funding_rate": -3e-05,
+          "funding_time": "2026-11-15T04:00:00+00:00",
+          "mark_price": 65.87,
+          "position_qty": 1.0
+        },
+        {
+          "amount": -0.001846908,
+          "funding_rate": -2.8e-05,
+          "funding_time": "2026-11-15T08:00:00+00:00",
+          "mark_price": 65.961,
+          "position_qty": 1.0
+        }
+      ],
+      "settlements": 5,
+      "side": "short",
+      "symbol": "HYPEUSDT"
+    },
+    {
+      "absolute_error": 3.379040000000069e-05,
+      "closed_at": "2026-11-15T09:02:14.207000+00:00",
+      "detail": "3 settlement(s); tolerance=0.000280113; fills=3",
+      "opened_at": "2026-11-14T14:14:44.852000+00:00",
+      "passed": true,
+      "position_id": "1505502488638373889",
+      "reconstructed_funding": -0.0093708904,
+      "relative_error": 0.0036189394994163814,
+      "reported_funding": -0.0093371,
+      "settlement_rows": [
+        {
+          "amount": -0.00023247840000000002,
+          "funding_rate": -8e-06,
+          "funding_time": "2026-11-14T16:00:00+00:00",
+          "mark_price": 207.57,
+          "position_qty": 0.14
+        },
+        {
+          "amount": -0.00275814,
+          "funding_rate": -9.9e-05,
+          "funding_time": "2026-11-15T00:00:00+00:00",
+          "mark_price": 199.0,
+          "position_qty": 0.14
+        },
+        {
+          "amount": -0.006380272,
+          "funding_rate": -9.7e-05,
+          "funding_time": "2026-11-15T08:00:00+00:00",
+          "mark_price": 205.55,
+          "position_qty": 0.32
+        }
+      ],
+      "settlements": 3,
+      "side": "short",
+      "symbol": "BCHUSDT"
+    }
+  ],
+  "hard_failures": [],
+  "max_absolute_error": 3.899969999999987e-05,
+  "max_relative_error": 0.028718425736985905,
+  "passed": true,
+  "semantics": "totalFunding = signed cumulative funding per positionId cycle; positive is a credit to the position; settlement amount uses -side * rate * position_qty * mark_price"
+}

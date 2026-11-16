@@ -129,9 +129,11 @@ class BitgetClient:
         if headers is not None:
             headers.update({"User-Agent": "atlas20-research/0.1"})
         self.request_count = 0
+        self.last_request_time_ms: int | None = None
 
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
+        self.last_request_time_ms = None
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
@@ -154,6 +156,12 @@ class BitgetClient:
                 if code not in _SUCCESS_CODES:
                     raise BitgetAPIError(f"Bitget {path} error {code}: {payload.get('msg', '')}")
                 self.request_count += 1
+                try:
+                    request_time_ms = int(payload.get("requestTime"))
+                except (TypeError, ValueError):
+                    request_time_ms = 0
+                if request_time_ms > 0:
+                    self.last_request_time_ms = request_time_ms
                 if self.rate_limit_seconds > 0:
                     time.sleep(self.rate_limit_seconds)
                 return payload
@@ -263,6 +271,7 @@ class BitgetClient:
         if page_size < 1 or page_size > 100:
             raise ValueError("page_size must be between 1 and 100")
         frames: list[pd.DataFrame] = []
+        request_times_ms: list[int] = []
         for page_no in range(1, max_pages + 1):
             payload = self._get(
                 "/api/v2/mix/market/history-fund-rate",
@@ -273,6 +282,8 @@ class BitgetClient:
                     "pageNo": page_no,
                 },
             )
+            if self.last_request_time_ms is not None:
+                request_times_ms.append(self.last_request_time_ms)
             data = payload.get("data")
             if isinstance(data, dict):
                 page = data.get("resultList") or []
@@ -287,10 +298,20 @@ class BitgetClient:
                 break
             frames.append(frame)
         if not frames:
-            return pd.DataFrame(columns=FUNDING_COLUMNS)
+            empty = pd.DataFrame(columns=FUNDING_COLUMNS)
+            empty.attrs["request_times_ms"] = request_times_ms
+            empty.attrs["request_time_ms"] = (
+                max(request_times_ms) if request_times_ms else None
+            )
+            return empty
         combined = pd.concat(frames, ignore_index=True)
         combined = combined.drop_duplicates("funding_time").sort_values("funding_time")
-        return combined.reset_index(drop=True)
+        combined = combined.reset_index(drop=True)
+        combined.attrs["request_times_ms"] = request_times_ms
+        combined.attrs["request_time_ms"] = (
+            max(request_times_ms) if request_times_ms else None
+        )
+        return combined
 
     def fetch_current_funding(self, symbol: str) -> dict[str, Any]:
         """Return the current funding-rate record for one contract."""

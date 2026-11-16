@@ -37,6 +37,7 @@ AUDIT_FILES = (
     PROJECT_ROOT / "reports" / "ls45_live_g175" / "data_audit.json",
     PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "signal_equivalence.json",
     PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "venue_symbol_audit.json",
+    PROJECT_ROOT / "reports" / "ls45_live_g175" / "contract_spec_snapshots.json",
 )
 
 
@@ -101,6 +102,7 @@ def build_refresh_commands(
         [make_command, "audit-data-chain"],
         [make_command, "audit-data-ls104"],
         [make_command, "audit-symbols-ls104"],
+        [make_command, "audit-contract-specs-ls104"],
         [make_command, "audit-signal-ls104"],
     ]
 

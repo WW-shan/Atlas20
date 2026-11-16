@@ -231,21 +231,26 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 3. **数据与账本**：`make derivatives-live-data derivatives-ls104-signal`（当前 profile）
 4. **数据审计**：`make audit-data-ls104` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
    **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
-   `audit-data-ls104` 还校验 mark/funding 单调性、近期 funding 结算缺口、funding manifest 与实际最后时间一致，
-   把每个 funding CSV 的字节哈希纳入 data fingerprint，并校验最新 panel 的 price/volume/market-cap 有效值；
+   `audit-data-ls104` 还校验 mark/funding 单调性、完整 funding settlement 日历、funding manifest 与实际最后时间一致，
+   把每个 funding CSV 和 `funding_publication.json` 的字节哈希纳入 data fingerprint，并校验最新 panel 的
+   price/volume/market-cap 有效值。每个 required asset 的 publication evidence 必须绑定当前 funding 文件哈希、
+   在最后 settlement 之后取得、rate 与当前/历史端点一致；冲突或缺失即 hard failure。
    `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
-5. **全品种实时能力**：`make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json` 对全部映射资产逐项核对 Bitget v3 合约身份、
+5. **合约规格快照**：`make audit-contract-specs-ls104` 比较冻结 track 的 7 个下单规格字段。
+   下载器把合约变化点写入 `<raw-dir>/contract_snapshots/index.json`，相同内容只更新
+   `last_seen_at`，不制造重复大文件；任一 track symbol 在快照间变化或缺失都会拒绝执行。
+6. **全品种实时能力**：`make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json` 对全部映射资产逐项核对 Bitget v3 合约身份、
    online/perpetual/USDT、报价新鲜度，并按 `--required-leverage 4.0` 验证 all-universe 杠杆能力，
    生成多单、空单止损和 long→short 翻转计划；
    `audit-data-ls104 --required-leverage 4.0` 进一步要求目标账本内每个资产支持 4x。
-6. **信号等价性**：`make audit-signal-ls104` 重新构建冻结账本并逐行比较；同时要求最新信号动作
+7. **信号等价性**：`make audit-signal-ls104` 重新构建冻结账本并逐行比较；同时要求最新信号动作
    在 replay 中留下对应成交、持仓或显式的交易所最小额跳过记录，且成交时间必须落在执行时刻
    前 1 小时到执行时刻之间。任何差异都会拒绝执行。
-7. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
-8. **执行后即时审计**：无论执行成功、partial 还是失败，都立即运行
+8. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
+9. **执行后即时审计**：无论执行成功、partial 还是失败，都立即运行
    `scripts/monitor_live_track.py --notify`；它重新执行独立的 `audit-live`，并可发送实际账户状态告警。
    wrapper 保留 executor 的失败退出码，不会因为 monitor 成功而把 partial 洗成 ok。
-9. **当日已完成的重试**：preflight 返回 4 时先运行 `--protect-only`，再运行 monitor。
+10. **当日已完成的重试**：preflight 返回 4 时先运行 `--protect-only`，再运行 monitor。
    这一步会补记交易所止损、更新 `active_event.stopped_symbols`/风险 overlay/高水位，并恢复或
    归一止损、执行 gross/margin 的风险降低；它没有任何 OPEN/INCREASE 路径。
 
@@ -430,6 +435,12 @@ mark price 触发。回测、计划器、成交后归一化与 `audit-live` 必�
 |---|---|
 | `reports/ls45_live_g175/oos_targets.csv` | LS104 冻结的有符号目标账本 |
 | `reports/ls45_live_g175/manifest.json` | 数据覆盖、spec、funding、冻结参数、评估日、4x/0.90 pins |
+| `reports/ls45_live_g175/data_audit.json` | 数据输入、funding cadence/publication 与合约规格门禁的完整检查 |
+| `reports/ls45_live_g175/contract_spec_snapshots.json` | 冻结 track 在保留合约快照之间的规格差异 |
+| `reports/ls45_live_g175/funding_publication_boundary_probe.json` | 真实结算边界上 `current-fund-rate` 与 history 的发布时间证据 |
+| `reports/ls45_live_g175/funding_semantics_audit.json` | Bitget `totalFunding` 与真实 position cycle 的独立对账 |
+| `data/raw/bitget_derivatives/merged_oos_20261112/funding_publication.json` | 每个合约的 publication request time、rate relation、interval 和文件哈希 |
+| `data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/index.json` | 合约规格变化点索引 |
 | `reports/ls104_g175_m090_20261115/README.md` | LS104 live-parity 研究摘要 |
 | `reports/ls45_live_g175_live/latest.json` | LS104 最近一次真实执行或对账的计划/报告与状态 |
 | `reports/ls45_live_g175_live/journal.csv` | LS104 每日权益、仓位、成交、止损记录、notes |

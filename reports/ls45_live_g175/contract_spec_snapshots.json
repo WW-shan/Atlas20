@@ -1,0 +1,39 @@
+{
+  "changes": [],
+  "compared_fields": [
+    "sizeMultiplier",
+    "minTradeUSDT",
+    "minTradeNum",
+    "fundInterval",
+    "pricePlace",
+    "priceEndStep",
+    "maxLever"
+  ],
+  "evidence_scope": "Point-in-time contract observations. Equality across these snapshots does not by itself prove continuity in intervals for which no contract snapshot exists.",
+  "missing_snapshot_symbols": [],
+  "passed": true,
+  "snapshots": [
+    {
+      "label": "merged_oos_20261009",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261009/contracts.json",
+      "schema": "list",
+      "sha256": "35e61cd7c89a2b71c84e36a4940e51e1dca3463a5634477d663b6bbb6139af56",
+      "symbols": 885
+    },
+    {
+      "label": "merged_oos_20261112",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contracts.json",
+      "schema": "list",
+      "sha256": "1e74b967a1408d951f582f483859d5e5d3f406dfaacc078316d3bc33997b7a6f",
+      "symbols": 886
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261116T154210Z_6412e8473ab5.json",
+      "schema": "capture_wrapper",
+      "sha256": "326a6901083915cfc61732a7d7880f413ffdabf12de7318cae3db2c7785d2f5e",
+      "symbols": 886
+    }
+  ],
+  "track_symbols": 87
+}

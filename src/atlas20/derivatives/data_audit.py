@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -362,6 +363,155 @@ def _read_contracts(path: Path, report: DataAuditReport) -> dict[str, dict[str, 
     return {str(row.get("symbol") or "").upper(): row for row in rows if row.get("symbol")}
 
 
+def _check_funding_publication(
+    report: DataAuditReport,
+    *,
+    asset: str,
+    funding_path: Path,
+    entry: object,
+    actual_last: pd.Timestamp,
+    actual_rate: float,
+    declared_interval: float,
+    now: datetime,
+) -> None:
+    """Verify that this funding snapshot was observed after its last print."""
+
+    if not isinstance(entry, dict):
+        _check(
+            report,
+            f"funding.{asset}.publication_evidence",
+            False,
+            "required funding has no matching publication observation",
+        )
+        return
+
+    expected_hash = _file_sha256(funding_path)
+    observed_hash = str(entry.get("funding_sha256") or "")
+    _check(
+        report,
+        f"funding.{asset}.publication_hash",
+        bool(expected_hash) and observed_hash == expected_hash,
+        "publication evidence is not bound to the current funding file bytes",
+    )
+
+    try:
+        evidence_last = pd.Timestamp(entry.get("funding_last"))
+    except (TypeError, ValueError):
+        evidence_last = pd.NaT
+    try:
+        verified_at = pd.Timestamp(entry.get("verified_at"))
+    except (TypeError, ValueError):
+        verified_at = pd.NaT
+    evidence_identity_ok = bool(
+        not pd.isna(evidence_last)
+        and _as_utc(evidence_last) == _as_utc(actual_last)
+        and not pd.isna(verified_at)
+    )
+    _check(
+        report,
+        f"funding.{asset}.publication_evidence",
+        evidence_identity_ok,
+        (
+            "publication evidence covers the current funding tail"
+            if evidence_identity_ok
+            else f"publication last={entry.get('funding_last')!r}, actual={actual_last}"
+        ),
+    )
+
+    try:
+        reported_lag = float(entry.get("publication_lag_seconds"))
+    except (TypeError, ValueError):
+        reported_lag = float("nan")
+    actual_lag = (
+        (_as_utc(verified_at) - _as_utc(actual_last)).total_seconds()
+        if not pd.isna(verified_at)
+        else float("nan")
+    )
+    time_ok = bool(
+        not pd.isna(verified_at)
+        and np.isfinite(actual_lag)
+        and np.isfinite(reported_lag)
+        and actual_lag >= 0.0
+        and abs(actual_lag - reported_lag) <= 1.0
+        and _as_utc(verified_at) <= _as_utc(now) + pd.Timedelta(minutes=5)
+    )
+    _check(
+        report,
+        f"funding.{asset}.publication_time",
+        time_ok,
+        (
+            f"verified at {verified_at} after settlement {actual_last} "
+            f"(lag {actual_lag:.0f}s)"
+            if time_ok
+            else f"verified_at={verified_at}, last={actual_last}, "
+            f"reported_lag={reported_lag}, actual_lag={actual_lag}"
+        ),
+    )
+
+    try:
+        evidence_rate = float(entry.get("funding_rate"))
+    except (TypeError, ValueError):
+        evidence_rate = float("nan")
+    relation = str(entry.get("rate_relation") or "").strip().lower()
+    current_settlement: pd.Timestamp | pd.NaT
+    try:
+        current_settlement = pd.Timestamp(entry.get("current_settlement_time"))
+    except (TypeError, ValueError):
+        current_settlement = pd.NaT
+    try:
+        current_rate = float(entry.get("current_funding_rate"))
+    except (TypeError, ValueError):
+        current_rate = float("nan")
+    current_rate_ok = True
+    if (
+        not pd.isna(current_settlement)
+        and _as_utc(current_settlement) == _as_utc(actual_last)
+        and np.isfinite(current_rate)
+    ):
+        current_rate_ok = bool(
+            math.isclose(current_rate, actual_rate, rel_tol=1e-12, abs_tol=1e-12)
+        )
+    rate_ok = bool(
+        np.isfinite(evidence_rate)
+        and math.isclose(evidence_rate, actual_rate, rel_tol=1e-12, abs_tol=1e-12)
+        and relation != "conflict"
+        and current_rate_ok
+    )
+    _check(
+        report,
+        f"funding.{asset}.publication_rate",
+        rate_ok,
+        (
+            f"rate {actual_rate:.12g} matches history/current evidence ({relation})"
+            if rate_ok
+            else f"history rate={actual_rate:.12g}, evidence rate={evidence_rate:.12g}, "
+            f"current rate={current_rate:.12g}, relation={relation or '<missing>'}"
+        ),
+    )
+
+    try:
+        api_interval = float(entry.get("api_interval_hours"))
+    except (TypeError, ValueError):
+        api_interval = float("nan")
+    interval_ok = bool(
+        np.isfinite(declared_interval)
+        and np.isfinite(api_interval)
+        and math.isclose(api_interval, declared_interval, abs_tol=1e-9)
+        and entry.get("interval_matches_contract") is True
+    )
+    _check(
+        report,
+        f"funding.{asset}.publication_interval",
+        interval_ok,
+        (
+            f"venue current-fund-rate interval {api_interval:g}h matches contract {declared_interval:g}h"
+            if interval_ok
+            else f"venue interval={api_interval}, contract interval={declared_interval}, "
+            f"flag={entry.get('interval_matches_contract')!r}"
+        ),
+    )
+
+
 def _read_funding(
     raw_dir: Path,
     symbol_map: pd.DataFrame,
@@ -388,6 +538,19 @@ def _read_funding(
             _check(report, "funding.manifest_readable", False, str(exc))
     else:
         _check(report, "funding.manifest_exists", False, f"missing {manifest_path}")
+    publication_path = raw_dir / "funding_publication.json"
+    publication_assets: dict[str, Any] = {}
+    if publication_path.is_file():
+        try:
+            publication_payload = json.loads(
+                publication_path.read_text(encoding="utf-8")
+            )
+            if isinstance(publication_payload, dict) and isinstance(
+                publication_payload.get("assets"), dict
+            ):
+                publication_assets = publication_payload["assets"]
+        except (OSError, json.JSONDecodeError):
+            publication_assets = {}
     normal = symbol_map.loc[symbol_map["contract_status"].astype(str).str.lower().eq("normal")]
     required_funding_assets = {
         str(asset).strip().lower()
@@ -480,7 +643,86 @@ def _read_funding(
                 f"manifest last={manifest_last!r} actual last={last}",
             )
         interval = float(pd.to_numeric(row.get("fund_interval"), errors="coerce")) if pd.notna(row.get("fund_interval")) else float("nan")
+        if asset.lower() in required_funding_assets:
+            actual_rate = (
+                float(clean.sort_values("funding_time")["funding_rate"].iloc[-1])
+                if not clean.empty
+                else float("nan")
+            )
+            _check_funding_publication(
+                report,
+                asset=asset,
+                funding_path=path,
+                entry=publication_assets.get(asset),
+                actual_last=pd.Timestamp(last) if not pd.isna(last) else pd.NaT,
+                actual_rate=actual_rate,
+                declared_interval=interval,
+                now=now,
+            )
+        observed_interval: float | None = None
+        interval_history_matches = False
         if np.isfinite(interval) and interval > 0.0 and len(clean) >= 2:
+            # The contract snapshot only proves the *current* interval.  The
+            # funding timestamps are the authoritative historical cadence:
+            # every adjacent gap must equal the declared interval.  Requiring
+            # an exact cadence catches both directions of an interval change
+            # (8h->4h and 4h->8h) and a missing settlement, instead of treating
+            # the current contract value as if it had always applied.
+            all_gaps = (
+                clean["funding_time"].diff().dropna().dt.total_seconds().div(3600.0)
+            )
+            off_grid = [
+                float(gap)
+                for gap in all_gaps
+                if abs(float(gap) / interval - round(float(gap) / interval)) > 1e-9
+            ]
+            _check(
+                report,
+                f"funding.{asset}.observed_gap_grid",
+                not off_grid,
+                (
+                    f"observed gap(s) {off_grid[:5]} are not multiples of declared "
+                    f"{interval:g}h; interval may have changed"
+                    if off_grid
+                    else f"all {len(all_gaps)} observed gaps are multiples of {interval:g}h"
+                ),
+            )
+            gap_minutes = [
+                int(round(float(gap) * 60.0))
+                for gap in all_gaps
+                if np.isfinite(float(gap)) and float(gap) > 0.0
+            ]
+            positive_gaps = [
+                float(gap)
+                for gap in all_gaps
+                if np.isfinite(float(gap)) and float(gap) > 0.0
+            ]
+            if gap_minutes:
+                observed_minutes = 0
+                for minutes in gap_minutes:
+                    observed_minutes = math.gcd(observed_minutes, abs(minutes))
+                if observed_minutes > 0:
+                    observed_interval = observed_minutes / 60.0
+            off_cadence = [
+                gap for gap in positive_gaps if not math.isclose(gap, interval, abs_tol=0.25)
+            ]
+            interval_history_matches = bool(
+                observed_interval is not None
+                and math.isclose(observed_interval, interval, abs_tol=0.01)
+                and not off_cadence
+            )
+            _check(
+                report,
+                f"funding.{asset}.interval_history",
+                interval_history_matches,
+                (
+                    f"observed cadence {observed_interval if observed_interval is not None else 'unknown'}h "
+                    f"does not match declared {interval:g}h; "
+                    f"{len(off_cadence)} gap(s) differ, e.g. {off_cadence[:5]}"
+                    if not interval_history_matches
+                    else f"all {len(positive_gaps)} gaps match the declared {interval:g}h cadence"
+                ),
+            )
             recent_cutoff = pd.Timestamp(_as_utc(now)) - pd.Timedelta(days=30)
             recent_times = clean.loc[
                 clean["funding_time"] >= recent_cutoff, "funding_time"
@@ -573,10 +815,27 @@ def _read_funding(
             _check(report, f"funding.{asset}.fresh_for_short", not stale, "funding is stale for a required short" if stale else "fresh for required short", hard=False)
         elif stale:
             _check(report, f"funding.{asset}.fresh", False, "funding is stale but no short is required", hard=False)
+        publication_entry = publication_assets.get(asset)
         summary[asset] = {
             "last": None if pd.isna(last) else str(last),
             "rows": int(len(clean)),
             "stale": bool(stale),
+            "observed_interval_hours": observed_interval,
+            "interval_matches_contract": interval_history_matches,
+            "publication": (
+                {
+                    key: publication_entry.get(key)
+                    for key in (
+                        "verified_at",
+                        "publication_lag_seconds",
+                        "latest_source",
+                        "rate_relation",
+                        "api_interval_hours",
+                    )
+                }
+                if isinstance(publication_entry, dict)
+                else None
+            ),
         }
     report.summary["funding_assets"] = len(summary)
     return summary
@@ -851,6 +1110,7 @@ def audit_derivatives_data(
         raw / "contracts.json",
         raw / "coverage.json",
         raw / "funding_manifest.json",
+        raw / "funding_publication.json",
         *mark_paths,
         *funding_paths,
     ]

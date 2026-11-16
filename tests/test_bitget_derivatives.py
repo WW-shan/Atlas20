@@ -83,6 +83,40 @@ def test_fetch_history_candles_pages_backwards_from_end_time() -> None:
     assert calls[1]["endTime"] == int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000)
 
 
+def test_fetch_funding_history_exposes_the_server_request_time() -> None:
+    request_time = int(pd.Timestamp("2026-11-14T01:05:00Z").timestamp() * 1000)
+
+    class _Session:
+        def get(self, url, params, timeout):
+            del url, timeout
+            page = int(params["pageNo"])
+            return _FakeResponse(
+                {
+                    "code": "00000",
+                    "requestTime": request_time + page,
+                    "data": {
+                        "resultList": (
+                            [
+                                {
+                                    "symbol": "BTCUSDT",
+                                    "fundingRate": "0.0001",
+                                    "fundingRateTimestamp": "1791504000000",
+                                }
+                            ]
+                            if page == 1
+                            else []
+                        )
+                    },
+                }
+            )
+
+    client = _client(_Session())
+    frame = client.fetch_funding_history("BTCUSDT", page_size=1, max_pages=3)
+
+    assert frame.attrs["request_time_ms"] == request_time + 2
+    assert frame.attrs["request_times_ms"] == [request_time + 1, request_time + 2]
+
+
 def test_fetch_funding_history_paginates() -> None:
     calls: list[int] = []
 
@@ -738,3 +772,199 @@ def test_funding_fetch_failure_keeps_the_cached_manifest_identity(tmp_path) -> N
     assert "temporary endpoint failure" in manifest["bitcoin"]["refresh_error"]
     persisted = json.loads((output_dir / "funding_manifest.json").read_text())
     assert persisted["bitcoin"]["last"] == "2026-11-13 16:00:00+00:00"
+
+
+
+def test_current_funding_rate_fills_a_late_history_settlement(tmp_path) -> None:
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    history_time = int(pd.Timestamp("2026-11-14T01:00:00Z").timestamp() * 1000)
+    current_time = int(pd.Timestamp("2026-11-14T01:05:00Z").timestamp() * 1000)
+    next_time = int(pd.Timestamp("2026-11-14T08:00:00Z").timestamp() * 1000)
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.last_request_time_ms = history_time
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-13T16:00:00Z")],
+                    "funding_rate": [0.0001],
+                }
+            )
+
+        def fetch_current_funding(self, symbol: str) -> dict[str, object]:
+            assert symbol == "BTCUSDT"
+            self.last_request_time_ms = current_time
+            return {
+                "symbol": symbol,
+                "fundingRateInterval": "8",
+                "nextUpdate": str(next_time),
+                "lastFundingRate": "0.0003",
+            }
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-13T16:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        _FundingClient(),
+        symbol_map,
+        output_dir,
+        force=True,
+        now=pd.Timestamp("2026-11-14T01:05:00Z"),
+    )
+
+    merged = pd.read_csv(funding_dir / "bitcoin.csv")
+    assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
+    assert merged["funding_time"].tolist() == [
+        "2026-11-13 16:00:00+00:00",
+        "2026-11-14 00:00:00+00:00",
+    ]
+    assert merged["funding_rate"].tolist() == [0.0001, 0.0003]
+    publication = json.loads(
+        (output_dir / "funding_publication.json").read_text(encoding="utf-8")
+    )
+    entry = publication["assets"]["bitcoin"]
+    assert entry["rate_relation"] == "fallback"
+    assert entry["latest_source"] == "current_fund_rate"
+    assert entry["funding_last"] == "2026-11-14 00:00:00+00:00"
+    assert entry["publication_lag_seconds"] == 3900.0
+
+
+def test_current_funding_rate_conflict_is_evidence_not_silently_overwritten(
+    tmp_path,
+) -> None:
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    history_time = int(pd.Timestamp("2026-11-14T01:00:00Z").timestamp() * 1000)
+    current_time = int(pd.Timestamp("2026-11-14T01:05:00Z").timestamp() * 1000)
+    next_time = int(pd.Timestamp("2026-11-14T08:00:00Z").timestamp() * 1000)
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.last_request_time_ms = history_time
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-14T00:00:00Z")],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+        def fetch_current_funding(self, symbol: str) -> dict[str, object]:
+            self.last_request_time_ms = current_time
+            return {
+                "symbol": symbol,
+                "fundingRateInterval": "8",
+                "nextUpdate": str(next_time),
+                "lastFundingRate": "0.0003",
+            }
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-13T16:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        _FundingClient(),
+        symbol_map,
+        output_dir,
+        force=True,
+        now=pd.Timestamp("2026-11-14T01:05:00Z"),
+    )
+
+    merged = pd.read_csv(funding_dir / "bitcoin.csv")
+    assert manifest["bitcoin"]["last"] == "2026-11-14 00:00:00+00:00"
+    assert merged["funding_rate"].tolist() == [0.0001, 0.0002]
+    publication = json.loads(
+        (output_dir / "funding_publication.json").read_text(encoding="utf-8")
+    )
+    assert publication["assets"]["bitcoin"]["rate_relation"] == "conflict"
+
+
+def test_contract_snapshot_archive_records_change_points_not_duplicates(tmp_path) -> None:
+    from scripts.download_bitget_derivatives_data import _archive_contract_snapshot
+
+    first = _archive_contract_snapshot(
+        tmp_path,
+        [{"symbol": "BTCUSDT", "sizeMultiplier": "0.0001", "minTradeUSDT": "5"}],
+        captured_at=pd.Timestamp("2026-11-16T13:00:00Z"),
+        request_time_ms=int(pd.Timestamp("2026-11-16T13:00:01Z").timestamp() * 1000),
+    )
+    second = _archive_contract_snapshot(
+        tmp_path,
+        [{"symbol": "BTCUSDT", "sizeMultiplier": "0.0001", "minTradeUSDT": "5"}],
+        captured_at=pd.Timestamp("2026-11-16T14:00:00Z"),
+        request_time_ms=int(pd.Timestamp("2026-11-16T14:00:01Z").timestamp() * 1000),
+    )
+    changed = _archive_contract_snapshot(
+        tmp_path,
+        [{"symbol": "BTCUSDT", "sizeMultiplier": "0.001", "minTradeUSDT": "5"}],
+        captured_at=pd.Timestamp("2026-11-16T15:00:00Z"),
+        request_time_ms=int(pd.Timestamp("2026-11-16T15:00:01Z").timestamp() * 1000),
+    )
+
+    index = json.loads(
+        (tmp_path / "contract_snapshots" / "index.json").read_text(encoding="utf-8")
+    )
+    assert len(index["snapshots"]) == 2
+    assert first["sha256"] == second["sha256"]
+    assert first["first_seen_at"] == "2026-11-16T13:00:00+00:00"
+    assert second["last_seen_at"] == "2026-11-16T14:00:00+00:00"
+    assert changed["sha256"] != first["sha256"]
+    assert len(list((tmp_path / "contract_snapshots").glob("contracts_*.json"))) == 2
+
+
+def test_funding_request_time_is_not_reused_when_a_response_omits_it() -> None:
+    class _Session:
+        def get(self, url, params, timeout):
+            del url, timeout
+            page = int(params["pageNo"])
+            payload: dict[str, object] = {
+                "code": "00000",
+                "data": {
+                    "resultList": (
+                        [
+                            {
+                                "symbol": "BTCUSDT",
+                                "fundingRate": "0.0001",
+                                "fundingRateTimestamp": "1791504000000",
+                            }
+                        ]
+                        if page == 1
+                        else []
+                    )
+                },
+            }
+            if page == 1:
+                payload["requestTime"] = 1791504005000
+            return _FakeResponse(payload)
+
+    client = _client(_Session())
+    frame = client.fetch_funding_history("BTCUSDT", page_size=1, max_pages=2)
+
+    assert frame.attrs["request_times_ms"] == [1791504005000]

@@ -1,0 +1,482 @@
+{
+  "evaluations": [
+    {
+      "current_funding_rate": 5.5e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": 5.5e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:32.640000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 32.64,
+      "request_after_settlement": true,
+      "symbol": "BTCUSDT"
+    },
+    {
+      "current_funding_rate": -0.000116,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": -0.000116,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:34.735000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 34.735,
+      "request_after_settlement": true,
+      "symbol": "BCHUSDT"
+    },
+    {
+      "current_funding_rate": 5e-06,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": 5e-06,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:36.120000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 36.12,
+      "request_after_settlement": true,
+      "symbol": "NEARUSDT"
+    },
+    {
+      "current_funding_rate": 5e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": 5e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 4.0,
+      "next_funding_time": "2026-11-16T20:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:37.312000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 37.312,
+      "request_after_settlement": true,
+      "symbol": "HYPEUSDT"
+    },
+    {
+      "current_funding_rate": 3.8e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": 3.8e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:38.584000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 38.584,
+      "request_after_settlement": true,
+      "symbol": "ZECUSDT"
+    },
+    {
+      "current_funding_rate": -3.6e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": -3.6e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:39.841000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 39.841,
+      "request_after_settlement": true,
+      "symbol": "ETHUSDT"
+    },
+    {
+      "current_funding_rate": -3.5e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": -3.5e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:41.120000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 41.12,
+      "request_after_settlement": true,
+      "symbol": "SOLUSDT"
+    },
+    {
+      "current_funding_rate": -8.5e-05,
+      "current_settlement_matches_expected": true,
+      "derived_settlement_time": "2026-11-16T16:00:00+00:00",
+      "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+      "history_funding_rate": -8.5e-05,
+      "history_has_expected_settlement": true,
+      "history_matches_current": true,
+      "interval_hours": 8.0,
+      "next_funding_time": "2026-11-17T00:00:00+00:00",
+      "observed_at": "2026-11-16T16:00:42.436000+00:00",
+      "passed": true,
+      "publication_lag_seconds": 42.436,
+      "request_after_settlement": true,
+      "symbol": "XRPUSDT"
+    }
+  ],
+  "expected_settlement_time": "2026-11-16T16:00:00+00:00",
+  "failed_count": 0,
+  "limitation": "This proves publication at the recorded settlement/request instants. It does not retroactively prove an unrecorded earlier observation.",
+  "observations": [
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "0.000055",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "60000",
+        "lastFundingRate": "0.000055",
+        "maxFundingRate": "0.003",
+        "minFundingRate": "-0.003",
+        "nextFundingRate": "0.000055",
+        "nextUpdate": "1794873600000",
+        "symbol": "BTCUSDT"
+      },
+      "current_request_time": 1794844831720,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "BTCUSDT"
+      },
+      "funding_time_request_time": 1794844832141,
+      "history": [
+        {
+          "funding_rate": 2e-06,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "funding_rate": -2.5e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "funding_rate": 5.5e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "BTCUSDT"
+        }
+      ],
+      "history_request_time": 1794844832640,
+      "symbol": "BTCUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "-0.000116",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "15000",
+        "lastFundingRate": "-0.000116",
+        "maxFundingRate": "0.02",
+        "minFundingRate": "-0.02",
+        "nextFundingRate": "-0.000116",
+        "nextUpdate": "1794873600000",
+        "symbol": "BCHUSDT"
+      },
+      "current_request_time": 1794844833069,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "BCHUSDT"
+      },
+      "funding_time_request_time": 1794844833461,
+      "history": [
+        {
+          "funding_rate": -0.000113,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "BCHUSDT"
+        },
+        {
+          "funding_rate": -0.000128,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "BCHUSDT"
+        },
+        {
+          "funding_rate": -0.000116,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "BCHUSDT"
+        }
+      ],
+      "history_request_time": 1794844834735,
+      "symbol": "BCHUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "0.000005",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "30000",
+        "lastFundingRate": "0.000005",
+        "maxFundingRate": "0.0132",
+        "minFundingRate": "-0.0132",
+        "nextFundingRate": "0.000005",
+        "nextUpdate": "1794873600000",
+        "symbol": "NEARUSDT"
+      },
+      "current_request_time": 1794844835194,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "NEARUSDT"
+      },
+      "funding_time_request_time": 1794844835618,
+      "history": [
+        {
+          "funding_rate": -2.6e-05,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "NEARUSDT"
+        },
+        {
+          "funding_rate": -3.7e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "NEARUSDT"
+        },
+        {
+          "funding_rate": 5e-06,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "NEARUSDT"
+        }
+      ],
+      "history_request_time": 1794844836120,
+      "symbol": "NEARUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "0.00005",
+        "fundingRateInterval": "4",
+        "impactMarginNotional": "15000",
+        "lastFundingRate": "0.00005",
+        "maxFundingRate": "0.02",
+        "minFundingRate": "-0.02",
+        "nextFundingRate": "0.00005",
+        "nextUpdate": "1794859200000",
+        "symbol": "HYPEUSDT"
+      },
+      "current_request_time": 1794844836585,
+      "funding_time": {
+        "nextFundingTime": "1794859200000",
+        "ratePeriod": "4",
+        "symbol": "HYPEUSDT"
+      },
+      "funding_time_request_time": 1794844836945,
+      "history": [
+        {
+          "funding_rate": -4.3e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "funding_rate": 8e-06,
+          "funding_time": "2026-11-16 12:00:00+00:00",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "funding_rate": 5e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "HYPEUSDT"
+        }
+      ],
+      "history_request_time": 1794844837312,
+      "symbol": "HYPEUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "0.000037",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "15000",
+        "lastFundingRate": "0.000038",
+        "maxFundingRate": "0.02",
+        "minFundingRate": "-0.02",
+        "nextFundingRate": "0.000037",
+        "nextUpdate": "1794873600000",
+        "symbol": "ZECUSDT"
+      },
+      "current_request_time": 1794844837773,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "ZECUSDT"
+      },
+      "funding_time_request_time": 1794844838206,
+      "history": [
+        {
+          "funding_rate": 9e-06,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "ZECUSDT"
+        },
+        {
+          "funding_rate": -5.6e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "ZECUSDT"
+        },
+        {
+          "funding_rate": 3.8e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "ZECUSDT"
+        }
+      ],
+      "history_request_time": 1794844838584,
+      "symbol": "ZECUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "-0.000036",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "60000",
+        "lastFundingRate": "-0.000036",
+        "maxFundingRate": "0.003",
+        "minFundingRate": "-0.003",
+        "nextFundingRate": "-0.000036",
+        "nextUpdate": "1794873600000",
+        "symbol": "ETHUSDT"
+      },
+      "current_request_time": 1794844839040,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "ETHUSDT"
+      },
+      "funding_time_request_time": 1794844839434,
+      "history": [
+        {
+          "funding_rate": -8e-06,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "ETHUSDT"
+        },
+        {
+          "funding_rate": -1.7e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "ETHUSDT"
+        },
+        {
+          "funding_rate": -3.6e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "ETHUSDT"
+        }
+      ],
+      "history_request_time": 1794844839841,
+      "symbol": "ETHUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "-0.000035",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "40000",
+        "lastFundingRate": "-0.000035",
+        "maxFundingRate": "0.00375",
+        "minFundingRate": "-0.00375",
+        "nextFundingRate": "-0.000035",
+        "nextUpdate": "1794873600000",
+        "symbol": "SOLUSDT"
+      },
+      "current_request_time": 1794844840372,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "SOLUSDT"
+      },
+      "funding_time_request_time": 1794844840748,
+      "history": [
+        {
+          "funding_rate": -0.000214,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "SOLUSDT"
+        },
+        {
+          "funding_rate": -0.000225,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "SOLUSDT"
+        },
+        {
+          "funding_rate": -3.5e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "SOLUSDT"
+        }
+      ],
+      "history_request_time": 1794844841120,
+      "symbol": "SOLUSDT"
+    },
+    {
+      "current": {
+        "baselnterestRate": "0.0001",
+        "cashDividend": "",
+        "cashDividendNextUpdate": "null",
+        "fundingRate": "-0.000085",
+        "fundingRateInterval": "8",
+        "impactMarginNotional": "25000",
+        "lastFundingRate": "-0.000085",
+        "maxFundingRate": "0.003",
+        "minFundingRate": "-0.003",
+        "nextFundingRate": "-0.000085",
+        "nextUpdate": "1794873600000",
+        "symbol": "XRPUSDT"
+      },
+      "current_request_time": 1794844841634,
+      "funding_time": {
+        "nextFundingTime": "1794873600000",
+        "ratePeriod": "8",
+        "symbol": "XRPUSDT"
+      },
+      "funding_time_request_time": 1794844842081,
+      "history": [
+        {
+          "funding_rate": -6.3e-05,
+          "funding_time": "2026-11-16 00:00:00+00:00",
+          "symbol": "XRPUSDT"
+        },
+        {
+          "funding_rate": -6.4e-05,
+          "funding_time": "2026-11-16 08:00:00+00:00",
+          "symbol": "XRPUSDT"
+        },
+        {
+          "funding_rate": -8.5e-05,
+          "funding_time": "2026-11-16 16:00:00+00:00",
+          "symbol": "XRPUSDT"
+        }
+      ],
+      "history_request_time": 1794844842436,
+      "symbol": "XRPUSDT"
+    }
+  ],
+  "passed": true,
+  "passed_count": 8,
+  "probe": "bitget-public-funding-publication",
+  "probe_recorded_at": "2026-11-16T16:00:42.775060+00:00",
+  "publication_lag_seconds": {
+    "max": 42.436,
+    "min": 32.64
+  },
+  "symbol_count": 8
+}

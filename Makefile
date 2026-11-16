@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104 audit-accounting-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104 audit-accounting-ls104 audit-contract-specs-ls104 audit-funding-semantics-ls104 audit-funding-publication-boundary-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -137,8 +137,24 @@ audit-data-ls104: $(VENV_STAMP)
 		--targets-file $(LS104_TARGETS) \
 		--json-out reports/ls45_live_g175/data_audit.json \
 		--markdown-out reports/ls45_live_g175/data_audit.md \
-		--required-leverage 4.0
+		--required-leverage 4.0 \
+		--require-all-funding-fresh
 	$(MAKE) audit-market-cap-gaps
+
+
+audit-contract-specs-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_contract_spec_snapshots.py
+
+
+audit-funding-semantics-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_bitget_funding_semantics.py
+
+
+audit-funding-publication-boundary-ls104: $(VENV_STAMP)
+	@test -n "$(FUNDING_SETTLEMENT)" || (echo "FUNDING_SETTLEMENT is required, e.g. FUNDING_SETTLEMENT=2026-11-16T16:00:00Z" >&2; exit 2)
+	$(PYTHON) scripts/audit_bitget_funding_publication.py \
+		--expected-settlement $(FUNDING_SETTLEMENT) \
+		--json-out reports/ls45_live_g175/funding_publication_boundary_probe.json
 
 
 audit-market-cap-gaps: $(VENV_STAMP)
@@ -189,6 +205,7 @@ derivatives-live-ls104: derivatives-live-data derivatives-ls104-signal
 	$(MAKE) audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 \
 		AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json
 	$(MAKE) audit-data-ls104
+	$(MAKE) audit-contract-specs-ls104
 	$(MAKE) audit-signal-ls104
 	$(PYTHON) scripts/execute_live_plan.py \
 		--live --notify --require-isolated \
