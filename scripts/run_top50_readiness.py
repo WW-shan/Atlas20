@@ -216,9 +216,44 @@ def _backfill_scopes(
         rendered = (
             [str(value) for value in details] if isinstance(details, list) else []
         )
-        if any(value.startswith(("warmup_mark:", "warmup_market:")) for value in rendered):
+        section_failures: list[str] = []
+        for section in (
+            "warmup_mark",
+            "warmup_market",
+            "warmup_market_alignment",
+            "live_mark",
+            "live_market",
+            "live_market_alignment",
+            "funding",
+        ):
+            evidence = item.get(section)
+            if not isinstance(evidence, dict):
+                continue
+            failures = evidence.get("failures")
+            if isinstance(failures, list) and failures:
+                section_failures.append(section)
+        warmup_sections = {
+            "warmup_mark",
+            "warmup_market",
+            "warmup_market_alignment",
+        }
+        live_sections = {
+            "live_mark",
+            "live_market",
+            "live_market_alignment",
+            "funding",
+        }
+        warmup_failed = any(
+            value.startswith(("warmup_mark:", "warmup_market:"))
+            for value in rendered
+        )
+        live_failed = any(
+            value.startswith(("live_mark:", "live_market:", "funding:"))
+            for value in rendered
+        )
+        if warmup_failed or warmup_sections.intersection(section_failures):
             warmup.add(coin_id)
-        if any(value.startswith(("live_mark:", "live_market:", "funding:")) for value in rendered):
+        if live_failed or live_sections.intersection(section_failures):
             live.add(coin_id)
     return warmup, live
 
@@ -282,6 +317,7 @@ def run_readiness_cycle(
         **_assessment_kwargs(session, selection=selection, now=moment)
     )
     commands: list[list[str]] = []
+    backfill_error: str | None = None
     if backfill and blocked and not dry_run:
         warmup_members, live_members = _backfill_scopes(payload, blocked)
         commands = build_backfill_commands(
@@ -295,12 +331,39 @@ def run_readiness_cycle(
             end=moment,
         )
         for command in commands:
-            completed = runner(command)
-            if completed != 0:
-                raise RuntimeError(
-                    f"top50 backfill command failed ({completed}): {' '.join(command)}"
+            failure: str | None
+            try:
+                completed = runner(command)
+            except Exception as exc:  # noqa: BLE001 - persisted for fail-closed alert
+                failure = (
+                    "top50 backfill command raised "
+                    f"{type(exc).__name__}: {exc}"
                 )
-        if commands:
+            else:
+                failure = (
+                    f"top50 backfill command failed ({completed}): {' '.join(command)}"
+                    if completed != 0
+                    else None
+                )
+            if failure is not None:
+                backfill_error = failure
+                affected = warmup_members | live_members
+                member_rows = payload.get("members")
+                if isinstance(member_rows, list):
+                    for member in member_rows:
+                        if not isinstance(member, dict):
+                            continue
+                        if str(member.get("coin_id") or "") not in affected:
+                            continue
+                        details = member.get("failure_details")
+                        rendered = list(details) if isinstance(details, list) else []
+                        rendered.append(f"backfill: {backfill_error}")
+                        member["failure_details"] = rendered
+                        member["status"] = "BLOCKED"
+                payload["ready"] = False
+                blocked.update(affected)
+                break
+        if commands and backfill_error is None:
             payload, blocked = assess_fn(
                 **_assessment_kwargs(session, selection=selection, now=moment)
             )
@@ -333,11 +396,17 @@ def run_readiness_cycle(
         state["version"] = 1
         state["initialized"] = True
         state["last_as_of"] = payload.get("as_of")
-        state["members"] = [str(item["coin_id"]) for item in payload["members"]]
-        state["top20"] = [str(item["coin_id"]) for item in payload["top20"]]
+        member_rows = payload.get("members")
+        top20_rows = payload.get("top20")
+        if not isinstance(member_rows, list) or not isinstance(top20_rows, list):
+            raise ValueError("readiness payload must contain member lists")
+        if not all(isinstance(item, dict) for item in (*member_rows, *top20_rows)):
+            raise ValueError("readiness member lists must contain objects")
+        state["members"] = [str(item["coin_id"]) for item in member_rows]
+        state["top20"] = [str(item["coin_id"]) for item in top20_rows]
         state["member_status"] = {
             str(item["coin_id"]): str(item["status"])
-            for item in payload["members"]
+            for item in member_rows
         }
         queue_notification_events(state, events)
         notification_failures: list[str] = []
@@ -369,10 +438,15 @@ def run_readiness_cycle(
                         sent_at=moment.isoformat(),
                     )
         write_state(session.state_path, state)
+        failures: list[str] = []
+        if backfill_error is not None:
+            failures.append(backfill_error)
         if notification_failures:
-            raise RuntimeError(
+            failures.append(
                 "Telegram delivery failed for: " + ", ".join(notification_failures)
             )
+        if failures:
+            raise RuntimeError("; ".join(failures))
 
     return {
         "payload": payload,
@@ -420,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
         else pd.Timestamp.now(tz="UTC")
     )
     lock_file = None
-    if not args.dry_run and not args.no_lock:
+    if not args.no_lock:
         from filelock import FileLock, Timeout
 
         lock = FileLock(str(args.lock_file))
@@ -469,15 +543,18 @@ def main(argv: list[str] | None = None) -> int:
         if lock_file is not None:
             lock_file.release()
 
-    payload = result["payload"]
-    if isinstance(payload, dict):
-        print(
-            "top50 readiness: "
-            f"{'READY' if payload.get('ready') else 'BLOCKED'} "
-            f"as_of={payload.get('as_of')} "
-            f"blocked={len(result.get('blocked', []))}"
-        )
-    return 0 if bool(result["payload"].get("ready")) else 1
+    payload = result.get("payload")
+    if not isinstance(payload, dict):
+        raise RuntimeError("top50 readiness returned no payload object")
+    blocked = result.get("blocked")
+    blocked_count = len(blocked) if isinstance(blocked, list) else 0
+    print(
+        "top50 readiness: "
+        f"{'READY' if payload.get('ready') else 'BLOCKED'} "
+        f"as_of={payload.get('as_of')} "
+        f"blocked={blocked_count}"
+    )
+    return 0 if bool(payload.get("ready")) else 1
 
 
 def _send_telegram(message: str, *, moment: pd.Timestamp) -> None:

@@ -83,6 +83,21 @@ def test_selection_rejects_duplicate_coin_or_rank() -> None:
         select_executable_top50(ranked, _mapped(ranked, set()), as_of=date(2026, 11, 15))
 
 
+def test_selection_rejects_fractional_universe_rank() -> None:
+    from atlas20.derivatives.top50_readiness import select_executable_top50
+
+    ranked = _ranked(50)
+    ranked["universe_rank"] = ranked["universe_rank"].astype(float)
+    ranked.loc[0, "universe_rank"] = 1.5
+
+    with pytest.raises(ValueError, match="invalid universe_rank"):
+        select_executable_top50(
+            ranked,
+            _mapped(_ranked(50), set()),
+            as_of=date(2026, 11, 15),
+        )
+
+
 def test_rank_current_candidates_uses_production_point_in_time_builder(tmp_path) -> None:
     from atlas20.derivatives.top50_readiness import rank_current_candidates
 
@@ -326,11 +341,21 @@ def test_publish_only_creates_latest_ready_for_complete_fifty(tmp_path) -> None:
         **blocked,
         "ready": True,
         "members": [
-            {"final_rank": index, "coin_id": f"coin-{index}", "status": "READY"}
+            {
+                "final_rank": index,
+                "coin_id": f"coin-{index}",
+                "bitget_symbol": f"C{index}USDT",
+                "status": "READY",
+            }
             for index in range(1, 51)
         ],
         "top20": [
-            {"final_rank": index, "coin_id": f"coin-{index}", "status": "READY"}
+            {
+                "final_rank": index,
+                "coin_id": f"coin-{index}",
+                "bitget_symbol": f"C{index}USDT",
+                "status": "READY",
+            }
             for index in range(1, 21)
         ],
     }
@@ -433,6 +458,22 @@ def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) ->
 
     assert evidence["status"] == "READY", evidence["failure_details"]
     assert evidence["failure_details"] == []
+    assert set(evidence["files"]) == {
+        "warmup_mark",
+        "warmup_market",
+        "live_mark",
+        "live_market",
+        "funding",
+    }
+    assert all(str(value).startswith("sha256:") for value in evidence["files"].values())
+
+
+def test_contract_open_time_preserves_listing_hour() -> None:
+    from atlas20.derivatives.top50_readiness import _contract_open_timestamp
+
+    stamp = _contract_open_timestamp({"open_time": "2026-01-01T12:00:00Z"})
+
+    assert stamp == pd.Timestamp("2026-01-01T12:00:00Z")
 
 
 def test_assess_selection_builds_ready_top20_from_ready_top50(
@@ -893,3 +934,100 @@ def test_publish_fingerprint_ignores_audit_wall_clock(tmp_path) -> None:
     first_payload = json.loads(first["latest"].read_text())
     second_payload = json.loads(second["latest"].read_text())
     assert first_payload["fingerprint"] == second_payload["fingerprint"]
+
+
+def test_publish_fingerprint_commits_to_member_file_hashes(tmp_path) -> None:
+    import json
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": False,
+        "members": [
+            {
+                "final_rank": 1,
+                "coin_id": "bitcoin",
+                "status": "READY",
+                "files": {"live_market": "sha256:market-a"},
+            }
+        ],
+        "top20": [{"final_rank": 1, "coin_id": "bitcoin", "status": "READY"}],
+        "skipped": [],
+    }
+    first = publish_readiness_payload(
+        reports_dir=tmp_path / "first",
+        payload=payload,
+        audit_payload={"passed": True},
+    )
+    changed = {
+        **payload,
+        "members": [
+            {
+                **payload["members"][0],
+                "files": {"live_market": "sha256:market-b"},
+            }
+        ],
+    }
+    second = publish_readiness_payload(
+        reports_dir=tmp_path / "second",
+        payload=changed,
+        audit_payload={"passed": True},
+    )
+
+    first_payload = json.loads(first["latest"].read_text())
+    second_payload = json.loads(second["latest"].read_text())
+    assert first_payload["fingerprint"] != second_payload["fingerprint"]
+
+
+def test_publish_rejects_duplicate_ready_members(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {"final_rank": index, "coin_id": f"coin-{index}", "status": "READY"}
+        for index in range(1, 51)
+    ]
+    members[1]["coin_id"] = members[0]["coin_id"]
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": members[:20],
+        "skipped": [],
+    }
+
+    with pytest.raises(ValueError, match="duplicate coin_id"):
+        publish_readiness_payload(
+            reports_dir=tmp_path,
+            payload=payload,
+            audit_payload={"passed": True},
+        )
+
+
+@pytest.mark.parametrize("field", ["coin_id", "bitget_symbol"])
+def test_publish_rejects_empty_ready_member_identity(tmp_path, field: str) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {
+            "final_rank": index,
+            "coin_id": f"coin-{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "status": "READY",
+        }
+        for index in range(1, 51)
+    ]
+    members[0][field] = ""
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": members[:20],
+        "skipped": [],
+    }
+
+    with pytest.raises(ValueError, match="empty ready member"):
+        publish_readiness_payload(
+            reports_dir=tmp_path,
+            payload=payload,
+            audit_payload={"passed": True},
+        )

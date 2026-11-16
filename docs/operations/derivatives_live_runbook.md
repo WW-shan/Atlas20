@@ -740,8 +740,12 @@ ops/run_derivatives_daily.sh --force
   **2026-09-01 00:00Z → 2026-11-16 18:00Z**，全量审计 0 duplicate / 0 interior gap；
 - 原 `repair_bitget_mark_gaps.py`：50 个合约 `0 missing → 0`；
 - scoped `audit_derivatives_data`：0 hard failure / 0 warning；
-- 数据指纹：`sha256:7d05e7cf2729ec74d99b8bf7d2fa590f8cb53586f491a8e621fa03c3a461646a`；
+- 数据指纹：`sha256:aaac22476c0c9f5ff5f993fe19d0aadcfe73076a4ddcb5f3aabc8ce3ba54e2cc`；
   同输入重复运行 fingerprint 不变；
+- 指纹逐成员提交 5 类原始文件、合计 250 个 SHA-256；ready payload 强制 50 个唯一
+  coin_id/合约、连续 final rank 和 Top20=Top50 前 20，CSV 使用原子写；
+- 自动回填命令非零退出或抛异常时，先持久化受影响成员的 `BLOCKED` 报告/state 并排队
+  Telegram，再向上返回失败；不允许静默跳过新成员或掩盖为第 51 名；
 - CMC 历史 32 个 provider-zero cap 行由现有 `audit_market_cap_gaps.py` 明示为
   `provider_zero_supply`，其中 4 个当前 Top50 成员只作为 warning，不使用 carry/stale cap；
 - 3 个合约的 warmup market 首笔成交晚于首条 mark（INJ/LDO/OP），保留 warning，
@@ -753,6 +757,13 @@ ops/run_derivatives_daily.sh --force
 - `audit-data-ls104`：PASS，0 hard failure，0 warning；data fingerprint
   `sha256:abe781bcd4ba119be5a3927741dac2a78218ba12160a2f453ff088dab2fbea09`；
 - `audit_market_cap_gaps.py`：PASS，32 行 all `provider_zero_supply`，0 unexplained。
+- `audit-accounting-ls104`：44 PASS / 0 FAIL；55 日权益与 1322 小时 gross 独立重放一致；
+- 最终代码门禁：Python 2647 passed / 1 skipped，前端 249 passed；lint、typecheck、build
+  和新模块 strict mypy 均通过。
+
+本次 2026-11-17 最终完整性补丁验证未提供 Bitget 私钥，因此没有重跑
+`audit-live-ls104`；Top50 readiness 不读取账户或交易凭据，live state/venue 仍由正常执行前
+门禁独立 fail closed。
 
 操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
 此时手工触发 execute 的 monitor 会报 settlement coverage 并 fail closed；

@@ -296,7 +296,8 @@ def test_main_refuses_a_stale_panel_without_acquiring_a_lock(tmp_path) -> None:
         )
 
 
-def test_main_skips_when_the_execution_lock_is_held(tmp_path) -> None:
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_main_skips_when_the_execution_lock_is_held(tmp_path, dry_run: bool) -> None:
     from filelock import FileLock
     from scripts.run_top50_readiness import main
 
@@ -304,16 +305,17 @@ def test_main_skips_when_the_execution_lock_is_held(tmp_path) -> None:
     lock = FileLock(str(lock_path))
     lock.acquire(timeout=0)
     try:
-        code = main(
-            [
-                "--lock-file",
-                str(lock_path),
-                "--wait-seconds",
-                "0",
-                "--now",
-                "2026-11-16T18:00:00Z",
-            ]
-        )
+        args = [
+            "--lock-file",
+            str(lock_path),
+            "--wait-seconds",
+            "0",
+            "--now",
+            "2026-11-16T18:00:00Z",
+        ]
+        if dry_run:
+            args.append("--dry-run")
+        code = main(args)
     finally:
         lock.release()
 
@@ -337,3 +339,98 @@ def test_backfill_planner_live_only_does_not_rebuild_warmup(tmp_path) -> None:
     assert len(commands) == 2
     assert all("warmup" not in " ".join(command) for command in commands)
     assert all("--symbols coin-2" in " ".join(command) for command in commands)
+
+
+def test_cycle_backfills_live_for_structured_funding_failure(tmp_path) -> None:
+    from scripts.run_top50_readiness import run_readiness_cycle
+
+    session = _session(tmp_path)
+    ranked = _write_rank_inputs(session)
+    first = _ready_payload()
+    first["ready"] = False
+    first["members"][0]["status"] = "BLOCKED"
+    first["members"][0]["failure_details"] = []
+    first["members"][0]["funding"] = {
+        "failures": ["funding ends before 2026-11-16T00:00:00Z"],
+        "warnings": [],
+    }
+    assessments = [(first, {"coin-1"}), (_ready_payload(), set())]
+    commands: list[list[str]] = []
+
+    run_readiness_cycle(
+        session=session,
+        now=pd.Timestamp("2026-11-16T18:00:00Z"),
+        notify=False,
+        dry_run=False,
+        runner=lambda command: commands.append(command) or 0,
+        send_message=lambda _message: None,
+        rank_fn=lambda **_kwargs: ranked,
+        assess_fn=lambda **_kwargs: assessments.pop(0),
+    )
+
+    assert len(commands) == 2
+    assert all("warmup" not in " ".join(command) for command in commands)
+
+
+@pytest.mark.parametrize(
+    ("failure_mode", "expected_message"),
+    [("nonzero", "failed \\(1\\)"), ("raises", "raised RuntimeError: boom")],
+)
+def test_cycle_publishes_blocked_alert_before_raising_backfill_failure(
+    tmp_path, failure_mode: str, expected_message: str
+) -> None:
+    import json
+    from scripts.run_top50_readiness import run_readiness_cycle
+    from atlas20.derivatives.top50_readiness import write_state
+
+    session = _session(tmp_path)
+    ranked = _write_rank_inputs(session)
+    write_state(
+        session.state_path,
+        {
+            "version": 1,
+            "initialized": True,
+            "members": [],
+            "top20": [],
+            "member_status": {},
+            "notifications": {"sent_keys": {}, "pending": {}},
+        },
+    )
+    first = _ready_payload()
+    first["ready"] = False
+    first["members"][0]["status"] = "BLOCKED"
+    first["members"][0]["failure_details"] = []
+    first["members"][0]["live_market"] = {
+        "failures": ["missing market execution coverage"],
+        "warnings": [],
+    }
+    assessments = [(first, {"coin-1"})]
+    sent: list[str] = []
+
+    def runner(_command: list[str]) -> int:
+        if failure_mode == "raises":
+            raise RuntimeError("boom")
+        return 1
+
+    with pytest.raises(RuntimeError, match=expected_message):
+        run_readiness_cycle(
+            session=session,
+            now=pd.Timestamp("2026-11-16T18:00:00Z"),
+            notify=True,
+            dry_run=False,
+            runner=runner,
+            send_message=lambda message: sent.append(message),
+            rank_fn=lambda **_kwargs: ranked,
+            assess_fn=lambda **_kwargs: assessments.pop(0),
+        )
+
+    report = json.loads((session.reports_dir / "latest.json").read_text())
+    assert report["ready"] is False
+    assert report["members"][0]["status"] == "BLOCKED"
+    assert any(
+        "backfill command" in detail
+        for detail in report["members"][0]["failure_details"]
+    )
+    assert session.state_path.is_file()
+    assert any("TOP50_DATA_BLOCKED" in message for message in sent)
+    assert not assessments

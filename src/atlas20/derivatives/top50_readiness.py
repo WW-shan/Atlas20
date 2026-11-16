@@ -125,12 +125,10 @@ def select_executable_top50(
         raise ValueError("ranked contains an empty coin_id")
     if ranked_work["coin_id"].duplicated().any():
         raise ValueError("ranked contains a duplicate coin_id")
-    ranked_work["universe_rank"] = pd.to_numeric(
-        ranked_work["universe_rank"], errors="coerce"
-    )
-    if ranked_work["universe_rank"].isna().any():
+    rank_values = pd.to_numeric(ranked_work["universe_rank"], errors="coerce")
+    if rank_values.isna().any() or ((rank_values % 1) != 0).any():
         raise ValueError("ranked contains an invalid universe_rank")
-    ranked_work["universe_rank"] = ranked_work["universe_rank"].astype(int)
+    ranked_work["universe_rank"] = rank_values.astype(int)
     if ranked_work["universe_rank"].duplicated().any():
         raise ValueError("ranked contains a duplicate universe_rank")
 
@@ -602,6 +600,17 @@ def check_market_file_range(
     )
 
 
+def _file_sha256(path: Path) -> str | None:
+    path = Path(path)
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
 def _first_ohlc_timestamp(path: Path) -> pd.Timestamp | None:
     path = Path(path)
     if not path.is_file():
@@ -793,7 +802,9 @@ def _coverage_payload(coverage: CoverageEvidence) -> dict[str, object]:
     }
 
 
-def _contract_open_day(map_row: pd.Series | dict[str, object]) -> date | None:
+def _contract_open_timestamp(
+    map_row: pd.Series | dict[str, object],
+) -> pd.Timestamp | None:
     raw = map_row.get("open_time")
     try:
         stamp = pd.Timestamp(raw)
@@ -801,7 +812,7 @@ def _contract_open_day(map_row: pd.Series | dict[str, object]) -> date | None:
         return None
     if pd.isna(stamp):
         return None
-    return _utc_stamp(stamp).date()
+    return _utc_stamp(stamp)
 
 
 def collect_member_evidence(
@@ -823,15 +834,15 @@ def collect_member_evidence(
     """Collect JSON-safe evidence for one mapped Top50 member."""
 
     failures: list[str] = []
-    declared_open_day = _contract_open_day(map_row)
+    declared_open = _contract_open_timestamp(map_row)
     first_warmup = _first_ohlc_timestamp(warmup_mark_path)
     first_live = _first_ohlc_timestamp(live_mark_path)
     observed_first_candidates = [
         value for value in (first_warmup, first_live) if value is not None
     ]
     observed_first = min(observed_first_candidates) if observed_first_candidates else None
-    if declared_open_day is not None:
-        open_timestamp = pd.Timestamp(declared_open_day, tz="UTC")
+    if declared_open is not None:
+        open_timestamp = declared_open
         start_source = "contract_open_time"
     elif observed_first is not None:
         open_timestamp = observed_first
@@ -841,20 +852,19 @@ def collect_member_evidence(
         start_source = "unavailable"
         failures.append("no usable Bitget mark history to infer the data start")
 
-    warmup_end_at = _utc_stamp(warmup_end)
+    warmup_end_at: pd.Timestamp = _utc_stamp(warmup_end)
     warmup_end_day = warmup_end_at.date()
-    warmup_expected_start = (
-        None
+    warmup_floor: pd.Timestamp = _utc_stamp(warmup_start)
+    oos_floor: pd.Timestamp = _utc_stamp(oos_start)
+    warmup_expected_start: pd.Timestamp | None = None
+    if open_timestamp is not None:
+        warmup_expected_start = (
+            open_timestamp if open_timestamp > warmup_floor else warmup_floor
+        )
+    live_expected_start: pd.Timestamp = (
+        oos_floor
         if open_timestamp is None
-        else max(_utc_stamp(warmup_start), open_timestamp)
-    )
-    warmup_applicable = bool(
-        warmup_expected_start is not None and warmup_expected_start < warmup_end_at
-    )
-    live_expected_start = (
-        _utc_stamp(oos_start)
-        if open_timestamp is None
-        else max(_utc_stamp(oos_start), open_timestamp)
+        else (open_timestamp if open_timestamp > oos_floor else oos_floor)
     )
     live_expected_day = live_expected_start.date()
     required_last = required_last_mark_time(_utc_stamp(now).to_pydatetime())
@@ -865,7 +875,7 @@ def collect_member_evidence(
         coin_id=member.coin_id,
         latest_day=latest_signal_day,
     )
-    if warmup_applicable:
+    if warmup_expected_start is not None and warmup_expected_start < warmup_end_at:
         warmup_mark = check_mark_coverage(
             warmup_mark_path,
             start=warmup_expected_start,
@@ -907,7 +917,7 @@ def collect_member_evidence(
         ),
     )
     try:
-        interval_hours = float(map_row.get("fund_interval"))
+        interval_hours = float(str(map_row.get("fund_interval")))
     except (TypeError, ValueError):
         interval_hours = float("nan")
     funding = check_funding_coverage(
@@ -951,6 +961,13 @@ def collect_member_evidence(
         "funding": _coverage_payload(funding),
         "warmup_market_alignment": _coverage_payload(warmup_alignment),
         "live_market_alignment": _coverage_payload(live_alignment),
+        "files": {
+            "warmup_mark": _file_sha256(warmup_mark_path),
+            "warmup_market": _file_sha256(warmup_market_path),
+            "live_mark": _file_sha256(live_mark_path),
+            "live_market": _file_sha256(live_market_path),
+            "funding": _file_sha256(funding_path),
+        },
         "audit_failures": [],
         "status": "READY" if not failures else "BLOCKED",
         "failure_details": failures,
@@ -1047,7 +1064,8 @@ def assess_selection(
         audit_detail = member_audit_failures + global_audit_failures
         evidence["audit_failures"] = audit_detail
         if audit_detail:
-            details = list(evidence["failure_details"])
+            raw_details = evidence.get("failure_details")
+            details = list(raw_details) if isinstance(raw_details, list) else []
             details.extend(f"audit: {item}" for item in audit_detail)
             evidence["failure_details"] = details
             evidence["status"] = "BLOCKED"
@@ -1117,6 +1135,23 @@ def publish_readiness_payload(
             raise ValueError("ready payload must contain exactly 50 members")
         if len(top20) != TOP20_SIZE:
             raise ValueError("ready payload must contain exactly 20 top20 members")
+        coin_ids = [str(item.get("coin_id") or "") for item in members]
+        if any(not coin_id for coin_id in coin_ids):
+            raise ValueError("ready payload contains an empty ready member coin_id")
+        if len(set(coin_ids)) != len(coin_ids):
+            raise ValueError("ready payload contains a duplicate coin_id")
+        symbols = [str(item.get("bitget_symbol") or "") for item in members]
+        if any(not symbol for symbol in symbols):
+            raise ValueError(
+                "ready payload contains an empty ready member Bitget contract"
+            )
+        if len(set(symbols)) != len(symbols):
+            raise ValueError("ready payload contains a duplicate Bitget contract")
+        ranks = [int(item.get("final_rank") or 0) for item in members]
+        if ranks != list(range(1, TOP50_SIZE + 1)):
+            raise ValueError("ready payload final ranks are not sequential")
+        if [str(item.get("coin_id") or "") for item in top20] != coin_ids[:TOP20_SIZE]:
+            raise ValueError("ready payload top20 is not the first twenty members")
         if any(item.get("status") != "READY" for item in members):
             raise ValueError("ready payload contains a non-READY member")
     body["fingerprint"] = _payload_fingerprint(body)
@@ -1133,8 +1168,14 @@ def publish_readiness_payload(
         audit_path,
         json.dumps(audit_payload, indent=2, sort_keys=True, default=str) + "\n",
     )
-    pd.DataFrame(members).to_csv(top50_path, index=False)
-    pd.DataFrame(top20).to_csv(top20_path, index=False)
+    atomic_write_text(
+        top50_path,
+        pd.DataFrame(members).to_csv(index=False),
+    )
+    atomic_write_text(
+        top20_path,
+        pd.DataFrame(top20).to_csv(index=False),
+    )
     paths = {
         "history": history,
         "latest": latest,
@@ -1273,8 +1314,14 @@ def build_notification_events(
     as_of = str(payload.get("as_of") or "")
     if not as_of:
         raise ValueError("readiness payload has no as_of")
-    previous_members = {str(item) for item in previous.get("members", [])}
-    previous_top20 = {str(item) for item in previous.get("top20", [])}
+    raw_previous_members = previous.get("members", [])
+    raw_previous_top20 = previous.get("top20", [])
+    if not isinstance(raw_previous_members, list) or not isinstance(
+        raw_previous_top20, list
+    ):
+        raise ValueError("previous readiness state must contain member lists")
+    previous_members = {str(item) for item in raw_previous_members}
+    previous_top20 = {str(item) for item in raw_previous_top20}
     raw_status = previous.get("member_status")
     previous_status = raw_status if isinstance(raw_status, dict) else {}
     members = payload.get("members")
