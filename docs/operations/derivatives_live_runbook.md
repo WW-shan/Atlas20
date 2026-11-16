@@ -804,7 +804,7 @@ ops/run_derivatives_daily.sh --force
 `audit-funding-semantics-ls104` 的 4 个 position cycle 也通过，最大绝对 funding
 误差 3.89997e-05。
 
-部署闭环已验证：运行时代码 tip `63458a78` 已推送 `origin/main`（后续仅文档）；
+部署闭环已验证：运行时代码 tip `67676398` 已推送 `origin/main`；
 `com.atlas20.top50-readiness`
 已安装并加载，真实 kickstart `runs=1`、`exit 0`，只执行 notify-only 与 check-current，
 未重建数据、未调用 executor；Telegram 部署消息实投 1 个 chat 成功，生产 readiness state
