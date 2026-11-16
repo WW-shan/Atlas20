@@ -894,3 +894,37 @@ def test_required_empty_funding_file_fails_closed_without_crashing(
         "funding.bitcoin.publication_evidence" in item
         for item in report.hard_failures
     )
+
+
+def test_publication_evidence_uses_observation_clock_not_market_evaluation_clock(
+    tmp_path: Path,
+) -> None:
+    paths = _fixture(tmp_path)
+    mark_path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    marks = pd.read_csv(mark_path)
+    mark_times = pd.to_datetime(marks["open_time"], utc=True)
+    marks.loc[
+        mark_times <= pd.Timestamp("2026-11-14T00:00:00Z")
+    ].to_csv(mark_path, index=False)
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    entry = publication["assets"]["bitcoin"]
+    entry["verified_at"] = "2026-11-14T01:00:00+00:00"
+    entry["publication_lag_seconds"] = 32400.0
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 14, 0, 30, tzinfo=timezone.utc),
+        publication_now=datetime(2026, 11, 14, 2, 0, tzinfo=timezone.utc),
+        min_panel_assets=1,
+        required_funding_assets={"bitcoin"},
+    )
+
+    assert report.passed is True, report.hard_failures
+    assert not any(
+        "publication_time" in item for item in report.hard_failures
+    )

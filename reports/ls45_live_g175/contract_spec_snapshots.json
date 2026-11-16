@@ -1,5 +1,19 @@
 {
-  "changes": [],
+  "changes": [
+    {
+      "field": "maxLever",
+      "material": false,
+      "reason": "all observed values support required 4x leverage",
+      "symbol": "SANDUSDT",
+      "values": {
+        "bitget_derivatives": "10",
+        "contract_snapshots": "20",
+        "merged_oos_20261009": "20",
+        "merged_oos_20261112": "20",
+        "oos_refresh_20261112": "20"
+      }
+    }
+  ],
   "compared_fields": [
     "sizeMultiplier",
     "minTradeUSDT",
@@ -10,9 +24,25 @@
     "maxLever"
   ],
   "evidence_scope": "Point-in-time contract observations. Equality across these snapshots does not by itself prove continuity in intervals for which no contract snapshot exists.",
+  "material_changes": [],
   "missing_snapshot_symbols": [],
   "passed": true,
+  "required_leverage": 4.0,
   "snapshots": [
+    {
+      "label": "bitget_derivatives",
+      "path": "data/raw/bitget_derivatives/contracts.json",
+      "schema": "list",
+      "sha256": "d45a81e690e0a68c885bd1d5aaf439cef0ee8fdb4568b6d35dfb9c3c56f22377",
+      "symbols": 816
+    },
+    {
+      "label": "oos_refresh_20261112",
+      "path": "data/raw/bitget_derivatives/oos_refresh_20261112/contracts.json",
+      "schema": "list",
+      "sha256": "77626db9ccc5a4a1224ed3558d3be48aeb347dff4369d53305f8f44221af7618",
+      "symbols": 885
+    },
     {
       "label": "merged_oos_20261009",
       "path": "data/raw/bitget_derivatives/merged_oos_20261009/contracts.json",

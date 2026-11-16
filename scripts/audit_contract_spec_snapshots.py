@@ -24,6 +24,8 @@ from typing import Any, Iterable
 import pandas as pd
 
 DEFAULT_SNAPSHOT_PATHS = (
+    Path("data/raw/bitget_derivatives/contracts.json"),
+    Path("data/raw/bitget_derivatives/oos_refresh_20261112/contracts.json"),
     Path("data/raw/bitget_derivatives/merged_oos_20261009/contracts.json"),
     Path("data/raw/bitget_derivatives/merged_oos_20261112/contracts.json"),
 )
@@ -118,6 +120,7 @@ def _compare(
     *,
     snapshots: list[Snapshot],
     track_symbols: Iterable[str],
+    required_leverage: float = 4.0,
 ) -> dict[str, Any]:
     symbols = sorted({str(symbol).upper() for symbol in track_symbols if str(symbol)})
     changes: list[dict[str, Any]] = []
@@ -139,13 +142,37 @@ def _compare(
             }
             distinct = {json.dumps(value, sort_keys=True) for value in values.values()}
             if len(distinct) > 1:
+                material = True
+                reason = f"{field} changed across retained observations"
+                if field == "maxLever":
+                    try:
+                        levers = [float(value) for value in values.values()]
+                    except (TypeError, ValueError):
+                        levers = []
+                    if (
+                        len(levers) == len(values)
+                        and all(lever >= required_leverage for lever in levers)
+                    ):
+                        material = False
+                        reason = (
+                            "all observed values support required "
+                            f"{required_leverage:g}x leverage"
+                        )
+                    else:
+                        reason = (
+                            "at least one observed value does not support required "
+                            f"{required_leverage:g}x leverage or is non-numeric"
+                        )
                 changes.append(
                     {
                         "symbol": symbol,
                         "field": field,
                         "values": values,
+                        "material": material,
+                        "reason": reason,
                     }
                 )
+    material_changes = [change for change in changes if change["material"]]
     return {
         "evidence_scope": (
             "Point-in-time contract observations. Equality across these "
@@ -163,10 +190,12 @@ def _compare(
             for snapshot in snapshots
         ],
         "track_symbols": len(symbols),
+        "required_leverage": required_leverage,
         "compared_fields": list(SPEC_FIELDS),
         "changes": changes,
+        "material_changes": material_changes,
         "missing_snapshot_symbols": missing,
-        "passed": len(snapshots) >= 2 and not changes and not missing,
+        "passed": len(snapshots) >= 2 and not material_changes and not missing,
     }
 
 
@@ -187,7 +216,11 @@ def main(argv: list[str] | None = None) -> int:
         help="explicit snapshot; may be repeated",
     )
     parser.add_argument("--json-out", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--required-leverage", type=float, default=4.0)
     args = parser.parse_args(argv)
+
+    if args.required_leverage <= 0.0:
+        raise SystemExit("--required-leverage must be positive")
 
     if args.snapshot:
         snapshots = []
@@ -223,7 +256,11 @@ def main(argv: list[str] | None = None) -> int:
         .str.upper()
         .tolist()
     )
-    result = _compare(snapshots=snapshots, track_symbols=track_symbols)
+    result = _compare(
+        snapshots=snapshots,
+        track_symbols=track_symbols,
+        required_leverage=float(args.required_leverage),
+    )
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
@@ -231,10 +268,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         f"contract spec snapshots: {'PASS' if result['passed'] else 'FAIL'} "
-        f"({len(result['snapshots'])} snapshot(s), {len(result['changes'])} change(s))"
+        f"({len(result['snapshots'])} snapshot(s), "
+        f"{len(result['material_changes'])} material change(s), "
+        f"{len(result['changes'])} observed change(s))"
     )
     for change in result["changes"]:
-        print(f"  {change['symbol']}.{change['field']}: {change['values']}")
+        marker = "FAIL" if change["material"] else "INFO"
+        print(
+            f"  {marker} {change['symbol']}.{change['field']}: "
+            f"{change['values']} — {change['reason']}"
+        )
     return 0 if result["passed"] else 1
 
 

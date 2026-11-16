@@ -140,6 +140,97 @@ def test_identical_track_specs_pass_and_snapshot_bytes_are_identified(
     assert all(item["sha256"] for item in result["snapshots"])
 
 
+def test_max_lever_change_is_non_material_when_all_values_support_the_track(
+    tmp_path: Path,
+) -> None:
+    before = _load_snapshot(
+        _write_snapshot(
+            tmp_path / "before.json", [_row("SANDUSDT", maxLever="10")]
+        ),
+        "before",
+    )
+    after = _load_snapshot(
+        _write_snapshot(
+            tmp_path / "after.json", [_row("SANDUSDT", maxLever="20")]
+        ),
+        "after",
+    )
+
+    result = _compare(
+        snapshots=[before, after],
+        track_symbols=["SANDUSDT"],
+        required_leverage=4.0,
+    )
+
+    assert result["passed"] is True
+    assert result["material_changes"] == []
+    assert result["changes"] == [
+        {
+            "symbol": "SANDUSDT",
+            "field": "maxLever",
+            "values": {"before": "10", "after": "20"},
+            "material": False,
+            "reason": "all observed values support required 4x leverage",
+        }
+    ]
+
+
+def test_max_lever_change_below_required_leverage_is_material(tmp_path: Path) -> None:
+    before = _load_snapshot(
+        _write_snapshot(
+            tmp_path / "before.json", [_row("SANDUSDT", maxLever="10")]
+        ),
+        "before",
+    )
+    after = _load_snapshot(
+        _write_snapshot(
+            tmp_path / "after.json", [_row("SANDUSDT", maxLever="2")]
+        ),
+        "after",
+    )
+
+    result = _compare(
+        snapshots=[before, after],
+        track_symbols=["SANDUSDT"],
+        required_leverage=4.0,
+    )
+
+    assert result["passed"] is False
+    assert [(item["symbol"], item["field"]) for item in result["material_changes"]] == [
+        ("SANDUSDT", "maxLever")
+    ]
+
+
+def test_max_lever_change_allows_repeated_unchanged_observations(tmp_path: Path) -> None:
+    snapshots = [
+        _load_snapshot(
+            _write_snapshot(
+                tmp_path / f"snapshot_{index}.json",
+                [_row("SANDUSDT", maxLever=value)],
+            ),
+            f"snapshot_{index}",
+        )
+        for index, value in enumerate(("10", "20", "20"))
+    ]
+
+    result = _compare(
+        snapshots=snapshots,
+        track_symbols=["SANDUSDT"],
+        required_leverage=4.0,
+    )
+
+    assert result["passed"] is True
+    assert result["material_changes"] == []
+
+
+def test_default_snapshots_include_the_pre_refresh_october_capture() -> None:
+    import scripts.audit_contract_spec_snapshots as module
+
+    assert Path("data/raw/bitget_derivatives/contracts.json") in (
+        module.DEFAULT_SNAPSHOT_PATHS
+    )
+
+
 def test_default_snapshot_paths_include_every_recorded_change_point(
     tmp_path: Path, monkeypatch
 ) -> None:

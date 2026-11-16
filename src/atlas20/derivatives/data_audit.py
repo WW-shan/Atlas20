@@ -522,6 +522,7 @@ def _read_funding(
     require_all_fresh: bool,
     stale_hours: float,
     now: datetime,
+    publication_now: datetime,
 ) -> dict[str, dict[str, Any]]:
     manifest_path = raw_dir / "funding_manifest.json"
     manifest_payload: object = None
@@ -657,7 +658,7 @@ def _read_funding(
                 actual_last=pd.Timestamp(last) if not pd.isna(last) else pd.NaT,
                 actual_rate=actual_rate,
                 declared_interval=interval,
-                now=now,
+                now=publication_now,
             )
         observed_interval: float | None = None
         interval_history_matches = False
@@ -857,6 +858,7 @@ def audit_derivatives_data(
     require_all_funding_fresh: bool = False,
     execution_utc: time = DEFAULT_EXECUTION_UTC,
     funding_stale_hours: float = DEFAULT_FUNDING_STALE_HOURS,
+    publication_now: datetime | None = None,
 ) -> DataAuditReport:
     """Audit one live derivatives data snapshot without changing any file."""
 
@@ -864,6 +866,7 @@ def audit_derivatives_data(
     panel_file = Path(panel_path)
     symbol_file = Path(symbol_map_path) if symbol_map_path is not None else raw / "symbol_map.csv"
     moment = _as_utc(now or datetime.now(UTC))
+    publication_moment = _as_utc(publication_now or datetime.now(UTC))
     if not np.isfinite(float(required_leverage)) or float(required_leverage) <= 0.0:
         raise ValueError("required_leverage must be positive and finite")
     required_short_set = {
@@ -888,6 +891,7 @@ def audit_derivatives_data(
     }
     report = DataAuditReport(passed=False)
     report.summary["now"] = moment.isoformat()
+    report.summary["publication_now"] = publication_moment.isoformat()
     report.summary["required_leverage"] = float(required_leverage)
     report.summary["required_leverage_assets"] = sorted(required_leverage_set)
     panel = _read_panel(panel_file, report, moment)
@@ -1100,6 +1104,7 @@ def audit_derivatives_data(
             require_all_fresh=bool(require_all_funding_fresh),
             stale_hours=float(funding_stale_hours),
             now=moment,
+            publication_now=publication_moment,
         )
     report.summary["funding"] = funding_summary
 

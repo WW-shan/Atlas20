@@ -18763,9 +18763,10 @@
     "hard_failures": 0,
     "last_mark": "2026-11-16 12:00:00+00:00",
     "mark_assets": 88,
-    "now": "2026-11-16T16:13:57.245331+00:00",
+    "now": "2026-11-16T16:54:50.859038+00:00",
     "panel_latest": "2026-11-15",
     "panel_latest_assets": 97,
+    "publication_now": "2026-11-16T16:54:50.890300+00:00",
     "required_leverage": 4.0,
     "required_leverage_assets": [
       "bitcoin-cash",

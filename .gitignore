@@ -79,4 +79,5 @@ output/full-functional/
 
 # Local idempotency state for the daily Telegram signal push.
 data/telegram_signal_state.json
+data/*_plan_state.json
 reports/ls45_live_g175_live/prepared.json
