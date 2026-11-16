@@ -6928,6 +6928,11 @@ download_bitget_derivatives_data.py
   目标 gross 0.5000x、实际 gross 0.552x、isolated margin 0.279x 全部核对一致；
 - `audit-funding-semantics-ls104` 通过 **4 个 position cycle**，最大绝对 funding 误差
   **3.89997e-05**；
+- `com.atlas20.top50-readiness` 已安装并加载；真实 kickstart `runs=1`、`exit 0`，日志只执行
+  `--notify-only` 与 `--check-current`，未重建数据、未调用 executor；Telegram 部署投递到
+  1 个 chat 成功，生产 state 的 `pending` / `sent_keys` 仍为空；
+- `com.atlas20.derivatives-refresh` 真实 kickstart 以 `exit 0` no-op（fresh receipt），
+  execute LaunchAgent 保持 `state=not running`、`runs=1`、`last exit code=0`；
 - Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；
 - warmup market 的首段稀疏成交和 CMC provider-zero cap 不应被描述成“历史所有字段逐小时
   完美”，但它们已被明确记录且不影响当前 live OOS 执行闸门。
