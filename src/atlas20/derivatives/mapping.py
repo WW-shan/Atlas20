@@ -211,7 +211,15 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
         if not isinstance(contract, dict):
             continue
         base = _normalise_base(contract.get("baseCoin"))
-        if base:
+        contract_type = str(contract.get("symbolType") or "").strip().lower()
+        contract_quote = _normalise_base(contract.get("quoteCoin"))
+        contract_status = str(contract.get("symbolStatus") or "").strip().lower()
+        if (
+            base
+            and contract_type == "perpetual"
+            and contract_quote == "USDT"
+            and contract_status == "normal"
+        ):
             by_base[base].append(contract)
     for base in by_base:
         by_base[base].sort(key=_contract_priority)
@@ -238,6 +246,33 @@ def build_symbol_map(panel: pd.DataFrame, contracts: list[dict[str, Any]]) -> pd
                 break
 
         if chosen is None:
+            rows.append(
+                {
+                    "coin_id": coin_id,
+                    "panel_symbol": panel_symbol,
+                    "panel_name": panel_name,
+                    "bitget_symbol": "",
+                    "base_coin": "",
+                    "contract_status": "missing",
+                    "reason": "no Bitget USDT-M perpetual",
+                    "maker_fee": pd.NA,
+                    "taker_fee": pd.NA,
+                    "fund_interval": pd.NA,
+                    "min_trade_usdt": pd.NA,
+                    "size_multiplier": pd.NA,
+                    "open_time": pd.NaT,
+                }
+            )
+            continue
+
+        contract_type = str(chosen.get("symbolType") or "").strip().lower()
+        contract_quote = _normalise_base(chosen.get("quoteCoin"))
+        contract_status = str(chosen.get("symbolStatus") or "").strip().lower()
+        if (
+            contract_type != "perpetual"
+            or contract_quote != "USDT"
+            or contract_status != "normal"
+        ):
             rows.append(
                 {
                     "coin_id": coin_id,

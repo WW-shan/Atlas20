@@ -6833,10 +6833,16 @@ download_bitget_derivatives_data.py
   50/50 最新 settlement 均为 **2026-11-16 16:00Z**；contract-declared interval、
   publication 和 live OOS coverage 由原 audit 验证；
 - scoped `audit_derivatives_data`：**0 hard failure / 0 warning**。
+- 最终重建再次暴露了一个真实回填缺陷：13 个 4h funding 合约在 20:00Z settlement
+  已到期时仍只有 16:00Z 尾部；轻量 funding probe 通过，但 full audit 正确阻断。
+  修复为“成员级 audit funding failure 也触发现有 live downloader”后，仅针对这
+  13 个成员重跑 **599 requests**；原 mark repair 为 `0 missing -> 0`，最终 funding
+  尾部为 37 个 8h 合约到 16:00Z、13 个 4h 合约到 20:00Z，**50/50 READY**。
 
 #### 3. 非阻断 warning 的明确含义
 
-- 4 个当前 Top50 成员（NEAR、PEPE、POL、RENDER）存在历史 CMC provider-zero cap 行。
+- 4 个当前 Top50 成员（NEAR、PEPE、POL、RENDER）存在历史 CMC provider-zero cap 行；
+  AAVE 另有 1 行历史 provider-zero volume。上述行均显式记录为 warning。
   这些行不被 carry 成有效排名；最新 cap 全部有效。现有 `audit_market_cap_gaps.py` 将
   32 行全部归类为 `provider_zero_supply`，0 unexplained，因此记录 warning 而非把历史
   不可排名行伪装成当前故障；
@@ -6851,7 +6857,7 @@ download_bitget_derivatives_data.py
 #### 4. 指纹、幂等与现有 LS104 隔离
 
 - readiness 数据指纹：
-  `sha256:aaac22476c0c9f5ff5f993fe19d0aadcfe73076a4ddcb5f3aabc8ce3ba54e2cc`；
+  `sha256:42c3bbb9bb51912d85778673357e24fb1c87935cb8d1fd87171fb40538dd629c`；
 - 指纹现在逐成员提交 warmup mark、warmup market、live mark、live market 与 funding 共
   **250 个原始文件的 SHA-256**；ready payload 同时拒绝重复 coin_id、重复 Bitget 合约、
   非连续 final rank 或与 Top50 前 20 不一致的 Top20；`top50.csv`/`top20.csv` 改为原子写；
@@ -6859,11 +6865,24 @@ download_bitget_derivatives_data.py
   Telegram，再向调度器返回失败；不会因为回填进程先失败而丢失新进 Top50 的数据告警；
 - 修复了审计墙钟进入指纹的问题：相同原始文件、相同 `now` 重复运行 fingerprint 不变；
   `generated_at` 仍可变化，但不再污染数据身份；
-- 首次初始化建立 state 基线，不发送 50 条历史 Telegram；后续仅按
+- 首次 READY 初始化建立 state 基线，不发送 50 条历史 Telegram；首次基线若本来就有
+  BLOCKED 成员则单独告警，不能把首个故障静默成基线；后续仅按
   `(event, coin_id, as_of)` 发送 `TOP50_ENTER`、`TOP50_DATA_READY/BLOCKED`、`TOP20_ENTER`；
+- 同日同币未发送的 READY/BLOCKED 事件按最后一次真实状态收敛；已发送历史永不删除。
+  因此 08:35 短暂 BLOCKED、08:55 已完成回填时，09:45 只发送最终 READY，不发送相反的
+  未发送事件；`TOP50_ENTER` 与 `TOP20_ENTER` 的文本同步更新为最终状态；
 - `data/top50_readiness_state.json` 当前 `pending={}`、`sent_keys={}`，符合首次初始化不刷屏；
 - Top50 readiness 进入现有 08:35/08:55 derivatives prepare，在 LS104 signal rebuild 前执行；
-  新增 09:45 Telegram-only fallback job 的代码和 plist，wrapper 不读取 Bitget 交易凭据。
+  09:45 fallback 先尝试 `--notify-only`，若当日还没有 READY 指针才重建数据；Telegram 环境
+  缺失或加载失败也不会阻断数据修复，但 wrapper 最终以非零暴露通知未完成。
+- ready pointer 现在必须同时满足：当日 as-of、50 个唯一 coin_id/合约、连续 final rank、
+  Top20 精确等于前 20、全部 READY、audit passed、自身 fingerprint 正确，且与 `latest.json`
+  完全一致；陈旧、半写或自洽但成员错误的 pointer 均 fail closed。
+- 运行时钟若早于 state 的 `last_as_of`，发布被拒绝；dry-run 可回看历史，但真实发布不能倒退。
+- USDT-M 映射只接受 `normal + perpetual + quoteCoin=USDT`；直连 base 为 USDC/交割/offline
+  时会继续尝试已登记 alias，而不是错误地把不合格合约固定为不可用。
+- OHLC 的 `NaN/±inf`、非正价格和非法 high/low 关系均 fail closed；funding 按合约声明的
+  4h/8h cadence、listing 后首个结算相位和 boundary 内应存在的 settlement 检查。
 
 补齐 raw market 后，按现有信号链重建 LS104 manifest：
 
@@ -6878,9 +6897,9 @@ download_bitget_derivatives_data.py
 - `audit-data-chain`：52 PASS / 0 WARN / 0 FAIL；
 - readiness 50 个成员逐一与 venue audit 联结：50/50 均 `long_ok=True`、`short_ok=True`、
   `flip_ok=True`；全量 88 个已映射合约同样通过 4x、long、short、flip；
-- 最终 integrity 补丁后再次用相同输入运行 readiness，前后指纹均为
-  `sha256:aaac2247...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
-- 最终代码门禁：Python **2647 passed / 1 skipped**，前端 **249 passed**，`make lint`、
+- 最终 integrity 补丁后再次用相同输入运行 readiness，指纹稳定为
+  `sha256:42c3bbb9...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
+- 最终代码门禁：Python **2688 passed / 1 skipped**，前端 **249 passed**，`make lint`、
   `make typecheck`、`make build` 和新模块 strict mypy 全部通过；
 - `audit-accounting-ls104`：**44 PASS / 0 FAIL**；独立事件重放、55 日权益路径与
   1322 小时 gross 路径均与报告一致。

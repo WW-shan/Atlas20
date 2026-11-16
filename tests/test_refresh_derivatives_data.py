@@ -10,11 +10,13 @@ def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> N
     commands = refresh_derivatives_data.build_refresh_commands(
         make_command="/usr/bin/make",
         project_root=tmp_path,
+        include_top50_readiness=True,
     )
 
     assert commands == [
         ["/usr/bin/make", "derivatives-live-data"],
         ["/usr/bin/make", "top50-readiness-unlocked"],
+        ["/usr/bin/make", "top50-readiness-check"],
         ["/usr/bin/make", "derivatives-ls104-signal"],
         ["/usr/bin/make", "audit-data-chain"],
         ["/usr/bin/make", "audit-data-ls104"],
@@ -24,6 +26,22 @@ def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> N
     ]
     assert not any("execute_live_plan.py" in " ".join(command) for command in commands)
     assert not any("derivatives-notify" in " ".join(command) for command in commands)
+
+
+def test_intraday_refresh_does_not_rebuild_the_daily_top50(tmp_path: Path) -> None:
+    commands = refresh_derivatives_data.build_refresh_commands(
+        make_command="/usr/bin/make",
+        project_root=tmp_path,
+        include_top50_readiness=False,
+    )
+
+    assert ["/usr/bin/make", "top50-readiness-unlocked"] not in commands
+    assert ["/usr/bin/make", "top50-readiness-check"] in commands
+    assert commands.index(["/usr/bin/make", "top50-readiness-check"]) < commands.index(
+        ["/usr/bin/make", "derivatives-ls104-signal"]
+    )
+    assert commands[0] == ["/usr/bin/make", "derivatives-live-data"]
+    assert ["/usr/bin/make", "derivatives-ls104-signal"] in commands
 
 
 def test_refresh_dry_run_does_not_start_make(tmp_path: Path, monkeypatch) -> None:

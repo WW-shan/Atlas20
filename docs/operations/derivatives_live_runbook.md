@@ -167,9 +167,16 @@ panel_daily.csv（CMC，当日排名）
 
 - CMC 是唯一排名源；Top50 只从当天 eligible ranking 产生；
 - 没有 Bitget USDT-M perpetual 的币记 `VENUE_UNAVAILABLE` 并顺延；
+- 只有 `normal + perpetual + quoteCoin=USDT` 才进入映射；不合格的直连 base 会继续尝试
+  已登记 alias，不会阻断同一币的正常 USDT perpetual fallback；
 - 有合约但 CMC/mark/market/funding/venue/杠杆证据不完整时 fail closed；
-- 首次初始化只建立基线，不发送 50 条历史进入消息；
+- 首次 READY 初始化只建立基线，不发送 50 条历史进入消息；首次基线若本来含 BLOCKED，
+  仍发送该真实故障，不能把首个失败静默成基线；
 - 后续只对“新进 Top50 / 状态变化 / 新进 Top20”生成事件，键为 `(event, coin_id, as_of)`；
+- 同日同币未发送的 READY/BLOCKED 事件按最后一次真实状态收敛；已经发送的事件不删除；
+  `TOP50_ENTER` / `TOP20_ENTER` 的未发送文本会同步到最终状态；
+- `--check-current` 必须同时通过当日日期、50/20 成员语义、全部 READY、audit passed、
+  fingerprint 和 `latest.json == latest_ready.json`，不能只凭旧文件存在就放行；
 - `TOP50_DATA_BLOCKED` 或未 READY 的 `TOP20_ENTER` 明确禁止用第 51 名掩盖数据故障；
 - 当前 LS104 live universe 不被本功能静默改写；“无合约顺延”的可执行 universe 仍需独立 track/spec 审核后才能晋级 live；
 - 该功能不修改 trade state/journal/target；补齐 raw market 后由现有 `derivatives-ls104-signal` 重建 manifest fingerprint，但仍不执行订单。
@@ -179,6 +186,8 @@ panel_daily.csv（CMC，当日排名）
 ```bash
 make top50-readiness ARGS=--dry-run
 make top50-readiness ARGS=--no-backfill
+make top50-readiness-check
+make top50-readiness ARGS=--notify-only
 .venv/bin/python - <<'PY'
 import json
 r=json.load(open('reports/top50_data_readiness/latest.json'))
@@ -678,9 +687,11 @@ ops/run_derivatives_daily.sh --force
 1. 打开 `reports/top50_data_readiness/latest.json`，按成员查看 `failure_details`；
 2. `VENUE_UNAVAILABLE` 只会出现在 skipped 列表，不占 Top50 名额；
 3. 有合约成员的 mark/market/funding/venue 缺口必须修复，不能把第 51 名自动补进来；
-4. 只为失败层重跑原工具：`make top50-readiness`（warmup 失败才重建 warmup；live 失败才重建 OOS）；
+4. 只为失败层重跑原工具：`make top50-readiness`（warmup 失败才重建 warmup；live mark/market/funding
+   或成员级 full-audit funding failure 才重建 OOS）；
 5. 若仍阻塞，保留 `latest_ready.json` 的旧日期并禁止消费为今日 ready；
 6. Telegram pending 不因重跑丢失；下一次 fallback 或 `make top50-readiness ARGS=--notify` 会重试；
+   同日先 BLOCKED 后 READY 时，未发送的相反状态会收敛为最终状态，避免重复噪音；
 7. 任何 universe 规则变化必须另立 track/spec，不能借 readiness 修复静默改 LS104。
 
 ### 出现强平、止损失效或 gross 超限
@@ -740,7 +751,7 @@ ops/run_derivatives_daily.sh --force
   **2026-09-01 00:00Z → 2026-11-16 18:00Z**，全量审计 0 duplicate / 0 interior gap；
 - 原 `repair_bitget_mark_gaps.py`：50 个合约 `0 missing → 0`；
 - scoped `audit_derivatives_data`：0 hard failure / 0 warning；
-- 数据指纹：`sha256:aaac22476c0c9f5ff5f993fe19d0aadcfe73076a4ddcb5f3aabc8ce3ba54e2cc`；
+- 数据指纹：`sha256:42c3bbb9bb51912d85778673357e24fb1c87935cb8d1fd87171fb40538dd629c`；
   同输入重复运行 fingerprint 不变；
 - 指纹逐成员提交 5 类原始文件、合计 250 个 SHA-256；ready payload 强制 50 个唯一
   coin_id/合约、连续 final rank 和 Top20=Top50 前 20，CSV 使用原子写；
@@ -756,9 +767,12 @@ ops/run_derivatives_daily.sh --force
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，0 differences；
 - `audit-data-ls104`：PASS，0 hard failure，0 warning；data fingerprint
   `sha256:abe781bcd4ba119be5a3927741dac2a78218ba12160a2f453ff088dab2fbea09`；
+- 最终日频尾部检查发现 13 个 4h funding 成员缺 20:00Z settlement；修复成员级 audit
+  funding 回填分层后，13 个成员以 599 requests 补齐，mark repair `0 missing -> 0`，
+  最终 50/50 READY；
 - `audit_market_cap_gaps.py`：PASS，32 行 all `provider_zero_supply`，0 unexplained。
 - `audit-accounting-ls104`：44 PASS / 0 FAIL；55 日权益与 1322 小时 gross 独立重放一致；
-- 最终代码门禁：Python 2647 passed / 1 skipped，前端 249 passed；lint、typecheck、build
+- 最终代码门禁：Python 2688 passed / 1 skipped，前端 249 passed；lint、typecheck、build
   和新模块 strict mypy 均通过。
 
 本次 2026-11-17 最终完整性补丁验证未提供 Bitget 私钥，因此没有重跑

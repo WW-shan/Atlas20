@@ -15,6 +15,7 @@ import argparse
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -34,6 +35,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
 )
 from atlas20.derivatives.top50_readiness import (  # noqa: E402
     Top50Selection,
+    _payload_fingerprint,
     assess_selection,
     build_notification_events,
     format_event_message,
@@ -41,8 +43,10 @@ from atlas20.derivatives.top50_readiness import (  # noqa: E402
     publish_readiness_payload,
     queue_notification_events,
     rank_current_candidates,
+    reconcile_notification_queue,
     record_notification_result,
     select_executable_top50,
+    validate_ready_payload,
     write_state,
 )
 
@@ -81,11 +85,60 @@ class ReadinessSession:
     universe_limit: int = 60
 
 
+class PublishedReadinessError(RuntimeError):
+    """A cycle failure whose blocked evidence and alert were already persisted."""
+
+
 def _as_utc(value: str | datetime | pd.Timestamp) -> pd.Timestamp:
     stamp = pd.Timestamp(value)
     if stamp.tzinfo is None:
         return stamp.tz_localize("UTC")
     return stamp.tz_convert("UTC")
+
+
+def _utc_now() -> pd.Timestamp:
+    return pd.Timestamp.now(tz="UTC")
+
+
+def check_current_ready(
+    *,
+    reports_dir: Path,
+    now: pd.Timestamp,
+) -> tuple[bool, str]:
+    expected = last_completed_utc_day(_as_utc(now).to_pydatetime())
+    path = Path(reports_dir) / "latest_ready.json"
+    if not path.is_file():
+        return False, f"current ready pointer is missing: {path}"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, f"current ready pointer is unreadable: {exc}"
+    if not isinstance(payload, dict):
+        return False, "current ready pointer must be a JSON object"
+    if payload.get("ready") is not True:
+        return False, "current ready pointer is not READY"
+    if str(payload.get("as_of") or "") != expected.isoformat():
+        return False, (
+            "current ready pointer is stale: "
+            f"as_of={payload.get('as_of')!r}, require {expected.isoformat()}"
+        )
+    try:
+        validate_ready_payload(payload)
+    except ValueError as exc:
+        return False, f"current ready pointer is invalid: {exc}"
+    fingerprint = str(payload.get("fingerprint") or "")
+    if not fingerprint or fingerprint != _payload_fingerprint(payload):
+        return False, "current ready pointer fingerprint does not match its bytes"
+    latest_path = Path(reports_dir) / "latest.json"
+    if not latest_path.is_file():
+        return False, f"current readiness report is missing: {latest_path}"
+    try:
+        latest_payload = json.loads(latest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return False, f"current readiness report is unreadable: {exc}"
+    if latest_payload != payload:
+        return False, "current ready pointer does not match latest readiness report"
+    return True, f"current Top50 readiness is READY as_of={expected.isoformat()}"
 
 
 def build_backfill_commands(
@@ -251,6 +304,13 @@ def _backfill_scopes(
             value.startswith(("live_mark:", "live_market:", "funding:"))
             for value in rendered
         )
+        # The full data audit can expose a funding publication/settlement issue
+        # that the lightweight funding-coverage probe does not classify.  A
+        # member-specific funding audit failure is still repairable with the
+        # existing live downloader.
+        funding_audit_prefix = f"audit: funding.{coin_id}."
+        if any(value.startswith(funding_audit_prefix) for value in rendered):
+            live_failed = True
         if warmup_failed or warmup_sections.intersection(section_failures):
             warmup.add(coin_id)
         if live_failed or live_sections.intersection(section_failures):
@@ -279,9 +339,83 @@ def _assessment_kwargs(
         "warmup_start": session.warmup_start,
         "warmup_end": session.warmup_end,
         "oos_start": session.oos_start,
-        "latest_signal_day": last_completed_utc_day(_as_utc(now).to_pydatetime()),
+        "latest_signal_day": selection.as_of,
         "now": now,
     }
+
+
+def _deliver_pending_notifications(
+    *,
+    state: dict[str, object],
+    moment: pd.Timestamp,
+    send_message: Callable[[str], None],
+) -> list[str]:
+    notifications = state.get("notifications")
+    if not isinstance(notifications, dict):
+        raise ValueError("state notifications must be an object")
+    pending_value = notifications.get("pending")
+    if not isinstance(pending_value, dict):
+        raise ValueError("state notifications pending must be an object")
+    pending = dict(pending_value)
+    failures: list[str] = []
+    event_priority = {
+        "TOP50_ENTER": 0,
+        "TOP50_DATA_READY": 1,
+        "TOP50_DATA_BLOCKED": 1,
+        "TOP20_ENTER": 2,
+    }
+
+    def delivery_key(key: str) -> tuple[int, str]:
+        event = pending.get(key)
+        event_type = str(event.get("event") or "") if isinstance(event, dict) else ""
+        return (event_priority.get(event_type, 99), str(key))
+
+    for key in sorted(pending, key=delivery_key):
+        event = pending[key]
+        if not isinstance(event, dict):
+            failures.append(str(key))
+            continue
+        try:
+            send_message(format_event_message(event))
+        except Exception as exc:  # noqa: BLE001 - persisted for retry
+            failures.append(str(key))
+            record_notification_result(
+                state,
+                event,
+                sent=False,
+                error=str(exc),
+                sent_at=moment.isoformat(),
+            )
+        else:
+            record_notification_result(
+                state,
+                event,
+                sent=True,
+                error=None,
+                sent_at=moment.isoformat(),
+            )
+    return failures
+
+
+def _mark_members_blocked(
+    payload: dict[str, object],
+    *,
+    coin_ids: set[str],
+    detail: str,
+) -> None:
+    member_rows = payload.get("members")
+    if isinstance(member_rows, list):
+        for member in member_rows:
+            if not isinstance(member, dict):
+                continue
+            if str(member.get("coin_id") or "") not in coin_ids:
+                continue
+            details = member.get("failure_details")
+            rendered = list(details) if isinstance(details, list) else []
+            rendered.append(detail)
+            member["failure_details"] = rendered
+            member["status"] = "BLOCKED"
+    payload["ready"] = False
 
 
 def run_readiness_cycle(
@@ -295,6 +429,7 @@ def run_readiness_cycle(
     send_message: Callable[[str], None],
     rank_fn: Callable[..., pd.DataFrame] = rank_current_candidates,
     assess_fn: Callable[..., tuple[dict[str, object], set[str]]] = assess_selection,
+    now_fn: Callable[[], pd.Timestamp] = _utc_now,
 ) -> dict[str, object]:
     """Run one daily selection, optional bounded backfill and publication."""
 
@@ -313,6 +448,19 @@ def run_readiness_cycle(
         mapping,
         as_of=latest_signal_day,
     )
+    previous = load_state(session.state_path)
+    initialized = bool(previous.get("initialized"))
+    last_as_of = str(previous.get("last_as_of") or "")
+    if not dry_run and initialized and last_as_of:
+        try:
+            previous_day = datetime.fromisoformat(last_as_of).date()
+        except ValueError as exc:
+            raise ValueError(f"top50 state has an invalid last_as_of: {last_as_of}") from exc
+        if selection.as_of < previous_day:
+            raise ValueError(
+                "refusing to publish older as_of "
+                f"{selection.as_of.isoformat()} than state {last_as_of}"
+            )
     payload, blocked = assess_fn(
         **_assessment_kwargs(session, selection=selection, now=moment)
     )
@@ -348,28 +496,37 @@ def run_readiness_cycle(
             if failure is not None:
                 backfill_error = failure
                 affected = warmup_members | live_members
-                member_rows = payload.get("members")
-                if isinstance(member_rows, list):
-                    for member in member_rows:
-                        if not isinstance(member, dict):
-                            continue
-                        if str(member.get("coin_id") or "") not in affected:
-                            continue
-                        details = member.get("failure_details")
-                        rendered = list(details) if isinstance(details, list) else []
-                        rendered.append(f"backfill: {backfill_error}")
-                        member["failure_details"] = rendered
-                        member["status"] = "BLOCKED"
-                payload["ready"] = False
+                _mark_members_blocked(
+                    payload,
+                    coin_ids=affected,
+                    detail=f"backfill: {backfill_error}",
+                )
                 blocked.update(affected)
                 break
         if commands and backfill_error is None:
-            payload, blocked = assess_fn(
-                **_assessment_kwargs(session, selection=selection, now=moment)
-            )
+            affected = warmup_members | live_members
+            try:
+                reassessed_at = _as_utc(now_fn())
+                if reassessed_at < moment:
+                    raise ValueError("readiness clock moved backwards after backfill")
+                payload, blocked = assess_fn(
+                    **_assessment_kwargs(
+                        session,
+                        selection=selection,
+                        now=reassessed_at,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 - persisted fail-closed
+                backfill_error = (
+                    f"top50 reassessment raised {type(exc).__name__}: {exc}"
+                )
+                _mark_members_blocked(
+                    payload,
+                    coin_ids=affected,
+                    detail=backfill_error,
+                )
+                blocked.update(affected)
 
-    previous = load_state(session.state_path)
-    initialized = bool(previous.get("initialized"))
     initialized_now = not initialized
     events = build_notification_events(previous, payload, initialized=initialized)
 
@@ -408,35 +565,15 @@ def run_readiness_cycle(
             str(item["coin_id"]): str(item["status"])
             for item in member_rows
         }
+        reconcile_notification_queue(state, payload)
         queue_notification_events(state, events)
         notification_failures: list[str] = []
         if notify:
-            notifications = state["notifications"]
-            assert isinstance(notifications, dict)
-            pending = dict(notifications.get("pending", {}))
-            for key in sorted(pending):
-                event = pending[key]
-                if not isinstance(event, dict):
-                    continue
-                try:
-                    send_message(format_event_message(event))
-                except Exception as exc:  # noqa: BLE001 - persisted for retry
-                    notification_failures.append(str(key))
-                    record_notification_result(
-                        state,
-                        event,
-                        sent=False,
-                        error=str(exc),
-                        sent_at=moment.isoformat(),
-                    )
-                else:
-                    record_notification_result(
-                        state,
-                        event,
-                        sent=True,
-                        error=None,
-                        sent_at=moment.isoformat(),
-                    )
+            notification_failures = _deliver_pending_notifications(
+                state=state,
+                moment=moment,
+                send_message=send_message,
+            )
         write_state(session.state_path, state)
         failures: list[str] = []
         if backfill_error is not None:
@@ -446,7 +583,7 @@ def run_readiness_cycle(
                 "Telegram delivery failed for: " + ", ".join(notification_failures)
             )
         if failures:
-            raise RuntimeError("; ".join(failures))
+            raise PublishedReadinessError("; ".join(failures))
 
     return {
         "payload": payload,
@@ -479,6 +616,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--universe-limit", type=int, default=60)
     parser.add_argument("--now", default=None)
     parser.add_argument("--notify", action="store_true")
+    parser.add_argument("--notify-only", action="store_true")
+    parser.add_argument("--check-current", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--no-backfill", action="store_true")
     parser.add_argument("--lock-file", type=Path, default=DEFAULT_LOCK)
@@ -493,6 +632,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.now
         else pd.Timestamp.now(tz="UTC")
     )
+    if args.check_current:
+        ok, reason = check_current_ready(reports_dir=args.reports_dir, now=moment)
+        print(reason)
+        return 0 if ok else 1
     lock_file = None
     if not args.no_lock:
         from filelock import FileLock, Timeout
@@ -505,14 +648,39 @@ def main(argv: list[str] | None = None) -> int:
                 f"another execution/refresh holds {args.lock_file}; skipping",
                 file=sys.stderr,
             )
-            return 0
+            # A skippable market rebuild is not the same as a delivered
+            # notification.  The fallback wrapper must expose an undelivered
+            # pending queue so it can continue data recovery and report a
+            # non-zero notification outcome.
+            return 1 if (args.notify_only or args.notify) else 0
         lock_file = lock
     try:
+        if args.notify_only:
+            state = load_state(args.state_file)
+            failures = _deliver_pending_notifications(
+                state=state,
+                moment=moment,
+                send_message=lambda message: _send_telegram(message, moment=moment),
+            )
+            write_state(args.state_file, state)
+            if failures:
+                print(
+                    "top50 Telegram delivery failed for: " + ", ".join(failures),
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         if panel_lags_last_completed_day(args.panel, moment.to_pydatetime()):
-            raise SystemExit(
+            message = (
                 "panel does not carry the last completed UTC day for "
                 f"{moment.isoformat()}: {args.panel}"
             )
+            if args.notify:
+                _send_telegram(
+                    "Atlas20 Top50 readiness ERROR\n" + message,
+                    moment=moment,
+                )
+            raise SystemExit(message)
         session = ReadinessSession(
             project_root=PROJECT_ROOT,
             config_path=args.config,
@@ -530,15 +698,32 @@ def main(argv: list[str] | None = None) -> int:
             warmup_end=_as_utc(args.warmup_end),
             universe_limit=int(args.universe_limit),
         )
-        result = run_readiness_cycle(
-            session=session,
-            now=moment,
-            notify=bool(args.notify),
-            dry_run=bool(args.dry_run),
-            backfill=not bool(args.no_backfill),
-            runner=lambda command: _run_subprocess(command, cwd=session.project_root),
-            send_message=lambda message: _send_telegram(message, moment=moment),
-        )
+        try:
+            result = run_readiness_cycle(
+                session=session,
+                now=moment,
+                notify=bool(args.notify),
+                dry_run=bool(args.dry_run),
+                backfill=not bool(args.no_backfill),
+                runner=lambda command: _run_subprocess(
+                    command,
+                    cwd=session.project_root,
+                ),
+                send_message=lambda message: _send_telegram(
+                    message,
+                    moment=moment,
+                ),
+            )
+        except PublishedReadinessError:
+            raise
+        except Exception as exc:
+            if args.notify:
+                _send_telegram(
+                    "Atlas20 Top50 readiness ERROR\n"
+                    f"{type(exc).__name__}: {exc}",
+                    moment=moment,
+                )
+            raise
     finally:
         if lock_file is not None:
             lock_file.release()

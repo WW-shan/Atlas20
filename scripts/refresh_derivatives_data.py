@@ -88,6 +88,7 @@ def build_refresh_commands(
     *,
     make_command: str = "/usr/bin/make",
     project_root: Path = PROJECT_ROOT,
+    include_top50_readiness: bool = False,
 ) -> list[list[str]]:
     """Return the exact LS104 refresh/audit sequence.
 
@@ -97,16 +98,23 @@ def build_refresh_commands(
     no execution or notification target.
     """
 
-    return [
+    commands = [
         [make_command, "derivatives-live-data"],
-        [make_command, "top50-readiness-unlocked"],
-        [make_command, "derivatives-ls104-signal"],
-        [make_command, "audit-data-chain"],
-        [make_command, "audit-data-ls104"],
-        [make_command, "audit-symbols-ls104"],
-        [make_command, "audit-contract-specs-ls104"],
-        [make_command, "audit-signal-ls104"],
     ]
+    if include_top50_readiness:
+        commands.append([make_command, "top50-readiness-unlocked"])
+    commands.append([make_command, "top50-readiness-check"])
+    commands.extend(
+        [
+            [make_command, "derivatives-ls104-signal"],
+            [make_command, "audit-data-chain"],
+            [make_command, "audit-data-ls104"],
+            [make_command, "audit-symbols-ls104"],
+            [make_command, "audit-contract-specs-ls104"],
+            [make_command, "audit-signal-ls104"],
+        ]
+    )
+    return commands
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -328,6 +336,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands = build_refresh_commands(
         make_command=make_command,
         project_root=project_root,
+        # The CMC panel advances once per day.  Intraday refreshes must update
+        # venue marks/funding and rebuild LS104 without repeatedly rebuilding
+        # the same Top50 ranking and notification evidence.
+        include_top50_readiness=bool(args.pre_execution),
     )
 
     if args.check_receipt:

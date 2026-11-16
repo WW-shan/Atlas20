@@ -98,6 +98,20 @@ def test_selection_rejects_fractional_universe_rank() -> None:
         )
 
 
+def test_selection_requires_sequential_source_ranks() -> None:
+    from atlas20.derivatives.top50_readiness import select_executable_top50
+
+    ranked = _ranked(50)
+    ranked["universe_rank"] = range(2, 52)
+
+    with pytest.raises(ValueError, match="sequential universe_rank"):
+        select_executable_top50(
+            ranked,
+            _mapped(ranked, set()),
+            as_of=date(2026, 11, 15),
+        )
+
+
 def test_rank_current_candidates_uses_production_point_in_time_builder(tmp_path) -> None:
     from atlas20.derivatives.top50_readiness import rank_current_candidates
 
@@ -200,6 +214,23 @@ def test_mark_coverage_rejects_interior_gap(tmp_path) -> None:
     assert any("missing hour 2026-01-01T02:00:00+00:00" in item for item in result.failures)
 
 
+def test_mark_coverage_rejects_non_finite_ohlc_values(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_mark_coverage
+
+    path = tmp_path / "BTC_mark.csv"
+    frame = _ohlc(["2026-01-01T00:00:00Z"])
+    frame.loc[0, "high"] = float("inf")
+    frame.to_csv(path, index=False)
+
+    result = check_mark_coverage(
+        path,
+        start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        required_end=pd.Timestamp("2026-01-01T01:00:00Z"),
+    )
+
+    assert any("invalid mark row" in item for item in result.failures)
+
+
 def test_market_coverage_requires_one_usable_floor_bar_per_execution_day(tmp_path) -> None:
     from atlas20.derivatives.top50_readiness import check_market_execution_coverage
 
@@ -258,6 +289,83 @@ def test_funding_coverage_uses_the_declared_contract_interval(tmp_path) -> None:
 
     assert result.missing_intervals == 1
     assert any("irregular funding interval" in item for item in result.failures)
+
+
+def test_funding_coverage_does_not_require_a_settlement_after_the_boundary(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives.top50_readiness import check_funding_coverage
+
+    path = tmp_path / "BTC_funding.csv"
+    pd.DataFrame(
+        {
+            "funding_time": [
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T08:00:00Z",
+                "2026-01-01T16:00:00Z",
+            ],
+            "funding_rate": [0.0001, 0.0001, 0.0001],
+        }
+    ).to_csv(path, index=False)
+
+    result = check_funding_coverage(
+        path,
+        required_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        required_end=pd.Timestamp("2026-01-01T23:00:00Z"),
+        interval_hours=8.0,
+    )
+
+    assert result.failures == ()
+    assert result.missing_intervals == 0
+
+
+def test_funding_coverage_allows_the_first_new_listing_settlement(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives.top50_readiness import check_funding_coverage
+
+    path = tmp_path / "NEW_funding.csv"
+    pd.DataFrame(
+        {
+            "funding_time": [
+                "2026-01-01T16:00:00Z",
+                "2026-01-02T00:00:00Z",
+            ],
+            "funding_rate": [0.0001, 0.0001],
+        }
+    ).to_csv(path, index=False)
+
+    result = check_funding_coverage(
+        path,
+        required_start=pd.Timestamp("2026-01-01T13:00:00Z"),
+        required_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        interval_hours=8.0,
+    )
+
+    assert result.failures == ()
+
+
+def test_funding_coverage_rejects_a_first_settlement_beyond_one_interval(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives.top50_readiness import check_funding_coverage
+
+    path = tmp_path / "LATE_funding.csv"
+    pd.DataFrame(
+        {
+            "funding_time": ["2026-01-02T00:00:00Z"],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(path, index=False)
+
+    result = check_funding_coverage(
+        path,
+        required_start=pd.Timestamp("2026-01-01T13:00:00Z"),
+        required_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        interval_hours=8.0,
+    )
+
+    assert any("funding starts more than one interval after" in item for item in result.failures)
 
 
 def _selection(members: int = 2) -> object:
@@ -340,6 +448,7 @@ def test_publish_only_creates_latest_ready_for_complete_fifty(tmp_path) -> None:
     ready = {
         **blocked,
         "ready": True,
+        "audit": {"passed": True, "hard_failures": [], "warnings": []},
         "members": [
             {
                 "final_rank": index,
@@ -409,12 +518,10 @@ def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) ->
     live_hourly = pd.date_range("2026-01-01", periods=25, freq="h", tz="UTC")
     _ohlc([stamp.isoformat() for stamp in hourly]).to_csv(warmup_mark, index=False)
     _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(live_mark, index=False)
-    _ohlc(["2026-01-01T01:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
+    _ohlc(["2026-01-01T01:00:00Z", "2026-01-02T00:00:00Z"]).to_csv(
         warmup_market, index=False
     )
-    _ohlc(["2026-01-01T01:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
-        live_market, index=False
-    )
+    _ohlc(["2026-01-01T01:00:00Z"]).to_csv(live_market, index=False)
     pd.DataFrame(
         {
             "funding_time": pd.to_datetime(
@@ -453,7 +560,10 @@ def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) ->
         warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
         oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
         latest_signal_day=date(2026, 1, 1),
-        now=pd.Timestamp("2026-01-02T18:00:00Z"),
+        # 00:35Z is the production 08:35 Beijing prepare time.  The upcoming
+        # 01:00Z execution bar does not exist yet and must be checked by the
+        # executor, not make the completed-day readiness audit fail.
+        now=pd.Timestamp("2026-01-02T00:35:00Z"),
     )
 
     assert evidence["status"] == "READY", evidence["failure_details"]
@@ -474,6 +584,17 @@ def test_contract_open_time_preserves_listing_hour() -> None:
     stamp = _contract_open_timestamp({"open_time": "2026-01-01T12:00:00Z"})
 
     assert stamp == pd.Timestamp("2026-01-01T12:00:00Z")
+
+
+def test_hourly_coverage_start_aligns_a_non_hour_listing() -> None:
+    from atlas20.derivatives.top50_readiness import _hour_grid_start
+
+    assert _hour_grid_start(
+        pd.Timestamp("2026-01-01T12:34:00Z")
+    ) == pd.Timestamp("2026-01-01T13:00:00Z")
+    assert _hour_grid_start(
+        pd.Timestamp("2026-01-01T12:00:00Z")
+    ) == pd.Timestamp("2026-01-01T12:00:00Z")
 
 
 def test_assess_selection_builds_ready_top20_from_ready_top50(
@@ -619,6 +740,23 @@ def test_first_run_initializes_without_fifty_messages() -> None:
     assert events == ()
 
 
+def test_first_run_alerts_blocked_members_without_history_entries() -> None:
+    from atlas20.derivatives.top50_readiness import build_notification_events
+
+    payload = _payload()
+    payload["ready"] = False
+    payload["members"][1]["status"] = "BLOCKED"
+    payload["members"][1]["failure_details"] = ["live_mark: missing hour"]
+    payload["top20"][0]["status"] = "BLOCKED"
+    payload["top20"][0]["failure_details"] = ["live_mark: missing hour"]
+
+    events = build_notification_events({}, payload, initialized=False)
+
+    assert [event["event"] for event in events] == ["TOP50_DATA_BLOCKED"]
+    assert events[0]["coin_id"] == "ethereum"
+    assert "missing hour" in events[0]["details"]
+
+
 def test_new_top50_and_top20_members_emit_one_event_each() -> None:
     from atlas20.derivatives.top50_readiness import build_notification_events
 
@@ -706,6 +844,125 @@ def test_failed_delivery_stays_pending_and_success_is_deduplicated(tmp_path) -> 
     path = tmp_path / "top50_state.json"
     write_state(path, state)
     assert load_state(path)["notifications"]["sent_keys"][event["key"]]
+
+
+def test_unsent_status_events_are_superseded_by_the_latest_status() -> None:
+    from atlas20.derivatives.top50_readiness import queue_notification_events
+
+    blocked = {
+        "key": "TOP50_DATA_BLOCKED|coin-1|2026-11-15",
+        "event": "TOP50_DATA_BLOCKED",
+        "coin_id": "coin-1",
+        "symbol": "C1",
+        "as_of": "2026-11-15",
+        "status": "BLOCKED",
+        "details": "missing funding",
+    }
+    top20 = {
+        "key": "TOP20_ENTER|coin-1|2026-11-15",
+        "event": "TOP20_ENTER",
+        "coin_id": "coin-1",
+        "symbol": "C1",
+        "as_of": "2026-11-15",
+        "status": "BLOCKED",
+        "details": "missing funding",
+    }
+    enter = {
+        **top20,
+        "key": "TOP50_ENTER|coin-1|2026-11-15",
+        "event": "TOP50_ENTER",
+    }
+    ready = {
+        **blocked,
+        "key": "TOP50_DATA_READY|coin-1|2026-11-15",
+        "event": "TOP50_DATA_READY",
+        "status": "READY",
+        "details": "",
+    }
+    state = {
+        "version": 1,
+        "notifications": {
+            "sent_keys": {},
+            "pending": {
+                blocked["key"]: blocked,
+                enter["key"]: enter,
+                top20["key"]: top20,
+            },
+        },
+    }
+
+    queue_notification_events(state, (ready,))
+
+    pending = state["notifications"]["pending"]
+    assert blocked["key"] not in pending
+    assert pending[ready["key"]]["status"] == "READY"
+    assert pending[enter["key"]]["status"] == "READY"
+    assert pending[enter["key"]]["details"] == ""
+    assert pending[top20["key"]]["status"] == "READY"
+    assert pending[top20["key"]]["details"] == ""
+
+
+def test_reconcile_pending_keeps_only_the_final_status_for_the_day() -> None:
+    from atlas20.derivatives.top50_readiness import reconcile_notification_queue
+
+    blocked = {
+        "key": "TOP50_DATA_BLOCKED|coin-1|2026-11-15",
+        "event": "TOP50_DATA_BLOCKED",
+        "coin_id": "coin-1",
+        "symbol": "C1",
+        "as_of": "2026-11-15",
+        "status": "BLOCKED",
+        "details": "missing funding",
+    }
+    ready = {
+        **blocked,
+        "key": "TOP50_DATA_READY|coin-1|2026-11-15",
+        "event": "TOP50_DATA_READY",
+        "status": "READY",
+        "details": "",
+    }
+    previous_day = {
+        **blocked,
+        "key": "TOP50_DATA_BLOCKED|coin-1|2026-11-14",
+        "as_of": "2026-11-14",
+    }
+    already_sent = {
+        **ready,
+        "key": "TOP50_DATA_READY|coin-2|2026-11-15",
+        "coin_id": "coin-2",
+    }
+    state = {
+        "version": 1,
+        "notifications": {
+            "sent_keys": {already_sent["key"]: {"sent_at": "2026-11-16T09:45:00Z"}},
+            "pending": {
+                blocked["key"]: blocked,
+                ready["key"]: ready,
+                previous_day["key"]: previous_day,
+                already_sent["key"]: already_sent,
+            },
+        },
+    }
+    payload = {
+        "as_of": "2026-11-15",
+        "members": [
+            {
+                "coin_id": "coin-1",
+                "symbol": "C1",
+                "status": "READY",
+                "failure_details": [],
+            }
+        ],
+        "top20": [],
+    }
+
+    reconcile_notification_queue(state, payload)
+
+    pending = state["notifications"]["pending"]
+    assert blocked["key"] not in pending
+    assert ready["key"] in pending
+    assert previous_day["key"] in pending
+    assert already_sent["key"] not in pending
 
 
 def test_format_event_message_marks_blocked_top20_without_rank51_fallback() -> None:
@@ -854,6 +1111,43 @@ def test_panel_historical_bad_market_cap_is_a_warning_not_a_block() -> None:
 
     assert result.failures == ()
     assert any("unrankable" in item for item in result.warnings)
+
+
+def test_panel_historical_zero_volume_is_an_explicit_warning() -> None:
+    from atlas20.derivatives.top50_readiness import check_panel_history
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["aave", "aave"],
+            "price": [1.0, 1.0],
+            "volume_usd": [0.0, 10.0],
+            "market_cap": [100.0, 100.0],
+        }
+    )
+
+    result = check_panel_history(panel, coin_id="aave", latest_day=date(2026, 1, 2))
+
+    assert result.failures == ()
+    assert any("historical CMC volume" in item for item in result.warnings)
+
+
+def test_panel_latest_zero_volume_blocks() -> None:
+    from atlas20.derivatives.top50_readiness import check_panel_history
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["aave", "aave"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 0.0],
+            "market_cap": [100.0, 100.0],
+        }
+    )
+
+    result = check_panel_history(panel, coin_id="aave", latest_day=date(2026, 1, 2))
+
+    assert any("non-positive latest CMC volume" in item for item in result.failures)
 
 
 def test_panel_latest_bad_market_cap_blocks() -> None:
@@ -1030,4 +1324,62 @@ def test_publish_rejects_empty_ready_member_identity(tmp_path, field: str) -> No
             reports_dir=tmp_path,
             payload=payload,
             audit_payload={"passed": True},
+        )
+
+
+def test_publish_rejects_fractional_ready_rank(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {
+            "final_rank": index,
+            "coin_id": f"coin-{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "status": "READY",
+        }
+        for index in range(1, 51)
+    ]
+    members[0]["final_rank"] = 1.5
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": members[:20],
+        "skipped": [],
+    }
+
+    with pytest.raises(ValueError, match="final ranks are not sequential"):
+        publish_readiness_payload(
+            reports_dir=tmp_path,
+            payload=payload,
+            audit_payload={"passed": True},
+        )
+
+
+def test_publish_rejects_ready_payload_when_audit_did_not_pass(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {
+            "final_rank": index,
+            "coin_id": f"coin-{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "status": "READY",
+        }
+        for index in range(1, 51)
+    ]
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": members[:20],
+        "skipped": [],
+        "audit": {"passed": False, "hard_failures": ["audit failed"]},
+    }
+
+    with pytest.raises(ValueError, match="audit did not pass"):
+        publish_readiness_payload(
+            reports_dir=tmp_path,
+            payload=payload,
+            audit_payload={"passed": False, "hard_failures": ["audit failed"]},
         )
