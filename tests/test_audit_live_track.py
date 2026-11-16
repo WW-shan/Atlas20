@@ -1018,7 +1018,7 @@ def test_position_value_accepts_zero_assets_field_for_isolated_legs() -> None:
 def test_ledger_equity_tolerance_allows_snapshot_noise_but_stays_bounded() -> None:
     from scripts.audit_live_track import _ledger_equity_tolerance
 
-    assert _ledger_equity_tolerance(499.6) == pytest.approx(0.10)
+    assert _ledger_equity_tolerance(499.6) == pytest.approx(0.25)
     assert _ledger_equity_tolerance(1_000_000.0) == pytest.approx(200.0)
 
 

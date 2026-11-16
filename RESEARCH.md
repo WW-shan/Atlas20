@@ -6441,3 +6441,96 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
 
 以上结论只覆盖已被 artifact、独立重放或测试证明的节点；不能据此声称“所有 bug
 已找到”。
+
+### 00.159 2026-11-16 实盘报错复盘：外部平仓、旧 manifest/funding 缓存与 cross-request mark 容差
+
+本轮对 `~/Library/Logs/atlas20-derivatives-execute.log` 和 journal/state 做了只读复盘。
+用户看到的“多个报错”不是同一类问题，按事件还原如下。
+
+#### 1. 2026-11-15 09:02Z 四条空头被外部平仓
+
+- journal 记录：`2026-11-15T09:02:14Z` BCH/HYPE/NEAR/ZEC 四条空头被交易所市价
+  买回，4 笔订单均不在 Atlas20 executor 的 order ledger 中，因此标为
+  `EXTERNAL_CLOSE`。
+- 只读 `order-info` 进一步显示：4 笔都是 `orderType=market`、
+  `tradeSide=close_short`，`createdTime` 落在同一毫秒级窗口，`clientOid` 是
+  Bitget 数字串（不是 Atlas20 的 `a20...` 前缀）；价格均优于当时空头入场价，
+  因此既不是止损触发，也不符合逐仓强平（强平应发生在亏损方向）。这更像一次
+  人工/批量“全部平仓”或拥有 API 权限的第三方动作，但仍需用户确认。
+- 09:19Z protect-only 看到实际仓位为 0、冻结事件目标仍为 4 条空头，产生 4 条
+  `protect-only position completion failed`，状态为 `partial`；这不是新开仓失败。
+- 09:20:55Z 系统按冻结事件数量恢复四条空头（4 笔 OPEN），09:27Z 的
+  reconcile-only 导入 4 笔外部成交：手续费 `0.159220824` USDT、资金费
+  `-0.01318370` USDT。
+- 当前无法从 API 证明这次外部平仓是人工、其他策略/子账户、还是交易所侧动作；
+  只能证明它**不是** Atlas20 executor 下的订单。这是当前最重要的待确认外部事实。
+  如果用户没有手动操作，需立即检查 API key 权限、子账户、第三方策略和交易所订单来源。
+
+#### 2. 2026-11-16 06:35Z manifest 硬失败
+
+- `latest.json` 的真实错误：
+  `protect-only manifest does not match the selected frozen track: funding_missing_policy is missing`。
+- 这是旧数据/信号构建产出的 manifest 缺少新字段；当时 protect-only 在风险检查阶段
+  退出，没有写 journal/state，也没有下任何订单。
+- 当前 `reports/ls45_live_g175/manifest.json` 已含
+  `funding_missing_policy: error`，且与 `LS104_G175_M090_MANIFEST_TOP_LEVEL`
+  的全部字段一致；14:53Z 的 live audit 已通过 manifest 规格检查。
+
+#### 3. 2026-11-16 08:00Z funding settlement 告警
+
+- 当时缓存缺少 BCH 00:00Z、HYPE 00:00Z/04:00Z、NEAR 00:00Z 等 settlement，
+  所以旧审计把“最后一条不够新”和“应有 settlement 缺失”一起报成硬失败。
+- 当前 funding 文件已补齐 2026-11-16 00:00/04:00/08:00Z 等记录；
+  `reports/ls45_live_g175/data_audit.json` 为 **2682/2682 checks passed，
+  0 hard failure，0 warning**。
+- 旧提示中的 `funding.1inch.fresh` 等全 watchlist 告警来自
+  `--require-all-funding-fresh` 的旧语义；当前 live audit 只对 target/held legs
+  做 settlement coverage，freshness 只作为诊断 warning。
+
+#### 4. ZCASH 仓位漂移告警
+
+- 03:05/03:35/04:35Z 的 ZCASH `目标 -61.x vs 实际 -67.x` 来自旧的“目标权重 ×
+  当日权益”口径；该口径会在维护-only 日把价格漂移误报为仓位漂移。
+- 当前监控使用 active event 冻结数量，容差为 1 USDT / 1% / 1.5 个合约步长；
+  14:53Z live audit 结果为：
+  `持仓数量与最近目标事件一致（价格漂移不算偏差）`。
+  因此这些是旧口径的历史噪音，不是当前仓位错误。
+
+#### 5. 当前 live 状态（2026-11-16 15:00Z 只读审计）
+
+- 42 项检查中 41 项通过，唯一 hard failure 是：
+  `最新执行报告与执行状态一致 — latest report status=error, state last_status=ok`。
+  这是 06:35Z 失败尝试留下的 `latest.json` 快照；state 保留最后一次成功
+  `protect_only 04:35Z` 是设计行为，不是账户状态损坏。下一次成功的
+  01:05/01:35 live run 会覆盖 latest；在此之前不应手工伪造成功报告。
+- 账户权益 `496.7194` USDT；仓位价值 `264.9614` USDT（`0.533x`）；
+  isolated margin `136.77` USDT（`0.275x`）；4 条空头均有交易所可见止损，
+  每个空头最多一张策略单，stop 均早于 liquidation price；无计划外持仓、
+  无未记账成交、台账 roll-forward 通过。
+- `latest report` 失败是**报告状态面**的问题；仓位的实际一致性、止损、gross、
+  margin、数据可靠性均通过。
+
+#### 6. cross-request mark 容差修复
+
+- 实盘在 15:06Z 出现一次 `台账按实时标记价折算` 的 0.1108 USDT 差异，随后
+  三次只读重算分别为 0.0294/0.0110/0.0032 USDT，证明它是
+  `account_assets` 与 `current_positions` 两次 API 请求之间的 mark 移动，
+  不是账本断点。
+- 原容差 `max(0.10, 0.0002 × equity)` 在 500 USDT 账户上只有 0.10 USDT，
+  会把 0.02% 的跨请求 mark 噪音误报为 hard failure。现将绝对底限调整为
+  `0.25 USDT`，相对项仍为 `0.0002 × equity`；0.25/500 = 0.05%，
+  仍足以暴露真实账本错误，同时覆盖已观测到的 cross-request 噪音。
+- 新增回归断言：499.6 USDT 权益的容差为 0.25 USDT；1,000,000 USDT 仍为
+  200 USDT。修复后 15:00Z read-only monitor 只剩 latest/state 报错，
+  不再重复资金费/仓位噪音。
+
+#### 7. 仍需处理
+
+- 确认 2026-11-15 09:02Z 外部平仓来源；这是唯一无法由仓库/API 自身证明的
+  实盘事实。
+- 等下一次 01:05/01:35 live run 覆盖 `latest.json`；若失败，保留失败报告并
+  按 runbook 处理，不要手改 state。
+- 当前实盘仓位是事件驱动冻结数量，不是每日按旧权重再平衡；价格漂移会继续
+  改变权重，这是策略设计，不是 bug，但会增加单一资产集中度和尾部风险。
+- 当前 OOS 仅 55 个日行，且 2026-11-15 的 external close/reopen 不进入回测路径；
+  live 与 backtest 的差异需要继续用真实成交样本评估。

@@ -1248,9 +1248,16 @@ def _ledger_expected_equity(
 
 
 def _ledger_equity_tolerance(equity: float) -> float:
-    """Allow for cross-request marks without hiding a material ledger break."""
+    """Allow for cross-request marks without hiding a material ledger break.
 
-    return max(0.10, 0.0002 * abs(float(equity)))
+    ``account_assets`` and ``current_positions`` are separate venue requests.
+    Four volatile short legs can move the two snapshots by a few cents before
+    either request returns.  A 0.10 USDT floor produced a live false positive
+    at 0.11 USDT (0.02% of equity); 0.25 USDT remains a tight materiality floor
+    while covering that observed cross-request noise.
+    """
+
+    return max(0.25, 0.0002 * abs(float(equity)))
 
 
 def _pnl_chain_errors(journal: pd.DataFrame) -> list[str]:
