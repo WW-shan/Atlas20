@@ -751,7 +751,7 @@ ops/run_derivatives_daily.sh --force
   **2026-09-01 00:00Z → 2026-11-16 18:00Z**，全量审计 0 duplicate / 0 interior gap；
 - 原 `repair_bitget_mark_gaps.py`：50 个合约 `0 missing → 0`；
 - scoped `audit_derivatives_data`：0 hard failure / 0 warning；
-- 数据指纹：`sha256:42c3bbb9bb51912d85778673357e24fb1c87935cb8d1fd87171fb40538dd629c`；
+- 数据指纹：`sha256:6b01d18fc7a1fc587e4f41734cfc18a78ee665dfe3c4b6292ec2e79f084c16b4`；
   同输入重复运行 fingerprint 不变；
 - 指纹逐成员提交 5 类原始文件、合计 250 个 SHA-256；ready payload 强制 50 个唯一
   coin_id/合约、连续 final rank 和 Top20=Top50 前 20，CSV 使用原子写；
@@ -763,10 +763,10 @@ ops/run_derivatives_daily.sh --force
   不影响 live OOS 每日执行覆盖；
 - `oos_targets.csv` 哈希不变：`2ef4e701...`；execution state 与 journal 哈希不变；
   manifest 因 `market_fill_fingerprint` 从旧值更新为
-  `sha256:57d9ab54d8e1a39f30f54d17d4ce2cc2aef474b46e43cce19d04a75f5ea1023d`；
+  `sha256:466b1b97fea3dbbc822e73716f499b5223efca169919bf2603f4f9b26f891d3c`；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，0 differences；
 - `audit-data-ls104`：PASS，0 hard failure，0 warning；data fingerprint
-  `sha256:abe781bcd4ba119be5a3927741dac2a78218ba12160a2f453ff088dab2fbea09`；
+  `sha256:a344c79829e70f35ab41cbf4ca7543bcf3a27ec8080653f84e0b1d266f878d06`；
 - 最终日频尾部检查发现 13 个 4h funding 成员缺 20:00Z settlement；修复成员级 audit
   funding 回填分层后，13 个成员以 599 requests 补齐，mark repair `0 missing -> 0`，
   最终 50/50 READY；
@@ -775,9 +775,11 @@ ops/run_derivatives_daily.sh --force
 - 最终代码门禁：Python 2688 passed / 1 skipped，前端 249 passed；lint、typecheck、build
   和新模块 strict mypy 均通过。
 
-本次 2026-11-17 最终完整性补丁验证未提供 Bitget 私钥，因此没有重跑
-`audit-live-ls104`；Top50 readiness 不读取账户或交易凭据，live state/venue 仍由正常执行前
-门禁独立 fail closed。
+最终真实账户审计 `audit-live-ls104` 已通过：权益 489.1454 USDT、4 条当前持仓腿、
+逐仓/4x/保证金缓冲、账户恒等式、订单历史与 journal、空头 20% stop 及其唯一性、
+目标 gross 0.5000x、实际 gross 0.557x、isolated margin 0.280x 全部核对一致。
+`audit-funding-semantics-ls104` 的 4 个 position cycle 也通过，最大绝对 funding
+误差 3.89997e-05。
 
 操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
 此时手工触发 execute 的 monitor 会报 settlement coverage 并 fail closed；

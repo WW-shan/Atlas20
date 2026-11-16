@@ -6857,7 +6857,7 @@ download_bitget_derivatives_data.py
 #### 4. 指纹、幂等与现有 LS104 隔离
 
 - readiness 数据指纹：
-  `sha256:42c3bbb9bb51912d85778673357e24fb1c87935cb8d1fd87171fb40538dd629c`；
+  `sha256:6b01d18fc7a1fc587e4f41734cfc18a78ee665dfe3c4b6292ec2e79f084c16b4`；
 - 指纹现在逐成员提交 warmup mark、warmup market、live mark、live market 与 funding 共
   **250 个原始文件的 SHA-256**；ready payload 同时拒绝重复 coin_id、重复 Bitget 合约、
   非连续 final rank 或与 Top50 前 20 不一致的 Top20；`top50.csv`/`top20.csv` 改为原子写；
@@ -6889,16 +6889,16 @@ download_bitget_derivatives_data.py
 - `reports/ls45_live_g175/oos_targets.csv` SHA-256 保持 **2ef4e701...**，冻结 target 行不变；
 - `data/ls45_g175_execution_state.json` 与 live journal SHA-256 保持原值；
 - manifest 的 `market_fill_fingerprint` 更新为
-  `sha256:57d9ab54d8e1a39f30f54d17d4ce2cc2aef474b46e43cce19d04a75f5ea1023d`；
+  `sha256:466b1b97fea3dbbc822e73716f499b5223efca169919bf2603f4f9b26f891d3c`；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，**0 differences**；
 - `audit-data-ls104`：**PASS，0 hard failure，0 warning**，data fingerprint
-  `sha256:abe781bcd4ba119be5a3927741dac2a78218ba12160a2f453ff088dab2fbea09`；
+  `sha256:a344c79829e70f35ab41cbf4ca7543bcf3a27ec8080653f84e0b1d266f878d06`；
 - `audit_market_cap_gaps.py`：PASS，32 行均为 `provider_zero_supply`，0 unexplained。
 - `audit-data-chain`：52 PASS / 0 WARN / 0 FAIL；
 - readiness 50 个成员逐一与 venue audit 联结：50/50 均 `long_ok=True`、`short_ok=True`、
   `flip_ok=True`；全量 88 个已映射合约同样通过 4x、long、short、flip；
 - 最终 integrity 补丁后再次用相同输入运行 readiness，指纹稳定为
-  `sha256:42c3bbb9...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
+  `sha256:6b01d18f...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
 - 最终代码门禁：Python **2688 passed / 1 skipped**，前端 **249 passed**，`make lint`、
   `make typecheck`、`make build` 和新模块 strict mypy 全部通过；
 - `audit-accounting-ls104`：**44 PASS / 0 FAIL**；独立事件重放、55 日权益路径与
@@ -6916,8 +6916,11 @@ download_bitget_derivatives_data.py
 - Telegram fallback 只在代码层和 schedule contract 中验证，真实 bot 投递仍应在部署后做一次
   受控事件演练；
 - Top50 readiness 是日频收盘后流程，不是盘中上新扫描；
-- 本次最终补丁验证环境未提供 Bitget 私钥，因此 `audit-live-ls104` 未重跑；该结果仍必须由正常
-  实盘环境按执行前门禁验证，不能用 Top50 只读数据审计替代账户与真实 venue 状态；
+- 最终真实账户审计 `audit-live-ls104` 已通过：权益 **489.1454 USDT**、4 条当前持仓腿、
+  逐仓/4x/保证金缓冲、账户恒等式、订单历史与 journal、空头 20% stop 及其唯一性、
+  目标 gross 0.5000x、实际 gross 0.557x、isolated margin 0.280x 全部核对一致；
+- `audit-funding-semantics-ls104` 通过 **4 个 position cycle**，最大绝对 funding 误差
+  **3.89997e-05**；
 - Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；
 - warmup market 的首段稀疏成交和 CMC provider-zero cap 不应被描述成“历史所有字段逐小时
   完美”，但它们已被明确记录且不影响当前 live OOS 执行闸门。
