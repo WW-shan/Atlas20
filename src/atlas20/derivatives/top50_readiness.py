@@ -10,11 +10,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 import hashlib
 import json
 from typing import Any
 
 import pandas as pd
+
+from atlas20.config import load_config
+from atlas20.universe.builder import build_rebalance_universe, prepare_market_data
 
 TOP50_SIZE = 50
 TOP20_SIZE = 20
@@ -194,6 +198,45 @@ def select_executable_top50(
     )
 
 
+def rank_current_candidates(
+    *,
+    config_path: Path,
+    panel_path: Path,
+    metadata_path: Path,
+    as_of: date,
+    limit: int,
+) -> pd.DataFrame:
+    """Rank the current CMC cohort with the production universe builder.
+
+    ``limit`` is the candidate-pool width required by Top50 backfill.  It must
+    not exceed the cached current-candidate width in ``base.yaml`` or a new
+    Top50 could silently be built from a truncated catalog.
+    """
+
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    config = load_config(config_path).model_copy(deep=True)
+    if limit > config.universe.current_top_n_candidates:
+        raise ValueError(
+            "requested ranking limit "
+            f"{limit} exceeds current_top_n_candidates "
+            f"{config.universe.current_top_n_candidates}"
+        )
+    config.universe.universe_size = int(limit)
+    panel = pd.read_csv(panel_path)
+    metadata = pd.read_csv(metadata_path).set_index("coin_id")
+    market = prepare_market_data(panel, metadata, config)
+    day = pd.Timestamp(as_of).normalize()
+    if getattr(market.price.index, "tz", None) is not None:
+        day = day.tz_localize("UTC")
+    if day not in market.price.index:
+        raise ValueError(f"panel has no ranking row for {as_of}")
+    ranked = build_rebalance_universe(market, [day], config)
+    if ranked.empty:
+        raise ValueError(f"no eligible CMC candidates on {as_of}")
+    return ranked.sort_values("universe_rank", kind="stable").reset_index(drop=True)
+
+
 __all__ = [
     "TOP20_SIZE",
     "TOP50_SIZE",
@@ -201,5 +244,6 @@ __all__ = [
     "SelectionMember",
     "SelectionSkip",
     "Top50Selection",
+    "rank_current_candidates",
     "select_executable_top50",
 ]
