@@ -213,6 +213,7 @@ class CoverageEvidence:
     rows: int
     missing_intervals: int
     failures: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
 
 def _utc_stamp(value: object) -> pd.Timestamp:
@@ -323,6 +324,7 @@ def check_panel_history(
         return CoverageEvidence(None, None, 0, 0, ("missing CMC history",))
 
     failures: list[str] = []
+    warnings: list[str] = []
     selected["date"] = (
         pd.to_datetime(selected["date"], utc=True, errors="coerce").dt.normalize()
     )
@@ -336,13 +338,26 @@ def check_panel_history(
         selected[column] = pd.to_numeric(selected[column], errors="coerce")
     price = selected["price"]
     volume = selected["volume_usd"]
-    market_cap = selected["market_cap"]
     if (~price.map(math.isfinite) | (price <= 0.0)).any():
         failures.append("non-positive/non-finite CMC price")
     if (~volume.map(math.isfinite) | (volume < 0.0)).any():
         failures.append("negative/non-finite CMC volume")
-    if (~market_cap.map(math.isfinite) | (market_cap <= 0.0)).any():
-        failures.append("non-positive/non-finite CMC market cap")
+    latest_day_ts = _utc_stamp(latest_day)
+    latest_mask = selected["date"].eq(latest_day_ts)
+    latest_caps = selected.loc[latest_mask, "market_cap"]
+    if not latest_caps.empty and (
+        ~latest_caps.map(math.isfinite) | (latest_caps <= 0.0)
+    ).any():
+        failures.append("non-positive/non-finite latest CMC market cap")
+    historical_caps = selected.loc[~latest_mask, "market_cap"]
+    historical_bad_caps = ~historical_caps.map(math.isfinite) | (
+        historical_caps <= 0.0
+    )
+    if historical_bad_caps.any():
+        warnings.append(
+            f"{int(historical_bad_caps.sum())} historical CMC market-cap row(s) "
+            "are unrankable; they are not silently carried into a rank"
+        )
 
     dates = pd.DatetimeIndex(selected["date"].dropna().sort_values().unique())
     if dates.empty:
@@ -352,6 +367,7 @@ def check_panel_history(
             len(selected),
             0,
             tuple(failures + ["no valid CMC dates"]),
+            tuple(warnings),
         )
     latest = pd.Timestamp(latest_day)
     if _utc_stamp(dates.max()) > _utc_stamp(latest):
@@ -367,6 +383,7 @@ def check_panel_history(
         rows=len(selected),
         missing_intervals=len(missing),
         failures=tuple(failures),
+        warnings=tuple(warnings),
     )
 
 
@@ -418,6 +435,7 @@ def check_market_execution_coverage(
     end_day: date,
     execution_utc: time = time(1, 5),
     max_lag_minutes: float = 60.0,
+    required_first_at: pd.Timestamp | None = None,
     now: pd.Timestamp | None = None,
 ) -> CoverageEvidence:
     """Require a usable floor market bar for each T+1 execution day."""
@@ -447,6 +465,8 @@ def check_market_execution_coverage(
             hours=execution_utc.hour,
             minutes=execution_utc.minute,
         )
+        if required_first_at is not None and target < _utc_stamp(required_first_at):
+            continue
         earlier = unique_times[unique_times <= target]
         if earlier.empty or target - earlier[-1] > max_lag:
             missing_days.append(day.date())
@@ -532,6 +552,68 @@ def check_market_alignment(
         missing_intervals=len(extra),
         failures=tuple(failures),
     )
+
+
+def check_market_file_range(
+    path: Path,
+    *,
+    required_first_day: date,
+    required_last_day: date,
+    now: pd.Timestamp | None = None,
+) -> CoverageEvidence:
+    """Check a market file's readable range without requiring every hour.
+
+    Warmup market candles are observed trades, so illiquid or quiet hours are
+    legitimately absent.  What matters is that the cached file is valid and
+    spans the contract's warmup lifetime.
+    """
+
+    times, _clean, failures, rows = _read_ohlc(path, label="market", now=now)
+    warnings: list[str] = []
+    if times.empty:
+        return CoverageEvidence(
+            None,
+            None,
+            rows,
+            0,
+            tuple(failures + ["empty market file"]),
+        )
+    unique_times = times.drop_duplicates()
+    first_day = unique_times.min().date()
+    last_day = unique_times.max().date()
+    if first_day > required_last_day:
+        failures.append(
+            f"market starts {first_day}, after required end {required_last_day}"
+        )
+    elif first_day > required_first_day + pd.Timedelta(days=1).to_pytimedelta():
+        warnings.append(
+            f"market starts later than the contract data at {first_day}; "
+            f"expected first trade day {required_first_day}"
+        )
+    if last_day < required_last_day:
+        failures.append(f"market ends {last_day}, require {required_last_day}")
+    return CoverageEvidence(
+        first=unique_times.min().isoformat(),
+        last=unique_times.max().isoformat(),
+        rows=rows,
+        missing_intervals=int(last_day < required_last_day),
+        failures=tuple(failures),
+        warnings=tuple(warnings),
+    )
+
+
+def _first_ohlc_timestamp(path: Path) -> pd.Timestamp | None:
+    path = Path(path)
+    if not path.is_file():
+        return None
+    try:
+        frame = pd.read_csv(path, usecols=["open_time"])
+    except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+        return None
+    times = pd.to_datetime(frame["open_time"], utc=True, errors="coerce").dropna()
+    if times.empty:
+        return None
+    return pd.Timestamp(times.min())
 
 
 def check_funding_coverage(
@@ -707,6 +789,7 @@ def _coverage_payload(coverage: CoverageEvidence) -> dict[str, object]:
         "rows": coverage.rows,
         "missing_intervals": coverage.missing_intervals,
         "failures": list(coverage.failures),
+        "warnings": list(coverage.warnings),
     }
 
 
@@ -740,12 +823,40 @@ def collect_member_evidence(
     """Collect JSON-safe evidence for one mapped Top50 member."""
 
     failures: list[str] = []
-    open_day = _contract_open_day(map_row)
-    if open_day is None:
-        failures.append("contract open_time is missing or invalid")
-        open_day = min(_utc_stamp(warmup_start).date(), latest_signal_day)
-    warmup_expected_day = max(_utc_stamp(warmup_start).date(), open_day)
-    live_expected_day = max(_utc_stamp(oos_start).date(), open_day)
+    declared_open_day = _contract_open_day(map_row)
+    first_warmup = _first_ohlc_timestamp(warmup_mark_path)
+    first_live = _first_ohlc_timestamp(live_mark_path)
+    observed_first_candidates = [
+        value for value in (first_warmup, first_live) if value is not None
+    ]
+    observed_first = min(observed_first_candidates) if observed_first_candidates else None
+    if declared_open_day is not None:
+        open_timestamp = pd.Timestamp(declared_open_day, tz="UTC")
+        start_source = "contract_open_time"
+    elif observed_first is not None:
+        open_timestamp = observed_first
+        start_source = "first_observed_bar"
+    else:
+        open_timestamp = None
+        start_source = "unavailable"
+        failures.append("no usable Bitget mark history to infer the data start")
+
+    warmup_end_at = _utc_stamp(warmup_end)
+    warmup_end_day = warmup_end_at.date()
+    warmup_expected_start = (
+        None
+        if open_timestamp is None
+        else max(_utc_stamp(warmup_start), open_timestamp)
+    )
+    warmup_applicable = bool(
+        warmup_expected_start is not None and warmup_expected_start < warmup_end_at
+    )
+    live_expected_start = (
+        _utc_stamp(oos_start)
+        if open_timestamp is None
+        else max(_utc_stamp(oos_start), open_timestamp)
+    )
+    live_expected_day = live_expected_start.date()
     required_last = required_last_mark_time(_utc_stamp(now).to_pydatetime())
     live_end = required_last + pd.Timedelta(hours=1)
 
@@ -754,33 +865,46 @@ def collect_member_evidence(
         coin_id=member.coin_id,
         latest_day=latest_signal_day,
     )
-    warmup_mark = check_mark_coverage(
-        warmup_mark_path,
-        start=pd.Timestamp(warmup_expected_day, tz="UTC"),
-        required_end=_utc_stamp(warmup_end),
-        now=_utc_stamp(now),
-    )
+    if warmup_applicable:
+        warmup_mark = check_mark_coverage(
+            warmup_mark_path,
+            start=warmup_expected_start,
+            required_end=warmup_end_at,
+            now=_utc_stamp(now),
+        )
+        warmup_market = check_market_file_range(
+            warmup_market_path,
+            required_first_day=warmup_expected_start.date(),
+            required_last_day=warmup_end_day,
+            now=_utc_stamp(now),
+        )
+        warmup_alignment = check_market_alignment(
+            warmup_market_path, (warmup_mark_path,)
+        )
+    else:
+        warmup_mark = CoverageEvidence(None, None, 0, 0, ())
+        warmup_market = CoverageEvidence(None, None, 0, 0, ())
+        warmup_alignment = CoverageEvidence(None, None, 0, 0, ())
     live_mark = check_mark_coverage(
         live_mark_path,
-        start=pd.Timestamp(live_expected_day, tz="UTC"),
+        start=live_expected_start,
         required_end=live_end,
-        now=_utc_stamp(now),
-    )
-    warmup_market = check_market_execution_coverage(
-        warmup_market_path,
-        required_first_day=warmup_expected_day,
-        end_day=_utc_stamp(warmup_end).date(),
         now=_utc_stamp(now),
     )
     live_market = check_market_execution_coverage(
         live_market_path,
         required_first_day=live_expected_day,
         end_day=latest_signal_day + pd.Timedelta(days=1),
+        required_first_at=live_expected_start,
         now=_utc_stamp(now),
     )
-    warmup_alignment = check_market_alignment(warmup_market_path, (warmup_mark_path,))
     live_alignment = check_market_alignment(
-        live_market_path, (warmup_mark_path, live_mark_path)
+        live_market_path,
+        tuple(
+            path
+            for path in (warmup_mark_path, live_mark_path)
+            if Path(path).is_file()
+        ),
     )
     try:
         interval_hours = float(map_row.get("fund_interval"))
@@ -788,7 +912,7 @@ def collect_member_evidence(
         interval_hours = float("nan")
     funding = check_funding_coverage(
         funding_path,
-        required_start=pd.Timestamp(live_expected_day, tz="UTC"),
+        required_start=live_expected_start,
         required_end=required_last,
         interval_hours=interval_hours,
         now=_utc_stamp(now),
@@ -814,7 +938,11 @@ def collect_member_evidence(
         "symbol": member.symbol,
         "bitget_symbol": member.bitget_symbol,
         "panel_symbol": member.panel_symbol,
-        "contract_open_time": None if open_day is None else open_day.isoformat(),
+        "contract_open_time": (
+            None if open_timestamp is None else open_timestamp.date().isoformat()
+        ),
+        "data_start": None if open_timestamp is None else open_timestamp.isoformat(),
+        "start_source": start_source,
         "cmc": _coverage_payload(cmc),
         "warmup_mark": _coverage_payload(warmup_mark),
         "warmup_market": _coverage_payload(warmup_market),
@@ -1300,6 +1428,7 @@ __all__ = [
     "check_mark_coverage",
     "check_market_alignment",
     "check_market_execution_coverage",
+    "check_market_file_range",
     "check_panel_history",
     "collect_member_evidence",
     "format_event_message",

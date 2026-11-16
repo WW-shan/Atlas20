@@ -686,3 +686,166 @@ def test_format_event_message_marks_blocked_top20_without_rank51_fallback() -> N
     assert "BLOCKED" in message
     assert "missing hour" in message
     assert "禁止用第 51 名" in message
+
+
+def test_warmup_market_range_accepts_sparse_hourly_prints(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_file_range
+
+    path = tmp_path / "BTC_market.csv"
+    _ohlc(
+        ["2026-01-01T01:00:00Z", "2026-01-10T01:00:00Z", "2026-01-20T01:00:00Z"]
+    ).to_csv(path, index=False)
+
+    result = check_market_file_range(
+        path,
+        required_first_day=date(2026, 1, 1),
+        required_last_day=date(2026, 1, 20),
+    )
+
+    assert result.failures == ()
+
+
+def test_collect_member_evidence_infers_start_when_contract_open_time_is_blank(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives.top50_readiness import collect_member_evidence
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01"], utc=True),
+            "coin_id": ["coin-1"],
+            "price": [1.0],
+            "volume_usd": [10.0],
+            "market_cap": [100.0],
+        }
+    )
+    warmup_mark = tmp_path / "C1USDT_mark.csv"
+    warmup_market = tmp_path / "C1USDT_market.csv"
+    live_mark = tmp_path / "C1USDT_live_mark.csv"
+    live_market = tmp_path / "C1USDT_live_market.csv"
+    funding = tmp_path / "coin-1.csv"
+    hourly = pd.date_range("2026-01-01T04:00:00Z", periods=20, freq="h")
+    live_hourly = pd.date_range("2026-01-01T04:00:00Z", periods=21, freq="h")
+    _ohlc([stamp.isoformat() for stamp in hourly]).to_csv(warmup_mark, index=False)
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(live_mark, index=False)
+    _ohlc(["2026-01-01T05:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
+        warmup_market, index=False
+    )
+    _ohlc(["2026-01-01T05:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
+        live_market, index=False
+    )
+    pd.DataFrame(
+        {
+            "funding_time": pd.to_datetime(
+                [
+                    "2026-01-01T00:00:00Z",
+                    "2026-01-01T08:00:00Z",
+                    "2026-01-01T16:00:00Z",
+                    "2026-01-02T00:00:00Z",
+                ],
+                utc=True,
+            ),
+            "funding_rate": [0.0001] * 4,
+        }
+    ).to_csv(funding, index=False)
+    map_row = pd.Series(
+        {
+            "coin_id": "coin-1",
+            "panel_symbol": "C1",
+            "bitget_symbol": "C1USDT",
+            "contract_status": "normal",
+            "open_time": None,
+            "fund_interval": 8.0,
+        }
+    )
+
+    evidence = collect_member_evidence(
+        member=_selection().members[0],
+        map_row=map_row,
+        panel=panel,
+        warmup_mark_path=warmup_mark,
+        warmup_market_path=warmup_market,
+        live_mark_path=live_mark,
+        live_market_path=live_market,
+        funding_path=funding,
+        warmup_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        latest_signal_day=date(2026, 1, 1),
+        now=pd.Timestamp("2026-01-02T18:00:00Z"),
+    )
+
+    assert evidence["status"] == "READY", evidence["failure_details"]
+    assert evidence["contract_open_time"] == "2026-01-01"
+
+
+def test_warmup_market_range_allows_one_silent_listing_day(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_file_range
+
+    path = tmp_path / "C1_market.csv"
+    _ohlc(["2026-01-02T01:00:00Z", "2026-01-20T01:00:00Z"]).to_csv(
+        path, index=False
+    )
+
+    result = check_market_file_range(
+        path,
+        required_first_day=date(2026, 1, 1),
+        required_last_day=date(2026, 1, 20),
+    )
+
+    assert result.failures == ()
+
+
+def test_panel_historical_bad_market_cap_is_a_warning_not_a_block() -> None:
+    from atlas20.derivatives.top50_readiness import check_panel_history
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["bitcoin", "bitcoin"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 10.0],
+            "market_cap": [0.0, 100.0],
+        }
+    )
+
+    result = check_panel_history(panel, coin_id="bitcoin", latest_day=date(2026, 1, 2))
+
+    assert result.failures == ()
+    assert any("unrankable" in item for item in result.warnings)
+
+
+def test_panel_latest_bad_market_cap_blocks() -> None:
+    from atlas20.derivatives.top50_readiness import check_panel_history
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["bitcoin", "bitcoin"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 10.0],
+            "market_cap": [100.0, 0.0],
+        }
+    )
+
+    result = check_panel_history(panel, coin_id="bitcoin", latest_day=date(2026, 1, 2))
+
+    assert any("latest CMC market cap" in item for item in result.failures)
+
+
+def test_warmup_market_late_trade_start_is_visible_but_not_a_hard_block(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_file_range
+
+    path = tmp_path / "C1_market.csv"
+    _ohlc(["2026-01-03T01:00:00Z", "2026-01-20T01:00:00Z"]).to_csv(
+        path, index=False
+    )
+
+    result = check_market_file_range(
+        path,
+        required_first_day=date(2026, 1, 1),
+        required_last_day=date(2026, 1, 20),
+    )
+
+    assert result.failures == ()
+    assert any("starts later" in item for item in result.warnings)
