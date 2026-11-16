@@ -123,6 +123,7 @@ LS104_G175_M090_MANIFEST_TOP_LEVEL: dict[str, Any] = {
     "execution_price_model": "market_1h_open_floor",
     "execution_utc": "01:05",
     "fill_price_source": "bitget_market_1h_open",
+    "funding_missing_policy": "error",
     "funding_source": "bitget-exact",
     "max_margin_utilization": 0.90,
     "max_total_gross": 1.75,

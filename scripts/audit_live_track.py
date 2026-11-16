@@ -650,6 +650,58 @@ def _state_track_issue(state: Mapping[str, object], expected_spec: str) -> str |
     )
 
 
+def _latest_report_state_issues(
+    path: Path,
+    *,
+    state: Mapping[str, object],
+    expected_spec: str,
+) -> list[str]:
+    """Check that the operator-visible latest report belongs to the state row.
+
+    ``latest.json`` is written before the journal/state in a normal run.  A
+    fatal run overwrites it with ``status=error`` but deliberately leaves the
+    execution state untouched.  Comparing the two prevents an old successful
+    audit from being shown beside a failed or stale report, and vice versa.
+    """
+
+    report_path = Path(path)
+    if not report_path.is_file():
+        return [f"latest report is missing: {report_path}"]
+    try:
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"latest report is unreadable: {exc}"]
+    if not isinstance(payload, dict):
+        return ["latest report is not a JSON object"]
+    issues: list[str] = []
+    payload_spec = str(payload.get("spec") or "")
+    if payload_spec != str(expected_spec):
+        issues.append(
+            f"latest report spec={payload_spec or '<missing>'}, expected {expected_spec}"
+        )
+    payload_status = str(payload.get("status") or "")
+    state_status = str(state.get("last_status") or "")
+    if payload_status and state_status and payload_status != state_status:
+        issues.append(
+            f"latest report status={payload_status}, state last_status={state_status}"
+        )
+    payload_mode = str(payload.get("mode") or "")
+    state_mode = str(state.get("last_run_mode") or "")
+    if payload_mode and state_mode and payload_mode != state_mode:
+        issues.append(
+            f"latest report mode={payload_mode}, state last_run_mode={state_mode}"
+        )
+    active_event = state.get("active_event")
+    if isinstance(active_event, Mapping):
+        event_signal = str(active_event.get("signal_date") or "")
+        report_signal = str(payload.get("signal_date") or "")
+        if report_signal and event_signal and report_signal != event_signal:
+            issues.append(
+                f"latest report signal_date={report_signal}, active event={event_signal}"
+            )
+    return issues
+
+
 def _target_hash_audit(
     manifest: Mapping[str, object],
     targets_file: Path,
@@ -1140,11 +1192,55 @@ def _ledger_expected_equity(
             mismatches.append(
                 f"{symbol} 方向变了：台账 {ledger_side} vs 当前 {current_side}"
             )
+        ledger_qty_raw = ledger_row.get("qty", ledger_row.get("size"))
+        if ledger_qty_raw not in (None, ""):
+            try:
+                ledger_qty = abs(float(ledger_qty_raw))
+            except (TypeError, ValueError):
+                mismatches.append(f"{symbol} 台账 qty 无效")
+                continue
+            if not isfinite(ledger_qty):
+                mismatches.append(f"{symbol} 台账 qty 无效")
+                continue
+            tolerance = max(1e-9, abs(ledger_qty) * 1e-8)
+            if abs(abs(current_signed) - ledger_qty) > tolerance:
+                mismatches.append(
+                    f"{symbol} 数量变了：台账 {ledger_qty:.8g} vs 当前 {abs(current_signed):.8g}"
+                )
+        ledger_entry = _num(ledger_row.get("avg_price"))
+        current_entry = _num(row.get("avgPrice"))
+        if ledger_entry > 0.0 and current_entry > 0.0:
+            entry_tolerance = max(1e-9, abs(ledger_entry) * 1e-8)
+            if abs(ledger_entry - current_entry) > entry_tolerance:
+                mismatches.append(
+                    f"{symbol} 加权入场价变了：台账 {ledger_entry:.8g} vs 当前 {current_entry:.8g}"
+                )
         ledger_mark = _num(ledger_row.get("mark_price"))
         if ledger_mark <= 0.0:
             mismatches.append(f"{symbol} 台账 mark_price 无效")
             continue
         expected_equity += current_signed * (_num(row.get("markPrice")) - ledger_mark)
+        # Funding is credited/debited to the isolated position margin and is
+        # already part of ``usdtEquity``.  Rolling the snapshot forward with
+        # marks alone silently treats every settlement since the last run as
+        # zero.  The venue exposes the current cycle's cumulative funding on
+        # both the ledger snapshot and the current position, so the difference
+        # is directly auditable.
+        ledger_funding_raw = ledger_row.get("funding_cumulative")
+        current_funding_raw = row.get("totalFunding")
+        try:
+            ledger_funding = float(ledger_funding_raw) if ledger_funding_raw not in (None, "") else None
+            current_funding = float(current_funding_raw) if current_funding_raw not in (None, "") else None
+        except (TypeError, ValueError):
+            mismatches.append(f"{symbol} 资金费累计值无效")
+            continue
+        if ledger_funding is None or current_funding is None:
+            mismatches.append(f"{symbol} 资金费累计基线缺失")
+            continue
+        if not isfinite(ledger_funding) or not isfinite(current_funding):
+            mismatches.append(f"{symbol} 资金费累计值非有限")
+            continue
+        expected_equity += current_funding - ledger_funding
     if ledger_by_symbol:
         mismatches.append(f"台账多了 {', '.join(sorted(ledger_by_symbol))}")
     return expected_equity, mismatches
@@ -1225,6 +1321,35 @@ def _funding_delta_errors(journal: pd.DataFrame) -> list[str]:
             ).lower():
                 complete = False
                 break
+            # A quantity or entry-price change means the day may contain a
+            # close and/or reopen.  Its funding_total is then a mix of a closed
+            # cycle's final cumulative amount and the new cycle's cumulative
+            # value, so a simple cumulative difference is not the right
+            # invariant.  Leave that day to the closed-position funding audit
+            # instead of raising a false break here.
+            try:
+                previous_qty = abs(
+                    float(previous[symbol].get("qty") or previous[symbol].get("size") or 0.0)
+                )
+                current_qty = abs(
+                    float(current[symbol].get("qty") or current[symbol].get("size") or 0.0)
+                )
+                previous_entry = float(previous[symbol].get("avg_price") or 0.0)
+                current_entry = float(current[symbol].get("avg_price") or 0.0)
+            except (TypeError, ValueError):
+                complete = False
+                break
+            if abs(previous_qty - current_qty) > max(1e-9, previous_qty * 1e-8):
+                complete = False
+                break
+            if (
+                previous_entry > 0.0
+                and current_entry > 0.0
+                and abs(previous_entry - current_entry)
+                > max(1e-9, previous_entry * 1e-8)
+            ):
+                complete = False
+                break
             previous_raw = previous[symbol].get("funding_cumulative")
             current_raw = current[symbol].get("funding_cumulative")
             try:
@@ -1261,6 +1386,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument("--panel", type=Path, default=DEFAULT_PANEL_FILE)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)
+    parser.add_argument(
+        "--latest-report",
+        type=Path,
+        default=None,
+        help="operator latest report; defaults to latest.json beside --json-out",
+    )
     parser.add_argument("--drill-registry", type=Path, default=DEFAULT_DRILL_REGISTRY)
     parser.add_argument("--prior-track-registry", type=Path, default=None)
     parser.add_argument("--state-file", type=Path, default=DEFAULT_STATE_FILE)
@@ -1453,6 +1584,21 @@ def main(argv: list[str] | None = None) -> int:
         "执行状态属于当前冻结 track",
         state_track_issue is None,
         state_track_issue or f"last_key track={profile.spec}",
+    )
+    latest_path = (
+        args.latest_report
+        if args.latest_report is not None
+        else args.json_out.with_name("latest.json")
+    )
+    latest_issues = _latest_report_state_issues(
+        latest_path,
+        state=state,
+        expected_spec=profile.spec,
+    )
+    check(
+        "最新执行报告与执行状态一致",
+        not latest_issues,
+        "; ".join(latest_issues) or f"{latest_path} 与 state 一致",
     )
 
     # -- ledger vs venue -------------------------------------------------
@@ -1867,6 +2013,13 @@ def main(argv: list[str] | None = None) -> int:
         required_short_assets = {
             asset for asset, weight in targets.items() if weight < 0.0
         }
+        symbol_assets = symbol_to_asset_index(symbol_map)
+        position_assets = {
+            symbol_assets[symbol]
+            for row in positions
+            if (symbol := str(row.get("symbol") or "").upper()) in symbol_assets
+            and abs(_num(row.get("total"))) > 1e-12
+        }
         data_audit = audit_derivatives_data(
             args.raw_dir,
             args.panel,
@@ -1875,8 +2028,9 @@ def main(argv: list[str] | None = None) -> int:
             now=checked_at,
             required_short_assets=required_short_assets,
             required_leverage_assets=set(targets),
+            required_funding_assets=set(targets) | position_assets,
             required_leverage=profile.venue_leverage,
-            require_all_funding_fresh=True,
+            require_all_funding_fresh=False,
         )
         check(
             "数据可靠性审计通过",

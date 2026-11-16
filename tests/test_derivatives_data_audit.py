@@ -303,10 +303,15 @@ def test_stale_funding_fails_when_short_is_required(tmp_path: Path) -> None:
     report = _audit(paths, required_short_assets={"bitcoin"})
 
     assert report.passed is False
-    assert any("funding is stale" in item for item in report.hard_failures)
+    # The hard proof is the missing scheduled settlement, not the redundant
+    # wall-clock age warning.
+    assert any("settlement_coverage" in item for item in report.hard_failures)
+    assert any("funding is stale" in item for item in report.warnings)
 
 
-def test_all_funding_must_be_fresh_for_the_live_short_sleeve(tmp_path: Path) -> None:
+def test_all_funding_is_checked_for_complete_coverage_when_requested(
+    tmp_path: Path,
+) -> None:
     paths = _fixture(tmp_path)
     path = paths["raw"] / "funding" / "bitcoin.csv"
     frame = pd.read_csv(path)
@@ -318,7 +323,7 @@ def test_all_funding_must_be_fresh_for_the_live_short_sleeve(tmp_path: Path) -> 
     report = _audit(paths, require_all_funding_fresh=True)
 
     assert report.passed is False
-    assert any("live short sleeve" in item for item in report.hard_failures)
+    assert any("settlement_coverage" in item for item in report.hard_failures)
 
 
 def test_non_monotonic_funding_fails(tmp_path: Path) -> None:
@@ -345,6 +350,41 @@ def test_missing_recent_funding_settlement_fails(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("funding gap" in item for item in report.hard_failures)
+
+
+def test_required_funding_asset_must_cover_every_scheduled_settlement(
+    tmp_path: Path,
+) -> None:
+    """A fresh last row cannot hide an omitted settlement earlier in the window."""
+
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = frame.drop(index=1).reset_index(drop=True)
+    # Add the settlement that should have been published by the audit time so
+    # the remaining failure is specifically the interior omission.
+    frame = pd.concat(
+        [
+            frame,
+            pd.DataFrame(
+                {
+                    "symbol": ["BTCUSDT"],
+                    "funding_time": ["2026-11-14T00:00:00+00:00"],
+                    "funding_rate": [0.0001],
+                }
+            ),
+        ],
+        ignore_index=True,
+    ).sort_values("funding_time")
+    frame.to_csv(path, index=False)
+
+    report = _audit(
+        paths,
+        required_funding_assets={"bitcoin"},
+    )
+
+    assert report.passed is False
+    assert any("settlement_coverage" in item for item in report.hard_failures)
 
 
 def test_latest_panel_market_cap_must_be_finite(tmp_path: Path) -> None:
@@ -504,3 +544,95 @@ def test_required_leverage_asset_without_a_live_mapping_fails_closed(tmp_path: P
         "required_leverage" in item and "ethereum" in item
         for item in report.hard_failures
     )
+
+
+def test_required_funding_freshness_is_informational_when_calendar_is_complete(
+    tmp_path: Path,
+) -> None:
+    """A complete settlement calendar is the hard gate; wall-clock age is a warning.
+
+    At 01:05 UTC the newest normal 8h settlement (00:00) is legitimately only
+    minutes old in a freshly downloaded tree, but at 08:59 UTC it can look
+    older than the declared interval while still being the newest settlement
+    the provider should have published.  The audit must not call that a second
+    hard failure after proving every scheduled row exists.
+    """
+
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame = pd.concat(
+        [
+            frame,
+            pd.DataFrame(
+                {
+                    "symbol": ["BTCUSDT"],
+                    "funding_time": ["2026-11-14T00:00:00+00:00"],
+                    "funding_rate": [0.0001],
+                }
+            ),
+        ],
+        ignore_index=True,
+    ).sort_values("funding_time")
+    frame.to_csv(path, index=False)
+    manifest_path = paths["raw"] / "funding_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bitcoin"]["last"] = "2026-11-14 00:00:00+00:00"
+    manifest["bitcoin"]["rows"] = len(frame)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 14, 8, 59, tzinfo=timezone.utc),
+        min_panel_assets=1,
+        required_funding_assets={"bitcoin"},
+        funding_stale_hours=1.0,
+    )
+
+    assert report.passed is True
+    stale_checks = [
+        item for item in report.warnings if item.startswith("funding.bitcoin.fresh:")
+    ]
+    assert stale_checks, report.warnings
+    assert not any("settlement_coverage" in item for item in report.hard_failures)
+
+
+def test_funding_file_symbol_must_match_the_mapped_contract(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame["symbol"] = "ETHUSDT"
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any("funding.bitcoin.symbol" in item for item in report.hard_failures)
+
+
+def test_symbol_map_funding_interval_must_match_the_contract(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    symbol_map = pd.read_csv(paths["symbol_map"])
+    symbol_map.loc[symbol_map["coin_id"] == "bitcoin", "fund_interval"] = 4
+    symbol_map.to_csv(paths["symbol_map"], index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("fund_interval_matches" in item for item in report.hard_failures)
+
+
+def test_absurd_funding_rate_is_rejected(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    frame.loc[0, "funding_rate"] = 0.50
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert report.passed is False
+    assert any("rate_sanity" in item for item in report.hard_failures)

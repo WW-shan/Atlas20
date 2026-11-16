@@ -1895,7 +1895,13 @@ def execute_plan(
                 if filled > 0.0
                 else 0.0
             )
-            if payload.get("cumExecValue") not in (None, ""):
+            if filled <= 0.0:
+                # A cancelled or rejected order legitimately reports
+                # cumExecValue=0.  It still has to reach the status/stop
+                # cleanup path below; treating zero as an invalid positive
+                # fill value used to skip that cleanup entirely.
+                notional = 0.0
+            elif payload.get("cumExecValue") not in (None, ""):
                 notional = _required_float(
                     payload.get("cumExecValue"),
                     "order cumExecValue",
@@ -1962,11 +1968,9 @@ def execute_plan(
                     ),
                 }
             )
-        if order.stop_loss is not None and not stop_confirmed:
-            stop_emergency_attempted.add(symbol.upper())
+        if order.stop_loss is not None and not stop_confirmed and filled > 0.0:
             blocked_all_opens = True
             blocked_all_opens_by_failure = True
-            _cancel_symbol_strategy_orders(client, report, symbol=symbol)
             report.failures.append(
                 {
                     "symbol": symbol,
@@ -1977,6 +1981,11 @@ def execute_plan(
                 }
             )
             if filled > 0.0:
+                # Only a filled increase introduced new unprotected risk.  If
+                # the order filled zero, the pre-existing short still needs the
+                # normal post-run stop verification; excluding it here would
+                # hide an unprotected legacy leg.
+                stop_emergency_attempted.add(symbol.upper())
                 close_qty = max(filled, initial_short_qty.get(symbol, 0.0) + filled)
                 close_body: dict[str, Any] = {
                     "symbol": symbol,
@@ -1995,6 +2004,7 @@ def execute_plan(
                         reduce_only=not hedging,
                     ),
                 }
+                close_complete = False
                 try:
                     closed = client.place_order(**close_body)
                     close_id = str(closed.get("orderId") or "")
@@ -2062,6 +2072,8 @@ def execute_plan(
                                 ),
                             }
                         )
+                    else:
+                        close_complete = True
                 except (BitgetAPIError, ValueError) as exc:
                     report.failures.append(
                         {
@@ -2072,6 +2084,13 @@ def execute_plan(
                             "error": f"emergency close failed: {_error_text(exc)}",
                         }
                     )
+                # Keep the old stop alive until the emergency close is proven
+                # complete.  The close is reduce-only (or hedge-side buy), so a
+                # stop firing during the attempt cannot flip the position; if
+                # the close fails, canceling the stop first would leave the
+                # remaining short unprotected.
+                if close_complete:
+                    _cancel_symbol_strategy_orders(client, report, symbol=symbol)
         if status != _FILLED:
             blocked_all_opens = True
             blocked_all_opens_by_failure = True

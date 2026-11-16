@@ -368,6 +368,7 @@ def _read_funding(
     report: DataAuditReport,
     *,
     required_short_assets: set[str],
+    required_assets: set[str] | None,
     require_all_fresh: bool,
     stale_hours: float,
     now: datetime,
@@ -388,6 +389,14 @@ def _read_funding(
     else:
         _check(report, "funding.manifest_exists", False, f"missing {manifest_path}")
     normal = symbol_map.loc[symbol_map["contract_status"].astype(str).str.lower().eq("normal")]
+    required_funding_assets = {
+        str(asset).strip().lower()
+        for asset in (required_assets if required_assets is not None else required_short_assets)
+    }
+    if require_all_fresh:
+        required_funding_assets = {
+            str(asset).strip().lower() for asset in normal["coin_id"].astype(str)
+        }
     summary: dict[str, dict[str, Any]] = {}
     for row in normal.to_dict("records"):
         asset = str(row["coin_id"])
@@ -403,6 +412,31 @@ def _read_funding(
         if not {"funding_time", "funding_rate"}.issubset(frame.columns):
             _check(report, f"funding.{asset}.columns", False, "missing funding_time/funding_rate")
             continue
+        if "symbol" not in frame.columns:
+            _check(
+                report,
+                f"funding.{asset}.symbol",
+                False,
+                "funding file has no symbol column; venue identity is unproven",
+                hard=asset.lower() in required_funding_assets,
+            )
+        else:
+            expected_symbol = str(row.get("bitget_symbol") or "").strip().upper()
+            observed_symbols = {
+                str(value).strip().upper()
+                for value in frame["symbol"].dropna().unique()
+                if str(value).strip()
+            }
+            _check(
+                report,
+                f"funding.{asset}.symbol",
+                bool(expected_symbol)
+                and observed_symbols == {expected_symbol},
+                (
+                    f"symbol mismatch: file={sorted(observed_symbols)} "
+                    f"map={expected_symbol or '<missing>'}"
+                ),
+            )
         stamps = pd.to_datetime(frame["funding_time"], utc=True, format="mixed", errors="coerce")
         rates = pd.to_numeric(frame["funding_rate"], errors="coerce")
         valid = stamps.notna() & rates.notna() & np.isfinite(rates.to_numpy(dtype=float))
@@ -416,6 +450,14 @@ def _read_funding(
         )
         clean = pd.DataFrame({"funding_time": stamps[valid], "funding_rate": rates[valid]}).sort_values("funding_time")
         _check(report, f"funding.{asset}.unique_time", not clean["funding_time"].duplicated().any(), f"{int(clean['funding_time'].duplicated().sum())} duplicate timestamp(s)")
+        if not clean.empty:
+            max_abs_rate = float(clean["funding_rate"].abs().max())
+            _check(
+                report,
+                f"funding.{asset}.rate_sanity",
+                np.isfinite(max_abs_rate) and max_abs_rate <= 0.10,
+                f"max |funding_rate|={max_abs_rate:.6g} exceeds 10% per settlement",
+            )
         last = clean["funding_time"].max() if not clean.empty else pd.NaT
         _check(
             report,
@@ -454,21 +496,81 @@ def _read_funding(
                     largest_gap <= interval + 0.01,
                     f"funding gap {largest_gap:.2f}h exceeds interval {interval:.2f}h",
                 )
+
+            # A last-row freshness check alone cannot prove that every
+            # settlement was present: an old tail can look "fresh enough" for a
+            # slow interval while a settlement inside the live window is
+            # missing.  Build the expected schedule from the first observed
+            # leg through the last settlement that should already be published
+            # and prove every timestamp exists.  This is applied to the legs
+            # that can actually be held, not to the whole watchlist.
+            if asset.lower() in required_funding_assets and not clean.empty:
+                first = pd.Timestamp(clean["funding_time"].min())
+                # Allow one hour for provider publication after the nominal
+                # settlement minute.  A live caller must not accept a stale
+                # 00:00 print at 01:05 merely because it is less than 12h old.
+                cutoff = _as_utc(now) - pd.Timedelta(hours=1.0)
+                if cutoff >= first:
+                    elapsed_hours = (cutoff - first).total_seconds() / 3600.0
+                    periods = int(np.floor(elapsed_hours / interval + 1e-9))
+                    if periods >= 0:
+                        expected_last = first + pd.Timedelta(
+                            hours=float(periods) * interval
+                        )
+                        expected = pd.date_range(
+                            start=first,
+                            end=expected_last,
+                            freq=pd.Timedelta(hours=interval),
+                        )
+                        observed = set(pd.DatetimeIndex(clean["funding_time"]))
+                        missing = [
+                            stamp for stamp in expected if pd.Timestamp(stamp) not in observed
+                        ]
+                        _check(
+                            report,
+                            f"funding.{asset}.settlement_coverage",
+                            not missing,
+                            (
+                                f"missing {len(missing)} expected settlement(s) through "
+                                f"{expected_last}, e.g. {missing[:3]}"
+                                if missing
+                                else f"all {len(expected)} expected settlements present through {expected_last}"
+                            ),
+                        )
+        # Freshness is a same-snapshot property, not a wall-clock-only
+        # property.  A panel and funding tree fetched just before the next
+        # settlement are internally consistent; the execution gate separately
+        # proves that the snapshot was captured recently enough for this run.
+        # Otherwise every 01:05 run with a 00:00 settlement would fail the
+        # freshness bound while settlement coverage correctly demands the row.
         stale = False
         if pd.isna(last):
             stale = True
         else:
             age = (_as_utc(now) - _as_utc(last)).total_seconds() / 3600.0
-            stale = age > max(stale_hours, interval if np.isfinite(interval) else 0.0)
-        if require_all_fresh:
+            stale = age > max(
+                stale_hours, interval if np.isfinite(interval) else 0.0
+            )
+        if asset.lower() in required_funding_assets:
+            # The required-leg settlement schedule above is the hard proof.
+            # An informational freshness warning can diagnose an old cache,
+            # but must not duplicate or contradict a complete settlement
+            # calendar at the current execution instant.
             _check(
                 report,
                 f"funding.{asset}.fresh",
                 not stale,
-                "funding is stale for the live short sleeve" if stale else "fresh",
+                (
+                    "funding is stale for the live short sleeve"
+                    if stale and require_all_fresh
+                    else "funding is stale for a required live leg"
+                    if stale
+                    else "fresh"
+                ),
+                hard=False,
             )
-        elif asset in required_short_assets:
-            _check(report, f"funding.{asset}.fresh_for_short", not stale, "funding is stale for a required short" if stale else "fresh for required short")
+        elif asset.lower() in required_short_assets:
+            _check(report, f"funding.{asset}.fresh_for_short", not stale, "funding is stale for a required short" if stale else "fresh for required short", hard=False)
         elif stale:
             _check(report, f"funding.{asset}.fresh", False, "funding is stale but no short is required", hard=False)
         summary[asset] = {
@@ -492,6 +594,7 @@ def audit_derivatives_data(
     required_short_assets: Iterable[str] | None = None,
     required_leverage_assets: Iterable[str] | None = None,
     required_leverage: float = 2.0,
+    required_funding_assets: Iterable[str] | None = None,
     require_all_funding_fresh: bool = False,
     execution_utc: time = DEFAULT_EXECUTION_UTC,
     funding_stale_hours: float = DEFAULT_FUNDING_STALE_HOURS,
@@ -507,6 +610,15 @@ def audit_derivatives_data(
     required_short_set = {
         str(asset).strip().lower() for asset in (required_short_assets or ())
     }
+    required_funding_set = (
+        None
+        if required_funding_assets is None
+        else {
+            str(asset).strip().lower()
+            for asset in required_funding_assets
+            if str(asset).strip()
+        }
+    )
     required_leverage_set = {
         str(asset).strip().lower()
         for asset in (
@@ -625,6 +737,33 @@ def audit_derivatives_data(
                     )
                 _check(report, f"contracts.{asset}.steps", all(np.isfinite(v) and v > 0.0 for v in (min_qty, min_usdt, step, interval)), "min quantity/notional, size step and funding interval must be positive")
                 _check(report, f"contracts.{asset}.taker_fee", np.isfinite(taker) and taker >= 0.0, f"taker fee={taker:g}" if np.isfinite(taker) else "missing taker fee")
+                # The symbol map drives the offline engine's quantity rounding
+                # and funding calendar.  If those fields drift from the venue
+                # contract snapshot, a backtest can be quantized against one
+                # exchange rule while the live executor uses another.
+                for map_key, contract_key, contract_value in (
+                    ("fund_interval", "fundInterval", interval),
+                    ("min_trade_usdt", "minTradeUSDT", min_usdt),
+                    ("size_multiplier", "sizeMultiplier", step),
+                ):
+                    try:
+                        mapped_value = float(row.get(map_key))
+                    except (TypeError, ValueError):
+                        mapped_value = float("nan")
+                    _check(
+                        report,
+                        f"contracts.{asset}.{map_key}_matches",
+                        np.isfinite(mapped_value)
+                        and np.isfinite(contract_value)
+                        and abs(mapped_value - contract_value)
+                        <= 1e-9 * max(1.0, abs(mapped_value), abs(contract_value)),
+                        (
+                            f"symbol_map {map_key}={mapped_value:g} vs "
+                            f"contract {contract_key}={contract_value:g}"
+                            if np.isfinite(mapped_value) and np.isfinite(contract_value)
+                            else f"invalid {map_key}"
+                        ),
+                    )
             mark_path = raw / "candles" / f"{symbol}_mark.csv"
             mark_paths.append(mark_path)
             if not mark_path.is_file():
@@ -698,6 +837,7 @@ def audit_derivatives_data(
             symbol_map,
             report,
             required_short_assets={str(asset) for asset in (required_short_assets or ())},
+            required_assets=required_funding_set,
             require_all_fresh=bool(require_all_funding_fresh),
             stale_hours=float(funding_stale_hours),
             now=moment,

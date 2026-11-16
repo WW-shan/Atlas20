@@ -418,7 +418,15 @@ def _download_funding(
         interval_raw = pd.to_numeric(record.get("fund_interval"), errors="coerce")
         interval_hours = float(interval_raw) if pd.notna(interval_raw) else 0.0
         last_cached = cached["funding_time"].max() if not cached.empty else pd.NaT
-        stale_after_hours = max(DEFAULT_FUNDING_REFRESH_HOURS, interval_hours)
+        # A cache is only fresh for its own settlement clock plus one hour of
+        # provider publication lag.  The old max(12h, interval) rule let a 4h
+        # asset miss two settlements while still being declared fresh, so the
+        # downloader skipped the very refresh the live audit needed.
+        stale_after_hours = (
+            interval_hours + 1.0
+            if interval_hours > 0.0
+            else DEFAULT_FUNDING_REFRESH_HOURS
+        )
         cached_is_fresh = (
             not pd.isna(last_cached)
             and (current - last_cached).total_seconds() / 3600.0 <= stale_after_hours
@@ -433,14 +441,42 @@ def _download_funding(
                     "cached": True,
                 }
                 continue
+        def cached_entry(error: str | None = None) -> dict[str, Any]:
+            entry: dict[str, Any] = {
+                "symbol": symbol,
+                "rows": int(len(cached)),
+                "first": str(cached["funding_time"].min()),
+                "last": str(cached["funding_time"].max()),
+                "cached": True,
+            }
+            if error is not None:
+                entry["refresh_error"] = error
+            return entry
+
         try:
             frame = client.fetch_funding_history(symbol)
         except Exception as exc:  # noqa: BLE001 - one bad contract must not abort the audit
             LOGGER.warning("funding %s (%s) failed: %s", coin_id, symbol, exc)
-            manifest[coin_id] = {"symbol": symbol, "available": False, "error": str(exc)}
+            # A transient endpoint failure is not evidence that the cached
+            # rows disappeared.  Keep the old manifest identity so the data
+            # audit can distinguish a refresh warning from an actual gap;
+            # settlement coverage still fails closed if the cache is stale.
+            manifest[coin_id] = (
+                cached_entry(str(exc))
+                if not cached.empty
+                else {"symbol": symbol, "available": False, "error": str(exc)}
+            )
             continue
         if frame.empty:
-            manifest[coin_id] = {"symbol": symbol, "available": False, "reason": "no funding rows"}
+            manifest[coin_id] = (
+                cached_entry("no funding rows returned")
+                if not cached.empty
+                else {
+                    "symbol": symbol,
+                    "available": False,
+                    "reason": "no funding rows",
+                }
+            )
             continue
         frames = [item for item in (cached, frame) if not item.empty]
         merged = pd.concat(frames, ignore_index=True)

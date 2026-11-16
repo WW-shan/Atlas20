@@ -78,12 +78,29 @@ def _parse_ints(value: str) -> tuple[int, ...]:
     return parsed
 
 
-def _metrics_from_returns(returns: pd.Series, annualization_days: int = 365) -> dict[str, float]:
+def _metrics_from_returns(
+    returns: pd.Series,
+    annualization_days: int = 365,
+    *,
+    periods: int | None = None,
+) -> dict[str, float]:
     clean = pd.to_numeric(returns, errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    periods = max(len(clean) - 1, 1)
+    # Legacy engine series open with a structural zero day, so the default
+    # counts return intervals (len - 1).  A derivatives run now reports the
+    # first execution day's real PnL instead; its caller passes periods=len.
+    if periods is None:
+        period_count = max(len(clean) - 1, 1)
+    else:
+        period_count = int(periods)
+        if period_count <= 0:
+            raise ValueError("periods must be positive")
     equity = (1.0 + clean).cumprod()
     multiple = float(equity.iloc[-1]) if not equity.empty else 1.0
-    cagr = multiple ** (annualization_days / periods) - 1.0 if multiple > 0 else -1.0
+    cagr = (
+        multiple ** (annualization_days / period_count) - 1.0
+        if multiple > 0
+        else -1.0
+    )
     volatility = float(clean.std(ddof=0) * math.sqrt(annualization_days))
     sharpe = float(clean.mean() * annualization_days / volatility) if volatility > 0.0 else 0.0
     # The running peak starts at the starting capital (1.0). Without it a

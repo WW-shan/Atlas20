@@ -110,7 +110,10 @@ def build_command(
         "--funding-source",
         "bitget-exact",
         "--funding-missing-policy",
-        "skip",
+        # Live parity must not silently charge zero when an expected Bitget
+        # settlement is absent.  The research runner keeps skip available for
+        # explicitly labelled proxy diagnostics only.
+        "error",
         "--output-dir",
         resolved_output,
     ]

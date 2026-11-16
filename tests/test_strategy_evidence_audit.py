@@ -65,3 +65,13 @@ def test_metrics_from_returns_measures_drawdown_from_the_starting_capital() -> N
     assert metrics["multiple"] == pytest.approx(0.90 * 1.05)
     # CAGR still spans len - 1 periods (engine series start with a zero day).
     assert metrics["cagr"] == pytest.approx((0.90 * 1.05) ** 365 - 1.0)
+
+
+def test_metrics_from_returns_accepts_the_real_daily_period_count() -> None:
+    returns = pd.Series([0.10, -0.10, 0.05])
+
+    metrics = _metrics_from_returns(returns, periods=len(returns))
+
+    assert metrics["cagr"] == pytest.approx(
+        (1.10 * 0.90 * 1.05) ** (365 / 3) - 1.0
+    )

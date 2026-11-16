@@ -87,7 +87,7 @@ DEFAULT_AUDIT_OUT = Path("reports/ls45_live_g125_live/audit.json")
 DEFAULT_SPEC = "PR2026-11-LS45-H5-LS23-PROFITLOCK-STRONGER21"
 AUDIT_SCRIPT = PROJECT_ROOT / "scripts" / "audit_live_track.py"
 EXECUTION_FLOOR_USDT = 20.0
-EXECUTION_OVERDUE_UTC_HOUR = 7  # after the 06:35 UTC final fallback has landed
+EXECUTION_OVERDUE_UTC_HOUR = 8  # after the 01:05 + 6h catch-up window closes at 07:05 UTC
 MAX_EXECUTION_AGE_HOURS = 36.0
 
 
@@ -323,9 +323,36 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
         last = last.replace(tzinfo=timezone.utc)
     age_hours = (now - last).total_seconds() / 3600.0
     today = now.strftime("%Y-%m-%d")
-    ran_today = last.astimezone(timezone.utc).strftime("%Y-%m-%d") == today
-    if now.hour >= EXECUTION_OVERDUE_UTC_HOUR and not ran_today:
-        return False, f"今天的调仓还没执行（状态文件最后成功：{last_at}）"
+    runs = state.get("runs")
+    execution_today = False
+    if isinstance(runs, list):
+        for row in runs:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("mode") or "") != "execution":
+                continue
+            if str(row.get("status") or "") != "ok":
+                continue
+            key_parts = str(row.get("key") or "").split("|")
+            if key_parts and key_parts[-1] == today:
+                execution_today = True
+                break
+    # Legacy state files had no runs array.  Fall back to the last key only
+    # when the last completed operation was an execution, never when it was a
+    # protect-only or reconcile pass.
+    if not execution_today and not isinstance(runs, list):
+        legacy_mode = str(state.get("last_run_mode") or "execution")
+        key_parts = str(state.get("last_key") or "").split("|")
+        execution_today = (
+            legacy_mode == "execution"
+            and bool(key_parts)
+            and key_parts[-1] == today
+        )
+    if now.hour >= EXECUTION_OVERDUE_UTC_HOUR and not execution_today:
+        return False, (
+            "今天没有成功的 execution 运行"
+            f"（最后成功：{last_at}，last_run_mode={mode}）"
+        )
     if age_hours > MAX_EXECUTION_AGE_HOURS:
         return False, f"超过 {MAX_EXECUTION_AGE_HOURS:.0f}h 没有成功执行（最后：{last_at}）"
     return True, f"最近成功运行（{mode}）{last_at}（{age_hours:.1f}h 前）"

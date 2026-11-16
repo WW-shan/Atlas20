@@ -68,6 +68,74 @@ def test_execution_freshness_labels_reconcile_runs_as_runs_not_trades(
     assert "最近成功执行" not in detail
 
 
+def test_execution_freshness_does_not_accept_a_protect_only_as_today_s_execution(
+    tmp_path: Path,
+) -> None:
+    state_file = tmp_path / "state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "last_key": "SPEC|2026-10-30|2026-10-30",
+                "last_status": "ok",
+                "last_run_mode": "protect_only",
+                "last_run_at": "2026-10-31T04:00:00+00:00",
+                "runs": [
+                    {
+                        "key": "SPEC|2026-10-30|2026-10-30",
+                        "status": "ok",
+                        "mode": "protect_only",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    fresh, detail = _execution_freshness(
+        state_file,
+        datetime(2026, 10, 31, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert fresh is False
+    assert "execution" in detail
+
+
+def test_execution_freshness_accepts_a_protect_only_after_a_real_execution(
+    tmp_path: Path,
+) -> None:
+    state_file = tmp_path / "state.json"
+    state_file.write_text(
+        json.dumps(
+            {
+                "last_key": "SPEC|2026-10-30|2026-10-31",
+                "last_status": "ok",
+                "last_run_mode": "protect_only",
+                "last_run_at": "2026-10-31T04:00:00+00:00",
+                "runs": [
+                    {
+                        "key": "SPEC|2026-10-30|2026-10-31",
+                        "status": "ok",
+                        "mode": "execution",
+                    },
+                    {
+                        "key": "SPEC|2026-10-30|2026-10-31",
+                        "status": "ok",
+                        "mode": "protect_only",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    fresh, _ = _execution_freshness(
+        state_file,
+        datetime(2026, 10, 31, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert fresh is True
+
+
 def test_ledger_change_excludes_a_deposit_made_after_the_last_row(tmp_path: Path) -> None:
     journal_path = tmp_path / "journal.csv"
     flows_path = tmp_path / "capital_flows.csv"

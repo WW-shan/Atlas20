@@ -86,6 +86,7 @@ from atlas20.derivatives.live_journal import (  # noqa: E402
     DEFAULT_CAPITAL_FLOWS_FILE,
     JournalEntry,
     effective_event_target_quantities,
+    is_close_action,
     latest_row,
     latest_short_quantities,
     load_journal,
@@ -352,6 +353,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _prior_attempt_count(state: dict[str, Any], key: str) -> int:
+    """Return a monotonic persisted attempt count for one execution key.
+
+    ``runs`` is deliberately capped for state-file size.  Counting only that
+    truncated history makes the clientOid namespace repeat after 40 retries,
+    which can make a later retry collide with an old venue order.  Prefer the
+    dedicated counter; fall back to the visible runs only for old state files.
+    """
+
+    counts = state.get("attempt_counts")
+    if isinstance(counts, dict) and key in counts:
+        try:
+            value = int(counts[key])
+        except (TypeError, ValueError):
+            value = 0
+        return max(value, 0)
+    runs = state.get("runs")
+    if not isinstance(runs, list):
+        return 0
+    return sum(
+        1
+        for row in runs
+        if isinstance(row, dict) and str(row.get("key") or "") == key
+    )
+
+
 def _attempt_client_oid_prefix(
     key: str, state: dict[str, Any], *, account_fp: str = ""
 ) -> str:
@@ -363,16 +390,7 @@ def _attempt_client_oid_prefix(
     prevent the scheduled retry from placing the missing order.
     """
 
-    runs = state.get("runs")
-    prior_attempts = (
-        sum(
-            1
-            for row in runs
-            if isinstance(row, dict) and str(row.get("key") or "") == key
-        )
-        if isinstance(runs, list)
-        else 0
-    )
+    prior_attempts = _prior_attempt_count(state, key)
     seed = key if prior_attempts == 0 else f"{key}|attempt={prior_attempts + 1}"
     if account_fp:
         seed = f"{account_fp}|{seed}"
@@ -916,7 +934,7 @@ def _closed_funding_from_history(
         action = str(
             getattr(fill, "action", "") if not isinstance(fill, dict) else fill.get("action") or ""
         ).upper()
-        if action not in {"CLOSE", "EXTERNAL_CLOSE"}:
+        if not is_close_action(action):
             continue
         symbol = str(
             getattr(fill, "symbol", "") if not isinstance(fill, dict) else fill.get("symbol") or ""
@@ -945,7 +963,7 @@ def _closed_funding_from_history(
         action = str(
             getattr(fill, "action", "") if not isinstance(fill, dict) else fill.get("action") or ""
         ).upper()
-        if action not in {"CLOSE", "EXTERNAL_CLOSE"}:
+        if not is_close_action(action):
             continue
         raw_triggered = (
             getattr(fill, "triggered_at", "")
@@ -1320,10 +1338,7 @@ def _closed_funding_for_report(
         and current_sides.get(str(prior.get("symbol") or "").upper())
         != str(prior.get("side") or "").lower()
         for prior in (prior_positions if isinstance(prior_positions, list) else [])
-    ) or any(
-        str(fill.action).upper() in {"CLOSE", "EXTERNAL_CLOSE"}
-        for fill in report.fills
-    )
+    ) or any(is_close_action(getattr(fill, "action", "")) for fill in report.fills)
     if not needs_closed_funding:
         return {}, []
     try:
@@ -1344,6 +1359,24 @@ def _closed_funding_for_report(
         )
     except (BitgetAPIError, ValueError, OSError) as exc:
         return {}, [f"资金费归因不完整：读取平仓持仓历史失败（{exc}）"]
+
+
+def _protect_only_status(
+    *,
+    previous_status: object,
+    failures: list[dict[str, Any]],
+) -> str:
+    """Protect-only status that cannot hide a failed execution.
+
+    It may preserve an already-successful day, but when the last execution was
+    partial this risk-reduction pass must remain partial: otherwise the next
+    scheduled retry would see ``last_status=ok`` and never finish the missing
+    open legs.
+    """
+
+    if failures:
+        return "partial"
+    return "ok" if str(previous_status or "") == "ok" else "partial"
 
 
 def _reconcile_only_status(
@@ -1456,7 +1489,6 @@ def _reconcile_live_stops_from_context(
     stop_high_water = run_at.isoformat() if not stop_errors else None
 
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
-    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = (
         float(previous["equity"])
         if previous is not None and previous.get("equity") is not None
@@ -1469,7 +1501,7 @@ def _reconcile_live_stops_from_context(
     )
     closed_funding, funding_notes = _closed_funding_for_report(
         client,
-        previous=funding_previous,
+        previous=previous,
         report=report,
         run_at=run_at,
     )
@@ -1659,7 +1691,7 @@ def _journal_entry(
     reset_symbols = {
         str(fill.symbol).upper()
         for fill in report.fills
-        if str(fill.action).upper() in {"CLOSE", "EXTERNAL_CLOSE"}
+        if is_close_action(getattr(fill, "action", ""))
     }
     for row in report.positions_after:
         try:
@@ -1850,6 +1882,17 @@ def _write_state(
     runs = state.get("runs")
     if not isinstance(runs, list):
         runs = []
+    # Read-only reconciliation does not consume a venue idempotency namespace:
+    # no order can have been placed by that mode.  Incrementing it there could
+    # hide a fill from an earlier crashed execution whose deterministic prefix
+    # must still be recoverable by the next real attempt.
+    if mode != "reconcile_only":
+        prior_attempts = _prior_attempt_count(state, key)
+        attempt_counts = state.get("attempt_counts")
+        if not isinstance(attempt_counts, dict):
+            attempt_counts = {}
+        attempt_counts[key] = prior_attempts + 1
+        state["attempt_counts"] = attempt_counts
     runs.append(
         {
             "key": key,
@@ -1919,18 +1962,6 @@ def _capital_flow_for_run(
         after=after,
         through=run_at,
     )
-
-
-def _same_day_row(journal: pd.DataFrame, run_at: datetime) -> dict[str, Any] | None:
-    """Latest already-written row for the current UTC day, if one exists."""
-
-    if journal.empty:
-        return None
-    day = run_at.date().isoformat()
-    same_day = journal.loc[journal["date"].astype(str) == day]
-    if same_day.empty:
-        return None
-    return same_day.sort_values("run_at_utc").iloc[-1].to_dict()
 
 
 def _merge_same_day_entry(previous: dict[str, Any], current: JournalEntry) -> JournalEntry:
@@ -2316,11 +2347,17 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     position_failures = _position_application_failures(report.failures)
     protected_event["position_status"] = "ok" if not position_failures else "partial"
     protected_event["position_failures"] = position_failures
-    status = "ok" if not report.failures else "partial"
+    # protect-only can reduce risk, but it cannot complete the open legs that a
+    # failed execution left missing.  Preserve "partial" for the same key so a
+    # later scheduled retry still runs the full executor instead of being
+    # suppressed as an already-finished day.
+    status = _protect_only_status(
+        previous_status=state.get("last_status"),
+        failures=report.failures,
+    )
     stop_high_water = run_at.isoformat() if not stop_errors else None
 
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
-    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = (
         float(previous["equity"])
         if previous is not None and previous.get("equity") is not None
@@ -2338,7 +2375,7 @@ def _protect_only_main(args: argparse.Namespace) -> int:
     )
     closed_funding, funding_notes = _closed_funding_for_report(
         client,
-        previous=funding_previous,
+        previous=previous,
         report=report,
         run_at=run_at,
     )
@@ -2530,8 +2567,9 @@ def _main(args: argparse.Namespace) -> int:
             args.manifest_file,
             required_short_assets=required_short_assets,
             required_leverage_assets=required_assets,
+            required_funding_assets=required_assets,
             required_leverage=float(args.leverage),
-            require_all_funding_fresh=True,
+            require_all_funding_fresh=False,
         )
         if not data_audit.passed:
             raise SystemExit(
@@ -2761,7 +2799,6 @@ def _main(args: argparse.Namespace) -> int:
             "不会重放历史盈亏或历史成交"
         )
     previous = previous_row(journal, run_at.strftime("%Y-%m-%d"))
-    funding_previous = _same_day_row(journal, run_at) or previous
     prev_equity = float(previous["equity"]) if previous and previous.get("equity") is not None else None
     capital_flow = _capital_flow_for_run(
         journal,
@@ -3120,7 +3157,7 @@ def _main(args: argparse.Namespace) -> int:
     if args.live:
         closed_funding, funding_notes = _closed_funding_for_report(
             client,
-            previous=funding_previous,
+            previous=previous,
             report=report,
             run_at=run_at,
         )

@@ -980,6 +980,18 @@ def main() -> None:
         default="skip",
     )
     parser.add_argument(
+        "--funding-stress",
+        choices=("none", "long-adverse", "short-adverse", "two-sided-adverse"),
+        default="none",
+        help="explicit adverse funding stress; recorded in the manifest",
+    )
+    parser.add_argument(
+        "--funding-multiplier",
+        type=float,
+        default=1.0,
+        help="multiplier applied to every charged funding rate",
+    )
+    parser.add_argument(
         "--missing-mark-policy",
         choices=("error", "carry", "exit_last"),
         default="carry",
@@ -1297,8 +1309,13 @@ def main() -> None:
         expected_panel_day=expected_panel_day,
         required_short_assets=required_short_assets,
         required_leverage_assets={str(asset) for asset in latest_target.index},
+        required_funding_assets=(
+            {str(asset) for asset in latest_target.index}
+            if args.funding_source != "zero"
+            else None
+        ),
         required_leverage=float(venue_leverage),
-        require_all_funding_fresh=(args.funding_source == "bitget-exact"),
+        require_all_funding_fresh=False,
     )
     if not data_audit.passed and not args.allow_data_audit_failures:
         raise SystemExit(
@@ -1358,6 +1375,11 @@ def main() -> None:
                 else False
             ),
             max_gross_exposure=max_total_gross,
+            # The live profile treats 1.75x as an actual gross ceiling, not
+            # only a label on target weights.  Without this guard the backtest
+            # could let a price rally push the book above the same limit that
+            # the live maintenance planner reduces.
+            hard_gross_exposure=max_total_gross,
             max_margin_utilization=max_margin_utilization,
             rebalance_no_trade_band=float(SHORT_CANDIDATES.get(args.trial_id, 0.0)),
             execution_hour=int(args.execution_hour),
@@ -1368,6 +1390,8 @@ def main() -> None:
             min_rebalance_usdt=float(args.min_rebalance_usdt),
             normalize_isolated_margin=str(args.normalize_isolated_margin),
             funding_missing_policy=args.funding_missing_policy,
+            funding_stress=args.funding_stress,
+            funding_multiplier=float(args.funding_multiplier),
             missing_mark_policy=args.missing_mark_policy,
             missing_mark_max_carry_hours=int(args.missing_mark_max_carry_hours),
         ),
@@ -1388,11 +1412,13 @@ def main() -> None:
         index=pd.DatetimeIndex(daily["date"]),
         name="daily_return",
     )
-    # The engine's first daily row is the initialization point and is always
-    # zero.  It is retained in oos_daily.csv but excluded from Sharpe/volatility,
-    # matching the existing frozen OOS reports.
-    metric_returns = oos_returns.iloc[1:] if len(oos_returns) > 1 else oos_returns
-    metrics = _metrics_from_returns(metric_returns)
+    # The engine's first daily point measures the first execution day against
+    # initial capital.  It is real PnL, so it belongs in both the compounded
+    # metric and the Sharpe/volatility sample.
+    metric_returns = oos_returns
+    metrics = _metrics_from_returns(
+        metric_returns, periods=max(len(metric_returns), 1)
+    )
 
     shadow = _shadow_targets(
         _targets_executing_after(
@@ -1782,6 +1808,9 @@ def main() -> None:
                 "allow_data_audit_failures": bool(args.allow_data_audit_failures),
                 "funding_source": args.funding_source,
                 "funding_last": None if funding_last is None else str(funding_last),
+                "funding_missing_policy": str(args.funding_missing_policy),
+                "funding_stress": str(args.funding_stress),
+                "funding_multiplier": float(args.funding_multiplier),
                 "mark_missing_policy": args.missing_mark_policy,
                 "mark_missing_max_carry_hours": int(args.missing_mark_max_carry_hours),
                 "mark_source": "bitget_mark",
@@ -1915,7 +1944,7 @@ def main() -> None:
         "",
         dataframe_to_markdown(latest_table) if not latest_table.empty else "_No target rows._",
         "",
-        "The first daily row is the engine initialization point and is excluded from Sharpe/volatility; it remains in `oos_daily.csv`.",
+        "The first daily row is measured against the engine's initial capital; it is included in the reported metrics.",
         "",
         "Research output only; not an order or a live approval.",
     ]

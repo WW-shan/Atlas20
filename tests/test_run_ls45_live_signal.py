@@ -21,6 +21,7 @@ def test_build_command_pins_ls45_and_g125() -> None:
     assert command[command.index("--trial-id") + 1] == LS45_CANDIDATE_ID
     assert command[command.index("--max-total-gross") + 1] == "1.25"
     assert command[command.index("--funding-source") + 1] == "bitget-exact"
+    assert command[command.index("--funding-missing-policy") + 1] == "error"
     assert command[command.index("--output-dir") + 1] == "reports/ls45_live_g125"
     assert command[command.index("--end-date") + 1] == "2026-11-13"
 

@@ -2002,6 +2002,20 @@ def test_execution_attempt_prefix_changes_only_after_a_run_was_persisted() -> No
     assert retried != first
 
 
+def test_execution_attempt_prefix_uses_the_monotonic_attempt_counter() -> None:
+    key = "SPEC|2026-11-13|2026-11-14"
+    first = execute_live_plan._attempt_client_oid_prefix(key, {"runs": []})
+    after_counter = execute_live_plan._attempt_client_oid_prefix(
+        key,
+        {
+            "runs": [],
+            "attempt_counts": {key: 41},
+        },
+    )
+
+    assert after_counter != first
+
+
 def test_execution_attempt_prefix_is_scoped_to_the_bitget_account() -> None:
     key = "SPEC|2026-11-13|2026-11-14"
 
@@ -3617,3 +3631,65 @@ def test_bootstrap_track_rejects_reused_state_journal_or_unhashed_manifest() -> 
         journal=pd.DataFrame(),
         manifest={},
     )
+
+
+def test_protect_only_cannot_upgrade_a_partial_execution_to_ok() -> None:
+    """A risk-reduction pass must not suppress the scheduled full retry."""
+
+    assert (
+        execute_live_plan._protect_only_status(
+            previous_status="partial", failures=[]
+        )
+        == "partial"
+    )
+    assert (
+        execute_live_plan._protect_only_status(previous_status="ok", failures=[])
+        == "ok"
+    )
+    assert (
+        execute_live_plan._protect_only_status(
+            previous_status="ok",
+            failures=[{"symbol": "NEARUSDT", "action": "CLOSE"}],
+        )
+        == "partial"
+    )
+
+
+def test_same_day_retry_replaces_funding_with_the_full_day_recomputation() -> None:
+    previous = JournalEntry(
+        date="2026-11-15",
+        run_at_utc="2026-11-15T06:35:00+00:00",
+        signal_date="2026-11-13",
+        equity=496.6,
+        position_value=262.6,
+        cash=364.2,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=-0.01,
+        unrealised_pnl=-2.8,
+        trades=[],
+        notes=[],
+    )
+    current = JournalEntry(
+        date="2026-11-15",
+        run_at_utc="2026-11-15T09:20:55+00:00",
+        signal_date="2026-11-13",
+        equity=493.3,
+        position_value=268.5,
+        cash=355.5,
+        day_pnl=None,
+        day_return=None,
+        fees_today=0.0,
+        funding_total=-0.03,
+        unrealised_pnl=-0.47,
+        trades=[],
+        notes=[],
+    )
+
+    merged = execute_live_plan._merge_same_day_entry(previous.as_row(), current)
+
+    # current is computed against the previous *day's* cumulative funding, not
+    # the earlier same-day snapshot, so it is the full-day amount and replaces
+    # the stale row.  Summing would double count the open-position delta.
+    assert merged.funding_total == pytest.approx(-0.03)

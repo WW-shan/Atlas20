@@ -1780,6 +1780,40 @@ def test_short_provider_gap_is_repaired_from_agreeing_exchange_venues() -> None:
     assert {fill["sources"] for fill in fills} == {"binance,gateio"}
 
 
+def test_short_provider_gap_is_not_repaired_with_future_supply() -> None:
+    """A derived gap cap must not borrow supply from after the gap date."""
+
+    history = _gap_history()
+    history.loc[
+        history["date"] <= pd.Timestamp("2022-07-27"), "circulating_supply"
+    ] = float("nan")
+
+    repaired, fills = processor._repair_provider_gaps(
+        history,
+        [_gap_source("gateio", 1.00), _gap_source("binance", 1.02)],
+        max_gap_days=5,
+        max_source_gap=0.10,
+    )
+
+    assert fills == []
+    assert "2022-07-28" not in set(repaired["date"].dt.strftime("%Y-%m-%d"))
+
+
+
+def test_short_provider_gap_ignores_a_nonpositive_exchange_quote() -> None:
+    repaired, fills = processor._repair_provider_gaps(
+        _gap_history(),
+        [_gap_source("gateio", 1.00), _gap_source("binance", float("nan"))],
+        max_gap_days=5,
+        max_source_gap=0.10,
+    )
+
+    inserted = repaired.set_index("date").loc["2022-07-28":"2022-07-31"]
+    assert inserted["price"].tolist() == pytest.approx([1.0] * 4)
+    assert inserted["price_source"].str.contains("gateio").all()
+    assert not inserted["price_source"].str.contains("binance").any()
+    assert {fill["sources"] for fill in fills} == {"gateio"}
+
 
 def test_short_provider_gap_windows_are_fetched_but_long_holes_are_not() -> None:
     history = _gap_history()

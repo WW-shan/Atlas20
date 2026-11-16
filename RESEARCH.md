@@ -6303,3 +6303,141 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
   stop 的分钟级触发顺序，只能继续用实盘成交和 `audit-live` 观察。
 - 当前 live-parity OOS 只有 55 个日行（54 个有效收益日）；12 个月独立 OOS 仍未完成，不能把主样本
   77.8524x 当作未来保证。
+
+### 00.158 2026-11-16 全链路审计修复：数据、回测会计、实盘状态与证据链
+
+本节是对 00.156–00.157 的逐节点复核与**显式 supersede**。00.157 中
+`multiple=0.9590973533873869`、`Sharpe=-0.2323679567117728`、54 个有效收益日
+的口径已被本节替换：首日真实 PnL 原先被结构性丢弃，现在纳入收益与 CAGR 周期；
+这是会计口径修复，不是策略收益改善。
+
+#### 1. 数据与 funding 链路
+
+- live parity 的 `funding_missing_policy` 从 `skip` 改为 `error`；研究诊断仍可显式
+  使用 `skip`，但 manifest 会记录该选择。
+- 对 target/held legs 增加**完整 settlement calendar 硬门禁**：从首条真实成交记录
+  到当前时点，按合约 `fund_interval` 枚举所有应有 settlement；缺一条即硬失败。
+  不再只用“最后一条 funding 是否小于 12h”来伪装完整。
+- funding freshness 改为诊断 warning；硬证明由 settlement coverage 负责，避免
+  01:05 执行时把“00:00 settlement 已发布但墙钟不足 12h”误判成数据过期。
+- funding 缓存刷新阈值改为 `interval + 1h`，避免 4h 合约缓存 12h 仍被判定新鲜。
+- funding 下载临时失败时保留旧 manifest identity 并记录 `refresh_error`，不再把
+  一次网络错误写成“无数据”。
+- funding CSV 的 `symbol`、symbol map 的 `fund_interval`/`min_trade_usdt`/
+  `size_multiplier` 必须与 `contracts.json` 一致；单 settlement
+  `|funding_rate| > 10%` 判异常。
+- CMC provider gap repair 不再借用未来 circulating supply；交易所 quote/volume
+  先过滤非有限、非正值；新增 CMC 修复 provenance 测试 66 passed。
+- 审计结果：`make audit-data-ls104` **2682/2682 checks passed**，0 hard failure，
+  0 warning；panel 97 个资产，funding/mark 88 个合约；data fingerprint 仍为
+  `sha256:5d32c9f3821d8bef6c146e69f5fe55df7da2e218b59516ea32badcb0aa58907c`。
+- `make audit-data-chain`：**PASS=52 / WARN=0 / FAIL=0**。
+- `make audit-symbols-ls104`：88 mapped / 88 online / 88 支持 4x，long-short-flip
+  全通过，`issues=[]`。
+
+#### 2. 回测、成交与独立会计重放
+
+- 首日真实收益：引擎第一个 daily equity 现在相对 `initial_capital` 计算，不再
+  当作零收益初始化点；CAGR 周期数改为真实收益周期数。当前 55 个日行对应
+  **55 个收益周期**。
+- `max_gross_exposure` 必须是有限非负数；hard gross guard 同时受 0.90 组合
+  isolated-margin cap 约束，backtest 正式启用 hard gross guard。
+- **修复 stop/liquidation 的 slippage 双重计费**：执行价已经包含
+  `liquidation_slippage_bps`，fee rate 只能再收 taker fee，不能把同一 slippage
+  再加一次。新增 liquidation 与 short stop 两个回归测试。
+- 新增 `scripts/audit_derivatives_accounting.py` 与
+  `make audit-accounting-ls104`。它不信任 summary，独立重放
+  `oos_trades.csv` / `oos_funding.csv` / `oos_margin_events.csv`：
+  - 普通成交 fee = notional × 20bps；stop/liquidation 若存在，fee 同样只收
+    taker fee，slippage 只体现在执行价；
+  - funding `amount = -side × rate × notional`；
+  - margin add/remove 既不改变 equity，也不改变 cash+margin 总量；
+  - 每个 `oos_positions.csv` snapshot 的 quantity/weighted entry 必须与成交账本
+    重放一致，increase snapshot 的 notional 使用“剩余总数量 × 新成交价”；
+  - 独立重放**每一条** 23:00 UTC daily equity，而不只验证最后一点；
+  - 独立重放**每一条**小时 gross observation（position quantity × mark close /
+    equity），而不是只相信 gross CSV 自洽；
+  - daily return、NAV、multiple、CAGR、Sharpe、MDD、gross 日终值、target
+    gross、funded-short gross、days/metric_days、stop/liquidation 计数与
+    summary 全部独立重算。
+- 当前真实 LS104 OOS 证据：
+  - OOS：2026-09-22 至 2026-11-15，55 个日行 / 55 个收益周期；
+  - `multiple=0.9885326195853196`、`cagr=-0.07368544960465973`、
+    `sharpe=0.14020311889000112`、`max_drawdown=-0.19304855354414596`；
+  - `fees_total=6.71899854`、`funding_total=-2.0667605013200006`；
+  - `max_target_total_gross=0.776784732288629`、
+    `max_observed_gross=0.8162841781963087`、最大 funded short gross 0.50x；
+  - 0 次 stop event、0 次 liquidation；
+  - 独立重放 final equity = **494.2663097926601**，报告 494.26630979266；
+  - 每日 equity 重放 55/55 完全一致，最坏误差在 2026-09-22 亦为 0；
+  - 小时 gross 重放 1322/1322 完全一致，最大误差为 0；
+  - `make audit-accounting-ls104`：**PASS=44 / FAIL=0**。
+- `make audit-signal-ls104`：冻结账本 72 行 / 重建账本 72 行，32 个重叠信号日，
+  差异 0；`targets_sha256=2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`
+  不变；market-fill fingerprint
+  `sha256:4b3833fab86c9c3bbed173f43b6cd2ad44ebdf3f96a27d583270ab0bcb0c97cd`。
+
+#### 3. 实盘执行、journal 与 state
+
+- same-day funding 以**当天最新 journal 的 `funding_total` 全日重算**，不做增量
+  差分；不再用当天中间快照的累计值相减。
+- `protect-only` 不得把 partial execution 升为 `ok`；只有此前已是 `ok` 才可保持，
+  否则保持 `partial`，避免下一次重试被“已完成”状态抑制。
+- `EMERGENCY_CLOSE`、`EXTERNAL_CLOSE` 与任意 `*_CLOSE` 统一进入 close 状态机，
+  旧 stop 不会跨越平仓/重开周期继续冒充保护。
+- zero-fill order 的 `cumExecValue=0` 不再被当作非法值跳过清理路径；zero-fill
+  increase 不触发 emergency close，也不取消已有 stop。
+- unconfirmed stop 的 emergency close 在完整成交前**不取消旧 stop**；只有
+  close 被证明完成后才清理旧策略单。
+- live audit 的 ledger roll-forward 加入：
+  - quantity 与 weighted entry 变化检查；
+  - funding 累计差 `current.totalFunding - ledger.funding_cumulative`；
+  - 缺失/非法 funding baseline 直接 mismatch；
+  - 平仓后再开仓的 funding 周期不做错误的简单差分。
+- 新增 latest report/state 一致性审计：`latest.json` 的 spec/status/mode/signal_date
+  必须与 execution state 对齐。当前真实 `latest.json` 是 2026-11-16 06:35 UTC 的
+  失败快照（`status=error`，`funding_missing_policy is missing`），而 state 是
+  04:35 UTC 的 `protect_only/ok`；新审计会把它暴露为 hard mismatch，这是正确的
+  可见性修复，**没有手工改写或伪造成功快照**。
+- `clientOid` attempt namespace 改为单调 `attempt_counts`；`runs[-40:]` 截断不再
+  造成旧 oid 重复。reconcile-only 不消耗 attempt counter。
+- monitor 的 overdue 时间从 07:00 改为 08:00 UTC，覆盖 01:05 + 6h catch-up；
+  必须存在当天成功的 `execution` run，protect-only / reconcile-only 不能冒充。
+
+#### 4. 本轮测试与门禁
+
+- `make test`：2559 passed / 1 skipped（前端另 249 passed）；新增
+  `tests/test_audit_derivatives_accounting.py` 覆盖 open→increase→reduce→close→
+  reopen、funding credit/debit、margin neutral、fee/ equity / intermediate daily
+  tamper、increase snapshot 语义。
+- `make lint`、`make typecheck`、`git diff --check`：passed。
+- `make audit-live-ls104` 在当前离线环境仍因缺少
+  `ATLAS20_BITGET_API_KEY / ATLAS20_BITGET_SECRET_KEY / ATLAS20_BITGET_PASSPHRASE`
+  无法完成；这不是通过，也不能拿旧 `audit.json` 冒充。需要下一次真实凭据环境
+  运行后，latest/state 和 ledger-venue roll-forward 才能得到最终 live 证明。
+
+#### 5. 仍未证明 / 不可从现有 artifact 伪造的假设
+
+- 1H market open 不等于真实 tick 成交；spread、盘口冲击、market order 滑点、
+  分钟级 stop 触发顺序仍不可由现有 1H 数据唯一恢复。
+- `contract_spec_source = symbol_map_current_snapshot_approximation`：历史合约
+  step/min-notional 使用当前快照近似，不是逐日历史 venue 合约快照。
+- Bitget 数据发布的 finality、`totalFunding` 的 venue 精确语义、以及 01:05 时
+  当天 funding settlement 是否已发布，仍需真实 API 运行验证。
+- 11 个 CMC panel 资产没有 Bitget USDT-M 合约；它们不能进入可执行 universe。
+- funding settlement calendar 以当前合约 `fund_interval` 从 funding CSV 首行外推；
+  如果 Bitget 历史上改过某合约的 interval，审计会 fail-closed 报缺失，而不是猜测
+  历史 interval。这个假设需要 future venue 文档或历史 interval 快照才能消除。
+- 每小时 gross / 每日 equity 的独立重放要求每个持仓在对应 23:00/整点都有 mark；
+  当前 88 个合约在 live 窗口内 0 missing hour，但未来若 mark 缺失，重放会硬失败，
+  不会用 carry 值悄悄补。
+- stop/liquidation 使用冻结的 5bps `liquidation_slippage_bps` 口径；真实交易所
+  强平/止损滑点可能更高。
+- emergency close 在 ambiguous/failed 后的同轮 stop verification 边界仍需要
+  真实故障注入演练；当前代码只能保证“未完成前不取消旧 stop”。
+- `latest.json` 目前仍是失败快照，必须由下一次真实成功运行覆盖，不能手工清理。
+- 当前 live parity OOS 只有 55 个日行；12 个月独立 OOS、更多 regime 和真实成交
+  样本仍未完成。主样本的历史高倍数不能当作未来保证。
+
+以上结论只覆盖已被 artifact、独立重放或测试证明的节点；不能据此声称“所有 bug
+已找到”。

@@ -98,7 +98,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-all-funding-fresh",
         action="store_true",
-        help="require fresh funding for every normal contract, not only selected shorts",
+        help=(
+            "require complete settlement coverage for every normal contract, "
+            "not only selected/held legs"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -112,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         min_panel_assets=int(args.min_panel_assets),
         required_short_assets=_required_short_assets(args.targets_file),
         required_leverage_assets=_target_assets(args.targets_file),
+        required_funding_assets=_target_assets(args.targets_file),
         required_leverage=float(args.required_leverage),
         require_all_funding_fresh=bool(args.require_all_funding_fresh),
     )

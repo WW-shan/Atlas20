@@ -642,3 +642,99 @@ def test_live_mark_tail_retry_fills_a_hole_before_a_newer_bar(tmp_path) -> None:
     assert pd.Timestamp("2026-11-14T00:00:00Z") in set(
         pd.to_datetime(merged["open_time"], utc=True)
     )
+
+
+def test_four_hour_funding_cache_is_refetched_before_twelve_hours(tmp_path) -> None:
+    """A 4h settlement clock cannot rely on the old 12h refresh threshold."""
+
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            self.calls += 1
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-14T08:00:00Z")],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-13T22:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 4}]
+    )
+    client = _FundingClient()
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        client,
+        symbol_map,
+        output_dir,
+        force=False,
+        now=pd.Timestamp("2026-11-14T08:05:00Z"),
+    )
+
+    assert client.calls == 1
+    assert manifest["bitcoin"]["last"] == "2026-11-14 08:00:00+00:00"
+
+
+def test_funding_fetch_failure_keeps_the_cached_manifest_identity(tmp_path) -> None:
+    """A transient refresh error must not erase a valid cached funding row."""
+
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    class _FailingClient:
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            raise RuntimeError("temporary endpoint failure")
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-13T16:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    (output_dir / "funding_manifest.json").write_text(
+        json.dumps(
+            {
+                "bitcoin": {
+                    "symbol": "BTCUSDT",
+                    "last": "2026-11-13T16:00:00Z",
+                    "rows": 1,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        _FailingClient(),
+        symbol_map,
+        output_dir,
+        force=True,
+        now=pd.Timestamp("2026-11-14T01:05:00Z"),
+    )
+
+    assert manifest["bitcoin"]["last"] == "2026-11-13 16:00:00+00:00"
+    assert manifest["bitcoin"]["rows"] == 1
+    assert "temporary endpoint failure" in manifest["bitcoin"]["refresh_error"]
+    persisted = json.loads((output_dir / "funding_manifest.json").read_text())
+    assert persisted["bitcoin"]["last"] == "2026-11-13 16:00:00+00:00"

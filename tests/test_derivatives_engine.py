@@ -244,6 +244,68 @@ def test_short_position_liquidates_on_hourly_high() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(505.0, abs=0.5)
 
 
+def test_liquidation_slippage_is_not_charged_twice_as_a_fee() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        100.0,
+        55.0,
+        55.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=pd.DataFrame(index=pd.DatetimeIndex([], tz="UTC")),
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=10.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=5.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    liquidation = result.liquidations.iloc[0]
+    trade = result.trades.loc[result.trades["reason"] == "liquidation"].iloc[0]
+    assert liquidation["execution_price"] == pytest.approx(
+        float(liquidation["liquidation_price"]) * 0.9995
+    )
+    assert trade["fee"] == pytest.approx(float(trade["notional"]) * 0.0010)
+
+
+def test_short_stop_slippage_is_not_charged_twice_as_a_fee() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[pd.Timestamp("2026-01-02T04:00:00Z"), ["open", "high", "low", "close"]] = [
+        100.0,
+        125.0,
+        100.0,
+        125.0,
+    ]
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": -1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=10.0,
+            slippage_bps=2.0,
+            liquidation_slippage_bps=5.0,
+            fee_buffer=0.0,
+            short_stop_loss_pct=0.20,
+        ),
+    )
+
+    trade = result.trades.loc[result.trades["reason"] == "stop_loss"].iloc[0]
+    assert trade["price"] == pytest.approx(120.0 * 1.0005)
+    assert trade["fee"] == pytest.approx(float(trade["notional"]) * 0.0010)
+
+
 def test_short_stop_loss_closes_before_isolated_liquidation() -> None:
     index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h", tz="UTC")
     candles = {"BTC": _flat_frame(index)}
@@ -777,6 +839,72 @@ def test_complete_funding_schedule_for_a_held_asset_passes() -> None:
     assert result.equity_curve.iloc[-1] == pytest.approx(1_000.0)
 
 
+def test_error_policy_ignores_nan_rows_for_a_slower_settlement_clock() -> None:
+    """A union funding panel must not make an 8h asset due every 4h."""
+
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding_index = pd.DatetimeIndex(
+        [
+            "2026-01-02T00:00:00Z",
+            "2026-01-02T04:00:00Z",
+            "2026-01-02T08:00:00Z",
+        ]
+    )
+    # BTC settles every 8h.  The 04:00 row belongs to a 4h contract and is NaN
+    # for BTC; it is not a missing BTC settlement.
+    funding = pd.DataFrame(
+        {"BTC": [0.001, float("nan"), 0.001], "SOL": [0.0005, 0.0005, 0.0005]},
+        index=funding_index,
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0, "SOL": 4.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    assert list(result.funding["timestamp"]) == [pd.Timestamp("2026-01-02T08:00:00Z")]
+
+
+def test_skip_policy_is_explicit_and_does_not_mask_a_due_gap() -> None:
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T09:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    funding = pd.DataFrame(
+        {"BTC": [0.001, float("nan")]},
+        index=pd.DatetimeIndex(["2026-01-02T00:00:00Z", "2026-01-02T08:00:00Z"]),
+    )
+    targets = {pd.Timestamp("2026-01-01T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=funding,
+        funding_intervals_hours={"BTC": 8.0},
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+            funding_missing_policy="skip",
+        ),
+    )
+
+    # The skip row is not a silent zero-charge event: no event is fabricated,
+    # and the result still exposes that only the observed settlement was charged.
+    assert result.funding.empty
+
+
 def test_missing_mark_exit_last_closes_position_instead_of_carrying_it() -> None:
     btc_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T03:00:00Z", freq="1h", tz="UTC")
     eth_index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T04:00:00Z", freq="1h", tz="UTC")
@@ -888,6 +1016,38 @@ def test_evaluation_window_excludes_prestart_marks_and_postend_targets() -> None
         pd.Timestamp("2026-01-02T03:00:00Z"),
         pd.Timestamp("2026-01-06T03:00:00Z"),
     ]
+
+
+def test_first_daily_return_includes_the_first_execution_day_pnl() -> None:
+    """The first daily row must not be treated as a free zero-return baseline."""
+
+    index = pd.date_range("2026-01-01T00:00:00Z", "2026-01-02T05:00:00Z", freq="1h")
+    candles = {"BTC": _flat_frame(index)}
+    candles["BTC"].loc[
+        pd.Timestamp("2026-01-01T04:00:00Z"):
+        pd.Timestamp("2026-01-02T05:00:00Z"),
+        ["open", "high", "low", "close"],
+    ] = 110.0
+    candles["BTC"].loc[
+        pd.Timestamp("2026-01-01T03:00:00Z"), ["open", "high", "low", "close"]
+    ] = [100.0, 110.0, 100.0, 110.0]
+    targets = {pd.Timestamp("2025-12-31T00:00:00Z"): pd.Series({"BTC": 1.0})}
+
+    result = run_derivative_backtest(
+        candles,
+        targets,
+        funding_rates=None,
+        config=DerivativeBacktestConfig(
+            initial_capital=1_000.0,
+            taker_fee_bps=0.0,
+            slippage_bps=0.0,
+            liquidation_slippage_bps=0.0,
+            fee_buffer=0.0,
+        ),
+    )
+
+    assert result.daily_equity.iloc[0] == pytest.approx(1_100.0)
+    assert result.daily_returns.iloc[0] == pytest.approx(0.10)
 
 
 def test_missing_mark_carry_uses_last_close_within_limit() -> None:
@@ -1497,3 +1657,10 @@ def test_long_stop_loss_closes_before_isolated_liquidation() -> None:
 def test_long_stop_loss_rejects_invalid_percentage() -> None:
     with pytest.raises(ValueError, match="long_stop_loss_pct"):
         DerivativeBacktestConfig(long_stop_loss_pct=1.0)
+
+
+def test_max_gross_exposure_must_be_finite_and_non_negative() -> None:
+    with pytest.raises(ValueError, match="max_gross_exposure"):
+        DerivativeBacktestConfig(max_gross_exposure=float("nan"))
+    with pytest.raises(ValueError, match="max_gross_exposure"):
+        DerivativeBacktestConfig(max_gross_exposure=-0.1)

@@ -2837,3 +2837,73 @@ def test_execute_plan_rejects_nonpositive_venue_leverage() -> None:
         _run(client, _plan(), leverage=0.0)
 
     assert client.placed == []
+
+
+def test_zero_fill_short_increase_keeps_the_existing_stop_and_book() -> None:
+    """An unconfirmed stop on a zero-fill order must not cancel a valid old stop."""
+
+    class _ZeroFillIncreaseClient(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            if kwargs.get("side") == "sell" and kwargs.get("pos_side") == "short":
+                self._next_id += 1
+                order_id = str(self._next_id)
+                self.placed.append({**kwargs, "orderId": order_id})
+                self.order_infos[order_id] = {
+                    "orderId": order_id,
+                    "symbol": kwargs["symbol"],
+                    "side": "sell",
+                    "posSide": "short",
+                    "orderStatus": "cancelled",
+                    "cumExecQty": "0",
+                    "avgPrice": "0",
+                    "cumExecValue": "0",
+                    "feeDetail": [],
+                    "stopLoss": "",
+                    "slTriggerBy": "",
+                    "slOrderType": "",
+                }
+                return {"orderId": order_id}
+            return super().place_order(**kwargs)
+
+    client = _ZeroFillIncreaseClient(
+        reject_isolated_orders=False,
+        echo_stop_loss=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+        strategy_orders=[
+            {
+                "orderId": "old-stop",
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "orderStatus": "live",
+                "side": "buy",
+                "qty": "20",
+                "stopLoss": "6.0",
+                "slTriggerBy": "mark",
+                "slOrderType": "market",
+            }
+        ],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(
+            target_weight=-1.2,
+            position=_short_position(),
+            short_stop_loss_pct=0.20,
+        ),
+        known_protected_short_symbols={"NEARUSDT"},
+    )
+
+    assert any("order cancelled" in item["error"] for item in report.failures)
+    assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+    assert [row["orderId"] for row in client.strategy_orders] == ["old-stop"]

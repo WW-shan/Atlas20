@@ -1147,11 +1147,13 @@ def _repair_provider_gaps(
     rows: list[dict[str, object]] = []
     for window_start, window_end in windows:
         for day in pd.date_range(window_start, window_end, freq="D"):
-            quotes = {
-                source.name: closes[source.name][day]
-                for source in exchange_sources
-                if day in closes[source.name]
-            }
+            quotes: dict[str, float] = {}
+            for source in exchange_sources:
+                if day not in closes[source.name]:
+                    continue
+                value = float(closes[source.name][day])
+                if np.isfinite(value) and value > 0.0:
+                    quotes[source.name] = value
             if not quotes:
                 continue
             quote_values = list(quotes.values())
@@ -1166,22 +1168,26 @@ def _repair_provider_gaps(
                         high,
                     )
                     continue
+            # Never borrow a future CMC supply row to backfill an earlier
+            # missing price.  That would import information unavailable at the
+            # point in time and silently change the historical market-cap
+            # ranking.  Without a prior real supply print, the gap remains
+            # unrepaired and the engine's normal gap policy applies.
             prior_supply = supplied[supplied["date"] <= day]
-            future_supply = supplied[supplied["date"] > day]
-            supply_row = (
-                prior_supply.tail(1).iloc[0]
-                if not prior_supply.empty
-                else (future_supply.head(1).iloc[0] if not future_supply.empty else None)
-            )
-            if supply_row is None:
+            if prior_supply.empty:
                 continue
+            supply_row = prior_supply.tail(1).iloc[0]
             supply = float(supply_row["circulating_supply"])
+            if not np.isfinite(supply) or supply <= 0.0:
+                continue
             close = float(pd.Series(quote_values).median())
-            volume_values = [
-                volumes[source.name][day]
-                for source in exchange_sources
-                if day in volumes[source.name]
-            ]
+            volume_values = []
+            for source in exchange_sources:
+                if day not in volumes[source.name]:
+                    continue
+                value = float(volumes[source.name][day])
+                if np.isfinite(value) and value >= 0.0:
+                    volume_values.append(value)
             volume = float(pd.Series(volume_values).median()) if volume_values else 0.0
             providers = sorted(quotes)
             provenance = "+".join(providers)

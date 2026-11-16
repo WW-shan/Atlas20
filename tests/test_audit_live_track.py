@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -16,6 +17,7 @@ from scripts.audit_live_track import (
     _active_event_state_issues,
     _event_quantity_issues,
     _execution_floor_issue,
+    _latest_report_state_issues,
     _ledger_expected_equity,
     _orphan_strategy_order_issues,
     _pnl_chain_errors,
@@ -243,39 +245,162 @@ def test_ledger_expected_equity_marks_a_short_in_the_adverse_direction() -> None
     last = {
         "equity": 100.0,
         "positions": json.dumps(
-            [{"symbol": "NEARUSDT", "side": "short", "mark_price": 5.0}]
+            [
+                {
+                    "symbol": "NEARUSDT",
+                    "side": "short",
+                    "mark_price": 5.0,
+                    "avg_price": 5.0,
+                    "funding_cumulative": 0.10,
+                }
+            ]
         ),
     }
 
     expected, mismatches = _ledger_expected_equity(
         last,
         current_positions=[
-            {"symbol": "NEARUSDT", "total": "20", "posSide": "short", "markPrice": "5.5"}
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "markPrice": "5.5",
+                "avgPrice": "5.0",
+                "totalFunding": "0.15",
+            }
         ],
         capital_flow=0.0,
     )
 
-    assert expected == pytest.approx(90.0)
+    assert expected == pytest.approx(90.05)
     assert mismatches == []
 
 
-def test_ledger_expected_equity_rejects_a_side_flip_since_the_snapshot() -> None:
+def test_ledger_expected_equity_includes_funding_since_the_snapshot() -> None:
     last = {
         "equity": 100.0,
         "positions": json.dumps(
-            [{"symbol": "NEARUSDT", "side": "long", "mark_price": 5.0}]
+            [
+                {
+                    "symbol": "NEARUSDT",
+                    "side": "short",
+                    "qty": 20.0,
+                    "mark_price": 5.0,
+                    "avg_price": 5.0,
+                    "funding_cumulative": 0.10,
+                }
+            ]
+        ),
+    }
+
+    expected, mismatches = _ledger_expected_equity(
+        last,
+        current_positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "markPrice": "5.0",
+                "totalFunding": "0.13",
+            }
+        ],
+        capital_flow=0.0,
+    )
+
+    assert expected == pytest.approx(100.03)
+    assert mismatches == []
+
+
+def test_ledger_expected_equity_rejects_a_missing_funding_baseline() -> None:
+    last = {
+        "equity": 100.0,
+        "positions": json.dumps(
+            [{"symbol": "NEARUSDT", "side": "short", "qty": 20.0, "mark_price": 5.0}]
         ),
     }
 
     _, mismatches = _ledger_expected_equity(
         last,
         current_positions=[
-            {"symbol": "NEARUSDT", "total": "20", "posSide": "short", "markPrice": "5.0"}
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "markPrice": "5.0",
+                "totalFunding": "0.13",
+            }
+        ],
+        capital_flow=0.0,
+    )
+
+    assert any("资金费累计基线" in item for item in mismatches)
+
+
+def test_ledger_expected_equity_rejects_a_side_flip_since_the_snapshot() -> None:
+    last = {
+        "equity": 100.0,
+        "positions": json.dumps(
+            [
+                {
+                    "symbol": "NEARUSDT",
+                    "side": "long",
+                    "mark_price": 5.0,
+                    "avg_price": 5.0,
+                    "funding_cumulative": 0.0,
+                }
+            ]
+        ),
+    }
+
+    _, mismatches = _ledger_expected_equity(
+        last,
+        current_positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "markPrice": "5.0",
+                "totalFunding": "0.0",
+            }
         ],
         capital_flow=0.0,
     )
 
     assert any("方向" in item for item in mismatches)
+
+
+def test_ledger_expected_equity_rejects_a_quantity_change_since_the_snapshot() -> None:
+    last = {
+        "equity": 100.0,
+        "positions": json.dumps(
+            [
+                {
+                    "symbol": "NEARUSDT",
+                    "side": "short",
+                    "qty": 20.0,
+                    "mark_price": 5.0,
+                    "avg_price": 5.0,
+                    "funding_cumulative": 0.0,
+                }
+            ]
+        ),
+    }
+
+    _, mismatches = _ledger_expected_equity(
+        last,
+        current_positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "25",
+                "posSide": "short",
+                "markPrice": "5.0",
+                "totalFunding": "0.0",
+            }
+        ],
+        capital_flow=0.0,
+    )
+
+    assert any("数量" in item for item in mismatches)
 
 
 def test_ledger_expected_equity_reports_malformed_position_json() -> None:
@@ -287,6 +412,43 @@ def test_ledger_expected_equity_reports_malformed_position_json() -> None:
 
     assert expected == pytest.approx(100.0)
     assert any("positions" in item for item in mismatches)
+
+
+def test_latest_report_must_match_state_status_and_mode(tmp_path: Path) -> None:
+    latest = tmp_path / "latest.json"
+    latest.write_text(
+        json.dumps(
+            {
+                "spec": "SPEC",
+                "status": "error",
+                "mode": "execution",
+                "signal_date": "2026-11-13",
+            }
+        ),
+        encoding="utf-8",
+    )
+    issues = _latest_report_state_issues(
+        latest,
+        state={
+            "last_status": "ok",
+            "last_run_mode": "protect_only",
+            "active_event": {"signal_date": "2026-11-13"},
+        },
+        expected_spec="SPEC",
+    )
+
+    assert any("status" in issue for issue in issues)
+    assert any("mode" in issue for issue in issues)
+
+
+def test_latest_report_missing_is_an_explicit_issue(tmp_path: Path) -> None:
+    issues = _latest_report_state_issues(
+        tmp_path / "latest.json",
+        state={"last_status": "ok"},
+        expected_spec="SPEC",
+    )
+
+    assert issues and "missing" in issues[0]
 
 
 def test_position_signed_notional_preserves_hedge_and_one_way_shorts() -> None:
@@ -1193,6 +1355,37 @@ def test_funding_delta_check_rejects_repeating_a_cumulative_snapshot() -> None:
     assert _funding_delta_errors(journal) == []
 
 
+def test_funding_delta_check_skips_a_close_and_reopen_cycle() -> None:
+    from scripts.audit_live_track import _funding_delta_errors
+
+    previous = [
+        {
+            "symbol": "NEARUSDT",
+            "side": "short",
+            "qty": 20.0,
+            "avg_price": 3.10,
+            "funding_cumulative": 0.10,
+        }
+    ]
+    current = [
+        {
+            "symbol": "NEARUSDT",
+            "side": "short",
+            "qty": 18.0,
+            "avg_price": 3.20,
+            "funding_cumulative": 0.02,
+        }
+    ]
+    journal = pd.DataFrame(
+        [
+            {"date": "2026-11-03", "positions": json.dumps(previous), "funding_total": 0.0},
+            {"date": "2026-11-04", "positions": json.dumps(current), "funding_total": 0.12},
+        ]
+    )
+
+    assert _funding_delta_errors(journal) == []
+
+
 def test_registered_venue_drill_orders_are_not_reported_as_missing_journal(tmp_path) -> None:
     from scripts.audit_live_track import _load_drill_order_ids, _unjournaled_order_ids
 
@@ -1710,3 +1903,58 @@ def test_position_risk_checks_accept_the_ls104_four_x_profile() -> None:
     ]
 
     assert _position_risk_issues(positions, expected_leverage=4.0) == []
+
+
+def test_emergency_close_ends_the_old_short_cycle_before_a_reopen() -> None:
+    journal = pd.DataFrame(
+        [
+            {
+                "date": "2026-11-13",
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": 6.0,
+                            "requested_stop_loss": 6.0,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        },
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "EMERGENCY_CLOSE",
+                            "side": "buy",
+                            "qty": 10.0,
+                        },
+                    ]
+                ),
+                "positions": "[]",
+            },
+            {
+                "date": "2026-11-14",
+                "trades": json.dumps(
+                    [
+                        {
+                            "symbol": "NEARUSDT",
+                            "position_side": "short",
+                            "action": "OPEN",
+                            "side": "sell",
+                            "qty": 10.0,
+                            "stop_loss": None,
+                            "stop_trigger_by": "mark",
+                            "stop_order_type": "market",
+                        }
+                    ]
+                ),
+                "positions": json.dumps(
+                    [{"symbol": "NEARUSDT", "side": "short"}]
+                ),
+            },
+        ]
+    )
+
+    assert protected_short_symbols(journal) == set()

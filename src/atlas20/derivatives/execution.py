@@ -309,6 +309,11 @@ def build_execution_plan(
         short_buffer=short_buffer,
     )
     exchange_margin_ratio = 1.0 / leverage
+    # Conservative portfolio margin ratio for a mixed book.  The live track
+    # currently uses the same 50% buffer on both sides, but keeping the maximum
+    # here means a future asymmetric book cannot exceed the margin cap through
+    # the maintenance-only gross guard.
+    portfolio_margin_ratio = max(long_margin_ratio, short_margin_ratio)
 
     def margin_ratio_for_side(side: str) -> float:
         return long_margin_ratio if side == "long" else short_margin_ratio
@@ -368,8 +373,6 @@ def build_execution_plan(
         )
 
     desired_signed = {asset: value * margin_scale for asset, value in desired_signed.items()}
-    desired_abs = {asset: abs(value) for asset, value in desired_signed.items()}
-
     positions = dict(account.positions)
     prices_all: dict[str, float] = {asset: float(price) for asset, price in prices.items()}
     for asset, position in positions.items():
@@ -392,11 +395,22 @@ def build_execution_plan(
             for asset, position in positions.items()
             if float(prices_all.get(asset, 0.0)) > 0.0
         )
-        if actual_gross > float(max_gross_exposure) + _EPS:
-            maintenance_scale = float(max_gross_exposure) / actual_gross
+        gross_cap_notional = float(max_gross_exposure)
+        # A gross cap of 1.75x and a portfolio margin cap of 0.90 are not
+        # independent when every leg carries a 51.5% isolated buffer:
+        # 0.90 / 0.515 = 1.74757x is the actual executable gross ceiling.
+        # Using only the gross multiple would leave a day's book between those
+        # two numbers untouched and then fail the independent live audit.
+        if account.equity > 0.0 and portfolio_margin_ratio > 0.0:
+            gross_cap_notional = min(
+                gross_cap_notional,
+                max_margin_utilization * account.equity / portfolio_margin_ratio,
+            )
+        if actual_gross > gross_cap_notional + _EPS:
+            maintenance_scale = gross_cap_notional / actual_gross
             warnings.append(
                 "actual gross risk reduced to the "
-                f"{float(max_gross_exposure):,.2f} USDT hard cap "
+                f"{gross_cap_notional:,.2f} USDT hard cap "
                 f"(scale {maintenance_scale:.4f}x)"
             )
             for asset, position in positions.items():
@@ -657,20 +671,26 @@ def build_execution_plan(
     margin_intents: list[MarginIntent] = []
     expected_gross = 0.0
     expected_margin = 0.0
-    for asset, target_signed in desired_signed.items():
+    # Use the simulated post-order sizes, not the pre-trade target weights.
+    # This matters on maintenance-only days: same-side drift is deliberately
+    # preserved, and a venue-minimum or gross-cap reduction may leave the
+    # actual leg at a different notional than the frozen event.  Computing
+    # margin from the frozen number would preview a top-up/removal that the
+    # executor cannot safely apply to the actual position.
+    effective_signed: dict[str, float] = {}
+    for asset, size in final_sizes.items():
+        side = final_sides.get(asset)
         price = float(prices_all.get(asset, 0.0))
-        if price <= 0.0:
+        if side not in {"long", "short"} or size <= _EPS or price <= 0.0:
             continue
-        final_size = final_sizes.get(asset, 0.0)
-        final_notional = final_size * price
-        if final_notional <= _EPS:
-            continue
-        target_side = "long" if target_signed > 0.0 else "short"
-        side_margin_ratio = margin_ratio_for_side(target_side)
+        signed_notional = float(size) * price * (1.0 if side == "long" else -1.0)
+        effective_signed[asset] = signed_notional
+        final_notional = abs(signed_notional)
+        side_margin_ratio = margin_ratio_for_side(side)
         target_margin = final_notional * side_margin_ratio
         position = positions.get(asset)
         position_side = _side(position) if position is not None else None
-        if position is None or position_side != target_side:
+        if position is None or position_side != side:
             projected_margin = final_notional * exchange_margin_ratio
         else:
             increase = max(0.0, final_notional - position.notional)
@@ -689,7 +709,7 @@ def build_execution_plan(
             MarginIntent(
                 asset=asset,
                 symbol=specs[asset].symbol if asset in specs else str(asset).upper(),
-                pos_side=target_side,
+                pos_side=side,
                 operation="add" if delta > 0.0 else "remove",
                 amount=abs(delta),
                 reason=(
@@ -706,10 +726,10 @@ def build_execution_plan(
         orders=orders,
         margin_intents=margin_intents,
         warnings=warnings,
-        target_notional={asset: float(value) for asset, value in desired_abs.items()},
+        target_notional={asset: abs(value) for asset, value in effective_signed.items()},
         expected_gross_notional=float(expected_gross),
         expected_margin=float(expected_margin),
-        signed_target_notional={asset: float(value) for asset, value in desired_signed.items()},
+        signed_target_notional=dict(effective_signed),
     )
 
 

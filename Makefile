@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104 audit-accounting-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -137,8 +137,7 @@ audit-data-ls104: $(VENV_STAMP)
 		--targets-file $(LS104_TARGETS) \
 		--json-out reports/ls45_live_g175/data_audit.json \
 		--markdown-out reports/ls45_live_g175/data_audit.md \
-		--required-leverage 4.0 \
-		--require-all-funding-fresh
+		--required-leverage 4.0
 	$(MAKE) audit-market-cap-gaps
 
 
@@ -162,6 +161,16 @@ audit-signal-ls104: $(VENV_STAMP)
 		--manifest-file $(LS104_MANIFEST) \
 		--json-out $(LS104_SIGNAL_EQUIVALENCE) \
 		--track ls104-g175-m090
+
+
+audit-accounting-ls104: $(VENV_STAMP)
+	$(PYTHON) scripts/audit_derivatives_accounting.py \
+		--output-dir reports/ls45_live_g175 \
+		--raw-dir $(DERIVATIVES_LIVE_RAW_DIR) \
+		--initial-capital 500 \
+		--cost-bps 20 \
+		--max-gross 1.75 \
+		--json-out reports/ls45_live_g175/accounting_audit.json
 
 
 audit-live-ls104: $(VENV_STAMP)
@@ -309,7 +318,7 @@ audit-symbols: $(VENV_STAMP)
 # Bitget marks and funding. The daily wrapper runs this after the signal book
 # is rebuilt and before the executor can place an order.
 audit-data: $(VENV_STAMP)
-	$(PYTHON) scripts/audit_derivatives_data.py --require-all-funding-fresh
+	$(PYTHON) scripts/audit_derivatives_data.py
 
 # Full provider-to-panel audit for the daily live chain.  The derivatives
 # audit above checks the execution inputs; this target additionally proves the

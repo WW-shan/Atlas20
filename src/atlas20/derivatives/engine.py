@@ -128,6 +128,8 @@ class DerivativeBacktestConfig:
                 raise ValueError(
                     "hard_gross_exposure must be finite and at least max_gross_exposure"
                 )
+        if not np.isfinite(float(self.max_gross_exposure)) or self.max_gross_exposure < 0.0:
+            raise ValueError("max_gross_exposure must be finite and non-negative")
         if not 0.0 < self.max_margin_utilization <= 1.0:
             raise ValueError("max_margin_utilization must be in (0, 1]")
         if not 0.0 <= self.rebalance_no_trade_band < 1.0:
@@ -568,7 +570,11 @@ def run_derivative_backtest(
     cash_values: list[float] = []
     gross_values: list[float] = []
     fee_rate = (cfg.taker_fee_bps + cfg.slippage_bps) / 10_000.0
-    liquidation_fee_rate = (cfg.taker_fee_bps + cfg.liquidation_slippage_bps) / 10_000.0
+    # ``liquidation_slippage_bps`` is applied to the execution price below.
+    # Charging it again in the fee rate would double-count the same adverse
+    # fill cost.  The commission is the taker fee only; the price move carries
+    # the liquidation slippage.
+    liquidation_fee_rate = cfg.taker_fee_bps / 10_000.0
 
     def _last_mark(asset: str, timestamp: pd.Timestamp) -> tuple[pd.Timestamp, float] | None:
         frame = candles.get(asset)
@@ -770,6 +776,12 @@ def run_derivative_backtest(
         return float(quantized)
 
     def check_funding_coverage(asset: str, timestamp: pd.Timestamp) -> None:
+        # A declared schedule is what makes a missing settlement observable.  A
+        # union funding panel can legitimately contain NaN for an asset on a
+        # timestamp where that asset does not settle (for example an 8h asset
+        # in a panel that also contains 4h assets), so only gaps longer than the
+        # declared interval are failures.  ``skip`` is an explicitly labelled
+        # research-only policy; live callers must not use it.
         if cfg.funding_missing_policy != "error" or not funding_intervals:
             return
         interval = funding_intervals.get(asset)
@@ -811,7 +823,9 @@ def run_derivative_backtest(
 
         interval = funding_intervals.get(asset)
         if interval is None:
-            raise ValueError(f"missing funding interval for held asset {asset}")
+            # With no declared schedule the legacy row-presence rule applies:
+            # a missing rate at a funding-panel timestamp is treated as due.
+            return True
         times = funding_times.get(asset)
         if times is None or times.empty:
             return True
@@ -976,6 +990,8 @@ def run_derivative_backtest(
             timestamp,
             execution_price,
             reason="stop_loss",
+            # The stop price already includes liquidation/stop slippage.
+            fee_rate_override=liquidation_fee_rate,
         )
         stop_events.append(
             {
@@ -1031,6 +1047,8 @@ def run_derivative_backtest(
             timestamp,
             execution_price,
             reason="stop_loss",
+            # The stop price already includes liquidation/stop slippage.
+            fee_rate_override=liquidation_fee_rate,
         )
         stop_events.append(
             {
@@ -1521,6 +1539,12 @@ def run_derivative_backtest(
                     if not pd.isna(raw_rate):
                         rate = float(raw_rate)
                 if rate is None:
+                    # The panel index is the union of every asset's settlements.
+                    # A NaN on another asset's settlement hour is not a missing
+                    # settlement for this asset; requiring a rate there would
+                    # make a valid 8h asset fail whenever a 4h asset settles.
+                    if not settlement_due(asset, timestamp):
+                        continue
                     if cfg.funding_missing_policy == "error":
                         if asset not in funding.columns:
                             raise ValueError(
@@ -1528,8 +1552,6 @@ def run_derivative_backtest(
                             )
                         raise ValueError(f"missing funding for held asset {asset} at {timestamp}")
                     if cfg.funding_missing_policy == "skip":
-                        continue
-                    if not settlement_due(asset, timestamp):
                         continue
                     if cfg.funding_missing_policy == "carry_last":
                         rate = carried_rate(asset, timestamp)
@@ -1602,7 +1624,17 @@ def run_derivative_backtest(
     cash_curve = pd.Series(cash_values, index=index, name="cash")
     gross_exposure = pd.Series(gross_values, index=index, name="gross_exposure")
     daily_equity = equity_curve.resample("1D").last().dropna()
-    daily_returns = daily_equity.pct_change().fillna(0.0)
+    # The first daily point is not a free baseline: the engine can open at the
+    # first execution hour and mark the book to the same day's close.  Treating
+    # that first row as a zero return drops real PnL (the live OOS run's first
+    # day moved 500 -> 515.35 before this fix).  Measure the first completed
+    # daily point against the engine's initial capital instead.
+    daily_returns = daily_equity.pct_change()
+    if not daily_equity.empty:
+        daily_returns.iloc[0] = float(daily_equity.iloc[0]) / float(
+            cfg.initial_capital
+        ) - 1.0
+    daily_returns = daily_returns.fillna(0.0)
     drawdown = equity_curve / equity_curve.cummax() - 1.0
     return DerivativeBacktestResult(
         equity_curve=equity_curve,

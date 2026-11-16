@@ -236,7 +236,9 @@ def main() -> None:
         {time: target for time, target in scaled.items() if time >= start},
         capital=float(args.capital),
     )
-    metrics = _metrics_from_returns(oos_returns)
+    metrics = _metrics_from_returns(
+        oos_returns, periods=max(len(oos_returns), 1)
+    )
 
     output_dir = ensure_dir(args.output_dir)
     daily.to_csv(output_dir / "oos_daily.csv", index=False)

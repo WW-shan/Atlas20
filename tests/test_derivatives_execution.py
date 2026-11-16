@@ -141,6 +141,35 @@ def test_non_event_maintenance_preserves_same_side_drift() -> None:
     assert plan.expected_gross_notional == pytest.approx(50.0)
 
 
+def test_non_event_maintenance_margin_uses_actual_position_not_frozen_target() -> None:
+    """A held leg unchanged by maintenance must not preview a margin top-up."""
+
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=10.0,
+        entry_price=5.0,
+        mark_price=5.0,
+        margin=25.75,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=500.0, available_margin=0.0, positions={"near": position}),
+        # The stale event asks for 62.50 USDT, but maintenance preserves the
+        # actual 50 USDT leg and its existing 25.75 USDT margin.
+        {"near": -0.125},
+        {"near": _spec()},
+        {"near": 5.0},
+        rebalance_to_target=False,
+    )
+
+    assert plan.orders == []
+    assert plan.margin_intents == []
+    assert plan.target_notional == {"near": pytest.approx(50.0)}
+    assert plan.signed_target_notional == {"near": pytest.approx(-50.0)}
+    assert plan.expected_margin == pytest.approx(25.75)
+
+
 def test_frozen_target_quantities_override_current_equity_weight_sizing() -> None:
     """A partial event retry must finish the event, not resize to today's equity."""
 
@@ -663,3 +692,36 @@ def test_margin_utilization_cap_must_be_a_fraction() -> None:
             {"near": 2.0},
             max_margin_utilization=1.01,
         )
+
+
+def test_maintenance_gross_cap_also_obeys_the_portfolio_margin_cap() -> None:
+    """A 1.749x book must be reduced even though it is below the 1.75x label.
+
+    0.90 * 100 / 0.515 = 174.76 USDT of gross is the executable margin ceiling;
+    a 174.9 USDT leg is above it.  The maintenance planner must not leave the
+    book untouched just because the raw gross multiple is still below 1.75.
+    """
+
+    position = PositionState(
+        asset="near",
+        symbol="NEARUSDT",
+        side="short",
+        size=87.45,
+        entry_price=2.0,
+        mark_price=2.0,
+        margin=45.0,
+    )
+    plan = build_execution_plan(
+        AccountState(equity=100.0, available_margin=0.0, positions={"near": position}),
+        {"near": -0.5},
+        {"near": _spec()},
+        {"near": 2.0},
+        max_gross_exposure=175.0,
+        max_margin_utilization=0.90,
+        rebalance_to_target=False,
+    )
+
+    assert len(plan.orders) == 1
+    assert plan.orders[0].action == "REDUCE"
+    assert plan.expected_gross_notional <= 100.0 * 0.90 / 0.515 + 1e-9
+    assert any("hard cap" in warning for warning in plan.warnings)

@@ -1,0 +1,273 @@
+{
+  "checks": [
+    {
+      "detail": "55 row(s)",
+      "hard": true,
+      "name": "daily path has rows",
+      "passed": true
+    },
+    {
+      "detail": "72 row(s)",
+      "hard": true,
+      "name": "target ledger has rows",
+      "passed": true
+    },
+    {
+      "detail": "2026-09-22 00:00:00+00:00 .. 2026-11-15 00:00:00+00:00",
+      "hard": true,
+      "name": "daily dates are strictly increasing",
+      "passed": true
+    },
+    {
+      "detail": "all rows use the single frozen execution clock",
+      "hard": true,
+      "name": "target execution hints are T+1 at 01:05 UTC",
+      "passed": true
+    },
+    {
+      "detail": "max event gross 0.776785x",
+      "hard": true,
+      "name": "every target event gross <= 1.7500x",
+      "passed": true
+    },
+    {
+      "detail": "32 event(s), 72 row(s)",
+      "hard": true,
+      "name": "target event weights are finite and unique per asset",
+      "passed": true
+    },
+    {
+      "detail": "0 invalid",
+      "hard": true,
+      "name": "trade timestamps are valid",
+      "passed": true
+    },
+    {
+      "detail": "0 invalid",
+      "hard": true,
+      "name": "funding timestamps are valid",
+      "passed": true
+    },
+    {
+      "detail": "0 invalid",
+      "hard": true,
+      "name": "margin timestamps are valid",
+      "passed": true
+    },
+    {
+      "detail": "0 invalid",
+      "hard": true,
+      "name": "position timestamps are valid",
+      "passed": true
+    },
+    {
+      "detail": "all normal trades",
+      "hard": true,
+      "name": "normal trade notional = quantity x price",
+      "passed": true
+    },
+    {
+      "detail": "61 normal trade(s)",
+      "hard": true,
+      "name": "normal trade fee = notional x 20bps",
+      "passed": true
+    },
+    {
+      "detail": "61 trade(s)",
+      "hard": true,
+      "name": "all trade quantities/prices are positive",
+      "passed": true
+    },
+    {
+      "detail": "event-ledger order",
+      "hard": true,
+      "name": "trade timestamp order is non-decreasing",
+      "passed": true
+    },
+    {
+      "detail": "309 settlement(s)",
+      "hard": true,
+      "name": "funding amount = -side x rate x notional",
+      "passed": true
+    },
+    {
+      "detail": "max |rate| 0.002872",
+      "hard": true,
+      "name": "funding rates are finite and not zero-filled",
+      "passed": true
+    },
+    {
+      "detail": "59 event(s)",
+      "hard": true,
+      "name": "margin event equity is unchanged",
+      "passed": true
+    },
+    {
+      "detail": "all normalizations",
+      "hard": true,
+      "name": "margin event cash delta equals amount",
+      "passed": true
+    },
+    {
+      "detail": "all normalizations",
+      "hard": true,
+      "name": "margin event margin delta equals amount",
+      "passed": true
+    },
+    {
+      "detail": "add, remove",
+      "hard": true,
+      "name": "margin event direction is valid",
+      "passed": true
+    },
+    {
+      "detail": "29 snapshot(s)",
+      "hard": true,
+      "name": "every position snapshot maps to an open/increase fill",
+      "passed": true
+    },
+    {
+      "detail": "29 snapshot(s)",
+      "hard": true,
+      "name": "position snapshots match the replayed trade ledger",
+      "passed": true
+    },
+    {
+      "detail": "29 snapshot(s)",
+      "hard": true,
+      "name": "position notional = snapshot quantity x fill price",
+      "passed": true
+    },
+    {
+      "detail": "12 OPEN snapshot(s)",
+      "hard": true,
+      "name": "OPEN position entry margin = notional x margin_ratio",
+      "passed": true
+    },
+    {
+      "detail": "all entries",
+      "hard": true,
+      "name": "position quantities and entry prices are positive",
+      "passed": true
+    },
+    {
+      "detail": "replay=494.26630979, reported=494.26630979",
+      "hard": true,
+      "name": "independent event replay reconstructs final equity",
+      "passed": true
+    },
+    {
+      "detail": "55 day(s); worst 2026-09-22 23:00:00+00:00: replay=515.34529633, reported=515.34529633",
+      "hard": true,
+      "name": "independent daily replay reproduces every reported equity point",
+      "passed": true
+    },
+    {
+      "detail": "55 observations",
+      "hard": true,
+      "name": "daily returns reproduce the reported equity path",
+      "passed": true
+    },
+    {
+      "detail": "final nav 0.9885326196",
+      "hard": true,
+      "name": "reported nav_multiple is the compounded daily return",
+      "passed": true
+    },
+    {
+      "detail": "summary=0.988532619585, replay=0.988532619585",
+      "hard": true,
+      "name": "summary multiple = independent daily-return calculation",
+      "passed": true
+    },
+    {
+      "detail": "summary=-0.0736854496047, replay=-0.0736854496047",
+      "hard": true,
+      "name": "summary cagr = independent daily-return calculation",
+      "passed": true
+    },
+    {
+      "detail": "summary=0.14020311889, replay=0.14020311889",
+      "hard": true,
+      "name": "summary sharpe = independent daily-return calculation",
+      "passed": true
+    },
+    {
+      "detail": "summary=-0.193048553544, replay=-0.193048553544",
+      "hard": true,
+      "name": "summary max_drawdown = independent daily-return calculation",
+      "passed": true
+    },
+    {
+      "detail": "6.7189985400",
+      "hard": true,
+      "name": "summary fees_total = trade ledger fee sum",
+      "passed": true
+    },
+    {
+      "detail": "-2.0667605013",
+      "hard": true,
+      "name": "summary funding_total = funding ledger amount sum",
+      "passed": true
+    },
+    {
+      "detail": "0.8162841782",
+      "hard": true,
+      "name": "summary max_observed_gross = gross path max",
+      "passed": true
+    },
+    {
+      "detail": "summary=0.7767847323, ledger=0.7767847323",
+      "hard": true,
+      "name": "summary max_target_total_gross = max target-event gross",
+      "passed": true
+    },
+    {
+      "detail": "summary=0.5000000000, ledger=0.5000000000",
+      "hard": true,
+      "name": "summary max_funded_short_gross = max short-event gross",
+      "passed": true
+    },
+    {
+      "detail": "days=55, metric_days=55, rows=55",
+      "hard": true,
+      "name": "summary days/metric_days match the daily path",
+      "passed": true
+    },
+    {
+      "detail": "0 trade(s)",
+      "hard": true,
+      "name": "summary liquidation_count = liquidation trades",
+      "passed": true
+    },
+    {
+      "detail": "0 trade(s)",
+      "hard": true,
+      "name": "summary stop_event_count = stop_loss trades",
+      "passed": true
+    },
+    {
+      "detail": "55 day(s)",
+      "hard": true,
+      "name": "daily gross exposure is the last hourly gross of each day",
+      "passed": true
+    },
+    {
+      "detail": "1322 hour(s); worst 2026-09-22 00:00:00+00:00: replay=0.0000000000, reported=0.0000000000",
+      "hard": true,
+      "name": "independent hourly gross replay reproduces every gross observation",
+      "passed": true
+    },
+    {
+      "detail": "1322 hour(s)",
+      "hard": true,
+      "name": "all hourly gross observations <= 1.7500x",
+      "passed": true
+    }
+  ],
+  "hard_failures": [],
+  "output_dir": "reports/ls45_live_g175",
+  "passed": true,
+  "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
+  "reconstructed_equity": 494.26630979266
+}

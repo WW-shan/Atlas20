@@ -48,6 +48,20 @@ DEFAULT_CAPITAL_FLOWS_FILE = Path("reports/derivatives_track_live/capital_flows.
 _FILLED_STATUS = "filled"
 
 
+def is_close_action(action: object) -> bool:
+    """Whether a journal fill action ends a position cycle.
+
+    The executor records ordinary closes as ``CLOSE``, venue/manual closes as
+    ``EXTERNAL_CLOSE`` and emergency risk exits as ``EMERGENCY_CLOSE``.  All
+    three reduce the short quantity to zero and must reset the protected-stop
+    state machine; treating only the first two as closes would let an old
+    stop mask a later unprotected reopen.
+    """
+
+    text = str(action or "").strip().upper()
+    return text == "CLOSE" or text.endswith("_CLOSE")
+
+
 @dataclass(frozen=True)
 class JournalEntry:
     date: str
@@ -189,8 +203,8 @@ def _current_short_protected_stops(frame: pd.DataFrame) -> dict[str, float]:
         explicit = str(trade.get("position_side") or "").lower()
         side = str(trade.get("side") or "").lower()
         action = str(trade.get("action") or "").upper()
-        if action.startswith("EXTERNAL_"):
-            action = action.removeprefix("EXTERNAL_")
+        if is_close_action(action) and action != "CLOSE":
+            action = "CLOSE"
         if explicit in {"long", "short"}:
             return explicit, action
         if side == "sell" and action in {"OPEN", "INCREASE"}:
