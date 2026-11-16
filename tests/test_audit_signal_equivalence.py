@@ -6,6 +6,7 @@ import pytest
 from scripts.audit_signal_equivalence import (
     _compare_target_ledgers,
     _latest_action_execution_issues,
+    _manifest_readiness_pin,
     _manifest_execution_model_issues,
 )
 
@@ -203,3 +204,32 @@ def test_latest_action_execution_rejects_a_later_trade() -> None:
 
     assert issues
     assert "no replay trade" in issues[0]
+
+
+def test_signal_replay_uses_the_archived_ready_universe_from_the_manifest(
+    tmp_path,
+) -> None:
+    ready = tmp_path / "reports" / "top50_data_readiness" / "ready" / "2026-11-13.json"
+    ready.parent.mkdir(parents=True)
+    ready.write_text("{}", encoding="utf-8")
+    manifest = {
+        "executable_universe": {
+            "source": "reports/top50_data_readiness/latest_ready.json",
+            "fingerprint": "sha256:" + "a" * 64,
+            "as_of": "2026-11-13",
+        }
+    }
+
+    path, fingerprint = _manifest_readiness_pin(
+        manifest,
+        end_date="2026-11-13",
+        project_root=tmp_path,
+    )
+
+    assert path == ready
+    assert fingerprint == "sha256:" + "a" * 64
+
+
+def test_ls104_signal_replay_requires_a_pinned_ready_universe() -> None:
+    with pytest.raises(ValueError, match="executable_universe"):
+        _manifest_readiness_pin({}, end_date="2026-11-13", project_root=".")

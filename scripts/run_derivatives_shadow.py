@@ -48,6 +48,12 @@ from atlas20.derivatives.signals import (  # noqa: E402
     combine_long_with_cash_budgeted_short,
     scale_long_targets,
 )
+from atlas20.derivatives.top50_readiness import (  # noqa: E402
+    ReadyTop20,
+    bind_executable_top20,
+    load_ready_top20,
+)
+from atlas20.config import load_config  # noqa: E402
 from atlas20.logging_utils import configure_logging, ensure_dir  # noqa: E402
 from atlas20.reporting.report import dataframe_to_markdown  # noqa: E402
 
@@ -760,6 +766,39 @@ def _track_spec_for(tracked_spec: str) -> str | None:
     return None
 
 
+def _executable_universe_evidence(ready: ReadyTop20) -> dict[str, object]:
+    """Serialize the exact READY membership consumed by the signal."""
+
+    return {
+        "source": str(ready.source_path),
+        "source_sha256": ready.source_sha256,
+        "fingerprint": ready.fingerprint,
+        "source_fingerprint": ready.source_fingerprint,
+        "as_of": ready.as_of.isoformat(),
+        "members": [
+            {
+                "final_rank": member.final_rank,
+                "original_rank": member.original_rank,
+                "coin_id": member.coin_id,
+                "symbol": member.symbol,
+                "bitget_symbol": member.bitget_symbol,
+                "panel_symbol": member.panel_symbol,
+            }
+            for member in ready.members
+        ],
+        "skipped": [
+            {
+                "original_rank": item.original_rank,
+                "coin_id": item.coin_id,
+                "symbol": item.symbol,
+                "reason": item.reason,
+            }
+            for item in ready.skipped
+        ],
+        "input_files": dict(ready.input_files),
+    }
+
+
 def _resolve_max_total_gross(value: float | None) -> float:
     if value is None:
         return float(FROZEN_CONFIG["max_total_gross"])
@@ -885,6 +924,22 @@ def main() -> None:
     )
     parser.add_argument("--config", default="config/base.yaml")
     parser.add_argument("--panel", type=Path, default=Path("data/processed/panel_daily.csv"))
+    parser.add_argument(
+        "--top50-readiness",
+        type=Path,
+        default=None,
+        help="READY Top50 payload whose first twenty executable members drive the signal date",
+    )
+    parser.add_argument(
+        "--expected-top50-fingerprint",
+        default=None,
+        help="pin the exact readiness payload fingerprint recorded by a prior manifest",
+    )
+    parser.add_argument(
+        "--require-top50-current-inputs",
+        action="store_true",
+        help="require panel/metadata/symbol_map to match the ready payload byte-for-byte",
+    )
     parser.add_argument("--trial-id", choices=TRIAL_CHOICES, default=SHADOW_SPEC)
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_RAW_DIR)
     parser.add_argument(
@@ -1057,6 +1112,13 @@ def main() -> None:
     tracked_spec = str(args.tracked_spec or args.trial_id).strip()
     if not tracked_spec:
         parser.error("tracked_spec must not be empty")
+    if tracked_spec == LS104_G175_M090_SPEC and args.top50_readiness is None:
+        parser.error(
+            "the LS104 live signal requires --top50-readiness; an executable "
+            "Top20 must be bound instead of rebuilding a CMC-only membership"
+        )
+    if args.expected_top50_fingerprint is not None and args.top50_readiness is None:
+        parser.error("--expected-top50-fingerprint requires --top50-readiness")
     # The signal builders read this module-level frozen config.  The script is
     # intentionally single-run, so applying the explicit short scale here
     # keeps LS45's default byte-for-byte behavior while allowing LS104 to
@@ -1151,11 +1213,40 @@ def main() -> None:
             "deliberately labelled diagnostic"
         )
 
+    ready_top20: ReadyTop20 | None = None
+    executable_universe_evidence: dict[str, object] | None = None
+    universe_size = 20
+    if args.top50_readiness is not None:
+        config_for_inputs = load_config(args.config)
+        processed_dir = config_for_inputs.resolve_path(
+            config_for_inputs.paths.processed_dir
+        )
+        try:
+            ready_top20 = load_ready_top20(
+                args.top50_readiness,
+                expected_as_of=end_date.date(),
+                expected_fingerprint=args.expected_top50_fingerprint,
+                panel_path=processed_dir / "panel_daily.csv",
+                metadata_path=processed_dir / "metadata.csv",
+                symbol_map_path=args.raw_dir / "symbol_map.csv",
+                require_current_inputs=bool(args.require_top50_current_inputs),
+            )
+        except ValueError as exc:
+            raise SystemExit(f"ready Top20 binding failed: {exc}") from exc
+        universe_size = 60
+        executable_universe_evidence = _executable_universe_evidence(ready_top20)
+
     _, market, universe, index = _load_market(
         args.config,
         start_date=str(warmup_start.date()),
         end_date=str(end_date.date()),
+        universe_size=universe_size,
     )
+    if ready_top20 is not None:
+        try:
+            universe = bind_executable_top20(universe, ready_top20)
+        except ValueError as exc:
+            raise SystemExit(f"ready Top20 binding failed: {exc}") from exc
     if index.empty:
         raise SystemExit("the processed market panel has no rows in the requested window")
     _, _, built, _ = _resolve_build(market, universe, index, None)
@@ -1564,12 +1655,23 @@ def main() -> None:
                 "market_fill_fingerprint": market_fill_provenance.get("fingerprint"),
                 "fill_downgrade_count": int(len(result.fill_downgrades)),
                 "live_parity": bool(live_parity),
+                "executable_universe_fingerprint": (
+                    ready_top20.fingerprint if ready_top20 is not None else None
+                ),
+                "executable_universe_as_of": (
+                    ready_top20.as_of.isoformat() if ready_top20 is not None else None
+                ),
             }
         ]
     ).to_csv(output_dir / "signal_receipt.csv", index=False)
     summary = {
         "tracked_spec": tracked_spec,
         "signal_trial_id": args.trial_id,
+        **(
+            {"executable_universe": executable_universe_evidence}
+            if executable_universe_evidence is not None
+            else {}
+        ),
         "research_only": True,
         "live_execution": False,
         "start": str(start),
@@ -1715,6 +1817,11 @@ def main() -> None:
             {
                 "tracked_spec": tracked_spec,
                 "signal_trial_id": args.trial_id,
+                **(
+                    {"executable_universe": executable_universe_evidence}
+                    if executable_universe_evidence is not None
+                    else {}
+                ),
                 "spec": _shadow_spec(args.trial_id),
                 **(
                     {"track_spec": _track_spec_for(tracked_spec)}

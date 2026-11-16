@@ -50,6 +50,41 @@ _REQUIRED_COLUMNS = {
 }
 
 
+def _manifest_readiness_pin(
+    manifest: Mapping[str, object],
+    *,
+    end_date: str,
+    project_root: Path | str,
+) -> tuple[Path, str]:
+    """Return the archived READY payload committed to by the signal manifest."""
+
+    executable = manifest.get("executable_universe")
+    if not isinstance(executable, dict):
+        raise ValueError("manifest has no executable_universe readiness pin")
+    fingerprint = str(executable.get("fingerprint") or "")
+    if not fingerprint.startswith("sha256:"):
+        raise ValueError("manifest executable_universe has no fingerprint")
+    if str(executable.get("as_of") or "") != str(end_date):
+        raise ValueError("manifest executable_universe as_of does not match end_date")
+
+    root = Path(project_root)
+    archived = (
+        root
+        / "reports"
+        / "top50_data_readiness"
+        / "ready"
+        / f"{end_date}.json"
+    )
+    if archived.is_file():
+        return archived, fingerprint
+    source = Path(str(executable.get("source") or ""))
+    if not source.is_file():
+        source = root / source if not source.is_absolute() else source
+    if not source.is_file():
+        raise ValueError(f"pinned READY payload is missing: {source}")
+    return source, fingerprint
+
+
 def _normalize_ledger(frame: pd.DataFrame) -> pd.DataFrame:
     missing = sorted(_REQUIRED_COLUMNS.difference(frame.columns))
     if missing:
@@ -267,6 +302,8 @@ def _rebuild_replay(
     end_date: str,
     *,
     track: str = "ls45-g125",
+    top50_readiness: Path | None = None,
+    top50_fingerprint: str | None = None,
 ) -> dict[str, pd.DataFrame]:
     with tempfile.TemporaryDirectory(prefix="atlas20-ls45-audit-") as tmp:
         output_dir = Path(tmp) / "ledger"
@@ -275,6 +312,9 @@ def _rebuild_replay(
             output_dir=str(output_dir),
             track=track,
             allow_final_provisional_fill=(track == "ls104-g175-m090"),
+            top50_readiness=str(top50_readiness) if top50_readiness is not None else None,
+            top50_fingerprint=top50_fingerprint,
+            require_top50_current_inputs=False,
         )
         subprocess.run(command, cwd=PROJECT_ROOT, check=True)
         path = output_dir / "oos_targets.csv"
@@ -360,13 +400,30 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("manifest is missing end_date")
     end_date = str(pd.Timestamp(end_date).date())
 
+    readiness_path: Path | None = None
+    readiness_fingerprint: str | None = None
+    if args.track == "ls104-g175-m090":
+        try:
+            readiness_path, readiness_fingerprint = _manifest_readiness_pin(
+                manifest,
+                end_date=end_date,
+                project_root=PROJECT_ROOT,
+            )
+        except ValueError as exc:
+            raise SystemExit(f"manifest readiness pin is invalid: {exc}") from exc
+
     frozen = pd.read_csv(args.targets_file)
     execution_issues: list[str] | None = None
     if args.replay_targets_file is not None:
         replay = pd.read_csv(args.replay_targets_file)
     else:
         try:
-            replay_bundle = _rebuild_replay(end_date, track=args.track)
+            replay_bundle = _rebuild_replay(
+                end_date,
+                track=args.track,
+                top50_readiness=readiness_path,
+                top50_fingerprint=readiness_fingerprint,
+            )
         except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as exc:
             raise SystemExit(f"frozen signal replay failed: {exc}") from exc
         replay = replay_bundle["targets"]

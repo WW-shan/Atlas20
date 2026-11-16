@@ -3,8 +3,8 @@
 | 项目 | 内容 |
 |---|---|
 | 日期 | 2026-11-17 |
-| 状态 | Owner directed；已实现；真实 2026-11-15 数据与逐节点审计通过；未晋级 live |
-| 适用轨道 | LS104 live data readiness；executable-universe 变体作为独立 track 验证 |
+| 状态 | Owner directed；已实现并接入 LS104 live signal 构建；真实数据与逐节点审计通过 |
+| 适用轨道 | LS104 live data readiness、executable Top20 signal membership 与可复现审计 |
 | 运行频率 | 每日一次，在 CMC 日线完成后、Top20 信号构建前 |
 | 数据源 | CMC 日线；现有 Bitget mark/market/funding 目录 |
 | 关键规则 | Top50 成员必须有完整数据；无 Bitget 合约跳过并递补下一名；数据不完整阻断并告警 |
@@ -71,6 +71,20 @@ CMC panel complete
 - Top20 成员必须已经在 ready snapshot 中；若某成员在信号构建前掉出 ready snapshot，直接阻断该日新信号。
 - 进入 Top20 的新币立刻使用已缓存的完整数据构建信号。
 - 不改变 LS104 的 H5、LS23、利润保护、空头权重、stop、gross、margin 或执行时钟。
+
+### 2.3 Signal 强绑定
+
+LS104 signal 不再从 CMC panel 独立重算后“碰巧”与 readiness 一致，而是显式消费 READY payload：
+
+- signal 的 `end_date` 必须等于 readiness `as_of`；
+- 校验 payload 自身 fingerprint，并在 live 构建中校验当前 `panel_daily.csv`、`metadata.csv` 与
+  `symbol_map.csv` 和 readiness 记录的文件哈希逐字节一致；
+- 历史日期保留普通 PIT CMC Top20，signal 当日替换为 READY 可执行 Top20；
+- 无合约导致的递补成员必须已经存在于原候选行情池，signal 不得为绑定而临时创造或拼接历史；
+- manifest 写入 readiness fingerprint、source hash、完整 Top20 membership 与 skip 轨迹；
+- signal 等价性审计使用 manifest 指向的 `ready/YYYY-MM-DD.json`，不能读取次日的新 pointer。
+
+该绑定改变的是 universe membership，不改变 H5/LS23 的信号数学、风险参数或执行时钟。
 
 ## 3. “完整数据”的判定
 
@@ -140,9 +154,12 @@ CMC panel complete
 ## 5. Track 隔离
 
 - 当前 LS104 live state、journal、manifest、target 和 Telegram state 不被本功能改写。
-- “无合约跳过并递补”会改变 universe 规则，因此 executable-universe 结果作为新 track/spec 验证，不静默覆盖当前 LS104。
-- 数据 readiness snapshot 是只读证据；只有新 track 明确通过审计并由 owner 批准后，才可接入 live executor。
-- 当前 LS104 只允许读取 readiness 状态和发出阻断告警，不因新数据构建而改变既有仓位。
+- Owner 已明确要求 executable Top20 进入当前策略信号；LS104 signal 构建读取当日 READY payload，
+  但 readiness 任务本身仍不计划、不撤单、不开仓。
+- 当前 LS104 的风险 profile 和 track ID 保持冻结；变更仅限 signal universe 的可执行成员绑定。
+- 任何 READY 缺失、指纹不一致、日期不一致或成员不在候选行情池都必须 fail closed，禁止退回
+  未审计的 CMC-only Top20。
+- signal manifest 与 `prepared.json` 共同锁定 readiness 证据；执行器只能消费完成全链审计的产物。
 
 ## 6. 调度与失败处理
 
@@ -188,9 +205,10 @@ CMC panel complete
 7. contract snapshot、4x、long/short/flip、quote；
 8. Top50 ready fingerprint；
 9. Top20 handoff 和 signal dry-run；
-10. Telegram 幂等；
-11. 失败路径、锁、重试和 protect-only；
-12. 当前 live track 未变更。
+10. signal 当日 universe 与 READY Top20 完全一致，历史 replay 固定同一 readiness payload；
+11. Telegram 幂等；
+12. 失败路径、锁、重试和 protect-only；
+13. 风险参数、执行时钟与 state/journal 未被 readiness 任务改写。
 
 ### 8.3 命令验收
 
@@ -204,8 +222,8 @@ CMC panel complete
 
 ## 9. 非目标
 
-- 不改变 H5、LS23 或其他信号数学；
+- 不改变 H5、LS23 或其他信号数学与风险参数；
 - 不新增数据源来伪造 Bitget 早期 funding；
 - 不重写历史 point-in-time 排名；
 - 不把 Top50 全部变成持仓；
-- 不在本功能中自动提升新 track 到 live；live promotion 仍需独立 owner approval。
+- 不因为 readiness 构建而自动下单；下单仍由现有 executor 和全部执行闸门控制。

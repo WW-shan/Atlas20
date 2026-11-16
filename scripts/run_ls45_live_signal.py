@@ -25,6 +25,7 @@ LS104_OUTPUT_DIR = "reports/ls45_live_g175"
 DEFAULT_RAW_DIR = "data/raw/bitget_derivatives/merged_oos_20261112"
 DEFAULT_WARMUP_DIR = "data/raw/bitget_derivatives/merged_20261009"
 DEFAULT_WARMUP_MARKET_DIR = "data/raw/bitget_derivatives/merged_market_20261009"
+DEFAULT_TOP50_READINESS = "reports/top50_data_readiness/latest_ready.json"
 DEFAULT_START = "2026-09-22"
 DEFAULT_WARMUP_START = "2021-01-01"
 
@@ -45,6 +46,9 @@ def build_command(
     output_dir: str | None = None,
     track: str = "ls45-g125",
     allow_final_provisional_fill: bool = False,
+    top50_readiness: str | None = None,
+    top50_fingerprint: str | None = None,
+    require_top50_current_inputs: bool = True,
 ) -> list[str]:
     """Return the exact shadow-runner command for the selected live profile."""
 
@@ -121,6 +125,17 @@ def build_command(
         command.append("--allow-final-provisional-fill")
     if normalized_end is not None:
         command.extend(["--end-date", normalized_end])
+    readiness_path = top50_readiness
+    if is_ls104 and readiness_path is None:
+        readiness_path = DEFAULT_TOP50_READINESS
+    if readiness_path is not None:
+        command.extend(["--top50-readiness", readiness_path])
+    if top50_fingerprint is not None:
+        if readiness_path is None:
+            raise ValueError("top50_fingerprint requires top50_readiness")
+        command.extend(["--expected-top50-fingerprint", top50_fingerprint])
+    if is_ls104 and require_top50_current_inputs:
+        command.append("--require-top50-current-inputs")
     return command
 
 

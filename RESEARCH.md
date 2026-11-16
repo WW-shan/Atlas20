@@ -6,14 +6,14 @@
 > | | |
 > |---|---|
 > | 最后更新 | 2026-11-17（当前 live track = **LS104-G175-M090**；现货：§00.13 采用 **H5**；§00.15–00.17 三族外部状态筛查全部被拒；§00.18 当前信号 = 100% NEAR / 目标 gross 0.621，全样本 22.68x @20bps（至 10-07），样本外更新至 2026-11-11（51 天）：H5 +3h 较差口径 **0.9524x**、L125-V2 衍生品 **0.9787x**、BTC **0.8512x**；51 天 cash-start shadow：zero 口径 LS23 **0.9403x** vs L125 **0.9484x**，Bitget exact **0.9365x** vs **0.9440x**，仍 provisional；§00.19 资金费率 overlay（H6）**被拒**；**§00.20 H5 原候选在 N=6,142 下 DSR 结构性不可达；后续 §00.63 的 LS23 以同一 Top20/2022 台账刷新为 0.971481，已过该门槛**；样本内结论仍以 2026-09-25 审计为准。衍生品（§9.8/§9.9）：Bitget **真实 mark** 全量重跑，L125 **44.197x**（零 funding 上界）/ 30.078x（Bitget 实测 funding 水平 1.59x）/ 24.327x（3x adverse），全档 0 强平；DSR/RC/PBO（0.229）在真实 mark 候选族上同时通过；成交价口径已用 market K 线闭合（差 0.14–0.29%）；样本外 2026-09-22 起 51/365 天 L125-V2 0.9787x；**ZEC 集中度触发单一资产条款**、真实 funding 仅部分闭合（90 天水平校准）、pre-2022 压力窗口为 partial，故保持 provisional；§00.21：执行提前到 00:30/01:05 UTC，空头研究首轮和方向性快速 BTC 空头均被拒；§00.21.4：bottom-quintile 空头 + 20% stop 在 20bps 为 **51.8010x / 1.8918 / -42.59% / 0 强平**，但 100bps MDD -54.06% 且移除 2022 后低于基线，仍为 provisional，不接实盘；§00.21.5：bottom-8 持有带（R7）费用降至 2.56，但 50bps/100bps/MDD、移除 2022 和滚动最差均失败，rejected；§00.22：小时级 BTC 闸门与组合止损诊断全部不升级，实盘仍为 H5 多头；§00.23：30m 执行时点全扫被拒，00:30/01:30/02:00/50-50 分片均低于 01:00 同数据基线，成交权重覆盖率仅 78.14%，实盘继续 01:05 不改；§00.24：H5+H4+板块空头的 LS1 在 20bps 为 **26.2617x / 1.8603 / -27.60% / 0 强平**，但 100bps、双边 gross=1.3422x、移除最佳年份和全项目 DSR=0.9406 均失败，判定 rejected，实盘 H5 不变；§00.25：月频板块轮动 LS2 正式失败，候选 20bps **6.1748x / 1.2122 / -30.13%**，观测 Broker gross **1.2318x**，全成本档、滚动最差、最佳年份和 all_trials DSR=0.4634 均失败，rejected，实盘 H5 不变；§00.26：H5 退出币 21D 空头 LS3 在 20bps 为 **45.9190x / 1.8107 / -40.75%**，但观测 gross 1.0820x、MDD 超容忍线、100bps/滚动最差/PBO/DSR 失败，空头贡献 63.5% 来自 NEAR，rejected，实盘 H5 不变）；§00.27：H5 退出币固定风险空头 LS4 在 20bps 为 **23.8448x / 1.8091 / -34.12% / 0 强平**，2/20/50/100bps 全部高于同成本基线、observed gross 最高 0.9616x、12/12 真实引擎月度冷启动通过，但 365 天滚动最差 0.7838x 低于基线 0.7970x、Top20 DSR=0.9424 和全项目 DSR=0.9207 均失败，且实际最大单笔 adverse loss 0.6491% NAV 超过名义 0.5%，判定 rejected，实盘 H5 不变）；§00.28：LS5 在 LS4 退出空头上叠加 2.5% NAV/腿的 14D 最弱 4 币周频空头，20bps 为 **24.1210x / 1.8424 / -34.31% / 0 强平**，滚动最差 0.8083x、Top20 DSR 0.9523 和 12 个冷启动通过，但 100bps 7.7417x 低于基线 9.3848x、移除 2022 后低于基线、全项目 DSR 0.9334、前 3 空头贡献 126.53%，且 weak4 sleeve 净贡献 -2.662%，判定 rejected，实盘 H5 不变）；§00.29：LS6 只做 7D funding 上三分之一的 H5 退出币空头，20bps 为 **22.9279x / 1.7811 / -33.40% / 0 强平**，2/20/50/100bps、全部年份/最佳年份移除、45/45 路径切片、12/12 冷启动和集中度均通过，但滚动最差 0.7923x 低于基线 0.7970x，Top20 DSR=0.9326、全项目 DSR=0.9085 失败，判定 rejected，实盘 H5 不变）；§00.30：LS8 修复 UTC 日期 bug 后真实激活 37 个空头，20bps **22.8336x / 1.7744 / -33.52%**，但滚动最差 0.7909x 与 DSR 失败，rejected；§00.31：LS9 连续未使用风险预算 20bps **23.8832x / 1.7984 / -33.54%**，四档成本、45/45 路径、12/12 冷启动、集中度、PBO/RC 通过，但滚动最差 0.7865x、Top20 DSR 0.9382、全项目 DSR 0.9156 失败，rejected；实盘 H5 不变；§00.32：LS10 14D 相对 BTC 动量确认 20bps **22.1461x / 1.7567 / -33.54%**，成本/压力/年度通过，但滚动最差 0.7946x、NEAR 集中度 67.62%、DSR 失败，rejected；§00.33：LS11 BTC 200D 熊市闸门 + 最弱四币空头 20bps **49.7952x / 1.8069 / -40.65%**，2/20/50bps、funding 和滚动最差改善通过，但 100bps MDD -50.01%、删除 2022 后低于基线、45 个路径仅 22 个三项通过、前 3 空头贡献 90.57%，rejected；§00.34：LS12 双空头 regime router 20bps **55.7859x / 1.8520 / -40.64%**，2/50bps、funding、滚动最差和集中度通过，但 100bps 终值/Sharpe/MDD 三关失败、删除 2022 后 49.2413x 低于基线、路径 44/45，rejected；§00.35：LS13 周频 H5 相对 BTC 半仓 + LS12 20bps **33.7083x / 1.9633 / -28.37%**，Sharpe/MDD 改善但终值低于 L125 40.2200x，第一门槛失败，rejected；§00.36：LS14 周频轮入 25% BTC + LS12 20bps **43.5326x / 1.8786 / -36.49%**，2/20bps 通过，但 50bps 终值 26.3206x 低于基线 27.3725x、100bps 终值/Sharpe 失败、删除 2022 后低于基线、路径仅 13/45，rejected；§00.37：LS15 牛市弱 H5 10% 现金缓冲 20bps **48.3225x / 1.8431 / -38.11%**，2/20/50bps 和 100bps MDD 通过，但 100bps 终值/Sharpe 失败、删除 2022 后低于基线、路径仅 18/45，rejected；§00.38：LS16 5% NAV no-trade region 20bps **50.0481x / 1.8278 / -39.51%**，2/20/50/100bps 全胜同成本基线、100bps **15.4488x / 1.3536 / -49.12%**、费用较 LS12 -19.8%，但删除 2022 后 44.9539x < 50.0330x、路径仅 23/45 且 2023-2024 多起点 MDD 差 6.5-7.7pp，rejected；§00.39：LS17 非熊市全 Top20 高正 funding 4 币空头 20bps **46.2349x / 1.8548 / -37.96%**，funding 成本从 -0.7238 降至 -0.3044，但 observed gross 1.5265x / 57 breach hours、short stop 83 次、50bps 24.4102x 低于基线、100bps 8.3872x / 1.1362 / -50.89%，rejected；§00.40：LS18 H5 多头 funding 拥挤腿减半 20bps **34.6700x / 1.7700 / -33.05%**，Sharpe/MDD/funding 改善但终值低于 L125 40.2200x，主收益门槛失败，rejected；§00.41：LS19 H5 + 28D 反转多空 20bps **37.3924x / 1.6969 / -40.15%**，低于 L125 40.2200x/1.7330，且 11 次强平全在 long loser 腿，rejected；§00.42：LS20 H5 same-selection common-gross 20bps **39.4148x / 1.7683 / -40.56%**，0 强平/0 breach、跳 329 次 relative tilt，但终值略低于 L125 40.2200x，主收益门槛失败，rejected；§00.43：LS21 熊市空头只做正 funding 20bps **49.7281x / 1.8102 / -40.64%**，2/20/50bps 胜基线，但 100bps **12.4408x / 1.2579 / -50.10%** 三关失败，且 short episode 增至 367，rejected；§00.44：冻结样本外更新至 2026-11-10（50 天），H5 +3h 较差口径 **0.9524x / MDD -17.06%**、L125-V2 **0.9787x / MDD -17.47%**、BTC **0.8512x / MDD -14.88%**，相对 BTC 仍胜但绝对收益为负，窗口过短不解除 provisional；§00.45：LS22 单龙头极端涨幅减半 20bps **44.6607x / 1.8257 / -39.84%**，2/20/50/100bps 全胜 L125、100bps MDD -49.40%、滚动最差 0.8134x，但 45 个月初路径仅 37/45，预注册 gate 失败，provisional，不接实盘；§00.46：LS23 = LS22 多头利润保护 + LS12 双空头 router，20bps **61.9150x / 1.9448 / -39.84% / 0 强平**，四档成本全胜 L125、45/45 路径、12/12 冷启动、PBO 0.3528 / RC p=0.003996，DSR 见 §00.63 且仍通过，但 51 天 cash-start OOS 为 **0.9403x / -0.5584** 略低于同引擎 L125 0.9484x / -0.2743，pre-2022 funding proxy stress 为 **2.5189x / 1.7131 / -20.88%** 低于 L125 3.9238x/1.9618，12 个月 OOS 未满且 funding 仍为 proxy，provisional，不接实盘；§00.47：LS24 跨所 funding 确认空头 20bps **52.7881x / 1.8860 / -39.71% / 0 强平**，低于 LS23 61.9150x/1.9448，主收益与 Sharpe 门槛失败，rejected；修正审计时点后 Bybit 覆盖 91.6%，原 92.8% 读数作废；§00.48：LS23 shadow v2 完整 Bitget funding 0.9365x / -0.6125 / -17.65%，仍低于 L125 0.9440x / -0.3270 / -17.65%，provisional；§00.49：LS25 状态化利润保护 35.1755x / 1.7691 / -41.15%，rejected；§00.50：LS26 与 LS22 日收益完全等价，rejected/duplicate；§00.51：LS27 动态 LS12+R6 空头预算 20bps **68.8876x / 1.9599 / -41.40%**，但 50/100bps 成本失败、100bps MDD -56.08%、5 个 gross breach hours，rejected；§00.52：LS28 优先级 LS12→R6 预算 20bps **68.9318x / 1.9612 / -41.32%**，同样 50/100bps 失败、100bps MDD -56.00%、69–82 个 gross breach hours，rejected；§00.53：LS29 25% NAV 集中度条件利润保护 20bps **60.4392x / 1.9325 / -39.84%**，低于 LS23 61.9150x/1.9448，rejected；§00.54：LS30 市场中性 funding carry 20bps **48.9409x / 1.8110 / -40.34%**，高于 L125，但 1 次 DOT long 强平、26 个 gross breach hours，rejected；§00.55：LS31 60% long buffer 修正后 20bps **48.9593x / 1.8168 / -40.13% / 0 强平 / 0 breach**，但 50/100bps 成本失败、100bps MDD -56.40%，rejected at costs；§00.56：LS32 2x-entry-count carry 持有带 20bps **44.3989x / 1.7772 / -40.09%**，换腿 L1 从 70.5x 降至 48.875x，但低于 LS23 61.9150x/1.9448，且持有带让 DOT 多留至 **1 次 long 强平**，rejected；§00.57：LS33 LS23 优先 + residual funding carry 20bps **80.6764x / 2.0566 / -39.19% / 0 强平 / 0 breach**，2/20/50bps 全胜 LS23，LONG60 control 与 LS23 完全等价，但 100bps **11.8172x / 1.2648 / -52.87%** 低于 LS23 且越过 50% MDD 线，rejected at cost gate；§00.58：LS34 只在 residual carry 空头使用 2x 持有带，20bps **77.3635x / 2.0396 / -39.48% / 0 强平**，空头换手 688→502、累计 L1 70.5→58.875，但收益和 Sharpe 低于 LS33 80.6764x/2.0566，primary gate 失败，rejected；§00.59：LS35 true-carry（long funding<0 / short funding>0）20bps **74.0476x / 2.0383 / -39.50%**，100bps **11.2205x / 1.2515 / -52.15%** 仍低于 LS23，rejected；§00.60：LS36 short-only residual carry 20bps **69.5943x / 2.0159 / -39.94%**，100bps **12.6244x / 1.3029 / -51.37%**，仍越过 50% MDD，rejected；§00.61：LS37 14D residual carry 20bps **73.2343x / 2.0172 / -41.26%**，100bps **12.8731x / 1.2993 / -52.75%** 仍低于 LS23，低频化未修复成本尾部，rejected，停止 carry 频率家族；§00.62：LS38 LS23 same-side 5% no-trade band 20bps **54.5335x / 1.9102 / -38.69%**，费用 3.1262→2.5007 但终值和 Sharpe 低于 LS23，primary gate 失败，rejected；LS23 no-trade 家族停止，转回 incumbent 稳健性审计；§00.63/00.65/00.67/00.70：LS23 在当前 N=14,210/6,142 台账下 DSR **0.958973/0.971481**，PBO **0.3528**、RC zero p=**0.003996** / BTC p=**0.009990**，全部仍过预注册门槛，旧 0.99998 口径作废，候选仍 provisional、不接实盘；§00.64：LS39 LS23 + 60D/28D 低波动 4×4 pair 20bps **64.2279x / 1.9731 / -37.65%**，但新增 3 次 isolated long 强平（BTC/ETH/TON），违反零强平硬门槛，rejected；不扫描窗口、腿数、权重或频率，实盘不变；§00.66：LS40 LS23 + 60D 逆波动率多头重分配 20bps **29.8565x / 1.7063 / -41.30%**，0 强平、费用降至 2.3195，但终值和 Sharpe 远低于 LS23，说明 H5 sleeve 共识权重包含真实 alpha，rejected；停止逆波动率权重家族，实盘不变；§00.69：LS41 H5 多头 20% 逐腿 stop 20bps **57.2522x / 1.9036 / -39.835%**，19 次 long stop、0 强平、费用 2.9556，但终值和 Sharpe 低于 LS23，rejected；停止固定百分比 long-stop 家族，实盘不变；§00.71：LS42 LS23 利润保护释放权重仅向既有 H5 多头再分配，20bps **65.8147x / 1.9589 / -40.134% / 0 强平 / 0 breach**，四档成本、rolling、45 paths、12 cash-starts、PBO/RC/DSR 全过，但 51 天 OOS zero **0.9220x** / exact **0.9183x** 均低于 LS23 与 L125，故仅 provisional，不接实盘；§00.72：LS43 只向 7D 强于被减半 leader 的既有 H5 多头再分配，20bps **66.6800x / 1.9667 / -40.134% / 0 强平 / 0 breach**，四档成本均高于 LS23/LS42/L125，PBO 0.2532、DSR Top20/2022 0.974767、all 0.963433，当前 51 天 shadow 与 LS23 相同且无合格接收者；但删除 2024 后低于 LS23 2.71%、pre-2022 proxy MDD 差约 2–3pp，且无预注册后独立 12 个月 OOS，provisional，不接实盘；§00.73：LS44 在 LS22 触发后对 7D 转负龙头全退，20bps **60.5213x / 1.9361 / -39.056%**，9 次 full exit、0 强平、0 breach，MDD 改善约 0.78pp 但终值和 Sharpe 低于 LS23，rejected；§00.74：LS45 利润保护只向 21D 更强的既有 H5 持有者再分配，20bps **69.2088x / 1.9846 / -39.835%**，四档成本全胜 LS23/L125，但增量仍集中在 2024，51 天 OOS 与 LS23 相同，provisional；§00.75：LS46 在 LS44 全退后反手 0.20x / 28D 空头，20bps **67.6951x / 1.9919 / -34.916%**，四档成本、funding、12/12 冷启动、PBO/DSR 通过，但 51 天 OOS exact **0.9192x** 低于 LS23，provisional；§00.76：LS47 在 LS46 上禁止同一资产立即回补，20bps **69.4109x / 2.0023 / -34.916%**，四档成本、funding、12 个冷启动和 PBO/DSR 通过，但 45 条路径仅 42/45 胜 L125，51 天 OOS exact **0.9018x** 低于 LS23，provisional、不接实盘 |；§00.90 真实盘口 smoke：500 USDT 下单 25bps 深度充足、最大可见冲击约 0.46bps；§00.91 DVOL>75 多头全退主样本 73.8729x 但 2021 proxy 仅 1.0738x vs LS57 1.8872x，reject；§00.92 Bitget 官方逐笔成交 + L1 深度 maker shadow 在 2026 LS57 样本通过：433/443 events、名义覆盖 99.9938%、strict maker fill 74.9361%、加权成本 10.4467bps、相对 20bps taker 改善 +9.5533bps；仅为 shadow execution candidate；§00.93 maker fill haircut 25/50/75% 全部保持 >5bps：25% 下成本 13.0164bps、改善 +6.9836bps、fill 70.09%，但买入侧仅 +4.1094bps、long-open 为 -6.0770bps；结论仍为 shadow-only；§00.94 long-open taker routing 独立确认失败：2024-07→2025-12 的 long-open maker 改善 +15.24bps，而 2026 discovery 为 -6.08bps；路由使总体改善 +10.40→+7.69bps，rejected；§00.95 将 EX4 的 25% haircut 成本 13.0164bps 回填 LS57：77.6356x / 2.0312 / -38.964%，较 20bps 68.8077x 提升 12.83%，0 强平/0 breach；仅为 execution shadow，不修 PBO；§00.141：LS45-G125 统一 01:05 UTC，全样本 2022-01→2026-09 live-parity **65.2592x / 1.9792 / -34.06%**（6bps 诊断 83.9852x），当前 OOS 0.938508x / -0.5415 / -19.32%，旧 03:00 报告保留 |
-> | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-13**（仅运行跟踪，不用于选规则） |
+> | 数据 | `data/processed/panel_daily.csv`，研究样本 2022-01-01 → **2026-09-21**；冻结规格样本外跟踪 2026-09-22 → **2026-11-15**（仅运行跟踪，不用于选规则） |
 > | 数据口径 | 市值与排名来自 CoinMarketCap；Gate/Binance/CoinGecko 只做独立校验；当天没有 CMC 市值的币当天不参与排名 |
 > | 杠杆 | 现货轨：**全部无杠杆**，引擎默认强制 gross exposure ≤ 1.0，不做空。当前衍生品 live track 为 LS104：**1.75x gross cap、4x isolated venue leverage、0.90 portfolio isolated-margin cap**；LS45-G125 只作为独立回滚 profile。设计见 `docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md` |
 > | 执行 | 现货轨保留历史收盘后约 3 小时口径；当前衍生品 LS104 的信号账本、live-parity 回测和实盘统一为 T+1 +1h5m（01:05 UTC / 北京 09:05），旧 03:00 UTC 结果仅作 legacy 对照；缺失行情不静默填 0（短缺口按 carry 规则持有并逐条报告） |
 > | 成本口径 | 基准 **2bps**（AGENTS.md），20/50/100bps 为压力测试 |
 > | 主回测起点 | **2022-01-01**，剔除 2021 泡沫行情 |
 
-> **当前状态口径：** §00.152 定义当前 LS104 live track，§00.153–00.155 记录后续执行与数据链硬化。本文中早于 §00.152 的“当前实盘/当前 live”均描述当时阶段，已被 §00.152 明确取代。
+> **当前状态口径：** §00.152 定义当前 LS104 live track，§00.153–00.155 记录执行与数据链硬化，§00.162 记录 executable Top20 与 LS104 signal 的强绑定及 warmup market 修复。本文中早于 §00.152 的“当前实盘/当前 live”均描述当时阶段，已被 §00.152 明确取代。
 
 > **硬约束（不可突破）**：所有策略研究、回测和实盘候选必须严格限制在 **point-in-time Top 20** 内。不得使用 Top 50、Top 100 或任何更宽股票池，包括“仅作灵敏度测试”的场景；如果某个假设需要更宽股票池，应直接否决或重新设计为 Top 20 内可验证的版本。Top 20 必须按当时真实市值重建，禁止用当前名单回填历史。
 
@@ -6806,9 +6806,17 @@ fail-closed 门禁为 0 硬失败；不能承诺“绝对零风险”或“所�
   `reports/top50_data_readiness/latest.json`、`top50.csv`、`top20.csv`，并同时写
   `history/2026-11-15.json` 与 `ready/2026-11-15.json`。
 
-本轮的“无合约顺延”只形成独立的 executable-universe readiness evidence，没有静默改写当前
-LS104 的 point-in-time CMC Top20 universe。可执行 universe 若未来晋级实盘，必须另立 track/spec
-并重新完成研究、回测和 owner 晋级审批。
+按照 owner 的明确要求，本轮进一步把 executable Top20 强绑定到 LS104 signal：
+
+- signal 的 `end_date` 必须等于 readiness `as_of`；
+- live 构建必须逐字节校验当前 `panel_daily.csv`、`metadata.csv`、`symbol_map.csv` 与 readiness
+  记录一致，并验证 READY payload 自身 fingerprint；
+- signal 当日 universe 从 READY Top50 前 20 名产生，历史日期仍保留普通 PIT CMC Top20；
+- manifest 写入完整 `executable_universe` 证据；`audit-signal-ls104` 重放时固定使用
+  `ready/YYYY-MM-DD.json` 和 manifest fingerprint，不能读取次日的新 pointer；
+- 无合约递补成员必须已经存在于原候选行情池，signal 不会临时下载或伪造历史。
+
+H5/LS23 的数学、short stop、profit lock、gross、margin、leverage 与 01:05 执行时钟均未改变。
 
 #### 2. 数据完整性和真实回填
 
@@ -6840,25 +6848,42 @@ download_bitget_derivatives_data.py
   13 个成员重跑 **599 requests**；原 mark repair 为 `0 missing -> 0`，最终 funding
   尾部为 37 个 8h 合约到 16:00Z、13 个 4h 合约到 20:00Z，**50/50 READY**。
 
-#### 3. 非阻断 warning 的明确含义
+#### 3. 历史 warmup market 页边界缺行修复
+
+进一步按“执行点之外的整段数据也必须准确”复核后，确认旧
+`merged_market_20261009` 缓存仍带有分页修复前的系统性缺口：
+
+- 50 个当前 Top50 合约的 warmup market 在首条与末条之间共缺 **15,565** 个小时；
+- 缺失间隔中位数为 **101h**，对应每 100 行分页边界丢 1 行；其中 **712** 个缺失正好是
+  01:00Z 执行 bar；
+- 直接回源确认 Bitget 对抽样缺失时间均有真实 candle，缺口不是 quiet-hour 无成交；
+- 修复分两层：downloader 现在会把缓存中的 `partial` 自动重取而不是当成 final；历史旧缓存
+  则以 Bitget v2/v3 原始 API 只补缺口并原子合并；
+- 修复后 50/50 文件的内部小时缺口均为 **0**，共 **1,584,383** 行；无重复时间戳、无
+  NaN/inf、无非正 OHLC、无非法 high/low、无负 volume、无 warmup 截止后的多余行；
+- 新旧文件重叠 **952,801** 行逐字段比较为 **0 mismatch**；
+- 对每个合约各抽 3 个随机 200h 窗口回源：50 合约 × 600 行 = **30,000** 根 K 线、
+  180,000 个数值字段，**0 mismatch**；
+- readiness 新增 warmup/live market 内部逐小时连续性硬门禁，类似缺口以后直接 BLOCKED，
+  不能再因只看 01:05 floor bar 而漏过。
+
+#### 4. 非阻断 warning 的明确含义
 
 - 4 个当前 Top50 成员（NEAR、PEPE、POL、RENDER）存在历史 CMC provider-zero cap 行；
   AAVE 另有 1 行历史 provider-zero volume。上述行均显式记录为 warning。
   这些行不被 carry 成有效排名；最新 cap 全部有效。现有 `audit_market_cap_gaps.py` 将
   32 行全部归类为 `provider_zero_supply`，0 unexplained，因此记录 warning 而非把历史
   不可排名行伪装成当前故障；
-- 3 个合约（INJ、LDO、OP）warmup market 的首笔成交晚于首条 mark 1–2 天以上。warmup
-  market 只要求文件可读、OHLC 合法并覆盖 warmup 尾部；首段静默是真实成交稀疏，记录
-  warning。真正用于 T+1 执行的 live OOS 仍要求每个交易日 01:05 前有不超过 60 分钟的
-  floor market bar，该硬门禁已全部通过；
+- 3 个合约（INJ、LDO、OP）warmup market 的首笔成交晚于首条 mark 1–2 天以上；首段
+  contract-history boundary 记录 warning。首条之后的内部小时连续性现已全部通过；
 - contract snapshot 当前没有可用 `openTime`（字段为空），因此数据起点由实际首条 mark
   推断，并在报告中写 `start_source=first_observed_bar`。这是 observed inference，不是
   exchange listing metadata。
 
-#### 4. 指纹、幂等与现有 LS104 隔离
+#### 5. 指纹、幂等与 LS104 signal 绑定
 
-- readiness 数据指纹：
-  `sha256:b16451744fd5c33f89e6575d3d518e1682b525e96032ab59b6a40370d148a9fb`；
+- 修复 warmup market 后的 readiness 数据指纹：
+  `sha256:f36d22f966f97a9be8e112e4c4e87e4b0568c9442ca8712eba4354f05f816ecd`；
 - 指纹现在逐成员提交 warmup mark、warmup market、live mark、live market 与 funding 共
   **250 个原始文件的 SHA-256**；ready payload 同时拒绝重复 coin_id、重复 Bitget 合约、
   非连续 final rank 或与 Top50 前 20 不一致的 Top20；`top50.csv`/`top20.csv` 改为原子写；
@@ -6896,30 +6921,33 @@ download_bitget_derivatives_data.py
 - `reports/ls45_live_g175/oos_targets.csv` SHA-256 保持 **2ef4e701...**，冻结 target 行不变；
 - `data/ls45_g175_execution_state.json` 与 live journal SHA-256 保持原值；
 - manifest 的 `market_fill_fingerprint` 更新为
-  `sha256:a3053054506f0726dddd145badd67a87ad3f1aaee06ec8a5f1cd7715d3a6fe51`；
+  `sha256:f67d80499e580991a2520508bf1ec16e1a49e008fbf23a8c5586447e0971212c`；
+- manifest 的 `executable_universe.fingerprint` 与当日 readiness 指纹完全一致；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，**0 differences**；
 - `audit-data-ls104`：**PASS，0 hard failure，0 warning**，data fingerprint
-  `sha256:101baa3f3d21a109b419839c1e739962fde82d79bd5b706122277cfdf1fb67e4`；
+  `sha256:416de82815c8116e01d7c0a9f0f21790544b47ab22086e50d5f6e2f0f21678a4`；
 - `audit_market_cap_gaps.py`：PASS，32 行均为 `provider_zero_supply`，0 unexplained。
 - `audit-data-chain`：52 PASS / 0 WARN / 0 FAIL；
 - readiness 50 个成员逐一与 venue audit 联结：50/50 均 `long_ok=True`、`short_ok=True`、
   `flip_ok=True`；全量 88 个已映射合约同样通过 4x、long、short、flip；
 - 最终 integrity 补丁后再次用相同输入运行 readiness，指纹稳定为
-  `sha256:b1645174...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
-- 最终代码门禁：Python **2694 passed / 1 skipped**，前端 **249 passed**，`make lint`、
+  `sha256:f36d22f9...`，50/50 READY；250 个成员文件哈希逐一对回真实文件，0 mismatch。
+- 最终代码门禁：Python **2705 passed / 1 skipped**，前端 **249 passed**，`make lint`、
   `make typecheck`、`make build` 和新模块 strict mypy 全部通过；
 - `audit-accounting-ls104`：**44 PASS / 0 FAIL**；独立事件重放、55 日权益路径与
   1322 小时 gross 路径均与报告一致。
 
-#### 5. 结论与残余边界
+#### 6. 结论与残余边界
 
-现阶段，“CMC 当日排名 → 无合约过滤/顺延 → Top50 全量成员证据 → Top20 readiness handoff”已在
-真实 2026-11-15 数据上跑通，50/50 成员具备无需临时补历史的 mark、market、funding 和 venue
-证据。Top20 成员进入策略时不需要重新下载历史数据。
+现阶段，“CMC 当日排名 → 无合约过滤/顺延 → Top50 全量成员证据 → 可执行 Top20 →
+LS104 signal 当日 universe → manifest/audit 固定证据”已在真实 2026-11-15 数据上跑通。
+50/50 成员具备无需临时补历史的 mark、market、funding 和 venue 证据；signal 消费 READY
+Top20，而不是再从 panel 独立重算后碰巧一致。
 
 仍未完成或不能夸大的部分：
 
-- 当前 LS104 live track 仍使用原 CMC Top20 universe；“无合约顺延”尚未成为 live universe；
+- executable Top20 已成为 LS104 signal universe；实际下单仍完全由现有 executor、stop、
+  reconciliation、preflight 和 idempotency 闸门控制；
 - Telegram fallback 只在代码层和 schedule contract 中验证，真实 bot 投递仍应在部署后做一次
   受控事件演练；
 - Top50 readiness 是日频收盘后流程，不是盘中上新扫描；
@@ -6934,5 +6962,5 @@ download_bitget_derivatives_data.py
 - `com.atlas20.derivatives-refresh` 真实 kickstart 以 `exit 0` no-op（fresh receipt），
   execute LaunchAgent 保持 `state=not running`、`runs=1`、`last exit code=0`；
 - Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；
-- warmup market 的首段稀疏成交和 CMC provider-zero cap 不应被描述成“历史所有字段逐小时
-  完美”，但它们已被明确记录且不影响当前 live OOS 执行闸门。
+- INJ/LDO/OP 的 warmup market 合同起点边界和 CMC provider-zero cap 行仍是显式 warning/
+  inference；它们不是内部小时缺口，也不能被解释成完整合约上市元数据。

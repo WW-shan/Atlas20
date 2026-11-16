@@ -96,3 +96,34 @@ def test_build_command_can_pin_the_ls104_aggressive_profile() -> None:
     assert command[command.index("--max-margin-utilization") + 1] == "0.90"
     assert command[command.index("--venue-leverage") + 1] == "4.0"
     assert command[command.index("--output-dir") + 1] == "reports/ls45_live_g175"
+
+
+def test_ls104_signal_consumes_the_current_ready_top20_by_default() -> None:
+    command = build_command(end_date="2026-11-13", track="ls104-g175-m090")
+
+    assert command[command.index("--top50-readiness") + 1] == (
+        "reports/top50_data_readiness/latest_ready.json"
+    )
+    assert "--require-top50-current-inputs" in command
+
+    ls45 = build_command(end_date="2026-11-13", track="ls45-g125")
+    assert "--top50-readiness" not in ls45
+    assert "--require-top50-current-inputs" not in ls45
+
+
+def test_signal_replay_can_pin_the_archived_ready_payload_without_current_hash_check() -> None:
+    command = build_command(
+        end_date="2026-11-13",
+        track="ls104-g175-m090",
+        top50_readiness="reports/top50_data_readiness/ready/2026-11-13.json",
+        top50_fingerprint="sha256:" + "a" * 64,
+        require_top50_current_inputs=False,
+    )
+
+    assert command[command.index("--top50-readiness") + 1] == (
+        "reports/top50_data_readiness/ready/2026-11-13.json"
+    )
+    assert command[command.index("--expected-top50-fingerprint") + 1] == (
+        "sha256:" + "a" * 64
+    )
+    assert "--require-top50-current-inputs" not in command

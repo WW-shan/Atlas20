@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -115,6 +116,245 @@ def test_selection_requires_sequential_source_ranks() -> None:
             _mapped(ranked, set()),
             as_of=date(2026, 11, 15),
         )
+
+
+def _write_ready_payload(
+    tmp_path: Path,
+    *,
+    as_of: str = "2026-11-15",
+) -> tuple[Path, Path, Path, Path]:
+    from atlas20.derivatives import top50_readiness as readiness
+
+    panel = tmp_path / "panel_daily.csv"
+    metadata = tmp_path / "metadata.csv"
+    symbol_map = tmp_path / "symbol_map.csv"
+    panel.write_text("date,coin_id\n2026-11-15,coin-1\n", encoding="utf-8")
+    metadata.write_text("coin_id\ncoin-1\n", encoding="utf-8")
+    symbol_map.write_text("coin_id,bitget_symbol\ncoin-1,C1USDT\n", encoding="utf-8")
+
+    members = [
+        {
+            "final_rank": index,
+            "original_rank": index,
+            "coin_id": f"coin-{index}",
+            "symbol": f"C{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "panel_symbol": f"C{index}",
+            "status": "READY",
+            "failure_details": [],
+        }
+        for index in range(1, 51)
+    ]
+    payload = {
+        "as_of": as_of,
+        "ready": True,
+        "members": members,
+        "top20": [dict(item) for item in members[:20]],
+        "skipped": [],
+        "audit": {"passed": True, "hard_failures": [], "warnings": []},
+        "source_fingerprint": "sha256:" + "d" * 64,
+    }
+    payload["input_files"] = {
+        "panel": readiness._file_sha256(panel),
+        "metadata": readiness._file_sha256(metadata),
+        "symbol_map": readiness._file_sha256(symbol_map),
+    }
+    payload["fingerprint"] = readiness._payload_fingerprint(payload)
+    path = tmp_path / "latest_ready.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path, panel, metadata, symbol_map
+
+
+def test_load_ready_top20_verifies_identity_and_current_inputs(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import load_ready_top20
+
+    path, panel, metadata, symbol_map = _write_ready_payload(tmp_path)
+
+    ready = load_ready_top20(
+        path,
+        expected_as_of=date(2026, 11, 15),
+        panel_path=panel,
+        metadata_path=metadata,
+        symbol_map_path=symbol_map,
+        require_current_inputs=True,
+    )
+
+    assert ready.as_of == date(2026, 11, 15)
+    assert [member.coin_id for member in ready.members] == [
+        f"coin-{index}" for index in range(1, 21)
+    ]
+
+
+def test_load_ready_top20_rejects_a_stale_universe(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import load_ready_top20
+
+    path, _panel, _metadata, _symbol_map = _write_ready_payload(tmp_path)
+
+    with pytest.raises(ValueError, match="does not match signal date"):
+        load_ready_top20(path, expected_as_of=date(2026, 11, 16))
+
+
+def test_load_ready_top20_rejects_changed_current_inputs(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import load_ready_top20
+
+    path, panel, metadata, symbol_map = _write_ready_payload(tmp_path)
+    panel.write_text("date,coin_id\n2026-11-15,coin-2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="panel input hash"):
+        load_ready_top20(
+            path,
+            expected_as_of=date(2026, 11, 15),
+            panel_path=panel,
+            metadata_path=metadata,
+            symbol_map_path=symbol_map,
+            require_current_inputs=True,
+        )
+
+
+def test_bind_executable_top20_backfills_a_missing_contract_into_the_signal_universe() -> None:
+    from atlas20.derivatives.top50_readiness import (
+        ReadyTop20,
+        SelectionMember,
+        SelectionSkip,
+        bind_executable_top20,
+    )
+
+    dates = pd.date_range("2026-11-13", periods=3, freq="D")
+    universe = pd.DataFrame(
+        [
+            {
+                "rebalance_date": day,
+                "coin_id": f"coin-{rank}",
+                "universe_rank": rank,
+            }
+            for day in dates
+            for rank in range(1, 61)
+        ]
+    )
+    executable = [rank for rank in range(1, 20)] + [21]
+    ready = ReadyTop20(
+        as_of=date(2026, 11, 15),
+        fingerprint="sha256:" + "a" * 64,
+        source_fingerprint="sha256:" + "b" * 64,
+        source_path=Path("ready.json"),
+        source_sha256="sha256:" + "c" * 64,
+        members=tuple(
+            SelectionMember(
+                final_rank=final_rank,
+                original_rank=original_rank,
+                coin_id=f"coin-{original_rank}",
+                symbol=f"C{original_rank}",
+                bitget_symbol=f"C{original_rank}USDT",
+                panel_symbol=f"C{original_rank}",
+            )
+            for final_rank, original_rank in enumerate(executable, start=1)
+        ),
+        skipped=(
+            SelectionSkip(
+                original_rank=20,
+                coin_id="coin-20",
+                symbol="C20",
+                reason="VENUE_UNAVAILABLE",
+            ),
+        ),
+        input_files={},
+    )
+
+    bound = bind_executable_top20(universe, ready)
+
+    historical = bound.loc[bound["rebalance_date"] < pd.Timestamp("2026-11-15")]
+    current = bound.loc[bound["rebalance_date"] == pd.Timestamp("2026-11-15")]
+    assert historical.groupby("rebalance_date")["coin_id"].apply(list).map(
+        lambda ids: ids == [f"coin-{rank}" for rank in range(1, 21)]
+    ).all()
+    assert current.sort_values("universe_rank")["coin_id"].tolist() == [
+        f"coin-{rank}" for rank in executable
+    ]
+    assert current["universe_rank"].tolist() == list(range(1, 21))
+
+
+def test_executable_top20_can_change_the_same_cycle_phase_signal_target() -> None:
+    from atlas20.derivatives.top50_readiness import (
+        ReadyTop20,
+        SelectionMember,
+        bind_executable_top20,
+    )
+    from atlas20.strategies.phase_momentum import (
+        MomentumSignalSpec,
+        PhaseMomentumSpec,
+        build_phase_momentum_targets,
+    )
+    from atlas20.universe.builder import MarketDataBundle
+
+    index = pd.date_range("2026-10-01", periods=30, freq="D")
+    coins = [f"coin-{rank}" for rank in range(1, 61)]
+    price = pd.DataFrame(index=index, columns=coins, dtype=float)
+    for rank, coin in enumerate(coins, start=1):
+        price[coin] = 100.0 + rank
+    # Rank 21 is outside the ordinary CMC Top20 but displaces a missing
+    # contract.  Its strong trend must be visible to the signal immediately.
+    price["coin-21"] = pd.Series(
+        [100.0 * (1.03 ** day) for day in range(len(index))], index=index
+    )
+    market = MarketDataBundle(
+        raw_price=price,
+        price=price,
+        returns=price.pct_change().fillna(0.0),
+        market_cap=price * 1_000_000.0,
+        volume=pd.DataFrame(100_000_000.0, index=index, columns=coins),
+        history_count=pd.DataFrame(300, index=index, columns=coins),
+        metadata=pd.DataFrame({"sector": "Other"}, index=coins),
+    )
+    universe = pd.DataFrame(
+        [
+            {
+                "rebalance_date": day,
+                "coin_id": coin,
+                "universe_rank": rank,
+            }
+            for day in index
+            for rank, coin in enumerate(coins, start=1)
+        ]
+    )
+    executable = [rank for rank in range(1, 20)] + [21]
+    ready = ReadyTop20(
+        as_of=index[-1].date(),
+        fingerprint="sha256:" + "a" * 64,
+        source_fingerprint="sha256:" + "b" * 64,
+        source_path=Path("ready.json"),
+        source_sha256="sha256:" + "c" * 64,
+        members=tuple(
+            SelectionMember(
+                final_rank=final_rank,
+                original_rank=original_rank,
+                coin_id=f"coin-{original_rank}",
+                symbol=f"C{original_rank}",
+                bitget_symbol=f"C{original_rank}USDT",
+                panel_symbol=f"C{original_rank}",
+            )
+            for final_rank, original_rank in enumerate(executable, start=1)
+        ),
+        skipped=(),
+        input_files={},
+    )
+    bound = bind_executable_top20(universe, ready)
+
+    built = build_phase_momentum_targets(
+        market,
+        bound,
+        pd.DatetimeIndex(index),
+        signal_specs=(MomentumSignalSpec("momentum-5d", ((5, 1.0),)),),
+        spec=PhaseMomentumSpec(
+            rebalance_days=1,
+            phase_offsets=(0,),
+            hold_rank=1,
+            use_btc_gate=False,
+            use_volatility_target=False,
+            holdings_per_sleeve=1,
+        ),
+    )
+
+    assert built.targets[index[-1]]["coin-21"] > 0.0
 
 
 def test_rank_current_candidates_uses_production_point_in_time_builder(tmp_path) -> None:
@@ -268,6 +508,27 @@ def test_market_alignment_rejects_an_inside_timestamp_without_mark(tmp_path) -> 
 
     assert result.missing_intervals == 1
     assert any("2026-01-01T02:30:00+00:00" in item for item in result.failures)
+
+
+def test_market_continuity_rejects_an_interior_page_boundary_gap(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_continuity
+
+    path = tmp_path / "BTC_market.csv"
+    _ohlc(
+        [
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T01:00:00Z",
+            "2026-01-01T03:00:00Z",
+        ]
+    ).to_csv(path, index=False)
+
+    result = check_market_continuity(
+        path,
+        required_last=pd.Timestamp("2026-01-01T03:00:00Z"),
+    )
+
+    assert result.missing_intervals == 1
+    assert any("missing market hour 2026-01-01T02:00:00+00:00" in item for item in result.failures)
 
 
 def test_funding_coverage_uses_the_declared_contract_interval(tmp_path) -> None:
@@ -526,12 +787,15 @@ def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) ->
     funding = tmp_path / "coin-1.csv"
     hourly = pd.date_range("2026-01-01", periods=24, freq="h", tz="UTC")
     live_hourly = pd.date_range("2026-01-01", periods=25, freq="h", tz="UTC")
+    warmup_market_hourly = live_hourly
     _ohlc([stamp.isoformat() for stamp in hourly]).to_csv(warmup_mark, index=False)
     _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(live_mark, index=False)
-    _ohlc(["2026-01-01T01:00:00Z", "2026-01-02T00:00:00Z"]).to_csv(
+    _ohlc([stamp.isoformat() for stamp in warmup_market_hourly]).to_csv(
         warmup_market, index=False
     )
-    _ohlc(["2026-01-01T01:00:00Z"]).to_csv(live_market, index=False)
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
+        live_market, index=False
+    )
     pd.DataFrame(
         {
             "funding_time": pd.to_datetime(
@@ -625,6 +889,7 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
         directory.mkdir(parents=True)
     hourly = pd.date_range("2026-01-01", periods=24, freq="h", tz="UTC")
     live_hourly = pd.date_range("2026-01-01", periods=25, freq="h", tz="UTC")
+    warmup_market_hourly = live_hourly
     for member in selection.members:
         panel_rows.append(
             {
@@ -652,15 +917,11 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
         _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
             live_mark_dir / f"{member.bitget_symbol}_mark.csv", index=False
         )
-        _ohlc(
-            ["2026-01-01T01:00:00Z", "2026-01-02T01:00:00Z"]
-        ).to_csv(
+        _ohlc([stamp.isoformat() for stamp in warmup_market_hourly]).to_csv(
             warmup_market_dir / f"{member.bitget_symbol}_market.csv",
             index=False,
         )
-        _ohlc(
-            ["2026-01-01T01:00:00Z", "2026-01-02T01:00:00Z"]
-        ).to_csv(
+        _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
             live_mark_dir / f"{member.bitget_symbol}_market.csv",
             index=False,
         )
@@ -705,7 +966,7 @@ def test_assess_selection_builds_ready_top20_from_ready_top50(
         warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
         oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
         latest_signal_day=date(2026, 1, 1),
-        now=pd.Timestamp("2026-01-02T18:00:00Z"),
+        now=pd.Timestamp("2026-01-02T00:35:00Z"),
     )
 
     assert blocked == set()
@@ -1138,10 +1399,11 @@ def test_collect_member_evidence_infers_start_when_contract_open_time_is_blank(
     live_hourly = pd.date_range("2026-01-01T04:00:00Z", periods=21, freq="h")
     _ohlc([stamp.isoformat() for stamp in hourly]).to_csv(warmup_mark, index=False)
     _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(live_mark, index=False)
-    _ohlc(["2026-01-01T05:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
+    warmup_market_hourly = live_hourly
+    _ohlc([stamp.isoformat() for stamp in warmup_market_hourly]).to_csv(
         warmup_market, index=False
     )
-    _ohlc(["2026-01-01T05:00:00Z", "2026-01-02T01:00:00Z"]).to_csv(
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
         live_market, index=False
     )
     pd.DataFrame(
@@ -1182,7 +1444,7 @@ def test_collect_member_evidence_infers_start_when_contract_open_time_is_blank(
         warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
         oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
         latest_signal_day=date(2026, 1, 1),
-        now=pd.Timestamp("2026-01-02T18:00:00Z"),
+        now=pd.Timestamp("2026-01-02T00:35:00Z"),
     )
 
     assert evidence["status"] == "READY", evidence["failure_details"]

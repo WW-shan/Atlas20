@@ -416,6 +416,16 @@ def test_window_status_marks_page_gaps_as_partial() -> None:
     assert _window_status(pd.DataFrame(), start, end) == ("missing", 4)
 
 
+def test_cached_page_boundary_gap_is_refetched_not_treated_as_final() -> None:
+    from scripts.download_bitget_derivatives_data import _cached_window_needs_refetch
+
+    assert _cached_window_needs_refetch("complete", "partial") is True
+    assert _cached_window_needs_refetch("partial", "partial") is True
+    assert _cached_window_needs_refetch("complete", "missing") is True
+    assert _cached_window_needs_refetch("complete", "complete") is False
+    assert _cached_window_needs_refetch("missing", "missing") is False
+
+
 def test_window_status_requires_the_exact_hourly_grid_not_only_row_count() -> None:
     from scripts.download_bitget_derivatives_data import _window_status
 

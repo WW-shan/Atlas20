@@ -8,7 +8,7 @@ existing raw evidence trees.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, time
 from pathlib import Path
@@ -59,6 +59,20 @@ class Top50Selection:
     members: tuple[SelectionMember, ...]
     skipped: tuple[SelectionSkip, ...]
     source_fingerprint: str
+
+
+@dataclass(frozen=True)
+class ReadyTop20:
+    """The exact executable CMC Top20 committed by one READY payload."""
+
+    as_of: date
+    fingerprint: str
+    source_fingerprint: str
+    source_path: Path
+    source_sha256: str
+    members: tuple[SelectionMember, ...]
+    skipped: tuple[SelectionSkip, ...]
+    input_files: Mapping[str, str]
 
 
 def _normalise_text(value: object) -> str:
@@ -212,6 +226,191 @@ def select_executable_top50(
         members=tuple(members),
         skipped=tuple(skipped),
         source_fingerprint=_source_fingerprint(ranked_work, map_work),
+    )
+
+
+def load_ready_top20(
+    path: Path,
+    *,
+    expected_as_of: date | None = None,
+    expected_fingerprint: str | None = None,
+    panel_path: Path | None = None,
+    metadata_path: Path | None = None,
+    symbol_map_path: Path | None = None,
+    require_current_inputs: bool = False,
+) -> ReadyTop20:
+    """Load one authenticated READY payload for signal membership.
+
+    The payload fingerprint commits the complete readiness evidence.  Live
+    signal generation additionally requires the current CMC panel, metadata
+    and Bitget symbol map to be byte-identical to the files that produced that
+    payload.  A historical replay may disable the current-file comparison and
+    still verify the immutable payload fingerprint and signal date.
+    """
+
+    path = Path(path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"ready Top20 payload is unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("ready Top20 payload must be a JSON object")
+    validate_ready_payload(payload)
+
+    fingerprint = str(payload.get("fingerprint") or "")
+    if not fingerprint.startswith("sha256:") or fingerprint != _payload_fingerprint(payload):
+        raise ValueError("ready Top20 payload fingerprint does not match its contents")
+    if expected_fingerprint is not None and fingerprint != expected_fingerprint:
+        raise ValueError(
+            "ready Top20 payload fingerprint does not match the pinned signal manifest"
+        )
+
+    try:
+        as_of = date.fromisoformat(str(payload["as_of"]))
+    except ValueError as exc:
+        raise ValueError("ready Top20 payload has an invalid as_of") from exc
+    if expected_as_of is not None and as_of != expected_as_of:
+        raise ValueError(
+            f"ready Top20 as_of {as_of} does not match signal date {expected_as_of}"
+        )
+
+    input_files = payload.get("input_files")
+    if not isinstance(input_files, dict):
+        raise ValueError("ready Top20 payload has no input file commitments")
+    current_paths: dict[str, Path | None] = {
+        "panel": panel_path,
+        "metadata": metadata_path,
+        "symbol_map": symbol_map_path,
+    }
+    if require_current_inputs:
+        missing_paths = [name for name, value in current_paths.items() if value is None]
+        if missing_paths:
+            raise ValueError(
+                "current input verification requires paths for "
+                + ", ".join(missing_paths)
+            )
+        for name, candidate in current_paths.items():
+            assert candidate is not None
+            actual = _file_sha256(candidate)
+            if actual != str(input_files.get(name) or ""):
+                raise ValueError(
+                    f"ready Top20 {name} input hash does not match the current file"
+                )
+
+    members: list[SelectionMember] = []
+    for item in payload["top20"]:
+        if not isinstance(item, dict):
+            raise ValueError("ready Top20 members must be objects")
+        members.append(
+            SelectionMember(
+                final_rank=int(item["final_rank"]),
+                original_rank=int(item["original_rank"]),
+                coin_id=str(item["coin_id"]),
+                symbol=str(item["symbol"]),
+                bitget_symbol=str(item["bitget_symbol"]),
+                panel_symbol=str(item.get("panel_symbol") or ""),
+            )
+        )
+
+    skipped: list[SelectionSkip] = []
+    raw_skipped = payload.get("skipped") or []
+    if not isinstance(raw_skipped, list):
+        raise ValueError("ready Top20 skipped members must be a list")
+    for item in raw_skipped:
+        if not isinstance(item, dict):
+            raise ValueError("ready Top20 skipped members must be objects")
+        skipped.append(
+            SelectionSkip(
+                original_rank=int(item["original_rank"]),
+                coin_id=str(item["coin_id"]),
+                symbol=str(item["symbol"]),
+                reason=str(item["reason"]),
+            )
+        )
+
+    return ReadyTop20(
+        as_of=as_of,
+        fingerprint=fingerprint,
+        source_fingerprint=str(payload.get("source_fingerprint") or ""),
+        source_path=path,
+        source_sha256=str(_file_sha256(path) or ""),
+        members=tuple(members),
+        skipped=tuple(skipped),
+        input_files={str(key): str(value) for key, value in input_files.items()},
+    )
+
+
+def bind_executable_top20(
+    universe: pd.DataFrame,
+    ready: ReadyTop20,
+) -> pd.DataFrame:
+    """Replace the signal date with the executable READY Top20.
+
+    Historical dates remain the ordinary first twenty CMC-eligible names.  At
+    the signal date, the READY ordering is authoritative and may include a
+    lower-ranked coin that backfilled a missing Bitget contract.  Every row
+    must already exist in the candidate universe, so this function cannot
+    invent market history for a new member.
+    """
+
+    required = {"rebalance_date", "coin_id", "universe_rank"}
+    missing_columns = required.difference(universe.columns)
+    if missing_columns:
+        raise ValueError(f"universe is missing columns {sorted(missing_columns)}")
+    if not ready.members:
+        raise ValueError("ready Top20 has no executable members")
+    if len(ready.members) != TOP20_SIZE:
+        raise ValueError("ready Top20 must contain exactly twenty members")
+
+    work = universe.copy()
+    work["rebalance_date"] = (
+        pd.to_datetime(work["rebalance_date"], utc=True)
+        .dt.tz_convert(None)
+        .dt.normalize()
+    )
+    work["coin_id"] = work["coin_id"].astype(str)
+    work["universe_rank"] = pd.to_numeric(work["universe_rank"], errors="raise").astype(int)
+    signal_date = pd.Timestamp(ready.as_of).normalize()
+    dates = set(pd.DatetimeIndex(work["rebalance_date"].unique()))
+    if signal_date not in dates:
+        raise ValueError(f"universe has no signal-date snapshot on {ready.as_of}")
+    if any(day > signal_date for day in dates):
+        raise ValueError("universe contains dates after the ready Top20 signal date")
+
+    rows: list[pd.DataFrame] = []
+    for day in sorted(day for day in dates if day < signal_date):
+        snapshot = work.loc[work["rebalance_date"] == day].sort_values(
+            "universe_rank", kind="stable"
+        ).head(TOP20_SIZE).copy()
+        if snapshot["coin_id"].duplicated().any():
+            raise ValueError(f"universe has duplicate coin_id on {day.date()}")
+        snapshot["universe_rank"] = range(1, len(snapshot) + 1)
+        rows.append(snapshot)
+
+    current = work.loc[work["rebalance_date"] == signal_date].copy()
+    if current["coin_id"].duplicated().any():
+        raise ValueError(f"universe has duplicate coin_id on {signal_date.date()}")
+    by_coin = current.set_index("coin_id", drop=False)
+    missing = [member.coin_id for member in ready.members if member.coin_id not in by_coin.index]
+    if missing:
+        raise ValueError(
+            "ready Top20 member(s) are absent from the candidate market universe: "
+            + ", ".join(missing)
+        )
+    selected: list[pd.Series] = []
+    for member in ready.members:
+        row = by_coin.loc[member.coin_id].copy()
+        row["universe_rank"] = member.final_rank
+        row["original_rank"] = member.original_rank
+        selected.append(row)
+    current = pd.DataFrame(selected).reset_index(drop=True)
+    rows.append(current)
+    if not rows:
+        raise ValueError("universe has no snapshots to bind")
+    return (
+        pd.concat(rows, ignore_index=True)
+        .sort_values(["rebalance_date", "universe_rank"], kind="stable")
+        .reset_index(drop=True)
     )
 
 
@@ -529,6 +728,63 @@ def check_market_execution_coverage(
         rows=rows,
         missing_intervals=len(missing_days),
         failures=tuple(failures),
+    )
+
+
+def check_market_continuity(
+    path: Path,
+    *,
+    required_last: pd.Timestamp,
+    now: pd.Timestamp | None = None,
+) -> CoverageEvidence:
+    """Require every hourly market bar between the first and last observation.
+
+    Bitget returns a zero-volume candle for a quiet perpetual hour; an interior
+    hole is therefore a cache/page-boundary defect, not a legitimate sparse
+    trade observation.  First-to-last range remains data-derived so a genuinely
+    new contract is not charged for hours before its first bar.
+    """
+
+    times, _clean, failures, rows = _read_ohlc(path, label="market", now=now)
+    if times.empty:
+        return CoverageEvidence(
+            None,
+            None,
+            rows,
+            0,
+            tuple(failures + ["empty market file"]),
+        )
+    unique_times = times.drop_duplicates().sort_values()
+    expected = pd.date_range(unique_times.min(), unique_times.max(), freq="h")
+    missing = expected.difference(unique_times)
+    failures.extend(_missing_failures("market hour", missing))
+    required = _utc_stamp(required_last)
+    if unique_times.max() < required:
+        failures.append(
+            f"market ends {unique_times.max()}, require {required}"
+        )
+    return CoverageEvidence(
+        first=unique_times.min().isoformat(),
+        last=unique_times.max().isoformat(),
+        rows=rows,
+        missing_intervals=len(missing),
+        failures=tuple(failures),
+    )
+
+
+def _merge_coverage(
+    primary: CoverageEvidence,
+    continuity: CoverageEvidence,
+) -> CoverageEvidence:
+    """Combine range/execution evidence with interior-hour continuity."""
+
+    return CoverageEvidence(
+        first=primary.first or continuity.first,
+        last=primary.last or continuity.last,
+        rows=primary.rows,
+        missing_intervals=primary.missing_intervals + continuity.missing_intervals,
+        failures=tuple(dict.fromkeys((*primary.failures, *continuity.failures))),
+        warnings=tuple(dict.fromkeys((*primary.warnings, *continuity.warnings))),
     )
 
 
@@ -976,11 +1232,19 @@ def collect_member_evidence(
             required_end=warmup_end_at,
             now=_utc_stamp(now),
         )
-        warmup_market = check_market_file_range(
+        warmup_market_range = check_market_file_range(
             warmup_market_path,
             required_first_day=warmup_expected_start.date(),
             required_last_day=warmup_end_day,
             now=_utc_stamp(now),
+        )
+        warmup_market = _merge_coverage(
+            warmup_market_range,
+            check_market_continuity(
+                warmup_market_path,
+                required_last=warmup_end_at,
+                now=_utc_stamp(now),
+            ),
         )
         warmup_alignment = check_market_alignment(
             warmup_market_path, (warmup_mark_path,)
@@ -995,16 +1259,23 @@ def collect_member_evidence(
         required_end=live_end,
         now=_utc_stamp(now),
     )
-    live_market = check_market_execution_coverage(
-        live_market_path,
-        required_first_day=live_expected_day,
-        # Do not require the still-future 01:00Z fill bar during the
-        # 00:35/00:55Z prepare window.  Only completed execution days are a
-        # readiness concern here; the executor rechecks the current fill bar
-        # immediately before 01:05Z.
-        end_day=market_checked_through,
-        required_first_at=live_expected_start,
-        now=_utc_stamp(now),
+    live_market = _merge_coverage(
+        check_market_execution_coverage(
+            live_market_path,
+            required_first_day=live_expected_day,
+            # Do not require the still-future 01:00Z fill bar during the
+            # 00:35/00:55Z prepare window.  Only completed execution days are a
+            # readiness concern here; the executor rechecks the current fill bar
+            # immediately before 01:05Z.
+            end_day=market_checked_through,
+            required_first_at=live_expected_start,
+            now=_utc_stamp(now),
+        ),
+        check_market_continuity(
+            live_market_path,
+            required_last=required_last,
+            now=_utc_stamp(now),
+        ),
     )
     live_alignment = check_market_alignment(
         live_market_path,
@@ -1767,6 +2038,7 @@ __all__ = [
     "CoverageEvidence",
     "DUPLICATE_CONTRACT",
     "EVENTS",
+    "ReadyTop20",
     "TOP20_SIZE",
     "TOP50_SIZE",
     "VENUE_UNAVAILABLE",
@@ -1776,16 +2048,19 @@ __all__ = [
     "assess_selection",
     "audit_failures_by_member",
     "audit_selected_top50",
+    "bind_executable_top20",
     "build_notification_events",
     "check_funding_coverage",
     "check_mark_coverage",
     "check_market_alignment",
+    "check_market_continuity",
     "check_market_execution_coverage",
     "check_market_file_range",
     "check_panel_history",
     "collect_member_evidence",
     "format_event_message",
     "load_state",
+    "load_ready_top20",
     "notification_key",
     "publish_readiness_payload",
     "queue_notification_events",

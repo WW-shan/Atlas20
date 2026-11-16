@@ -61,13 +61,16 @@ def _load_market(
     *,
     start_date: str,
     end_date: str,
+    universe_size: int = 20,
 ) -> tuple[ResearchConfig, MarketDataBundle, pd.DataFrame, pd.DatetimeIndex]:
+    if universe_size <= 0:
+        raise ValueError("universe_size must be positive")
     config = load_config(config_path).model_copy(deep=True)
     config.start_date = start_date
     config.end_date = end_date
     # The Top20-only universe is a hard project constraint, not a tunable
     # research parameter.
-    config.universe.universe_size = 20
+    config.universe.universe_size = int(universe_size)
     config.universe.min_history_days = 90
     config.universe.min_daily_dollar_volume = 25_000_000.0
 

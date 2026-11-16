@@ -178,8 +178,13 @@ panel_daily.csv（CMC，当日排名）
 - `--check-current` 必须同时通过当日日期、50/20 成员语义、全部 READY、audit passed、
   fingerprint 和 `latest.json == latest_ready.json`，不能只凭旧文件存在就放行；
 - `TOP50_DATA_BLOCKED` 或未 READY 的 `TOP20_ENTER` 明确禁止用第 51 名掩盖数据故障；
-- 当前 LS104 live universe 不被本功能静默改写；“无合约顺延”的可执行 universe 仍需独立 track/spec 审核后才能晋级 live；
-- 该功能不修改 trade state/journal/target；补齐 raw market 后由现有 `derivatives-ls104-signal` 重建 manifest fingerprint，但仍不执行订单。
+- LS104 signal 现在显式消费当日 `latest_ready.json`：先校验 READY fingerprint 和当前 CMC/Bitget 输入文件哈希，
+  再把 signal 当日 universe 替换为可执行 Top20；历史日期仍是普通 PIT CMC Top20；
+- 无合约导致的 Top20 递补成员必须已在候选行情池中；signal 不会为绑定临时下载、拼接或伪造历史；
+- LS104 manifest 必须包含 `executable_universe`，记录 source、READY fingerprint、完整 Top20 membership
+  和 skip 轨迹；`audit-signal-ls104` 固定重放 manifest 指向的 `ready/YYYY-MM-DD.json`，不能读取次日 pointer；
+- readiness 任务本身不修改 trade state/journal，也不下单；补齐 raw market 后由现有
+  `derivatives-ls104-signal` 重建 manifest fingerprint，executor 仍须通过全部执行闸门。
 
 手工检查：
 
@@ -194,8 +199,14 @@ r=json.load(open('reports/top50_data_readiness/latest.json'))
 print(r['ready'], r['fingerprint'], len(r['members']), len(r['top20']))
 print([(m['final_rank'], m['original_rank'], m['coin_id'], m['status']) for m in r['members']])
 print([(s['original_rank'], s['coin_id'], s['reason']) for s in r['skipped']])
+manifest=json.load(open('reports/ls45_live_g175/manifest.json'))
+assert manifest['executable_universe']['as_of'] == r['as_of']
+assert manifest['executable_universe']['fingerprint'] == r['fingerprint']
 PY
 ```
+
+若上述断言失败，signal 与 readiness 未接轨，禁止执行新的风险变更；先运行
+`derivatives-ls104-signal` 和 `audit-signal-ls104` 重新生成并验证绑定证据。
 
 ### 1.2 Ubuntu（可选，不能与 macOS 同时跑）
 
@@ -751,8 +762,9 @@ ops/run_derivatives_daily.sh --force
   **2026-09-01 00:00Z → 2026-11-16 21:00Z**，各 1846 rows，全量审计 0 duplicate / 0 interior gap；
 - 原 `repair_bitget_mark_gaps.py`：50 个合约 `0 missing → 0`；
 - scoped `audit_derivatives_data`：0 hard failure / 0 warning；
-- 数据指纹：`sha256:b16451744fd5c33f89e6575d3d518e1682b525e96032ab59b6a40370d148a9fb`；
-  同输入重复运行 fingerprint 不变；
+- 修复 warmup market 后的 readiness 数据指纹：
+  `sha256:f36d22f966f97a9be8e112e4c4e87e4b0568c9442ca8712eba4354f05f816ecd`；
+  同输入重复运行 fingerprint 不变；manifest 的 `executable_universe.fingerprint` 必须与它一致；
 - 指纹逐成员提交 5 类原始文件、合计 250 个 SHA-256；ready payload 强制 50 个唯一
   coin_id/合约、连续 final rank 和 Top20=Top50 前 20，CSV 使用原子写；
 - 指纹同时提交完整 CMC `panel_daily.csv`、`metadata.csv`、`symbol_map.csv` 的文件哈希；
@@ -760,16 +772,21 @@ ops/run_derivatives_daily.sh --force
   Telegram，再向上返回失败；不允许静默跳过新成员或掩盖为第 51 名；
 - CMC 历史 32 个 provider-zero cap 行由现有 `audit_market_cap_gaps.py` 明示为
   `provider_zero_supply`，其中 4 个当前 Top50 成员只作为 warning，不使用 carry/stale cap；
-- 3 个合约的 warmup market 首笔成交晚于首条 mark（INJ/LDO/OP），保留 warning，
-  不影响 live OOS 每日执行覆盖；
+- 旧 warmup market 缓存的分页边界共漏 **15,565** 个小时，其中 **712** 个是 01:00Z 执行 bar；
+  downloader 已改为对 `partial` 缓存自动重取，历史缺口只通过 Bitget API 原子补齐；
+- 修复后 50/50 warmup market 的内部小时缺口为 **0**，共 **1,584,383** 行；新旧文件重叠
+  **952,801** 行 0 mismatch；每合约抽 3 个 200h 窗口回源共 **30,000** 根 K 线、
+  **180,000** 个数值字段，0 mismatch；readiness 新增内部小时连续性硬门禁；
+- 3 个合约的 warmup market 首笔成交晚于首条 mark（INJ/LDO/OP），保留合同起点 warning；
+  首条之后的小时连续性已全部通过；
 - 无合约与 rebrand 导致的重复合约会分别记录 `VENUE_UNAVAILABLE` / `DUPLICATE_CONTRACT`
   并顺延；新合约没有已完成 live bar、回填失败或 Top20/Top50 状态不同步都会 fail closed；
 - `oos_targets.csv` 哈希不变：`2ef4e701...`；execution state 与 journal 哈希不变；
   manifest 因 `market_fill_fingerprint` 从旧值更新为
-  `sha256:a3053054506f0726dddd145badd67a87ad3f1aaee06ec8a5f1cd7715d3a6fe51`；
+  `sha256:f67d80499e580991a2520508bf1ec16e1a49e008fbf23a8c5586447e0971212c`；
 - `audit-signal-ls104`：72 行冻结账本 / 72 行重建账本，重叠信号日 32，0 differences；
 - `audit-data-ls104`：PASS，0 hard failure，0 warning；data fingerprint
-  `sha256:101baa3f3d21a109b419839c1e739962fde82d79bd5b706122277cfdf1fb67e4`；
+  `sha256:416de82815c8116e01d7c0a9f0f21790544b47ab22086e50d5f6e2f0f21678a4`；
 - 最终日频尾部检查发现 13 个 4h funding 成员缺 20:00Z settlement；修复成员级 audit
   funding 回填分层后，13 个成员以 599 requests 补齐，mark repair `0 missing -> 0`，
   最终 50/50 READY；
@@ -778,7 +795,7 @@ ops/run_derivatives_daily.sh --force
   必须精确提交四份审计文件、track、manifest path 和 `last_mark`；targets hash 仍为
   `2ef4e701...`，manifest/data/market-fill 三个哈希与当前产物一致；
 - `audit-accounting-ls104`：44 PASS / 0 FAIL；55 日权益与 1322 小时 gross 独立重放一致；
-- 最终代码门禁：Python 2694 passed / 1 skipped，前端 249 passed；lint、typecheck、build
+- 最终代码门禁：Python 2705 passed / 1 skipped，前端 249 passed；lint、typecheck、build
   和新模块 strict mypy 均通过。
 
 最终真实账户审计 `audit-live-ls104` 已通过 42/42：权益 490.9142 USDT、4 条当前持仓腿、

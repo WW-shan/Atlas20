@@ -183,6 +183,20 @@ def _window_status(
     return "partial", expected
 
 
+def _cached_window_needs_refetch(cached_status: str | None, actual_status: str) -> bool:
+    """Repair cached gaps instead of treating a stale status as final.
+
+    Older caches were written before the page-boundary fix and can still say
+    ``complete`` while the file is missing one hour per 100-row page.  A
+    partial window is never final: fetch it once more and merge the exact API
+    timestamps.  A known-missing listing window remains final.
+    """
+
+    if actual_status == "partial":
+        return True
+    return cached_status == "complete" and actual_status == "missing"
+
+
 def _window_needs_refresh(window_end: pd.Timestamp, now: pd.Timestamp) -> bool:
     """Return whether a cached window can still grow with new hourly bars."""
 
@@ -1021,22 +1035,18 @@ def main() -> None:
                 if _window_needs_refresh(window_end, now):
                     cached_status = None
                 if not args.force and cached_status in {"complete", "missing", "partial"}:
-                    if cached_status == "complete":
-                        cached_frame = existing.loc[
-                            (pd.to_datetime(existing["open_time"], utc=True) >= window_start)
-                            & (pd.to_datetime(existing["open_time"], utc=True) < window_end)
-                        ]
-                        actual_status, _ = _window_status(
-                            cached_frame,
-                            window_start,
-                            window_end,
-                        )
-                        if actual_status != "complete":
-                            window_state[key]["status"] = actual_status
-                            _save_state(state_path, state)
-                        else:
-                            continue
-                    else:
+                    cached_frame = existing.loc[
+                        (pd.to_datetime(existing["open_time"], utc=True) >= window_start)
+                        & (pd.to_datetime(existing["open_time"], utc=True) < window_end)
+                    ]
+                    actual_status, _ = _window_status(
+                        cached_frame,
+                        window_start,
+                        window_end,
+                    )
+                    if not _cached_window_needs_refetch(cached_status, actual_status):
+                        window_state[key]["status"] = actual_status
+                        _save_state(state_path, state)
                         continue
                 if args.max_requests > 0 and client.request_count >= args.max_requests:
                     LOGGER.warning("request budget reached at %s %s", symbol, candle_type)
