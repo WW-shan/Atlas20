@@ -10,7 +10,7 @@
 - engine end: 2026-11-16 01:05:01+00:00 (includes the final T+1 execution; daily metrics end 2026-11-15)
 - target ledger: oos_targets.csv; sha256 2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930
 - funding: bitget-exact (complete for the OOS window)
-- last mark: 2026-11-16 12:00:00+00:00; staleness: 4.1h
+- last mark: 2026-11-16 16:00:00+00:00; staleness: 1.2h
 - warmup history: data/raw/bitget_derivatives/merged_20261009
 - warmup provenance: sha256:d5f571ce686a2dd62b96f4c9e155ff03c2039dd4d4d7c79b7b46fd0f1dcb1e3b; 87 mark files; 0 missing hours; 0 gaps (0 two-hour); max gap 1.0h
 - mark coverage: 0 missing hours; 88 assets checked; 0 gaps (0 two-hour); max gap 1.0h

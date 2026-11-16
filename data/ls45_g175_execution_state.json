@@ -30,10 +30,10 @@
     "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
   },
   "attempt_counts": {
-    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16": 8
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16": 10
   },
   "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
-  "last_run_at": "2026-11-16T16:37:30.978203+00:00",
+  "last_run_at": "2026-11-16T17:27:01.966872+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
@@ -556,9 +556,25 @@
       "mode": "protect_only",
       "ran_at": "2026-11-16T16:37:30.978203+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "protect_only",
+      "ran_at": "2026-11-16T17:03:35.558097+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "protect_only",
+      "ran_at": "2026-11-16T17:27:01.966872+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-16T16:37:16.768609+00:00",
+  "stop_reconciliation_through": "2026-11-16T17:26:50.935001+00:00",
   "telegram_sent_at": "2026-11-16T01:22:57.310668+00:00",
   "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16"
 }

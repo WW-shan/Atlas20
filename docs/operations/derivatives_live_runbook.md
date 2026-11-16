@@ -647,3 +647,27 @@ ops/run_derivatives_daily.sh --force
   symbol 的已成交订单做反向核对。monitor 用 `active_event` 的冻结数量检查漂移，不用旧权重乘
   今日权益；外部成交必须补账后才能重新声明 `ok`。
 - 任何参数变更都必须新建 track/spec，不得静默改写本账本。
+
+---
+
+## 12. 2026-11-17 实跑复核记录
+
+本次生产复核不是只跑单元测试：
+
+- `make audit-live-ls104` 42/42 通过；
+- `audit-data-ls104` 3466 checks、0 hard failure、0 warning；
+- `audit-data-chain` 52 PASS / 0 WARN / 0 FAIL；
+- `audit-accounting-ls104` 44 PASS / 0 FAIL；
+- `audit-signal-ls104` 72 行冻结账本 = 72 行重建账本，0 differences；
+- `audit-symbols-ls104` 88/88 online，4x / long / short / flip 全部支持；
+- `audit-contract-specs-ls104` 5 份快照通过；`SANDUSDT.maxLever 10 -> 20`
+  是 non-material observation（所有值均支持 4x）；
+- `audit-funding-semantics-ls104` 4 个真实 position cycle 通过；
+- `com.atlas20.derivatives-refresh` 与 `com.atlas20.derivatives-execute` 两个
+  LaunchAgent 均以 exit 0 收尾。
+
+操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
+此时手工触发 execute 的 monitor 会报 settlement coverage 并 fail closed；
+这是正确的保护行为，先在真实顺序中运行 derivatives refresh，再运行 execute。
+若 `latest.json` 为 `status=error`，不要手工改写；按本文故障处置重新运行并让
+下一次真实成功覆盖。

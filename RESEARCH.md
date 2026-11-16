@@ -6677,3 +6677,102 @@ make audit-funding-semantics-ls104
   --expected-settlement 2026-11-16T16:00:00Z \
   --json-out reports/ls45_live_g175/funding_publication_boundary_probe.json
 ```
+
+### 00.161 2026-11-17 真实全链路复跑：时钟坐标、合约快照与 launchd 双作业验证
+
+本节取代 §00.160 第 1 节“三份快照、全部无变化”的旧表述，以及第 5 节
+“live audit 41/42、latest 仍为 error”的旧状态。本轮没有为了制造成功而改写
+state、journal、latest 或任何审计文件；所有成功都来自真实只读 API 和生产脚本。
+
+#### 1. 实跑发现并修复 publication evidence 时钟混用
+
+- 真实 `make audit-signal-ls104` 首次复跑失败：历史回放把市场评估时钟
+  `now=2026-11-15` 同时用于判断下午才写入的 `funding_publication.json`
+  `requestTime`，于是错误地把真实 observation evidence 判成 future。
+- 根因是“市场 freshness 的评估时刻”和“publication evidence 的观察时刻”被
+  合成一个时间坐标。`audit_derivatives_data` 现新增独立 `publication_now`：
+  panel/mark/settlement coverage 仍使用市场评估时刻，publication request time
+  使用真实观察时刻；默认仍是实际当前 UTC。
+- 回归测试复现了该错误（历史 `now` + 更晚的真实 publication observation），
+  修复后通过。重新真实重建：**72/72 冻结行一致、32 个重叠信号日、0 differences、
+  latest-action execution artifacts 全部存在**。
+
+#### 2. 合约审计补上被漏掉的 10/09 原始快照
+
+- 进一步用仓库里真实存在的原始合约捕获复跑后，发现旧默认快照集没有纳入
+  `data/raw/bitget_derivatives/contracts.json`，而名为 `merged_oos_20261009` 的
+  文件实际在 11/13 被刷新覆盖；因此“三快照无变化”并不完整。
+- 审计现纳入 **5 份实际保留快照**，并对 track 的 87 个唯一 symbol 比较
+  `sizeMultiplier / minTradeUSDT / minTradeNum / fundInterval / pricePlace /
+  priceEndStep / maxLever`。本次发现 `SANDUSDT.maxLever: 10 -> 20`；由于所有值
+  都高于本 track 必需的 4x，且 maxLever 不参与数量量化，报告把它标为
+  **non-material observed change**，不会伪报为 pass-silent。
+- 其他影响下单的六个字段在保留快照之间没有变化，87 个 symbol 均有覆盖。
+- 残余边界没有被删除：live-parity OOS 从 **2026-09-22** 开始，而最早完整合约
+  快照是 **2026-10-09**；这 17 天仍没有逐日历史 step/min-notional 证明。特别是
+  2026-09-30 的 NEAR 模拟成交 notional 为 **5.0169 USDT**，只比当前 5 USDT
+  最小额高 0.34%。因此不能声称历史量化已完全由逐日 venue 元数据证明；当前
+  live 执行使用实时抓取的当前快照，不受这段历史近似影响。
+
+#### 3. 真实数据、回测、会计、venue 与 live 门禁
+
+在 2026-11-17 的刷新后状态上逐项实跑：
+
+- `make test`：Python **2598 passed / 1 skipped**；前端 **249 passed**；
+- `make lint`、`make typecheck`、`make build`：通过；
+- `make audit-data-ls104`：**3466 checks，0 hard failure，0 warning**，fingerprint
+  `sha256:1f5e9451821ac29f6220e2c9fa0e5c95bc3a12a217e58a862e556dcd4ded3576`；
+- `make audit-data-chain`：**52 PASS / 0 WARN / 0 FAIL**；
+- `make audit-accounting-ls104`：**44 PASS / 0 FAIL**；事件、资金费、手续费、
+  逐仓保证金、每日 equity、小时 gross 全部独立重放一致；
+- 回测窗口：2026-09-22 → 2026-11-15，**55 daily rows / 55 metric returns**；
+  `multiple=0.9885326196`、`CAGR=-0.0736854496`、`Sharpe=0.1402031189`、
+  `MDD=-0.1930485535`；这不是正收益 OOS，也不是未来保证；
+- `make audit-symbols-ls104`：88/88 合约在线、4x、多空、flip 和 quotes 全部通过；
+- `make audit-funding-semantics-ls104`：4 个真实 position cycle 通过，max abs
+  funding error `3.89997e-05` USDT；
+- `make audit-contract-specs-ls104`：5 份快照、0 material change、1 个
+  non-material `SANDUSDT.maxLever` observation；
+- `make audit-live-ls104`：**42/42 全通过**；权益 495.5077 USDT、仓位
+  266.2179 USDT、4 条逐仓空头、gross 0.537x、isolated margin 0.277x；订单、
+  成交、止损、funding、journal/state/latest、数据指纹全部一致。
+
+#### 4. 正式 launchd 双作业
+
+真实触发生产 `launchctl kickstart` 后：
+
+1. 17:03Z 的 execute 作业先执行了 protect-only（未下单），随后 monitor 发现
+   funding 缓存尚未包含刚发生的 16:00Z settlement，**按设计 fail-closed**，
+   launchd 退出 1；这不是交易失败，也不是手工伪造成功。
+2. 触发 `com.atlas20.derivatives-refresh`，真实完成 88 symbols / 707 requests
+   下载、全量 55-day 回测、data-chain、data audit、venue、contract、signal
+   equivalence，最终退出 **0**；prepare receipt 于 17:26:34Z 写成。
+3. 再次触发 execute；protect-only 输出
+   `stops and risk book already correct; no order placed`，monitor `全部正常`，
+   launchd 最终 **last exit code = 0**（runs=26）。
+
+因此“明天 09:05 的正常执行顺序”已经按 08:30/08:50 panel、08:35/08:55
+derivatives refresh、09:05 execute 的实际生产时序验证过；若在结算后、刷新前
+手工强制 execute，monitor 会正确暴露 stale funding，而不是静默使用旧缓存。
+
+#### 5. 仍需负责人确认或属于不可消除边界
+
+- **外部平仓来源**：2026-11-15 09:02Z 四条空头在同一毫秒窗口被 `close_short`
+  market 订单买回，clientOid 是 Bitget 数字串，不是 Atlas20 的 `a20...`；可证明
+  不是 executor 下的订单，但不能从 API 证明是用户 UI、第三方策略、子账户还是
+  其他持有同一 key 的进程。当前账户 API 返回 `ips=[]`，权限为
+  `uta_mgt`/`uta_trade`；若用户没有手动操作，应立即轮换 key 并在 Bitget 设置
+  IP whitelist。这是操作安全问题，代码不能替用户证明。
+- 2026-09-22 → 2026-10-09 的历史 contract spec 仍是明确残余未知；不能用当前
+  snapshot 冒充逐日历史。
+- 小时 OHLC/市场单/止损触发路径仍不能还原真实 tick 的 spread、盘口冲击和
+  stop 触发顺序；紧急 close 的 ambiguous/failed 分支仍需要真实故障注入演练。
+- Python 全套测试有 1 个跳过：`test_generate_report.py` 的 WeasyPrint 原生
+  `libpango` 不可用；这不属于交易执行链，但不能声称所有可选报告生成路径都已跑过。
+- 当前 OOS 只有 55 天，`multiple=0.9885`、MDD `-19.30%`；12 个月独立 OOS、
+  更多 regime 和真实成交样本未完成。主样本历史高倍数不能当作未来保证。
+
+**结论**：当前可执行的 data → signal → accounting → venue → live/state/stop →
+launchd 链路，在已声明的输入和正常网络/交易所条件下已经真实跑通，已知代码
+fail-closed 门禁为 0 硬失败；不能承诺“绝对零风险”或“所有 bug 已找到”，尤其不能
+用这一段替代对外部 key 操作、交易所故障和真实 tick 滑点的证明。
