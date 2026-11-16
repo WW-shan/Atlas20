@@ -260,6 +260,21 @@ elif [ "$panel_status" -ne 0 ]; then
   exit "$panel_status"
 fi
 
+# A 08:55 Beijing catch-up may still be rebuilding the frozen book at 01:05.
+# Do not start a second data build against the same raw cache and manifest;
+# leave this fire to the next bounded retry instead.  The check is read-only;
+# the executor still takes the same lock for its own order window.
+lock_status=0
+.venv/bin/python scripts/refresh_derivatives_data.py \
+  --check-lock --lock-file "$LOCK_FILE" || lock_status=$?
+if [ "$lock_status" -eq 3 ]; then
+  echo "prepare still holds the execution lock; deferring this fire to the next retry"
+  exit 0
+elif [ "$lock_status" -ne 0 ]; then
+  echo "execution lock check failed with status $lock_status" >&2
+  exit "$lock_status"
+fi
+
 # --- 3/4. The chain itself ---------------------------------------------------
 # The 08:55 Beijing prepare job refreshes marks/funding, rebuilds the frozen
 # ledger and runs every audit.  The 09:05 Beijing execution fire may reuse that

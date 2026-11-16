@@ -48,7 +48,7 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-refresh` | **08:35、08:55**、15:05、21:05、03:05 | 非交易刷新：Bitget mark/funding → LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:55 在 08:35 receipt 仍新鲜时 no-op，00:50 UTC 后不再启动长 prepare | `~/Library/Logs/atlas20-derivatives-refresh.log` |
+| `com.atlas20.derivatives-refresh` | **08:35、08:55**、15:05、21:05、03:05 | 非交易刷新：Bitget mark/funding → LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s） | `~/Library/Logs/atlas20-derivatives-refresh.log` |
 | `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 优先复用 08:35/08:55 的新鲜 prepare receipt；否则 fail-closed 回退完整刷新链。按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
 | `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
@@ -118,17 +118,20 @@ bar。下载器会在严格审计前做一次有上限的条件等待：
 08:35 北京  prepare: data + LS104 signal + audit-data-chain
             + audit-data-ls104 + audit-symbols-ls104 + audit-signal-ls104
             -> reports/ls45_live_g175_live/prepared.json
-08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op
+08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op；
+            否则在 01:05 前启动有界补跑（panel 最多等 120s）
 09:05 北京  execute: 只接受 receipt 仍新鲜（默认 <= 30 分钟）、
             manifest/targets/data/market-fill 指纹与 audit 文件哈希全部一致；
             否则回退完整链，绝不使用过期 receipt
 ```
 
-00:50 UTC 之后 prepare 不再启动新的长任务，避免持有 `data/derivatives_execution.lock`
-跨过 01:05。08:35 prepare 会先等待 `data/.daily-refresh.lock` 释放并确认 panel 已到
-最近完成日，再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它
-完成而不是读取半成品。若当天 08:35/08:55 都失败，09:05 会走完整链并接受相应延迟；
-这是安全回退，不是正常路径。
+08:35 prepare 在 00:50 UTC 后不再启动新任务；08:55 catch-up 只允许在 01:05 前启动，
+panel 最多等 120s。这样正常路径不会持有 `data/derivatives_execution.lock` 跨过 01:05；
+若补跑仍未完成，09:05 wrapper 检测到执行锁被占用会直接让给下一次重试，不会并发重建。
+08:35 prepare 仍会先等待 `data/.daily-refresh.lock` 释放并确认 panel 已到最近完成日，
+再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它完成而不是读取
+半成品。若当天 08:35/08:55 都失败，09:05 会走完整链并接受相应延迟；这是安全回退，
+不是正常路径。
 
 2026-11-15 首次 LS104 bootstrap 的真实成交约 **01:10:59 UTC**；根因是当天 01:05 才启动
 mark/funding 下载、54 天账本重建和 `audit-data-chain`，不是信号本身偏离。该事实保留在

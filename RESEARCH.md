@@ -6279,10 +6279,16 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
   5 分钟模型偏移与 6 分钟操作延迟是两件事，不能混为一谈。
 - 新增 **08:35 / 08:55 北京（00:35 / 00:55 UTC）prepare**：
   - 00:35 正常跑完整数据+信号+审计并写 receipt；
-  - 00:55 只做 catch-up，receipt 仍新鲜时直接 no-op；
-  - 00:50 UTC 后不再启动新的长 prepare，避免持有执行锁跨过 01:05；
+  - 00:55 先检查 receipt；仍新鲜则直接 no-op，否则在 01:05 前启动有界 catch-up
+    （panel 等待最多 120 秒）；
+  - 08:35 在 00:50 UTC 后不再启动新的长 prepare；08:55 补跑若仍未完成，09:05
+    wrapper 检测到执行锁会直接让给下一次重试，避免并发重建；
   - 01:05 的 execute wrapper 只有 receipt 新鲜且 manifest/audit 哈希一致时才跳过
     重建，否则 fail-closed 回退到完整链。
+- 修复 `run_derivatives_shadow.py` 写 `signal_receipt.csv` 的局部变量初始化顺序：
+  `execution_price_model` 和 `live_parity` 必须先计算再写 receipt，否则
+  `audit-signal-ls104` 会以 `UnboundLocalError` 失败。修复后 72/72 行、32 个
+  重叠信号日、差异 0。
 - 因此正常情况下 01:05 的 executor 不再花 5-10 分钟重建；实际成交时点会从
   01:10:59 收敛到 01:05 后的秒级/分钟级。交易所 ticker、spread、盘口冲击和
   market order 滑点仍不可能由 1H bar 完全复现。
@@ -6295,5 +6301,5 @@ Bitget 账户与订单/止损 → 监控通知”的顺序重新审计当前 LS1
   不回写成回测路径；它带来额外手续费、funding 和实现路径差异。
 - 合约 quantity step / minimum 导致的量化误差、真实 spread/冲击、以及
   stop 的分钟级触发顺序，只能继续用实盘成交和 `audit-live` 观察。
-- 当前 live-parity OOS 只有 54 天；12 个月独立 OOS 仍未完成，不能把主样本
+- 当前 live-parity OOS 只有 55 个日行（54 个有效收益日）；12 个月独立 OOS 仍未完成，不能把主样本
   77.8524x 当作未来保证。

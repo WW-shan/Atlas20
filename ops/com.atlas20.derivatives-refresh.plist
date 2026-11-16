@@ -12,10 +12,12 @@
 
 	  Schedule: 08:35/08:55/15:05/21:05/03:05 Beijing =
 	  00:35/00:55/07:05/13:05/19:05 UTC.  The 08:35 fire is the normal
-	  pre-execution prepare; 08:55 is the catch-up and skips itself when the
-	  08:35 receipt is still valid.  The 09:05 Beijing (01:05 UTC) executor
-	  then reuses the fresh receipt instead of spending the fill window on a
-	  data rebuild.
+	  pre-execution prepare; 08:55 is the bounded catch-up: it no-ops when
+	  the 08:35 receipt is still valid, otherwise it may start until 01:05
+	  with a 120s panel wait.  If it is still running, the 09:05 executor
+	  defers to the next retry instead of racing the same raw cache.  The
+	  09:05 Beijing (01:05 UTC) executor reuses a fresh receipt instead of
+	  spending the fill window on a data rebuild.
 	-->
 	<key>ProgramArguments</key>
 	<array>

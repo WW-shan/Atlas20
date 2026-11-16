@@ -1495,6 +1495,21 @@ def main() -> None:
             "stale shorts flattened)"
         )
     short_opens = int((short_side & (trades.get("action") == "open")).sum()) if not trades.empty else 0
+    stop_fill_downgrades = (
+        not result.stop_events.empty
+        and bool((result.stop_events["fill_source"] == "mark_open_gap").any())
+    )
+    live_parity = bool(
+        args.contract_specs_from_symbol_map
+        and market_fill_candles
+        and result.fill_downgrades.empty
+        and not stop_fill_downgrades
+    )
+    execution_price_model = (
+        f"market_1h_open_{args.execution_price_snap}"
+        if market_fill_candles
+        else _execution_price_model(str(args.execution_price_snap))
+    )
     targets_sha256 = file_sha256(output_dir / "oos_targets.csv")
     pd.DataFrame(
         [
@@ -1512,21 +1527,6 @@ def main() -> None:
             }
         ]
     ).to_csv(output_dir / "signal_receipt.csv", index=False)
-    stop_fill_downgrades = (
-        not result.stop_events.empty
-        and bool((result.stop_events["fill_source"] == "mark_open_gap").any())
-    )
-    live_parity = bool(
-        args.contract_specs_from_symbol_map
-        and market_fill_candles
-        and result.fill_downgrades.empty
-        and not stop_fill_downgrades
-    )
-    execution_price_model = (
-        f"market_1h_open_{args.execution_price_snap}"
-        if market_fill_candles
-        else _execution_price_model(str(args.execution_price_snap))
-    )
     summary = {
         "tracked_spec": tracked_spec,
         "signal_trial_id": args.trial_id,

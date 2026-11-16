@@ -47,7 +47,9 @@ def test_refresh_dry_run_does_not_start_make(tmp_path: Path, monkeypatch) -> Non
     assert called is False
 
 
-def test_refresh_skips_when_the_execution_lock_is_held(tmp_path: Path, monkeypatch) -> None:
+def test_refresh_skips_when_the_execution_lock_is_held(
+    tmp_path: Path, monkeypatch
+) -> None:
     lock_path = tmp_path / "execution.lock"
     handle = lock_path.open("a+")
     fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -79,6 +81,73 @@ def test_refresh_skips_when_the_execution_lock_is_held(tmp_path: Path, monkeypat
     assert called is False
 
 
+def test_fresh_receipt_short_circuits_before_the_pre_execution_cutoff(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        refresh_derivatives_data,
+        "check_prepare_receipt",
+        lambda **_kwargs: (True, "prepare receipt is valid (1.0m old)"),
+    )
+
+    def fail_if_cutoff_is_evaluated(_args):
+        raise AssertionError("a fresh receipt must be checked before the cut-off")
+
+    monkeypatch.setattr(
+        refresh_derivatives_data,
+        "_pre_execution_too_late",
+        fail_if_cutoff_is_evaluated,
+    )
+
+    code = refresh_derivatives_data.main(
+        [
+            "--skip-if-fresh-receipt",
+            "--pre-execution",
+            "--project-root",
+            str(tmp_path),
+            "--lock-file",
+            str(tmp_path / "execution.lock"),
+        ]
+    )
+
+    assert code == 0
+
+
+def test_check_lock_distinguishes_busy_and_free(tmp_path: Path) -> None:
+    lock_path = tmp_path / "execution.lock"
+    handle = lock_path.open("a+")
+    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    try:
+        assert (
+            refresh_derivatives_data.main(
+                [
+                    "--check-lock",
+                    "--lock-file",
+                    str(lock_path),
+                    "--project-root",
+                    str(tmp_path),
+                ]
+            )
+            == 3
+        )
+    finally:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        handle.close()
+
+    assert (
+        refresh_derivatives_data.main(
+            [
+                "--check-lock",
+                "--lock-file",
+                str(lock_path),
+                "--project-root",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
+
+
 def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> None:
     import json
     from datetime import datetime, timezone
@@ -104,7 +173,9 @@ def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> N
                 "prepared_at": datetime.now(timezone.utc).isoformat(),
                 "manifest_sha256": refresh_derivatives_data._sha256(manifest),
                 "audit_files": {
-                    "reports/ls45_live_g175/data_audit.json": refresh_derivatives_data._sha256(audit)
+                    "reports/ls45_live_g175/data_audit.json": refresh_derivatives_data._sha256(
+                        audit
+                    )
                 },
             }
         ),
@@ -141,7 +212,9 @@ def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    manifest.write_text(json.dumps({**payload, "targets_sha256": "target-b"}), encoding="utf-8")
+    manifest.write_text(
+        json.dumps({**payload, "targets_sha256": "target-b"}), encoding="utf-8"
+    )
 
     valid, reason = refresh_derivatives_data.check_prepare_receipt(
         receipt_path=receipt,
@@ -154,7 +227,9 @@ def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
     assert "manifest hash" in reason or "targets_sha256" in reason
 
 
-def test_wait_for_current_panel_accepts_the_latest_completed_day(tmp_path: Path) -> None:
+def test_wait_for_current_panel_accepts_the_latest_completed_day(
+    tmp_path: Path,
+) -> None:
     from datetime import datetime, timezone
     import pandas as pd
 

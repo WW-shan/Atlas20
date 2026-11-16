@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
@@ -51,12 +53,20 @@ def test_engine_end_includes_the_last_signals_0105_execution() -> None:
 
 
 def test_last_signal_executes_before_the_engine_end() -> None:
-    from atlas20.derivatives.engine import DerivativeBacktestConfig, run_derivative_backtest
+    from atlas20.derivatives.engine import (
+        DerivativeBacktestConfig,
+        run_derivative_backtest,
+    )
     from scripts.run_derivatives_shadow import _engine_end_for_signal_end
 
     signal = pd.Timestamp("2026-01-01", tz="UTC")
     frame = pd.DataFrame(
-        {"open": [100.0, 100.0, 100.0], "high": [100.0] * 3, "low": [100.0] * 3, "close": [100.0] * 3},
+        {
+            "open": [100.0, 100.0, 100.0],
+            "high": [100.0] * 3,
+            "low": [100.0] * 3,
+            "close": [100.0] * 3,
+        },
         index=pd.DatetimeIndex(
             ["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-02T01:00:00Z"]
         ),
@@ -162,7 +172,9 @@ def test_mark_coverage_detects_hourly_page_boundary_gaps() -> None:
 
     start = pd.Timestamp("2026-01-01", tz="UTC")
     end = start + pd.Timedelta(hours=4)
-    full = pd.DataFrame({"close": [1.0, 1.0, 1.0, 1.0]}, index=pd.date_range(start, periods=4, freq="h"))
+    full = pd.DataFrame(
+        {"close": [1.0, 1.0, 1.0, 1.0]}, index=pd.date_range(start, periods=4, freq="h")
+    )
     gapped = full.drop(full.index[2])
 
     coverage = _mark_coverage({"full": full, "gapped": gapped}, start=start, end=end)
@@ -307,8 +319,7 @@ def test_mark_tree_provenance_hashes_each_symbol_file(tmp_path) -> None:
     candles.mkdir()
     for symbol in ("BTCUSDT", "ETHUSDT"):
         (candles / f"{symbol}_mark.csv").write_text(
-            "open_time,open,high,low,close\n"
-            "2026-01-01T00:00:00Z,1,1,1,1\n",
+            "open_time,open,high,low,close\n2026-01-01T00:00:00Z,1,1,1,1\n",
             encoding="utf-8",
         )
     symbol_map = pd.DataFrame(
@@ -457,11 +468,7 @@ def test_short_schedule_is_capped_at_the_requested_gross() -> None:
 
     signal = pd.Timestamp("2026-11-13", tz="UTC")
     capped = _cap_short_schedule(
-        {
-            signal: pd.Series(
-                {"bitcoin": 0.25, "ethereum": 0.25, "solana": 0.25}
-            )
-        },
+        {signal: pd.Series({"bitcoin": 0.25, "ethereum": 0.25, "solana": 0.25})},
         max_gross=0.50,
     )
 
@@ -504,15 +511,20 @@ def test_apply_short_scale_in_place_preserves_existing_keys() -> None:
     assert config["max_total_gross"] == pytest.approx(1.50)
 
 
-def test_ls104_manifest_pins_the_aggressive_track_design_not_the_ls45_baseline() -> None:
+def test_ls104_manifest_pins_the_aggressive_track_design_not_the_ls45_baseline() -> (
+    None
+):
     from scripts.run_derivatives_shadow import _track_spec_for
 
-    assert _track_spec_for(
-        "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
-    ) == "docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md"
+    assert (
+        _track_spec_for("PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090")
+        == "docs/superpowers/specs/2026-11-15-ls104-g175-m090-live-design.md"
+    )
 
 
-def test_execution_mark_audit_marks_only_the_final_pre_0100_delay_as_provisional() -> None:
+def test_execution_mark_audit_marks_only_the_final_pre_0100_delay_as_provisional() -> (
+    None
+):
     from scripts.run_derivatives_shadow import _execution_mark_audit
 
     frame_index = pd.DatetimeIndex(["2026-11-15T00:00:00Z"])
@@ -533,3 +545,18 @@ def test_execution_mark_audit_marks_only_the_final_pre_0100_delay_as_provisional
     assert audit["missing_pair_count"] == 0
     assert audit["provisional_resolved_count"] == 1
     assert audit["floor_resolved_count"] == 0
+
+
+def test_signal_receipt_metadata_is_initialized_before_it_is_written() -> None:
+    """The receipt must not reference locals assigned after the write."""
+
+    source = (
+        Path(__file__)
+        .resolve()
+        .parents[1]
+        .joinpath("scripts", "run_derivatives_shadow.py")
+        .read_text(encoding="utf-8")
+    )
+    receipt_write = source.index('output_dir / "signal_receipt.csv"')
+    assert source.index("execution_price_model = (") < receipt_write
+    assert source.index("live_parity = bool(") < receipt_write

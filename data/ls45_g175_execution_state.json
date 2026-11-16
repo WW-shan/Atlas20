@@ -30,7 +30,7 @@
     "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
   },
   "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
-  "last_run_at": "2026-11-16T01:35:20.657605+00:00",
+  "last_run_at": "2026-11-16T03:05:23.375424+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
@@ -505,9 +505,17 @@
       "mode": "protect_only",
       "ran_at": "2026-11-16T01:35:20.657605+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "protect_only",
+      "ran_at": "2026-11-16T03:05:23.375424+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-16T01:35:09.464257+00:00",
+  "stop_reconciliation_through": "2026-11-16T03:05:10.756589+00:00",
   "telegram_sent_at": "2026-11-16T01:22:57.310668+00:00",
   "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16"
 }

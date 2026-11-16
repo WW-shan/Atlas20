@@ -76,7 +76,9 @@ def write_prepare_receipt(
     }
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = receipt_path.with_suffix(receipt_path.suffix + ".tmp")
-    temporary.write_text(json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
+    temporary.write_text(
+        json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8"
+    )
     temporary.replace(receipt_path)
     return receipt
 
@@ -137,6 +139,11 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--check-receipt",
         action="store_true",
         help="validate the receipt against the current manifest and exit without running make",
+    )
+    parser.add_argument(
+        "--check-lock",
+        action="store_true",
+        help="exit 0 when the execution lock is free, 3 when it is held",
     )
     parser.add_argument(
         "--skip-if-fresh-receipt",
@@ -242,9 +249,7 @@ def wait_for_current_panel(
             if latest is not None and latest >= expected:
                 return True, f"panel carries {latest}"
         if time.monotonic() >= deadline:
-            return False, (
-                f"panel did not reach {expected} within {wait_seconds:g}s"
-            )
+            return False, (f"panel did not reach {expected} within {wait_seconds:g}s")
         time.sleep(min(10.0, max(0.5, deadline - time.monotonic())))
 
 
@@ -331,16 +336,43 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(reason)
         return 0 if valid else 3
 
-    if _pre_execution_too_late(args):
-        print(
-            "derivatives prepare skipped: past the pre-execution cut-off "
-            f"{args.latest_start_utc} UTC"
-        )
+    if args.check_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+", encoding="utf-8") as handle:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print(f"execution lock is busy: {lock_path}")
+                return 3
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        print(f"execution lock is free: {lock_path}")
         return 0
 
     if args.dry_run:
         for command in commands:
             print(" ".join(command))
+        return 0
+
+    # A fresh receipt must short-circuit before the pre-execution cut-off.
+    # In particular the 08:55 Beijing catch-up fire is after 00:50 UTC; it
+    # should still no-op when 08:35 already produced a valid receipt.
+    if args.skip_if_fresh_receipt:
+        valid, reason = check_prepare_receipt(
+            receipt_path=Path(args.receipt_out),
+            manifest_path=project_root / "reports" / "ls45_live_g175" / "manifest.json",
+            max_age_minutes=float(args.max_age_minutes),
+            project_root=project_root,
+        )
+        if valid:
+            print(f"derivatives refresh skipped: {reason}")
+            return 0
+
+    if _pre_execution_too_late(args):
+        print(
+            "derivatives prepare skipped: past the pre-execution cut-off "
+            f"{args.latest_start_utc} UTC"
+        )
         return 0
 
     if not args.skip_panel_wait:
@@ -377,7 +409,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.skip_if_fresh_receipt:
             valid, reason = check_prepare_receipt(
                 receipt_path=Path(args.receipt_out),
-                manifest_path=project_root / "reports" / "ls45_live_g175" / "manifest.json",
+                manifest_path=project_root
+                / "reports"
+                / "ls45_live_g175"
+                / "manifest.json",
                 max_age_minutes=float(args.max_age_minutes),
                 project_root=project_root,
             )
@@ -398,7 +433,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         file=sys.stderr,
                     )
                     return int(completed.returncode)
-            manifest_path = project_root / "reports" / "ls45_live_g175" / "manifest.json"
+            manifest_path = (
+                project_root / "reports" / "ls45_live_g175" / "manifest.json"
+            )
             receipt = write_prepare_receipt(
                 project_root=project_root,
                 manifest_path=manifest_path,

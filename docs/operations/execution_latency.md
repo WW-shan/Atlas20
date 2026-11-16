@@ -46,6 +46,7 @@ for many days while the executor still reconciles and journals every day.
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
 | 00:30 / 00:50 | early panel refresh and catch-up | `ops/com.atlas20.daily-refresh.plist`, `scripts/refresh_daily_data.py` |
+| 00:35 / 00:55 | LS104 prepare and bounded catch-up | `ops/com.atlas20.derivatives-refresh.plist`, `ops/run_derivatives_refresh.sh` |
 | 01:05 / 01:35 / 03:05 / 03:35 / 04:35 / 06:35 | primary live chain and retries | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
 | 06:30 | late panel catch-up | `scripts/refresh_daily_data.py` |
 

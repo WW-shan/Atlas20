@@ -31,7 +31,9 @@ def _scheduled_utc_times(plist_path: Path) -> list[tuple[int, int]]:
     entries = raw if isinstance(raw, list) else [raw]
     times = []
     for entry in entries:
-        local = datetime(2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE)
+        local = datetime(
+            2026, 1, 15, entry["Hour"], entry["Minute"], tzinfo=PLIST_LOCAL_ZONE
+        )
         utc = local.astimezone(timezone.utc)
         times.append((utc.hour, utc.minute))
     return times
@@ -79,7 +81,7 @@ def _wrapper_project_root(wrapper_path: Path) -> str:
     prefix = 'PROJECT_ROOT="'
     for line in script.splitlines():
         if line.startswith(prefix) and line.endswith('"'):
-            return line[len(prefix):-1]
+            return line[len(prefix) : -1]
     raise AssertionError(f"{wrapper_path.name} does not declare PROJECT_ROOT")
 
 
@@ -88,7 +90,10 @@ def _assert_launchd_contract(
 ) -> None:
     payload = plistlib.loads(plist_path.read_bytes())
     project_root = _wrapper_project_root(wrapper_path)
-    assert payload["ProgramArguments"] == ["/bin/zsh", f"{project_root}/ops/{wrapper_path.name}"]
+    assert payload["ProgramArguments"] == [
+        "/bin/zsh",
+        f"{project_root}/ops/{wrapper_path.name}",
+    ]
     assert payload["WorkingDirectory"] == project_root
     assert Path(payload["ProgramArguments"][1]).name == wrapper_path.name
     assert payload["RunAtLoad"] is run_at_load
@@ -125,7 +130,9 @@ def test_execute_job_catches_a_reboot_up_without_trading_twice():
     """
 
     payload = plistlib.loads(EXECUTE_PLIST.read_bytes())
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert payload["RunAtLoad"] is True
     assert "scripts/live_chain_preflight.py" in script
@@ -139,7 +146,9 @@ def test_execute_job_catches_a_reboot_up_without_trading_twice():
 def test_execute_wrapper_rechecks_complete_data_after_self_healing():
     """A refresh that skipped or still left a partial day must not trade."""
 
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert script.count("scripts/live_chain_preflight.py --check panel") >= 2
     assert "--force" in script[script.index("scripts/refresh_daily_data.py") :]
@@ -149,7 +158,9 @@ def test_execute_wrapper_rechecks_complete_data_after_self_healing():
 
 
 def test_execute_wrapper_sources_credentials_and_runs_the_live_chain():
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
     # Credentials live outside the repo; the wrapper is the one place that
     # loads them and must fail closed when they are missing.
     assert "bitget.env" in script
@@ -175,9 +186,7 @@ def test_monitor_wrapper_is_read_only_and_notify_only():
 
 
 def test_monitor_wrapper_follows_the_persisted_track_profile():
-    script = (PROJECT_ROOT / "ops" / "run_live_monitor.sh").read_text(
-        encoding="utf-8"
-    )
+    script = (PROJECT_ROOT / "ops" / "run_live_monitor.sh").read_text(encoding="utf-8")
 
     assert 'TRACK_ENV="$PROJECT_ROOT/config/track.env"' in script
     assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
@@ -187,6 +196,7 @@ def test_monitor_wrapper_follows_the_persisted_track_profile():
     assert "prior_track_order_registry.json" in script
     assert "--prior-track-registry" in script
 
+
 def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     """Only a human may drop the window; the scheduled fires must obey it.
 
@@ -194,7 +204,9 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
     (`ops/run_derivatives_daily.sh`) a silent no-op outside 01:05-07:05 UTC.
     """
 
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
     payload = plistlib.loads(EXECUTE_PLIST.read_bytes())
 
     assert '[ "${1:-}" = "--force" ]' in script
@@ -209,13 +221,17 @@ def test_wrapper_offers_a_manual_late_catchup_that_launchd_never_uses():
 
 
 def test_wrapper_runs_the_full_data_chain_audit_before_execution() -> None:
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert "/usr/bin/make audit-data-chain" in script
 
 
 def test_wrapper_runs_an_independent_post_execution_audit() -> None:
-    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
 
     execute_at = script.index("execution_status=0")
     post_execution = script[execute_at:]
@@ -245,8 +261,9 @@ def test_window_done_reconciles_stops_before_the_read_only_monitor() -> None:
         encoding="utf-8"
     )
     skip_block = script[
-        script.index('if [ "$window_status" -eq 4 ]; then') :
-        script.index('elif [ "$window_status" -ne 0 ]; then')
+        script.index('if [ "$window_status" -eq 4 ]; then') : script.index(
+            'elif [ "$window_status" -ne 0 ]; then'
+        )
     ]
 
     reconcile_at = skip_block.index("scripts/execute_live_plan.py")
@@ -283,7 +300,7 @@ def test_wrapper_bootstraps_only_an_empty_ls104_execution_state() -> None:
     assert 'BOOTSTRAP_ARG=""' in script
     assert '[ "$TRACK_PROFILE" = "ls104-g175-m090" ]' in script
     assert '[ ! -e "$STATE_FILE" ]' in script
-    assert "TRACK_PROFILE=\"$TRACK_PROFILE\"" in script
+    assert 'TRACK_PROFILE="$TRACK_PROFILE"' in script
     assert "$BOOTSTRAP_ARG" in script
 
 
@@ -305,7 +322,6 @@ def test_wrapper_uses_profile_specific_kill_switches_and_one_global_lock() -> No
     assert "PRIOR_ORDER_ARG" not in script
 
 
-
 def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
     profile_file = PROJECT_ROOT / "config" / "track.env"
 
@@ -320,6 +336,27 @@ def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
         script = (PROJECT_ROOT / "ops" / wrapper).read_text(encoding="utf-8")
         assert 'TRACK_ENV="$PROJECT_ROOT/config/track.env"' in script
         assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
+
+
+def test_refresh_wrapper_allows_a_bounded_0855_catch_up() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "date -u +%M" in script
+    assert "--latest-start-utc 01:05" in script
+    assert "panel_wait=120" in script
+    assert "--skip-if-fresh-receipt" in script
+
+
+def test_execute_wrapper_defers_when_a_prepare_still_holds_the_lock() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "--check-lock" in script
+    assert "deferring this fire to the next retry" in script
+    assert script.index("--check-lock") < script.index("derivatives-live-data")
 
 
 def test_macos_derivatives_refresh_is_separate_and_does_not_trade() -> None:
@@ -352,10 +389,7 @@ def test_ls104_maintenance_targets_are_profile_bound() -> None:
             cwd=PROJECT_ROOT,
             text=True,
         )
-        assert (
-            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
-            in command
-        )
+        assert "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090" in command
         assert "data/ls45_g175_execution_state.json" in command
         assert "reports/ls45_live_g175_live/journal.csv" in command
         assert mode in command
@@ -398,6 +432,7 @@ def test_wrappers_fail_closed_without_a_track_profile(tmp_path: Path) -> None:
                 f"stdout={result.stdout!r} stderr={result.stderr!r}"
             )
             assert "missing ATLAS20_TRACK_PROFILE" in result.stderr
+
 
 def test_wrapper_passes_prior_registry_as_two_arguments_under_sh_and_zsh(
     tmp_path: Path,
@@ -451,6 +486,6 @@ exit 0
         assert args[option_index + 1] == (
             "reports/ls45_live_g175_live/prior_track_order_registry.json"
         )
-        assert not any(
-            arg.startswith("--prior-track-registry ") for arg in args
-        ), f"{Path(shell).name} passed the option and path as one argument"
+        assert not any(arg.startswith("--prior-track-registry ") for arg in args), (
+            f"{Path(shell).name} passed the option and path as one argument"
+        )
