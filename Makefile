@@ -3,7 +3,7 @@ PYTHON := $(VENV)/bin/python
 PIP := $(PYTHON) -m pip
 VENV_STAMP := $(VENV)/.installed
 
-.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104 audit-accounting-ls104 audit-contract-specs-ls104 audit-funding-semantics-ls104 audit-funding-publication-boundary-ls104
+.PHONY: setup dev test test-fast lint typecheck build docker-build backup storage openapi load-test protect-logs clean record-capital-flow derivatives-live derivatives-live-data derivatives-ls45-signal derivatives-ls104-signal top50-readiness top50-readiness-unlocked top50-readiness-check derivatives-refresh-ls104 derivatives-notify-ls104 derivatives-live-ls104 execution-plan-live-ls104 execute-plan-ls104 protect-live-ls104 reconcile-live-ls104 audit-data audit-data-chain audit-data-ls104 audit-market-cap-gaps audit-signal audit-signal-ls104 audit-symbols audit-symbols-ls104 audit-live audit-live-ls104 audit-accounting-ls104 audit-contract-specs-ls104 audit-funding-semantics-ls104 audit-funding-publication-boundary-ls104
 
 $(PYTHON):
 	python -m venv $(VENV)
@@ -58,6 +58,32 @@ load-test: $(VENV_STAMP)
 refresh-data: $(VENV_STAMP)
 	$(PYTHON) scripts/download_data.py --config config/base.yaml
 	$(PYTHON) scripts/build_datasets.py --config config/base.yaml
+
+# Executable Top50 data readiness.  The primary prepare target calls the
+# unlocked variant while refresh_derivatives_data.py already holds the shared
+# execution lock.  A manual invocation uses the same lock and therefore cannot
+# race a live executor or a Bitget refresh.
+TOP50_READINESS_STATE ?= data/top50_readiness_state.json
+TOP50_READINESS_REPORTS ?= reports/top50_data_readiness
+TOP50_READINESS_LOCK ?= data/derivatives_execution.lock
+
+top50-readiness: $(VENV_STAMP)
+	$(PYTHON) scripts/run_top50_readiness.py \
+		--state-file $(TOP50_READINESS_STATE) \
+		--reports-dir $(TOP50_READINESS_REPORTS) \
+		--lock-file $(TOP50_READINESS_LOCK) \
+		--wait-seconds 900 $(ARGS)
+
+top50-readiness-unlocked: $(VENV_STAMP)
+	$(PYTHON) scripts/run_top50_readiness.py \
+		--state-file $(TOP50_READINESS_STATE) \
+		--reports-dir $(TOP50_READINESS_REPORTS) \
+		--no-lock $(ARGS)
+
+top50-readiness-check: $(VENV_STAMP)
+	$(PYTHON) scripts/run_top50_readiness.py \
+		--reports-dir $(TOP50_READINESS_REPORTS) \
+		--check-current
 
 # Shared derivatives live chain.  The selected profile produces a frozen
 # research wrapper from Bitget mark candles; it is never parameter-selected by

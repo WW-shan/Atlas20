@@ -251,6 +251,108 @@ def test_build_symbol_map_treats_blank_panel_symbol_as_unmapped() -> None:
     assert mapping.loc["tron", "contract_status"] == "missing"
 
 
+@pytest.mark.parametrize(
+    "contract",
+    [
+        {
+            "symbol": "TRXUSDT_261225",
+            "baseCoin": "TRX",
+            "quoteCoin": "USDT",
+            "symbolType": "delivery",
+            "symbolStatus": "normal",
+        },
+        {
+            "symbol": "TRXUSDC",
+            "baseCoin": "TRX",
+            "quoteCoin": "USDC",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+        },
+        {
+            "symbol": "TRXUSDT",
+            "baseCoin": "TRX",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "offline",
+        },
+    ],
+)
+def test_build_symbol_map_requires_a_normal_usdt_perpetual(contract) -> None:
+    panel = pd.DataFrame({"coin_id": ["tron"], "symbol": ["TRX"]})
+
+    mapping = build_symbol_map(panel, [contract]).set_index("coin_id")
+
+    assert mapping.loc["tron", "bitget_symbol"] == ""
+    assert mapping.loc["tron", "contract_status"] == "missing"
+    assert mapping.loc["tron", "reason"] == "no Bitget USDT-M perpetual"
+
+
+def test_build_symbol_map_skips_an_ineligible_direct_base_before_alias_fallback() -> None:
+    panel = pd.DataFrame(
+        {
+            "date": ["2026-11-15"],
+            "coin_id": ["matic-network"],
+            "symbol": ["MATIC"],
+        }
+    )
+    contracts = [
+        {
+            "symbol": "MATICUSDC",
+            "baseCoin": "MATIC",
+            "quoteCoin": "USDC",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+            "openTime": "1700000000000",
+        },
+        {
+            "symbol": "POLUSDT",
+            "baseCoin": "POL",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+            "openTime": "1690000000000",
+        },
+    ]
+
+    mapping = build_symbol_map(panel, contracts).set_index("coin_id")
+
+    assert mapping.loc["matic-network", "bitget_symbol"] == "POLUSDT"
+    assert mapping.loc["matic-network", "contract_status"] == "normal"
+    assert mapping.loc["matic-network", "reason"] == "alias:POL"
+
+
+def test_build_symbol_map_uses_a_normal_alias_when_the_direct_contract_is_offline() -> None:
+    panel = pd.DataFrame(
+        {
+            "date": ["2026-11-15"],
+            "coin_id": ["matic-network"],
+            "symbol": ["MATIC"],
+        }
+    )
+    contracts = [
+        {
+            "symbol": "MATICUSDT",
+            "baseCoin": "MATIC",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "offline",
+        },
+        {
+            "symbol": "POLUSDT",
+            "baseCoin": "POL",
+            "quoteCoin": "USDT",
+            "symbolType": "perpetual",
+            "symbolStatus": "normal",
+        },
+    ]
+
+    mapping = build_symbol_map(panel, contracts).set_index("coin_id")
+
+    assert mapping.loc["matic-network", "bitget_symbol"] == "POLUSDT"
+    assert mapping.loc["matic-network", "contract_status"] == "normal"
+    assert mapping.loc["matic-network", "reason"] == "alias:POL"
+
+
 def test_funding_overlap_passes_on_close_series() -> None:
     times = pd.date_range("2026-07-01", periods=40, freq="8h", tz="UTC")
     bitget = pd.DataFrame({"funding_time": times, "funding_rate": [0.0001] * 40})
