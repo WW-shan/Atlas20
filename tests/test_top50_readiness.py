@@ -849,3 +849,47 @@ def test_warmup_market_late_trade_start_is_visible_but_not_a_hard_block(tmp_path
 
     assert result.failures == ()
     assert any("starts later" in item for item in result.warnings)
+
+
+def test_publish_fingerprint_ignores_audit_wall_clock(tmp_path) -> None:
+    import json
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    payload = {
+        "as_of": "2026-11-15",
+        "ready": False,
+        "members": [{"final_rank": 1, "coin_id": "bitcoin", "status": "READY"}],
+        "top20": [{"final_rank": 1, "coin_id": "bitcoin", "status": "READY"}],
+        "skipped": [],
+        "audit": {
+            "passed": True,
+            "hard_failures": [],
+            "warnings": [],
+            "provenance": {"fingerprint": "sha256:files"},
+            "summary": {"now": "2026-11-16T18:00:00Z", "publication_now": "A"},
+        },
+    }
+    first = publish_readiness_payload(
+        reports_dir=tmp_path / "first",
+        payload=payload,
+        audit_payload={"passed": True},
+    )
+    changed = {
+        **payload,
+        "audit": {
+            **payload["audit"],
+            "summary": {
+                "now": "2026-11-16T19:00:00Z",
+                "publication_now": "B",
+            },
+        },
+    }
+    second = publish_readiness_payload(
+        reports_dir=tmp_path / "second",
+        payload=changed,
+        audit_payload={"passed": True},
+    )
+
+    first_payload = json.loads(first["latest"].read_text())
+    second_payload = json.loads(second["latest"].read_text())
+    assert first_payload["fingerprint"] == second_payload["fingerprint"]

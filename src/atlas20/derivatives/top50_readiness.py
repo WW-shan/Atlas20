@@ -963,6 +963,17 @@ def _payload_fingerprint(payload: dict[str, object]) -> str:
         for key, value in payload.items()
         if key not in {"fingerprint", "generated_at"}
     }
+    audit = canonical_payload.get("audit")
+    if isinstance(audit, dict):
+        audit_copy = dict(audit)
+        summary = audit_copy.get("summary")
+        if isinstance(summary, dict):
+            audit_copy["summary"] = {
+                key: value
+                for key, value in summary.items()
+                if key not in {"now", "publication_now"}
+            }
+        canonical_payload["audit"] = audit_copy
     canonical = json.dumps(
         canonical_payload,
         sort_keys=True,
