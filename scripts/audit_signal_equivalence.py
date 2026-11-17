@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -96,6 +97,8 @@ def _normalize_ledger(frame: pd.DataFrame) -> pd.DataFrame:
         )
     for column in ("target_weight", "change_weight"):
         normalized[column] = pd.to_numeric(normalized[column], errors="raise")
+        if not normalized[column].map(math.isfinite).all():
+            raise ValueError(f"target ledger contains a non-finite {column}")
     normalized["asset"] = normalized["asset"].astype(str).str.lower()
     normalized["side"] = normalized["side"].astype(str).str.lower()
     normalized["action"] = normalized["action"].astype(str).str.upper()

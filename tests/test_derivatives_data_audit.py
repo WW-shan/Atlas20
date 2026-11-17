@@ -81,6 +81,8 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
             "high": 101.0,
             "low": 99.0,
             "close": 100.0,
+            "volume": 10.0,
+            "quote_volume": 1_000.0,
         }
     ).to_csv(candles / "BTCUSDT_mark.csv", index=False)
 
@@ -307,7 +309,15 @@ def test_future_mark_timestamp_fails(tmp_path: Path) -> None:
     paths = _fixture(tmp_path)
     path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
     frame = pd.read_csv(path)
-    frame.loc[len(frame)] = ["2026-11-14T03:00:00+00:00", 100, 101, 99, 100]
+    frame.loc[len(frame)] = [
+        "2026-11-14T03:00:00+00:00",
+        100,
+        101,
+        99,
+        100,
+        10,
+        1_000,
+    ]
     frame.to_csv(path, index=False)
 
     report = _audit(paths)
@@ -327,6 +337,57 @@ def test_invalid_ohlc_fails(tmp_path: Path) -> None:
 
     assert report.passed is False
     assert any("invalid OHLC" in item for item in report.hard_failures)
+
+
+def test_non_hourly_mark_timestamp_fails(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(path)
+    frame.loc[0, "open_time"] = "2026-11-13T00:30:00+00:00"
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("non-hourly mark open_time" in item for item in report.hard_failures)
+
+
+def test_non_finite_mark_ohlc_fails(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(path)
+    frame.loc[0, "high"] = float("inf")
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("invalid row" in item for item in report.hard_failures)
+
+
+def test_invalid_mark_volume_fails(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(path)
+    frame.loc[0, "volume"] = -1.0
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is False
+    assert any("invalid mark volume" in item for item in report.hard_failures)
+
+
+def test_zero_mark_volume_is_valid(tmp_path: Path) -> None:
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(path)
+    frame.loc[:, ["volume", "quote_volume"]] = 0.0
+    frame.to_csv(path, index=False)
+
+    report = _audit(paths)
+
+    assert report.passed is True, report.hard_failures
 
 
 def test_stale_funding_fails_when_short_is_required(tmp_path: Path) -> None:

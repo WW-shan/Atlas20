@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -169,3 +170,78 @@ def test_repair_symbol_flushes_successful_batches_before_a_later_failure(
     assert pd.Timestamp("2026-01-01T01:00:00Z") in set(
         pd.to_datetime(repaired["open_time"], utc=True)
     )
+
+
+def test_repair_main_reconciles_merged_metadata_even_without_new_gaps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    candles = tmp_path / "candles"
+    candles.mkdir()
+    _mark_frame(["2026-01-01T00:00:00Z"]).to_csv(
+        candles / "BTCUSDT_mark.csv", index=False
+    )
+    pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "panel_symbol": "BTC",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+                "reason": "direct",
+            }
+        ]
+    ).to_csv(tmp_path / "symbol_map.csv", index=False)
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {
+                "BTCUSDT_mark": {
+                    "2026-01-01T00:00:00+00:00": {
+                        "status": "complete",
+                        "rows": 1,
+                        "expected_rows": 1,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "coverage.json").write_text("[]", encoding="utf-8")
+
+    class _Client:
+        def __init__(self, **_kwargs):
+            pass
+
+    monkeypatch.setattr(repair_bitget_mark_gaps, "BitgetClient", _Client)
+
+    code = repair_bitget_mark_gaps.main(
+        [
+            "--raw-dir",
+            str(tmp_path),
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-01-02",
+            "--symbols",
+            "bitcoin",
+            "--workers",
+            "1",
+        ]
+    )
+
+    assert code == 0
+    coverage = json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))
+    assert coverage == [
+        {
+            "coin_id": "bitcoin",
+            "bitget_symbol": "BTCUSDT",
+            "candle_type": "mark",
+            "rows": 1,
+            "first": "2026-01-01T00:00:00+00:00",
+            "last": "2026-01-01T00:00:00+00:00",
+            "complete_windows": 1,
+            "missing_windows": 0,
+            "partial_windows": 0,
+            "window_coverage": 1.0,
+            "max_gap_hours": 0.0,
+        }
+    ]

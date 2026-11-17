@@ -453,25 +453,41 @@ def _read_ohlc(
             [f"unreadable {label} file: {exc}"],
             0,
         )
-    required = {"open_time", "open", "high", "low", "close"}
+    required = {
+        "open_time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "quote_volume",
+    }
     missing = required.difference(frame.columns)
     if missing:
         return (
             pd.DatetimeIndex([]),
             pd.DataFrame(),
-            [f"missing {label} OHLC columns {sorted(missing)}"],
+            [f"missing {label} OHLCV columns {sorted(missing)}"],
             len(frame),
         )
 
     failures: list[str] = []
     raw_times = pd.to_datetime(frame["open_time"], utc=True, errors="coerce")
-    numeric = frame.loc[:, ["open", "high", "low", "close"]].apply(
+    numeric = frame.loc[:, ["open", "high", "low", "close", "volume", "quote_volume"]].apply(
         pd.to_numeric, errors="coerce"
     )
     finite_numeric = numeric.apply(lambda column: column.map(math.isfinite))
     invalid_row = raw_times.isna() | ~finite_numeric.all(axis=1)
     if invalid_row.any():
         failures.append(f"{int(invalid_row.sum())} invalid {label} row(s)")
+    invalid_volume_rows = (
+        ~finite_numeric.loc[:, ["volume", "quote_volume"]].all(axis=1)
+        | (numeric.loc[:, ["volume", "quote_volume"]] < 0.0).any(axis=1)
+    )
+    if invalid_volume_rows.any():
+        failures.append(
+            f"{int(invalid_volume_rows.sum())} invalid {label} volume row(s)"
+        )
     valid = ~invalid_row
     times = pd.DatetimeIndex(raw_times.loc[valid])
     clean = numeric.loc[valid].copy()
@@ -484,8 +500,15 @@ def _read_ohlc(
         failures.append(
             f"{int(sorted_times.duplicated().sum())} duplicate {label} timestamp(s)"
         )
+    non_hourly = sorted_times[sorted_times != sorted_times.floor("h")]
+    if len(non_hourly):
+        failures.append(
+            f"{len(non_hourly)} non-hourly {label} open_time row(s), "
+            f"first {non_hourly[0]}"
+        )
     if not clean.empty:
-        if (clean <= 0.0).any().any():
+        ohlc = clean.loc[:, ["open", "high", "low", "close"]]
+        if (ohlc <= 0.0).any().any():
             failures.append(f"non-positive {label} price")
         invalid_ohlc = (
             clean["high"]
@@ -938,6 +961,33 @@ def _first_ohlc_timestamp(path: Path) -> pd.Timestamp | None:
     return pd.Timestamp(times.min())
 
 
+def _first_funding_timestamp(path: Path) -> pd.Timestamp | None:
+    """Return the earliest valid settlement in a funding archive.
+
+    Funding history is useful as an independent lower bound for a contract's
+    observed life when Bitget omits ``openTime``.  In particular, a newly
+    mapped contract can have a short live-candle cache while its funding
+    archive proves that the contract was already active before the warmup
+    cutoff.  The funding check still validates the archive's cadence later;
+    this helper only supplies the earliest observed activity for the warmup
+    completeness decision.
+    """
+
+    path = Path(path)
+    if not path.is_file():
+        return None
+    try:
+        frame = pd.read_csv(path, usecols=["funding_time"])
+    except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+        return None
+    times = pd.to_datetime(
+        frame["funding_time"], utc=True, format="mixed", errors="coerce"
+    ).dropna()
+    if times.empty:
+        return None
+    return pd.Timestamp(times.min())
+
+
 def check_funding_coverage(
     path: Path,
     *,
@@ -1184,11 +1234,16 @@ def collect_member_evidence(
     declared_open = _contract_open_timestamp(map_row)
     first_warmup = _first_ohlc_timestamp(warmup_mark_path)
     first_live = _first_ohlc_timestamp(live_mark_path)
+    first_funding = _first_funding_timestamp(funding_path)
     observed_first_candidates = [
-        value for value in (first_warmup, first_live) if value is not None
+        value
+        for value in (first_warmup, first_live, first_funding)
+        if value is not None
     ]
     observed_first = min(observed_first_candidates) if observed_first_candidates else None
-    if declared_open is not None:
+    if declared_open is not None and (
+        observed_first is None or declared_open <= observed_first
+    ):
         open_timestamp = declared_open
         start_source = "contract_open_time"
     elif observed_first is not None:
@@ -1217,7 +1272,11 @@ def collect_member_evidence(
     live_expected_start = _hour_grid_start(live_expected_start)
     live_expected_day = live_expected_start.date()
     required_last = required_last_mark_time(_utc_stamp(now).to_pydatetime())
-    market_checked_through = required_last.date()
+    # Readiness is for the completed signal day.  The next day's execution
+    # bar becomes the live executor's fill-price input, not a requirement for
+    # publishing this signal; after 01:05Z required_last.date() already points
+    # at that next day and would block every member on a not-yet-existing bar.
+    market_checked_through = latest_signal_day
     live_end = required_last + pd.Timedelta(hours=1)
 
     cmc = check_panel_history(
@@ -1413,6 +1472,13 @@ def validate_ready_payload(payload: dict[str, object]) -> None:
         raise ValueError("ready payload contains a non-READY member")
     if [str(item.get("coin_id") or "") for item in top20] != coin_ids[:TOP20_SIZE]:
         raise ValueError("ready payload top20 is not the first twenty members")
+    for index, (member, top20_member) in enumerate(
+        zip(members[:TOP20_SIZE], top20, strict=True), start=1
+    ):
+        if top20_member != member:
+            raise ValueError(
+                f"ready payload top20 member does not match top50 at rank {index}"
+            )
     audit = payload.get("audit")
     if not isinstance(audit, dict) or audit.get("passed") is not True:
         raise ValueError("ready payload audit did not pass")
@@ -1692,6 +1758,14 @@ def format_event_message(event: dict[str, str]) -> str:
         lines.append("数据审核失败，该币不能进入新风险。")
     elif event["event"] == "TOP20_ENTER":
         lines.append("已进入 Top20；READY 时无需临时下载历史数据。")
+    if (
+        event["event"] in {"TOP50_DATA_READY", "TOP20_ENTER"}
+        and event.get("overall_status") not in (None, "", "READY")
+    ):
+        lines.append(
+            "Top50 总审核未通过，本次不会进入实盘信号；"
+            "禁止用第 51 名掩盖数据故障。"
+        )
     if event["event"] in {"TOP50_DATA_BLOCKED", "TOP20_ENTER"} and event["status"] != "READY":
         lines.append("未进入信号；禁止用第 51 名掩盖数据故障。")
     if event.get("details"):
@@ -1717,6 +1791,7 @@ def _event(
     as_of: str,
     status: str,
     failure_details: object,
+    overall_status: str | None = None,
 ) -> dict[str, str]:
     return {
         "event": event_type,
@@ -1724,6 +1799,7 @@ def _event(
         "symbol": symbol,
         "as_of": as_of,
         "status": status,
+        "overall_status": overall_status or status,
         "details": _render_failure_details(failure_details),
         "key": notification_key(event_type, coin_id, as_of),
     }
@@ -1751,6 +1827,7 @@ def build_notification_events(
     top20 = payload.get("top20")
     if not isinstance(members, list) or not isinstance(top20, list):
         raise ValueError("readiness payload must contain member lists")
+    overall_status = "READY" if payload.get("ready") is True else "BLOCKED"
 
     if not initialized:
         initial_events: list[dict[str, str]] = []
@@ -1769,6 +1846,7 @@ def build_notification_events(
                     as_of=as_of,
                     status=status,
                     failure_details=item.get("failure_details"),
+                    overall_status=overall_status,
                 )
             )
         return tuple(initial_events)
@@ -1803,6 +1881,7 @@ def build_notification_events(
                     as_of=as_of,
                     status=status,
                     failure_details=item.get("failure_details"),
+                    overall_status=overall_status,
                 )
             )
         if is_new or str(previous_status.get(coin_id) or "") != status:
@@ -1817,6 +1896,7 @@ def build_notification_events(
                     as_of=as_of,
                     status=status,
                     failure_details=item.get("failure_details"),
+                    overall_status=overall_status,
                 )
             )
     for item in top20:
@@ -1832,6 +1912,7 @@ def build_notification_events(
                     as_of=as_of,
                     status=str(item.get("status") or "BLOCKED"),
                     failure_details=item.get("failure_details"),
+                    overall_status=overall_status,
                 )
             )
     return tuple(events)
@@ -1881,6 +1962,9 @@ def queue_notification_events(
                         **related,
                         "symbol": str(event.get("symbol") or ""),
                         "status": str(event.get("status") or ""),
+                        "overall_status": str(
+                            event.get("overall_status") or event.get("status") or ""
+                        ),
                         "details": str(event.get("details") or ""),
                     }
         queued = dict(event)
@@ -1910,6 +1994,7 @@ def reconcile_notification_queue(
     top20 = payload.get("top20")
     if not as_of or not isinstance(members, list) or not isinstance(top20, list):
         raise ValueError("readiness payload must contain as_of and member lists")
+    overall_status = "READY" if payload.get("ready") is True else "BLOCKED"
     member_by_coin = {
         str(item.get("coin_id") or ""): item
         for item in members
@@ -1952,6 +2037,7 @@ def reconcile_notification_queue(
                 **event,
                 "symbol": str(member.get("symbol") or ""),
                 "status": final_status,
+                "overall_status": overall_status,
                 "details": _render_failure_details(member.get("failure_details")),
             }
         elif event_type in {"TOP50_ENTER", "TOP20_ENTER"}:
@@ -1962,6 +2048,7 @@ def reconcile_notification_queue(
                 **event,
                 "symbol": str(member.get("symbol") or ""),
                 "status": str(member.get("status") or "BLOCKED"),
+                "overall_status": overall_status,
                 "details": _render_failure_details(member.get("failure_details")),
             }
 

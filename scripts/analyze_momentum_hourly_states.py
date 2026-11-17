@@ -97,7 +97,6 @@ from scripts.analyze_momentum_flow_states import (  # noqa: E402
     EXISTING_STATE_COLUMNS,
     _member_snapshots,
     _ratio_to_median,
-    _spearman,
     _verdicts,
     information_table,
     redundancy_table,

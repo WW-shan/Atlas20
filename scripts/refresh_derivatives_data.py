@@ -61,6 +61,57 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _readiness_commitment_issue(
+    manifest: dict[str, object], *, project_root: Path
+) -> str | None:
+    """Verify that the current READY pointer is the one bound by the manifest."""
+
+    executable = manifest.get("executable_universe")
+    if executable is None:
+        return None
+    if not isinstance(executable, dict):
+        return "manifest executable_universe is not an object"
+    fingerprint = str(executable.get("fingerprint") or "")
+    source_sha = str(executable.get("source_sha256") or "")
+    as_of = str(executable.get("as_of") or "")
+    if (
+        not fingerprint.startswith("sha256:")
+        or len(fingerprint) != 71
+        or any(character not in "0123456789abcdef" for character in fingerprint[7:])
+    ):
+        return "manifest executable_universe fingerprint is invalid"
+    if (
+        not source_sha.startswith("sha256:")
+        or len(source_sha) != 71
+        or any(character not in "0123456789abcdef" for character in source_sha[7:])
+    ):
+        return "manifest executable_universe source hash is invalid"
+    if not as_of:
+        return "manifest executable_universe as_of is missing"
+
+    ready_path = (
+        Path(project_root)
+        / "reports"
+        / "top50_data_readiness"
+        / "latest_ready.json"
+    )
+    if not ready_path.is_file():
+        return "current READY pointer is missing"
+    try:
+        ready_payload = json.loads(ready_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"current READY pointer is unreadable: {exc}"
+    if not isinstance(ready_payload, dict) or ready_payload.get("ready") is not True:
+        return "current READY pointer is not a READY payload"
+    if str(ready_payload.get("as_of") or "") != as_of:
+        return "current READY pointer as_of does not match manifest"
+    if str(ready_payload.get("fingerprint") or "") != fingerprint:
+        return "current READY pointer fingerprint does not match manifest"
+    if _sha256(ready_path) != source_sha.removeprefix("sha256:"):
+        return "current READY pointer bytes do not match manifest source_sha256"
+    return None
+
+
 def write_prepare_receipt(
     *,
     project_root: Path,
@@ -88,6 +139,13 @@ def write_prepare_receipt(
         raise FileNotFoundError(
             "cannot write prepare receipt; missing audit file(s): "
             + ", ".join(missing_audits)
+        )
+    readiness_issue = _readiness_commitment_issue(
+        manifest, project_root=project_root
+    )
+    if readiness_issue is not None:
+        raise ValueError(
+            "cannot write prepare receipt: " + readiness_issue
         )
     receipt = {
         "prepared_at": datetime.now(timezone.utc).isoformat(),
@@ -351,6 +409,11 @@ def check_prepare_receipt(
         return False, f"manifest unreadable: {exc}"
     if not isinstance(manifest, dict):
         return False, "manifest is not a JSON object"
+    readiness_issue = _readiness_commitment_issue(
+        manifest, project_root=Path(project_root)
+    )
+    if readiness_issue is not None:
+        return False, readiness_issue
     missing_manifest = [
         key
         for key in RECEIPT_MANIFEST_FIELDS

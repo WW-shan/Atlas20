@@ -147,20 +147,22 @@ def _merge_coverage_rows(
     existing: object,
     refreshed: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Replace refreshed symbol/type rows without dropping other coverage."""
+    """Replace refreshed coin/symbol/type rows without dropping aliases."""
 
     prior = [dict(row) for row in existing if isinstance(row, dict)] if isinstance(existing, list) else []
-    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
     for row in prior:
+        coin_id = str(row.get("coin_id") or "").strip()
         symbol = str(row.get("bitget_symbol") or "").strip().upper()
         candle_type = str(row.get("candle_type") or "").strip().lower()
         if symbol and candle_type:
-            by_key[(symbol, candle_type)] = row
+            by_key[(coin_id, symbol, candle_type)] = row
     for row in refreshed:
+        coin_id = str(row.get("coin_id") or "").strip()
         symbol = str(row.get("bitget_symbol") or "").strip().upper()
         candle_type = str(row.get("candle_type") or "").strip().lower()
         if symbol and candle_type:
-            by_key[(symbol, candle_type)] = dict(row)
+            by_key[(coin_id, symbol, candle_type)] = dict(row)
     return [by_key[key] for key in sorted(by_key)]
 
 

@@ -68,6 +68,7 @@ from atlas20.derivatives.live_chain import (  # noqa: E402
     LIVE_MAX_QUOTE_AGE_SECONDS,
     LIVE_MIN_REBALANCE_USDT,
     execution_state_track_issue,
+    file_sha256,
     live_execution_hint_for_signal,
     live_track_profile,
     manifest_spec_issues,
@@ -131,6 +132,7 @@ DEFAULT_JSON_OUT = Path("reports/ls45_live_g125_live/latest.json")
 DEFAULT_LOCK_FILE = Path("data/ls45_g125_execution.lock")
 DEFAULT_RAW_DIR = Path("data/raw/bitget_derivatives/merged_oos_20261112")
 DEFAULT_PANEL_FILE = Path("data/processed/panel_daily.csv")
+DEFAULT_TOP50_READY = PROJECT_ROOT / "reports/top50_data_readiness/latest_ready.json"
 
 
 def _read_state(path: Path) -> dict[str, Any]:
@@ -556,6 +558,67 @@ def _bootstrap_track_issues(
     if not manifest or not str(manifest.get("targets_sha256") or ""):
         issues.append("manifest has no targets_sha256")
     return issues
+
+
+def _executable_universe_commitment_issue(
+    manifest: Mapping[str, Any],
+    *,
+    current_ready_path: Path | None = None,
+) -> str | None:
+    """Fail closed if a live manifest no longer matches the current READY pointer."""
+
+    executable = manifest.get("executable_universe")
+    if executable is None:
+        return None
+    if not isinstance(executable, Mapping):
+        return "manifest executable_universe is not an object"
+
+    def valid_sha256(value: object) -> bool:
+        text = str(value or "")
+        return (
+            text.startswith("sha256:")
+            and len(text) == 71
+            and all(character in "0123456789abcdef" for character in text[7:])
+        )
+
+    expected_sha = str(executable.get("source_sha256") or "")
+    expected_fingerprint = str(executable.get("fingerprint") or "")
+    expected_as_of = str(executable.get("as_of") or "")
+    if not valid_sha256(expected_sha):
+        return "manifest executable_universe source_sha256 is invalid"
+    if not valid_sha256(expected_fingerprint):
+        return "manifest executable_universe fingerprint is invalid"
+    if not expected_as_of:
+        return "manifest executable_universe as_of is missing"
+
+    raw_source = str(executable.get("source") or "").strip()
+    if not raw_source:
+        return "manifest executable_universe source is missing"
+    source_path = Path(raw_source).expanduser()
+    if not source_path.is_absolute():
+        source_path = PROJECT_ROOT / source_path
+    ready_path = Path(current_ready_path or DEFAULT_TOP50_READY).expanduser()
+    if not ready_path.is_absolute():
+        ready_path = PROJECT_ROOT / ready_path
+    if source_path.resolve() != ready_path.resolve():
+        return "manifest executable universe is not bound to the current READY pointer"
+    if not ready_path.is_file():
+        return "current Top50 READY pointer is missing"
+
+    actual_sha = "sha256:" + file_sha256(ready_path)
+    if actual_sha != expected_sha:
+        return "current Top50 READY pointer changed after the signal"
+    try:
+        payload = json.loads(ready_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"current Top50 READY pointer is unreadable: {exc}"
+    if not isinstance(payload, dict) or payload.get("ready") is not True:
+        return "current Top50 READY pointer is not a READY payload"
+    if str(payload.get("as_of") or "") != expected_as_of:
+        return "current Top50 READY pointer as_of does not match the manifest"
+    if str(payload.get("fingerprint") or "") != expected_fingerprint:
+        return "current Top50 READY pointer fingerprint does not match the manifest"
+    return None
 
 
 def _signed_event_target_quantities(
@@ -2521,6 +2584,13 @@ def _main(args: argparse.Namespace) -> int:
             f"live execution requires the frozen manifest at {args.manifest_file}; "
             "refusing to trade without an evaluated-date and mark-freshness proof"
         )
+    if args.live and manifest is not None:
+        readiness_issue = _executable_universe_commitment_issue(manifest)
+        if readiness_issue is not None:
+            raise SystemExit(
+                "executable universe changed before live execution: "
+                + readiness_issue
+            )
     targets_content: bytes | None = None
     if manifest is not None:
         if args.live and not manifest.get("targets_sha256"):

@@ -114,7 +114,7 @@ def test_backfill_planner_uses_existing_downloaders_for_only_blocked_members(
         end=pd.Timestamp("2026-11-17", tz="UTC"),
     )
 
-    assert len(commands) == 5
+    assert len(commands) == 7
     joined = [" ".join(command) for command in commands]
     assert any(
         "download_bitget_derivatives_data.py" in command
@@ -135,7 +135,11 @@ def test_backfill_planner_uses_existing_downloaders_for_only_blocked_members(
         and "--types mark,market" in command
         for command in joined
     )
-    assert all("--symbols coin-2" in command for command in joined)
+    assert all(
+        "--symbols coin-2" in command
+        for command in joined
+        if "merge_bitget_derivatives_shards.py" not in command
+    )
     assert not any("coin-1" in command for command in joined)
 
 
@@ -153,6 +157,62 @@ def test_backfill_planner_rejects_an_unselected_member(tmp_path) -> None:
             warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
             end=pd.Timestamp("2026-11-17", tz="UTC"),
         )
+
+
+def test_backfill_warmup_market_fetches_the_required_continuity_bar(
+    tmp_path,
+) -> None:
+    from scripts.run_top50_readiness import build_backfill_commands
+
+    commands = build_backfill_commands(
+        session=_session(tmp_path),
+        selection=_selection(2),
+        warmup_members={"coin-2"},
+        live_members=set(),
+        python="/venv/python",
+        oos_start=pd.Timestamp("2026-09-01", tz="UTC"),
+        warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
+        end=pd.Timestamp("2026-11-17", tz="UTC"),
+    )
+
+    market_command = next(
+        command
+        for command in commands
+        if "download_bitget_derivatives_data.py" in " ".join(command)
+        and command[command.index("--types") + 1] == "market"
+    )
+    end_value = market_command[market_command.index("--end") + 1]
+    assert end_value == "2026-09-21T01:00:00+00:00"
+
+
+def test_backfill_reconciles_metadata_after_mark_gap_repairs(tmp_path) -> None:
+    from scripts.run_top50_readiness import build_backfill_commands
+
+    commands = build_backfill_commands(
+        session=_session(tmp_path),
+        selection=_selection(2),
+        warmup_members={"coin-2"},
+        live_members={"coin-2"},
+        python="/venv/python",
+        oos_start=pd.Timestamp("2026-09-01", tz="UTC"),
+        warmup_end=pd.Timestamp("2026-09-21", tz="UTC"),
+        end=pd.Timestamp("2026-11-17", tz="UTC"),
+    )
+
+    reconcile = [
+        command
+        for command in commands
+        if "merge_bitget_derivatives_shards.py" in " ".join(command)
+    ]
+    assert len(reconcile) == 2
+    output_dirs = {
+        command[command.index("--output-dir") + 1] for command in reconcile
+    }
+    assert output_dirs == {
+        str(tmp_path / "data/raw/warmup"),
+        str(tmp_path / "data/raw/live"),
+    }
+    assert commands[-1] in reconcile
 
 
 def test_cycle_initializes_state_without_notifications(tmp_path) -> None:
@@ -289,7 +349,7 @@ def test_cycle_backfills_once_then_reassesses(tmp_path) -> None:
     )
 
     assert result["payload"]["ready"] is True
-    assert len(commands) == 2
+    assert len(commands) == 3
     assert not assessments
     assert len(assessment_calls) == 2
     assert assessment_calls[0]["now"] == pd.Timestamp("2026-11-16T18:00:00Z")
@@ -472,9 +532,13 @@ def test_backfill_planner_live_only_does_not_rebuild_warmup(tmp_path) -> None:
         end=pd.Timestamp("2026-11-17", tz="UTC"),
     )
 
-    assert len(commands) == 2
+    assert len(commands) == 3
     assert all("warmup" not in " ".join(command) for command in commands)
-    assert all("--symbols coin-2" in " ".join(command) for command in commands)
+    assert all(
+        "--symbols coin-2" in " ".join(command)
+        for command in commands
+        if "merge_bitget_derivatives_shards.py" not in " ".join(command)
+    )
 
 
 def test_backfill_scope_treats_audit_funding_failure_as_live() -> None:
@@ -525,7 +589,7 @@ def test_cycle_backfills_live_for_structured_funding_failure(tmp_path) -> None:
         assess_fn=lambda **_kwargs: assessments.pop(0),
     )
 
-    assert len(commands) == 2
+    assert len(commands) == 3
     assert all("warmup" not in " ".join(command) for command in commands)
 
 

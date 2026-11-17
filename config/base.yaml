@@ -14,7 +14,12 @@ logging:
 
 universe:
   universe_size: 20
-  current_top_n_candidates: 60
+  # The live research universe is Top20, but the executable Top50 readiness
+  # layer needs enough CMC candidates to replace assets without a Bitget
+  # perpetual contract.  Keep headroom beyond the raw 50 slots so venue
+  # skips, duplicate contracts and stablecoins do not make a valid 50-member
+  # cohort impossible.
+  current_top_n_candidates: 120
   # Historical watchlist.
   #
   # The candidate pool cannot be "today's top-N" only: a coin that was top-20

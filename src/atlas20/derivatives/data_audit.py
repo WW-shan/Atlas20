@@ -1037,13 +1037,25 @@ def audit_derivatives_data(
             except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
                 _check(report, f"marks.{asset}.readable", False, str(exc))
                 continue
-            missing = sorted({"open_time", "open", "high", "low", "close"}.difference(frame.columns))
-            _check(report, f"marks.{asset}.columns", not missing, f"missing columns {missing}" if missing else "required OHLC columns present")
+            missing = sorted(
+                {
+                    "open_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "quote_volume",
+                }.difference(frame.columns)
+            )
+            _check(report, f"marks.{asset}.columns", not missing, f"missing columns {missing}" if missing else "required OHLCV columns present")
             if missing:
                 continue
             stamps = pd.to_datetime(frame["open_time"], utc=True, format="mixed", errors="coerce")
-            numeric = frame.loc[:, ["open", "high", "low", "close"]].apply(pd.to_numeric, errors="coerce")
-            valid = stamps.notna() & numeric.notna().all(axis=1)
+            numeric = frame.loc[:, ["open", "high", "low", "close", "volume", "quote_volume"]].apply(pd.to_numeric, errors="coerce")
+            valid = stamps.notna() & np.isfinite(
+                numeric.to_numpy(dtype=float)
+            ).all(axis=1)
             _check(report, f"marks.{asset}.valid_rows", bool(valid.all()), f"{int((~valid).sum())} invalid row(s)")
             valid_stamps = stamps.loc[valid].reset_index(drop=True)
             _check(
@@ -1052,6 +1064,18 @@ def audit_derivatives_data(
                 bool(valid_stamps.is_monotonic_increasing),
                 "mark open_time is not monotonic",
             )
+            non_hourly = valid_stamps[valid_stamps != valid_stamps.dt.floor("h")]
+            _check(
+                report,
+                f"marks.{asset}.hour_grid",
+                non_hourly.empty,
+                (
+                    f"{len(non_hourly)} non-hourly mark open_time row(s), "
+                    f"first {non_hourly.iloc[0]}"
+                    if not non_hourly.empty
+                    else "all mark timestamps are on the UTC hour"
+                ),
+            )
             clean = numeric.loc[valid].copy()
             clean.index = pd.DatetimeIndex(stamps.loc[valid])
             clean = clean.sort_index()
@@ -1059,10 +1083,19 @@ def audit_derivatives_data(
             _check(report, f"marks.{asset}.unique_time", not duplicate.any(), f"{int(duplicate.sum())} duplicate mark timestamp(s)")
             future = clean.index > pd.Timestamp(moment)
             _check(report, f"marks.{asset}.no_future", not future.any(), f"{int(future.sum())} future mark timestamp(s)")
-            invalid_price = (clean <= 0.0).any().any()
+            invalid_price = (
+                clean.loc[:, ["open", "high", "low", "close"]] <= 0.0
+            ).any().any()
             invalid_ohlc = bool((clean["high"] < clean[["open", "close", "low"]].max(axis=1)).any() or (clean["low"] > clean[["open", "close", "high"]].min(axis=1)).any())
             _check(report, f"marks.{asset}.positive", not invalid_price, "non-positive OHLC value")
             _check(report, f"marks.{asset}.ohlc", not invalid_ohlc, "invalid OHLC relationship")
+            invalid_volume = (clean.loc[:, ["volume", "quote_volume"]] < 0.0).any(axis=1)
+            _check(
+                report,
+                f"marks.{asset}.volume",
+                not invalid_volume.any(),
+                f"{int(invalid_volume.sum())} invalid mark volume row(s)",
+            )
             if not clean.empty:
                 last = pd.Timestamp(clean.index.max())
                 # At/after the fill minute the live chain can only have the

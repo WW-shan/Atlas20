@@ -170,6 +170,11 @@ panel_daily.csv（CMC，当日排名）
 - 只有 `normal + perpetual + quoteCoin=USDT` 才进入映射；不合格的直连 base 会继续尝试
   已登记 alias，不会阻断同一币的正常 USDT perpetual fallback；
 - 有合约但 CMC/mark/market/funding/venue/杠杆证据不完整时 fail closed；
+- Bitget `openTime` 为空时，成员起点取 warmup/live OHLC 与 funding 档案的最早有效观测，
+  不能把“当前 live 文件第一条”当作上市日；若 funding 已早于 warmup 截止日，必须补全
+  warmup/live 历史，否则该成员保持 BLOCKED；
+- 即使 `openTime` 非空，只要真实 funding/OHLC 已出现更早观测，成员起点仍取最早值；不能被
+  错误或滞后的 venue 上市时间覆盖并跳过 warmup；
 - 首次 READY 初始化只建立基线，不发送 50 条历史进入消息；首次基线若本来含 BLOCKED，
   仍发送该真实故障，不能把首个失败静默成基线；
 - 后续只对“新进 Top50 / 状态变化 / 新进 Top20”生成事件，键为 `(event, coin_id, as_of)`；
@@ -183,6 +188,10 @@ panel_daily.csv（CMC，当日排名）
 - 无合约导致的 Top20 递补成员必须已在候选行情池中；signal 不会为绑定临时下载、拼接或伪造历史；
 - LS104 manifest 必须包含 `executable_universe`，记录 source、READY fingerprint、完整 Top20 membership
   和 skip 轨迹；`audit-signal-ls104` 固定重放 manifest 指向的 `ready/YYYY-MM-DD.json`，不能读取次日 pointer；
+- `prepared.json` 还必须与当前 `latest_ready.json` 的 as-of、fingerprint 和字节哈希一致；若
+  Top50 pointer 在 signal 重建后变化，receipt 失效并强制执行前重新绑定 signal，不能用旧账本跳过新 universe；
+- 实盘执行器在取得 execution lock 后会再次核对 manifest 指向的 `latest_ready.json` source
+  bytes、as-of 和 fingerprint；若 pointer 在 receipt 检查后、下单前变化，必须 fail closed；
 - readiness 任务本身不修改 trade state/journal，也不下单；补齐 raw market 后由现有
   `derivatives-ls104-signal` 重建 manifest fingerprint，executor 仍须通过全部执行闸门。
 

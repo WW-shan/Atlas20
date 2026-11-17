@@ -39,7 +39,6 @@ from scripts.run_h5_regime_short_router import (  # noqa: E402
 )
 from scripts.run_ls81_core_major_funding_carry import (  # noqa: E402
     _run_engine,
-    _sample_metrics,
     _scenario_config,
     _summary_row,
 )

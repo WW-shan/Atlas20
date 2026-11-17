@@ -86,10 +86,8 @@ def _rolling_table(returns: pd.DataFrame, window_days: int) -> pd.DataFrame:
         clean = pd.to_numeric(series, errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
         if len(clean) < window_days:
             worst_start = None
-            worst = float("nan")
         else:
             multiples = (1.0 + clean).rolling(window_days).apply(np.prod, raw=True).dropna()
-            worst = float(multiples.min())
             worst_start = multiples.idxmin() - pd.Timedelta(days=window_days - 1)
             worst_start = str(worst_start.date())
         rows.append(

@@ -36,7 +36,6 @@ from scripts.run_derivatives_backtest import (  # noqa: E402
     _restrict_targets,
     _short_mark_available,
 )
-from scripts.run_h5_exit_short import _as_utc  # noqa: E402
 from scripts.run_phase_momentum import _load_market  # noqa: E402
 from scripts.run_phase_momentum_live_signal import _resolve_build  # noqa: E402
 from scripts.run_strategy_evidence_audit import _metrics_from_returns  # noqa: E402

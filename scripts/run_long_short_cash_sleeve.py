@@ -33,7 +33,6 @@ from atlas20.strategies.overlays import apply_daily_asset_stop_overlay  # noqa: 
 
 from scripts.run_derivatives_backtest import (  # noqa: E402
     _funding_for_source,
-    _has_execution_mark,
     _long_targets_from_build,
     _restrict_targets,
 )

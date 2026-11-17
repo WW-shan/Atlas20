@@ -6964,3 +6964,62 @@ Top20，而不是再从 panel 独立重算后碰巧一致。
 - Bitget historical contract `openTime` 不可得时只能用首条真实 bar 推断起点；
 - INJ/LDO/OP 的 warmup market 合同起点边界和 CMC provider-zero cap 行仍是显式 warning/
   inference；它们不是内部小时缺口，也不能被解释成完整合约上市元数据。
+
+### 00.163 2026-11-17 Top50 blank-open-time 审计与 funding 起点修复
+
+在对当前 **2026-11-16** Top50 readiness 做成员级复核时发现一个真实回填缺陷：
+`JST/NIGHT/LIT/ZRO/PIEVERSE/DASH/ETHFI` 等 Bitget 合约的 `openTime` 为空，旧逻辑把
+live 文件首条 `2026-11-14 00:00Z` 当成合约起点，因而跳过了 warmup；但同一批合约的
+funding 档案已经覆盖到 `2026-08-19`，且 Bitget 历史 K 线回源也证明更早数据存在。
+这会把只有 3 天数据的成员错误发布为 READY，属于“数据层与策略接轨”之外仍会漏掉的历史
+完整性问题。
+
+修复采用 TDD：先加入 `test_collect_member_evidence_uses_funding_history_to_detect_missing_warmup`
+并观察到旧逻辑返回错误的 `READY`；随后在 readiness 成员证据中加入最早有效 funding
+时间作为合约活动下界，起点取 warmup/live/funding 三者的最早值。若该下界早于 warmup
+截止日而 warmup 文件缺失，成员必须 BLOCKED，由现有 downloader/repair 回填，不得把
+首条 live bar 当作上市日。
+
+真实回填结果（同一套现有 downloader/repair，未新增行情源）：
+
+- warmup mark：7 个成员、**948 requests**；warmup market：7 个成员、**948 requests**；
+- live mark/market：7 个成员、**267 requests**；gap repair 均为 `0 missing -> 0`；
+- 上述 7 个成员的 warmup 起点分别回到其真实首个可用 K 线（例如 JST `2025-04-28`、
+  NIGHT `2025-12-10`、ZRO `2024-06-20`、ETHFI `2024-03-22`）；live mark/market
+  均覆盖 `2026-09-01 .. 2026-11-17 00:00Z`，各 **1,849 rows**；
+- readiness 重新发布 **50/50 READY、20/20 Top20 READY、candidate_count=55**；
+  scoped audit **2,129 checks、0 hard failure、0 warning**；当前
+  `latest_ready.fingerprint = sha256:c0abc67735202b4be2d8780471d46c42fc7f745534a3432f395224734d900954`，
+  `source_fingerprint = sha256:c7106e147120d177b1e361432f5c62704dea0bc0f5619d1b84ada432eadae702`，
+  pointer 文件 `source_sha256 = sha256:e3848c9289a9cf1f5aab6e7a63c144cdd2a20211633a57aa9865673b0ba866bc`；
+- Bitget 无合约跳过仍为 HTX（原始 32）与 MNT（原始 35），递补成员按真实排名进入；
+
+在同一 readiness 成员集上重建 LS104 signal 后：
+
+- 冻结 target ledger 保持 **72 rows / 32 event days**，`targets_sha256` 仍为
+  `2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930`；
+- manifest `signal_end_date=2026-11-16`，`data_fingerprint=sha256:02419737204e1dbcbb69aaed4af1466dd8ab169ae6edfa7817f92aa06b43f34f`，
+  `market_fill_fingerprint=sha256:14415f69ba908e2687b31afd68506ff72efd6b884aed27a4b10fe73964c2e25d`，
+  `executable_universe.fingerprint` 与 readiness 指纹完全一致；
+- `audit-data-chain`：**53 PASS / 0 WARN / 0 FAIL**；`audit-data-ls104`：**0 hard / 0 warning**；
+  `audit-symbols-ls104`：100 mapped contracts 全部 online、4x、long/short/flip 通过；
+  `audit-signal-ls104`：72/72 rows、32 overlapping signal days、**0 differences**；
+- `audit-live-ls104`：42 checks 全通过；`audit-accounting-ls104`：44/44 通过；
+  `audit-funding-semantics-ls104`：4 cycles 通过，最大绝对误差 `3.89997e-05`；
+  funding publication boundary：8/8 通过，观察 lag `7422.409..7429.808s`；
+- `prepared.json` 现在额外校验当前 `latest_ready.json` 的 as-of、fingerprint 和 source bytes；
+  Top50 pointer 变化而 signal 未重建时 receipt 失效，避免旧 target book 跳过新 executable universe；
+- 执行器在拿到实盘执行锁后再次核对 manifest 的 `executable_universe.source`、source
+  bytes、as-of 和 fingerprint；即使 READY pointer 在 receipt 检查与下单之间变化，也会
+  fail closed，不允许旧 Top20 目标继续下单；
+- 合约 `openTime` 即使非空，也不再用它覆盖更早的真实 funding/OHLC 观测；成员起点始终取
+  声明上市时间与所有真实观测的最早值，防止错误或滞后的 venue metadata 再次跳过 warmup；
+- `TOP50_DATA_READY` 与 `TOP20_ENTER` 的 Telegram 文案都显式披露全局 Top50 BLOCKED；
+  成员单项 READY 不会被误读成整条实盘链路 READY；
+- 当日 01:35 UTC 自动执行日志为 protect-only：无新目标事件、无订单、四条空头停止单
+  仍为 BCH 249.79 / HYPE 80.513 / NEAR 3.8159 / ZEC 1095.24。
+
+剩余边界：INJ 的 warmup market 文件仍从 `2023-03-17` 开始，而 mark 从
+`2022-11-21` 开始；回源确认这是 Bitget market 历史不可得，不是内部小时缺口，readiness
+以显式 warning 保留该事实。其余当前 Top50 的 warmup/live 内部小时缺口为 0；上游
+CMC provider-zero cap 行也继续在 gap audit 中以 `provider_zero_supply` 显式列出。

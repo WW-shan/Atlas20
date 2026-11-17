@@ -286,7 +286,14 @@ receipt_status=0
 .venv/bin/python scripts/refresh_derivatives_data.py \
   --check-receipt --max-age-minutes 30 || receipt_status=$?
 if [ "$receipt_status" -ne 0 ]; then
-  /usr/bin/make derivatives-live-data "$SIGNAL_TARGET"
+  # The primary 08:35/08:55 prepare normally publishes Top50 readiness.  If
+  # that job did not run or failed, the execution fallback must rebuild the
+  # executable Top20 before rebuilding the signal.  Otherwise a stale READY
+  # pointer would make every retry before the 09:45 readiness fallback fail,
+  # delaying a brand-new Top20 member past its first live execution slot.
+  /usr/bin/make derivatives-live-data
+  /usr/bin/make top50-readiness ARGS="--wait-seconds 60"
+  /usr/bin/make "$SIGNAL_TARGET"
   /usr/bin/make audit-data-chain
   .venv/bin/python scripts/audit_venue_symbols.py \
     --required-leverage "$LEVERAGE" \

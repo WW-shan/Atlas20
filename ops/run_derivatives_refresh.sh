@@ -8,12 +8,14 @@ PROJECT_ROOT="${ATLAS20_PROJECT_ROOT:-$PROJECT_ROOT}"
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 cd "$PROJECT_ROOT"
-prepare_arg=""
+
 panel_wait=60
+pre_execution=false
+latest_start=""
 hour=$(date -u +%H)
 minute=$(date -u +%M)
 if [ "$hour" = "00" ] || { [ "$hour" = "01" ] && [ "$minute" -lt 5 ]; }; then
-  prepare_arg="--pre-execution"
+  pre_execution=true
   panel_wait=900
   # 00:55 is the bounded catch-up.  It must be allowed to start even though
   # the 00:50 cut-off has passed; otherwise a failed 00:35 prepare can never
@@ -23,9 +25,21 @@ if [ "$hour" = "00" ] || { [ "$hour" = "01" ] && [ "$minute" -lt 5 ]; }; then
   # than holding the execution lock across 01:05.  The 01:00-01:04 branch
   # catches a launchd fire that was delayed past the top of the hour.
   if [ "$hour" = "01" ] || [ "$minute" -ge 55 ]; then
-    prepare_arg="--pre-execution --latest-start-utc 01:05"
+    latest_start="01:05"
     panel_wait=120
   fi
 fi
-exec .venv/bin/python scripts/refresh_derivatives_data.py \
-  --skip-if-fresh-receipt --panel-wait-seconds "$panel_wait" $prepare_arg
+
+# Build an argument vector instead of expanding a multi-word scalar.  macOS
+# launchd invokes this file with zsh, which does not word-split an unquoted
+# scalar; passing "--pre-execution --latest-start-utc 01:05" as one token makes
+# argparse reject the entire refresh at the most important catch-up fire.
+set -- --skip-if-fresh-receipt --panel-wait-seconds "$panel_wait"
+if [ "$pre_execution" = true ]; then
+  set -- "$@" --pre-execution
+fi
+if [ -n "$latest_start" ]; then
+  set -- "$@" --latest-start-utc "$latest_start"
+fi
+
+exec .venv/bin/python scripts/refresh_derivatives_data.py "$@"

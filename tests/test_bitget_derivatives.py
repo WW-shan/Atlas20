@@ -566,6 +566,40 @@ def test_partial_candle_refresh_preserves_other_coverage_rows() -> None:
     ]
 
 
+def test_candle_coverage_keeps_distinct_coin_aliases_for_one_contract() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_coverage_rows
+
+    merged = _merge_coverage_rows(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "candle_type": "market",
+                "rows": 2,
+            },
+            {
+                "coin_id": "wrapped-bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "candle_type": "market",
+                "rows": 2,
+            },
+        ],
+        [
+            {
+                "coin_id": "wrapped-bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "candle_type": "market",
+                "rows": 3,
+            }
+        ],
+    )
+
+    assert {row["coin_id"]: row["rows"] for row in merged} == {
+        "bitcoin": 2,
+        "wrapped-bitcoin": 3,
+    }
+
+
 def test_live_mark_tail_retry_merges_the_new_completed_hour(tmp_path) -> None:
     from scripts import download_bitget_derivatives_data as downloader
 

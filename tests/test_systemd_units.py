@@ -95,7 +95,8 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
 def test_daily_wrapper_uses_the_selected_profile_chain() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
-    assert '/usr/bin/make derivatives-live-data "$SIGNAL_TARGET"' in wrapper
+    assert "/usr/bin/make derivatives-live-data" in wrapper
+    assert '/usr/bin/make "$SIGNAL_TARGET"' in wrapper
     assert "/usr/bin/make audit-data-chain" in wrapper
     assert "scripts/audit_venue_symbols.py" in wrapper
     assert '/usr/bin/make "$DATA_AUDIT_TARGET"' in wrapper

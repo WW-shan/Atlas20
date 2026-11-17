@@ -37,7 +37,7 @@ if str(SRC_DIR) not in sys.path:
 
 from atlas20.backtest.calendar import get_rebalance_dates  # noqa: E402
 from atlas20.backtest.engine import cap_and_normalize, run_backtest  # noqa: E402
-from atlas20.config import (
+from atlas20.config import (  # noqa: E402
     FrictionConfig,
     latest_completed_utc_day,
     load_config,

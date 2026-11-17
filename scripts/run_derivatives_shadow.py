@@ -1233,7 +1233,14 @@ def main() -> None:
             )
         except ValueError as exc:
             raise SystemExit(f"ready Top20 binding failed: {exc}") from exc
-        universe_size = 60
+        # Binding a new Top20 must not fail merely because venue skips pushed
+        # one of its members below the historical 60-row candidate pool.  Load
+        # exactly wide enough to include every authenticated READY member;
+        # historical dates still use the strategy's Top20 cutoff.
+        universe_size = max(
+            60,
+            max((member.original_rank for member in ready_top20.members), default=20),
+        )
         executable_universe_evidence = _executable_universe_evidence(ready_top20)
 
     _, market, universe, index = _load_market(

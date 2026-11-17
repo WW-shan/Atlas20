@@ -64,6 +64,7 @@ DEFAULT_LOCK = PROJECT_ROOT / "data" / "derivatives_execution.lock"
 DEFAULT_OOS_START = pd.Timestamp("2026-09-01", tz="UTC")
 DEFAULT_WARMUP_START = pd.Timestamp("2022-01-01", tz="UTC")
 DEFAULT_WARMUP_END = pd.Timestamp("2026-09-21", tz="UTC")
+DEFAULT_UNIVERSE_LIMIT = 120
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ class ReadinessSession:
     oos_start: pd.Timestamp
     warmup_start: pd.Timestamp
     warmup_end: pd.Timestamp
-    universe_limit: int = 60
+    universe_limit: int = DEFAULT_UNIVERSE_LIMIT
 
 
 class PublishedReadinessError(RuntimeError):
@@ -167,7 +168,13 @@ def build_backfill_commands(
         "--panel",
         str(session.panel_path),
     ]
+    reconciler = [
+        python,
+        str(Path("scripts") / "merge_bitget_derivatives_shards.py"),
+        "--reconcile-only",
+    ]
     warmup_end_date = _as_utc(warmup_end).date().isoformat()
+    warmup_market_end = _as_utc(warmup_end) + pd.Timedelta(hours=1)
     live_end_date = (_as_utc(end) + pd.Timedelta(days=1)).date().isoformat()
     commands: list[list[str]] = []
     if warmup_members:
@@ -195,7 +202,7 @@ def build_backfill_commands(
                     "--start",
                     _as_utc(session.warmup_start).date().isoformat(),
                     "--end",
-                    warmup_end_date,
+                    warmup_market_end.isoformat(),
                     "--types",
                     "market",
                     "--skip-funding",
@@ -213,6 +220,11 @@ def build_backfill_commands(
                     warmup_end_date,
                     "--symbols",
                     symbols,
+                ],
+                [
+                    *reconciler,
+                    "--output-dir",
+                    str(session.warmup_mark_dir),
                 ],
             ]
         )
@@ -244,6 +256,11 @@ def build_backfill_commands(
                     live_end_date,
                     "--symbols",
                     symbols,
+                ],
+                [
+                    *reconciler,
+                    "--output-dir",
+                    str(session.raw_dir),
                 ],
             ]
         )
@@ -616,7 +633,7 @@ def main(argv: list[str] | None = None) -> int:
         "--warmup-start", default=DEFAULT_WARMUP_START.date().isoformat()
     )
     parser.add_argument("--warmup-end", default=DEFAULT_WARMUP_END.date().isoformat())
-    parser.add_argument("--universe-limit", type=int, default=60)
+    parser.add_argument("--universe-limit", type=int, default=DEFAULT_UNIVERSE_LIMIT)
     parser.add_argument("--now", default=None)
     parser.add_argument("--notify", action="store_true")
     parser.add_argument("--notify-only", action="store_true")

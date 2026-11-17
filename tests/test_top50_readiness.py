@@ -211,6 +211,29 @@ def test_load_ready_top20_rejects_changed_current_inputs(tmp_path) -> None:
         )
 
 
+def test_load_ready_top20_rejects_top20_member_that_differs_from_top50(
+    tmp_path,
+) -> None:
+    from atlas20.derivatives import top50_readiness as readiness
+    from atlas20.derivatives.top50_readiness import load_ready_top20
+
+    path, panel, metadata, symbol_map = _write_ready_payload(tmp_path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["top20"][0]["bitget_symbol"] = "WRONGUSDT"
+    payload["fingerprint"] = readiness._payload_fingerprint(payload)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="top20 member does not match top50"):
+        load_ready_top20(
+            path,
+            expected_as_of=date(2026, 11, 15),
+            panel_path=panel,
+            metadata_path=metadata,
+            symbol_map_path=symbol_map,
+            require_current_inputs=False,
+        )
+
+
 def test_bind_executable_top20_backfills_a_missing_contract_into_the_signal_universe() -> None:
     from atlas20.derivatives.top50_readiness import (
         ReadyTop20,
@@ -414,6 +437,8 @@ def _ohlc(times: list[str]) -> pd.DataFrame:
             "high": 1.1,
             "low": 0.9,
             "close": 1.0,
+            "volume": 10.0,
+            "quote_volume": 10.0,
         }
     )
 
@@ -474,6 +499,58 @@ def test_mark_coverage_rejects_non_finite_ohlc_values(tmp_path) -> None:
     )
 
     assert any("invalid mark row" in item for item in result.failures)
+
+
+def test_mark_coverage_rejects_non_hourly_open_times(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_mark_coverage
+
+    path = tmp_path / "BTC_mark.csv"
+    _ohlc(
+        ["2026-01-01T00:00:00Z", "2026-01-01T01:30:00Z"]
+    ).to_csv(path, index=False)
+
+    result = check_mark_coverage(
+        path,
+        start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        required_end=pd.Timestamp("2026-01-01T02:00:00Z"),
+    )
+
+    assert any("non-hourly mark open_time" in item for item in result.failures)
+
+
+@pytest.mark.parametrize("volume", [-1.0, float("inf"), float("nan")])
+def test_market_continuity_rejects_invalid_volume(tmp_path, volume: float) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_continuity
+
+    path = tmp_path / "BTC_market.csv"
+    frame = _ohlc(
+        ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z"]
+    )
+    frame.loc[0, "volume"] = volume
+    frame.to_csv(path, index=False)
+
+    result = check_market_continuity(
+        path,
+        required_last=pd.Timestamp("2026-01-01T01:00:00Z"),
+    )
+
+    assert any("invalid market volume" in item for item in result.failures)
+
+
+def test_market_continuity_requires_volume_columns(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import check_market_continuity
+
+    path = tmp_path / "BTC_market.csv"
+    _ohlc(["2026-01-01T00:00:00Z"]).drop(
+        columns=["volume", "quote_volume"]
+    ).to_csv(path, index=False)
+
+    result = check_market_continuity(
+        path,
+        required_last=pd.Timestamp("2026-01-01T00:00:00Z"),
+    )
+
+    assert any("missing market OHLCV columns" in item for item in result.failures)
 
 
 def test_market_coverage_requires_one_usable_floor_bar_per_execution_day(tmp_path) -> None:
@@ -768,7 +845,19 @@ def test_audit_failures_are_mapped_to_the_affected_member() -> None:
     assert any(item.startswith("panel.last_completed_day") for item in failures["global"])
 
 
-def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) -> None:
+@pytest.mark.parametrize(
+    "now",
+    [
+        # 08:35 Beijing prepare: the upcoming 01:00Z execution bar is future.
+        "2026-01-02T00:35:00Z",
+        # 09:06 Beijing retry: the rebalance clock has passed, but today's
+        # execution bar is still not part of the completed signal day.
+        "2026-01-02T01:06:00Z",
+    ],
+)
+def test_collect_member_evidence_accepts_complete_real_shaped_files(
+    tmp_path, now: str
+) -> None:
     from atlas20.derivatives.top50_readiness import collect_member_evidence
 
     panel = pd.DataFrame(
@@ -834,10 +923,9 @@ def test_collect_member_evidence_accepts_complete_real_shaped_files(tmp_path) ->
         warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
         oos_start=pd.Timestamp("2026-01-01T00:00:00Z"),
         latest_signal_day=date(2026, 1, 1),
-        # 00:35Z is the production 08:35 Beijing prepare time.  The upcoming
-        # 01:00Z execution bar does not exist yet and must be checked by the
-        # executor, not make the completed-day readiness audit fail.
-        now=pd.Timestamp("2026-01-02T00:35:00Z"),
+        # The upcoming execution bar belongs to the executor, not to the
+        # completed-day readiness audit, both before and after 01:05Z.
+        now=pd.Timestamp(now),
     )
 
     assert evidence["status"] == "READY", evidence["failure_details"]
@@ -1059,6 +1147,54 @@ def test_new_top50_and_top20_members_emit_one_event_each() -> None:
     assert len({event["key"] for event in events}) == 3
 
 
+def test_top20_enter_message_discloses_an_overall_top50_block() -> None:
+    from atlas20.derivatives.top50_readiness import (
+        build_notification_events,
+        format_event_message,
+    )
+
+    payload = _payload()
+    payload["ready"] = False
+    payload["members"][0]["status"] = "BLOCKED"
+    payload["members"][0]["failure_details"] = ["rank-1 funding gap"]
+
+    events = build_notification_events(
+        {
+            "members": ["bitcoin"],
+            "top20": ["bitcoin"],
+            "member_status": {"bitcoin": "READY"},
+        },
+        payload,
+        initialized=True,
+    )
+
+    top20_event = next(event for event in events if event["event"] == "TOP20_ENTER")
+    message = format_event_message(top20_event)
+    assert top20_event["overall_status"] == "BLOCKED"
+    assert "Top50 总审核未通过" in message
+    assert "不会进入实盘信号" in message
+
+
+def test_top50_ready_message_discloses_an_overall_top50_block() -> None:
+    from atlas20.derivatives.top50_readiness import format_event_message
+
+    message = format_event_message(
+        {
+            "key": "TOP50_DATA_READY|ethereum|2026-11-15",
+            "event": "TOP50_DATA_READY",
+            "coin_id": "ethereum",
+            "symbol": "ETH",
+            "as_of": "2026-11-15",
+            "status": "READY",
+            "overall_status": "BLOCKED",
+            "details": "",
+        }
+    )
+
+    assert "Top50 总审核未通过" in message
+    assert "本次不会进入实盘信号" in message
+
+
 def test_member_status_change_emits_blocked_once() -> None:
     from atlas20.derivatives.top50_readiness import build_notification_events
 
@@ -1180,6 +1316,76 @@ def test_unsent_status_events_are_superseded_by_the_latest_status() -> None:
     assert pending[enter["key"]]["details"] == ""
     assert pending[top20["key"]]["status"] == "READY"
     assert pending[top20["key"]]["details"] == ""
+
+
+def test_notification_queue_propagates_a_global_ready_change_to_related_events() -> None:
+    from atlas20.derivatives.top50_readiness import (
+        queue_notification_events,
+        reconcile_notification_queue,
+    )
+
+    enter = {
+        "key": "TOP50_ENTER|coin-1|2026-11-15",
+        "event": "TOP50_ENTER",
+        "coin_id": "coin-1",
+        "symbol": "C1",
+        "as_of": "2026-11-15",
+        "status": "READY",
+        "overall_status": "BLOCKED",
+        "details": "",
+    }
+    top20 = {
+        **enter,
+        "key": "TOP20_ENTER|coin-1|2026-11-15",
+        "event": "TOP20_ENTER",
+    }
+    ready = {
+        **enter,
+        "key": "TOP50_DATA_READY|coin-1|2026-11-15",
+        "event": "TOP50_DATA_READY",
+        "overall_status": "READY",
+    }
+    state = {
+        "version": 1,
+        "notifications": {
+            "sent_keys": {},
+            "pending": {enter["key"]: enter, top20["key"]: top20},
+        },
+    }
+
+    queue_notification_events(state, (ready,))
+
+    pending = state["notifications"]["pending"]
+    assert pending[enter["key"]]["overall_status"] == "READY"
+    assert pending[top20["key"]]["overall_status"] == "READY"
+
+    reconcile_notification_queue(
+        state,
+        {
+            "as_of": "2026-11-15",
+            "ready": False,
+            "members": [
+                {
+                    "coin_id": "coin-1",
+                    "symbol": "C1",
+                    "status": "READY",
+                    "failure_details": [],
+                }
+            ],
+            "top20": [
+                {
+                    "coin_id": "coin-1",
+                    "symbol": "C1",
+                    "status": "READY",
+                    "failure_details": [],
+                }
+            ],
+        },
+    )
+
+    assert pending[ready["key"]]["overall_status"] == "BLOCKED"
+    assert pending[enter["key"]]["overall_status"] == "BLOCKED"
+    assert pending[top20["key"]]["overall_status"] == "BLOCKED"
 
 
 def test_reconcile_pending_keeps_only_the_final_status_for_the_day() -> None:
@@ -1410,14 +1616,13 @@ def test_collect_member_evidence_infers_start_when_contract_open_time_is_blank(
         {
             "funding_time": pd.to_datetime(
                 [
-                    "2026-01-01T00:00:00Z",
-                    "2026-01-01T08:00:00Z",
-                    "2026-01-01T16:00:00Z",
-                    "2026-01-02T00:00:00Z",
+                    "2026-01-01T04:00:00Z",
+                    "2026-01-01T12:00:00Z",
+                    "2026-01-01T20:00:00Z",
                 ],
                 utc=True,
             ),
-            "funding_rate": [0.0001] * 4,
+            "funding_rate": [0.0001] * 3,
         }
     ).to_csv(funding, index=False)
     map_row = pd.Series(
@@ -1449,6 +1654,145 @@ def test_collect_member_evidence_infers_start_when_contract_open_time_is_blank(
 
     assert evidence["status"] == "READY", evidence["failure_details"]
     assert evidence["contract_open_time"] == "2026-01-01"
+
+
+def test_collect_member_evidence_uses_funding_history_to_detect_missing_warmup(
+    tmp_path,
+) -> None:
+    """A blank contract open time must not hide an older live history gap.
+
+    Bitget leaves ``openTime`` blank for some newer contracts.  When the live
+    candle cache starts after the warmup window but the funding archive proves
+    the contract was already active, treating the first live candle as the
+    contract launch would silently skip the entire warmup backfill and publish
+    an incomplete member as READY.
+    """
+
+    from atlas20.derivatives.top50_readiness import collect_member_evidence
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["coin-1", "coin-1"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 10.0],
+            "market_cap": [100.0, 100.0],
+        }
+    )
+    warmup_mark = tmp_path / "C1USDT_mark.csv"
+    warmup_market = tmp_path / "C1USDT_market.csv"
+    live_mark = tmp_path / "C1USDT_live_mark.csv"
+    live_market = tmp_path / "C1USDT_live_market.csv"
+    funding = tmp_path / "coin-1.csv"
+    live_hourly = pd.date_range("2026-01-02T04:00:00Z", periods=20, freq="h")
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
+        live_mark, index=False
+    )
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
+        live_market, index=False
+    )
+    funding_hourly = pd.date_range("2026-01-01T00:00:00Z", periods=61, freq="8h")
+    pd.DataFrame(
+        {
+            "funding_time": funding_hourly,
+            "funding_rate": [0.0001] * len(funding_hourly),
+        }
+    ).to_csv(funding, index=False)
+    map_row = pd.Series(
+        {
+            "coin_id": "coin-1",
+            "panel_symbol": "C1",
+            "bitget_symbol": "C1USDT",
+            "contract_status": "normal",
+            "open_time": None,
+            "fund_interval": 8.0,
+        }
+    )
+
+    evidence = collect_member_evidence(
+        member=_selection().members[0],
+        map_row=map_row,
+        panel=panel,
+        warmup_mark_path=warmup_mark,
+        warmup_market_path=warmup_market,
+        live_mark_path=live_mark,
+        live_market_path=live_market,
+        funding_path=funding,
+        warmup_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        oos_start=pd.Timestamp("2026-01-02T00:00:00Z"),
+        latest_signal_day=date(2026, 1, 2),
+        now=pd.Timestamp("2026-01-03T00:35:00Z"),
+    )
+
+    assert evidence["data_start"] == "2026-01-01T00:00:00+00:00"
+    assert evidence["status"] == "BLOCKED"
+    assert any("warmup_mark: missing" in item for item in evidence["failure_details"])
+
+
+def test_collect_member_evidence_does_not_trust_a_late_contract_open_time(
+    tmp_path,
+) -> None:
+    """Observed activity predating nonblank ``openTime`` must still require warmup."""
+
+    from atlas20.derivatives.top50_readiness import collect_member_evidence
+
+    panel = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-01", "2026-01-02"], utc=True),
+            "coin_id": ["coin-1", "coin-1"],
+            "price": [1.0, 1.0],
+            "volume_usd": [10.0, 10.0],
+            "market_cap": [100.0, 100.0],
+        }
+    )
+    warmup_mark = tmp_path / "C1USDT_mark.csv"
+    warmup_market = tmp_path / "C1USDT_market.csv"
+    live_mark = tmp_path / "C1USDT_live_mark.csv"
+    live_market = tmp_path / "C1USDT_live_market.csv"
+    funding = tmp_path / "coin-1.csv"
+    live_hourly = pd.date_range("2026-01-02T04:00:00Z", periods=20, freq="h")
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(live_mark, index=False)
+    _ohlc([stamp.isoformat() for stamp in live_hourly]).to_csv(
+        live_market, index=False
+    )
+    funding_hourly = pd.date_range("2026-01-01T00:00:00Z", periods=61, freq="8h")
+    pd.DataFrame(
+        {
+            "funding_time": funding_hourly,
+            "funding_rate": [0.0001] * len(funding_hourly),
+        }
+    ).to_csv(funding, index=False)
+    map_row = pd.Series(
+        {
+            "coin_id": "coin-1",
+            "panel_symbol": "C1",
+            "bitget_symbol": "C1USDT",
+            "contract_status": "normal",
+            "open_time": "2026-01-02T12:00:00Z",
+            "fund_interval": 8.0,
+        }
+    )
+
+    evidence = collect_member_evidence(
+        member=_selection().members[0],
+        map_row=map_row,
+        panel=panel,
+        warmup_mark_path=warmup_mark,
+        warmup_market_path=warmup_market,
+        live_mark_path=live_mark,
+        live_market_path=live_market,
+        funding_path=funding,
+        warmup_start=pd.Timestamp("2026-01-01T00:00:00Z"),
+        warmup_end=pd.Timestamp("2026-01-02T00:00:00Z"),
+        oos_start=pd.Timestamp("2026-01-02T00:00:00Z"),
+        latest_signal_day=date(2026, 1, 2),
+        now=pd.Timestamp("2026-01-03T00:35:00Z"),
+    )
+
+    assert evidence["data_start"] == "2026-01-01T00:00:00+00:00"
+    assert evidence["status"] == "BLOCKED"
+    assert any("warmup_mark: missing" in item for item in evidence["failure_details"])
 
 
 def test_warmup_market_range_allows_one_silent_listing_day(tmp_path) -> None:

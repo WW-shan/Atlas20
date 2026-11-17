@@ -64,6 +64,14 @@ def test_signal_equivalence_rejects_a_changed_short_weight() -> None:
     assert result["differences"][0]["max_weight_delta"] == pytest.approx(0.05)
 
 
+def test_signal_equivalence_rejects_a_non_finite_frozen_weight() -> None:
+    frozen = _ledger()
+    frozen.loc[0, "target_weight"] = float("nan")
+
+    with pytest.raises(ValueError, match="non-finite target_weight"):
+        _compare_target_ledgers(frozen, _ledger(-0.20))
+
+
 def test_latest_signal_actions_must_reach_the_replay_trade_ledger() -> None:
     targets = _ledger()
     trades = pd.DataFrame(

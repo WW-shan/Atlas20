@@ -496,6 +496,121 @@ def test_live_execution_rejects_a_data_fingerprint_mismatch(
         execute_live_plan._main(args)
 
 
+def test_live_execution_readiness_commitment_accepts_the_exact_pointer(
+    tmp_path: Path,
+) -> None:
+    from atlas20.derivatives.live_chain import file_sha256
+
+    ready = tmp_path / "latest_ready.json"
+    payload = {
+        "ready": True,
+        "as_of": "2026-11-16",
+        "fingerprint": "sha256:" + "a" * 64,
+    }
+    ready.write_text(json.dumps(payload), encoding="utf-8")
+    manifest = {
+        "executable_universe": {
+            "source": str(ready),
+            "source_sha256": "sha256:" + file_sha256(ready),
+            "as_of": payload["as_of"],
+            "fingerprint": payload["fingerprint"],
+        }
+    }
+
+    issue = execute_live_plan._executable_universe_commitment_issue(
+        manifest, current_ready_path=ready
+    )
+
+    assert issue is None
+
+
+def test_live_execution_rejects_a_ready_pointer_changed_after_signal(
+    tmp_path: Path,
+) -> None:
+    from atlas20.derivatives.live_chain import file_sha256
+
+    ready = tmp_path / "latest_ready.json"
+    ready.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "as_of": "2026-11-16",
+                "fingerprint": "sha256:" + "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = {
+        "executable_universe": {
+            "source": str(ready),
+            "source_sha256": "sha256:" + file_sha256(ready),
+            "as_of": "2026-11-16",
+            "fingerprint": "sha256:" + "a" * 64,
+        }
+    }
+    ready.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "as_of": "2026-11-17",
+                "fingerprint": "sha256:" + "b" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issue = execute_live_plan._executable_universe_commitment_issue(
+        manifest, current_ready_path=ready
+    )
+
+    assert issue is not None
+    assert "changed after the signal" in issue
+
+
+def test_live_execution_checks_ready_pointer_after_acquiring_the_lock(
+    tmp_path: Path, monkeypatch
+) -> None:
+    ready = tmp_path / "latest_ready.json"
+    ready.write_text(
+        json.dumps(
+            {
+                "ready": True,
+                "as_of": "2026-11-17",
+                "fingerprint": "sha256:" + "b" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            _valid_manifest_payload(
+                executable_universe={
+                    "source": str(ready),
+                    "source_sha256": "sha256:" + "a" * 64,
+                    "as_of": "2026-11-16",
+                    "fingerprint": "sha256:" + "a" * 64,
+                }
+            )
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(execute_live_plan, "DEFAULT_TOP50_READY", ready)
+    monkeypatch.setattr(execute_live_plan, "_read_state", lambda _path: {})
+    monkeypatch.setattr(
+        execute_live_plan, "_require_existing_state_payload", lambda *_args: None
+    )
+    monkeypatch.setattr(
+        execute_live_plan, "_require_state_track", lambda *_args: None
+    )
+    args = execute_live_plan.parse_args(
+        ["--live", "--require-isolated", "--manifest-file", str(manifest)]
+    )
+
+    with pytest.raises(SystemExit, match="executable universe changed"):
+        execute_live_plan._main(args)
+
+
 def test_live_execution_parses_targets_from_the_manifest_bound_snapshot(
     tmp_path: Path, monkeypatch
 ) -> None:

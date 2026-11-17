@@ -240,6 +240,21 @@ def test_wrapper_runs_the_full_data_chain_audit_before_execution() -> None:
     assert "/usr/bin/make audit-data-chain" in script
 
 
+def test_execute_fallback_rebuilds_top50_readiness_before_the_signal() -> None:
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+
+    fallback_start = script.index('if [ "$receipt_status" -ne 0 ]; then')
+    live_data_at = script.index('/usr/bin/make derivatives-live-data', fallback_start)
+    signal_at = script.index('/usr/bin/make "$SIGNAL_TARGET"', live_data_at)
+    readiness_at = script.index("/usr/bin/make top50-readiness", fallback_start)
+
+    assert live_data_at < readiness_at
+    assert readiness_at < signal_at
+    assert "--notify" not in script[readiness_at:signal_at]
+
+
 def test_wrapper_runs_an_independent_post_execution_audit() -> None:
     script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
         encoding="utf-8"
@@ -348,6 +363,53 @@ def test_persisted_track_profile_is_versioned_inside_the_project() -> None:
         script = (PROJECT_ROOT / "ops" / wrapper).read_text(encoding="utf-8")
         assert 'TRACK_ENV="$PROJECT_ROOT/config/track.env"' in script
         assert 'TRACK_ENV="$CONFIG_DIR/track.env"' not in script
+
+
+def test_refresh_wrapper_passes_zsh_arguments_as_separate_words(
+    tmp_path: Path,
+) -> None:
+    zsh = shutil.which("zsh")
+    if zsh is None:
+        return
+
+    project = tmp_path / "project"
+    python = project / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n", encoding="utf-8")
+    python.chmod(0o755)
+
+    # Pin the wrapper's clock while preserving the exact production wrapper
+    # text apart from the two date substitutions.  This is intentionally run
+    # under zsh because that is how launchd invokes the script.
+    wrapper_text = (PROJECT_ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
+        encoding="utf-8"
+    )
+    wrapper_text = wrapper_text.replace(
+        'hour=$(date -u +%H)', 'hour=01'
+    ).replace('minute=$(date -u +%M)', 'minute=03')
+    wrapper = tmp_path / "run_derivatives_refresh.sh"
+    wrapper.write_text(wrapper_text, encoding="utf-8")
+    wrapper.chmod(0o755)
+
+    result = subprocess.run(
+        [zsh, str(wrapper)],
+        cwd=PROJECT_ROOT,
+        env={**os.environ, "ATLAS20_PROJECT_ROOT": str(project)},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "scripts/refresh_derivatives_data.py",
+        "--skip-if-fresh-receipt",
+        "--panel-wait-seconds",
+        "120",
+        "--pre-execution",
+        "--latest-start-utc",
+        "01:05",
+    ]
 
 
 def test_refresh_wrapper_allows_a_bounded_0855_catch_up() -> None:

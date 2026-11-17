@@ -16,7 +16,6 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import json
-import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -34,6 +33,9 @@ from atlas20.logging_utils import atomic_write_text  # noqa: E402
 from scripts.download_bitget_derivatives_data import (  # noqa: E402
     _merge_candles,
     _write_csv_atomic,
+)
+from scripts.merge_bitget_derivatives_shards import (  # noqa: E402
+    reconcile_merged_metadata,
 )
 
 
@@ -282,6 +284,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "results": [item.__dict__ for item in results],
     }
     if not args.dry_run:
+        # Gap repair changes candle files after the downloader wrote their
+        # point-in-time coverage report.  Recompute the merged metadata in the
+        # same process so a later signal rebuild cannot consume stale coverage,
+        # fingerprints or row counts.
+        report["metadata_manifest"] = reconcile_merged_metadata(raw_dir)
         atomic_write_text(
             raw_dir / "gap_repair.json",
             json.dumps(report, indent=2, sort_keys=True),
