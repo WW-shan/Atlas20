@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -755,6 +756,26 @@ def test_report_does_not_flag_intentional_drift_without_a_new_event() -> None:
 
     assert "NEAR 目标" not in message
     assert "不做权重再平衡" in message
+
+
+def test_report_distinguishes_scheduled_execution_from_report_time() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-13",
+        equity_before=500.0,
+        equity_after=500.0,
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-11-13",
+        spec="SPEC",
+        execution_hint="2026-11-19 01:05 UTC",
+        run_at=datetime(2026, 11, 19, 1, 15, tzinfo=timezone.utc),
+    )
+
+    assert message.splitlines()[0] == (
+        "Atlas20 自动调仓 · 2026-11-19 计划 09:05 / 报告 09:15 北京"
+    )
 
 
 def test_report_labels_event_quantity_completion_without_weight_drift() -> None:

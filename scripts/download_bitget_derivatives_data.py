@@ -439,6 +439,96 @@ def _load_funding_publication(path: Path) -> dict[str, Any]:
     return dict(assets) if isinstance(assets, dict) else {}
 
 
+def _funding_publication_covers_cache(
+    entry: object,
+    *,
+    symbol: str,
+    funding_last: pd.Timestamp,
+    funding_rate: float,
+    contract_interval_hours: float,
+    now: pd.Timestamp,
+) -> bool:
+    """Return whether persisted publication evidence can satisfy the audit.
+
+    A funding row and its publication proof are written separately.  A process
+    interruption, or a current-fund-rate outage after history succeeded, can
+    therefore leave a fresh CSV whose evidence lacks the venue interval.  Such
+    a cache must be queried again instead of being skipped until the next
+    settlement.
+    """
+
+    if not isinstance(entry, dict):
+        return False
+    if str(entry.get("symbol") or "").strip().upper() != symbol.strip().upper():
+        return False
+    try:
+        evidence_last = pd.Timestamp(entry.get("funding_last"))
+        evidence_rate = float(str(entry.get("funding_rate")))
+        verified_at = pd.Timestamp(entry.get("verified_at"))
+        publication_lag = float(str(entry.get("publication_lag_seconds")))
+        api_interval = float(str(entry.get("api_interval_hours")))
+    except (TypeError, ValueError):
+        return False
+    if pd.isna(evidence_last) or pd.isna(verified_at):
+        return False
+    evidence_last = (
+        evidence_last.tz_localize("UTC")
+        if evidence_last.tzinfo is None
+        else evidence_last.tz_convert("UTC")
+    )
+    expected_last = (
+        funding_last.tz_localize("UTC")
+        if funding_last.tzinfo is None
+        else funding_last.tz_convert("UTC")
+    )
+    if evidence_last != expected_last:
+        return False
+    if not math.isclose(evidence_rate, funding_rate, rel_tol=1e-12, abs_tol=1e-12):
+        return False
+    actual_lag = (verified_at - evidence_last).total_seconds()
+    moment = (
+        now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
+    )
+    if (
+        not math.isfinite(publication_lag)
+        or actual_lag < 0.0
+        or abs(actual_lag - publication_lag) > 1.0
+        or verified_at > moment + pd.Timedelta(minutes=5)
+    ):
+        return False
+    if (
+        not math.isfinite(api_interval)
+        or not math.isfinite(contract_interval_hours)
+        or not math.isclose(api_interval, contract_interval_hours, abs_tol=1e-9)
+        or entry.get("interval_matches_contract") is not True
+    ):
+        return False
+    try:
+        current_settlement = pd.Timestamp(entry.get("current_settlement_time"))
+        current_rate = float(str(entry.get("current_funding_rate")))
+    except (TypeError, ValueError):
+        current_settlement = pd.NaT
+        current_rate = float("nan")
+    if not pd.isna(current_settlement):
+        current_settlement = (
+            current_settlement.tz_localize("UTC")
+            if current_settlement.tzinfo is None
+            else current_settlement.tz_convert("UTC")
+        )
+        if (
+            current_settlement == evidence_last
+            and np.isfinite(current_rate)
+            and not math.isclose(
+                current_rate,
+                funding_rate,
+                rel_tol=1e-12,
+                abs_tol=1e-12,
+            )
+        ):
+            return False
+    return str(entry.get("rate_relation") or "").strip().lower() != "conflict"
+
+
 def _timestamp_ms(value: object) -> pd.Timestamp | None:
     try:
         milliseconds = int(float(value))
@@ -605,7 +695,21 @@ def _download_funding(
             next_expected = pd.NaT
             settlement_due = True
         cached_is_fresh = not pd.isna(last_cached) and not settlement_due
-        if not force and cached_is_fresh:
+        publication_covers_cache = bool(
+            cached_is_fresh
+            and preserved_entry is not None
+            and _funding_publication_covers_cache(
+                preserved_entry,
+                symbol=symbol,
+                funding_last=pd.Timestamp(last_cached),
+                funding_rate=float(
+                    cached.sort_values("funding_time")["funding_rate"].iloc[-1]
+                ),
+                contract_interval_hours=interval_hours,
+                now=current,
+            )
+        )
+        if not force and cached_is_fresh and publication_covers_cache:
             if not cached.empty:
                 manifest[coin_id] = {
                     "symbol": symbol,

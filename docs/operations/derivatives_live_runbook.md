@@ -134,6 +134,9 @@ panel 最多等 120s。这样正常路径不会持有 `data/derivatives_executio
 再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它完成而不是读取
 半成品。若当天 08:35/08:55 都失败，09:05 会走完整链并接受相应延迟；这是安全回退，
 不是正常路径。
+Telegram 标题会同时显示**计划执行时刻**和**报告生成时刻**；例如
+`计划 09:05 / 报告 09:15 北京` 表示策略时钟仍是 01:05 UTC，09:15 只是数据重建、
+审计和通知完成时间，不是调度被改成 09:15。
 
 2026-11-15 首次 LS104 bootstrap 的真实成交约 **01:10:59 UTC**；根因是当天 01:05 才启动
 mark/funding 下载、54 天账本重建和 `audit-data-chain`，不是信号本身偏离。该事实保留在
@@ -318,6 +321,8 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
    下载器以合约 funding interval 的下一次结算时刻判断缓存是否到期：结算一到就同时请求 history 与
    `current-fund-rate`，不会再用 `interval + 1h` 的宽限期跳过刷新；history 报错或返回空也不能阻断
    `current-fund-rate` 的独立兜底。08:35/08:55 是结算后的真实重试窗口，不是延迟一小时后才允许查询。
+   缓存是否可复用还取决于 publication evidence 是否完整：若 CSV 已有最新行，但缺少交易所 interval、
+   current-rate 一致性或发布时间证明，下载器会主动重查并修复证据，而不是等到下一个 settlement 才自愈。
    `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
 5. **合约规格快照**：`make audit-contract-specs-ls104` 比较冻结 track 的 7 个下单规格字段。
    下载器把合约变化点写入 `<raw-dir>/contract_snapshots/index.json`，相同内容只更新
@@ -822,6 +827,15 @@ ops/run_derivatives_daily.sh --force
 未重建数据、未调用 executor；Telegram 部署消息实投 1 个 chat 成功，生产 readiness state
 仍为 `pending={}` / `sent_keys={}`。`com.atlas20.derivatives-refresh` 的 kickstart 因 fresh
 receipt 安全 no-op，`com.atlas20.derivatives-execute` 保持 `not running`、`last exit code=0`。
+
+2026-11-19 的 09:15 执行报告复盘：调度仍是 09:05，09:15 只是回退链完成时间。旧缓存规则
+把 8h funding 的 freshness 宽限到 `interval + 1h`，导致 00:35/00:55 两次 prepare 在 00:00
+settlement 已到期时仍跳过 funding 请求，信号在 08:43/08:57 北京因缺 BCH 00:00 settlement
+失败，09:05 的完整回退链在 09:15 才完成。规则已改为 settlement 一到即请求 history 与
+current-fund-rate；另加 publication evidence 完整性检查，CSV 虽新但 interval/current-rate/
+发布时间证明不完整时也会主动重查。修复后用真实 Bitget 接口在隔离目录补齐 BCH/HYPE/
+NEAR/ZEC，四条均为 history/current rate match；Top50 全 50 成员 6 小时 mark/market
+共 600 根 K 线回源 0 mismatch，11 个成员各 5 个 funding settlement 重叠区 0 mismatch。
 
 操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
 当前定时拓扑会在 08:00 UTC settlement 之后、19:00 北京 monitor 之前执行 18:05

@@ -49,6 +49,25 @@ _CANCELLED = "cancelled"
 _ISOLATED_UNSUPPORTED_MARKERS = ("fixedMargin", "40731", "not support copy trading")
 
 
+def _utc_execution_hint(value: str) -> datetime | None:
+    """Parse the plan clock without confusing it with report delivery time."""
+
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith(" UTC"):
+        text = text[:-4].rstrip() + "+00:00"
+    elif text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc)
+
+
 class LiveTradingClient(Protocol):
     """The slice of :class:`~atlas20.derivatives.account.BitgetPrivateClient`
     the executor needs (a protocol so tests can inject a fake)."""
@@ -2759,7 +2778,23 @@ def format_execution_report(
         else equity - float(prev_equity) - float(capital_flow)
     )
 
-    lines = [f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
+    title = f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京"
+    planned = _utc_execution_hint(execution_hint)
+    if planned is not None:
+        planned_beijing = planned.astimezone(timezone(timedelta(hours=8)))
+        if planned_beijing.date() == beijing.date():
+            title = (
+                f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d')} "
+                f"计划 {planned_beijing.strftime('%H:%M')} / "
+                f"报告 {beijing.strftime('%H:%M')} 北京"
+            )
+        else:
+            title = (
+                "Atlas20 自动调仓 · "
+                f"计划 {planned_beijing.strftime('%Y-%m-%d %H:%M')} / "
+                f"报告 {beijing.strftime('%Y-%m-%d %H:%M')} 北京"
+            )
+    lines = [title, ""]
     lines.append(f"总权益 {_money(equity)} USDT")
     share = f"（{total_notional / equity:.1%} 权益）" if equity > 0 else ""
     lines.append(f"仓位价值 {_money(total_notional)} USDT{share}")
