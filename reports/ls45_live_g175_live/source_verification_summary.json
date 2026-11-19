@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-11-19T14:23:24.923928+00:00",
+  "purpose": "Independent evidence that the Top20/Top50 pool and live signal are correct and actually used. No project rebuild is used as evidence.",
+  "checks": {
+    "bitget_external": {
+      "members": 50,
+      "requests": 151,
+      "candle_overlap_rows": 9900,
+      "funding_overlap_rows": 5000,
+      "issues": []
+    },
+    "cmc_provider_raw": {
+      "rows": 50,
+      "max_abs_diff": 0.0,
+      "ranking_order_equal": true,
+      "issues": []
+    },
+    "raw_structure": {
+      "members": 50,
+      "files": 250,
+      "current_rows": 3099192,
+      "snapshot_rows": 3097908,
+      "issues": []
+    },
+    "signal_lineage": {
+      "readiness_sha256": "sha256:79fa65078fac52311ee56efbef45c4171052a2dda38bcc1790bcf7b8f154c471",
+      "manifest_source_equal": true,
+      "top20_equal": true,
+      "targets_sha_match": true,
+      "weights_equal": true,
+      "quantities_within_one_lot": true,
+      "stops_20pct_mark": true
+    },
+    "live_account": {
+      "checked_at": "2026-11-19T14:16:50.639594+00:00",
+      "equity_usdt": 485.14546617,
+      "recomputed_position_value_usdt": 276.60976000000005,
+      "positions": 4,
+      "strategy_orders": 4
+    }
+  },
+  "evidence_files": {
+    "external_bitget": {
+      "path": "reports/ls45_live_g175_live/external_top50_spotcheck.json",
+      "sha256": "sha256:302a53731736d2d0016f3435caa0207d0a6b7f1259e290c085b9c15fb25c7278"
+    },
+    "cmc_provider": {
+      "path": "reports/ls45_live_g175_live/cmc_top50_spotcheck.json",
+      "sha256": "sha256:01fda646213398c93da967dfd216932272c3f7c30a2e992e01699b9fb84195cb"
+    },
+    "raw_structure": {
+      "path": "reports/ls45_live_g175_live/top50_raw_structure_audit.json",
+      "sha256": "sha256:e785f6d4b72c8ba714e7776d4ac305f58b2f84fe5769db53e480d00da28521a8"
+    },
+    "signal_lineage": {
+      "path": "reports/ls45_live_g175_live/data_pool_signal_lineage.json",
+      "sha256": "sha256:0df08fecad30a72254ec393fee0f0c7258ff837b901fa86f82053f334257e07a"
+    },
+    "live_positions": {
+      "path": "reports/ls45_live_g175_live/live_position_evidence.json",
+      "sha256": "sha256:27e71f037124b666acf8e78dbf02d0056f527b49d76ed44defff161c2cee95c0"
+    }
+  },
+  "conclusion": "No mismatch found in the checked data pool, signal binding, active target, or current venue positions/stops."
+}

@@ -1,0 +1,2816 @@
+{
+  "generated_at": "2026-11-19T14:15:23.586632+00:00",
+  "source": "Bitget public REST measured directly, compared to local raw files; no project rebuild",
+  "top50_members_checked": 50,
+  "contracts_checked": 50,
+  "external_requests": 151,
+  "candle_overlap_rows": 9900,
+  "candle_external_rows": 10000,
+  "issues": [],
+  "contracts": [
+    {
+      "final_rank": 1,
+      "coin_id": "bitcoin",
+      "symbol": "BTCUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 150.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.0001",
+      "sizeMultiplier": "0.0001",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 2,
+      "coin_id": "ethereum",
+      "symbol": "ETHUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 150.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 3,
+      "coin_id": "binancecoin",
+      "symbol": "BNBUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 4,
+      "coin_id": "ripple",
+      "symbol": "XRPUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 125.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 5,
+      "coin_id": "solana",
+      "symbol": "SOLUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 100.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 6,
+      "coin_id": "tron",
+      "symbol": "TRXUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 7,
+      "coin_id": "hyperliquid",
+      "symbol": "HYPEUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 8,
+      "coin_id": "zcash",
+      "symbol": "ZECUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.001",
+      "sizeMultiplier": "0.001",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 9,
+      "coin_id": "monero",
+      "symbol": "XMRUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 10,
+      "coin_id": "dogecoin",
+      "symbol": "DOGEUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 11,
+      "coin_id": "chainlink",
+      "symbol": "LINKUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 12,
+      "coin_id": "cardano",
+      "symbol": "ADAUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 13,
+      "coin_id": "stellar",
+      "symbol": "XLMUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 14,
+      "coin_id": "near",
+      "symbol": "NEARUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 15,
+      "coin_id": "bitcoin-cash",
+      "symbol": "BCHUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 16,
+      "coin_id": "litecoin",
+      "symbol": "LTCUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 17,
+      "coin_id": "uniswap",
+      "symbol": "UNIUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 18,
+      "coin_id": "avalanche-2",
+      "symbol": "AVAXUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 19,
+      "coin_id": "sui",
+      "symbol": "SUIUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 20,
+      "coin_id": "the-open-network",
+      "symbol": "GRAMUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 21,
+      "coin_id": "hedera-hashgraph",
+      "symbol": "HBARUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 22,
+      "coin_id": "bittensor",
+      "symbol": "TAOUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.001",
+      "sizeMultiplier": "0.001",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 23,
+      "coin_id": "shiba-inu",
+      "symbol": "SHIBUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "10000",
+      "sizeMultiplier": "10000",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 24,
+      "coin_id": "quant-network",
+      "symbol": "QNTUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 25,
+      "coin_id": "aave",
+      "symbol": "AAVEUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 26,
+      "coin_id": "pepe",
+      "symbol": "PEPEUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1000",
+      "sizeMultiplier": "1000",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 27,
+      "coin_id": "ethena",
+      "symbol": "ENAUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 28,
+      "coin_id": "aster-2",
+      "symbol": "ASTERUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 29,
+      "coin_id": "world-liberty-financial",
+      "symbol": "WLFIUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 30,
+      "coin_id": "ondo-finance",
+      "symbol": "ONDOUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 31,
+      "coin_id": "polkadot",
+      "symbol": "DOTUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 32,
+      "coin_id": "internet-computer",
+      "symbol": "ICPUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 33,
+      "coin_id": "pump-fun",
+      "symbol": "PUMPUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 34,
+      "coin_id": "just",
+      "symbol": "JSTUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "10",
+      "sizeMultiplier": "10",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 35,
+      "coin_id": "venice-token",
+      "symbol": "VVVUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 20.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 36,
+      "coin_id": "pieverse",
+      "symbol": "PIEVERSEUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 10.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 37,
+      "coin_id": "worldcoin-wld",
+      "symbol": "WLDUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 38,
+      "coin_id": "ethereum-classic",
+      "symbol": "ETCUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 39,
+      "coin_id": "arbitrum",
+      "symbol": "ARBUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 40,
+      "coin_id": "jupiter-exchange-solana",
+      "symbol": "JUPUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 41,
+      "coin_id": "polygon-ecosystem-token",
+      "symbol": "POLUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 42,
+      "coin_id": "midnight-3",
+      "symbol": "NIGHTUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 25.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 43,
+      "coin_id": "algorand",
+      "symbol": "ALGOUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 44,
+      "coin_id": "injective-protocol",
+      "symbol": "INJUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 45,
+      "coin_id": "lighter",
+      "symbol": "LITUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 20.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 46,
+      "coin_id": "layerzero",
+      "symbol": "ZROUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "1",
+      "sizeMultiplier": "1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 47,
+      "coin_id": "dash",
+      "symbol": "DASHUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 50.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.01",
+      "sizeMultiplier": "0.01",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 48,
+      "coin_id": "filecoin",
+      "symbol": "FILUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "8"
+    },
+    {
+      "final_rank": 49,
+      "coin_id": "ether-fi",
+      "symbol": "ETHFIUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.1",
+      "sizeMultiplier": "0.1",
+      "fundInterval": "4"
+    },
+    {
+      "final_rank": 50,
+      "coin_id": "aptos",
+      "symbol": "APTUSDT",
+      "symbolStatus": "normal",
+      "symbolType": "perpetual",
+      "quoteCoin": "USDT",
+      "maxLever": 75.0,
+      "minTradeUSDT": 5.0,
+      "minTradeNum": "0.001",
+      "sizeMultiplier": "0.001",
+      "fundInterval": "8"
+    }
+  ],
+  "comparisons": [
+    {
+      "coin_id": "bitcoin",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bitcoin",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bitcoin",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "binancecoin",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "binancecoin",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "binancecoin",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ripple",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ripple",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ripple",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "solana",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "solana",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "solana",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "tron",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "tron",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "tron",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "hyperliquid",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "hyperliquid",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "hyperliquid",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "zcash",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "zcash",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "zcash",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "monero",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "monero",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "monero",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "dogecoin",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "dogecoin",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "dogecoin",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "chainlink",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "chainlink",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "chainlink",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "cardano",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "cardano",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "cardano",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "stellar",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "stellar",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "stellar",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "near",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "near",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "near",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "bitcoin-cash",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bitcoin-cash",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bitcoin-cash",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "litecoin",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "litecoin",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "litecoin",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "uniswap",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "uniswap",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "uniswap",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "avalanche-2",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "avalanche-2",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "avalanche-2",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "sui",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "sui",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "sui",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "the-open-network",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "the-open-network",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "the-open-network",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "hedera-hashgraph",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "hedera-hashgraph",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "hedera-hashgraph",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "bittensor",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bittensor",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "bittensor",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "shiba-inu",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "shiba-inu",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "shiba-inu",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "quant-network",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "quant-network",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "quant-network",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "aave",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aave",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aave",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "pepe",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pepe",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pepe",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ethena",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethena",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethena",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "aster-2",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aster-2",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aster-2",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "world-liberty-financial",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "world-liberty-financial",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "world-liberty-financial",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ondo-finance",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ondo-finance",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ondo-finance",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "polkadot",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "polkadot",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "polkadot",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "internet-computer",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "internet-computer",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "internet-computer",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "pump-fun",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pump-fun",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pump-fun",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "just",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "just",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "just",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "venice-token",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "venice-token",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "venice-token",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "pieverse",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pieverse",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "pieverse",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "worldcoin-wld",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "worldcoin-wld",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "worldcoin-wld",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum-classic",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum-classic",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ethereum-classic",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "arbitrum",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "arbitrum",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "arbitrum",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "jupiter-exchange-solana",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "jupiter-exchange-solana",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "jupiter-exchange-solana",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "polygon-ecosystem-token",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "polygon-ecosystem-token",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "polygon-ecosystem-token",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "midnight-3",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "midnight-3",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "midnight-3",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "algorand",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "algorand",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "algorand",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "injective-protocol",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "injective-protocol",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "injective-protocol",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "lighter",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "lighter",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "lighter",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "layerzero",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "layerzero",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "layerzero",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "dash",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "dash",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "dash",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "filecoin",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "filecoin",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "filecoin",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "ether-fi",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ether-fi",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "ether-fi",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-11-03 00:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    },
+    {
+      "coin_id": "aptos",
+      "type": "mark",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aptos",
+      "type": "market",
+      "external_rows": 100,
+      "overlap_rows": 99,
+      "first_overlap": "2026-11-15 10:00:00+00:00",
+      "last_overlap": "2026-11-19 12:00:00+00:00",
+      "max_abs_diff": {
+        "open": 0.0,
+        "high": 0.0,
+        "low": 0.0,
+        "close": 0.0,
+        "volume": 0.0,
+        "quote_volume": 0.0
+      }
+    },
+    {
+      "coin_id": "aptos",
+      "type": "funding",
+      "external_rows": 100,
+      "overlap_rows": 100,
+      "first_overlap": "2026-10-17 08:00:00+00:00",
+      "last_overlap": "2026-11-19 08:00:00+00:00",
+      "max_abs_diff": {
+        "funding_rate": 0.0
+      }
+    }
+  ],
+  "contract_recheck_at": "2026-11-19T14:15:58.716132+00:00",
+  "contract_source": "Bitget /api/v2/mix/market/contracts; status field is symbolStatus"
+}

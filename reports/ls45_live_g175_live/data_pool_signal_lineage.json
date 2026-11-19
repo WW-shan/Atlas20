@@ -1,0 +1,448 @@
+{
+  "generated_at": "2026-11-19T14:18:16.265250+00:00",
+  "claim": "The ready Top50 pool, bound Top20, frozen target ledger, execution state, and actual Bitget positions are one continuous chain.",
+  "readiness": {
+    "path": "reports/top50_data_readiness/latest_ready.json",
+    "sha256": "sha256:79fa65078fac52311ee56efbef45c4171052a2dda38bcc1790bcf7b8f154c471",
+    "as_of": "2026-11-18",
+    "generated_at": "2026-11-19T01:09:31.333398+00:00",
+    "fingerprint": "sha256:23f47772aad92e40ada26dcda01546ddabbe7d293f1b85a251d280b0def1cd0f",
+    "source_fingerprint": "sha256:f4713d5896cd6a24442613c13a97a7be7e20be25170689c3563bbc2a25ea0bd7",
+    "ready": true,
+    "members": 50,
+    "top20": 20,
+    "statuses": [
+      "READY"
+    ],
+    "skipped": [
+      [
+        31,
+        "htx-dao",
+        "VENUE_UNAVAILABLE"
+      ],
+      [
+        32,
+        "mantle",
+        "VENUE_UNAVAILABLE"
+      ]
+    ],
+    "full_audit_path": "reports/top50_data_readiness/audit/2026-11-18.json"
+  },
+  "manifest_binding": {
+    "path": "reports/ls45_live_g175/manifest.json",
+    "sha256": "sha256:353fb22d2cabf656173694296d5574660f9a47f0b802b3aa648697aed3521c92",
+    "source": "reports/top50_data_readiness/latest_ready.json",
+    "source_sha256": "sha256:79fa65078fac52311ee56efbef45c4171052a2dda38bcc1790bcf7b8f154c471",
+    "readiness_file_sha256": "sha256:79fa65078fac52311ee56efbef45c4171052a2dda38bcc1790bcf7b8f154c471",
+    "as_of": "2026-11-18",
+    "fingerprint": "sha256:23f47772aad92e40ada26dcda01546ddabbe7d293f1b85a251d280b0def1cd0f",
+    "fingerprint_equal": true,
+    "source_bytes_equal": true,
+    "top20_equal": true,
+    "top20_members": [
+      [
+        1,
+        1,
+        "bitcoin",
+        "BTCUSDT"
+      ],
+      [
+        2,
+        2,
+        "ethereum",
+        "ETHUSDT"
+      ],
+      [
+        3,
+        3,
+        "binancecoin",
+        "BNBUSDT"
+      ],
+      [
+        4,
+        4,
+        "ripple",
+        "XRPUSDT"
+      ],
+      [
+        5,
+        5,
+        "solana",
+        "SOLUSDT"
+      ],
+      [
+        6,
+        6,
+        "tron",
+        "TRXUSDT"
+      ],
+      [
+        7,
+        7,
+        "hyperliquid",
+        "HYPEUSDT"
+      ],
+      [
+        8,
+        8,
+        "zcash",
+        "ZECUSDT"
+      ],
+      [
+        9,
+        9,
+        "monero",
+        "XMRUSDT"
+      ],
+      [
+        10,
+        10,
+        "dogecoin",
+        "DOGEUSDT"
+      ],
+      [
+        11,
+        11,
+        "chainlink",
+        "LINKUSDT"
+      ],
+      [
+        12,
+        12,
+        "cardano",
+        "ADAUSDT"
+      ],
+      [
+        13,
+        13,
+        "stellar",
+        "XLMUSDT"
+      ],
+      [
+        14,
+        14,
+        "near",
+        "NEARUSDT"
+      ],
+      [
+        15,
+        15,
+        "bitcoin-cash",
+        "BCHUSDT"
+      ],
+      [
+        16,
+        16,
+        "litecoin",
+        "LTCUSDT"
+      ],
+      [
+        17,
+        17,
+        "uniswap",
+        "UNIUSDT"
+      ],
+      [
+        18,
+        18,
+        "avalanche-2",
+        "AVAXUSDT"
+      ],
+      [
+        19,
+        19,
+        "sui",
+        "SUIUSDT"
+      ],
+      [
+        20,
+        20,
+        "the-open-network",
+        "GRAMUSDT"
+      ]
+    ],
+    "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930",
+    "signal_end_date": "2026-11-18"
+  },
+  "signal_ledger": {
+    "path": "reports/ls45_live_g175/oos_targets.csv",
+    "sha256": "sha256:2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930",
+    "latest_signal_date": "2026-11-13",
+    "latest_execution_hint": "2026-11-14 01:05:00+00:00",
+    "latest_weights": {
+      "bitcoin-cash": -0.125,
+      "hyperliquid": -0.125,
+      "near": -0.125,
+      "zcash": -0.125
+    },
+    "rows": 72,
+    "sha_matches_manifest": true,
+    "manifest_targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930"
+  },
+  "execution_state": {
+    "path": "data/ls45_g175_execution_state.json",
+    "sha256": "sha256:cc8bd576d0c90b9eb473cee28d4287194ecaa32285ac58bc85cc4bc39651e2bb",
+    "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+    "signal_date": "2026-11-13",
+    "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930",
+    "sha_matches_manifest": true,
+    "weights_equal_signal": true,
+    "active_weights": {
+      "bitcoin-cash": -0.125,
+      "hyperliquid": -0.125,
+      "near": -0.125,
+      "zcash": -0.125
+    },
+    "equity_at_execution": 507.94333735,
+    "execution_prices": {
+      "bitcoin-cash": 196.28,
+      "hyperliquid": 63.346,
+      "near": 2.9738,
+      "zcash": 848.62
+    },
+    "expected_target_quantities": {
+      "bitcoin-cash": -0.3234813387443957,
+      "hyperliquid": -1.0023192809135542,
+      "near": -21.350769106446297,
+      "zcash": -0.07481902049062006
+    },
+    "recorded_target_quantities": {
+      "BCHUSDT": 0.3234813387443957,
+      "HYPEUSDT": 1.0023192809135542,
+      "NEARUSDT": 21.350769106446297,
+      "ZECUSDT": 0.07481902049062006
+    }
+  },
+  "live_venue": {
+    "path": "reports/ls45_live_g175_live/live_position_evidence.json",
+    "sha256": "sha256:27e71f037124b666acf8e78dbf02d0056f527b49d76ed44defff161c2cee95c0",
+    "checked_at": "2026-11-19T14:16:50.639594+00:00",
+    "equity_usdt": 485.14546617,
+    "positions": [
+      {
+        "symbol": "HYPEUSDT",
+        "posSide": "short",
+        "total": 1.0,
+        "avgPrice": 67.094,
+        "markPrice": 68.62,
+        "notional": 68.62,
+        "marginMode": "isolated",
+        "leverage": "4",
+        "positionBalance": 35.16506569,
+        "liquidationPrice": 101.531,
+        "unrealisedPnl": -1.526
+      },
+      {
+        "symbol": "ZECUSDT",
+        "posSide": "short",
+        "total": 0.074,
+        "avgPrice": 912.7,
+        "markPrice": 946.29,
+        "notional": 70.02546,
+        "marginMode": "isolated",
+        "leverage": "4",
+        "positionBalance": 36.0552164,
+        "liquidationPrice": 1389.9,
+        "unrealisedPnl": -2.48566
+      },
+      {
+        "symbol": "NEARUSDT",
+        "posSide": "short",
+        "total": 21.0,
+        "avgPrice": 3.1799,
+        "markPrice": 3.3839,
+        "notional": 71.06190000000001,
+        "marginMode": "isolated",
+        "leverage": "4",
+        "positionBalance": 36.93370493,
+        "liquidationPrice": 4.9142,
+        "unrealisedPnl": -4.284
+      },
+      {
+        "symbol": "BCHUSDT",
+        "posSide": "short",
+        "total": 0.32,
+        "avgPrice": 208.150312499999,
+        "markPrice": 209.07,
+        "notional": 66.9024,
+        "marginMode": "isolated",
+        "leverage": "4",
+        "positionBalance": 34.19499987,
+        "liquidationPrice": 312.79,
+        "unrealisedPnl": -0.2943
+      }
+    ],
+    "strategy_orders": [
+      {
+        "orderId": "1505790965486968846",
+        "symbol": "ZECUSDT",
+        "posSide": "short",
+        "side": "buy",
+        "qty": "0.074",
+        "stopLoss": "1095.24",
+        "slTriggerBy": "mark",
+        "slOrderType": "market",
+        "type": "tpsl",
+        "status": "pending",
+        "marginMode": "isolated",
+        "createdTime": "1794734463092",
+        "updatedTime": "1794734465071"
+      },
+      {
+        "orderId": "1505790962836168769",
+        "symbol": "NEARUSDT",
+        "posSide": "short",
+        "side": "buy",
+        "qty": "21",
+        "stopLoss": "3.8159",
+        "slTriggerBy": "mark",
+        "slOrderType": "market",
+        "type": "tpsl",
+        "status": "pending",
+        "marginMode": "isolated",
+        "createdTime": "1794734462460",
+        "updatedTime": "1794734465734"
+      },
+      {
+        "orderId": "1505790960214728726",
+        "symbol": "HYPEUSDT",
+        "posSide": "short",
+        "side": "buy",
+        "qty": "1",
+        "stopLoss": "80.513",
+        "slTriggerBy": "mark",
+        "slOrderType": "market",
+        "type": "tpsl",
+        "status": "pending",
+        "marginMode": "isolated",
+        "createdTime": "1794734461835",
+        "updatedTime": "1794734465394"
+      },
+      {
+        "orderId": "1505790957417128020",
+        "symbol": "BCHUSDT",
+        "posSide": "short",
+        "side": "buy",
+        "qty": "0.32",
+        "stopLoss": "249.79",
+        "slTriggerBy": "mark",
+        "slOrderType": "market",
+        "type": "tpsl",
+        "status": "pending",
+        "marginMode": "isolated",
+        "createdTime": "1794734461168",
+        "updatedTime": "1794734466087"
+      }
+    ],
+    "quantity_checks": [
+      {
+        "asset": "bitcoin-cash",
+        "symbol": "BCHUSDT",
+        "target_abs_quantity": 0.3234813387443957,
+        "live_abs_quantity": 0.32,
+        "abs_diff": 0.0034813387443957122,
+        "lot_size": 0.01,
+        "within_one_lot": true,
+        "pos_side": "short"
+      },
+      {
+        "asset": "hyperliquid",
+        "symbol": "HYPEUSDT",
+        "target_abs_quantity": 1.0023192809135542,
+        "live_abs_quantity": 1.0,
+        "abs_diff": 0.002319280913554156,
+        "lot_size": 0.01,
+        "within_one_lot": true,
+        "pos_side": "short"
+      },
+      {
+        "asset": "near",
+        "symbol": "NEARUSDT",
+        "target_abs_quantity": 21.350769106446297,
+        "live_abs_quantity": 21.0,
+        "abs_diff": 0.3507691064462968,
+        "lot_size": 1.0,
+        "within_one_lot": true,
+        "pos_side": "short"
+      },
+      {
+        "asset": "zcash",
+        "symbol": "ZECUSDT",
+        "target_abs_quantity": 0.07481902049062006,
+        "live_abs_quantity": 0.074,
+        "abs_diff": 0.0008190204906200621,
+        "lot_size": 0.001,
+        "within_one_lot": true,
+        "pos_side": "short"
+      }
+    ],
+    "stop_checks": [
+      {
+        "symbol": "HYPEUSDT",
+        "avg_price": 67.094,
+        "expected_20pct_mark_stop": 80.51279999999998,
+        "live_stop_loss": 80.513,
+        "stop_over_avg": 1.2000029808924795,
+        "quantity": 1.0,
+        "position_quantity": 1.0,
+        "trigger_by": "mark",
+        "order_type": "market",
+        "within_price_step_rounding": true
+      },
+      {
+        "symbol": "ZECUSDT",
+        "avg_price": 912.7,
+        "expected_20pct_mark_stop": 1095.24,
+        "live_stop_loss": 1095.24,
+        "stop_over_avg": 1.2,
+        "quantity": 0.074,
+        "position_quantity": 0.074,
+        "trigger_by": "mark",
+        "order_type": "market",
+        "within_price_step_rounding": true
+      },
+      {
+        "symbol": "NEARUSDT",
+        "avg_price": 3.1799,
+        "expected_20pct_mark_stop": 3.81588,
+        "live_stop_loss": 3.8159,
+        "stop_over_avg": 1.2000062895059593,
+        "quantity": 21.0,
+        "position_quantity": 21.0,
+        "trigger_by": "mark",
+        "order_type": "market",
+        "within_price_step_rounding": true
+      },
+      {
+        "symbol": "BCHUSDT",
+        "avg_price": 208.150312499999,
+        "expected_20pct_mark_stop": 249.78037499999877,
+        "live_stop_loss": 249.79,
+        "stop_over_avg": 1.2000462406223926,
+        "quantity": 0.32,
+        "position_quantity": 0.32,
+        "trigger_by": "mark",
+        "order_type": "market",
+        "within_price_step_rounding": true
+      }
+    ],
+    "all_quantities_within_one_lot": true,
+    "all_stops_20pct_mark": true
+  },
+  "last_execution_report": {
+    "path": "reports/ls45_live_g175_live/latest.json",
+    "sha256": "sha256:c0f5959e337d6c7a9f04c909c3635ec52dd059a4dfc47c2452007294b21fc79c",
+    "status": "ok",
+    "signal_date": "2026-11-13"
+  },
+  "last_health_check": {
+    "path": "reports/ls45_live_g175_live/health.json",
+    "sha256": "sha256:608b2c89408cb52e78f1983aca16658658239c7c8e54d071ed4622fe6f7e1621",
+    "checked_at": "2026-11-19T14:09:02.932171+00:00",
+    "issues": []
+  },
+  "normalizations": {
+    "target_quantities": "state signed negative = short; Bitget total is absolute size with posSide=short; compared absolute sizes",
+    "targets_hash": "manifest stores unprefixed SHA-256; evidence adds sha256: prefix only for readability"
+  }
+}

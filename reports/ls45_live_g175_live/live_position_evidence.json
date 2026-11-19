@@ -1,0 +1,123 @@
+{
+  "checked_at": "2026-11-19T14:16:50.639594+00:00",
+  "equity_usdt": 485.14546617,
+  "position_value_usdt": 0.0,
+  "positions": [
+    {
+      "symbol": "HYPEUSDT",
+      "posSide": "short",
+      "total": 1.0,
+      "avgPrice": 67.094,
+      "markPrice": 68.62,
+      "notional": 68.62,
+      "marginMode": "isolated",
+      "leverage": "4",
+      "positionBalance": 35.16506569,
+      "liquidationPrice": 101.531,
+      "unrealisedPnl": -1.526
+    },
+    {
+      "symbol": "ZECUSDT",
+      "posSide": "short",
+      "total": 0.074,
+      "avgPrice": 912.7,
+      "markPrice": 946.29,
+      "notional": 70.02546,
+      "marginMode": "isolated",
+      "leverage": "4",
+      "positionBalance": 36.0552164,
+      "liquidationPrice": 1389.9,
+      "unrealisedPnl": -2.48566
+    },
+    {
+      "symbol": "NEARUSDT",
+      "posSide": "short",
+      "total": 21.0,
+      "avgPrice": 3.1799,
+      "markPrice": 3.3839,
+      "notional": 71.06190000000001,
+      "marginMode": "isolated",
+      "leverage": "4",
+      "positionBalance": 36.93370493,
+      "liquidationPrice": 4.9142,
+      "unrealisedPnl": -4.284
+    },
+    {
+      "symbol": "BCHUSDT",
+      "posSide": "short",
+      "total": 0.32,
+      "avgPrice": 208.150312499999,
+      "markPrice": 209.07,
+      "notional": 66.9024,
+      "marginMode": "isolated",
+      "leverage": "4",
+      "positionBalance": 34.19499987,
+      "liquidationPrice": 312.79,
+      "unrealisedPnl": -0.2943
+    }
+  ],
+  "strategy_orders": [
+    {
+      "orderId": "1505790965486968846",
+      "symbol": "ZECUSDT",
+      "posSide": "short",
+      "side": "buy",
+      "qty": "0.074",
+      "stopLoss": "1095.24",
+      "slTriggerBy": "mark",
+      "slOrderType": "market",
+      "type": "tpsl",
+      "status": "pending",
+      "marginMode": "isolated",
+      "createdTime": "1794734463092",
+      "updatedTime": "1794734465071"
+    },
+    {
+      "orderId": "1505790962836168769",
+      "symbol": "NEARUSDT",
+      "posSide": "short",
+      "side": "buy",
+      "qty": "21",
+      "stopLoss": "3.8159",
+      "slTriggerBy": "mark",
+      "slOrderType": "market",
+      "type": "tpsl",
+      "status": "pending",
+      "marginMode": "isolated",
+      "createdTime": "1794734462460",
+      "updatedTime": "1794734465734"
+    },
+    {
+      "orderId": "1505790960214728726",
+      "symbol": "HYPEUSDT",
+      "posSide": "short",
+      "side": "buy",
+      "qty": "1",
+      "stopLoss": "80.513",
+      "slTriggerBy": "mark",
+      "slOrderType": "market",
+      "type": "tpsl",
+      "status": "pending",
+      "marginMode": "isolated",
+      "createdTime": "1794734461835",
+      "updatedTime": "1794734465394"
+    },
+    {
+      "orderId": "1505790957417128020",
+      "symbol": "BCHUSDT",
+      "posSide": "short",
+      "side": "buy",
+      "qty": "0.32",
+      "stopLoss": "249.79",
+      "slTriggerBy": "mark",
+      "slOrderType": "market",
+      "type": "tpsl",
+      "status": "pending",
+      "marginMode": "isolated",
+      "createdTime": "1794734461168",
+      "updatedTime": "1794734466087"
+    }
+  ],
+  "strategy_orders_checked_at": "2026-11-19T14:17:24.239359+00:00",
+  "position_value_usdt_recomputed": 276.60976000000005
+}
