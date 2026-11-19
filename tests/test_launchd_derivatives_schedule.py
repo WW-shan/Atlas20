@@ -81,6 +81,19 @@ def test_refresh_precedes_the_final_retry_after_the_0400_utc_settlement():
     assert (6, 35) > (5, 5)
 
 
+def test_refresh_after_the_0800_utc_settlement_precedes_the_monitor():
+    refresh_times = _scheduled_utc_times(
+        PROJECT_ROOT / "ops" / "com.atlas20.derivatives-refresh.plist"
+    )
+    monitor = _scheduled_utc_time(MONITOR_PLIST)
+
+    # Bitget publishes the 08:00 UTC settlement about one hour later.  The
+    # 10:05 UTC refresh leaves publication headroom and still finishes before
+    # the read-only 11:00 UTC monitor requires settlement coverage.
+    assert (10, 5) in refresh_times
+    assert monitor > (10, 5)
+
+
 def _wrapper_project_root(wrapper_path: Path) -> str:
     """The deployed path the wrapper itself declares, e.g. /Users/ww/Project/Atlas20.
 

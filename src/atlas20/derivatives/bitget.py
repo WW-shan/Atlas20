@@ -20,8 +20,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import requests
+
+from atlas20.derivatives.integrity import deduplicate_by_keys_or_raise
 
 BITGET_CATEGORY = "USDT-FUTURES"
 BITGET_BASE_URL = "https://api.bitget.com"
@@ -70,14 +73,32 @@ def candle_frame(rows: list[list[Any]]) -> pd.DataFrame:
     """Parse Bitget's positional candle payload into a typed frame."""
     if not rows:
         return pd.DataFrame(columns=CANDLE_COLUMNS)
-    parsed = [row[:7] for row in rows if isinstance(row, (list, tuple)) and len(row) >= 7]
+    parsed: list[list[Any]] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, (list, tuple)) or len(row) < 7:
+            raise BitgetAPIError(f"Bitget candle row {index} is malformed")
+        parsed.append(list(row[:7]))
     if not parsed:
         return pd.DataFrame(columns=CANDLE_COLUMNS)
     frame = pd.DataFrame(parsed, columns=CANDLE_COLUMNS)
-    frame["open_time"] = pd.to_datetime(frame["open_time"].astype("int64"), unit="ms", utc=True)
+    try:
+        frame["open_time"] = pd.to_datetime(
+            frame["open_time"].astype("int64"), unit="ms", utc=True
+        )
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise BitgetAPIError(f"Bitget candle timestamp is malformed: {exc}") from exc
     for column in CANDLE_COLUMNS[1:]:
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
-    frame = frame.dropna(subset=["open_time"]).drop_duplicates("open_time")
+    if not np.isfinite(
+        frame.loc[:, CANDLE_COLUMNS[1:]].to_numpy(dtype=float)
+    ).all():
+        raise BitgetAPIError("Bitget candle payload contains a missing or non-finite value")
+    frame = deduplicate_by_keys_or_raise(
+        frame,
+        keys=["open_time"],
+        values=CANDLE_COLUMNS,
+        label="Bitget candles",
+    )
     return frame.sort_values("open_time").reset_index(drop=True)
 
 
@@ -86,23 +107,39 @@ def funding_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame(columns=FUNDING_COLUMNS)
     records: list[dict[str, Any]] = []
-    for row in rows:
+    for index, row in enumerate(rows):
         if not isinstance(row, dict):
-            continue
+            raise BitgetAPIError(f"Bitget funding row {index} is malformed")
         stamp = row.get("fundingRateTimestamp", row.get("fundingTime"))
         if stamp is None:
-            continue
+            raise BitgetAPIError(f"Bitget funding row {index} has no timestamp")
+        try:
+            funding_time = pd.to_datetime(int(stamp), unit="ms", utc=True)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise BitgetAPIError(
+                f"Bitget funding row {index} timestamp is malformed: {exc}"
+            ) from exc
+        funding_rate = pd.to_numeric(row.get("fundingRate"), errors="coerce")
+        if not np.isfinite(float(funding_rate)):
+            raise BitgetAPIError(
+                f"Bitget funding row {index} has no finite numeric rate"
+            )
         records.append(
             {
                 "symbol": str(row.get("symbol", "")),
-                "funding_time": pd.to_datetime(int(stamp), unit="ms", utc=True),
-                "funding_rate": pd.to_numeric(row.get("fundingRate"), errors="coerce"),
+                "funding_time": funding_time,
+                "funding_rate": funding_rate,
             }
         )
     if not records:
         return pd.DataFrame(columns=FUNDING_COLUMNS)
     frame = pd.DataFrame.from_records(records, columns=FUNDING_COLUMNS)
-    frame = frame.dropna(subset=["funding_time", "funding_rate"]).drop_duplicates("funding_time")
+    frame = deduplicate_by_keys_or_raise(
+        frame,
+        keys=["funding_time"],
+        values=["symbol", "funding_rate"],
+        label="Bitget funding",
+    )
     return frame.sort_values("funding_time").reset_index(drop=True)
 
 
@@ -235,8 +272,14 @@ class BitgetClient:
                         "limit": _CANDLE_PAGE_LIMIT,
                     },
                 )
-                page = payload.get("data") or []
-                if not isinstance(page, list) or not page:
+                data = payload.get("data")
+                if data is None:
+                    page: list[Any] = []
+                elif not isinstance(data, list):
+                    raise BitgetAPIError("Bitget candle data is not an array")
+                else:
+                    page = data
+                if not page:
                     break
                 page_times = [int(row[0]) for row in page if isinstance(row, (list, tuple)) and row]
                 if not page_times:
@@ -285,12 +328,20 @@ class BitgetClient:
             if self.last_request_time_ms is not None:
                 request_times_ms.append(self.last_request_time_ms)
             data = payload.get("data")
-            if isinstance(data, dict):
-                page = data.get("resultList") or []
+            if data is None:
+                page: list[Any] = []
+            elif isinstance(data, dict):
+                result_list = data.get("resultList")
+                if result_list is None:
+                    page = []
+                elif not isinstance(result_list, list):
+                    raise BitgetAPIError("Bitget funding data resultList is not an array")
+                else:
+                    page = result_list
             elif isinstance(data, list):
                 page = data
             else:
-                page = []
+                raise BitgetAPIError("Bitget funding data is not an array or object")
             if not isinstance(page, list) or not page:
                 break
             frame = funding_frame(page)
@@ -305,7 +356,12 @@ class BitgetClient:
             )
             return empty
         combined = pd.concat(frames, ignore_index=True)
-        combined = combined.drop_duplicates("funding_time").sort_values("funding_time")
+        combined = deduplicate_by_keys_or_raise(
+            combined,
+            keys=["funding_time"],
+            values=["symbol", "funding_rate"],
+            label=f"Bitget {symbol.upper()} funding history",
+        ).sort_values("funding_time")
         combined = combined.reset_index(drop=True)
         combined.attrs["request_times_ms"] = request_times_ms
         combined.attrs["request_time_ms"] = (

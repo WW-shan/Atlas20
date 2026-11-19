@@ -120,9 +120,39 @@ def load_journal(path: Path) -> pd.DataFrame:
         parsed_flow = pd.to_numeric(frame["capital_flow"], errors="coerce")
         if parsed_flow.isna().any():
             raise ValueError("journal capital_flow contains a missing or non-numeric value")
+        if not parsed_flow.map(isfinite).all():
+            raise ValueError("journal capital_flow contains a non-finite value")
         frame["capital_flow"] = parsed_flow.astype(float)
     else:
         frame["capital_flow"] = 0.0
+
+    required_numeric = (
+        "equity",
+        "position_value",
+        "cash",
+        "fees_today",
+        "funding_total",
+        "unrealised_pnl",
+    )
+    for column in required_numeric:
+        parsed = pd.to_numeric(frame[column], errors="coerce")
+        if parsed.isna().any():
+            raise ValueError(
+                f"journal {column} contains a missing or non-numeric value"
+            )
+        if not parsed.map(isfinite).all():
+            raise ValueError(f"journal {column} contains a non-finite value")
+        frame[column] = parsed.astype(float)
+
+    for column in ("day_pnl", "day_return"):
+        raw = frame[column]
+        parsed = pd.to_numeric(raw, errors="coerce")
+        invalid = parsed.isna() & raw.notna() & raw.astype(str).str.strip().ne("")
+        if invalid.any():
+            raise ValueError(f"journal {column} contains a non-numeric value")
+        if not parsed.dropna().map(isfinite).all():
+            raise ValueError(f"journal {column} contains a non-finite value")
+        frame[column] = parsed.astype(float)
     return frame[JOURNAL_COLUMNS]
 
 

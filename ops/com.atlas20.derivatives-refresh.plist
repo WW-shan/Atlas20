@@ -10,8 +10,8 @@
 	  Telegram messages, or sources trading credentials.  The shared execution
 	  lock makes a fire skip rather than race a live execution.
 
-	  Schedule: 08:35/08:55/13:05/15:05/21:05/03:05 Beijing =
-	  00:35/00:55/05:05/07:05/13:05/19:05 UTC.  The 08:35 fire is the normal
+	  Schedule: 08:35/08:55/13:05/15:05/18:05/21:05/03:05 Beijing =
+	  00:35/00:55/05:05/07:05/10:05/13:05/19:05 UTC.  The 08:35 fire is the normal
 	  pre-execution prepare; 08:55 is the bounded catch-up: it no-ops when
 	  the 08:35 receipt is still valid, otherwise it may start until 01:05
 	  with a 120s panel wait.  If it is still running, the 09:05 executor
@@ -19,7 +19,9 @@
 	  09:05 Beijing (01:05 UTC) executor reuses a fresh receipt instead of
 	  spending the fill window on a data rebuild.  The 13:05 fire refreshes
 	  the 04:00 UTC settlement before the final 14:35 Beijing (06:35 UTC)
-	  retry makes that settlement mandatory after the one-hour allowance.
+	  retry makes that settlement mandatory after the one-hour allowance.  The
+	  18:05 Beijing (10:05 UTC) fire publishes the 08:00 UTC settlement before
+	  the read-only 19:00 Beijing (11:00 UTC) monitor requires it.
 	-->
 	<key>ProgramArguments</key>
 	<array>
@@ -57,6 +59,12 @@
 		<dict>
 			<key>Hour</key>
 			<integer>15</integer>
+			<key>Minute</key>
+			<integer>5</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>18</integer>
 			<key>Minute</key>
 			<integer>5</integer>
 		</dict>

@@ -2131,6 +2131,25 @@ def test_execution_attempt_prefix_uses_the_monotonic_attempt_counter() -> None:
     assert after_counter != first
 
 
+@pytest.mark.parametrize("counter", ["oops", -1, 1.5, float("inf")])
+def test_execution_attempt_prefix_rejects_a_corrupt_counter(counter: object) -> None:
+    key = "SPEC|2026-11-13|2026-11-14"
+
+    with pytest.raises(ValueError, match="attempt_counts"):
+        execute_live_plan._attempt_client_oid_prefix(
+            key,
+            {"runs": [], "attempt_counts": {key: counter}},
+        )
+
+
+def test_execution_attempt_prefix_rejects_a_non_object_counter_map() -> None:
+    with pytest.raises(ValueError, match="attempt_counts"):
+        execute_live_plan._attempt_client_oid_prefix(
+            "SPEC|2026-11-13|2026-11-14",
+            {"runs": [], "attempt_counts": []},
+        )
+
+
 def test_execution_attempt_prefix_is_scoped_to_the_bitget_account() -> None:
     key = "SPEC|2026-11-13|2026-11-14"
 
@@ -2639,6 +2658,37 @@ def test_external_one_way_reduce_only_buy_is_classified_as_a_short_close() -> No
     assert len(fills) == 1
     assert fills[0].position_side == "short"
     assert fills[0].action == "EXTERNAL_CLOSE"
+
+
+def test_external_fill_with_malformed_fee_is_reported_not_silently_zeroed() -> None:
+    errors: list[dict] = []
+    fills = execute_live_plan._external_order_fills(
+        [
+            {
+                "orderId": "manual-bad-fee",
+                "clientOid": "manual",
+                "symbol": "NEARUSDT",
+                "side": "buy",
+                "posSide": "short",
+                "orderStatus": "filled",
+                "qty": "5",
+                "cumExecQty": "5",
+                "avgPrice": "3.2",
+                "cumExecValue": "16",
+                "feeDetail": [{"fee": "oops", "feeCoin": "USDT"}],
+                "updatedTime": "1794733334206",
+            }
+        ],
+        known_order_ids=set(),
+        matched_order_ids=set(),
+        symbol_assets={"NEARUSDT": "near"},
+        errors=errors,
+    )
+
+    assert len(fills) == 1
+    assert fills[0].fee == 0.0
+    assert len(errors) == 1
+    assert "fee could not be reconciled" in errors[0]["error"]
 
 
 def test_journal_preserves_strategy_stop_provenance() -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from atlas20.derivatives.data import (
     load_binance_funding,
@@ -44,6 +45,27 @@ def test_load_mark_candles_maps_symbol_files_to_coin_ids(tmp_path: Path) -> None
     assert frame.iloc[0]["open"] == 100.0
 
 
+def test_load_mark_candles_rejects_conflicting_duplicate_timestamps(
+    tmp_path: Path,
+) -> None:
+    candles = tmp_path / "candles"
+    candles.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": ["2026-01-01T00:00:00+00:00"] * 2,
+            "open": [100.0, 100.0],
+            "high": [102.0, 103.0],
+            "low": [99.0, 99.0],
+            "close": [101.0, 102.0],
+            "volume": [2.0, 3.0],
+            "quote_volume": [20.0, 30.0],
+        }
+    ).to_csv(candles / "BTCUSDT_mark.csv", index=False)
+
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        load_mark_candles(tmp_path, _symbol_map())
+
+
 def test_load_binance_funding_returns_wide_coin_columns(tmp_path: Path) -> None:
     pd.DataFrame(
         {
@@ -75,3 +97,23 @@ def test_load_bitget_funding_returns_wide_coin_columns(tmp_path: Path) -> None:
 
     assert list(loaded.columns) == ["bitcoin"]
     assert loaded.iloc[-1]["bitcoin"] == 0.0002
+
+
+def test_load_bitget_funding_rejects_conflicting_duplicate_timestamps(
+    tmp_path: Path,
+) -> None:
+    funding = tmp_path / "funding"
+    funding.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT", "BTCUSDT"],
+            "funding_time": [
+                "2026-01-02T00:00:00+00:00",
+                "2026-01-02T00:00:00+00:00",
+            ],
+            "funding_rate": [0.0001, 0.0002],
+        }
+    ).to_csv(funding / "bitcoin.csv", index=False)
+
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        load_bitget_funding(tmp_path, _symbol_map(), coins=["bitcoin"])

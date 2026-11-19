@@ -485,6 +485,16 @@ def test_unfilled_orders_follow_cursor_until_exhausted() -> None:
     assert "cursor=next-1" in session.calls[1]["url"]
 
 
+def test_paginated_rows_reject_a_non_object_entry() -> None:
+    session = _FakeSession(
+        [_FakeResponse({"code": "00000", "data": {"list": ["oops"], "cursor": None}})]
+    )
+    client = _client(session)
+
+    with pytest.raises(BitgetAPIError, match="row 0"):
+        client.unfilled_orders(category="USDT-FUTURES")
+
+
 def test_cancel_order_uses_one_identifier_and_the_futures_category() -> None:
     session = _FakeSession(
         [_FakeResponse({"code": "00000", "data": {"orderId": "123"}})]
@@ -596,6 +606,16 @@ def test_current_positions_rejects_a_malformed_success_payload() -> None:
     client = _client(session)
 
     with pytest.raises(BitgetAPIError, match="current-position"):
+        client.current_positions()
+
+
+def test_current_positions_rejects_a_non_object_position_row() -> None:
+    session = _FakeSession(
+        [_FakeResponse({"code": "00000", "data": {"list": ["oops"]}})]
+    )
+    client = _client(session)
+
+    with pytest.raises(BitgetAPIError, match="row 0"):
         client.current_positions()
 
 

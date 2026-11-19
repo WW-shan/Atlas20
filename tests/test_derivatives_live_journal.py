@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from atlas20.derivatives.live_journal import (
@@ -210,6 +211,29 @@ def test_journal_rejects_a_non_numeric_capital_flow_instead_of_zeroing_it(tmp_pa
     )
 
     with pytest.raises(ValueError, match="capital_flow"):
+        load_journal(path)
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        "equity",
+        "position_value",
+        "cash",
+        "fees_today",
+        "funding_total",
+        "unrealised_pnl",
+    ],
+)
+def test_journal_rejects_non_numeric_required_values(
+    tmp_path: Path, column: str
+) -> None:
+    path = tmp_path / "journal.csv"
+    row = _entry("2026-10-31", 100.0, 0.0).as_row()
+    row[column] = "oops"
+    pd.DataFrame([row], columns=JOURNAL_COLUMNS).to_csv(path, index=False)
+
+    with pytest.raises(ValueError, match=column):
         load_journal(path)
 
 

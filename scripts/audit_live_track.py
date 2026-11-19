@@ -348,6 +348,10 @@ def _position_data_issues(positions: list[dict]) -> list[str]:
             issues.append(issue)
         elif float(mark_value) <= 0.0:
             issues.append(f"{symbol} markPrice must be positive ({mark_value!r})")
+        for key in ("unrealisedPnl", "totalFunding"):
+            issue = _finite_number_issue(row.get(key), f"{symbol} {key}")
+            if issue:
+                issues.append(issue)
     return issues
 
 
@@ -386,10 +390,70 @@ def _position_side_issues(positions: list[dict]) -> list[str]:
 
 
 def _fees(row: dict) -> float:
+    executed_raw = row.get("cumExecQty")
+    executed_qty = 0.0
+    if executed_raw not in (None, ""):
+        issue = _finite_number_issue(executed_raw, "order cumExecQty for fee")
+        if issue is not None:
+            raise ValueError(issue)
+        executed_qty = float(executed_raw)
+        if executed_qty < 0.0:
+            raise ValueError("order cumExecQty for fee must be non-negative")
+    detail = row.get("feeDetail")
+    if detail in (None, ""):
+        detail = []
+    if not isinstance(detail, list):
+        raise ValueError("feeDetail is not an array")
+    top_level_fee = row.get("fee")
+    if not detail:
+        if top_level_fee in (None, ""):
+            if executed_qty > 0.0:
+                raise ValueError("filled order has no fee evidence")
+            return 0.0
+        issue = _finite_number_issue(top_level_fee, "order fee")
+        if issue is not None:
+            raise ValueError(issue)
+        coin = str(row.get("feeCoin") or "").strip().upper()
+        if not coin:
+            raise ValueError("top-level order fee has no feeCoin")
+        if coin != "USDT":
+            raise ValueError(
+                f"top-level order fee uses unsupported feeCoin {coin!r}"
+            )
+        return float(top_level_fee)
     total = 0.0
-    for item in row.get("feeDetail") or []:
-        if isinstance(item, dict):
-            total += _num(item.get("fee"))
+    fee_coin = ""
+    for index, item in enumerate(detail):
+        if not isinstance(item, dict):
+            raise ValueError(f"feeDetail row {index} is not an object")
+        issue = _finite_number_issue(item.get("fee"), f"feeDetail row {index} fee")
+        if issue is not None:
+            raise ValueError(issue)
+        coin = str(item.get("feeCoin") or "").strip().upper()
+        if not coin:
+            raise ValueError(f"feeDetail row {index} has no feeCoin")
+        if coin != "USDT":
+            raise ValueError(
+                f"feeDetail row {index} uses unsupported feeCoin {coin!r}"
+            )
+        if fee_coin and coin != fee_coin:
+            raise ValueError("feeDetail mixes multiple fee coins")
+        fee_coin = coin
+        total += float(item["fee"])
+    if top_level_fee not in (None, ""):
+        issue = _finite_number_issue(top_level_fee, "order fee")
+        if issue is not None:
+            raise ValueError(issue)
+        coin = str(row.get("feeCoin") or "").strip().upper()
+        if not coin:
+            raise ValueError("top-level order fee has no feeCoin")
+        if coin != "USDT":
+            raise ValueError(
+                f"top-level order fee uses unsupported feeCoin {coin!r}"
+            )
+        observed = float(top_level_fee)
+        if abs(observed - total) > max(1e-9, abs(total) * 1e-8):
+            raise ValueError("top-level order fee conflicts with feeDetail total")
     return total
 
 
@@ -613,30 +677,44 @@ def _active_event_state_issues(
                         break
 
     stopped = event.get("stopped_symbols")
-    if isinstance(stopped, dict):
-        for raw_symbol, raw_record in stopped.items():
-            symbol = str(raw_symbol).upper()
-            if not isinstance(raw_record, dict):
-                issues.append(f"{symbol}: stopped_symbols record is invalid")
-                continue
-            order_id = str(raw_record.get("order_id") or "")
-            strategy_id = str(raw_record.get("strategy_order_id") or "")
-            trade = journal_trades.get(order_id)
-            expected_qty = _num(raw_record.get("quantity"))
-            if (
-                trade is None
-                or str(trade.get("reason") or "") != "venue_strategy_stop"
-                or str(trade.get("strategy_order_id") or "") != strategy_id
-                or str(trade.get("symbol") or "").upper() != symbol
-                or str(trade.get("action") or "").upper() != "CLOSE"
-                or str(trade.get("side") or "").lower() != "buy"
-                or str(trade.get("status") or "filled").lower() != "filled"
-                or abs(_num(trade.get("qty")) - expected_qty)
-                > max(1e-9, expected_qty * 1e-8)
-            ):
-                issues.append(
-                    f"{symbol}: stopped event is not backed by its journal stop trade"
-                )
+    if not isinstance(stopped, dict):
+        issues.append("active event stopped_symbols is not an object")
+        stopped = {}
+    for raw_symbol, raw_record in stopped.items():
+        symbol = str(raw_symbol).upper()
+        if not isinstance(raw_record, dict):
+            issues.append(f"{symbol}: stopped_symbols record is invalid")
+            continue
+        order_id = str(raw_record.get("order_id") or "")
+        strategy_id = str(raw_record.get("strategy_order_id") or "")
+        try:
+            expected_qty = float(raw_record.get("quantity"))
+        except (TypeError, ValueError):
+            expected_qty = float("nan")
+        if not isfinite(expected_qty) or expected_qty <= 0.0:
+            issues.append(f"{symbol}: stopped_symbols quantity is invalid")
+            continue
+        trade = journal_trades.get(order_id)
+        try:
+            journal_qty = float(trade.get("qty")) if trade is not None else float("nan")
+        except (TypeError, ValueError):
+            journal_qty = float("nan")
+        if (
+            trade is None
+            or not strategy_id
+            or str(trade.get("reason") or "") != "venue_strategy_stop"
+            or str(trade.get("strategy_order_id") or "") != strategy_id
+            or str(trade.get("symbol") or "").upper() != symbol
+            or str(trade.get("action") or "").upper() != "CLOSE"
+            or str(trade.get("side") or "").lower() != "buy"
+            or str(trade.get("status") or "filled").lower() != "filled"
+            or not isfinite(journal_qty)
+            or abs(journal_qty - expected_qty)
+            > max(1e-9, expected_qty * 1e-8)
+        ):
+            issues.append(
+                f"{symbol}: stopped event is not backed by its journal stop trade"
+            )
     return issues
 
 
@@ -737,6 +815,9 @@ def _event_quantity_issues(
     reason for that leg to be flat before the next target event.
     """
 
+    if target_weights and not target_quantities:
+        return ["事件缺少冻结目标数量"]
+
     actual: dict[str, float] = {}
     for row in positions:
         symbol = str(row.get("symbol") or "").upper()
@@ -747,25 +828,45 @@ def _event_quantity_issues(
     stopped = {str(symbol).upper() for symbol in stopped_symbols}
     for symbol, raw_target_qty in target_quantities.items():
         upper = str(symbol).upper()
-        target_qty = abs(_num(raw_target_qty))
-        if target_qty <= 0.0:
+        try:
+            target_qty = abs(float(raw_target_qty))
+        except (TypeError, ValueError):
+            issues.append(f"{upper} 目标数量非法")
             continue
-        asset = str(symbol_assets.get(upper, upper.removesuffix("USDT").lower())).lower()
-        target_weight = _num(target_weights.get(asset))
-        if target_weight == 0.0:
+        if not isfinite(target_qty) or target_qty <= 0.0:
+            issues.append(f"{upper} 目标数量非法")
+            continue
+        if upper not in symbol_assets:
+            issues.append(f"{upper} 缺少事件资产映射")
+            continue
+        asset = str(symbol_assets[upper]).lower()
+        try:
+            target_weight = float(target_weights.get(asset))
+        except (TypeError, ValueError):
+            target_weight = float("nan")
+        if not isfinite(target_weight) or target_weight == 0.0:
             issues.append(f"{upper} 缺少事件目标方向")
             continue
         expected = target_qty if target_weight > 0.0 else -target_qty
         got = actual.get(upper, 0.0)
-        price = _num(event_prices.get(asset))
+        try:
+            price = float(event_prices.get(asset))
+        except (TypeError, ValueError):
+            price = float("nan")
+        if not isfinite(price) or price <= 0.0:
+            issues.append(f"{upper} 事件价格非法")
+            continue
         spec = specs_by_symbol.get(upper)
-        minimum_qty = _minimum_tradeable_qty(spec, price) if spec is not None else None
+        if spec is None:
+            issues.append(f"{upper} 缺少事件合约规格")
+            continue
+        minimum_qty = _minimum_tradeable_qty(spec, price)
         lot_qty = max(
-            float(spec.min_order_qty or 0.0) if spec is not None else 0.0,
-            float(spec.quantity_multiplier or 0.0) if spec is not None else 0.0,
+            float(spec.min_order_qty or 0.0),
+            float(spec.quantity_multiplier or 0.0),
         )
         tolerance = max(
-            1.0 / price if price > 0.0 else 0.0,
+            1.0 / price,
             0.01 * target_qty,
             1.5 * lot_qty,
         )
@@ -856,8 +957,51 @@ def _trade_mismatch(
 ) -> str | None:
     """Return the first reproducibility mismatch for one journaled fill."""
 
-    same_qty = abs(_num(venue.get("cumExecQty")) - _num(trade.get("qty"))) <= 1e-9
-    venue_price = _num(venue.get("avgPrice"))
+    def required_number(
+        value: object,
+        field: str,
+        *,
+        positive: bool = False,
+    ) -> tuple[float | None, str | None]:
+        issue = _finite_number_issue(value, field)
+        if issue is not None:
+            return None, issue
+        number = float(value)  # type: ignore[arg-type]
+        if positive and number <= 0.0:
+            return None, f"{field} must be positive"
+        return number, None
+
+    trade_qty, issue = required_number(
+        trade.get("qty"), "journal trade qty", positive=True
+    )
+    if issue is not None:
+        return f"台账成交字段非法: {issue}"
+    trade_price, issue = required_number(
+        trade.get("avg_price"), "journal trade avg_price", positive=True
+    )
+    if issue is not None:
+        return f"台账成交字段非法: {issue}"
+    trade_fee, issue = required_number(trade.get("fee"), "journal trade fee")
+    if issue is not None:
+        return f"台账成交字段非法: {issue}"
+
+    venue_qty, issue = required_number(
+        venue.get("cumExecQty"), "exchange cumExecQty", positive=True
+    )
+    if issue is not None:
+        return f"交易所成交字段非法: {issue}"
+    venue_price, issue = required_number(
+        venue.get("avgPrice"), "exchange avgPrice", positive=True
+    )
+    if issue is not None:
+        return f"交易所成交字段非法: {issue}"
+    assert trade_qty is not None
+    assert trade_price is not None
+    assert trade_fee is not None
+    assert venue_qty is not None
+    assert venue_price is not None
+
+    same_qty = abs(venue_qty - trade_qty) <= 1e-9
     # Order-info returns the venue's rounded average price while history can
     # expose the unrounded fill average.  A half price tick is the widest
     # legitimate difference between those two representations; do not hide a
@@ -867,12 +1011,16 @@ def _trade_mismatch(
         if price_multiplier is not None and float(price_multiplier) > 0.0
         else max(1e-9, abs(venue_price) * 1e-6)
     )
-    same_price = abs(venue_price - _num(trade.get("avg_price"))) <= price_tolerance
-    same_fee = abs(_fees(venue) - _num(trade.get("fee"))) <= 1e-6
+    same_price = abs(venue_price - trade_price) <= price_tolerance
+    try:
+        venue_fee = _fees(venue)
+    except ValueError as exc:
+        return f"交易所 feeDetail 非法: {exc}"
+    same_fee = abs(venue_fee - trade_fee) <= 1e-6
     if not (same_qty and same_price and same_fee):
         return (
             f"台账 {trade.get('qty')}/{trade.get('avg_price')}/{trade.get('fee')} "
-            f"vs 交易所 {venue.get('cumExecQty')}/{venue.get('avgPrice')}/{_fees(venue):.8f}"
+            f"vs 交易所 {venue.get('cumExecQty')}/{venue.get('avgPrice')}/{venue_fee:.8f}"
         )
     recorded_stop = trade.get("stop_loss")
     if (
@@ -985,15 +1133,33 @@ def _strategy_stop_history_issues(
         if row is None:
             issues.append(f"{symbol}: strategy stop {strategy_id or '<missing>'} not found")
             continue
-        try:
-            qty = _num(raw_record.get("quantity"))
-            requested_qty = _num(raw_record.get("requested_quantity")) or qty
-            stop = _num(raw_record.get("stop_loss"))
-            venue_qty = _num(row.get("qty"))
-            venue_stop = _num(row.get("stopLoss"))
-        except (TypeError, ValueError):
+        def positive_number(value: object, field: str) -> float | None:
+            issue = _finite_number_issue(value, field)
+            if issue is not None:
+                return None
+            number = float(value)  # type: ignore[arg-type]
+            return number if number > 0.0 else None
+
+        qty = positive_number(raw_record.get("quantity"), "recorded quantity")
+        requested_raw = raw_record.get("requested_quantity")
+        requested_qty = positive_number(
+            qty if requested_raw in (None, "") else requested_raw,
+            "requested quantity",
+        )
+        stop = positive_number(raw_record.get("stop_loss"), "recorded stop_loss")
+        venue_qty = positive_number(row.get("qty"), "venue qty")
+        venue_stop = positive_number(row.get("stopLoss"), "venue stopLoss")
+        if any(
+            value is None
+            for value in (qty, requested_qty, stop, venue_qty, venue_stop)
+        ):
             issues.append(f"{symbol}: stop history values are invalid")
             continue
+        assert qty is not None
+        assert requested_qty is not None
+        assert stop is not None
+        assert venue_qty is not None
+        assert venue_stop is not None
         tolerance = max(1e-9, abs(stop) * 1e-8)
         if (
             str(row.get("symbol") or "").upper() != symbol

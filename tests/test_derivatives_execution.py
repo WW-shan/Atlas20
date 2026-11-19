@@ -427,6 +427,35 @@ def test_all_cash_target_closes_every_leg() -> None:
     assert len(plan.orders) == 2
 
 
+def test_close_loss_larger_than_released_margin_does_not_credit_cash() -> None:
+    loss_making_long = _position(
+        size=100.0,
+        entry=2.0,
+        mark=1.0,
+        margin=10.0,
+    )
+
+    plan = build_execution_plan(
+        AccountState(
+            equity=500.0,
+            available_margin=100.0,
+            positions={"near": loss_making_long},
+        ),
+        {"near": -0.4},
+        {"near": _spec()},
+        {"near": 1.0},
+        taker_fee_rate=0.0,
+    )
+
+    close, open_short = plan.orders
+    assert close.action == "CLOSE"
+    # Closing releases 10 margin but realises a 100 loss: only 10 USDT remains.
+    # The old cash-delta branch erased that negative settlement and sized the
+    # opposite leg from 100 USDT instead.
+    assert open_short.action == "OPEN"
+    assert open_short.size == pytest.approx(19.0)
+
+
 def test_zero_equity_suppresses_new_targets_and_closes_the_held_leg() -> None:
     position = _position(size=100.0, entry=2.0, mark=2.0, margin=100.0)
     plan = build_execution_plan(

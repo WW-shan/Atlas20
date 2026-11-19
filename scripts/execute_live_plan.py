@@ -365,12 +365,22 @@ def _prior_attempt_count(state: dict[str, Any], key: str) -> int:
     """
 
     counts = state.get("attempt_counts")
-    if isinstance(counts, dict) and key in counts:
-        try:
-            value = int(counts[key])
-        except (TypeError, ValueError):
-            value = 0
-        return max(value, 0)
+    if counts is not None:
+        if not isinstance(counts, dict):
+            raise ValueError("execution state attempt_counts is not an object")
+        if key in counts:
+            raw_value = counts[key]
+            if isinstance(raw_value, bool):
+                raise ValueError("execution state attempt_counts value is invalid")
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "execution state attempt_counts value is not numeric"
+                ) from exc
+            if not isfinite(value) or value < 0.0 or not value.is_integer():
+                raise ValueError("execution state attempt_counts value is invalid")
+            return int(value)
     runs = state.get("runs")
     if not isinstance(runs, list):
         return 0
@@ -1178,6 +1188,7 @@ def _external_order_fills(
     known_order_ids: set[str],
     matched_order_ids: set[str],
     symbol_assets: Mapping[str, str],
+    errors: list[dict[str, Any]] | None = None,
 ) -> list[OrderFill]:
     """Import venue fills that did not come from the Atlas20 executor.
 
@@ -1196,30 +1207,81 @@ def _external_order_fills(
     for row in order_rows:
         order_id = str(row.get("orderId") or "").strip()
         client_oid = str(row.get("clientOid") or "").strip()
+        symbol = str(row.get("symbol") or "").upper()
+        asset = assets_by_symbol.get(symbol)
+        if asset is None:
+            continue
+        if str(row.get("orderStatus") or row.get("status") or "").lower() != "filled":
+            continue
         if (
             not order_id
             or order_id in known_order_ids
             or order_id in matched_order_ids
             or client_oid.startswith(("a20", "atlas20"))
         ):
-            continue
-        if str(row.get("orderStatus") or row.get("status") or "").lower() != "filled":
+            if not order_id:
+                if errors is not None:
+                    errors.append(
+                        {
+                            "symbol": symbol,
+                            "action": "VERIFY",
+                            "side": str(row.get("side") or "-"),
+                            "size": str(row.get("qty") or "-"),
+                            "error": "filled external order has no orderId",
+                        }
+                    )
             continue
         try:
             filled_size = float(row.get("cumExecQty") or row.get("qty") or 0.0)
             avg_price = float(row.get("avgPrice") or row.get("price") or 0.0)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            if errors is not None:
+                errors.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": str(row.get("side") or "-"),
+                        "size": str(row.get("qty") or "-"),
+                        "error": f"filled external order has invalid quantity/price: {exc}",
+                    }
+                )
             continue
         if not (isfinite(filled_size) and isfinite(avg_price)):
+            if errors is not None:
+                errors.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": str(row.get("side") or "-"),
+                        "size": str(row.get("qty") or "-"),
+                        "error": "filled external order has non-finite quantity/price",
+                    }
+                )
             continue
         if filled_size <= 1e-12 or avg_price <= 0.0:
-            continue
-        symbol = str(row.get("symbol") or "").upper()
-        asset = assets_by_symbol.get(symbol)
-        if asset is None:
+            if errors is not None:
+                errors.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": str(row.get("side") or "-"),
+                        "size": str(row.get("qty") or "-"),
+                        "error": "filled external order has non-positive quantity/price",
+                    }
+                )
             continue
         side = str(row.get("side") or "").lower()
         if side not in {"buy", "sell"}:
+            if errors is not None:
+                errors.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": side or "-",
+                        "size": f"{filled_size:.12g}",
+                        "error": "filled external order has an invalid side",
+                    }
+                )
             continue
         reduce_only = str(row.get("reduceOnly") or "").lower() in {"yes", "true", "1"}
         pos_side = str(row.get("posSide") or "").lower()
@@ -1236,8 +1298,18 @@ def _external_order_fills(
         )
         try:
             fee, fee_coin = _fee_from_detail(row)
-        except (TypeError, ValueError):
-            fee, fee_coin = 0.0, "USDT"
+        except ValueError as exc:
+            fee, fee_coin = 0.0, ""
+            if errors is not None:
+                errors.append(
+                    {
+                        "symbol": symbol,
+                        "action": "VERIFY",
+                        "side": side,
+                        "size": f"{filled_size:.12g}",
+                        "error": f"external fill fee could not be reconciled: {exc}",
+                    }
+                )
         notional_raw = row.get("cumExecValue")
         try:
             notional = float(notional_raw) if notional_raw not in (None, "") else 0.0
@@ -1354,6 +1426,7 @@ def _recover_venue_stop_fills(
                 str(getattr(fill, "order_id", "") or "") for fill in fills
             },
             symbol_assets=symbol_assets,
+            errors=errors,
         )
     )
     errors.extend(

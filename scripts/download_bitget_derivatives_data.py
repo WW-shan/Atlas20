@@ -31,6 +31,7 @@ import tempfile
 import time as time_module
 from typing import Any, Callable
 
+import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,7 @@ for path in (PROJECT_ROOT, SRC_DIR):
 
 from atlas20.derivatives.bitget import BitgetClient, CANDLE_COLUMNS  # noqa: E402
 from atlas20.derivatives.data_audit import required_last_mark_time  # noqa: E402
+from atlas20.derivatives.integrity import deduplicate_by_keys_or_raise  # noqa: E402
 from atlas20.derivatives.mapping import build_symbol_map  # noqa: E402
 from atlas20.logging_utils import (  # noqa: E402
     atomic_write_text,
@@ -136,11 +138,36 @@ def _merge_candles(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
     if not frames:
         return pd.DataFrame(columns=CANDLE_COLUMNS)
     combined = pd.concat(frames, ignore_index=True)
-    combined["open_time"] = pd.to_datetime(combined["open_time"], utc=True)
+    missing = set(CANDLE_COLUMNS).difference(combined.columns)
+    if missing:
+        raise ValueError(f"candle merge is missing columns {sorted(missing)}")
+    combined["open_time"] = pd.to_datetime(
+        combined["open_time"], utc=True, errors="coerce"
+    )
+    if combined["open_time"].isna().any():
+        raise ValueError("candle merge contains an invalid open_time")
     for column in CANDLE_COLUMNS[1:]:
         combined[column] = pd.to_numeric(combined[column], errors="coerce")
-    combined = combined.drop_duplicates("open_time", keep="last").sort_values("open_time")
-    return combined.reset_index(drop=True)
+    if not np.isfinite(
+        combined.loc[:, CANDLE_COLUMNS[1:]].to_numpy(dtype=float)
+    ).all():
+        raise ValueError("candle merge contains a missing or non-finite value")
+    prices = combined.loc[:, ["open", "high", "low", "close"]]
+    invalid_ohlc = (
+        (prices <= 0.0).any(axis=1)
+        | (combined["high"] < prices[["open", "close", "low"]].max(axis=1))
+        | (combined["low"] > prices[["open", "close", "high"]].min(axis=1))
+    )
+    if invalid_ohlc.any():
+        raise ValueError("candle merge contains an invalid OHLC row")
+    if (combined.loc[:, ["volume", "quote_volume"]] < 0.0).any().any():
+        raise ValueError("candle merge contains a negative volume")
+    return deduplicate_by_keys_or_raise(
+        combined,
+        keys=["open_time"],
+        values=CANDLE_COLUMNS,
+        label="candle merge",
+    ).sort_values("open_time", kind="stable").reset_index(drop=True)
 
 
 def _merge_coverage_rows(
@@ -451,6 +478,51 @@ def _current_funding_observation(
     return settlement, rate, interval
 
 
+def _normalise_funding_frame(
+    frame: pd.DataFrame,
+    *,
+    symbol: str,
+    label: str,
+) -> pd.DataFrame:
+    """Validate one cached/API funding frame and reject conflicting repeats."""
+
+    required = {"funding_time", "funding_rate"}
+    missing = required.difference(frame.columns)
+    if missing:
+        raise ValueError(f"{label} funding is missing columns {sorted(missing)}")
+    normalised = frame.copy()
+    if "symbol" not in normalised.columns:
+        normalised["symbol"] = symbol
+    expected_symbol = str(symbol).strip().upper()
+    observed_symbols = {
+        str(value).strip().upper()
+        for value in normalised["symbol"].dropna().unique()
+        if str(value).strip()
+    }
+    if not expected_symbol or observed_symbols != {expected_symbol}:
+        raise ValueError(
+            f"{label} funding symbol mismatch: "
+            f"file={sorted(observed_symbols)} expected={expected_symbol or '<missing>'}"
+        )
+    normalised["symbol"] = expected_symbol
+    normalised["funding_time"] = pd.to_datetime(
+        normalised["funding_time"], utc=True, errors="coerce"
+    )
+    normalised["funding_rate"] = pd.to_numeric(
+        normalised["funding_rate"], errors="coerce"
+    )
+    if normalised["funding_time"].isna().any() or not np.isfinite(
+        normalised["funding_rate"].to_numpy(dtype=float)
+    ).all():
+        raise ValueError(f"{label} funding contains a missing or non-finite value")
+    return deduplicate_by_keys_or_raise(
+        normalised.loc[:, ["symbol", "funding_time", "funding_rate"]],
+        keys=["funding_time"],
+        values=["symbol", "funding_rate"],
+        label=f"{label} funding",
+    )
+
+
 def _download_funding(
     client: BitgetClient,
     symbol_map: pd.DataFrame,
@@ -495,13 +567,11 @@ def _download_funding(
         else:
             cached = pd.DataFrame()
         if not cached.empty:
-            cached["funding_time"] = pd.to_datetime(
-                cached["funding_time"], utc=True, errors="coerce"
+            cached = _normalise_funding_frame(
+                cached,
+                symbol=symbol,
+                label=f"cached {coin_id}",
             )
-            cached["funding_rate"] = pd.to_numeric(
-                cached["funding_rate"], errors="coerce"
-            )
-            cached = cached.dropna(subset=["funding_time", "funding_rate"])
         interval_raw = pd.to_numeric(record.get("fund_interval"), errors="coerce")
         interval_hours = float(interval_raw) if pd.notna(interval_raw) else 0.0
         last_cached = cached["funding_time"].max() if not cached.empty else pd.NaT
@@ -589,14 +659,10 @@ def _download_funding(
             if preserved_entry is not None:
                 publication_entries[coin_id] = preserved_entry
             continue
-        history_frame["funding_time"] = pd.to_datetime(
-            history_frame["funding_time"], utc=True, errors="coerce"
-        )
-        history_frame["funding_rate"] = pd.to_numeric(
-            history_frame["funding_rate"], errors="coerce"
-        )
-        history_frame = history_frame.dropna(
-            subset=["funding_time", "funding_rate"]
+        history_frame = _normalise_funding_frame(
+            history_frame,
+            symbol=symbol,
+            label=f"history {coin_id}",
         ).sort_values("funding_time")
         history_last = (
             pd.Timestamp(history_frame["funding_time"].max())
@@ -605,15 +671,11 @@ def _download_funding(
         )
         frames = [item for item in (cached, history_frame) if not item.empty]
         merged = pd.concat(frames, ignore_index=True)
-        merged["funding_time"] = pd.to_datetime(
-            merged["funding_time"], utc=True, errors="coerce"
-        )
-        merged["funding_rate"] = pd.to_numeric(merged["funding_rate"], errors="coerce")
-        merged = (
-            merged.dropna(subset=["funding_time", "funding_rate"])
-            .drop_duplicates("funding_time", keep="last")
-            .sort_values("funding_time")
-            .reset_index(drop=True)
+        merged = deduplicate_by_keys_or_raise(
+            merged,
+            keys=["funding_time"],
+            values=["symbol", "funding_rate"],
+            label=f"funding merge {coin_id}",
         )
 
         current_row: dict[str, Any] = {}
@@ -715,11 +777,13 @@ def _download_funding(
             else:
                 rate_relation = "history_ahead"
 
-        merged = (
-            merged.drop_duplicates("funding_time", keep="last")
-            .sort_values("funding_time")
-            .reset_index(drop=True)
+        merged = deduplicate_by_keys_or_raise(
+            merged,
+            keys=["funding_time"],
+            values=["symbol", "funding_rate"],
+            label=f"funding refresh {coin_id}",
         )
+        merged = merged.sort_values("funding_time").reset_index(drop=True)
         _write_csv_atomic(merged, path)
         actual_last = pd.Timestamp(merged["funding_time"].max())
         actual_rate = float(merged["funding_rate"].iloc[-1])

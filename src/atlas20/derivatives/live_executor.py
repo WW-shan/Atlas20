@@ -227,20 +227,66 @@ def is_isolated_unsupported(error: Exception) -> bool:
 
 
 def _fee_from_detail(payload: dict[str, Any]) -> tuple[float, str]:
-    details = payload.get("feeDetail") or []
+    executed_raw = payload.get("cumExecQty")
+    executed_qty = 0.0
+    if executed_raw not in (None, ""):
+        executed_qty = _required_float(executed_raw, "order cumExecQty for fee")
+        if executed_qty < 0.0:
+            raise ValueError("order cumExecQty for fee must be non-negative")
+    details = payload.get("feeDetail")
+    if details in (None, ""):
+        details = []
     if not isinstance(details, list):
-        return 0.0, ""
+        raise ValueError("feeDetail must be an array")
+    top_level_fee_raw = payload.get("fee")
+    if not details:
+        if top_level_fee_raw in (None, ""):
+            if executed_qty > 0.0:
+                raise ValueError("filled order has no fee evidence")
+            return 0.0, ""
+        top_level_fee = _required_float(top_level_fee_raw, "order fee")
+        top_level_coin = str(payload.get("feeCoin") or "").strip().upper()
+        if not top_level_coin:
+            raise ValueError("top-level order fee has no feeCoin")
+        if top_level_coin != "USDT":
+            raise ValueError(
+                f"top-level order fee uses unsupported feeCoin {top_level_coin!r}; "
+                "USDT-M fee totals require USDT"
+            )
+        return top_level_fee, top_level_coin
     total = 0.0
-    coin = ""
-    for row in details:
+    fee_coin = ""
+    for index, row in enumerate(details):
         if not isinstance(row, dict):
-            continue
-        try:
-            total += float(row.get("fee") or 0.0)
-        except (TypeError, ValueError):
-            continue
-        coin = coin or str(row.get("feeCoin") or "")
-    return total, coin
+            raise ValueError(f"feeDetail row {index} must be an object")
+        fee = _required_float(row.get("fee"), f"feeDetail row {index} fee")
+        coin = str(row.get("feeCoin") or "").strip().upper()
+        if not coin:
+            raise ValueError(f"feeDetail row {index} has no feeCoin")
+        if coin != "USDT":
+            raise ValueError(
+                f"feeDetail row {index} uses unsupported feeCoin {coin!r}; "
+                "USDT-M fee totals require USDT"
+            )
+        if fee_coin and coin != fee_coin:
+            raise ValueError("feeDetail mixes multiple fee coins")
+        fee_coin = coin
+        total += fee
+    if top_level_fee_raw not in (None, ""):
+        top_level_fee = _required_float(top_level_fee_raw, "order fee")
+        top_level_coin = str(payload.get("feeCoin") or "").strip().upper()
+        if not top_level_coin:
+            raise ValueError("top-level order fee has no feeCoin")
+        if top_level_coin != "USDT":
+            raise ValueError(
+                f"top-level order fee uses unsupported feeCoin {top_level_coin!r}; "
+                "USDT-M fee totals require USDT"
+            )
+        if abs(top_level_fee - total) > max(1e-9, abs(total) * 1e-8):
+            raise ValueError(
+                "top-level order fee conflicts with the feeDetail total"
+            )
+    return total, fee_coin
 
 
 def _to_float(value: Any) -> float:
@@ -516,7 +562,19 @@ def _recover_fills_from_order_history(
             )
         except ValueError:
             notional = filled * avg_price
-        fee, fee_coin = _fee_from_detail(row)
+        try:
+            fee, fee_coin = _fee_from_detail(row)
+        except ValueError as exc:
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": str(row.get("side") or "-"),
+                    "size": f"{filled:.12g}",
+                    "error": f"order-history fee could not be reconciled: {exc}",
+                }
+            )
+            fee, fee_coin = 0.0, ""
         status = str(row.get("orderStatus") or "unknown")
         action = _history_fill_action(row, positions)
         requested_raw = row.get("qty")
@@ -734,7 +792,19 @@ def match_venue_stop_fills(
                     ),
                 }
             )
-        fee, fee_coin = _fee_from_detail(order)
+        try:
+            fee, fee_coin = _fee_from_detail(order)
+        except ValueError as exc:
+            errors.append(
+                {
+                    "symbol": symbol,
+                    "action": "VERIFY",
+                    "side": "buy",
+                    "size": f"{strategy_qty:.12g}",
+                    "error": f"executed strategy stop fee is invalid: {exc}",
+                }
+            )
+            fee, fee_coin = 0.0, ""
         stop = _to_float(strategy.get("stopLoss"))
         triggered_at = datetime.fromtimestamp(
             triggered_ms / 1000.0, tz=timezone.utc
@@ -1924,7 +1994,24 @@ def execute_plan(
                 }
             )
             continue
-        fee, fee_coin = _fee_from_detail(payload)
+        try:
+            fee, fee_coin = _fee_from_detail(payload)
+        except ValueError as exc:
+            halt_all_orders = True
+            blocked_all_opens = True
+            blocked_all_opens_by_failure = True
+            if order.action == "CLOSE":
+                blocked_open_assets.add(order.asset)
+            report.failures.append(
+                {
+                    "symbol": symbol,
+                    "action": order.action,
+                    "side": order.side,
+                    "size": f"{order.size:.12g}",
+                    "error": f"venue fee could not be reconciled: {exc}",
+                }
+            )
+            fee, fee_coin = 0.0, ""
         attached_stop = _to_float(payload.get("stopLoss"))
         status = str(payload.get("orderStatus") or "")
         stop_confirmed = _short_stop_confirmed(order.stop_loss, payload)
@@ -2023,9 +2110,21 @@ def execute_plan(
                     close_notional = _to_float(close_payload.get("cumExecValue")) or (
                         close_filled * close_avg
                     )
-                    close_fee, close_fee_coin = _fee_from_detail(close_payload)
                     close_status = str(close_payload.get("orderStatus") or "unknown")
                     close_value_error = ""
+                    try:
+                        close_fee, close_fee_coin = _fee_from_detail(close_payload)
+                    except ValueError as exc:
+                        close_fee, close_fee_coin = 0.0, ""
+                        report.failures.append(
+                            {
+                                "symbol": symbol,
+                                "action": "EMERGENCY_CLOSE",
+                                "side": "buy",
+                                "size": f"{close_qty:.12g}",
+                                "error": f"emergency close fee could not be reconciled: {exc}",
+                            }
+                        )
                     if close_filled > 0.0 and close_avg <= 0.0:
                         close_value_error = "emergency close returned no positive avgPrice"
                     elif close_filled > 0.0 and close_notional <= 0.0:
@@ -2269,9 +2368,21 @@ def execute_plan(
                 close_notional = _to_float(close_payload.get("cumExecValue")) or (
                     close_filled * close_avg
                 )
-                close_fee, close_fee_coin = _fee_from_detail(close_payload)
                 close_status = str(close_payload.get("orderStatus") or "unknown")
                 close_value_error = ""
+                try:
+                    close_fee, close_fee_coin = _fee_from_detail(close_payload)
+                except ValueError as exc:
+                    close_fee, close_fee_coin = 0.0, ""
+                    report.failures.append(
+                        {
+                            "symbol": symbol,
+                            "action": "EMERGENCY_CLOSE",
+                            "side": "buy",
+                            "size": f"{qty:.12g}",
+                            "error": f"stop-gap close fee could not be reconciled: {exc}",
+                        }
+                    )
                 if close_filled > 0.0 and close_avg <= 0.0:
                     close_value_error = "stop-gap close returned no positive avgPrice"
                 elif close_filled > 0.0 and close_notional <= 0.0:

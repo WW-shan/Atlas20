@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 import pandas as pd
 import pytest
-from atlas20.derivatives.bitget import BitgetClient, candle_frame, funding_frame
+from atlas20.derivatives.bitget import (
+    BitgetAPIError,
+    BitgetClient,
+    candle_frame,
+    funding_frame,
+)
 from atlas20.derivatives.mapping import build_symbol_map
 from scripts.audit_bitget_derivatives_data import funding_overlap
 
@@ -44,6 +49,33 @@ def test_candle_frame_parses_positional_payload() -> None:
     assert frame["open_time"].dt.tz is not None
 
 
+def test_candle_frame_collapses_identical_duplicate_timestamps() -> None:
+    row = _row("2026-01-01T00:00:00Z")
+
+    frame = candle_frame([row, list(row)])
+
+    assert len(frame) == 1
+    assert frame.iloc[0]["close"] == 100.0
+
+
+def test_candle_frame_rejects_conflicting_duplicate_timestamps() -> None:
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        candle_frame(
+            [
+                _row("2026-01-01T00:00:00Z", 100.0),
+                _row("2026-01-01T00:00:00Z", 101.0),
+            ]
+        )
+
+
+def test_candle_frame_rejects_non_finite_values() -> None:
+    row = _row("2026-01-01T00:00:00Z")
+    row[4] = "inf"
+
+    with pytest.raises(BitgetAPIError, match="non-finite"):
+        candle_frame([row])
+
+
 def test_funding_frame_parses_v3_result_list() -> None:
     frame = funding_frame(
         [
@@ -55,6 +87,42 @@ def test_funding_frame_parses_v3_result_list() -> None:
     assert len(frame) == 2
     assert frame["funding_rate"].tolist() == [-0.0002, 0.0001]
     assert frame["funding_time"].is_monotonic_increasing
+
+
+def test_funding_frame_collapses_identical_duplicate_timestamps() -> None:
+    row = {
+        "symbol": "BTCUSDT",
+        "fundingRate": "0.0001",
+        "fundingRateTimestamp": "1791504000000",
+    }
+
+    frame = funding_frame([row, dict(row)])
+
+    assert len(frame) == 1
+    assert frame.iloc[0]["funding_rate"] == pytest.approx(0.0001)
+
+
+def test_funding_frame_rejects_conflicting_duplicate_timestamps() -> None:
+    first = {
+        "symbol": "BTCUSDT",
+        "fundingRate": "0.0001",
+        "fundingRateTimestamp": "1791504000000",
+    }
+    conflicting = {**first, "fundingRate": "0.0002"}
+
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        funding_frame([first, conflicting])
+
+
+def test_funding_frame_rejects_non_finite_rates() -> None:
+    row = {
+        "symbol": "BTCUSDT",
+        "fundingRate": "inf",
+        "fundingRateTimestamp": "1791504000000",
+    }
+
+    with pytest.raises(BitgetAPIError, match="finite"):
+        funding_frame([row])
 
 
 def test_fetch_history_candles_pages_backwards_from_end_time() -> None:
@@ -81,6 +149,35 @@ def test_fetch_history_candles_pages_backwards_from_end_time() -> None:
     assert calls[0]["startTime"] == int(pd.Timestamp("2026-01-01T00:00:00Z").timestamp() * 1000)
     assert calls[0]["endTime"] == int(pd.Timestamp("2026-01-01T02:00:00Z").timestamp() * 1000)
     assert calls[1]["endTime"] == int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000)
+
+
+def test_fetch_history_candles_rejects_a_malformed_data_shape() -> None:
+    class _Session:
+        def get(self, url, params, timeout):
+            del url, params, timeout
+            return _FakeResponse({"code": "00000", "data": {"unexpected": []}})
+
+    client = _client(_Session())
+
+    with pytest.raises(BitgetAPIError, match="candle data"):
+        client.fetch_history_candles(
+            "BTCUSDT",
+            "mark",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T02:00:00Z",
+        )
+
+
+def test_fetch_funding_history_rejects_a_malformed_data_shape() -> None:
+    class _Session:
+        def get(self, url, params, timeout):
+            del url, params, timeout
+            return _FakeResponse({"code": "00000", "data": "oops"})
+
+    client = _client(_Session())
+
+    with pytest.raises(BitgetAPIError, match="funding data"):
+        client.fetch_funding_history("BTCUSDT")
 
 
 def test_fetch_funding_history_exposes_the_server_request_time() -> None:
@@ -414,6 +511,48 @@ def test_window_status_marks_page_gaps_as_partial() -> None:
     assert _window_status(full, start, end) == ("complete", 4)
     assert _window_status(gapped, start, end) == ("partial", 4)
     assert _window_status(pd.DataFrame(), start, end) == ("missing", 4)
+
+
+def test_candle_merge_rejects_conflicting_duplicate_values() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_candles
+
+    existing = candle_frame([_row("2026-01-01T00:00:00Z", 100.0)])
+    refreshed = candle_frame([_row("2026-01-01T00:00:00Z", 101.0)])
+
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        _merge_candles(existing, refreshed)
+
+
+def test_candle_merge_collapses_identical_duplicate_values() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_candles
+
+    first = candle_frame([_row("2026-01-01T00:00:00Z", 100.0)])
+    duplicate = first.copy()
+
+    merged = _merge_candles(first, duplicate)
+
+    assert len(merged) == 1
+
+
+def test_candle_merge_rejects_an_invalid_cached_timestamp() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_candles
+
+    invalid = pd.DataFrame(
+        [
+            {
+                "open_time": "not-a-timestamp",
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+                "volume": 1.0,
+                "quote_volume": 100.0,
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="open_time"):
+        _merge_candles(invalid, pd.DataFrame())
 
 
 def test_cached_page_boundary_gap_is_refetched_not_treated_as_final() -> None:
@@ -1050,6 +1189,60 @@ def test_current_funding_rate_conflict_is_evidence_not_silently_overwritten(
         (output_dir / "funding_publication.json").read_text(encoding="utf-8")
     )
     assert publication["assets"]["bitcoin"]["rate_relation"] == "conflict"
+
+
+def test_cached_funding_conflict_is_rejected_instead_of_overwritten(tmp_path) -> None:
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    class _FundingClient:
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [pd.Timestamp("2026-11-10T00:00:00Z")],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+    funding_dir = tmp_path / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-10T00:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    before = (funding_dir / "bitcoin.csv").read_bytes()
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        _download_funding(  # type: ignore[arg-type]
+            _FundingClient(),
+            symbol_map,
+            tmp_path,
+            force=True,
+            now=pd.Timestamp("2026-11-14T01:05:00Z"),
+        )
+
+    assert (funding_dir / "bitcoin.csv").read_bytes() == before
+
+
+def test_cached_funding_symbol_mismatch_is_rejected() -> None:
+    from scripts.download_bitget_derivatives_data import _normalise_funding_frame
+
+    frame = pd.DataFrame(
+        {
+            "symbol": ["ETHUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-10T00:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    )
+
+    with pytest.raises(ValueError, match="symbol"):
+        _normalise_funding_frame(frame, symbol="BTCUSDT", label="cached bitcoin")
 
 
 def test_contract_snapshot_archive_records_change_points_not_duplicates(tmp_path) -> None:

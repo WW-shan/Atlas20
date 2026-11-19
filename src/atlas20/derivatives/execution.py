@@ -533,8 +533,6 @@ def build_execution_plan(
             if current_side == "long"
             else size * (position.entry_price - price)
         )
-        settlement = margin_delta + pnl - fee
-        cash_delta = max(0.0, settlement) - settlement if action == "CLOSE" else 0.0
         orders.append(
             OrderIntent(
                 asset=asset,
@@ -567,8 +565,6 @@ def build_execution_plan(
         )
         if action == "CLOSE":
             final_sides[asset] = None
-        if action == "CLOSE" and cash_delta:
-            available += cash_delta
 
     # Open or increase only after reductions have settled.  A flip is already
     # represented as CLOSE then OPEN, never as a negative-size order.  On a

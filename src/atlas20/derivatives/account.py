@@ -312,7 +312,14 @@ class BitgetPrivateClient:
             raise BitgetAPIError("Bitget current-position payload is not a list or object")
         if not isinstance(rows, list):
             raise BitgetAPIError("Bitget current-position list is not an array")
-        return [dict(row) for row in rows if isinstance(row, dict)]
+        positions: list[dict[str, Any]] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise BitgetAPIError(
+                    f"Bitget current-position row {index} is not an object"
+                )
+            positions.append(dict(row))
+        return positions
 
     def position_history(
         self,
@@ -620,8 +627,15 @@ class BitgetPrivateClient:
             raise BitgetAPIError("Bitget paginated payload is not a list or object")
         if not isinstance(rows, list):
             raise BitgetAPIError("Bitget paginated list is not an array")
+        parsed_rows: list[dict[str, Any]] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise BitgetAPIError(
+                    f"Bitget paginated row {index} is not an object"
+                )
+            parsed_rows.append(dict(row))
         return (
-            [dict(row) for row in rows if isinstance(row, dict)],
+            parsed_rows,
             str(cursor) if cursor not in (None, "") else None,
         )
 

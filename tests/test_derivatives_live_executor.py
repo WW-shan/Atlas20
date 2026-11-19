@@ -16,12 +16,79 @@ from atlas20.derivatives.execution import (
 from atlas20.derivatives.live_executor import (
     ExecutionReport,
     OrderFill,
+    _fee_from_detail,
     execute_plan,
     format_execution_report,
     is_isolated_unsupported,
     match_venue_stop_fills,
     wait_for_fill,
 )
+
+
+def test_fee_detail_sums_usdt_fees() -> None:
+    fee, coin = _fee_from_detail(
+        {
+            "feeDetail": [
+                {"fee": "0.01", "feeCoin": "USDT"},
+                {"fee": "0.02", "feeCoin": "USDT"},
+            ]
+        }
+    )
+
+    assert fee == pytest.approx(0.03)
+    assert coin == "USDT"
+
+
+def test_fee_uses_strict_top_level_fallback_when_fee_detail_is_absent() -> None:
+    fee, coin = _fee_from_detail({"fee": "0.04", "feeCoin": "USDT"})
+
+    assert fee == pytest.approx(0.04)
+    assert coin == "USDT"
+
+
+def test_fee_rejects_conflicting_fee_detail_and_top_level_total() -> None:
+    with pytest.raises(ValueError, match="conflicts"):
+        _fee_from_detail(
+            {
+                "feeDetail": [{"fee": "0.01", "feeCoin": "USDT"}],
+                "fee": "0.02",
+                "feeCoin": "USDT",
+            }
+        )
+
+
+def test_filled_order_requires_some_fee_evidence() -> None:
+    with pytest.raises(ValueError, match="no fee evidence"):
+        _fee_from_detail({"cumExecQty": "1", "feeDetail": []})
+    with pytest.raises(ValueError, match="no fee evidence"):
+        _fee_from_detail({"cumExecQty": "1"})
+
+
+def test_unfilled_order_may_report_no_fee() -> None:
+    fee, coin = _fee_from_detail({"cumExecQty": "0", "feeDetail": []})
+
+    assert fee == 0.0
+    assert coin == ""
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"feeDetail": "oops"},
+        {"feeDetail": ["oops"]},
+        {"feeDetail": [{"fee": "oops", "feeCoin": "USDT"}]},
+        {"feeDetail": [{"fee": "0.01", "feeCoin": "BGB"}]},
+        {"feeDetail": [{"fee": "0.01", "feeCoin": "USDT"}, {"fee": "0.02", "feeCoin": "BGB"}]},
+        {"fee": "0.01"},
+        {"fee": "0.01", "feeCoin": "BGB"},
+        {"fee": "oops", "feeCoin": "USDT"},
+    ],
+)
+def test_fee_detail_rejects_malformed_or_mixed_coin_fees(
+    payload: dict[str, Any],
+) -> None:
+    with pytest.raises(ValueError):
+        _fee_from_detail(payload)
 
 
 def _spec(symbol: str = "NEARUSDT", **kwargs: Any) -> ContractSpec:
@@ -2588,6 +2655,7 @@ def test_partial_strategy_stop_is_recorded_and_flagged() -> None:
             "cumExecQty": "4",
             "avgPrice": "6.1",
             "cumExecValue": "24.4",
+                "feeDetail": [{"fee": "0.01464", "feeCoin": "USDT"}],
             "createdTime": "2005",
         }
     ]
@@ -2654,6 +2722,7 @@ def test_one_way_successful_buy_stop_is_matched_without_pos_side() -> None:
             "cumExecQty": "10",
             "avgPrice": "6.1",
             "cumExecValue": "61",
+                "feeDetail": [{"fee": "0.0366", "feeCoin": "USDT"}],
             "createdTime": "2005",
         }
     ]

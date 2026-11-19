@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+
+from atlas20.derivatives.integrity import deduplicate_by_keys_or_raise
 
 _MARK_COLUMNS = ["open", "high", "low", "close"]
 
@@ -64,9 +67,21 @@ def load_mark_candles(
         if missing:
             raise ValueError(f"{path}: missing mark columns {sorted(missing)}")
         frame = frame.copy()
-        frame.index = _as_utc_index(frame["open_time"])
+        open_times = _as_utc_index(frame["open_time"])
         frame = frame.loc[:, _MARK_COLUMNS].apply(pd.to_numeric, errors="coerce")
-        frame = frame[~frame.index.duplicated(keep="last")].sort_index()
+        frame["_open_time"] = open_times
+        if not np.isfinite(frame.loc[:, _MARK_COLUMNS].to_numpy(dtype=float)).all():
+            raise ValueError(
+                f"{path}: mark values contain a missing or non-finite value"
+            )
+        frame = deduplicate_by_keys_or_raise(
+            frame,
+            keys=["_open_time"],
+            values=_MARK_COLUMNS,
+            label=str(path),
+        )
+        frame.index = pd.DatetimeIndex(frame.pop("_open_time"))
+        frame = frame.sort_index()
         if frame.empty:
             continue
         loaded[coin_id] = frame
@@ -123,8 +138,19 @@ def load_bitget_funding(
             continue
         index = pd.to_datetime(frame["funding_time"], utc=True, errors="coerce")
         rate = pd.to_numeric(frame["funding_rate"], errors="coerce")
-        values = pd.Series(rate.to_numpy(dtype=float), index=index, name=coin_id).dropna()
-        values = values[~values.index.duplicated(keep="last")].sort_index()
+        if not np.isfinite(rate.to_numpy(dtype=float)).all():
+            raise ValueError(f"{path}: funding contains a missing or non-finite value")
+        checked = pd.DataFrame(
+            {"funding_time": index, "funding_rate": rate.astype(float)}
+        )
+        checked = deduplicate_by_keys_or_raise(
+            checked,
+            keys=["funding_time"],
+            values=["funding_rate"],
+            label=str(path),
+        )
+        values = checked.set_index("funding_time")["funding_rate"].rename(coin_id)
+        values = values.sort_index()
         if not values.empty:
             series[coin_id] = values
     if not series:

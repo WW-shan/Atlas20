@@ -792,7 +792,7 @@ def test_trade_mismatch_checks_the_attached_short_stop() -> None:
     venue = {
         "cumExecQty": "10",
         "avgPrice": "5",
-        "feeDetail": [{"fee": "0.03"}],
+        "feeDetail": [{"fee": "0.03", "feeCoin": "USDT"}],
         "stopLoss": "6",
         "slTriggerBy": "mark",
         "slOrderType": "market",
@@ -814,7 +814,7 @@ def test_trade_mismatch_allows_order_info_price_rounding_only_within_half_tick()
     venue = {
         "cumExecQty": "0.32",
         "avgPrice": "208.1503125",
-        "feeDetail": [{"fee": "0.03996486"}],
+        "feeDetail": [{"fee": "0.03996486", "feeCoin": "USDT"}],
     }
 
     assert _trade_mismatch(trade, venue, price_multiplier=0.01) is None
@@ -823,6 +823,112 @@ def test_trade_mismatch_allows_order_info_price_rounding_only_within_half_tick()
         venue,
         price_multiplier=0.01,
     ) is not None
+
+
+def test_trade_mismatch_uses_strict_top_level_fee_fallback() -> None:
+    trade = {"qty": 1.0, "avg_price": 5.0, "fee": 0.04}
+    venue = {
+        "cumExecQty": "1",
+        "avgPrice": "5",
+        "fee": "0.04",
+        "feeCoin": "USDT",
+    }
+
+    assert _trade_mismatch(trade, venue) is None
+
+
+def test_trade_mismatch_rejects_conflicting_fee_sources() -> None:
+    trade = {"qty": 1.0, "avg_price": 5.0, "fee": 0.01}
+    venue = {
+        "cumExecQty": "1",
+        "avgPrice": "5",
+        "feeDetail": [{"fee": "0.01", "feeCoin": "USDT"}],
+        "fee": "0.02",
+        "feeCoin": "USDT",
+    }
+
+    mismatch = _trade_mismatch(trade, venue)
+
+    assert mismatch is not None
+    assert "feeDetail 非法" in mismatch
+
+
+def test_trade_mismatch_rejects_a_filled_order_without_fee_evidence() -> None:
+    trade = {"qty": 1.0, "avg_price": 5.0, "fee": 0.0}
+    venue = {"cumExecQty": "1", "avgPrice": "5", "feeDetail": []}
+
+    mismatch = _trade_mismatch(trade, venue)
+
+    assert mismatch is not None
+    assert "feeDetail 非法" in mismatch
+    assert "no fee evidence" in mismatch
+
+
+@pytest.mark.parametrize(
+    ("trade", "venue"),
+    [
+        (
+            {"qty": None, "avg_price": None, "fee": 0.0},
+            {"cumExecQty": None, "avgPrice": None, "feeDetail": []},
+        ),
+        (
+            {"qty": "oops", "avg_price": 5.0, "fee": 0.0},
+            {"cumExecQty": "1", "avgPrice": "5", "fee": "0", "feeCoin": "USDT"},
+        ),
+        (
+            {"qty": 1.0, "avg_price": 5.0, "fee": 0.0},
+            {"cumExecQty": "oops", "avgPrice": "5", "fee": "0", "feeCoin": "USDT"},
+        ),
+        (
+            {"qty": 1.0, "avg_price": 5.0, "fee": 0.0},
+            {"cumExecQty": "1", "avgPrice": "oops", "fee": "0", "feeCoin": "USDT"},
+        ),
+        (
+            {"qty": 1.0, "avg_price": 5.0, "fee": "oops"},
+            {"cumExecQty": "1", "avgPrice": "5", "fee": "0", "feeCoin": "USDT"},
+        ),
+    ],
+)
+def test_trade_mismatch_rejects_invalid_qty_or_price_on_either_side(
+    trade: dict,
+    venue: dict,
+) -> None:
+    mismatch = _trade_mismatch(trade, venue)
+
+    assert mismatch is not None
+    assert "非法" in mismatch or "missing" in mismatch
+
+
+@pytest.mark.parametrize(
+    "fee_detail",
+    [
+        "oops",
+        ["oops"],
+        [{"fee": "oops", "feeCoin": "USDT"}],
+        [{"fee": "inf", "feeCoin": "USDT"}],
+        [{"fee": "0.01"}],
+        [{"fee": "0.01", "feeCoin": ""}],
+        [{"fee": "0.01", "feeCoin": "BGB"}],
+        [
+            {"fee": "0.01", "feeCoin": "USDT"},
+            {"fee": "0.02", "feeCoin": "BGB"},
+        ],
+    ],
+)
+def test_trade_mismatch_rejects_malformed_exchange_fee_detail(
+    fee_detail: object,
+) -> None:
+    trade = {"qty": 1.0, "avg_price": 5.0, "fee": 0.0}
+    venue = {
+        "cumExecQty": "1",
+        "avgPrice": "5",
+        "feeDetail": fee_detail,
+    }
+
+    mismatch = _trade_mismatch(trade, venue)
+
+    assert mismatch is not None
+    assert "feeDetail 非法" in mismatch
 
 
 def test_open_short_requires_a_recorded_stop_trade() -> None:
@@ -1046,6 +1152,24 @@ def test_position_audit_rejects_a_non_positive_mark_price() -> None:
     )
 
     assert any("NEARUSDT" in issue and "positive" in issue for issue in issues)
+
+
+@pytest.mark.parametrize("field", ["unrealisedPnl", "totalFunding"])
+def test_position_audit_requires_finite_pnl_and_funding(field: str) -> None:
+    row = {
+        "symbol": "NEARUSDT",
+        "total": "-9",
+        "posSide": "short",
+        "avgPrice": "5",
+        "markPrice": "4.8",
+        "unrealisedPnl": "1.8",
+        "totalFunding": "0.02",
+    }
+    row[field] = "nan"
+
+    issues = _position_data_issues([row])
+
+    assert any(field in issue for issue in issues)
 
 
 def test_position_audit_rejects_duplicate_or_opposite_hedge_legs() -> None:
@@ -1539,6 +1663,50 @@ def test_event_quantity_target_fails_a_partial_leg() -> None:
     assert issues == ["NEARUSDT 目标数量 9 vs 实际 -4"]
 
 
+def test_event_quantity_target_rejects_an_invalid_frozen_quantity() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": "oops"},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={},
+    )
+
+    assert issues
+    assert "目标数量" in issues[0]
+
+
+def test_event_quantity_target_requires_a_positive_event_price() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 9.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={},
+        stopped_symbols={},
+    )
+
+    assert issues
+    assert "事件价格" in issues[0]
+
+
+def test_event_quantity_target_rejects_a_missing_quantity_anchor() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={},
+    )
+
+    assert issues == ["事件缺少冻结目标数量"]
+
+
 def test_event_quantity_target_accepts_a_journaled_stop_closure() -> None:
     issues = _event_quantity_issues(
         target_quantities={"NEARUSDT": 9.0},
@@ -1636,6 +1804,58 @@ def test_active_event_state_rejects_an_incomplete_position_application() -> None
 
     assert any("last_status" in issue for issue in issues)
     assert any("position application" in issue for issue in issues)
+
+
+def test_active_event_state_requires_a_stopped_symbols_object() -> None:
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "stopped_symbols": [],
+        },
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("stopped_symbols" in issue for issue in issues)
+
+
+def test_active_event_state_rejects_a_zero_quantity_stop_record() -> None:
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "sha256:target",
+            "position_status": "ok",
+            "stopped_symbols": {
+                "NEARUSDT": {
+                    "order_id": "executed-stop-1",
+                    "strategy_order_id": "strategy-stop-1",
+                    "quantity": 0.0,
+                }
+            },
+        },
+    }
+    journal = _stop_journal()
+    trades = json.loads(journal.iloc[0]["trades"])
+    trades[0]["qty"] = 0.0
+    journal.loc[journal.index[0], "trades"] = json.dumps(trades)
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-13T00:00:00Z"),
+        journal=journal,
+        expected_targets_sha256="sha256:target",
+    )
+
+    assert any("quantity" in issue for issue in issues)
 
 
 def test_strategy_stop_history_verifies_the_journaled_stop_trigger() -> None:
@@ -1759,7 +1979,7 @@ def test_generated_stop_close_is_matched_to_its_execution_order_without_attached
     venue = {
         "cumExecQty": "9",
         "avgPrice": "3.95",
-        "feeDetail": [{"fee": "0.02"}],
+        "feeDetail": [{"fee": "0.02", "feeCoin": "USDT"}],
         "stopLoss": "",
         "slTriggerBy": "",
         "slOrderType": "",
@@ -1855,6 +2075,38 @@ def test_strategy_stop_history_accepts_a_partial_execution_of_the_requested_stop
     ]
 
     assert _strategy_stop_history_issues(stopped, rows) == []
+
+
+def test_strategy_stop_history_rejects_zero_quantities_and_prices() -> None:
+    stopped = {
+        "NEARUSDT": {
+            "order_id": "executed-stop-1",
+            "strategy_order_id": "strategy-stop-1",
+            "triggered_at": "2026-11-15T00:00:00+00:00",
+            "quantity": 0.0,
+            "requested_quantity": 0.0,
+            "stop_loss": 0.0,
+        }
+    }
+    rows = [
+        {
+            "orderId": "strategy-stop-1",
+            "symbol": "NEARUSDT",
+            "posSide": "short",
+            "side": "buy",
+            "status": "success",
+            "qty": "0",
+            "stopLoss": "0",
+            "slTriggerBy": "mark",
+            "slOrderType": "market",
+            "updatedTime": "1794700800000",
+        }
+    ]
+
+    issues = _strategy_stop_history_issues(stopped, rows)
+
+    assert issues
+    assert "invalid" in issues[0]
 
 
 def test_strategy_stop_history_accepts_one_way_net_position_side() -> None:
