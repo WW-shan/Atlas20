@@ -88,10 +88,13 @@ def test_refresh_after_the_0800_utc_settlement_precedes_the_monitor():
     monitor = _scheduled_utc_time(MONITOR_PLIST)
 
     # Bitget publishes the 08:00 UTC settlement about one hour later.  The
-    # 10:05 UTC refresh leaves publication headroom and still finishes before
-    # the read-only 11:00 UTC monitor requires settlement coverage.
+    # 10:05 UTC refresh leaves publication headroom, and the 10:35 UTC retry
+    # covers a transient failure while still finishing before the read-only
+    # 11:00 UTC monitor requires settlement coverage.
     assert (10, 5) in refresh_times
+    assert (10, 35) in refresh_times
     assert monitor > (10, 5)
+    assert monitor > (10, 35)
 
 
 def _wrapper_project_root(wrapper_path: Path) -> str:

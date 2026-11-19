@@ -2206,7 +2206,7 @@ def main(argv: list[str] | None = None) -> int:
             require_all_funding_fresh=False,
         )
         check(
-            "数据可靠性审计通过",
+            "数据可靠性审计",
             data_audit.passed,
             "; ".join(data_audit.hard_failures[:5]) or f"{len(data_audit.warnings)} warning(s)",
         )

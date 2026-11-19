@@ -197,6 +197,25 @@ def test_alert_names_the_failed_audit_check() -> None:
     assert "mark 数据新鲜" not in detail
 
 
+def test_failed_check_does_not_repeat_the_word_passed_in_its_label() -> None:
+    detail = _audit_failure_details(
+        {
+            "checks": [
+                {
+                    "check": "数据可靠性审计通过",
+                    "ok": False,
+                    "hard": True,
+                    "detail": "funding settlement missing",
+                }
+            ]
+        }
+    )
+
+    assert "数据可靠性审计" in detail
+    assert "数据可靠性审计通过 —" not in detail
+    assert "funding settlement missing" in detail
+
+
 def test_missing_audit_payload_never_becomes_zero_equity() -> None:
     assert _audit_metrics({}) == (None, None)
     assert _audit_metrics({"equity": "499.68", "position_value": 0}) == (499.68, 0.0)

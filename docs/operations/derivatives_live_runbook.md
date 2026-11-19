@@ -48,7 +48,7 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-refresh` | **08:35、08:55、13:05**、15:05、18:05、21:05、03:05 | 非交易刷新：Bitget mark/market/funding → 可执行 Top50 readiness（只补失败证据层）→ LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s）；13:05 在最后一次 14:35 重试前补齐 04:00 UTC settlement；18:05 在 19:00 monitor 前补齐 08:00 UTC settlement | `~/Library/Logs/atlas20-derivatives-refresh.log` |
+| `com.atlas20.derivatives-refresh` | **08:35、08:55、13:05**、15:05、18:05、18:35、21:05、03:05 | 非交易刷新：Bitget mark/market/funding → 可执行 Top50 readiness（只补失败证据层）→ LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s）；13:05 在最后一次 14:35 重试前补齐 04:00 UTC settlement；18:05 在 19:00 monitor 前补齐 08:00 UTC settlement，18:35 做一次有界重试 | `~/Library/Logs/atlas20-derivatives-refresh.log` |
 | `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 优先复用 08:35/08:55 的新鲜 prepare receipt；否则 fail-closed 回退完整刷新链。按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.top50-readiness` | 09:45 | Top50 readiness 兜底与 Telegram pending 重试；只加载 Telegram 凭据，不加载 Bitget 交易凭据、不下单 | `~/Library/Logs/atlas20-top50-readiness.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
@@ -822,7 +822,8 @@ receipt 安全 no-op，`com.atlas20.derivatives-execute` 保持 `not running`、
 
 操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
 当前定时拓扑会在 08:00 UTC settlement 之后、19:00 北京 monitor 之前执行 18:05
-北京 refresh；若该任务失败或手工在 refresh 前触发 monitor，settlement coverage
-仍会 fail closed。先在真实顺序中运行 derivatives refresh，再运行 execute/monitor。
+北京 refresh，并以 18:35 refresh 做一次有界重试；若两次任务都失败或手工在 refresh
+前触发 monitor，settlement coverage 仍会 fail closed。先在真实顺序中运行
+derivatives refresh，再运行 execute/monitor。
 若 `latest.json` 为 `status=error`，不要手工改写；按本文故障处置重新运行并让
 下一次真实成功覆盖。

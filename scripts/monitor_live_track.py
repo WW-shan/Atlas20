@@ -182,8 +182,14 @@ def _audit_failure_details(
             diagnostic = stderr.strip()[-1_200:] or "未返回 stderr"
             return f"全链路核对进程失败（退出码 {exit_code}）：{diagnostic}"
         return "全链路核对失败（未返回明细；手动运行 make audit-live）"
+    def failed_label(row: dict) -> str:
+        label = str(row.get("check") or "未命名检查").strip()
+        # Older audit payloads named the check "…通过".  That reads as a
+        # contradiction when the same row is being reported as a failure.
+        return label.removesuffix("通过").rstrip() or "未命名检查"
+
     details = "；".join(
-        f"{row.get('check') or '未命名检查'} — {row.get('detail') or '无详情'}"
+        f"{failed_label(row)} — {row.get('detail') or '无详情'}"
         for row in failures
     )
     return f"全链路核对失败：{details}"
