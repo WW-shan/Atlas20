@@ -315,6 +315,9 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
    把每个 funding CSV 和 `funding_publication.json` 的字节哈希纳入 data fingerprint，并校验最新 panel 的
    price/volume/market-cap 有效值。每个 required asset 的 publication evidence 必须绑定当前 funding 文件哈希、
    在最后 settlement 之后取得、rate 与当前/历史端点一致；冲突或缺失即 hard failure。
+   下载器以合约 funding interval 的下一次结算时刻判断缓存是否到期：结算一到就同时请求 history 与
+   `current-fund-rate`，不会再用 `interval + 1h` 的宽限期跳过刷新；history 报错或返回空也不能阻断
+   `current-fund-rate` 的独立兜底。08:35/08:55 是结算后的真实重试窗口，不是延迟一小时后才允许查询。
    `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
 5. **合约规格快照**：`make audit-contract-specs-ls104` 比较冻结 track 的 7 个下单规格字段。
    下载器把合约变化点写入 `<raw-dir>/contract_snapshots/index.json`，相同内容只更新

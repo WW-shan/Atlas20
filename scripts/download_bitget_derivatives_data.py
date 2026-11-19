@@ -586,19 +586,25 @@ def _download_funding(
             == (str(last_cached) if not pd.isna(last_cached) else "")
             else None
         )
-        # A cache is only fresh for its own settlement clock plus one hour of
-        # provider publication lag.  The old max(12h, interval) rule let a 4h
-        # asset miss two settlements while still being declared fresh, so the
-        # downloader skipped the very refresh the live audit needed.
-        stale_after_hours = (
-            interval_hours + 1.0
-            if interval_hours > 0.0
-            else DEFAULT_FUNDING_REFRESH_HOURS
-        )
-        cached_is_fresh = (
-            not pd.isna(last_cached)
-            and (current - last_cached).total_seconds() / 3600.0 <= stale_after_hours
-        )
+        # Freshness follows the settlement schedule, not an invented grace
+        # period.  Once the next settlement is due, both endpoints must be
+        # queried even when the prior row is only seconds older than one
+        # interval.  Provider publication lag is an execution retry problem;
+        # it must never suppress the request that could already succeed.
+        if not pd.isna(last_cached) and interval_hours > 0.0:
+            next_expected = pd.Timestamp(last_cached) + pd.Timedelta(
+                hours=interval_hours
+            )
+            settlement_due = current >= next_expected
+        elif not pd.isna(last_cached):
+            next_expected = pd.Timestamp(last_cached) + pd.Timedelta(
+                hours=DEFAULT_FUNDING_REFRESH_HOURS
+            )
+            settlement_due = current >= next_expected
+        else:
+            next_expected = pd.NaT
+            settlement_due = True
+        cached_is_fresh = not pd.isna(last_cached) and not settlement_due
         if not force and cached_is_fresh:
             if not cached.empty:
                 manifest[coin_id] = {
@@ -624,7 +630,10 @@ def _download_funding(
             return entry
 
         history_request_time_ms: int | None = None
-        history_frame = pd.DataFrame()
+        history_frame = pd.DataFrame(
+            columns=["symbol", "funding_time", "funding_rate"]
+        )
+        history_error: str | None = None
         try:
             history_frame = client.fetch_funding_history(symbol)
             raw_history_time = history_frame.attrs.get("request_time_ms")
@@ -633,44 +642,30 @@ def _download_funding(
             if raw_history_time is not None:
                 history_request_time_ms = int(raw_history_time)
         except Exception as exc:  # noqa: BLE001 - one bad contract must not abort the audit
-            LOGGER.warning("funding %s (%s) failed: %s", coin_id, symbol, exc)
-            # A transient endpoint failure is not evidence that the cached
-            # rows disappeared.  Keep the old manifest identity so the data
-            # audit can distinguish a refresh warning from an actual gap;
-            # settlement coverage still fails closed if the cache is stale.
-            manifest[coin_id] = (
-                cached_entry(str(exc))
-                if not cached.empty
-                else {"symbol": symbol, "available": False, "error": str(exc)}
+            history_error = str(exc)
+            LOGGER.warning(
+                "funding history %s (%s) failed: %s", coin_id, symbol, exc
             )
-            if preserved_entry is not None:
-                publication_entries[coin_id] = preserved_entry
-            continue
         if history_frame.empty:
-            manifest[coin_id] = (
-                cached_entry("no funding rows returned")
-                if not cached.empty
-                else {
-                    "symbol": symbol,
-                    "available": False,
-                    "reason": "no funding rows",
-                }
-            )
-            if preserved_entry is not None:
-                publication_entries[coin_id] = preserved_entry
-            continue
-        history_frame = _normalise_funding_frame(
-            history_frame,
-            symbol=symbol,
-            label=f"history {coin_id}",
-        ).sort_values("funding_time")
+            if history_error is None:
+                history_error = "no funding rows returned"
+        else:
+            history_frame = _normalise_funding_frame(
+                history_frame,
+                symbol=symbol,
+                label=f"history {coin_id}",
+            ).sort_values("funding_time")
         history_last = (
             pd.Timestamp(history_frame["funding_time"].max())
             if not history_frame.empty
             else pd.NaT
         )
         frames = [item for item in (cached, history_frame) if not item.empty]
-        merged = pd.concat(frames, ignore_index=True)
+        merged = (
+            pd.concat(frames, ignore_index=True)
+            if frames
+            else pd.DataFrame(columns=["symbol", "funding_time", "funding_rate"])
+        )
         merged = deduplicate_by_keys_or_raise(
             merged,
             keys=["funding_time"],
@@ -701,9 +696,25 @@ def _download_funding(
                 LOGGER.warning(
                     "current funding %s (%s) failed: %s", coin_id, symbol, exc
                 )
+        else:
+            current_error = "fetch_current_funding is unavailable"
+
+        if history_frame.empty and current_settlement is None:
+            errors = [error for error in (history_error, current_error) if error]
+            error = "; ".join(errors) or "no funding rows returned"
+            manifest[coin_id] = (
+                cached_entry(error)
+                if not cached.empty
+                else {"symbol": symbol, "available": False, "error": error}
+            )
+            if preserved_entry is not None:
+                publication_entries[coin_id] = preserved_entry
+            continue
 
         rate_relation = "unavailable"
-        latest_source = "history"
+        latest_source = (
+            "history" if not history_frame.empty else "current_fund_rate"
+        )
         history_rate_at_current: float | None = None
         if current_settlement is not None and current_rate is not None:
             existing = merged.loc[merged["funding_time"] == current_settlement]
@@ -742,7 +753,11 @@ def _download_funding(
                         rate_relation = "match"
                     else:
                         rate_relation = "conflict"
-                    latest_source = "history"
+                    latest_source = (
+                        "history"
+                        if not history_matches.empty
+                        else "current_fund_rate"
+                    )
             elif current_settlement == history_last:
                 existing_rate = (
                     float(existing["funding_rate"].iloc[-1])
@@ -774,6 +789,9 @@ def _download_funding(
                     rate_relation = "match"
                 else:
                     rate_relation = "conflict"
+                latest_source = (
+                    "history" if not history_matches.empty else "current_fund_rate"
+                )
             else:
                 rate_relation = "history_ahead"
 

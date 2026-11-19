@@ -1009,6 +1009,76 @@ def test_four_hour_funding_cache_is_refetched_before_twelve_hours(tmp_path) -> N
     assert manifest["bitcoin"]["last"] == "2026-11-14 08:00:00+00:00"
 
 
+@pytest.mark.parametrize(
+    ("interval_hours", "last_settlement"),
+    [(8, "2026-11-18T16:00:00Z"), (4, "2026-11-18T20:00:00Z")],
+)
+def test_due_funding_settlement_is_fetched_within_provider_delivery_window(
+    tmp_path,
+    interval_hours: int,
+    last_settlement: str,
+) -> None:
+    """A settlement becoming due must trigger a request, even 40s later."""
+
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    settlement = pd.Timestamp("2026-11-19T00:00:00Z")
+    next_settlement = settlement + pd.Timedelta(hours=interval_hours)
+    request_time = settlement + pd.Timedelta(seconds=40)
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.history_calls = 0
+            self.current_calls = 0
+            self.last_request_time_ms = int(request_time.timestamp() * 1000)
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            self.history_calls += 1
+            return pd.DataFrame(
+                {
+                    "symbol": [symbol],
+                    "funding_time": [settlement],
+                    "funding_rate": [0.0002],
+                }
+            )
+
+        def fetch_current_funding(self, symbol: str) -> dict[str, object]:
+            self.current_calls += 1
+            return {
+                "symbol": symbol,
+                "fundingRateInterval": str(interval_hours),
+                "nextUpdate": str(int(next_settlement.timestamp() * 1000)),
+                "lastFundingRate": "0.0002",
+            }
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp(last_settlement)],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": interval_hours}]
+    )
+    client = _FundingClient()
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        client,
+        symbol_map,
+        output_dir,
+        force=False,
+        now=request_time,
+    )
+
+    assert client.history_calls == 1
+    assert client.current_calls == 1
+    assert manifest["bitcoin"]["last"] == "2026-11-19 00:00:00+00:00"
+
+
 def test_funding_fetch_failure_keeps_the_cached_manifest_identity(tmp_path) -> None:
     """A transient refresh error must not erase a valid cached funding row."""
 
@@ -1127,6 +1197,78 @@ def test_current_funding_rate_fills_a_late_history_settlement(tmp_path) -> None:
     assert entry["latest_source"] == "current_fund_rate"
     assert entry["funding_last"] == "2026-11-14 00:00:00+00:00"
     assert entry["publication_lag_seconds"] == 3900.0
+
+
+@pytest.mark.parametrize("history_failure", ["raises", "empty"])
+def test_current_funding_rate_is_used_when_history_is_unavailable(
+    tmp_path,
+    history_failure: str,
+) -> None:
+    """The independent current endpoint must survive a history outage."""
+
+    from scripts.download_bitget_derivatives_data import _download_funding
+
+    settlement = pd.Timestamp("2026-11-19T00:00:00Z")
+    request_time = pd.Timestamp("2026-11-19T00:35:00Z")
+    next_settlement = pd.Timestamp("2026-11-19T08:00:00Z")
+
+    class _FundingClient:
+        def __init__(self) -> None:
+            self.current_calls = 0
+            self.last_request_time_ms = int(request_time.timestamp() * 1000)
+
+        def fetch_funding_history(self, symbol: str) -> pd.DataFrame:
+            if history_failure == "raises":
+                raise RuntimeError("history endpoint unavailable")
+            return pd.DataFrame(columns=["symbol", "funding_time", "funding_rate"])
+
+        def fetch_current_funding(self, symbol: str) -> dict[str, object]:
+            self.current_calls += 1
+            assert symbol == "BTCUSDT"
+            return {
+                "symbol": symbol,
+                "fundingRateInterval": "8",
+                "nextUpdate": str(int(next_settlement.timestamp() * 1000)),
+                "lastFundingRate": "0.0002",
+            }
+
+    output_dir = tmp_path
+    funding_dir = output_dir / "funding"
+    funding_dir.mkdir()
+    pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": [pd.Timestamp("2026-11-18T16:00:00Z")],
+            "funding_rate": [0.0001],
+        }
+    ).to_csv(funding_dir / "bitcoin.csv", index=False)
+    symbol_map = pd.DataFrame(
+        [{"coin_id": "bitcoin", "bitget_symbol": "BTCUSDT", "fund_interval": 8}]
+    )
+    client = _FundingClient()
+
+    manifest = _download_funding(  # type: ignore[arg-type]
+        client,
+        symbol_map,
+        output_dir,
+        force=True,
+        now=request_time,
+    )
+
+    merged = pd.read_csv(funding_dir / "bitcoin.csv")
+    assert client.current_calls == 1
+    assert manifest["bitcoin"]["last"] == str(settlement)
+    assert pd.to_datetime(merged["funding_time"], utc=True).tolist() == [
+        pd.Timestamp("2026-11-18T16:00:00Z"),
+        settlement,
+    ]
+    publication = json.loads(
+        (output_dir / "funding_publication.json").read_text(encoding="utf-8")
+    )
+    entry = publication["assets"]["bitcoin"]
+    assert entry["rate_relation"] == "fallback"
+    assert entry["latest_source"] == "current_fund_rate"
+    assert entry["funding_last"] == str(settlement)
 
 
 def test_current_funding_rate_conflict_is_evidence_not_silently_overwritten(
