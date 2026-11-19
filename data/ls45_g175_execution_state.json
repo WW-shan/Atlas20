@@ -30,150 +30,16 @@
     "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
   },
   "attempt_counts": {
-    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16": 10
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16": 11,
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17": 5,
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18": 6,
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19": 6
   },
-  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
-  "last_run_at": "2026-11-16T17:27:01.966872+00:00",
+  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+  "last_run_at": "2026-11-19T06:35:18.035755+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
-    {
-      "failures": [],
-      "fills": [
-        {
-          "action": "INCREASE",
-          "asset": "bitcoin-cash",
-          "avg_price": 196.1,
-          "client_oid": "a20c98aacf8843417f6d046ob7b2996ba23b1d2c",
-          "fee": 0.0211788,
-          "fee_coin": "USDT",
-          "filled_size": 0.18,
-          "normalized_stop_loss": 245.34,
-          "notional": 35.298,
-          "order_id": "1505667636585938944",
-          "position_side": "short",
-          "reason": "",
-          "requested_size": 0.18,
-          "requested_stop_loss": 245.46,
-          "side": "sell",
-          "status": "filled",
-          "stop_loss": 245.46,
-          "stop_order_type": "market",
-          "stop_trigger_by": "mark",
-          "strategy_order_id": "",
-          "symbol": "BCHUSDT",
-          "triggered_at": ""
-        },
-        {
-          "action": "INCREASE",
-          "asset": "hyperliquid",
-          "avg_price": 63.306,
-          "client_oid": "a20c98aacf8843417f6d046o8b5f551e1b73d3e9",
-          "fee": 0.02051114,
-          "fee_coin": "USDT",
-          "filled_size": 0.54,
-          "normalized_stop_loss": 78.177,
-          "notional": 34.1852,
-          "order_id": "1505667639358373888",
-          "position_side": "short",
-          "reason": "",
-          "requested_size": 0.54,
-          "requested_stop_loss": 78.203,
-          "side": "sell",
-          "status": "filled",
-          "stop_loss": 78.203,
-          "stop_order_type": "market",
-          "stop_trigger_by": "mark",
-          "strategy_order_id": "",
-          "symbol": "HYPEUSDT",
-          "triggered_at": ""
-        },
-        {
-          "action": "INCREASE",
-          "asset": "near",
-          "avg_price": 2.9773,
-          "client_oid": "a20c98aacf8843417f6d046ob454eda559dbadd1",
-          "fee": 0.02143656,
-          "fee_coin": "USDT",
-          "filled_size": 12.0,
-          "normalized_stop_loss": 3.7236,
-          "notional": 35.7276,
-          "order_id": "1505667642818674688",
-          "position_side": "short",
-          "reason": "",
-          "requested_size": 12.0,
-          "requested_stop_loss": 3.7212,
-          "side": "sell",
-          "status": "filled",
-          "stop_loss": 3.7212,
-          "stop_order_type": "market",
-          "stop_trigger_by": "mark",
-          "strategy_order_id": "",
-          "symbol": "NEARUSDT",
-          "triggered_at": ""
-        },
-        {
-          "action": "INCREASE",
-          "asset": "zcash",
-          "avg_price": 848.94,
-          "client_oid": "a20c98aacf8843417f6d046o8ada8fc9b61dd0c8",
-          "fee": 0.01986519,
-          "fee_coin": "USDT",
-          "filled_size": 0.039,
-          "normalized_stop_loss": 1038.79,
-          "notional": 33.1086,
-          "order_id": "1505667645565943808",
-          "position_side": "short",
-          "reason": "",
-          "requested_size": 0.039,
-          "requested_stop_loss": 1038.58,
-          "side": "sell",
-          "status": "filled",
-          "stop_loss": 1038.58,
-          "stop_order_type": "market",
-          "stop_trigger_by": "mark",
-          "strategy_order_id": "",
-          "symbol": "ZECUSDT",
-          "triggered_at": ""
-        }
-      ],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "execution",
-      "ran_at": "2026-11-15T01:11:11.635279+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T01:15:06.732096+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T01:18:14.604901+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T01:35:20.431408+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T03:05:20.326799+00:00",
-      "status": "ok"
-    },
     {
       "failures": [],
       "fills": [],
@@ -572,9 +438,153 @@
       "mode": "protect_only",
       "ran_at": "2026-11-16T17:27:01.966872+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
+      "mode": "protect_only",
+      "ran_at": "2026-11-16T17:45:05.957466+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17",
+      "mode": "execution",
+      "ran_at": "2026-11-17T01:35:21.605550+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17",
+      "mode": "protect_only",
+      "ran_at": "2026-11-17T03:05:18.311912+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17",
+      "mode": "protect_only",
+      "ran_at": "2026-11-17T03:35:19.825929+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17",
+      "mode": "protect_only",
+      "ran_at": "2026-11-17T04:35:19.546789+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17",
+      "mode": "protect_only",
+      "ran_at": "2026-11-17T06:35:20.092878+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "execution",
+      "ran_at": "2026-11-18T01:15:30.057083+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "protect_only",
+      "ran_at": "2026-11-18T01:35:18.105445+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "protect_only",
+      "ran_at": "2026-11-18T03:05:18.318571+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "protect_only",
+      "ran_at": "2026-11-18T03:35:18.252776+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "protect_only",
+      "ran_at": "2026-11-18T04:35:21.187156+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18",
+      "mode": "protect_only",
+      "ran_at": "2026-11-18T06:35:18.242296+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "execution",
+      "ran_at": "2026-11-19T01:15:32.300472+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "protect_only",
+      "ran_at": "2026-11-19T01:35:16.366885+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "protect_only",
+      "ran_at": "2026-11-19T03:05:19.063854+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "protect_only",
+      "ran_at": "2026-11-19T03:35:18.836393+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "protect_only",
+      "ran_at": "2026-11-19T04:35:20.269313+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19",
+      "mode": "protect_only",
+      "ran_at": "2026-11-19T06:35:18.035755+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-16T17:26:50.935001+00:00",
-  "telegram_sent_at": "2026-11-16T01:22:57.310668+00:00",
-  "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16"
+  "stop_reconciliation_through": "2026-11-19T06:35:08.438502+00:00",
+  "telegram_sent_at": "2026-11-19T01:15:32.300472+00:00",
+  "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19"
 }

@@ -1,24 +1,26 @@
 {
-  "affected_asset_count": 5,
+  "affected_asset_count": 7,
   "affected_assets": [
+    "aero",
+    "beldex",
     "matic-network",
     "near",
     "pepe",
     "polygon-ecosystem-token",
     "render-token"
   ],
-  "affected_assets_current_count": 4,
+  "affected_assets_current_count": 6,
   "affected_assets_current_valid": true,
   "affected_assets_last_observed_valid": false,
-  "invalid_market_cap_rows": 32,
-  "latest_panel_date": "2026-11-15",
+  "invalid_market_cap_rows": 685,
+  "latest_panel_date": "2026-11-18",
   "latest_panel_rows_valid": true,
   "latest_rows_valid": true,
-  "panel_assets": 102,
-  "panel_rows": 184123,
+  "panel_assets": 122,
+  "panel_rows": 210450,
   "passed": true,
   "status_counts": {
-    "provider_zero_supply": 32
+    "provider_zero_supply": 685
   },
   "unexplained_rows": 0
 }

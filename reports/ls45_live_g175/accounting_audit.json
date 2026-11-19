@@ -1,7 +1,7 @@
 {
   "checks": [
     {
-      "detail": "55 row(s)",
+      "detail": "58 row(s)",
       "hard": true,
       "name": "daily path has rows",
       "passed": true
@@ -13,7 +13,7 @@
       "passed": true
     },
     {
-      "detail": "2026-09-22 00:00:00+00:00 .. 2026-11-15 00:00:00+00:00",
+      "detail": "2026-09-22 00:00:00+00:00 .. 2026-11-18 00:00:00+00:00",
       "hard": true,
       "name": "daily dates are strictly increasing",
       "passed": true
@@ -85,7 +85,7 @@
       "passed": true
     },
     {
-      "detail": "309 settlement(s)",
+      "detail": "354 settlement(s)",
       "hard": true,
       "name": "funding amount = -side x rate x notional",
       "passed": true
@@ -151,43 +151,43 @@
       "passed": true
     },
     {
-      "detail": "replay=494.26630979, reported=494.26630979",
+      "detail": "replay=494.48263051, reported=494.48263051",
       "hard": true,
       "name": "independent event replay reconstructs final equity",
       "passed": true
     },
     {
-      "detail": "55 day(s); worst 2026-09-22 23:00:00+00:00: replay=515.34529633, reported=515.34529633",
+      "detail": "58 day(s); worst 2026-09-22 23:00:00+00:00: replay=515.34529633, reported=515.34529633",
       "hard": true,
       "name": "independent daily replay reproduces every reported equity point",
       "passed": true
     },
     {
-      "detail": "55 observations",
+      "detail": "58 observations",
       "hard": true,
       "name": "daily returns reproduce the reported equity path",
       "passed": true
     },
     {
-      "detail": "final nav 0.9885326196",
+      "detail": "final nav 0.9889652610",
       "hard": true,
       "name": "reported nav_multiple is the compounded daily return",
       "passed": true
     },
     {
-      "detail": "summary=0.988532619585, replay=0.988532619585",
+      "detail": "summary=0.988965261024, replay=0.988965261024",
       "hard": true,
       "name": "summary multiple = independent daily-return calculation",
       "passed": true
     },
     {
-      "detail": "summary=-0.0736854496047, replay=-0.0736854496047",
+      "detail": "summary=-0.067446482175, replay=-0.067446482175",
       "hard": true,
       "name": "summary cagr = independent daily-return calculation",
       "passed": true
     },
     {
-      "detail": "summary=0.14020311889, replay=0.14020311889",
+      "detail": "summary=0.144545886817, replay=0.144545886817",
       "hard": true,
       "name": "summary sharpe = independent daily-return calculation",
       "passed": true
@@ -205,7 +205,7 @@
       "passed": true
     },
     {
-      "detail": "-2.0667605013",
+      "detail": "-2.0682846699",
       "hard": true,
       "name": "summary funding_total = funding ledger amount sum",
       "passed": true
@@ -229,7 +229,7 @@
       "passed": true
     },
     {
-      "detail": "days=55, metric_days=55, rows=55",
+      "detail": "days=58, metric_days=58, rows=58",
       "hard": true,
       "name": "summary days/metric_days match the daily path",
       "passed": true
@@ -247,19 +247,19 @@
       "passed": true
     },
     {
-      "detail": "55 day(s)",
+      "detail": "58 day(s)",
       "hard": true,
       "name": "daily gross exposure is the last hourly gross of each day",
       "passed": true
     },
     {
-      "detail": "1322 hour(s); worst 2026-09-22 00:00:00+00:00: replay=0.0000000000, reported=0.0000000000",
+      "detail": "1394 hour(s); worst 2026-09-22 00:00:00+00:00: replay=0.0000000000, reported=0.0000000000",
       "hard": true,
       "name": "independent hourly gross replay reproduces every gross observation",
       "passed": true
     },
     {
-      "detail": "1322 hour(s)",
+      "detail": "1394 hour(s)",
       "hard": true,
       "name": "all hourly gross observations <= 1.7500x",
       "passed": true
@@ -269,5 +269,5 @@
   "output_dir": "reports/ls45_live_g175",
   "passed": true,
   "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
-  "reconstructed_equity": 494.26630979266
+  "reconstructed_equity": 494.48263051212007
 }

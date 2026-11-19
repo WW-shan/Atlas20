@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-16T17:37:32.803725+00:00",
+  "checked_at": "2026-11-19T13:17:13.541332+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -27,7 +27,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 495.84 USDT",
+      "detail": "权益 484.40 USDT",
       "hard": true,
       "ok": true
     },
@@ -51,13 +51,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "495.8413 vs 356.5978 + 137.1081 + 2.1354 = 495.8413",
+      "detail": "484.3977 vs 351.3769 + 142.3490 + -9.3283 = 484.3977",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 265.8910",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 277.3293",
       "hard": true,
       "ok": true
     },
@@ -99,13 +99,13 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-16 equity=495.4564；折算后应为 495.8346，交易所 495.8413",
+      "detail": "台账 2026-11-19 equity=485.3469；折算后应为 484.4165，交易所 484.3977",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账 PnL 链一致",
-      "detail": "1 个相邻日全部一致",
+      "detail": "4 个相邻日全部一致",
       "hard": true,
       "ok": true
     },
@@ -195,25 +195,25 @@
     },
     {
       "check": "总名义 <= 1.75x 权益（规格上限）",
-      "detail": "gross 265.89 / equity 495.84 = 0.536x",
+      "detail": "gross 277.33 / equity 484.40 = 0.573x",
       "hard": true,
       "ok": true
     },
     {
       "check": "组合保证金占用 <= 90%",
-      "detail": "isolated margin 137.11 / equity 495.84 = 0.277x",
+      "detail": "isolated margin 142.35 / equity 484.40 = 0.294x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-16 16:00:00+00:00（1.6h 前）",
+      "detail": "最新 mark 2026-11-19 12:00:00+00:00（1.3h 前）",
       "hard": true,
       "ok": true
     },
     {
       "check": "账本已评估到最新可判定日（无跳过）",
-      "detail": "账本评估到 2026-11-15 / 数据到 2026-11-15",
+      "detail": "账本评估到 2026-11-18 / 数据到 2026-11-18",
       "hard": true,
       "ok": true
     },
@@ -237,13 +237,13 @@
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:1f5e9451821ac29f6220e2c9fa0e5c95bc3a12a217e58a862e556dcd4ded3576 current=sha256:1f5e9451821ac29f6220e2c9fa0e5c95bc3a12a217e58a862e556dcd4ded3576",
+      "detail": "manifest=sha256:a7674846e6da441be0343535fc4843e7329ace9615de749a05806968eecbcd17 current=sha256:a7674846e6da441be0343535fc4843e7329ace9615de749a05806968eecbcd17",
       "hard": true,
       "ok": true
     },
     {
       "check": "信号事件距今（事件驱动，非每日变化）",
-      "detail": "最近一次仓位变化 2026-11-13（3 天前；无变化＝继续持有）",
+      "detail": "最近一次仓位变化 2026-11-13（6 天前；无变化＝继续持有）",
       "hard": false,
       "ok": true
     },
@@ -254,9 +254,9 @@
       "ok": true
     }
   ],
-  "equity": 495.84129873,
+  "equity": 484.39766617,
   "hard_failures": 0,
-  "position_value": 265.89104,
+  "position_value": 277.32926000000003,
   "signal_date": "2026-11-13",
   "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
 }
