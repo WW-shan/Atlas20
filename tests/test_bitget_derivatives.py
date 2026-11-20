@@ -803,6 +803,135 @@ def test_live_mark_tail_retry_merges_the_new_completed_hour(tmp_path) -> None:
     )
 
 
+def test_mark_tail_only_updates_coverage_metadata(tmp_path) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    candle_dir = tmp_path / "candles"
+    candle_dir.mkdir()
+    pd.DataFrame(
+        {
+            "open_time": [
+                pd.Timestamp("2026-11-13T23:00:00Z"),
+                pd.Timestamp("2026-11-14T00:00:00Z"),
+            ],
+            "open": [100.0, 101.0],
+            "high": [101.0, 102.0],
+            "low": [99.0, 100.0],
+            "close": [100.0, 101.0],
+            "volume": [1.0, 1.0],
+            "quote_volume": [100.0, 100.0],
+        }
+    ).to_csv(candle_dir / "BTCUSDT_mark.csv", index=False)
+    (tmp_path / "coverage.json").write_text(
+        json.dumps(
+            [
+                {
+                    "coin_id": "bitcoin",
+                    "bitget_symbol": "BTCUSDT",
+                    "candle_type": "mark",
+                    "last": "2026-11-13 23:00:00+00:00",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    selected = pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            }
+        ]
+    )
+
+    downloader._update_mark_tail_coverage(  # type: ignore[attr-defined]
+        tmp_path,
+        selected,
+        required_last=pd.Timestamp("2026-11-14T00:00:00Z"),
+    )
+
+    row = json.loads((tmp_path / "coverage.json").read_text(encoding="utf-8"))[0]
+    assert row["rows"] == 2
+    assert pd.Timestamp(row["last"]) == pd.Timestamp("2026-11-14T00:00:00Z")
+    assert row["tail_required_through"] == "2026-11-14 00:00:00+00:00"
+
+
+def test_mark_tail_only_reuses_cached_symbol_map_without_fetching_contracts(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from scripts import download_bitget_derivatives_data as downloader
+
+    output_dir = tmp_path / "raw"
+    output_dir.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "coin_id": "bitcoin",
+                "bitget_symbol": "BTCUSDT",
+                "contract_status": "normal",
+            },
+            {
+                "coin_id": "offline",
+                "bitget_symbol": "OFFLINEUSDT",
+                "contract_status": "offline",
+            }
+        ]
+    ).to_csv(output_dir / "symbol_map.csv", index=False)
+    panel = tmp_path / "panel.csv"
+    pd.DataFrame([{"coin_id": "bitcoin", "symbol": "BTC"}]).to_csv(panel, index=False)
+    selected_symbols: list[str] = []
+
+    class _TailClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def fetch_contracts(self) -> list[dict[str, object]]:
+            raise AssertionError("mark-tail finalize must not refetch contracts")
+
+    def fake_wait(client, selected, output, **kwargs):
+        del client, output, kwargs
+        selected_symbols.extend(selected["bitget_symbol"].tolist())
+        return []
+
+    monkeypatch.setattr(downloader, "BitgetClient", _TailClient)
+    monkeypatch.setattr(
+        downloader,
+        "_read_panel",
+        lambda _path: (_ for _ in ()).throw(
+            AssertionError("mark-tail finalize must not rebuild the symbol map")
+        ),
+    )
+    monkeypatch.setattr(downloader, "_wait_for_live_mark_tail", fake_wait)
+    monkeypatch.setattr(
+        downloader,
+        "_update_mark_tail_coverage",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        downloader.sys,
+        "argv",
+        [
+            "download_bitget_derivatives_data.py",
+            "--panel",
+            str(panel),
+            "--output-dir",
+            str(output_dir),
+            "--mark-tail-only",
+            "--required-mark-time",
+            "2026-11-14T00:00:00Z",
+            "--wait-for-live-mark-seconds",
+            "1",
+            "--skip-funding",
+        ],
+    )
+
+    downloader.main()
+
+    assert selected_symbols == ["BTCUSDT"]
+
+
 def test_live_mark_tail_retry_does_not_refetch_a_deep_gap(tmp_path) -> None:
     from scripts import download_bitget_derivatives_data as downloader
 

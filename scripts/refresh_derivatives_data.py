@@ -23,7 +23,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import pandas as pd
 from filelock import FileLock, Timeout
@@ -114,6 +114,37 @@ def _readiness_commitment_issue(
     return None
 
 
+def execution_required_mark_time(
+    manifest: Mapping[str, object],
+    *,
+    execution_utc: str | None = None,
+) -> pd.Timestamp:
+    """Return the mark bar required for the manifest's next execution."""
+
+    raw_signal_end = str(manifest.get("signal_end_date") or "").strip()
+    if not raw_signal_end:
+        raise ValueError("manifest signal_end_date is missing")
+    signal_end = pd.Timestamp(raw_signal_end)
+    if signal_end.tzinfo is None:
+        signal_end = signal_end.tz_localize("UTC")
+    else:
+        signal_end = signal_end.tz_convert("UTC")
+    raw_clock = str(execution_utc or manifest.get("execution_utc") or "01:05")
+    try:
+        hour_text, minute_text = raw_clock.split(":", 1)
+        hour, minute = int(hour_text), int(minute_text)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"manifest execution_utc is invalid: {raw_clock!r}") from exc
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        raise ValueError(f"manifest execution_utc is invalid: {raw_clock!r}")
+    execution_target = signal_end.normalize() + pd.Timedelta(
+        days=1,
+        hours=hour,
+        minutes=minute,
+    )
+    return execution_target - pd.Timedelta(hours=1, minutes=5)
+
+
 def write_prepare_receipt(
     *,
     project_root: Path,
@@ -172,6 +203,242 @@ def write_prepare_receipt(
     )
     temporary.replace(receipt_path)
     return receipt
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    """Write a JSON artifact without exposing a half-written manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def _audit_last_mark(audit: Mapping[str, object]) -> pd.Timestamp:
+    summary = audit.get("summary")
+    raw = summary.get("last_mark") if isinstance(summary, Mapping) else None
+    if raw in (None, ""):
+        raise ValueError("data audit did not report a last_mark")
+    stamp = pd.Timestamp(str(raw))
+    if stamp.tzinfo is None:
+        return stamp.tz_localize("UTC")
+    return stamp.tz_convert("UTC")
+
+
+def _update_manifest_after_mark_audit(
+    manifest_path: Path,
+    manifest: Mapping[str, object],
+    audit: Mapping[str, object],
+) -> dict[str, object]:
+    """Refresh only fields whose proof changes when the mark tail advances."""
+
+    updated = dict(manifest)
+    last_mark = _audit_last_mark(audit)
+    provenance = audit.get("provenance")
+    fingerprint = (
+        str(provenance.get("fingerprint") or "")
+        if isinstance(provenance, Mapping)
+        else ""
+    )
+    if not fingerprint.startswith("sha256:"):
+        raise ValueError("data audit did not report a data fingerprint")
+    updated["last_mark"] = last_mark.isoformat()
+    updated["data_fingerprint"] = fingerprint
+    updated["data_audit_passed"] = bool(audit.get("passed"))
+    updated["data_audit_hard_failures"] = list(
+        audit.get("hard_failures") or []
+    )[:20]
+    updated["data_audit_warnings"] = list(audit.get("warnings") or [])[:20]
+    _write_json_atomic(manifest_path, updated)
+    return updated
+
+
+def _run_checked(command: Sequence[str], *, project_root: Path) -> int:
+    print("running: " + " ".join(command), flush=True)
+    completed = subprocess.run(command, cwd=project_root, check=False)
+    return int(completed.returncode)
+
+
+def _finalize_execution(
+    args: argparse.Namespace,
+    *,
+    project_root: Path,
+    lock_path: Path,
+    now: datetime | None = None,
+) -> int:
+    """Append the post-midnight mark tail without rebuilding the signal.
+
+    The normal prepare run completes before the 00:00 UTC hourly bar is
+    published.  This bounded finalization starts after that bar is due, fetches
+    only mark tails, refreshes the data audit, and republishes the receipt so
+    the 01:05 executor can reuse it directly.
+    """
+
+    manifest_path = project_root / "reports" / "ls45_live_g175" / "manifest.json"
+    targets_path = project_root / "reports" / "ls45_live_g175" / "oos_targets.csv"
+    receipt_path = Path(args.receipt_out).expanduser()
+    data_audit_path = project_root / "reports" / "ls45_live_g175" / "data_audit.json"
+    data_audit_markdown = project_root / "reports" / "ls45_live_g175" / "data_audit.md"
+    signal_audit_path = (
+        project_root / "reports" / "ls45_live_g175_live" / "signal_equivalence.json"
+    )
+    if not manifest_path.is_file() or not targets_path.is_file():
+        print(
+            "execution finalize refused: prepare manifest or targets file is missing",
+            file=sys.stderr,
+        )
+        return 3
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        deadline = time.monotonic() + float(args.execution_lock_wait_seconds)
+        while True:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    print(f"execution finalize skipped: lock is busy: {lock_path}")
+                    return 0
+                time.sleep(1.0)
+        try:
+            valid, reason = check_prepare_receipt(
+                receipt_path=receipt_path,
+                manifest_path=manifest_path,
+                max_age_minutes=float(args.max_age_minutes),
+                project_root=project_root,
+                now=now,
+                require_current_mark=False,
+            )
+            if not valid:
+                print(f"execution finalize refused: {reason}", file=sys.stderr)
+                return 3
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not isinstance(manifest, dict):
+                raise ValueError("manifest is not a JSON object")
+            required_mark = execution_required_mark_time(manifest)
+            raw_dir = Path(str(manifest.get("raw_dir") or "data/raw/bitget_derivatives/merged_oos_20261112"))
+            if not raw_dir.is_absolute():
+                raw_dir = project_root / raw_dir
+            download_command = [
+                sys.executable,
+                str(project_root / "scripts" / "download_bitget_derivatives_data.py"),
+                "--output-dir",
+                str(raw_dir),
+                "--types",
+                "mark",
+                "--skip-funding",
+                "--mark-tail-only",
+                "--required-mark-time",
+                required_mark.isoformat(),
+                "--wait-for-live-mark-seconds",
+                str(float(args.mark_wait_seconds)),
+                "--wait-for-live-mark-poll-seconds",
+                str(float(args.mark_poll_seconds)),
+                "--execution-utc",
+                str(manifest.get("execution_utc") or "01:05"),
+            ]
+            status = _run_checked(download_command, project_root=project_root)
+            if status != 0:
+                return status
+            expected_targets_hash = str(manifest.get("targets_sha256") or "")
+            if not expected_targets_hash or _sha256(targets_path) != expected_targets_hash:
+                print(
+                    "execution finalize refused: target ledger changed during mark refresh",
+                    file=sys.stderr,
+                )
+                return 1
+            data_audit_command = [
+                sys.executable,
+                str(project_root / "scripts" / "audit_derivatives_data.py"),
+                "--raw-dir",
+                str(raw_dir),
+                "--manifest",
+                str(manifest_path),
+                "--targets-file",
+                str(targets_path),
+                "--json-out",
+                str(data_audit_path),
+                "--markdown-out",
+                str(data_audit_markdown),
+                "--required-leverage",
+                "4.0",
+                "--require-all-funding-fresh",
+            ]
+            status = _run_checked(data_audit_command, project_root=project_root)
+            if status != 0:
+                return status
+            audit = json.loads(data_audit_path.read_text(encoding="utf-8"))
+            if not isinstance(audit, dict) or audit.get("passed") is not True:
+                print("execution finalize refused: refreshed data audit did not pass", file=sys.stderr)
+                return 1
+            if _audit_last_mark(audit) < required_mark:
+                print(
+                    f"execution finalize refused: refreshed mark is before {required_mark}",
+                    file=sys.stderr,
+                )
+                return 1
+            updated_manifest = _update_manifest_after_mark_audit(
+                manifest_path,
+                manifest,
+                audit,
+            )
+            # Re-run the audit so its manifest hash points at the updated
+            # manifest.  The data fingerprint must remain unchanged.
+            status = _run_checked(data_audit_command, project_root=project_root)
+            if status != 0:
+                return status
+            audit_after_manifest = json.loads(data_audit_path.read_text(encoding="utf-8"))
+            expected_fingerprint = str(updated_manifest.get("data_fingerprint") or "")
+            actual_fingerprint = str(
+                (audit_after_manifest.get("provenance") or {}).get("fingerprint")
+                if isinstance(audit_after_manifest, dict)
+                else ""
+            )
+            if actual_fingerprint != expected_fingerprint:
+                print(
+                    "execution finalize refused: data fingerprint changed while updating manifest",
+                    file=sys.stderr,
+                )
+                return 1
+            signal_command = [
+                sys.executable,
+                str(project_root / "scripts" / "audit_signal_equivalence.py"),
+                "--targets-file",
+                str(targets_path),
+                "--manifest-file",
+                str(manifest_path),
+                "--json-out",
+                str(signal_audit_path),
+                "--track",
+                "ls104-g175-m090",
+            ]
+            status = _run_checked(signal_command, project_root=project_root)
+            if status != 0:
+                return status
+            signal_receipt = project_root / "reports" / "ls45_live_g175" / "signal_receipt.csv"
+            if signal_receipt.is_file():
+                signal_frame = pd.read_csv(signal_receipt)
+                if "last_mark" in signal_frame.columns:
+                    signal_frame["last_mark"] = str(_audit_last_mark(audit_after_manifest))
+                    temporary = signal_receipt.with_suffix(signal_receipt.suffix + ".tmp")
+                    signal_frame.to_csv(temporary, index=False)
+                    temporary.replace(signal_receipt)
+            write_prepare_receipt(
+                project_root=project_root,
+                manifest_path=manifest_path,
+                receipt_path=receipt_path,
+            )
+            print(
+                "execution finalize complete: mark tail "
+                f"{_audit_last_mark(audit_after_manifest).isoformat()}"
+            )
+            return 0
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def build_refresh_commands(
@@ -246,6 +513,23 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--check-lock",
         action="store_true",
         help="exit 0 when the execution lock is free, 3 when it is held",
+    )
+    parser.add_argument(
+        "--finalize-execution",
+        action="store_true",
+        help="fetch the post-midnight mark tail and republish the execution receipt",
+    )
+    parser.add_argument(
+        "--mark-wait-seconds",
+        type=float,
+        default=120.0,
+        help="bounded wait for the required post-midnight mark bar",
+    )
+    parser.add_argument(
+        "--mark-poll-seconds",
+        type=float,
+        default=15.0,
+        help="poll interval for the post-midnight mark tail",
     )
     parser.add_argument(
         "--skip-if-fresh-receipt",
@@ -362,6 +646,7 @@ def check_prepare_receipt(
     max_age_minutes: float,
     project_root: Path = PROJECT_ROOT,
     now: datetime | None = None,
+    require_current_mark: bool = True,
 ) -> tuple[bool, str]:
     """Return whether a prepare receipt proves the book at ``now``.
 
@@ -440,23 +725,24 @@ def check_prepare_receipt(
     for key in RECEIPT_MANIFEST_FIELDS:
         if receipt.get(key) != manifest.get(key):
             return False, f"prepare receipt {key} does not match manifest"
-    try:
-        last_mark = pd.Timestamp(str(manifest.get("last_mark") or ""))
-    except (TypeError, ValueError):
-        return False, "prepare receipt has an invalid last_mark"
-    if pd.isna(last_mark):
-        return False, "prepare receipt has an invalid last_mark"
-    last_mark = (
-        last_mark.tz_localize("UTC")
-        if last_mark.tzinfo is None
-        else last_mark.tz_convert("UTC")
-    )
-    required_mark = required_last_mark_time(moment)
-    if last_mark < required_mark:
-        return False, (
-            f"prepare receipt last_mark {last_mark.isoformat()} is before "
-            f"the current execution requirement {required_mark.isoformat()}"
+    if require_current_mark:
+        try:
+            last_mark = pd.Timestamp(str(manifest.get("last_mark") or ""))
+        except (TypeError, ValueError):
+            return False, "prepare receipt has an invalid last_mark"
+        if pd.isna(last_mark):
+            return False, "prepare receipt has an invalid last_mark"
+        last_mark = (
+            last_mark.tz_localize("UTC")
+            if last_mark.tzinfo is None
+            else last_mark.tz_convert("UTC")
         )
+        required_mark = required_last_mark_time(moment)
+        if last_mark < required_mark:
+            return False, (
+                f"prepare receipt last_mark {last_mark.isoformat()} is before "
+                f"the current execution requirement {required_mark.isoformat()}"
+            )
     if receipt.get("manifest_sha256") != _sha256(manifest_path):
         return False, "prepare receipt manifest hash does not match"
     raw_audit_files = receipt.get("audit_files")
@@ -521,6 +807,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         print(f"execution lock is free: {lock_path}")
         return 0
+
+    if args.finalize_execution:
+        if args.dry_run:
+            print(
+                "finalize: refresh mark tail, data audit, signal audit, receipt"
+            )
+            return 0
+        return _finalize_execution(
+            args,
+            project_root=project_root,
+            lock_path=lock_path,
+        )
 
     if args.dry_run:
         for command in commands:

@@ -13,7 +13,7 @@ OnCalendar=*-*-* 03:35:00 UTC
 OnCalendar=*-*-* 04:35:00 UTC
 OnCalendar=*-*-* 06:35:00 UTC
 Persistent=true
-AccuracySec=1min
+AccuracySec=1s
 Unit=atlas20-derivatives-execute.service
 
 [Install]

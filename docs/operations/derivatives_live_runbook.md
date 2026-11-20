@@ -48,7 +48,7 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 |---|---|---|---|
 | `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
 | `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-refresh` | **08:35、08:55、13:05**、15:05、18:05、18:35、21:05、03:05 | 非交易刷新：Bitget mark/market/funding → 可执行 Top50 readiness（只补失败证据层）→ LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s）；13:05 在最后一次 14:35 重试前补齐 04:00 UTC settlement；18:05 在 19:00 monitor 前补齐 08:00 UTC settlement，18:35 做一次有界重试 | `~/Library/Logs/atlas20-derivatives-refresh.log` |
+| `com.atlas20.derivatives-refresh` | **08:35、08:55、09:00、13:05**、15:05、18:05、18:35、21:05、03:05 | 非交易刷新：Bitget mark/market/funding → 可执行 Top50 readiness（只补失败证据层）→ LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s）；09:00 只补 00:00 UTC mark tail、更新数据/信号审计和 receipt，不重建信号；13:05 在最后一次 14:35 重试前补齐 04:00 UTC settlement；18:05 在 19:00 monitor 前补齐 08:00 UTC settlement，18:35 做一次有界重试 | `~/Library/Logs/atlas20-derivatives-refresh.log` |
 | `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 优先复用 08:35/08:55 的新鲜 prepare receipt；否则 fail-closed 回退完整刷新链。按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
 | `com.atlas20.top50-readiness` | 09:45 | Top50 readiness 兜底与 Telegram pending 重试；只加载 Telegram 凭据，不加载 Bitget 交易凭据、不下单 | `~/Library/Logs/atlas20-top50-readiness.log` |
 | `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
@@ -102,13 +102,19 @@ data/raw/bitget_derivatives/merged_oos_20261112/
 bar。下载器会在严格审计前做一次有上限的条件等待：
 
 - 只对落后不超过 3 小时的 mark 做尾部重取；
-- 默认最多等待 180 秒、每 30 秒检查一次；
+- 最多等待 120 秒；prepare 每 30 秒、09:00 finalize 每 15 秒检查一次；
 - 只重取要求 bar 前后两小时，不使用宽松的“最后一根够新就放行”；
 - 超过等待预算、文件损坏或缺口过深时仍然 fail closed；
 - 后续 01:35、03:05、03:35、04:35、06:35 UTC 的定时重试继续保留。
 
 2026-11-14 的失败是交易所发布延迟，而不是信号或下单逻辑错误。修复不会放宽 mark 完整性，
 也不会在数据缺失时下单。
+
+2026-11-20 01:05 UTC 的失败则是 receipt 边界问题：08:35/08:55 的 prepare 只能看到
+2026-11-19 23:00 的已完成 mark，01:05 执行器要求 00:00 bar，因此即使 receipt 仍“新鲜”
+也必须拒绝。当天回退链在 01:43 UTC 才完成成交。此前 2026-11-17/18/19 的可见成功时间
+分别是约 01:35、01:15、01:15 UTC，也主要是重试或完整回退完成的，不是稳定的 01:05
+直单路径；09:00 finalize 就是为消除这个边界缺口而增加的。
 
 ### 1.1.1 01:05 执行前置准备（prepare receipt）
 
@@ -122,15 +128,18 @@ bar。下载器会在严格审计前做一次有上限的条件等待：
             -> reports/ls45_live_g175_live/prepared.json
 08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op；
             否则在 01:05 前启动有界补跑（panel 最多等 120s）
+09:00 北京  finalize: 只补 00:00 UTC mark tail、更新数据/信号审计和 receipt；
+            不重建信号，不改变冻结目标
 09:05 北京  execute: 只接受 receipt 仍新鲜（默认 <= 30 分钟）、
             manifest/targets/data/market-fill 指纹与 audit 文件哈希全部一致；
             否则回退完整链，绝不使用过期 receipt
 ```
 
-receipt 的 mark 要求会随 01:05 执行边界切换：00:55 生成的 receipt 最多只能覆盖
-2026-11-19 23:00 的已完成 bar，而 01:05 之后执行器的数据审计要求 00:00 bar。即使
-receipt 尚未超过 30 分钟，执行 wrapper 也必须拒绝这种 receipt 并走有界完整刷新；
-不能为了复用快路径放宽 mark 审计，也不能用 23:00 bar 假装覆盖 00:00 执行输入。
+09:00 的 finalize 是正常快路径：00:00 bar 在 01:00 UTC 才发布，所以 08:55 之前不可能
+完成包含该 bar 的 prepare；09:00 只取尾部 bar，避免把 01:05 变成一次完整数据重建。
+01:05 执行器仍要求 receipt 覆盖 00:00 bar；若 finalize 失败或尾部数据未发布，wrapper
+才回退到有界完整刷新。不能为了复用快路径放宽 mark 审计，也不能用 23:00 bar 假装
+覆盖 00:00 执行输入。
 
 08:35 prepare 在 00:50 UTC 后不再启动新任务；08:55 catch-up 只允许在 01:05 前启动，
 panel 最多等 120s。这样正常路径不会持有 `data/derivatives_execution.lock` 跨过 01:05；

@@ -401,8 +401,8 @@ def test_refresh_wrapper_passes_zsh_arguments_as_separate_words(
         encoding="utf-8"
     )
     wrapper_text = wrapper_text.replace(
-        'hour=$(date -u +%H)', 'hour=01'
-    ).replace('minute=$(date -u +%M)', 'minute=03')
+        'hour=$(date -u +%H)', 'hour=00'
+    ).replace('minute=$(date -u +%M)', 'minute=55')
     wrapper = tmp_path / "run_derivatives_refresh.sh"
     wrapper.write_text(wrapper_text, encoding="utf-8")
     wrapper.chmod(0o755)
@@ -426,6 +426,60 @@ def test_refresh_wrapper_passes_zsh_arguments_as_separate_words(
         "--latest-start-utc",
         "01:05",
     ]
+
+
+def test_refresh_wrapper_finalizes_the_execution_mark_before_0105(
+    tmp_path: Path,
+) -> None:
+    zsh = shutil.which("zsh")
+    if zsh is None:
+        return
+
+    project = tmp_path / "project"
+    python = project / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n", encoding="utf-8")
+    python.chmod(0o755)
+    wrapper_text = (PROJECT_ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
+        encoding="utf-8"
+    )
+    wrapper_text = wrapper_text.replace(
+        'hour=$(date -u +%H)', 'hour=01'
+    ).replace('minute=$(date -u +%M)', 'minute=00')
+    wrapper = tmp_path / "run_derivatives_refresh.sh"
+    wrapper.write_text(wrapper_text, encoding="utf-8")
+    wrapper.chmod(0o755)
+
+    result = subprocess.run(
+        [zsh, str(wrapper)],
+        cwd=PROJECT_ROOT,
+        env={**os.environ, "ATLAS20_PROJECT_ROOT": str(project)},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "scripts/refresh_derivatives_data.py",
+        "--finalize-execution",
+        "--mark-wait-seconds",
+        "120",
+        "--mark-poll-seconds",
+        "15",
+    ]
+
+
+def test_refresh_plist_does_not_throttle_the_0100_finalize_fire() -> None:
+    plist = PROJECT_ROOT / "ops" / "com.atlas20.derivatives-refresh.plist"
+    payload = plistlib.loads(plist.read_bytes())
+    times = _scheduled_utc_times(plist)
+
+    assert (0, 55) in times
+    assert (1, 0) in times
+    # The 08:55 no-op and the 09:00 finalize are only five minutes apart.  A
+    # 300-second launchd throttle can defer the finalize past the executor.
+    assert 0 < payload["ThrottleInterval"] <= 60
 
 
 def test_refresh_wrapper_allows_a_bounded_0855_catch_up() -> None:
@@ -455,12 +509,13 @@ def test_macos_derivatives_refresh_is_separate_and_does_not_trade() -> None:
     assert "com.atlas20.derivatives-refresh" in text
     for local_time in (
         "<key>Hour</key>\n\t\t\t<integer>8</integer>",
+        "<key>Hour</key>\n\t\t\t<integer>9</integer>",
         "<key>Hour</key>\n\t\t\t<integer>15</integer>",
         "<key>Hour</key>\n\t\t\t<integer>21</integer>",
         "<key>Hour</key>\n\t\t\t<integer>3</integer>",
     ):
         assert local_time in text
-    for minute in ("35", "55"):
+    for minute in ("0", "35", "55"):
         assert f"<key>Minute</key>\n\t\t\t<integer>{minute}</integer>" in text
     assert "ops/run_derivatives_refresh.sh" in text
     assert "execute_live_plan.py" not in text

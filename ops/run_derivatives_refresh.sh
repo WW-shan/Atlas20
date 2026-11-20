@@ -11,6 +11,7 @@ cd "$PROJECT_ROOT"
 
 panel_wait=60
 pre_execution=false
+finalize_execution=false
 latest_start=""
 hour=$(date -u +%H)
 minute=$(date -u +%M)
@@ -30,16 +31,27 @@ if [ "$hour" = "00" ] || { [ "$hour" = "01" ] && [ "$minute" -lt 5 ]; }; then
   fi
 fi
 
+# The 00:00 UTC bar is not published when the 00:35/00:55 prepare runs.  The
+# 09:00 Beijing (01:00 UTC) fire is the bounded finalization window: fetch only
+# the new mark tail and republish the receipt before the 09:05 executor.
+if [ "$hour" = "01" ] && [ "$minute" -lt 5 ]; then
+  finalize_execution=true
+fi
+
 # Build an argument vector instead of expanding a multi-word scalar.  macOS
 # launchd invokes this file with zsh, which does not word-split an unquoted
 # scalar; passing "--pre-execution --latest-start-utc 01:05" as one token makes
 # argparse reject the entire refresh at the most important catch-up fire.
-set -- --skip-if-fresh-receipt --panel-wait-seconds "$panel_wait"
-if [ "$pre_execution" = true ]; then
-  set -- "$@" --pre-execution
-fi
-if [ -n "$latest_start" ]; then
-  set -- "$@" --latest-start-utc "$latest_start"
+if [ "$finalize_execution" = true ]; then
+  set -- --finalize-execution --mark-wait-seconds 120 --mark-poll-seconds 15
+else
+  set -- --skip-if-fresh-receipt --panel-wait-seconds "$panel_wait"
+  if [ "$pre_execution" = true ]; then
+    set -- "$@" --pre-execution
+  fi
+  if [ -n "$latest_start" ]; then
+    set -- "$@" --latest-start-utc "$latest_start"
+  fi
 fi
 
 exec .venv/bin/python scripts/refresh_derivatives_data.py "$@"

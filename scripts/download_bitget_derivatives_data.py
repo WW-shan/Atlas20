@@ -364,6 +364,63 @@ def _wait_for_live_mark_tail(
         )
 
 
+def _update_mark_tail_coverage(
+    output_dir: Path,
+    selected: pd.DataFrame,
+    *,
+    required_last: pd.Timestamp,
+) -> None:
+    """Refresh coverage metadata after a mark-only tail fetch."""
+
+    coverage_path = output_dir / "coverage.json"
+    try:
+        raw_rows = json.loads(coverage_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raw_rows = []
+    rows = [dict(row) for row in raw_rows if isinstance(row, dict)] if isinstance(raw_rows, list) else []
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        symbol = str(row.get("bitget_symbol") or "").strip().upper()
+        candle_type = str(row.get("candle_type") or "").strip().lower()
+        if symbol and candle_type:
+            by_key[(symbol, candle_type)] = row
+
+    normal = selected.loc[
+        selected["contract_status"].astype(str).str.lower().eq("normal")
+    ]
+    for record in normal.to_dict("records"):
+        coin_id = str(record.get("coin_id") or "").strip()
+        symbol = str(record.get("bitget_symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        path = output_dir / "candles" / f"{symbol}_mark.csv"
+        try:
+            frame = pd.read_csv(path)
+        except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError):
+            continue
+        row = by_key.get((symbol, "mark"), {})
+        row.update(
+            {
+                "coin_id": coin_id,
+                "bitget_symbol": symbol,
+                "candle_type": "mark",
+                "rows": int(len(frame)),
+                "first": frame["open_time"].min() if not frame.empty else pd.NaT,
+                "last": frame["open_time"].max() if not frame.empty else pd.NaT,
+                "max_gap_hours": _max_gap_hours(frame),
+                "tail_required_through": str(required_last),
+            }
+        )
+        by_key[(symbol, "mark")] = row
+
+    merged = [by_key[key] for key in sorted(by_key)]
+    _write_csv_atomic(pd.DataFrame(merged), output_dir / "coverage.csv")
+    atomic_write_text(
+        coverage_path,
+        json.dumps(merged, indent=2, sort_keys=True, default=str),
+    )
+
+
 def _max_gap_hours(frame: pd.DataFrame) -> float:
     if len(frame) < 2:
         return 0.0
@@ -1112,6 +1169,16 @@ def main() -> None:
     parser.add_argument("--retry-backoff-seconds", type=float, default=1.0)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--funding-only", action="store_true")
+    parser.add_argument(
+        "--mark-tail-only",
+        action="store_true",
+        help="refresh only the required live mark tail; do not fetch candle windows",
+    )
+    parser.add_argument(
+        "--required-mark-time",
+        default=None,
+        help="explicit ISO-8601 mark bar required by a finalize run",
+    )
     parser.add_argument("--skip-funding", action="store_true")
     parser.add_argument(
         "--wait-for-live-mark-seconds",
@@ -1148,19 +1215,79 @@ def main() -> None:
         raise SystemExit("--wait-for-live-mark-seconds must be non-negative")
     if args.wait_for_live_mark_poll_seconds <= 0:
         raise SystemExit("--wait-for-live-mark-poll-seconds must be positive")
+    if args.mark_tail_only and args.funding_only:
+        raise SystemExit("--mark-tail-only and --funding-only are mutually exclusive")
+    if args.mark_tail_only and args.wait_for_live_mark_seconds <= 0.0:
+        raise SystemExit("--mark-tail-only requires a positive --wait-for-live-mark-seconds")
     types = [item.strip() for item in args.types.split(",") if item.strip()]
     output_dir = ensure_dir(args.output_dir)
     candle_dir = ensure_dir(output_dir / "candles")
     state_path = output_dir / "state.json"
     state = _load_state(state_path)
 
-    panel = _read_panel(args.panel)
     client = BitgetClient(
         timeout_seconds=args.timeout_seconds,
         max_retries=args.client_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
         rate_limit_seconds=args.rate_limit_seconds,
     )
+    if args.mark_tail_only:
+        symbol_map_path = output_dir / "symbol_map.csv"
+        try:
+            symbol_map = pd.read_csv(symbol_map_path)
+        except (OSError, ValueError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+            raise SystemExit(f"mark-tail-only requires a readable {symbol_map_path}: {exc}") from exc
+        required_columns = {"coin_id", "bitget_symbol", "contract_status"}
+        missing_columns = required_columns.difference(symbol_map.columns)
+        if missing_columns:
+            raise SystemExit(
+                f"mark-tail-only symbol map is missing columns {sorted(missing_columns)}"
+            )
+        selected = symbol_map.loc[
+            symbol_map["bitget_symbol"].fillna("").astype(str).str.strip().ne("")
+            & symbol_map["contract_status"].astype(str).str.lower().eq("normal")
+        ].copy()
+        if args.symbols:
+            wanted = {item.strip().lower() for item in args.symbols.split(",") if item.strip()}
+            selected = selected[
+                selected["coin_id"].astype(str).str.lower().isin(wanted)
+                | selected["bitget_symbol"].astype(str).str.lower().isin(wanted)
+            ]
+        if args.max_symbols > 0:
+            selected = selected.head(args.max_symbols)
+        if selected.empty:
+            raise SystemExit("mark-tail-only has no cached normal Bitget contracts selected")
+        if args.required_mark_time:
+            required_last = pd.Timestamp(args.required_mark_time, tz="UTC")
+        else:
+            required_last = required_last_mark_time(
+                pd.Timestamp.now(tz="UTC").to_pydatetime(),
+                execution_utc=args.execution_utc,
+            )
+        LOGGER.info("final execution mark requirement: %s", required_last)
+        stale_marks = _wait_for_live_mark_tail(
+            client,
+            selected,
+            output_dir,
+            required_last=required_last,
+            max_wait_seconds=float(args.wait_for_live_mark_seconds),
+            poll_seconds=float(args.wait_for_live_mark_poll_seconds),
+        )
+        if stale_marks:
+            raise SystemExit(
+                "Bitget live mark feed is still missing the required completed bar "
+                f"{required_last} for {len(stale_marks)} symbol(s): "
+                + ", ".join(stale_marks[:10])
+            )
+        _update_mark_tail_coverage(
+            output_dir,
+            selected,
+            required_last=required_last,
+        )
+        print(f"wrote {output_dir} (mark tail through {required_last})")
+        return
+
+    panel = _read_panel(args.panel)
     contracts = client.fetch_contracts()
     symbol_map = build_symbol_map(panel, contracts)
     _write_csv_atomic(symbol_map, output_dir / "symbol_map.csv")

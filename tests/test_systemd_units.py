@@ -61,6 +61,20 @@ def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
     assert "print -u2" not in wrapper
 
 
+def test_derivatives_refresh_finalizes_the_mark_tail_before_execution() -> None:
+    timer = (
+        ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.timer"
+    ).read_text(encoding="utf-8")
+    wrapper = (ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "OnCalendar=*-*-* 01:00:00 UTC" in timer
+    assert "AccuracySec=1s" in timer
+    assert "--finalize-execution" in wrapper
+    assert "mark-wait-seconds 120" in wrapper
+
+
 def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> None:
     timer = (
         ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer"
@@ -68,6 +82,7 @@ def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> No
 
     for clock in ("01:05:00", "01:35:00", "03:05:00", "03:35:00", "04:35:00", "06:35:00"):
         assert f"OnCalendar=*-*-* {clock} UTC" in timer
+    assert "AccuracySec=1s" in timer
     assert "OnCalendar=*-*-* 09:05:00 UTC" not in timer
 
 

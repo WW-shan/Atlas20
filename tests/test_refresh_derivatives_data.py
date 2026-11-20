@@ -3,6 +3,9 @@ from __future__ import annotations
 import fcntl
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
+
+import pandas as pd
 
 from scripts import refresh_derivatives_data
 
@@ -31,6 +34,24 @@ def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> N
     ]
     assert not any("execute_live_plan.py" in " ".join(command) for command in commands)
     assert not any("derivatives-notify" in " ".join(command) for command in commands)
+
+
+def test_execution_required_mark_time_targets_the_upcoming_execution_bar() -> None:
+    required = refresh_derivatives_data.execution_required_mark_time(
+        {
+            "signal_end_date": "2026-11-19",
+            "execution_utc": "01:05",
+        }
+    )
+
+    assert required == pd.Timestamp("2026-11-20T00:00:00Z")
+
+
+def test_finalize_default_mark_wait_leaves_time_for_the_0105_audits() -> None:
+    args = refresh_derivatives_data._parse_args(["--finalize-execution"])
+
+    assert args.mark_wait_seconds == 120.0
+    assert args.mark_poll_seconds == 15.0
 
 
 def test_intraday_refresh_does_not_rebuild_the_daily_top50(tmp_path: Path) -> None:
@@ -276,11 +297,122 @@ def test_prepare_receipt_rejects_the_pre_execution_mark_after_the_fill_boundary(
         project_root=tmp_path,
         now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
     )
+    finalize_base, finalize_reason = refresh_derivatives_data.check_prepare_receipt(
+        receipt_path=receipt,
+        manifest_path=manifest,
+        max_age_minutes=30.0,
+        project_root=tmp_path,
+        now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+        require_current_mark=False,
+    )
 
     assert before_fill is True, before_reason
     assert at_fill is False
     assert "last_mark" in at_fill_reason
     assert "2026-11-14T00:00:00" in at_fill_reason
+    assert finalize_base is True, finalize_reason
+
+
+def test_finalize_execution_fetches_only_the_required_mark_tail(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    import json
+
+    project = tmp_path / "project"
+    manifest_path = project / "reports" / "ls45_live_g175" / "manifest.json"
+    manifest_path.parent.mkdir(parents=True)
+    targets_path = project / "reports" / "ls45_live_g175" / "oos_targets.csv"
+    targets_path.write_text("signal_date,asset,target_weight\n2026-11-13,x,0\n", encoding="utf-8")
+    audit_names = refresh_derivatives_data.AUDIT_FILE_NAMES
+    audits = {}
+    for name in audit_names:
+        path = project / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+        audits[name] = refresh_derivatives_data._sha256(path)
+    payload = {
+        "targets_sha256": refresh_derivatives_data._sha256(targets_path),
+        "data_fingerprint": "sha256:old-data",
+        "fill_price_source": "bitget_market_1h_open",
+        "market_fill_fingerprint": "sha256:fills",
+        "execution_price_model": "market_1h_open_floor",
+        "signal_end_date": "2026-11-13",
+        "last_mark": "2026-11-12T23:00:00+00:00",
+        "raw_dir": str(tmp_path / "raw"),
+    }
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_path = project / "reports" / "ls45_live_g175_live" / "prepared.json"
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(
+        json.dumps(
+            {
+                **payload,
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
+                "track": refresh_derivatives_data.RECEIPT_TRACK,
+                "manifest_path": str(manifest_path),
+                "manifest_sha256": refresh_derivatives_data._sha256(manifest_path),
+                "audit_files": audits,
+            }
+        ),
+        encoding="utf-8",
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, project_root):
+        del project_root
+        command = list(command)
+        commands.append(command)
+        script = command[1]
+        if script.endswith("audit_derivatives_data.py"):
+            audit = {
+                "passed": True,
+                "hard_failures": [],
+                "warnings": [],
+                "provenance": {"fingerprint": "sha256:new-data"},
+                "summary": {"last_mark": "2026-11-14T00:00:00+00:00"},
+            }
+            (project / "reports" / "ls45_live_g175" / "data_audit.json").write_text(
+                json.dumps(audit), encoding="utf-8"
+            )
+        elif script.endswith("audit_signal_equivalence.py"):
+            (project / "reports" / "ls45_live_g175_live" / "signal_equivalence.json").write_text(
+                json.dumps({"passed": True}), encoding="utf-8"
+            )
+        return 0
+
+    monkeypatch.setattr(refresh_derivatives_data, "_run_checked", fake_run)
+    args = SimpleNamespace(
+        receipt_out=receipt_path,
+        max_age_minutes=30.0,
+        execution_lock_wait_seconds=0.1,
+        mark_wait_seconds=120.0,
+        mark_poll_seconds=15.0,
+    )
+
+    code = refresh_derivatives_data._finalize_execution(
+        args,
+        project_root=project,
+        lock_path=project / "data" / "execution.lock",
+        now=RECEIPT_TEST_NOW,
+    )
+
+    assert code == 0
+    assert any(
+        "--mark-tail-only" in command
+        and "--skip-funding" in command
+        and "--required-mark-time" in command
+        and command[command.index("--required-mark-time") + 1]
+        == "2026-11-14T00:00:00+00:00"
+        for command in commands
+    )
+    assert not any("run_ls45_live_signal.py" in " ".join(command) for command in commands)
+    updated_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated_manifest["last_mark"] == "2026-11-14T00:00:00+00:00"
+    assert updated_manifest["data_fingerprint"] == "sha256:new-data"
+    updated_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert updated_receipt["last_mark"] == "2026-11-14T00:00:00+00:00"
+    assert updated_receipt["data_fingerprint"] == "sha256:new-data"
 
 
 def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
