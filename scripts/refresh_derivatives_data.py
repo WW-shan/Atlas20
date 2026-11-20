@@ -28,6 +28,8 @@ from typing import Sequence
 import pandas as pd
 from filelock import FileLock, Timeout
 
+from atlas20.derivatives.data_audit import required_last_mark_time
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCK = PROJECT_ROOT / "data" / "derivatives_execution.lock"
 DEFAULT_RECEIPT = PROJECT_ROOT / "reports" / "ls45_live_g175_live" / "prepared.json"
@@ -359,8 +361,16 @@ def check_prepare_receipt(
     manifest_path: Path,
     max_age_minutes: float,
     project_root: Path = PROJECT_ROOT,
+    now: datetime | None = None,
 ) -> tuple[bool, str]:
-    """Return whether a prepare receipt still proves the current frozen book."""
+    """Return whether a prepare receipt proves the book at ``now``.
+
+    Receipt freshness is time-sensitive at the 01:05 execution boundary: a
+    receipt built at 00:55 can only contain the 23:00 completed mark bar, while
+    the executor's data audit requires the 00:00 bar after 01:05.  The receipt
+    must therefore be rejected even when it is otherwise fresh; the caller must
+    run the bounded data refresh rather than reuse a pre-boundary snapshot.
+    """
 
     if not math.isfinite(float(max_age_minutes)) or max_age_minutes < 0.0:
         return False, "max age must be non-negative"
@@ -393,9 +403,12 @@ def check_prepare_receipt(
         return False, "prepare receipt has no valid prepared_at"
     if prepared_at.tzinfo is None:
         prepared_at = prepared_at.replace(tzinfo=timezone.utc)
-    age_minutes = (
-        datetime.now(timezone.utc) - prepared_at.astimezone(timezone.utc)
-    ).total_seconds() / 60.0
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    else:
+        moment = moment.astimezone(timezone.utc)
+    age_minutes = (moment - prepared_at.astimezone(timezone.utc)).total_seconds() / 60.0
     if age_minutes < -1.0:
         return False, f"prepare receipt is in the future ({age_minutes:.1f}m)"
     if age_minutes > float(max_age_minutes):
@@ -427,6 +440,23 @@ def check_prepare_receipt(
     for key in RECEIPT_MANIFEST_FIELDS:
         if receipt.get(key) != manifest.get(key):
             return False, f"prepare receipt {key} does not match manifest"
+    try:
+        last_mark = pd.Timestamp(str(manifest.get("last_mark") or ""))
+    except (TypeError, ValueError):
+        return False, "prepare receipt has an invalid last_mark"
+    if pd.isna(last_mark):
+        return False, "prepare receipt has an invalid last_mark"
+    last_mark = (
+        last_mark.tz_localize("UTC")
+        if last_mark.tzinfo is None
+        else last_mark.tz_convert("UTC")
+    )
+    required_mark = required_last_mark_time(moment)
+    if last_mark < required_mark:
+        return False, (
+            f"prepare receipt last_mark {last_mark.isoformat()} is before "
+            f"the current execution requirement {required_mark.isoformat()}"
+        )
     if receipt.get("manifest_sha256") != _sha256(manifest_path):
         return False, "prepare receipt manifest hash does not match"
     raw_audit_files = receipt.get("audit_files")

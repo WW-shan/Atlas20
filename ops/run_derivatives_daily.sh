@@ -286,6 +286,9 @@ receipt_status=0
 .venv/bin/python scripts/refresh_derivatives_data.py \
   --check-receipt --max-age-minutes 30 || receipt_status=$?
 if [ "$receipt_status" -ne 0 ]; then
+  # A receipt made before 01:05 may still be fresh but only covers the 23:00
+  # mark bar; the executor's 01:05 audit requires 00:00.  Fall back to the
+  # bounded refresh rather than reusing a snapshot that will fail closed.
   # The primary 08:35/08:55 prepare normally publishes Top50 readiness.  If
   # that job did not run or failed, the execution fallback must rebuild the
   # executable Top20 before rebuilding the signal.  Otherwise a stale READY

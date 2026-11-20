@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import fcntl
+from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts import refresh_derivatives_data
+
+
+RECEIPT_TEST_NOW = datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc)
+RECEIPT_TEST_PREPARED_AT = "2026-11-14T01:00:00+00:00"
 
 
 def test_refresh_commands_are_profile_bound_and_never_trade(tmp_path: Path) -> None:
@@ -172,7 +177,6 @@ def test_check_lock_distinguishes_busy_and_free(tmp_path: Path) -> None:
 
 def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> None:
     import json
-    from datetime import datetime, timezone
 
     manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
     manifest.parent.mkdir(parents=True)
@@ -197,7 +201,7 @@ def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> N
         json.dumps(
             {
                 **payload,
-                "prepared_at": datetime.now(timezone.utc).isoformat(),
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
                 "track": refresh_derivatives_data.RECEIPT_TRACK,
                 "manifest_path": str(manifest),
                 "manifest_sha256": refresh_derivatives_data._sha256(manifest),
@@ -212,9 +216,71 @@ def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> N
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
 
     assert valid is True, reason
+
+
+def test_prepare_receipt_rejects_the_pre_execution_mark_after_the_fill_boundary(
+    tmp_path: Path,
+) -> None:
+    """A receipt prepared before 01:05 cannot prove the 00:00 execution bar."""
+
+    import json
+
+    manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    payload = {
+        "targets_sha256": "target-a",
+        "data_fingerprint": "sha256:data",
+        "fill_price_source": "bitget_market_1h_open",
+        "market_fill_fingerprint": "sha256:fills",
+        "execution_price_model": "market_1h_open_floor",
+        "signal_end_date": "2026-11-14",
+        "last_mark": "2026-11-13 23:00:00+00:00",
+    }
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    audits = {}
+    for name in refresh_derivatives_data.AUDIT_FILE_NAMES:
+        audit = tmp_path / name
+        audit.parent.mkdir(parents=True, exist_ok=True)
+        audit.write_text("{}", encoding="utf-8")
+        audits[name] = refresh_derivatives_data._sha256(audit)
+    receipt = tmp_path / "prepared.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                **payload,
+                "prepared_at": "2026-11-14T00:55:00+00:00",
+                "track": refresh_derivatives_data.RECEIPT_TRACK,
+                "manifest_path": str(manifest),
+                "manifest_sha256": refresh_derivatives_data._sha256(manifest),
+                "audit_files": audits,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    before_fill, before_reason = refresh_derivatives_data.check_prepare_receipt(
+        receipt_path=receipt,
+        manifest_path=manifest,
+        max_age_minutes=30.0,
+        project_root=tmp_path,
+        now=datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc),
+    )
+    at_fill, at_fill_reason = refresh_derivatives_data.check_prepare_receipt(
+        receipt_path=receipt,
+        manifest_path=manifest,
+        max_age_minutes=30.0,
+        project_root=tmp_path,
+        now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+    )
+
+    assert before_fill is True, before_reason
+    assert at_fill is False
+    assert "last_mark" in at_fill_reason
+    assert "2026-11-14T00:00:00" in at_fill_reason
 
 
 def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
@@ -222,7 +288,6 @@ def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
 ) -> None:
     import hashlib
     import json
-    from datetime import datetime, timezone
 
     manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
     manifest.parent.mkdir(parents=True)
@@ -269,7 +334,7 @@ def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
         json.dumps(
             {
                 **payload,
-                "prepared_at": datetime.now(timezone.utc).isoformat(),
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
                 "track": refresh_derivatives_data.RECEIPT_TRACK,
                 "manifest_path": str(manifest),
                 "manifest_sha256": refresh_derivatives_data._sha256(manifest),
@@ -284,6 +349,7 @@ def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
     assert valid is True
 
@@ -302,6 +368,7 @@ def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
 
     assert valid is False
@@ -310,7 +377,6 @@ def test_prepare_receipt_rejects_a_changed_top50_ready_pointer(
 
 def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
     import json
-    from datetime import datetime, timezone
 
     manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
     manifest.parent.mkdir(parents=True)
@@ -329,7 +395,7 @@ def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
         json.dumps(
             {
                 **payload,
-                "prepared_at": datetime.now(timezone.utc).isoformat(),
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
                 "track": refresh_derivatives_data.RECEIPT_TRACK,
                 "manifest_path": str(manifest),
                 "manifest_sha256": refresh_derivatives_data._sha256(manifest),
@@ -347,6 +413,7 @@ def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
 
     assert valid is False
@@ -355,7 +422,6 @@ def test_prepare_receipt_rejects_a_changed_manifest(tmp_path: Path) -> None:
 
 def test_prepare_receipt_rejects_missing_audit_commitments(tmp_path: Path) -> None:
     import json
-    from datetime import datetime, timezone
 
     manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
     manifest.parent.mkdir(parents=True)
@@ -374,7 +440,7 @@ def test_prepare_receipt_rejects_missing_audit_commitments(tmp_path: Path) -> No
         json.dumps(
             {
                 **payload,
-                "prepared_at": datetime.now(timezone.utc).isoformat(),
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
                 "track": refresh_derivatives_data.RECEIPT_TRACK,
                 "manifest_path": str(manifest),
                 "manifest_sha256": refresh_derivatives_data._sha256(manifest),
@@ -389,6 +455,7 @@ def test_prepare_receipt_rejects_missing_audit_commitments(tmp_path: Path) -> No
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
 
     assert valid is False
@@ -409,7 +476,6 @@ def test_prepare_receipt_rejects_nonfinite_max_age(tmp_path: Path) -> None:
 
 def test_prepare_receipt_reports_a_corrupt_manifest(tmp_path: Path) -> None:
     import json
-    from datetime import datetime, timezone
 
     manifest = tmp_path / "reports" / "ls45_live_g175" / "manifest.json"
     manifest.parent.mkdir(parents=True)
@@ -418,7 +484,7 @@ def test_prepare_receipt_reports_a_corrupt_manifest(tmp_path: Path) -> None:
     receipt.write_text(
         json.dumps(
             {
-                "prepared_at": datetime.now(timezone.utc).isoformat(),
+                "prepared_at": RECEIPT_TEST_PREPARED_AT,
                 "track": refresh_derivatives_data.RECEIPT_TRACK,
                 "manifest_path": str(manifest),
             }
@@ -431,6 +497,7 @@ def test_prepare_receipt_reports_a_corrupt_manifest(tmp_path: Path) -> None:
         manifest_path=manifest,
         max_age_minutes=30.0,
         project_root=tmp_path,
+        now=RECEIPT_TEST_NOW,
     )
 
     assert valid is False
