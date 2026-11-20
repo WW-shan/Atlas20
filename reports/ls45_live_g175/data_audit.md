@@ -1,7 +1,7 @@
 # Atlas20 derivatives data audit
 
 - passed: **True**
-- fingerprint: `sha256:3d9ba6f18741acdd68a5b95172acd9581a195b7ee3a090b6d34ef111974bba36`
+- fingerprint: `sha256:78b04120f515dbee86eeca5f5193d3eb3cdb62f3efadf89217524ab165e3377a`
 - hard failures: 0
 - warnings: 0
 
@@ -21,1441 +21,1441 @@
   "funding": {
     "1inch": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2320.334,
+        "publication_lag_seconds": 1013.4,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:40.334000+00:00"
+        "verified_at": "2026-11-20T08:16:53.400000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "aave": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2323.318,
+        "publication_lag_seconds": 1015.876,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:43.318000+00:00"
+        "verified_at": "2026-11-20T08:16:55.876000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "aero": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3910.839,
+        "publication_lag_seconds": 1019.584,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:10.839000+00:00"
+        "verified_at": "2026-11-20T08:16:59.584000+00:00"
       },
-      "rows": 553,
+      "rows": 554,
       "stale": false
     },
     "algorand": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2330.244,
+        "publication_lag_seconds": 1022.316,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:50.244000+00:00"
+        "verified_at": "2026-11-20T08:17:02.316000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "apecoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2332.808,
+        "publication_lag_seconds": 1024.918,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:52.808000+00:00"
+        "verified_at": "2026-11-20T08:17:04.918000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "aptos": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2335.156,
+        "publication_lag_seconds": 1027.415,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:55.156000+00:00"
+        "verified_at": "2026-11-20T08:17:07.415000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "arbitrum": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2337.693,
+        "publication_lag_seconds": 1029.653,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:38:57.693000+00:00"
+        "verified_at": "2026-11-20T08:17:09.653000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "aster-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3915.163,
+        "publication_lag_seconds": 1033.909,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:15.163000+00:00"
+        "verified_at": "2026-11-20T08:17:13.909000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "avalanche-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2345.021,
+        "publication_lag_seconds": 1036.501,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:05.021000+00:00"
+        "verified_at": "2026-11-20T08:17:16.501000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "axie-infinity": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3919.409,
+        "publication_lag_seconds": 1040.524,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:19.409000+00:00"
+        "verified_at": "2026-11-20T08:17:20.524000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "basic-attention-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2351.599,
+        "publication_lag_seconds": 1042.925,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:11.599000+00:00"
+        "verified_at": "2026-11-20T08:17:22.925000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "binancecoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2354.244,
+        "publication_lag_seconds": 1045.392,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:14.244000+00:00"
+        "verified_at": "2026-11-20T08:17:25.392000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "bitcoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2357.111,
+        "publication_lag_seconds": 1047.998,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:17.111000+00:00"
+        "verified_at": "2026-11-20T08:17:27.998000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "bitcoin-cash": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2359.672,
+        "publication_lag_seconds": 1050.751,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:19.672000+00:00"
+        "verified_at": "2026-11-20T08:17:30.751000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "bitget-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2362.29,
+        "publication_lag_seconds": 1053.246,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:22.290000+00:00"
+        "verified_at": "2026-11-20T08:17:33.246000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "bittensor": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3923.546,
+        "publication_lag_seconds": 1057.48,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:23.546000+00:00"
+        "verified_at": "2026-11-20T08:17:37.480000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "bitway": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3927.585,
+        "publication_lag_seconds": 1061.688,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:27.585000+00:00"
+        "verified_at": "2026-11-20T08:17:41.688000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "blockstack": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2373.01,
+        "publication_lag_seconds": 1064.251,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:33.010000+00:00"
+        "verified_at": "2026-11-20T08:17:44.251000+00:00"
       },
-      "rows": 279,
+      "rows": 280,
       "stale": false
     },
     "canton-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3931.612,
+        "publication_lag_seconds": 1068.339,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:31.612000+00:00"
+        "verified_at": "2026-11-20T08:17:48.339000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "cardano": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2379.677,
+        "publication_lag_seconds": 1071.07,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:39.677000+00:00"
+        "verified_at": "2026-11-20T08:17:51.070000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "celestia": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3935.517,
+        "publication_lag_seconds": 1075.302,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:35.517000+00:00"
+        "verified_at": "2026-11-20T08:17:55.302000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "chainlink": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2386.075,
+        "publication_lag_seconds": 1077.886,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:46.075000+00:00"
+        "verified_at": "2026-11-20T08:17:57.886000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "chiliz": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2388.66,
+        "publication_lag_seconds": 1080.517,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:48.660000+00:00"
+        "verified_at": "2026-11-20T08:18:00.517000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "compound-governance-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2391.181,
+        "publication_lag_seconds": 1083.141,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:51.181000+00:00"
+        "verified_at": "2026-11-20T08:18:03.141000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "cosmos": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2393.714,
+        "publication_lag_seconds": 1085.744,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:53.714000+00:00"
+        "verified_at": "2026-11-20T08:18:05.744000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "crypto-com-chain": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2396.394,
+        "publication_lag_seconds": 1088.242,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:56.394000+00:00"
+        "verified_at": "2026-11-20T08:18:08.242000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "curve-dao-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2398.898,
+        "publication_lag_seconds": 1090.863,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:39:58.898000+00:00"
+        "verified_at": "2026-11-20T08:18:10.863000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "dash": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2401.767,
+        "publication_lag_seconds": 1093.475,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:01.767000+00:00"
+        "verified_at": "2026-11-20T08:18:13.475000+00:00"
       },
-      "rows": 279,
+      "rows": 280,
       "stale": false
     },
     "decentraland": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2404.301,
+        "publication_lag_seconds": 1096.098,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:04.301000+00:00"
+        "verified_at": "2026-11-20T08:18:16.098000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "dogecoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2406.798,
+        "publication_lag_seconds": 1098.717,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:06.798000+00:00"
+        "verified_at": "2026-11-20T08:18:18.717000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "dydx-chain": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2409.485,
+        "publication_lag_seconds": 1100.953,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:09.485000+00:00"
+        "verified_at": "2026-11-20T08:18:20.953000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "elrond-erd-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2412.036,
+        "publication_lag_seconds": 1103.483,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:12.036000+00:00"
+        "verified_at": "2026-11-20T08:18:23.483000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "enjincoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3939.605,
+        "publication_lag_seconds": 1107.652,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:39.605000+00:00"
+        "verified_at": "2026-11-20T08:18:27.652000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "ethena": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3943.503,
+        "publication_lag_seconds": 1111.823,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:43.503000+00:00"
+        "verified_at": "2026-11-20T08:18:31.823000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "ether-fi": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3947.621,
+        "publication_lag_seconds": 1115.502,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:47.621000+00:00"
+        "verified_at": "2026-11-20T08:18:35.502000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "ethereum": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2426.756,
+        "publication_lag_seconds": 1117.745,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:26.756000+00:00"
+        "verified_at": "2026-11-20T08:18:37.745000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "ethereum-classic": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2429.093,
+        "publication_lag_seconds": 1120.357,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:29.093000+00:00"
+        "verified_at": "2026-11-20T08:18:40.357000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "ethereum-name-service": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2431.58,
+        "publication_lag_seconds": 1122.973,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:31.580000+00:00"
+        "verified_at": "2026-11-20T08:18:42.973000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "falcon-finance-ff": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3951.772,
+        "publication_lag_seconds": 1127.234,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:51.772000+00:00"
+        "verified_at": "2026-11-20T08:18:47.234000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "fantom": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3955.585,
+        "publication_lag_seconds": 1131.412,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:55.585000+00:00"
+        "verified_at": "2026-11-20T08:18:51.412000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "filecoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2442.24,
+        "publication_lag_seconds": 1133.99,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:42.240000+00:00"
+        "verified_at": "2026-11-20T08:18:53.990000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "gala": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2444.909,
+        "publication_lag_seconds": 1136.611,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:44.909000+00:00"
+        "verified_at": "2026-11-20T08:18:56.611000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "havven": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2447.544,
+        "publication_lag_seconds": 1139.086,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:47.544000+00:00"
+        "verified_at": "2026-11-20T08:18:59.086000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "hedera-hashgraph": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2450.046,
+        "publication_lag_seconds": 1141.659,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:40:50.046000+00:00"
+        "verified_at": "2026-11-20T08:19:01.659000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "hyperliquid": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3959.543,
+        "publication_lag_seconds": 1144.983,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:05:59.543000+00:00"
+        "verified_at": "2026-11-20T08:19:04.983000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "immutable-x": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3963.975,
+        "publication_lag_seconds": 1148.311,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:03.975000+00:00"
+        "verified_at": "2026-11-20T08:19:08.311000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "injective-protocol": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2461.111,
+        "publication_lag_seconds": 1150.335,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:01.111000+00:00"
+        "verified_at": "2026-11-20T08:19:10.335000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "internet-computer": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2463.554,
+        "publication_lag_seconds": 1152.439,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:03.554000+00:00"
+        "verified_at": "2026-11-20T08:19:12.439000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "jupiter-exchange-solana": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3968.124,
+        "publication_lag_seconds": 1156.012,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:08.124000+00:00"
+        "verified_at": "2026-11-20T08:19:16.012000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "just": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3972.473,
+        "publication_lag_seconds": 1159.312,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:12.473000+00:00"
+        "verified_at": "2026-11-20T08:19:19.312000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "kaspa": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3976.441,
+        "publication_lag_seconds": 1162.622,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:16.441000+00:00"
+        "verified_at": "2026-11-20T08:19:22.622000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "kite-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3980.789,
+        "publication_lag_seconds": 1165.857,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:20.789000+00:00"
+        "verified_at": "2026-11-20T08:19:25.857000+00:00"
       },
-      "rows": 547,
+      "rows": 548,
       "stale": false
     },
     "layerzero": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3984.957,
+        "publication_lag_seconds": 1169.273,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:24.957000+00:00"
+        "verified_at": "2026-11-20T08:19:29.273000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "lido-dao": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2486.931,
+        "publication_lag_seconds": 1171.363,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:26.931000+00:00"
+        "verified_at": "2026-11-20T08:19:31.363000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "lighter": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3989.326,
+        "publication_lag_seconds": 1174.679,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:29.326000+00:00"
+        "verified_at": "2026-11-20T08:19:34.679000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "litecoin": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2493.724,
+        "publication_lag_seconds": 1176.797,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:33.724000+00:00"
+        "verified_at": "2026-11-20T08:19:36.797000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "matic-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3993.299,
+        "publication_lag_seconds": 1180.192,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:33.299000+00:00"
+        "verified_at": "2026-11-20T08:19:40.192000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "memecore": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 3997.334,
+        "publication_lag_seconds": 1183.663,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:37.334000+00:00"
+        "verified_at": "2026-11-20T08:19:43.663000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "midnight-3": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4001.675,
+        "publication_lag_seconds": 1187.271,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:41.675000+00:00"
+        "verified_at": "2026-11-20T08:19:47.271000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "monero": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2508.815,
+        "publication_lag_seconds": 1189.365,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:48.815000+00:00"
+        "verified_at": "2026-11-20T08:19:49.365000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "morpho": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4005.527,
+        "publication_lag_seconds": 1192.574,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:45.527000+00:00"
+        "verified_at": "2026-11-20T08:19:52.574000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "near": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2515.348,
+        "publication_lag_seconds": 1194.646,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:55.348000+00:00"
+        "verified_at": "2026-11-20T08:19:54.646000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "neo": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2517.799,
+        "publication_lag_seconds": 1196.708,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:41:57.799000+00:00"
+        "verified_at": "2026-11-20T08:19:56.708000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "ondo-finance": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4009.464,
+        "publication_lag_seconds": 1200.563,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:49.464000+00:00"
+        "verified_at": "2026-11-20T08:20:00.563000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "optimism": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2524.406,
+        "publication_lag_seconds": 1203.326,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:04.406000+00:00"
+        "verified_at": "2026-11-20T08:20:03.326000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "pancakeswap-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4013.461,
+        "publication_lag_seconds": 1206.863,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:53.461000+00:00"
+        "verified_at": "2026-11-20T08:20:06.863000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "pepe": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2530.798,
+        "publication_lag_seconds": 1208.948,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:10.798000+00:00"
+        "verified_at": "2026-11-20T08:20:08.948000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "pi-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4017.596,
+        "publication_lag_seconds": 1212.619,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:06:57.596000+00:00"
+        "verified_at": "2026-11-20T08:20:12.619000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "pieverse": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4021.66,
+        "publication_lag_seconds": 1216.176,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:01.660000+00:00"
+        "verified_at": "2026-11-20T08:20:16.176000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "polkadot": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2541.141,
+        "publication_lag_seconds": 1218.387,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:21.141000+00:00"
+        "verified_at": "2026-11-20T08:20:18.387000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "polygon-ecosystem-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4025.99,
+        "publication_lag_seconds": 1221.87,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:05.990000+00:00"
+        "verified_at": "2026-11-20T08:20:21.870000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "pump-fun": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4029.949,
+        "publication_lag_seconds": 1225.534,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:09.949000+00:00"
+        "verified_at": "2026-11-20T08:20:25.534000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "pyth-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4034.28,
+        "publication_lag_seconds": 1228.784,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:14.280000+00:00"
+        "verified_at": "2026-11-20T08:20:28.784000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "quant-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2555.703,
+        "publication_lag_seconds": 1230.968,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:35.703000+00:00"
+        "verified_at": "2026-11-20T08:20:30.968000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "raydium": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4038.07,
+        "publication_lag_seconds": 1234.46,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:18.070000+00:00"
+        "verified_at": "2026-11-20T08:20:34.460000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "render-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4042.51,
+        "publication_lag_seconds": 1237.839,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:22.510000+00:00"
+        "verified_at": "2026-11-20T08:20:37.839000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "ripple": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2566.243,
+        "publication_lag_seconds": 1240.035,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:46.243000+00:00"
+        "verified_at": "2026-11-20T08:20:40.035000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "sei-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2568.933,
+        "publication_lag_seconds": 1242.502,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:48.933000+00:00"
+        "verified_at": "2026-11-20T08:20:42.502000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "shiba-inu": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2571.467,
+        "publication_lag_seconds": 1244.611,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:51.467000+00:00"
+        "verified_at": "2026-11-20T08:20:44.611000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "sky": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4046.724,
+        "publication_lag_seconds": 1248.092,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:26.724000+00:00"
+        "verified_at": "2026-11-20T08:20:48.092000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "solana": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2578.249,
+        "publication_lag_seconds": 1250.193,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:42:58.249000+00:00"
+        "verified_at": "2026-11-20T08:20:50.193000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "stable-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4050.8,
+        "publication_lag_seconds": 1253.71,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:30.800000+00:00"
+        "verified_at": "2026-11-20T08:20:53.710000+00:00"
       },
-      "rows": 559,
+      "rows": 560,
       "stale": false
     },
     "stellar": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2584.875,
+        "publication_lag_seconds": 1256.138,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:04.875000+00:00"
+        "verified_at": "2026-11-20T08:20:56.138000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "stepn": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4054.858,
+        "publication_lag_seconds": 1259.806,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:34.858000+00:00"
+        "verified_at": "2026-11-20T08:20:59.806000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "sui": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2591.375,
+        "publication_lag_seconds": 1262.331,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:11.375000+00:00"
+        "verified_at": "2026-11-20T08:21:02.331000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "sushi": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2593.889,
+        "publication_lag_seconds": 1264.316,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:13.889000+00:00"
+        "verified_at": "2026-11-20T08:21:04.316000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "terra-luna": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2596.768,
+        "publication_lag_seconds": 1266.423,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:16.768000+00:00"
+        "verified_at": "2026-11-20T08:21:06.423000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "terra-luna-2": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4059.074,
+        "publication_lag_seconds": 1270.269,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:39.074000+00:00"
+        "verified_at": "2026-11-20T08:21:10.269000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "tezos": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4063.113,
+        "publication_lag_seconds": 1273.59,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:43.113000+00:00"
+        "verified_at": "2026-11-20T08:21:13.590000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "the-graph": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2607.248,
+        "publication_lag_seconds": 1275.571,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:27.248000+00:00"
+        "verified_at": "2026-11-20T08:21:15.571000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "the-open-network": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4067.078,
+        "publication_lag_seconds": 1278.785,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:47.078000+00:00"
+        "verified_at": "2026-11-20T08:21:18.785000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "the-sandbox": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2613.757,
+        "publication_lag_seconds": 1280.787,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:33.757000+00:00"
+        "verified_at": "2026-11-20T08:21:20.787000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "theta-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2616.27,
+        "publication_lag_seconds": 1282.82,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:36.270000+00:00"
+        "verified_at": "2026-11-20T08:21:22.820000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "thorchain": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2618.938,
+        "publication_lag_seconds": 1284.783,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:38.938000+00:00"
+        "verified_at": "2026-11-20T08:21:24.783000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "tron": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2621.584,
+        "publication_lag_seconds": 1286.815,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:41.584000+00:00"
+        "verified_at": "2026-11-20T08:21:26.815000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "uniswap": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2624.044,
+        "publication_lag_seconds": 1288.807,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:44.044000+00:00"
+        "verified_at": "2026-11-20T08:21:28.807000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "vechain": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2626.484,
+        "publication_lag_seconds": 1290.807,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:46.484000+00:00"
+        "verified_at": "2026-11-20T08:21:30.807000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "venice-token": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4071.1,
+        "publication_lag_seconds": 1294.025,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:51.100000+00:00"
+        "verified_at": "2026-11-20T08:21:34.025000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "world-liberty-financial": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4075.08,
+        "publication_lag_seconds": 1297.281,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:55.080000+00:00"
+        "verified_at": "2026-11-20T08:21:37.281000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     },
     "worldcoin-wld": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2637.785,
+        "publication_lag_seconds": 1299.292,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:43:57.785000+00:00"
+        "verified_at": "2026-11-20T08:21:39.292000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "zcash": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 00:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 8.0,
       "publication": {
         "api_interval_hours": 8.0,
         "latest_source": "history",
-        "publication_lag_seconds": 2640.336,
+        "publication_lag_seconds": 1301.293,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T00:44:00.336000+00:00"
+        "verified_at": "2026-11-20T08:21:41.293000+00:00"
       },
-      "rows": 295,
+      "rows": 296,
       "stale": false
     },
     "zilliqa": {
       "interval_matches_contract": true,
-      "last": "2026-11-20 04:00:00+00:00",
+      "last": "2026-11-20 08:00:00+00:00",
       "observed_interval_hours": 4.0,
       "publication": {
         "api_interval_hours": 4.0,
         "latest_source": "history",
-        "publication_lag_seconds": 4079.223,
+        "publication_lag_seconds": 1304.903,
         "rate_relation": "match",
-        "verified_at": "2026-11-20T05:07:59.223000+00:00"
+        "verified_at": "2026-11-20T08:21:44.903000+00:00"
       },
-      "rows": 591,
+      "rows": 592,
       "stale": false
     }
   },
   "funding_assets": 102,
   "hard_failures": 0,
-  "last_mark": "2026-11-20 06:00:00+00:00",
+  "last_mark": "2026-11-20 07:00:00+00:00",
   "mark_assets": 102,
-  "now": "2026-11-20T07:37:34.275631+00:00",
+  "now": "2026-11-20T08:46:06.175875+00:00",
   "panel_latest": "2026-11-19",
   "panel_latest_assets": 117,
-  "publication_now": "2026-11-20T07:37:34.279927+00:00",
+  "publication_now": "2026-11-20T08:46:06.179613+00:00",
   "required_leverage": 4.0,
   "required_leverage_assets": [
     "bitcoin-cash",
