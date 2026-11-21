@@ -7023,3 +7023,62 @@ funding 档案已经覆盖到 `2026-08-19`，且 Bitget 历史 K 线回源也证
 `2022-11-21` 开始；回源确认这是 Bitget market 历史不可得，不是内部小时缺口，readiness
 以显式 warning 保留该事实。其余当前 Top50 的 warmup/live 内部小时缺口为 0；上游
 CMC provider-zero cap 行也继续在 gap audit 中以 `provider_zero_supply` 显式列出。
+
+### 00.164 2026-11-21 01:05 快路径恢复与 LS104 条件 Monte Carlo 审查
+
+2026-11-21 的失败不是信号方向或下单逻辑变化，而是执行前置链的两个状态机缺陷叠加：
+
+1. `prepare` 失败后 receipt 必然变旧，但 01:00 `finalize` 在身份校验之前就按 30 分钟年龄拒绝，
+   因而永远到不了“补 00:00 UTC mark tail、重建审计、发布新 receipt”的恢复路径。09:05
+   wrapper 随后又直接进入完整数据重建，CAKE duplicate 和 TLS/ReadTimeout 使 10 分钟级
+   快路径退化为数小时重试。
+2. 若某个 target event 漏执行，次日 manifest 已推进而 active event 仍停在旧日期。
+   旧 `_event_plan_mode` 会把这种状态降级成 `maintain`，从而永久保留旧账本。该行为已改为
+   fail-closed 的 `pending`，必须人工复核，不能静默继续维护。
+
+修复保持不放宽任何数据门禁：
+
+- receipt 的年龄与身份拆开；只有 `finalize` 可在 manifest 的 `signal_end_date` 和
+  `index_end_date` 都等于最近完成 UTC 日、manifest bytes、target hash、READY commitment
+  全部一致时使用 stale receipt 作为身份基线；
+- finalize 必须在自己的进程内重新拉取 mark tail，重新生成
+  `data_audit`、`signal_equivalence`、`venue_symbol_audit`、`contract_spec_snapshots`
+  四项证据，再写新 receipt；旧 audit 字节不能被当作执行证据复用；
+- 09:05 wrapper 在 receipt 失效时先尝试这一有界 finalize，只有它失败才进入完整重建；
+- CAKE 的 `10168712.597007012` vs `10168712.597007013` 仅 1 ULP 浮点回环，比较改为
+  `1e-12` 容差，真实价格冲突仍 fail closed；Bitget 普通 `OSError` 包裹的 timeout/reset
+  也纳入有界重试，非瞬态错误立即抛出；
+- blocked Top50 发布不再删除旧 READY pointer；`check_current_ready` 仍按 `as_of` 拒绝
+  过期指针；信号等价审计的 CLOSE 接受 replay 记录的 long/short 平仓方向。
+
+验证结果：
+
+- `make test`：**2841 passed, 1 skipped**；Web：**249 passed**；
+- `make lint`、`make typecheck`、`git diff --check` 通过；
+- `audit-data-chain`：**53 PASS / 0 WARN / 0 FAIL**；
+- `audit-data-ls104`：0 hard failure / 0 warning；
+- `audit-symbols-ls104`：102 mapped contracts 全部 online、4x、long/short/flip 通过；
+- `audit-contract-specs-ls104`：18 snapshots、0 material change；
+- `audit-signal-ls104`：78/78 rows、33 overlapping signal days、**0 difference**；
+- `audit-accounting-ls104`：**44/44 PASS**；
+- 真实 `--finalize-execution` 在旧 receipt 已过期、审计字节已变化的现场成功恢复，补到
+  `2026-11-21 12:00 UTC` mark 并写出新 receipt；随后 `--check-receipt --max-age-minutes 30`
+  返回 valid（0.0 分钟）。该操作没有下单、没有修改 execution state/journal。
+
+LS104 条件 Monte Carlo 审查（`reports/ls104_monte_carlo_20261121/`）：
+
+- 先用当前 raw tree 重跑完整 2022-01-01 → 2026-09-21 live-parity；20bps
+  **77.9520x / 1.9621 / -40.52%**，50bps **41.4935x / 1.7155 / -46.49%**，最大观测
+  gross 分别为 1.4980x / 1.4958x，均 0 gross breach、1 次继承的 XRP 强平；与
+  2026-11-15 记录的 77.8524x / 41.4492x 基本一致；
+- 该全样本重跑使用 Binance funding proxy + `skip`，因为当前 exact Bitget funding 档案
+  只从 2026-07 开始；不得把 proxy 结果声称为 Bitget exact 全样本证据；
+- stationary block bootstrap：10,000 paths × block length 5/20/40/80，seed 20261121；
+  终端中位数约 **74–75x**，5% 分位约 **7.9–9.9x**，`P(terminal<1x)` 0–0.03%；
+- 主要风险是回撤尾部：5% 分位 MDD 约 **-55% 至 -58%**，`P(MDD<-50%)` 约
+  **11.4%–15.1%**，高于单一历史路径的 -40.52%；这是条件路径诊断，不是未来概率；
+- 与 BTC 配对重采样的终端倍数比中位数约 **41.6–42.5x**，5% 分位 **3.1–3.8x**，
+  `P(ratio<1)` 约 **0.38%–0.90%**；同样不构成 OOS 或选择偏差校正。
+
+剩余边界不变：12 个月独立 OOS 仍未完成；50bps MDD 已接近 50% kill line，bootstrap 的
+5% 尾部 MDD 进一步越过该线；本节的 Monte Carlo 不改变 live 参数，也不替代真实前向验证。

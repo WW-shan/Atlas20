@@ -128,11 +128,14 @@ bar。下载器会在严格审计前做一次有上限的条件等待：
             -> reports/ls45_live_g175_live/prepared.json
 08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op；
             否则在 01:05 前启动有界补跑（panel 最多等 120s）
-09:00 北京  finalize: 只补 00:00 UTC mark tail、更新数据/信号审计和 receipt；
-            不重建信号，不改变冻结目标
+09:00 北京  finalize: 只补 00:00 UTC mark tail、重生成四项审计和 receipt；
+            不重建 signal，不改变冻结目标；若旧 receipt 只是 age 过期，而
+            manifest 已评估到最近完成 UTC 日且 manifest/target/READY 身份一致，
+            可把旧 receipt 仅作为身份基线，但仍必须重新生成全部审计后才发布新 receipt
 09:05 北京  execute: 只接受 receipt 仍新鲜（默认 <= 30 分钟）、
             manifest/targets/data/market-fill 指纹与 audit 文件哈希全部一致；
-            否则回退完整链，绝不使用过期 receipt
+            receipt 失效时 wrapper 先调用有界 finalize，finalize 失败才回退完整链；
+            绝不使用过期 receipt
 ```
 
 09:00 的 finalize 是正常快路径：00:00 bar 在 01:00 UTC 才发布，所以 08:55 之前不可能
@@ -146,8 +149,10 @@ panel 最多等 120s。这样正常路径不会持有 `data/derivatives_executio
 若补跑仍未完成，09:05 wrapper 检测到执行锁被占用会直接让给下一次重试，不会并发重建。
 08:35 prepare 仍会先等待 `data/.daily-refresh.lock` 释放并确认 panel 已到最近完成日，
 再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它完成而不是读取
-半成品。若当天 08:35/08:55 都失败，09:05 会走完整链并接受相应延迟；这是安全回退，
-不是正常路径。
+半成品。若当天 08:35/08:55 都失败，09:05 会先执行有界 finalize（只补 mark tail、
+重生成审计和 receipt）；只有 finalize 也失败才走完整链并接受相应延迟。这是安全回退，
+不是正常路径。2026-11-21 的实测证明该路径可在不重建 signal 的情况下恢复并让下一个
+执行窗口拿到 valid receipt。
 2026-11-15 首次 LS104 bootstrap 的真实成交约 **01:10:59 UTC**；根因是当天 01:05 才启动
 mark/funding 下载、54 天账本重建和 `audit-data-chain`，不是信号本身偏离。该事实保留在
 RESEARCH 记录中，不回写成 01:05。

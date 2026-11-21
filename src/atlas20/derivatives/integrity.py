@@ -3,8 +3,34 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import math
 
+import numpy as np
 import pandas as pd
+
+
+def _values_agree(left: object, right: object) -> bool:
+    """Compare canonical values without treating float round-trip noise as data.
+
+    Public JSON numbers arrive as decimal strings and are parsed independently
+    on each fetch.  The same decimal can land on adjacent IEEE-754 values on
+    two runs (the CAKE ``10168712.597007013`` case).  Such a 1-ULP difference
+    is not a market-data revision.  A relative tolerance of 1e-12 accepts that
+    serialization noise while still rejecting every economically meaningful
+    change; non-numeric values must remain exactly equal.
+    """
+
+    if isinstance(left, (float, int, np.number)) and isinstance(
+        right, (float, int, np.number)
+    ):
+        a = float(left)
+        b = float(right)
+        if not (math.isfinite(a) and math.isfinite(b)):
+            return a == b
+        return math.isclose(a, b, rel_tol=1e-12, abs_tol=1e-12)
+    if left is None or right is None:
+        return left is None and right is None
+    return bool(left == right)
 
 
 def deduplicate_by_keys_or_raise(
@@ -18,7 +44,7 @@ def deduplicate_by_keys_or_raise(
     """Collapse exact duplicate keys and reject conflicting payload values.
 
     Re-downloaded public history legitimately overlaps earlier pages.  Those
-    rows must be byte-for-byte equivalent (on the canonical value columns).
+    rows must carry the same decimal values (on the canonical value columns).
     A repeated timestamp with a different price, volume or funding rate is a
     data conflict, not a newer truth to install silently.
     """
@@ -43,7 +69,12 @@ def deduplicate_by_keys_or_raise(
             dropna=False,
             sort=False,
         ):
-            if len(group.loc[:, value_columns].drop_duplicates()) <= 1:
+            rows = list(group.loc[:, value_columns].itertuples(index=False, name=None))
+            if all(
+                _values_agree(left, right)
+                for row in rows[1:]
+                for left, right in zip(rows[0], row, strict=True)
+            ):
                 continue
             rendered_key = (
                 key_value if isinstance(key_value, tuple) else (key_value,)

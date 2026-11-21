@@ -1991,6 +1991,67 @@ def test_publish_fingerprint_commits_to_member_file_hashes(tmp_path) -> None:
     assert first_payload["fingerprint"] != second_payload["fingerprint"]
 
 
+def test_blocked_publish_preserves_an_existing_ready_pointer(tmp_path) -> None:
+    from atlas20.derivatives.top50_readiness import publish_readiness_payload
+
+    members = [
+        {
+            "final_rank": index,
+            "coin_id": f"coin-{index}",
+            "bitget_symbol": f"C{index}USDT",
+            "status": "READY",
+        }
+        for index in range(1, 51)
+    ]
+    ready = {
+        "as_of": "2026-11-15",
+        "ready": True,
+        "members": members,
+        "top20": [dict(item) for item in members[:20]],
+        "skipped": [],
+        "audit": {"passed": True, "hard_failures": [], "warnings": []},
+        "input_files": {
+            "panel": "sha256:" + "1" * 64,
+            "metadata": "sha256:" + "2" * 64,
+            "symbol_map": "sha256:" + "3" * 64,
+        },
+    }
+    first = publish_readiness_payload(
+        reports_dir=tmp_path,
+        payload=ready,
+        audit_payload={"passed": True, "checks": []},
+    )
+    before = first["latest_ready"].read_bytes()
+
+    blocked = {
+        **ready,
+        "as_of": "2026-11-16",
+        "ready": False,
+        "members": [
+            {**members[0], "status": "BLOCKED"},
+            *members[1:],
+        ],
+        "top20": [
+            {**members[0], "status": "BLOCKED"},
+            *members[1:20],
+        ],
+        "audit": {
+            "passed": True,
+            "hard_failures": [],
+            "warnings": [],
+        },
+    }
+    paths = publish_readiness_payload(
+        reports_dir=tmp_path,
+        payload=blocked,
+        audit_payload={"passed": True, "checks": []},
+    )
+
+    assert paths["latest_ready"].read_bytes() == before
+    assert json.loads(paths["latest"].read_text())["as_of"] == "2026-11-16"
+    assert json.loads(paths["latest"].read_text())["ready"] is False
+
+
 def test_publish_rejects_duplicate_ready_members(tmp_path) -> None:
     from atlas20.derivatives.top50_readiness import publish_readiness_payload
 

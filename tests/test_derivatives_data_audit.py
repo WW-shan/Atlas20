@@ -989,3 +989,79 @@ def test_publication_evidence_uses_observation_clock_not_market_evaluation_clock
     assert not any(
         "publication_time" in item for item in report.hard_failures
     )
+
+
+def test_provenance_fingerprint_is_independent_of_audit_clock_and_manifest_bytes(
+    tmp_path: Path,
+) -> None:
+    """A read-only re-audit must not change the data identity it reports."""
+
+    from datetime import date, datetime, timezone
+    from atlas20.derivatives.data_audit import audit_derivatives_data
+
+    paths = _fixture(tmp_path)
+    manifest_path = paths["manifest"]
+    manifest_path.write_text(json.dumps({"data_fingerprint": "sha256:example"}), encoding="utf-8")
+    first = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        manifest_path,
+        now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+        expected_panel_day=date(2026, 11, 13),
+        required_leverage=4.0,
+    )
+    first_fingerprint = first.provenance["fingerprint"]
+    first_manifest_sha = first.provenance.get("manifest_sha256")
+
+    # Reformatting the manifest changes its bytes but not the data inputs.
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_path.write_text(
+        json.dumps(payload, indent=4, sort_keys=False) + "\n",
+        encoding="utf-8",
+    )
+    second = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        manifest_path,
+        now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+        expected_panel_day=date(2026, 11, 13),
+        required_leverage=4.0,
+    )
+
+    assert second.provenance["fingerprint"] == first_fingerprint
+    audit_manifest_after = second.provenance.get("manifest_sha256")
+    assert first_manifest_sha is not None
+    assert audit_manifest_after is not None
+    assert audit_manifest_after != first_manifest_sha
+
+
+def test_provenance_fingerprint_is_independent_of_the_audit_time(tmp_path: Path) -> None:
+    """Wall-clock fields in the audit payload are not data provenance."""
+
+    from datetime import date, datetime, timezone
+    from atlas20.derivatives.data_audit import audit_derivatives_data
+
+    paths = _fixture(tmp_path)
+    paths["manifest"].write_text(json.dumps({"data_fingerprint": "sha256:example"}), encoding="utf-8")
+    first = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+        expected_panel_day=date(2026, 11, 13),
+        required_leverage=4.0,
+    )
+    second = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 14, 3, 5, tzinfo=timezone.utc),
+        expected_panel_day=date(2026, 11, 13),
+        required_leverage=4.0,
+    )
+
+    assert second.provenance["fingerprint"] == first.provenance["fingerprint"]

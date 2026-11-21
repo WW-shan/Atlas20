@@ -531,6 +531,8 @@ def _event_plan_mode(
     fresh_target_event: bool,
     active_event: dict[str, Any] | None,
     bootstrap_track: bool = False,
+    target_signal_date: object | None = None,
+    manifest_signal_end_date: object | None = None,
 ) -> str:
     """Choose how a run may use the target book.
 
@@ -538,12 +540,37 @@ def _event_plan_mode(
     event's weights and current equity.  ``complete`` resumes an event that was
     persisted as partial and must use its frozen quantities.  ``maintain`` keeps
     same-side drift and permits only risk-reducing/account-maintenance work.
+
+    ``pending`` is a fail-closed state: the newest frozen event is older than
+    the latest completed data day and has not been applied by this track.  It
+    must never silently fall back to ``maintain``, which would preserve an old
+    book indefinitely after a missed execution.
     """
 
     if not isinstance(active_event, dict):
-        return "fresh" if fresh_target_event or bootstrap_track else "maintain"
+        if fresh_target_event or bootstrap_track:
+            return "fresh"
+        target_date = (
+            pd.Timestamp(target_signal_date).date()
+            if target_signal_date not in (None, "")
+            else None
+        )
+        manifest_date = (
+            pd.Timestamp(manifest_signal_end_date).date()
+            if manifest_signal_end_date not in (None, "")
+            else None
+        )
+        if target_date is not None and manifest_date is not None and target_date < manifest_date:
+            return "pending"
+        return "maintain"
     if str(active_event.get("position_status") or "") != "ok":
         return "complete"
+    if target_signal_date not in (None, "") and manifest_signal_end_date not in (None, ""):
+        active_date = pd.Timestamp(str(active_event.get("signal_date") or "")).date()
+        target_date = pd.Timestamp(target_signal_date).date()
+        manifest_date = pd.Timestamp(manifest_signal_end_date).date()
+        if target_date < manifest_date and active_date < target_date:
+            return "pending"
     return "maintain"
 
 
@@ -3027,7 +3054,17 @@ def _main(args: argparse.Namespace) -> int:
         fresh_target_event=fresh_target_event,
         active_event=plan_active_event if isinstance(plan_active_event, dict) else None,
         bootstrap_track=bootstrap_track,
+        target_signal_date=signal_date,
+        manifest_signal_end_date=manifest.get("signal_end_date") if manifest else None,
     )
+    if plan_mode == "pending":
+        raise SystemExit(
+            "pending target event has not been applied: "
+            f"newest target={pd.Timestamp(signal_date).date()}, "
+            f"active={((plan_active_event or {}).get('signal_date') if isinstance(plan_active_event, dict) else None) or '<none>'}, "
+            f"manifest={manifest.get('signal_end_date') if manifest else '<none>'}; "
+            "manual review is required before another maintenance run"
+        )
 
     plan_quantities: dict[str, float] | None = None
     if isinstance(plan_active_event, dict) and plan_mode != "fresh":

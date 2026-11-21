@@ -106,6 +106,59 @@ def test_latest_signal_actions_must_reach_the_replay_trade_ledger() -> None:
     assert "ethereum" in missing[0]
 
 
+def test_latest_close_rejects_a_non_position_trade_side() -> None:
+    targets = _ledger()
+    targets.loc[0, "execution_hint"] = "2026-11-07 01:05:00+00:00"
+    targets.loc[0, "side"] = "flat"
+    targets.loc[0, "target_weight"] = 0.0
+    targets.loc[0, "change_weight"] = 0.25
+    targets.loc[0, "action"] = "CLOSE"
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-11-07 01:00:00+00:00",
+                "asset": "ethereum",
+                "side": "flat",
+                "action": "close",
+            }
+        ]
+    )
+
+    issues = _latest_action_execution_issues(
+        targets,
+        trades,
+        positions=pd.DataFrame(),
+    )
+
+    assert issues
+    assert "not a position side" in issues[0]
+
+
+def test_latest_close_accepts_the_actual_exit_side() -> None:
+    targets = _ledger()
+    targets.loc[0, "execution_hint"] = "2026-11-07 01:05:00+00:00"
+    targets.loc[0, "side"] = "flat"
+    targets.loc[0, "target_weight"] = 0.0
+    targets.loc[0, "change_weight"] = 0.25
+    targets.loc[0, "action"] = "CLOSE"
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-11-07 01:00:00+00:00",
+                "asset": "ethereum",
+                "side": "long",
+                "action": "close",
+            }
+        ]
+    )
+
+    assert _latest_action_execution_issues(
+        targets,
+        trades,
+        positions=pd.DataFrame(),
+    ) == []
+
+
 def test_latest_signal_action_can_be_an_explicit_venue_minimum_skip() -> None:
     targets = _ledger()
     skips = pd.DataFrame(

@@ -338,6 +338,7 @@ def test_finalize_execution_fetches_only_the_required_mark_tail(
         "market_fill_fingerprint": "sha256:fills",
         "execution_price_model": "market_1h_open_floor",
         "signal_end_date": "2026-11-13",
+        "index_end_date": "2026-11-13",
         "last_mark": "2026-11-12T23:00:00+00:00",
         "raw_dir": str(tmp_path / "raw"),
     }
@@ -671,3 +672,306 @@ def test_wait_for_current_panel_refuses_a_stale_panel(tmp_path: Path) -> None:
 
     assert ok is False
     assert "did not reach" in reason
+
+
+def _write_finalize_fixture(
+    project: Path,
+    *,
+    prepared_at: str,
+    signal_end_date: str = "2026-11-13",
+    targets_sha256: str | None = None,
+    last_mark: str = "2026-11-12T23:00:00+00:00",
+) -> tuple[Path, Path, Path]:
+    """Create a manifest, receipt and audit set for finalize recovery tests."""
+
+    import json
+
+    manifest_path = project / "reports" / "ls45_live_g175" / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    targets_path = project / "reports" / "ls45_live_g175" / "oos_targets.csv"
+    targets_path.write_text(
+        "signal_date,asset,target_weight\n"
+        f"{signal_end_date},x,0\n",
+        encoding="utf-8",
+    )
+    audits: dict[str, str] = {}
+    for name in refresh_derivatives_data.AUDIT_FILE_NAMES:
+        path = project / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+        audits[name] = refresh_derivatives_data._sha256(path)
+    payload = {
+        "targets_sha256": targets_sha256 or refresh_derivatives_data._sha256(targets_path),
+        "data_fingerprint": "sha256:old-data",
+        "fill_price_source": "bitget_market_1h_open",
+        "market_fill_fingerprint": "sha256:fills",
+        "execution_price_model": "market_1h_open_floor",
+        "signal_end_date": signal_end_date,
+        "index_end_date": signal_end_date,
+        "last_mark": last_mark,
+        "raw_dir": str(project / "raw"),
+    }
+    manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+    receipt_path = project / "reports" / "ls45_live_g175_live" / "prepared.json"
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(
+        json.dumps(
+            {
+                **payload,
+                "prepared_at": prepared_at,
+                "track": refresh_derivatives_data.RECEIPT_TRACK,
+                "manifest_path": str(manifest_path),
+                "manifest_sha256": refresh_derivatives_data._sha256(manifest_path),
+                "audit_files": audits,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return manifest_path, targets_path, receipt_path
+
+
+def test_finalize_recovers_a_stale_receipt_when_manifest_identity_is_current(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A failed prepare must not permanently block the bounded 01:00 repair."""
+
+    import json
+
+    project = tmp_path / "project"
+    manifest_path, _targets_path, receipt_path = _write_finalize_fixture(
+        project,
+        prepared_at="2026-11-13T18:00:00+00:00",
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, project_root):
+        del project_root
+        command = list(command)
+        commands.append(command)
+        script = command[1]
+        if script.endswith("audit_derivatives_data.py"):
+            audit = {
+                "passed": True,
+                "hard_failures": [],
+                "warnings": [],
+                "provenance": {"fingerprint": "sha256:new-data"},
+                "summary": {"last_mark": "2026-11-14T00:00:00+00:00"},
+            }
+            (project / "reports" / "ls45_live_g175" / "data_audit.json").write_text(
+                json.dumps(audit), encoding="utf-8"
+            )
+        elif script.endswith("audit_signal_equivalence.py"):
+            (project / "reports" / "ls45_live_g175_live" / "signal_equivalence.json").write_text(
+                json.dumps({"passed": True}), encoding="utf-8"
+            )
+        return 0
+
+    monkeypatch.setattr(refresh_derivatives_data, "_run_checked", fake_run)
+    args = SimpleNamespace(
+        receipt_out=receipt_path,
+        max_age_minutes=30.0,
+        execution_lock_wait_seconds=0.1,
+        mark_wait_seconds=120.0,
+        mark_poll_seconds=15.0,
+    )
+
+    code = refresh_derivatives_data._finalize_execution(
+        args,
+        project_root=project,
+        lock_path=project / "data" / "execution.lock",
+        now=RECEIPT_TEST_NOW,
+    )
+
+    assert code == 0
+    assert any("--mark-tail-only" in command for command in commands)
+    updated_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated_manifest["last_mark"] == "2026-11-14T00:00:00+00:00"
+    assert updated_manifest["data_fingerprint"] == "sha256:new-data"
+
+
+def test_finalize_still_refuses_a_stale_receipt_for_an_old_manifest(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Age may be recoverable only when the evaluated signal day is current."""
+
+    project = tmp_path / "project"
+    _manifest_path, _targets_path, receipt_path = _write_finalize_fixture(
+        project,
+        prepared_at="2026-11-13T18:00:00+00:00",
+        signal_end_date="2026-11-12",
+    )
+    called = False
+
+    def fail_run(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("an old manifest must not be finalized")
+
+    monkeypatch.setattr(refresh_derivatives_data, "_run_checked", fail_run)
+    args = SimpleNamespace(
+        receipt_out=receipt_path,
+        max_age_minutes=30.0,
+        execution_lock_wait_seconds=0.1,
+        mark_wait_seconds=120.0,
+        mark_poll_seconds=15.0,
+    )
+
+    code = refresh_derivatives_data._finalize_execution(
+        args,
+        project_root=project,
+        lock_path=project / "data" / "execution.lock",
+        now=RECEIPT_TEST_NOW,
+    )
+
+    assert code == 3
+    assert called is False
+
+
+def test_finalize_still_refuses_a_stale_receipt_when_targets_changed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Recovering age must not bypass the exact target-book commitment."""
+
+    import json
+
+    project = tmp_path / "project"
+    manifest_path, targets_path, receipt_path = _write_finalize_fixture(
+        project,
+        prepared_at="2026-11-13T18:00:00+00:00",
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["targets_sha256"] = "sha256:stale-target"
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    called = False
+
+    def fail_run(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("changed targets must not be finalized")
+
+    monkeypatch.setattr(refresh_derivatives_data, "_run_checked", fail_run)
+    args = SimpleNamespace(
+        receipt_out=receipt_path,
+        max_age_minutes=30.0,
+        execution_lock_wait_seconds=0.1,
+        mark_wait_seconds=120.0,
+        mark_poll_seconds=15.0,
+    )
+
+    code = refresh_derivatives_data._finalize_execution(
+        args,
+        project_root=project,
+        lock_path=project / "data" / "execution.lock",
+        now=RECEIPT_TEST_NOW,
+    )
+
+    assert code == 3
+    assert called is False
+
+
+def test_allow_stale_identity_still_enforces_the_current_mark_by_default(
+    tmp_path: Path,
+) -> None:
+    """The relaxed-age switch is an identity exception, not a data-freshness bypass."""
+
+    import json
+
+    project = tmp_path / "project"
+    manifest_path, _targets_path, receipt_path = _write_finalize_fixture(
+        project,
+        prepared_at="2026-11-13T18:00:00+00:00",
+    )
+    assert json.loads(receipt_path.read_text(encoding="utf-8"))["last_mark"] == (
+        "2026-11-12T23:00:00+00:00"
+    )
+
+    valid, reason = refresh_derivatives_data.check_prepare_receipt(
+        receipt_path=receipt_path,
+        manifest_path=manifest_path,
+        max_age_minutes=30.0,
+        project_root=project,
+        now=RECEIPT_TEST_NOW,
+        allow_stale_identity=True,
+    )
+
+    assert valid is False
+    assert "last_mark" in reason
+
+
+def test_finalize_regenerates_the_audits_it_binds_to_the_new_receipt(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A prior audit refresh must not strand finalize on stale audit bytes."""
+
+    import json
+
+    project = tmp_path / "project"
+    manifest_path, _targets_path, receipt_path = _write_finalize_fixture(
+        project,
+        prepared_at="2026-11-13T18:00:00+00:00",
+    )
+    # Simulate the observed incident: the data audit is refreshed after the
+    # prepare receipt but before finalize.  Its bytes no longer match the old
+    # receipt, while the manifest/target/book identity is still current.
+    data_audit_path = project / "reports" / "ls45_live_g175" / "data_audit.json"
+    data_audit_path.write_text(
+        json.dumps({"passed": True, "note": "refreshed after prepare"}),
+        encoding="utf-8",
+    )
+
+    commands: list[list[str]] = []
+
+    def fake_run(command, *, project_root):
+        del project_root
+        command = list(command)
+        commands.append(command)
+        script = command[1]
+        if script.endswith("audit_derivatives_data.py"):
+            audit = {
+                "passed": True,
+                "hard_failures": [],
+                "warnings": [],
+                "provenance": {"fingerprint": "sha256:new-data"},
+                "summary": {"last_mark": "2026-11-14T00:00:00+00:00"},
+            }
+            data_audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        elif script.endswith("audit_signal_equivalence.py"):
+            (project / "reports" / "ls45_live_g175_live" / "signal_equivalence.json").write_text(
+                json.dumps({"passed": True}), encoding="utf-8"
+            )
+        elif script.endswith("audit_venue_symbols.py"):
+            (project / "reports" / "ls45_live_g175_live" / "venue_symbol_audit.json").write_text(
+                json.dumps({"passed": True}), encoding="utf-8"
+            )
+        elif script.endswith("audit_contract_spec_snapshots.py"):
+            (project / "reports" / "ls45_live_g175" / "contract_spec_snapshots.json").write_text(
+                json.dumps({"passed": True}), encoding="utf-8"
+            )
+        return 0
+
+    monkeypatch.setattr(refresh_derivatives_data, "_run_checked", fake_run)
+    args = SimpleNamespace(
+        receipt_out=receipt_path,
+        max_age_minutes=30.0,
+        execution_lock_wait_seconds=0.1,
+        mark_wait_seconds=120.0,
+        mark_poll_seconds=15.0,
+    )
+
+    code = refresh_derivatives_data._finalize_execution(
+        args,
+        project_root=project,
+        lock_path=project / "data" / "execution.lock",
+        now=RECEIPT_TEST_NOW,
+    )
+
+    assert code == 0, commands
+    assert any("audit_venue_symbols.py" in " ".join(cmd) for cmd in commands)
+    assert any("audit_contract_spec_snapshots.py" in " ".join(cmd) for cmd in commands)
+    updated_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    for name, digest in updated_receipt["audit_files"].items():
+        assert refresh_derivatives_data._sha256(project / name) == digest

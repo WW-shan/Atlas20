@@ -175,7 +175,24 @@ class BitgetClient:
         for attempt in range(self.max_retries):
             try:
                 response = self.session.get(url, params=params, timeout=self.timeout_seconds)
-            except requests.RequestException as exc:
+            except (requests.RequestException, OSError) as exc:
+                # requests normally wraps TLS/read failures, but a proxy or
+                # platform socket path can surface the same timeout as a bare
+                # OSError.  Retry only failures whose message identifies them
+                # as transient; a programming error must still escape.
+                transient = isinstance(exc, requests.RequestException) or any(
+                    marker in str(exc).lower()
+                    for marker in (
+                        "timed out",
+                        "timeout",
+                        "connection reset",
+                        "connection refused",
+                        "temporarily unavailable",
+                        "network is unreachable",
+                    )
+                )
+                if not transient:
+                    raise
                 last_error = exc
                 if attempt + 1 >= self.max_retries:
                     raise

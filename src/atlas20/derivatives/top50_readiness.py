@@ -1679,8 +1679,11 @@ def publish_readiness_payload(
         atomic_write_text(ready_history, text)
         atomic_write_text(paths["latest_ready"], text)
         paths["ready_history"] = ready_history
-    else:
-        paths["latest_ready"].unlink(missing_ok=True)
+    # A blocked report is evidence about the new date, not authority to
+    # destroy the last valid READY pointer.  The manifest pins the exact
+    # READY bytes it consumed, and `check_current_ready` separately rejects a
+    # pointer whose as_of is stale.  Keeping the file makes that distinction
+    # auditable and lets a later recovery preserve the prior commitment.
     return paths
 
 

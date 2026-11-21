@@ -152,6 +152,80 @@ def test_fetch_history_candles_pages_backwards_from_end_time() -> None:
     assert calls[1]["endTime"] == int(pd.Timestamp("2026-01-01T01:00:00Z").timestamp() * 1000)
 
 
+def test_client_retries_a_transient_read_timeout() -> None:
+    import requests
+
+    calls = 0
+
+    class _Session:
+        def get(self, url, params, timeout):
+            nonlocal calls
+            del url, params, timeout
+            calls += 1
+            if calls == 1:
+                raise requests.ReadTimeout("transient handshake/read timeout")
+            return _FakeResponse({"code": "00000", "data": []})
+
+    client = BitgetClient(
+        session=_Session(),  # type: ignore[arg-type]
+        rate_limit_seconds=0.0,
+        retry_backoff_seconds=0.0,
+        max_retries=2,
+    )
+
+    assert client.fetch_contracts() == []
+    assert calls == 2
+
+
+def test_client_does_not_retry_an_unrelated_programming_error() -> None:
+    calls = 0
+
+    class _Session:
+        def get(self, url, params, timeout):
+            nonlocal calls
+            del url, params, timeout
+            calls += 1
+            raise ValueError("bad request construction")
+
+    client = BitgetClient(
+        session=_Session(),  # type: ignore[arg-type]
+        rate_limit_seconds=0.0,
+        retry_backoff_seconds=0.0,
+        max_retries=3,
+    )
+
+    with pytest.raises(ValueError, match="bad request construction"):
+        client.fetch_contracts()
+
+    assert calls == 1
+
+
+def test_client_retries_a_timeout_wrapped_by_a_generic_os_error() -> None:
+    calls = 0
+
+    class _Session:
+        def get(self, url, params, timeout):
+            nonlocal calls
+            del url, params, timeout
+            calls += 1
+            if calls == 1:
+                raise OSError(
+                    "HTTPSConnectionPool(host='api.bitget.com', port=443): "
+                    "Read timed out. (read timeout=30.0)"
+                )
+            return _FakeResponse({"code": "00000", "data": []})
+
+    client = BitgetClient(
+        session=_Session(),  # type: ignore[arg-type]
+        rate_limit_seconds=0.0,
+        retry_backoff_seconds=0.0,
+        max_retries=2,
+    )
+
+    assert client.fetch_contracts() == []
+    assert calls == 2
+
+
 def test_fetch_history_candles_rejects_a_malformed_data_shape() -> None:
     class _Session:
         def get(self, url, params, timeout):
@@ -522,6 +596,20 @@ def test_candle_merge_rejects_conflicting_duplicate_values() -> None:
 
     with pytest.raises(ValueError, match="conflicting duplicate"):
         _merge_candles(existing, refreshed)
+
+
+def test_candle_merge_accepts_a_decimal_equivalent_float_round_trip() -> None:
+    from scripts.download_bitget_derivatives_data import _merge_candles
+
+    cached = _row("2025-10-10T22:00:00Z")
+    cached[6] = "10168712.597007012"
+    refreshed = list(cached)
+    refreshed[6] = "10168712.597007013"
+
+    merged = _merge_candles(candle_frame([cached]), candle_frame([refreshed]))
+
+    assert len(merged) == 1
+    assert merged.iloc[0]["quote_volume"] == pytest.approx(10168712.597007013)
 
 
 def test_candle_merge_collapses_identical_duplicate_values() -> None:

@@ -114,6 +114,17 @@ def _readiness_commitment_issue(
     return None
 
 
+def _last_completed_utc_day(moment: datetime) -> pd.Timestamp:
+    """Return the newest fully closed UTC day for a finalize call."""
+
+    stamp = pd.Timestamp(moment)
+    if stamp.tzinfo is None:
+        stamp = stamp.tz_localize("UTC")
+    else:
+        stamp = stamp.tz_convert("UTC")
+    return stamp.normalize() - pd.Timedelta(days=1)
+
+
 def execution_required_mark_time(
     manifest: Mapping[str, object],
     *,
@@ -305,13 +316,16 @@ def _finalize_execution(
                     return 0
                 time.sleep(1.0)
         try:
+            moment = now or datetime.now(timezone.utc)
             valid, reason = check_prepare_receipt(
                 receipt_path=receipt_path,
                 manifest_path=manifest_path,
                 max_age_minutes=float(args.max_age_minutes),
                 project_root=project_root,
-                now=now,
+                now=moment,
                 require_current_mark=False,
+                allow_stale_identity=True,
+                require_audit_bytes=False,
             )
             if not valid:
                 print(f"execution finalize refused: {reason}", file=sys.stderr)
@@ -319,6 +333,36 @@ def _finalize_execution(
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             if not isinstance(manifest, dict):
                 raise ValueError("manifest is not a JSON object")
+            expected_signal_day = _last_completed_utc_day(moment)
+            try:
+                signal_day = pd.Timestamp(str(manifest.get("signal_end_date") or ""))
+                index_day = pd.Timestamp(str(manifest.get("index_end_date") or ""))
+            except (TypeError, ValueError):
+                print(
+                    "execution finalize refused: manifest evaluation dates are invalid",
+                    file=sys.stderr,
+                )
+                return 3
+            for label, value in (("signal_end_date", signal_day), ("index_end_date", index_day)):
+                if pd.isna(value):
+                    print(
+                        f"execution finalize refused: manifest {label} is invalid",
+                        file=sys.stderr,
+                    )
+                    return 3
+                normalized = (
+                    value.tz_localize("UTC")
+                    if value.tzinfo is None
+                    else value.tz_convert("UTC")
+                )
+                if normalized.normalize() != expected_signal_day:
+                    print(
+                        "execution finalize refused: manifest "
+                        f"{label}={normalized.date()} is not the latest completed "
+                        f"UTC day {expected_signal_day.date()}",
+                        file=sys.stderr,
+                    )
+                    return 3
             required_mark = execution_required_mark_time(manifest)
             raw_dir = Path(str(manifest.get("raw_dir") or "data/raw/bitget_derivatives/merged_oos_20261112"))
             if not raw_dir.is_absolute():
@@ -417,6 +461,32 @@ def _finalize_execution(
                 "ls104-g175-m090",
             ]
             status = _run_checked(signal_command, project_root=project_root)
+            if status != 0:
+                return status
+            # The old receipt's audit hashes are an identity baseline, not
+            # reusable execution evidence.  Rebuild the venue-symbol and
+            # contract-spec evidence against the final manifest before binding
+            # all four files into the new receipt.
+            venue_command = [
+                sys.executable,
+                str(project_root / "scripts" / "audit_venue_symbols.py"),
+                "--required-leverage",
+                "4.0",
+                "--out",
+                str(project_root / "reports" / "ls45_live_g175_live" / "venue_symbol_audit.json"),
+            ]
+            status = _run_checked(venue_command, project_root=project_root)
+            if status != 0:
+                return status
+            contract_command = [
+                sys.executable,
+                str(project_root / "scripts" / "audit_contract_spec_snapshots.py"),
+                "--json-out",
+                str(project_root / "reports" / "ls45_live_g175" / "contract_spec_snapshots.json"),
+                "--required-leverage",
+                "4.0",
+            ]
+            status = _run_checked(contract_command, project_root=project_root)
             if status != 0:
                 return status
             signal_receipt = project_root / "reports" / "ls45_live_g175" / "signal_receipt.csv"
@@ -647,6 +717,8 @@ def check_prepare_receipt(
     project_root: Path = PROJECT_ROOT,
     now: datetime | None = None,
     require_current_mark: bool = True,
+    allow_stale_identity: bool = False,
+    require_audit_bytes: bool = True,
 ) -> tuple[bool, str]:
     """Return whether a prepare receipt proves the book at ``now``.
 
@@ -655,6 +727,18 @@ def check_prepare_receipt(
     the executor's data audit requires the 00:00 bar after 01:05.  The receipt
     must therefore be rejected even when it is otherwise fresh; the caller must
     run the bounded data refresh rather than reuse a pre-boundary snapshot.
+
+    ``allow_stale_identity`` is reserved for the 01:00 finalize repair.  It
+    permits an old receipt to serve as the *identity baseline* only; every
+    manifest field, the manifest bytes and the READY commitment must still match
+    exactly.  The finalize caller separately proves that the manifest is
+    evaluated through the latest completed UTC day and regenerates every audit
+    before publishing a new receipt.
+
+    ``require_audit_bytes`` stays true for the normal execution path.  The
+    finalize identity phase sets it false only because an earlier audit refresh
+    may have changed the old files; finalize must not reuse those bytes as
+    evidence and always rewrites all four audits before the new receipt.
     """
 
     if not math.isfinite(float(max_age_minutes)) or max_age_minutes < 0.0:
@@ -696,7 +780,7 @@ def check_prepare_receipt(
     age_minutes = (moment - prepared_at.astimezone(timezone.utc)).total_seconds() / 60.0
     if age_minutes < -1.0:
         return False, f"prepare receipt is in the future ({age_minutes:.1f}m)"
-    if age_minutes > float(max_age_minutes):
+    if age_minutes > float(max_age_minutes) and not allow_stale_identity:
         return False, (
             f"prepare receipt is stale ({age_minutes:.1f}m > "
             f"{float(max_age_minutes):g}m)"
@@ -759,11 +843,17 @@ def check_prepare_receipt(
         if extra:
             details.append("unexpected=" + ",".join(extra))
         return False, "prepare receipt audit_files are incomplete: " + "; ".join(details)
-    for name in AUDIT_FILE_NAMES:
-        digest = raw_audit_files[name]
-        path = Path(project_root) / name
-        if not path.is_file() or _sha256(path) != str(digest):
-            return False, f"audit file changed after prepare: {name}"
+    if require_audit_bytes:
+        for name in AUDIT_FILE_NAMES:
+            digest = raw_audit_files[name]
+            path = Path(project_root) / name
+            if not path.is_file() or _sha256(path) != str(digest):
+                return False, f"audit file changed after prepare: {name}"
+    if age_minutes > float(max_age_minutes):
+        return True, (
+            "prepare receipt identity is valid but stale "
+            f"({age_minutes:.1f}m > {float(max_age_minutes):g}m)"
+        )
     return True, f"prepare receipt is valid ({age_minutes:.1f}m old)"
 
 

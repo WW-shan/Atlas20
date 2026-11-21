@@ -3858,3 +3858,34 @@ def test_same_day_retry_replaces_funding_with_the_full_day_recomputation() -> No
     # the earlier same-day snapshot, so it is the full-day amount and replaces
     # the stale row.  Summing would double count the open-position delta.
     assert merged.funding_total == pytest.approx(-0.03)
+
+
+def test_pending_target_event_is_not_silently_downgraded_to_maintain() -> None:
+    """A missed prior event must not become an unbounded maintenance no-op."""
+
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event={"position_status": "ok", "signal_date": "2026-11-13"},
+        target_signal_date="2026-11-20",
+        manifest_signal_end_date="2026-11-21",
+    ) == "pending"
+
+
+def test_same_target_event_is_not_pending_when_data_advances() -> None:
+    """An unchanged book is a normal maintenance day, not a missed event."""
+
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event={"position_status": "ok", "signal_date": "2026-11-20"},
+        target_signal_date="2026-11-20",
+        manifest_signal_end_date="2026-11-21",
+    ) == "maintain"
+
+
+def test_fresh_target_event_remains_fresh_under_the_new_arguments() -> None:
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=True,
+        active_event=None,
+        target_signal_date="2026-11-21",
+        manifest_signal_end_date="2026-11-21",
+    ) == "fresh"

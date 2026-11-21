@@ -286,23 +286,33 @@ receipt_status=0
 .venv/bin/python scripts/refresh_derivatives_data.py \
   --check-receipt --max-age-minutes 30 || receipt_status=$?
 if [ "$receipt_status" -ne 0 ]; then
-  # A receipt made before 01:05 may still be fresh but only covers the 23:00
-  # mark bar; the executor's 01:05 audit requires 00:00.  Fall back to the
-  # bounded refresh rather than reusing a snapshot that will fail closed.
-  # The primary 08:35/08:55 prepare normally publishes Top50 readiness.  If
-  # that job did not run or failed, the execution fallback must rebuild the
-  # executable Top20 before rebuilding the signal.  Otherwise a stale READY
-  # pointer would make every retry before the 09:45 readiness fallback fail,
-  # delaying a brand-new Top20 member past its first live execution slot.
-  /usr/bin/make derivatives-live-data
-  /usr/bin/make top50-readiness ARGS="--wait-seconds 60"
-  /usr/bin/make "$SIGNAL_TARGET"
-  /usr/bin/make audit-data-chain
-  .venv/bin/python scripts/audit_venue_symbols.py \
-    --required-leverage "$LEVERAGE" \
-    --out "$SYMBOL_AUDIT_JSON"
-  /usr/bin/make "$DATA_AUDIT_TARGET"
-  /usr/bin/make "$SIGNAL_AUDIT_TARGET"
+  # A failed prepare can leave an old receipt even though the manifest has
+  # already advanced to the latest completed UTC day.  The 01:00 finalize is
+  # the bounded repair for that exact case: it revalidates the receipt's
+  # identity, fetches only the missing 00:00 mark tail, refreshes the data and
+  # signal audits, and writes a fresh receipt.  Do not jump straight to the
+  # slow full rebuild; that is what delayed the 01:05 fill in the first place.
+  finalize_status=0
+  .venv/bin/python scripts/refresh_derivatives_data.py \
+    --finalize-execution --mark-wait-seconds 120 --mark-poll-seconds 15 \
+    || finalize_status=$?
+  if [ "$finalize_status" -eq 0 ]; then
+    receipt_status=0
+    echo "bounded finalize repaired the prepare receipt before execution"
+  else
+    # The bounded repair is not allowed to guess.  Only now fall back to the
+    # full chain, which rebuilds Top50 readiness before the signal and keeps
+    # every existing fail-closed audit in place.
+    /usr/bin/make derivatives-live-data
+    /usr/bin/make top50-readiness ARGS="--wait-seconds 60"
+    /usr/bin/make "$SIGNAL_TARGET"
+    /usr/bin/make audit-data-chain
+    .venv/bin/python scripts/audit_venue_symbols.py \
+      --required-leverage "$LEVERAGE" \
+      --out "$SYMBOL_AUDIT_JSON"
+    /usr/bin/make "$DATA_AUDIT_TARGET"
+    /usr/bin/make "$SIGNAL_AUDIT_TARGET"
+  fi
 else
   echo "using the fresh prepare receipt; skipping the slow rebuild before execution"
 fi

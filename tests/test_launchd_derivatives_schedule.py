@@ -634,3 +634,21 @@ exit 0
         assert not any(arg.startswith("--prior-track-registry ") for arg in args), (
             f"{Path(shell).name} passed the option and path as one argument"
         )
+
+
+def test_execute_wrapper_attempts_bounded_finalize_before_a_full_rebuild() -> None:
+    """A stale prepare receipt must first try the 01:00 mark-tail repair."""
+
+    script = (PROJECT_ROOT / "ops" / "run_derivatives_daily.sh").read_text(
+        encoding="utf-8"
+    )
+    fallback_start = script.index('if [ "$receipt_status" -ne 0 ]; then')
+    fallback_end = script.index('echo "using the fresh prepare receipt', fallback_start)
+    fallback = script[fallback_start:fallback_end]
+
+    finalize_at = fallback.index("--finalize-execution")
+    full_rebuild_at = fallback.index("/usr/bin/make derivatives-live-data")
+    assert finalize_at < full_rebuild_at
+    assert "--mark-wait-seconds 120" in fallback
+    assert "--mark-poll-seconds 15" in fallback
+    assert 'if [ "$finalize_status" -eq 0 ]' in fallback

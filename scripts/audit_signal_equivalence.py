@@ -280,7 +280,17 @@ def _latest_action_execution_issues(
             continue
 
         target_side = str(row["side"]).lower()
-        if not (matching_trades["side"] == target_side).any():
+        # A CLOSE target is flat, but the replay trade records the position
+        # side that was liquidated (long or short).  The action and timestamp
+        # already bind the exit; requiring the trade side to literally equal
+        # "flat" makes every successful close fail.
+        if action == "close":
+            if not matching_trades["side"].isin({"long", "short"}).all():
+                issues.append(
+                    f"{asset}: latest CLOSE replay side is not a position side"
+                )
+                continue
+        elif not (matching_trades["side"] == target_side).any():
             issues.append(
                 f"{asset}: latest {row['action']} replay side does not match target {target_side}"
             )
