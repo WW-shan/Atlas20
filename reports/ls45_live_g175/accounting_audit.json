@@ -1,19 +1,19 @@
 {
   "checks": [
     {
-      "detail": "59 row(s)",
+      "detail": "60 row(s)",
       "hard": true,
       "name": "daily path has rows",
       "passed": true
     },
     {
-      "detail": "72 row(s)",
+      "detail": "78 row(s)",
       "hard": true,
       "name": "target ledger has rows",
       "passed": true
     },
     {
-      "detail": "2026-09-22 00:00:00+00:00 .. 2026-11-19 00:00:00+00:00",
+      "detail": "2026-09-22 00:00:00+00:00 .. 2026-11-20 00:00:00+00:00",
       "hard": true,
       "name": "daily dates are strictly increasing",
       "passed": true
@@ -31,7 +31,7 @@
       "passed": true
     },
     {
-      "detail": "32 event(s), 72 row(s)",
+      "detail": "33 event(s), 78 row(s)",
       "hard": true,
       "name": "target event weights are finite and unique per asset",
       "passed": true
@@ -67,13 +67,13 @@
       "passed": true
     },
     {
-      "detail": "61 normal trade(s)",
+      "detail": "67 normal trade(s)",
       "hard": true,
       "name": "normal trade fee = notional x 20bps",
       "passed": true
     },
     {
-      "detail": "61 trade(s)",
+      "detail": "67 trade(s)",
       "hard": true,
       "name": "all trade quantities/prices are positive",
       "passed": true
@@ -85,7 +85,7 @@
       "passed": true
     },
     {
-      "detail": "369 settlement(s)",
+      "detail": "384 settlement(s)",
       "hard": true,
       "name": "funding amount = -side x rate x notional",
       "passed": true
@@ -97,7 +97,7 @@
       "passed": true
     },
     {
-      "detail": "59 event(s)",
+      "detail": "61 event(s)",
       "hard": true,
       "name": "margin event equity is unchanged",
       "passed": true
@@ -121,25 +121,25 @@
       "passed": true
     },
     {
-      "detail": "29 snapshot(s)",
+      "detail": "33 snapshot(s)",
       "hard": true,
       "name": "every position snapshot maps to an open/increase fill",
       "passed": true
     },
     {
-      "detail": "29 snapshot(s)",
+      "detail": "33 snapshot(s)",
       "hard": true,
       "name": "position snapshots match the replayed trade ledger",
       "passed": true
     },
     {
-      "detail": "29 snapshot(s)",
+      "detail": "33 snapshot(s)",
       "hard": true,
       "name": "position notional = snapshot quantity x fill price",
       "passed": true
     },
     {
-      "detail": "12 OPEN snapshot(s)",
+      "detail": "14 OPEN snapshot(s)",
       "hard": true,
       "name": "OPEN position entry margin = notional x margin_ratio",
       "passed": true
@@ -151,43 +151,43 @@
       "passed": true
     },
     {
-      "detail": "replay=498.07573942, reported=498.07573942",
+      "detail": "replay=520.71695260, reported=520.71695260",
       "hard": true,
       "name": "independent event replay reconstructs final equity",
       "passed": true
     },
     {
-      "detail": "59 day(s); worst 2026-09-22 23:00:00+00:00: replay=515.34529633, reported=515.34529633",
+      "detail": "60 day(s); worst 2026-09-22 23:00:00+00:00: replay=515.34529633, reported=515.34529633",
       "hard": true,
       "name": "independent daily replay reproduces every reported equity point",
       "passed": true
     },
     {
-      "detail": "59 observations",
+      "detail": "60 observations",
       "hard": true,
       "name": "daily returns reproduce the reported equity path",
       "passed": true
     },
     {
-      "detail": "final nav 0.9961514788",
+      "detail": "final nav 1.0414339052",
       "hard": true,
       "name": "reported nav_multiple is the compounded daily return",
       "passed": true
     },
     {
-      "detail": "summary=0.996151478848, replay=0.996151478848",
+      "detail": "summary=1.04143390521, replay=1.04143390521",
       "hard": true,
       "name": "summary multiple = independent daily-return calculation",
       "passed": true
     },
     {
-      "detail": "summary=-0.0235723081918, replay=-0.0235723081918",
+      "detail": "summary=0.280146239703, replay=0.280146239703",
       "hard": true,
       "name": "summary cagr = independent daily-return calculation",
       "passed": true
     },
     {
-      "detail": "summary=0.226726783661, replay=0.226726783661",
+      "detail": "summary=0.727358002288, replay=0.727358002288",
       "hard": true,
       "name": "summary sharpe = independent daily-return calculation",
       "passed": true
@@ -199,13 +199,13 @@
       "passed": true
     },
     {
-      "detail": "6.7189985400",
+      "detail": "7.2282541000",
       "hard": true,
       "name": "summary fees_total = trade ledger fee sum",
       "passed": true
     },
     {
-      "detail": "-2.0682843501",
+      "detail": "-2.0659181886",
       "hard": true,
       "name": "summary funding_total = funding ledger amount sum",
       "passed": true
@@ -229,7 +229,7 @@
       "passed": true
     },
     {
-      "detail": "days=59, metric_days=59, rows=59",
+      "detail": "days=60, metric_days=60, rows=60",
       "hard": true,
       "name": "summary days/metric_days match the daily path",
       "passed": true
@@ -247,19 +247,19 @@
       "passed": true
     },
     {
-      "detail": "59 day(s)",
+      "detail": "60 day(s)",
       "hard": true,
       "name": "daily gross exposure is the last hourly gross of each day",
       "passed": true
     },
     {
-      "detail": "1418 hour(s); worst 2026-09-22 00:00:00+00:00: replay=0.0000000000, reported=0.0000000000",
+      "detail": "1442 hour(s); worst 2026-09-22 00:00:00+00:00: replay=0.0000000000, reported=0.0000000000",
       "hard": true,
       "name": "independent hourly gross replay reproduces every gross observation",
       "passed": true
     },
     {
-      "detail": "1418 hour(s)",
+      "detail": "1442 hour(s)",
       "hard": true,
       "name": "all hourly gross observations <= 1.7500x",
       "passed": true
@@ -269,5 +269,5 @@
   "output_dir": "reports/ls45_live_g175",
   "passed": true,
   "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
-  "reconstructed_equity": 498.07573942375996
+  "reconstructed_equity": 520.71695260298
 }
