@@ -536,19 +536,26 @@ def _event_plan_mode(
 ) -> str:
     """Choose how a run may use the target book.
 
-    ``fresh`` is the first application of a new event and is sized from the
-    event's weights and current equity.  ``complete`` resumes an event that was
-    persisted as partial and must use its frozen quantities.  ``maintain`` keeps
-    same-side drift and permits only risk-reducing/account-maintenance work.
+    ``fresh`` is the first application of the newest event and is sized from
+    the event's weights and current equity.  ``complete`` resumes an event that
+    was persisted as partial and must use its frozen quantities.  ``execute``
+    applies an older, not-yet-applied target event after a missed or delayed
+    cycle; its quantities are recomputed from the frozen event weights at the
+    current execution mark, because no completed live application exists to
+    anchor a quantity.  ``maintain`` keeps same-side drift and permits only
+    risk-reducing/account-maintenance work.
 
-    ``pending`` is a fail-closed state: the newest frozen event is older than
-    the latest completed data day and has not been applied by this track.  It
-    must never silently fall back to ``maintain``, which would preserve an old
-    book indefinitely after a missed execution.
+    ``pending`` means the target ledger is ahead of the manifest's evaluated
+    data day.  That is a mixed snapshot and must be rebuilt, not traded.  A
+    target event that is merely older than the latest completed data day is
+    *not* pending: normal event-driven carry days, and next-day recovery after a
+    missed event, both legitimately have this shape.
     """
 
     if not isinstance(active_event, dict):
-        if fresh_target_event or bootstrap_track:
+        if bootstrap_track:
+            return "fresh"
+        if fresh_target_event:
             return "fresh"
         target_date = (
             pd.Timestamp(target_signal_date).date()
@@ -560,17 +567,37 @@ def _event_plan_mode(
             if manifest_signal_end_date not in (None, "")
             else None
         )
-        if target_date is not None and manifest_date is not None and target_date < manifest_date:
+        if (
+            target_date is not None
+            and manifest_date is not None
+            and target_date > manifest_date
+        ):
             return "pending"
+        if target_date is not None and manifest_date is not None and target_date < manifest_date:
+            return "execute"
         return "maintain"
     if str(active_event.get("position_status") or "") != "ok":
         return "complete"
-    if target_signal_date not in (None, "") and manifest_signal_end_date not in (None, ""):
-        active_date = pd.Timestamp(str(active_event.get("signal_date") or "")).date()
-        target_date = pd.Timestamp(target_signal_date).date()
-        manifest_date = pd.Timestamp(manifest_signal_end_date).date()
-        if target_date < manifest_date and active_date < target_date:
-            return "pending"
+    target_date = (
+        pd.Timestamp(target_signal_date).date()
+        if target_signal_date not in (None, "")
+        else None
+    )
+    active_date = pd.Timestamp(str(active_event.get("signal_date") or "")).date()
+    manifest_date = (
+        pd.Timestamp(manifest_signal_end_date).date()
+        if manifest_signal_end_date not in (None, "")
+        else None
+    )
+    if target_date is not None and manifest_date is not None and target_date > manifest_date:
+        return "pending"
+    if (
+        target_date is not None
+        and manifest_date is not None
+        and target_date < manifest_date
+        and active_date < target_date
+    ):
+        return "execute"
     return "maintain"
 
 
@@ -2672,6 +2699,13 @@ def _main(args: argparse.Namespace) -> int:
     state = _read_state(args.state_file)
     _require_existing_state_payload(state, args.state_file)
     _require_state_track(state, args.spec)
+    if state and not args.bootstrap_track and not isinstance(
+        state.get("active_event"), dict
+    ):
+        raise SystemExit(
+            "execution state has no active_event; a historical state cannot be "
+            "treated as a delayed target event"
+        )
 
     manifest: dict[str, Any] | None = None
     if args.manifest_file.exists():
@@ -3059,15 +3093,15 @@ def _main(args: argparse.Namespace) -> int:
     )
     if plan_mode == "pending":
         raise SystemExit(
-            "pending target event has not been applied: "
-            f"newest target={pd.Timestamp(signal_date).date()}, "
+            "pending target ledger/manifest snapshot is inconsistent: "
+            f"target={pd.Timestamp(signal_date).date()}, "
             f"active={((plan_active_event or {}).get('signal_date') if isinstance(plan_active_event, dict) else None) or '<none>'}, "
             f"manifest={manifest.get('signal_end_date') if manifest else '<none>'}; "
-            "manual review is required before another maintenance run"
+            "rebuild the frozen signal or review the mixed snapshot before trading"
         )
 
     plan_quantities: dict[str, float] | None = None
-    if isinstance(plan_active_event, dict) and plan_mode != "fresh":
+    if isinstance(plan_active_event, dict) and plan_mode == "complete":
         plan_quantities = _signed_event_target_quantities(
             plan_active_event,
             relevant_symbols,
@@ -3083,7 +3117,7 @@ def _main(args: argparse.Namespace) -> int:
         for asset, weight in targets.items()
         if asset not in stopped_assets
     }
-    rebalance_to_target = plan_mode in {"fresh", "complete"} and not stop_errors
+    rebalance_to_target = plan_mode in {"fresh", "execute", "complete"} and not stop_errors
     plan = build_execution_plan(
         account,
         plan_targets,
@@ -3210,7 +3244,7 @@ def _main(args: argparse.Namespace) -> int:
 
     if isinstance(plan_active_event, dict) and existing_active_event_ok:
         active_event = dict(plan_active_event)
-    elif fresh_target_event or bootstrap_track:
+    elif plan_mode in {"fresh", "execute"} or bootstrap_track:
         active_event = _active_event_record(
             plan,
             targets,
@@ -3305,7 +3339,7 @@ def _main(args: argparse.Namespace) -> int:
         capital_flow=capital_flow,
         run_at=run_at,
         event_age_days=event_age_days,
-        target_rebalance_enabled=args.live and plan_mode == "fresh",
+        target_rebalance_enabled=args.live and plan_mode in {"fresh", "execute"},
         target_status_note=(
             "DRY RUN：以下为按当前计划应达到的目标，未回读为已成交仓位"
             if not args.live
@@ -3313,9 +3347,13 @@ def _main(args: argparse.Namespace) -> int:
                 "按冻结事件数量补齐未完成仓位，不按今日权益重算"
                 if plan_mode == "complete"
                 else (
-                    "今日无新目标事件，不做权重再平衡"
-                    if not fresh_target_event
-                    else "最新目标事件已完整应用，不做旧权重再平衡"
+                    "延迟应用最新目标事件：按当前权益执行冻结权重，不沿用旧 active 数量"
+                    if plan_mode == "execute"
+                    else (
+                        "今日无新目标事件，不做权重再平衡"
+                        if not fresh_target_event
+                        else "最新目标事件已完整应用，不做旧权重再平衡"
+                    )
                 )
             )
         ),

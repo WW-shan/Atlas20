@@ -596,11 +596,12 @@ def _active_event_state_issues(
         return [*issues, "execution state has no active target event"]
     expected_signal = str(pd.Timestamp(signal_date).date())
     event_signal = str(event.get("signal_date") or "")
-    if event_signal != expected_signal:
+    event_is_delayed = bool(event_signal) and event_signal < expected_signal
+    if event_signal != expected_signal and not event_is_delayed:
         issues.append(
             f"active event signal_date {event_signal or '<missing>'} != {expected_signal}"
         )
-    if expected_targets_sha256 is not None:
+    if expected_targets_sha256 is not None and not event_is_delayed:
         stored_hash = str(event.get("targets_sha256") or "")
         if stored_hash != str(expected_targets_sha256):
             issues.append(
@@ -757,6 +758,30 @@ def _latest_report_state_issues(
         issues.append(
             f"latest report spec={payload_spec or '<missing>'}, expected {expected_spec}"
         )
+    # Fatal reports intentionally do not mutate execution state.  A later
+    # completed fallback therefore leaves a newer state timestamp beside an
+    # older error report.  That historical failure must remain visible in the
+    # report file, but it is not evidence that the current state is unverified.
+    payload_status = str(payload.get("status") or "")
+    payload_occurred = payload.get("occurred_at")
+    state_last_run = state.get("last_run_at")
+    if payload_status == "error" and payload_occurred and state_last_run:
+        try:
+            occurred_at = pd.Timestamp(payload_occurred)
+            completed_at = pd.Timestamp(state_last_run)
+            if occurred_at.tzinfo is None:
+                occurred_at = occurred_at.tz_localize("UTC")
+            else:
+                occurred_at = occurred_at.tz_convert("UTC")
+            if completed_at.tzinfo is None:
+                completed_at = completed_at.tz_localize("UTC")
+            else:
+                completed_at = completed_at.tz_convert("UTC")
+        except (TypeError, ValueError):
+            pass
+        else:
+            if completed_at > occurred_at:
+                return issues
     payload_status = str(payload.get("status") or "")
     state_status = str(state.get("last_status") or "")
     if payload_status and state_status and payload_status != state_status:
@@ -1844,6 +1869,35 @@ def main(argv: list[str] | None = None) -> int:
         not active_event_issues,
         "; ".join(active_event_issues) or "active event 与 journal 一致",
     )
+    active_event = state.get("active_event")
+    active_event_signal = (
+        str(active_event.get("signal_date") or "")
+        if isinstance(active_event, Mapping)
+        else ""
+    )
+    active_event_quantities = (
+        effective_event_target_quantities(active_event)
+        if isinstance(active_event, dict)
+        else {}
+    )
+    active_event_weights = (
+        active_event.get("target_weights")
+        if isinstance(active_event, dict)
+        and isinstance(active_event.get("target_weights"), dict)
+        else {}
+    )
+    active_event_prices = (
+        active_event.get("prices")
+        if isinstance(active_event, dict)
+        and isinstance(active_event.get("prices"), dict)
+        else {}
+    )
+    active_event_stopped = (
+        active_event.get("stopped_symbols")
+        if isinstance(active_event, dict)
+        and isinstance(active_event.get("stopped_symbols"), dict)
+        else {}
+    )
 
     # -- trades vs venue order history -----------------------------------
     now_ms = int(checked_at.timestamp() * 1000)
@@ -2074,30 +2128,14 @@ def main(argv: list[str] | None = None) -> int:
         notional_by_asset[asset] = notional_by_asset.get(asset, 0.0) + abs(
             _position_signed_notional(row)
         )
-    event_target_quantities = (
-        effective_event_target_quantities(active_event)
-        if isinstance(active_event, dict)
-        else {}
-    )
-    event_target_weights = (
-        active_event.get("target_weights")
-        if isinstance(active_event, dict)
-        and isinstance(active_event.get("target_weights"), dict)
-        else {}
-    )
-    event_prices = (
-        active_event.get("prices")
-        if isinstance(active_event, dict) and isinstance(active_event.get("prices"), dict)
-        else {}
-    )
     if isinstance(active_event, dict):
         quantity_issues = _event_quantity_issues(
-            target_quantities=event_target_quantities,
-            target_weights=event_target_weights,
+            target_quantities=active_event_quantities,
+            target_weights=active_event_weights,
             symbol_assets=known_symbols,
             positions=positions,
             specs_by_symbol={spec.symbol.upper(): spec for spec in specs.values()},
-            event_prices=event_prices,
+            event_prices=active_event_prices,
             stopped_symbols=stopped_symbols,
         )
     else:
@@ -2224,11 +2262,11 @@ def main(argv: list[str] | None = None) -> int:
         f"最近一次仓位变化 {pd.Timestamp(signal_date).date()}（{event_age_days} 天前；无变化＝继续持有）",
         hard=False,
     )
-    if last is not None:
+    if last is not None and active_event_signal:
         check(
-            "台账信号日 = 冻结账本最新信号日",
-            str(last["signal_date"]) == str(pd.Timestamp(signal_date).date()),
-            f"台账 {last['signal_date']} vs 账本 {pd.Timestamp(signal_date).date()}",
+            "台账信号日 = 已应用的 active target event",
+            str(last["signal_date"]) == active_event_signal,
+            f"台账 {last['signal_date']} vs active {active_event_signal}",
         )
 
     # -- output ----------------------------------------------------------

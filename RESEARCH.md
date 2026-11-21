@@ -7034,7 +7034,10 @@ CMC provider-zero cap 行也继续在 gap audit 中以 `provider_zero_supply` �
    快路径退化为数小时重试。
 2. 若某个 target event 漏执行，次日 manifest 已推进而 active event 仍停在旧日期。
    旧 `_event_plan_mode` 会把这种状态降级成 `maintain`，从而永久保留旧账本。该行为已改为
-   fail-closed 的 `pending`，必须人工复核，不能静默继续维护。
+   `execute`：只要 target row 仍是账本最新事件，就按冻结权重在当前执行价重算数量并应用；
+   `pending` 只保留给 target ledger 领先 manifest 的混合快照，或已确认被更新事件取代的输入。
+   `complete` 只用于 active event 已写入但 `position_status=partial`，`maintain` 只用于
+   active event 已是最新 target event；五种模式不能互相静默降级。
 
 修复保持不放宽任何数据门禁：
 

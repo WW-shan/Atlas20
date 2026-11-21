@@ -776,6 +776,44 @@ def test_live_execution_rejects_an_existing_empty_state_before_loading_targets(
     assert loaded_targets is False
 
 
+def test_live_execution_rejects_nonempty_state_without_active_event_before_network(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A historical state without an active event is corrupt, not a delayed event."""
+
+    state_path = tmp_path / "state.json"
+    key = (
+        "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+        "|2026-11-13|old-target|2026-11-15"
+    )
+    state_path.write_text(
+        json.dumps({"last_key": key, "runs": [{"key": key}], "last_status": "ok"}),
+        encoding="utf-8",
+    )
+    args = execute_live_plan.parse_args(
+        [
+            "--allow-stale-signal",
+            "--spec",
+            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+            "--manifest-file",
+            str(tmp_path / "missing-manifest.json"),
+            "--state-file",
+            str(state_path),
+        ]
+    )
+
+    monkeypatch.setattr(
+        execute_live_plan,
+        "load_latest_targets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("target loading must not start without an active event")
+        ),
+    )
+
+    with pytest.raises(SystemExit, match="active_event"):
+        execute_live_plan._main(args)
+
+
 def test_cross_track_state_is_rejected_before_persisting_any_run_artifact(
     tmp_path: Path,
 ) -> None:
@@ -3083,7 +3121,9 @@ def test_dry_run_does_not_write_live_state_or_journal(tmp_path: Path, monkeypatc
     args = execute_live_plan.parse_args(
         [
             "--allow-late-execution",
-                "--allow-stale-signal",
+            "--allow-stale-signal",
+            "--manifest-file",
+            str(tmp_path / "missing-manifest.json"),
             "--prices-file",
             str(prices),
             "--state-file",
@@ -3229,6 +3269,208 @@ def test_next_day_partial_event_wires_frozen_quantities_into_the_plan(
     assert execute_live_plan._main(args) == 0
     assert seen["kwargs"]["rebalance_to_target"] is True
     assert seen["kwargs"]["target_quantities"] == {"near": -10.0}
+
+
+def test_delayed_latest_event_is_executed_and_replaces_the_old_active_event(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A missed latest event must execute, not remain on the old active book."""
+
+    from atlas20.derivatives.data_audit import DataAuditReport
+    from atlas20.derivatives.execution import AccountState, ContractSpec
+    from atlas20.derivatives.live_chain import (
+        LS45_G125_FROZEN_CONFIG,
+        LS45_G125_MANIFEST_TOP_LEVEL,
+        LS45_G125_SPEC,
+        file_sha256,
+    )
+
+    class _Client:
+        def account_info(self):
+            return {"userId": "account-a"}
+
+        def account_assets(self):
+            return {
+                "usdtEquity": "500",
+                "assets": [{"coin": "USDT", "available": "500", "balance": "500"}],
+            }
+
+        def current_positions(self):
+            return []
+
+        def hold_mode(self):
+            return "hedge_mode"
+
+    targets = tmp_path / "oos_targets.csv"
+    targets.write_text(
+        "signal_date,execution_hint,asset,target_weight,change_weight,action\n"
+        "2026-11-20T00:00:00Z,2026-11-21T01:05:00Z,near,-0.125,-0.125,OPEN\n",
+        encoding="utf-8",
+    )
+    target_identity = file_sha256(targets)
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "tracked_spec": LS45_G125_SPEC,
+                "frozen_config": LS45_G125_FROZEN_CONFIG,
+                **LS45_G125_MANIFEST_TOP_LEVEL,
+                "signal_end_date": "2026-11-21",
+                "index_end_date": "2026-11-21",
+                "last_mark": datetime.now(timezone.utc).isoformat(),
+                "targets_file": targets.name,
+                "targets_sha256": target_identity,
+                "data_fingerprint": "sha256:current",
+                "data_audit_passed": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    state_path = tmp_path / "state.json"
+    old_key = f"{LS45_G125_SPEC}|2026-11-13|old-target|2026-11-15"
+    state_path.write_text(
+        json.dumps(
+            {
+                "account_fingerprint": "account-a",
+                "last_key": old_key,
+                "last_status": "ok",
+                "last_run_mode": "execution",
+                "last_run_at": "2026-11-15T01:10:00+00:00",
+                "runs": [{"key": old_key}],
+                "active_event": {
+                    "track_spec": LS45_G125_SPEC,
+                    "signal_date": "2026-11-13",
+                    "targets_sha256": "old-target",
+                    "target_weights": {"near": -0.1},
+                    "target_quantities": {"NEARUSDT": 10.0},
+                    "position_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    seen: dict[str, object] = {}
+    persisted: dict[str, object] = {}
+
+    real_build_execution_plan = execute_live_plan.build_execution_plan
+
+    def capture_plan(_account, _targets, _specs, _prices, **kwargs):
+        seen.update(kwargs)
+        # Let the real planner build the delayed event at current equity.
+        return real_build_execution_plan(
+            _account,
+            _targets,
+            _specs,
+            _prices,
+            **kwargs,
+        )
+
+    def capture_persist(**kwargs):
+        persisted.update(kwargs)
+
+    monkeypatch.setenv("ATLAS20_BITGET_API_KEY", "test-key")
+    monkeypatch.setenv("ATLAS20_BITGET_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("ATLAS20_BITGET_PASSPHRASE", "test-pass")
+    monkeypatch.setattr(execute_live_plan, "BitgetPrivateClient", lambda _: _Client())
+    monkeypatch.setattr(execute_live_plan, "account_fingerprint", lambda _: "account-a")
+    monkeypatch.setattr(
+        execute_live_plan,
+        "account_state_binding_issue",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "account_state_from_bitget",
+        lambda *_: AccountState(equity=500.0, available_margin=500.0),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "audit_derivatives_data",
+        lambda *_args, **_kwargs: DataAuditReport(
+            passed=True,
+            provenance={"fingerprint": "sha256:current"},
+        ),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "load_symbol_map",
+        lambda _: {"near": "NEARUSDT"},
+    )
+    monkeypatch.setattr(execute_live_plan, "fetch_public_instruments", lambda _: [])
+    monkeypatch.setattr(
+        execute_live_plan,
+        "specs_from_instruments",
+        lambda *_: {"near": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+    )
+    monkeypatch.setattr(execute_live_plan, "missing_contract_specs", lambda *_: [])
+    monkeypatch.setattr(execute_live_plan, "load_journal", lambda _: pd.DataFrame())
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_recover_venue_stop_fills",
+        lambda *_args, **_kwargs: ([], []),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_live_quote_snapshot",
+        lambda *_args, **_kwargs: ({"NEARUSDT": 5.0}, {}, []),
+    )
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_execution_window_error",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(execute_live_plan, "build_execution_plan", capture_plan)
+    monkeypatch.setattr(
+        execute_live_plan,
+        "execute_plan",
+        lambda *_args, **_kwargs: ExecutionReport(
+            signal_date="2026-11-20",
+            equity_before=500.0,
+            equity_after=500.0,
+            available_after=500.0,
+            balance_after=500.0,
+            positions_after=[],
+        ),
+    )
+    monkeypatch.setattr(execute_live_plan, "_event_completion_issues", lambda *_, **__: [])
+    monkeypatch.setattr(
+        execute_live_plan,
+        "_closed_funding_for_report",
+        lambda *_args, **_kwargs: ({}, []),
+    )
+    monkeypatch.setattr(execute_live_plan, "_persist_run_result", capture_persist)
+
+    args = execute_live_plan.parse_args(
+        [
+            "--live",
+            "--require-isolated",
+            "--allow-late-execution",
+            "--allow-stale-signal",
+            "--spec",
+            LS45_G125_SPEC,
+            "--targets-file",
+            str(targets),
+            "--manifest-file",
+            str(manifest),
+            "--state-file",
+            str(state_path),
+            "--journal-file",
+            str(tmp_path / "journal.csv"),
+            "--json-out",
+            str(tmp_path / "latest.json"),
+            "--kill-switch",
+            str(tmp_path / "missing.kill"),
+        ]
+    )
+
+    assert execute_live_plan._main(args) == 0
+    assert seen["rebalance_to_target"] is True
+    assert seen["target_quantities"] is None
+    active_event = persisted["active_event"]
+    assert active_event["signal_date"] == "2026-11-20"
+    assert active_event["targets_sha256"] == target_identity
+    assert active_event["target_quantities"] == {"NEARUSDT": pytest.approx(12.5)}
 
 
 def test_event_plan_mode_uses_frozen_quantities_only_for_a_partial_active_event() -> None:
@@ -3860,15 +4102,15 @@ def test_same_day_retry_replaces_funding_with_the_full_day_recomputation() -> No
     assert merged.funding_total == pytest.approx(-0.03)
 
 
-def test_pending_target_event_is_not_silently_downgraded_to_maintain() -> None:
-    """A missed prior event must not become an unbounded maintenance no-op."""
+def test_delayed_target_event_is_not_silently_downgraded_to_maintain() -> None:
+    """A missed prior event must be applied, never silently maintained."""
 
     assert execute_live_plan._event_plan_mode(
         fresh_target_event=False,
         active_event={"position_status": "ok", "signal_date": "2026-11-13"},
         target_signal_date="2026-11-20",
         manifest_signal_end_date="2026-11-21",
-    ) == "pending"
+    ) == "execute"
 
 
 def test_same_target_event_is_not_pending_when_data_advances() -> None:
@@ -3889,3 +4131,47 @@ def test_fresh_target_event_remains_fresh_under_the_new_arguments() -> None:
         target_signal_date="2026-11-21",
         manifest_signal_end_date="2026-11-21",
     ) == "fresh"
+
+
+def test_unapplied_target_event_is_executed_on_the_next_available_cycle() -> None:
+    """A target event remains actionable until the next target event replaces it.
+
+    The frozen target file is an event ledger, so its latest row can be older
+    than the manifest's latest evaluated day during a normal carry day (or the
+    next day after a missed event).  The active state may be older still.  That
+    is a pending *application*, not an indefinitely pending target: execute the
+    current frozen book before it is superseded.
+    """
+
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event={"position_status": "ok", "signal_date": "2026-11-13"},
+        target_signal_date="2026-11-20",
+        manifest_signal_end_date="2026-11-21",
+    ) == "execute"
+
+
+def test_target_ledger_ahead_of_the_manifest_is_pending() -> None:
+    """Do not apply a target row from a mixed ledger/manifest snapshot."""
+
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event={"position_status": "ok", "signal_date": "2026-11-19"},
+        target_signal_date="2026-11-21",
+        manifest_signal_end_date="2026-11-20",
+    ) == "pending"
+
+
+def test_target_event_execution_is_not_the_same_as_fresh_equity_rebalance() -> None:
+    """A delayed event uses the frozen weights, not the old active quantities."""
+
+    active_event = {
+        "position_status": "ok",
+        "signal_date": "2026-11-13",
+    }
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=False,
+        active_event=active_event,
+        target_signal_date="2026-11-20",
+        manifest_signal_end_date="2026-11-21",
+    ) == "execute"

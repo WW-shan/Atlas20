@@ -74,7 +74,22 @@ LS104 首次运行且 `data/ls45_g175_execution_state.json` 不存在时，wrapp
 继承仓位的累计 `totalFunding` 只写入首行 positions 作为下一日差分基线；bootstrap 首次写入时该行
 `funding_total=0`，不会把迁移前 funding 计入 LS104 收益。同日后续 protect-only 若重写该行，只记录
 bootstrap 之后新发生的 funding 差分。
-一旦 state 文件存在，后续重试只走 `active_event` 的 complete/maintain 路径。
+一旦 state 文件存在，后续重试只围绕 `active_event` 做 complete/maintain；如果冻结账本已有
+尚未应用的最新事件，则先走一次 `execute` 把它应用，再回到 complete/maintain。
+
+执行器按以下五种互斥模式处理冻结事件账本：
+
+- `fresh`：target 最新事件等于 manifest 最新评估日，按当前权益执行该事件；
+- `execute`：target 最新事件早于 manifest 评估日但尚未应用，按该事件的冻结权重和
+  当前执行价重算数量；漏执行后的下一个正常窗口仍必须应用，不能降级为 `maintain`；
+- `complete`：同一事件的 `active_event.position_status=partial`，按冻结数量补齐；
+- `maintain`：active event 已是最新 target 事件，只保留同向漂移并做风险降低维护；
+- `pending`：target ledger 与 manifest 的日期关系不一致（target 领先 manifest），或
+  输入已确认被更新事件取代；拒绝交易并要求重建/复核，不能用手工状态掩盖。
+
+非空 execution state 如果没有 `active_event`，执行器在读取 target 之前就 fail closed；
+历史 state 不能被当成“漏执行事件”重新应用。延迟事件成功应用后必须写入新的
+`signal_date` 和 `targets_sha256`，不能继续沿用旧 active event。
 
 若窗口闸返回 `DONE=4`，wrapper 不刷新数据、不重读新的 alpha 目标，而是先运行：
 

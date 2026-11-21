@@ -451,6 +451,39 @@ def test_latest_report_missing_is_an_explicit_issue(tmp_path: Path) -> None:
     assert issues and "missing" in issues[0]
 
 
+def test_latest_fatal_report_is_not_called_inconsistent_after_a_completed_fallback(
+    tmp_path: Path,
+) -> None:
+    """A later completed retry supersedes an older fatal report for that key."""
+
+    latest = tmp_path / "latest.json"
+    latest.write_text(
+        json.dumps(
+            {
+                "spec": "SPEC",
+                "status": "error",
+                "mode": "execution",
+                "signal_date": "2026-11-20",
+                "occurred_at": "2026-11-21T01:05:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    issues = _latest_report_state_issues(
+        latest,
+        state={
+            "last_status": "ok",
+            "last_run_mode": "protect_only",
+            "last_run_at": "2026-11-21T01:35:00+00:00",
+            "active_event": {"signal_date": "2026-11-20"},
+        },
+        expected_spec="SPEC",
+    )
+
+    assert issues == []
+
+
 def test_position_signed_notional_preserves_hedge_and_one_way_shorts() -> None:
     assert _position_signed_notional(
         {"total": "20", "posSide": "short", "markPrice": "5"}
@@ -1804,6 +1837,29 @@ def test_active_event_state_rejects_an_incomplete_position_application() -> None
 
     assert any("last_status" in issue for issue in issues)
     assert any("position application" in issue for issue in issues)
+
+
+def test_active_event_state_allows_an_unapplied_latest_event_to_remain_visible() -> None:
+    """An audit reports the delayed event, but does not call the state corrupt."""
+
+    state = {
+        "last_status": "ok",
+        "active_event": {
+            "signal_date": "2026-11-13",
+            "targets_sha256": "old-target",
+            "position_status": "ok",
+            "stopped_symbols": {},
+        },
+    }
+
+    issues = _active_event_state_issues(
+        state,
+        signal_date=pd.Timestamp("2026-11-20T00:00:00Z"),
+        journal=_stop_journal(),
+        expected_targets_sha256="new-target",
+    )
+
+    assert issues == []
 
 
 def test_active_event_state_requires_a_stopped_symbols_object() -> None:
