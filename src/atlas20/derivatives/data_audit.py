@@ -114,6 +114,54 @@ def _tree_fingerprint(paths: Iterable[Path], *, root: Path | None = None) -> str
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _funding_publication_data_identity(path: Path) -> str:
+    """Stable identity of funding evidence, excluding observation timestamps.
+
+    ``funding_publication.json`` is both proof and a query log.  A repeated
+    audit may refresh request/observation times without changing the funding
+    rows it proves.  Hashing those timestamps as market data made the
+    manifest's ``data_fingerprint`` move on a read-only re-audit, blocking the
+    executor immediately after a successful finalize.  Keep the funding-file
+    byte hash and rate/settlement identity in provenance, but do not let the
+    observation clock become data identity.
+    """
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "unreadable"
+    if not isinstance(payload, dict):
+        return "not-object"
+    assets = payload.get("assets")
+    if not isinstance(assets, dict):
+        return "missing-assets"
+    stable_assets: dict[str, dict[str, object]] = {}
+    for raw_asset, raw_entry in assets.items():
+        if not isinstance(raw_entry, dict):
+            stable_assets[str(raw_asset)] = {"invalid": True}
+            continue
+        stable_assets[str(raw_asset)] = {
+            key: raw_entry.get(key)
+            for key in (
+                "symbol",
+                "funding_sha256",
+                "funding_last",
+                "funding_rate",
+                "history_last",
+                "current_settlement_time",
+                "current_funding_rate",
+                "api_interval_hours",
+                "contract_interval_hours",
+                "interval_matches_contract",
+                "history_rate_at_current_settlement",
+                "rate_relation",
+                "latest_source",
+            )
+        }
+    encoded = json.dumps(stable_assets, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def _check(
     report: DataAuditReport,
     name: str,
@@ -1154,12 +1202,30 @@ def audit_derivatives_data(
     ]
     provenance_paths = [path for path in files if path.is_file()]
     file_hashes = {str(path.relative_to(raw)) if path.is_relative_to(raw) else str(path): _file_sha256(path) for path in provenance_paths}
+    fingerprint_paths = [
+        path
+        for path in provenance_paths
+        if path.name != "funding_publication.json"
+    ]
+    publication_path = raw / "funding_publication.json"
+    fingerprint_payload = "\n".join(
+        f"{path.relative_to(raw) if path.is_relative_to(raw) else path}\0{_file_sha256(path)}"
+        for path in sorted(fingerprint_paths, key=str)
+    ).encode()
+    if publication_path.is_file():
+        fingerprint_payload += (
+            f"\nfunding_publication.json\0{_funding_publication_data_identity(publication_path)}"
+        ).encode()
     report.provenance = {
         "raw_dir": str(raw),
         "panel_path": str(panel_file),
         "symbol_map_path": str(symbol_file),
         "files": file_hashes,
-        "fingerprint": _tree_fingerprint(provenance_paths, root=raw),
+        "fingerprint": (
+            "sha256:" + hashlib.sha256(fingerprint_payload).hexdigest()
+            if fingerprint_payload
+            else None
+        ),
     }
     if manifest_path is not None and Path(manifest_path).is_file():
         report.provenance["manifest_sha256"] = _file_sha256(Path(manifest_path))

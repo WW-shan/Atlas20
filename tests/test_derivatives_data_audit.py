@@ -230,6 +230,26 @@ def test_funding_csv_bytes_are_part_of_the_provenance_fingerprint(
     assert second.provenance["fingerprint"] != first.provenance["fingerprint"]
 
 
+def test_funding_publication_observation_time_does_not_change_data_fingerprint(
+    tmp_path: Path,
+) -> None:
+    """A read-only audit may refresh observation evidence, not data identity."""
+
+    paths = _fixture(tmp_path)
+    first = _audit(paths)
+    publication_path = paths["raw"] / "funding_publication.json"
+    publication = json.loads(publication_path.read_text(encoding="utf-8"))
+    publication["assets"]["bitcoin"]["verified_at"] = "2026-11-14T02:00:30+00:00"
+    publication["assets"]["bitcoin"]["publication_lag_seconds"] = 12630.0
+    publication_path.write_text(json.dumps(publication), encoding="utf-8")
+
+    second = _audit(paths)
+
+    assert first.passed is True
+    assert second.passed is True
+    assert first.provenance["fingerprint"] == second.provenance["fingerprint"]
+
+
 def test_zero_latest_market_cap_is_invalid_not_treated_as_a_real_value(
     tmp_path: Path,
 ) -> None:
