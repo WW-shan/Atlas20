@@ -4124,6 +4124,17 @@ def test_same_target_event_is_not_pending_when_data_advances() -> None:
     ) == "maintain"
 
 
+def test_latest_target_event_with_an_old_active_event_is_executed() -> None:
+    """A target event on the manifest day must not hide behind maintain."""
+
+    assert execute_live_plan._event_plan_mode(
+        fresh_target_event=True,
+        active_event={"position_status": "ok", "signal_date": "2026-11-13"},
+        target_signal_date="2026-11-20",
+        manifest_signal_end_date="2026-11-20",
+    ) == "execute"
+
+
 def test_fresh_target_event_remains_fresh_under_the_new_arguments() -> None:
     assert execute_live_plan._event_plan_mode(
         fresh_target_event=True,

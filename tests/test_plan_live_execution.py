@@ -160,6 +160,43 @@ def test_active_event_plan_quantities_reject_a_stale_target_book(tmp_path) -> No
         )
 
 
+def test_active_event_plan_quantities_reject_an_old_event_on_a_new_target(
+    tmp_path,
+) -> None:
+    from scripts.plan_live_execution import _active_event_plan_quantities
+
+    key = "SPEC|2026-11-13|old-hash|2026-11-15"
+    state_path = tmp_path / "state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "last_key": key,
+                "last_status": "ok",
+                "runs": [{"key": key}],
+                "active_event": {
+                    "track_spec": "SPEC",
+                    "signal_date": "2026-11-13",
+                    "targets_sha256": "old-hash",
+                    "target_weights": {"near": -0.125},
+                    "target_quantities": {"NEARUSDT": 10.0},
+                    "position_status": "ok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="signal_date"):
+        _active_event_plan_quantities(
+            state_path,
+            spec="SPEC",
+            signal_date=pd.Timestamp("2026-11-20", tz="UTC"),
+            target_identity="new-hash",
+            targets={"near": -0.125},
+            symbols_by_asset={"near": "NEARUSDT"},
+        )
+
+
 def test_active_event_plan_quantities_supports_a_cash_event(tmp_path) -> None:
     from scripts.plan_live_execution import _active_event_plan_quantities
 

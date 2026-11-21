@@ -591,12 +591,7 @@ def _event_plan_mode(
     )
     if target_date is not None and manifest_date is not None and target_date > manifest_date:
         return "pending"
-    if (
-        target_date is not None
-        and manifest_date is not None
-        and target_date < manifest_date
-        and active_date < target_date
-    ):
+    if target_date is not None and active_date < target_date:
         return "execute"
     return "maintain"
 
