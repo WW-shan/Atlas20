@@ -1,0 +1,160 @@
+{
+  "changes": [
+    {
+      "field": "maxLever",
+      "material": false,
+      "reason": "all observed values support required 4x leverage",
+      "symbol": "SANDUSDT",
+      "values": {
+        "bitget_derivatives": "10",
+        "contract_snapshots": "20",
+        "merged_oos_20261009": "20",
+        "merged_oos_20261112": "20",
+        "oos_refresh_20261112": "20"
+      }
+    }
+  ],
+  "compared_fields": [
+    "sizeMultiplier",
+    "minTradeUSDT",
+    "minTradeNum",
+    "fundInterval",
+    "pricePlace",
+    "priceEndStep",
+    "maxLever"
+  ],
+  "evidence_scope": "Point-in-time contract observations. Equality across these snapshots does not by itself prove continuity in intervals for which no contract snapshot exists.",
+  "material_changes": [],
+  "missing_snapshot_symbols": [],
+  "passed": true,
+  "required_leverage": 4.0,
+  "snapshots": [
+    {
+      "label": "bitget_derivatives",
+      "path": "data/raw/bitget_derivatives/contracts.json",
+      "schema": "list",
+      "sha256": "d45a81e690e0a68c885bd1d5aaf439cef0ee8fdb4568b6d35dfb9c3c56f22377",
+      "symbols": 816
+    },
+    {
+      "label": "oos_refresh_20261112",
+      "path": "data/raw/bitget_derivatives/oos_refresh_20261112/contracts.json",
+      "schema": "list",
+      "sha256": "77626db9ccc5a4a1224ed3558d3be48aeb347dff4369d53305f8f44221af7618",
+      "symbols": 885
+    },
+    {
+      "label": "merged_oos_20261009",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261009/contracts.json",
+      "schema": "list",
+      "sha256": "35e61cd7c89a2b71c84e36a4940e51e1dca3463a5634477d663b6bbb6139af56",
+      "symbols": 885
+    },
+    {
+      "label": "merged_oos_20261112",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contracts.json",
+      "schema": "list",
+      "sha256": "edd93200396f72d1ca4c7493cdc9a6e72730e4cc479eb82f7d292687be6db8d8",
+      "symbols": 892
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261116T154210Z_6412e8473ab5.json",
+      "schema": "capture_wrapper",
+      "sha256": "326a6901083915cfc61732a7d7880f413ffdabf12de7318cae3db2c7785d2f5e",
+      "symbols": 886
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261117T130508Z_7e8b29e15d47.json",
+      "schema": "capture_wrapper",
+      "sha256": "62ca83916bfba3615a5ecb7ccf6eb6d0674d6576b2c6f3bf7ebad642980ce386",
+      "symbols": 886
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261117T190508Z_e3582e47cde9.json",
+      "schema": "capture_wrapper",
+      "sha256": "c2aa837de96ce053a354e4831b7e9c64dbf6b1813f7dfde0d60834f0219ead77",
+      "symbols": 886
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261118T130508Z_9f5bb9132649.json",
+      "schema": "capture_wrapper",
+      "sha256": "c71c3671041b7e4cc0cd3bead5343884c70c12ca579c23eddc5f8ac196e57c1d",
+      "symbols": 886
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261118T190506Z_c0aa46754f7a.json",
+      "schema": "capture_wrapper",
+      "sha256": "a935b05193a7324f2afca2b6174559e71c9a37fcdb16ae2dfa28b82ce02c794b",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261119T050507Z_12652a9892a3.json",
+      "schema": "capture_wrapper",
+      "sha256": "0049abbd1c6e18e49a127a86aad0c5bc825d8996510fffaef308137121bc3a8c",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261119T070507Z_aaaa931a7e87.json",
+      "schema": "capture_wrapper",
+      "sha256": "43327373ca9dd78c954b8f3fd769a166822508429981e72425499c716a9de915",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261119T121920Z_95b0f755a0ff.json",
+      "schema": "capture_wrapper",
+      "sha256": "01ad943d689559811690b6e319b6fa1cb5eff18a76caa6369a1aa7540b2ec82f",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261119T190507Z_219b46e16ee1.json",
+      "schema": "capture_wrapper",
+      "sha256": "c90955ef5ee6733f3f1e2cf468214f83644951aeacc0d7ed356e97dce99d9fab",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T050507Z_db5c27f786e5.json",
+      "schema": "capture_wrapper",
+      "sha256": "c4b51e710c2df36f606385f6d4ba08d562b643a844be980115d9b19ddfb8a55c",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T070507Z_e31c6b7e4edb.json",
+      "schema": "capture_wrapper",
+      "sha256": "87b059ca6588f719e9019bc9644c99041b31f6e3d0bdb6f30eb306e87be28334",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T081651Z_bd77de5615ed.json",
+      "schema": "capture_wrapper",
+      "sha256": "061f2574e30ee0f86f4947ce5f508078817359fb15896ba492ba94241abc40b7",
+      "symbols": 890
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T130509Z_8c2b4d6901ef.json",
+      "schema": "capture_wrapper",
+      "sha256": "16e997fc742cfcc4742476c12b0ca946105121ad060ff76ab3080961b7a3c945",
+      "symbols": 892
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T190511Z_6af83a8fbc96.json",
+      "schema": "capture_wrapper",
+      "sha256": "5564fa2d01d99599e6db5d541e528d3ac95ef256a863480ca71a01472a94debd",
+      "symbols": 892
+    }
+  ],
+  "track_symbols": 101
+}

@@ -1,0 +1,19 @@
+{
+  "audit_files": {
+    "reports/ls45_live_g175/contract_spec_snapshots.json": "301b00ccbbdd45fe4548986962910361b4c705f6918ec94d639914aff77a8138",
+    "reports/ls45_live_g175/data_audit.json": "e8b6287d0cf0eca29e74d22424bd84f4c6047430489633b753433e875c2e2490",
+    "reports/ls45_live_g175_live/signal_equivalence.json": "0ea8ac018fa7f8205398464acef1fca6fb5dcd28025b52ca92a88efb1718631a",
+    "reports/ls45_live_g175_live/venue_symbol_audit.json": "b82d6832da9c0cc9bec8f50396c005457bb699cb3019f52faa4723e9f5a4d9b2"
+  },
+  "data_fingerprint": "sha256:d9913acc237269e4db4a2b0da1fd535b65cee4721f11b02bd726d3d669c1ab2a",
+  "execution_price_model": "market_1h_open_floor",
+  "fill_price_source": "bitget_market_1h_open",
+  "last_mark": "2026-11-21 17:00:00+00:00",
+  "manifest_path": "/Users/ww/Project/Atlas20/reports/ls45_live_g175/manifest.json",
+  "manifest_sha256": "7f4e93d7677890e6e937cd9197ef321b2387d3dd23e868b06a2f7cc96bb71a52",
+  "market_fill_fingerprint": "sha256:01446884b2af248219a1cc79251987aa2bbff52d72f74da98da457062b09c89b",
+  "prepared_at": "2026-11-21T18:10:02.804072+00:00",
+  "signal_end_date": "2026-11-20",
+  "targets_sha256": "e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc",
+  "track": "ls104-g175-m090"
+}

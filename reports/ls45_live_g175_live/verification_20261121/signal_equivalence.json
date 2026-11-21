@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-11-21T18:08:18.501070+00:00",
+  "differences": [],
+  "differing_rows": 0,
+  "end_date": "2026-11-20",
+  "events_only_in_frozen": [],
+  "events_only_in_replay": [],
+  "execution_model_issues": [],
+  "expected_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090",
+  "frozen_rows": 78,
+  "latest_action_execution_issues": [],
+  "latest_action_execution_passed": true,
+  "overlapping_rows": 78,
+  "overlapping_signal_days": 33,
+  "passed": true,
+  "replay_rows": 78,
+  "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
+}
