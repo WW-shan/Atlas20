@@ -251,7 +251,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.1inch.last_bar",
       "passed": true
     },
@@ -371,7 +371,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.aave.last_bar",
       "passed": true
     },
@@ -491,7 +491,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.aero.last_bar",
       "passed": true
     },
@@ -611,7 +611,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.algorand.last_bar",
       "passed": true
     },
@@ -731,7 +731,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.apecoin.last_bar",
       "passed": true
     },
@@ -851,7 +851,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.aptos.last_bar",
       "passed": true
     },
@@ -971,7 +971,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.arbitrum.last_bar",
       "passed": true
     },
@@ -1091,7 +1091,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.aster-2.last_bar",
       "passed": true
     },
@@ -1211,7 +1211,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.avalanche-2.last_bar",
       "passed": true
     },
@@ -1331,7 +1331,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.axie-infinity.last_bar",
       "passed": true
     },
@@ -1451,7 +1451,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.basic-attention-token.last_bar",
       "passed": true
     },
@@ -1571,7 +1571,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.binancecoin.last_bar",
       "passed": true
     },
@@ -1691,7 +1691,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.bitcoin.last_bar",
       "passed": true
     },
@@ -1816,7 +1816,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.bitcoin-cash.last_bar",
       "passed": true
     },
@@ -1936,7 +1936,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.bitget-token.last_bar",
       "passed": true
     },
@@ -2056,7 +2056,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.bittensor.last_bar",
       "passed": true
     },
@@ -2176,7 +2176,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.bitway.last_bar",
       "passed": true
     },
@@ -2296,7 +2296,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.blockstack.last_bar",
       "passed": true
     },
@@ -2416,7 +2416,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.canton-network.last_bar",
       "passed": true
     },
@@ -2536,7 +2536,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.cardano.last_bar",
       "passed": true
     },
@@ -2656,7 +2656,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.celestia.last_bar",
       "passed": true
     },
@@ -2776,7 +2776,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.chainlink.last_bar",
       "passed": true
     },
@@ -2896,7 +2896,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.chiliz.last_bar",
       "passed": true
     },
@@ -3016,7 +3016,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.compound-governance-token.last_bar",
       "passed": true
     },
@@ -3136,7 +3136,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.cosmos.last_bar",
       "passed": true
     },
@@ -3256,7 +3256,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.crypto-com-chain.last_bar",
       "passed": true
     },
@@ -3376,7 +3376,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.curve-dao-token.last_bar",
       "passed": true
     },
@@ -3496,7 +3496,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.dash.last_bar",
       "passed": true
     },
@@ -3616,7 +3616,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.decentraland.last_bar",
       "passed": true
     },
@@ -3736,7 +3736,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.dogecoin.last_bar",
       "passed": true
     },
@@ -3856,7 +3856,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.dydx-chain.last_bar",
       "passed": true
     },
@@ -3976,7 +3976,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.elrond-erd-2.last_bar",
       "passed": true
     },
@@ -4096,7 +4096,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.enjincoin.last_bar",
       "passed": true
     },
@@ -4216,7 +4216,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ethena.last_bar",
       "passed": true
     },
@@ -4336,7 +4336,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ether-fi.last_bar",
       "passed": true
     },
@@ -4461,7 +4461,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ethereum.last_bar",
       "passed": true
     },
@@ -4581,7 +4581,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ethereum-classic.last_bar",
       "passed": true
     },
@@ -4701,7 +4701,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ethereum-name-service.last_bar",
       "passed": true
     },
@@ -4821,7 +4821,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.falcon-finance-ff.last_bar",
       "passed": true
     },
@@ -4941,7 +4941,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.fantom.last_bar",
       "passed": true
     },
@@ -5061,7 +5061,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.filecoin.last_bar",
       "passed": true
     },
@@ -5181,7 +5181,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.gala.last_bar",
       "passed": true
     },
@@ -5301,7 +5301,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.havven.last_bar",
       "passed": true
     },
@@ -5421,7 +5421,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.hedera-hashgraph.last_bar",
       "passed": true
     },
@@ -5546,7 +5546,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.hyperliquid.last_bar",
       "passed": true
     },
@@ -5666,7 +5666,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.immutable-x.last_bar",
       "passed": true
     },
@@ -5786,7 +5786,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.injective-protocol.last_bar",
       "passed": true
     },
@@ -5906,7 +5906,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.internet-computer.last_bar",
       "passed": true
     },
@@ -6026,7 +6026,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.jupiter-exchange-solana.last_bar",
       "passed": true
     },
@@ -6146,7 +6146,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.just.last_bar",
       "passed": true
     },
@@ -6266,7 +6266,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.kaspa.last_bar",
       "passed": true
     },
@@ -6386,7 +6386,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.kite-2.last_bar",
       "passed": true
     },
@@ -6506,7 +6506,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.layerzero.last_bar",
       "passed": true
     },
@@ -6626,7 +6626,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.lido-dao.last_bar",
       "passed": true
     },
@@ -6746,7 +6746,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.lighter.last_bar",
       "passed": true
     },
@@ -6866,7 +6866,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.litecoin.last_bar",
       "passed": true
     },
@@ -6986,7 +6986,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.matic-network.last_bar",
       "passed": true
     },
@@ -7106,7 +7106,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.memecore.last_bar",
       "passed": true
     },
@@ -7226,7 +7226,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.midnight-3.last_bar",
       "passed": true
     },
@@ -7346,7 +7346,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.monero.last_bar",
       "passed": true
     },
@@ -7466,7 +7466,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.morpho.last_bar",
       "passed": true
     },
@@ -7591,7 +7591,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.near.last_bar",
       "passed": true
     },
@@ -7711,7 +7711,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.neo.last_bar",
       "passed": true
     },
@@ -7831,7 +7831,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ondo-finance.last_bar",
       "passed": true
     },
@@ -7951,7 +7951,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.optimism.last_bar",
       "passed": true
     },
@@ -8071,7 +8071,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pancakeswap-token.last_bar",
       "passed": true
     },
@@ -8191,7 +8191,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pepe.last_bar",
       "passed": true
     },
@@ -8311,7 +8311,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pi-network.last_bar",
       "passed": true
     },
@@ -8431,7 +8431,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pieverse.last_bar",
       "passed": true
     },
@@ -8551,7 +8551,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.polkadot.last_bar",
       "passed": true
     },
@@ -8671,7 +8671,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.polygon-ecosystem-token.last_bar",
       "passed": true
     },
@@ -8791,7 +8791,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pump-fun.last_bar",
       "passed": true
     },
@@ -8911,7 +8911,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.pyth-network.last_bar",
       "passed": true
     },
@@ -9031,7 +9031,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.quant-network.last_bar",
       "passed": true
     },
@@ -9151,7 +9151,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.raydium.last_bar",
       "passed": true
     },
@@ -9271,7 +9271,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.render-token.last_bar",
       "passed": true
     },
@@ -9391,7 +9391,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.ripple.last_bar",
       "passed": true
     },
@@ -9511,7 +9511,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.sei-network.last_bar",
       "passed": true
     },
@@ -9631,7 +9631,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.shiba-inu.last_bar",
       "passed": true
     },
@@ -9751,7 +9751,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.sky.last_bar",
       "passed": true
     },
@@ -9871,7 +9871,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.solana.last_bar",
       "passed": true
     },
@@ -9991,7 +9991,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.stable-2.last_bar",
       "passed": true
     },
@@ -10111,7 +10111,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.stellar.last_bar",
       "passed": true
     },
@@ -10231,7 +10231,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.stepn.last_bar",
       "passed": true
     },
@@ -10351,7 +10351,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.sui.last_bar",
       "passed": true
     },
@@ -10471,7 +10471,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.sushi.last_bar",
       "passed": true
     },
@@ -10591,7 +10591,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.terra-luna.last_bar",
       "passed": true
     },
@@ -10711,7 +10711,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.terra-luna-2.last_bar",
       "passed": true
     },
@@ -10831,7 +10831,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.tezos.last_bar",
       "passed": true
     },
@@ -10951,7 +10951,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.the-graph.last_bar",
       "passed": true
     },
@@ -11071,7 +11071,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.the-open-network.last_bar",
       "passed": true
     },
@@ -11191,7 +11191,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.the-sandbox.last_bar",
       "passed": true
     },
@@ -11311,7 +11311,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.theta-token.last_bar",
       "passed": true
     },
@@ -11431,7 +11431,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.thorchain.last_bar",
       "passed": true
     },
@@ -11551,7 +11551,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.tron.last_bar",
       "passed": true
     },
@@ -11676,7 +11676,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.uniswap.last_bar",
       "passed": true
     },
@@ -11796,7 +11796,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.vechain.last_bar",
       "passed": true
     },
@@ -11916,7 +11916,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.venice-token.last_bar",
       "passed": true
     },
@@ -12036,7 +12036,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.world-liberty-financial.last_bar",
       "passed": true
     },
@@ -12156,7 +12156,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.worldcoin-wld.last_bar",
       "passed": true
     },
@@ -12281,7 +12281,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.zcash.last_bar",
       "passed": true
     },
@@ -12401,7 +12401,7 @@
       "passed": true
     },
     {
-      "detail": "last mark 2026-11-21 18:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
+      "detail": "last mark 2026-11-21 20:00:00+00:00 is before required 2026-11-21 00:00:00+00:00",
       "name": "marks.zilliqa.last_bar",
       "passed": true
     },
@@ -12616,12 +12616,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.aero.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.aero.manifest_matches",
       "passed": true
     },
@@ -12636,7 +12636,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:07.588000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7208s)",
+      "detail": "verified at 2026-11-21 21:14:59.539000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4500s)",
       "name": "funding.aero.publication_time",
       "passed": true
     },
@@ -12651,12 +12651,12 @@
       "passed": true
     },
     {
-      "detail": "all 561 observed gaps are multiples of 4h",
+      "detail": "all 562 observed gaps are multiples of 4h",
       "name": "funding.aero.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 561 gaps match the declared 4h cadence",
+      "detail": "all 562 gaps match the declared 4h cadence",
       "name": "funding.aero.interval_history",
       "passed": true
     },
@@ -12666,7 +12666,7 @@
       "passed": true
     },
     {
-      "detail": "all 562 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 563 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.aero.settlement_coverage",
       "passed": true
     },
@@ -13041,12 +13041,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.aster-2.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.aster-2.manifest_matches",
       "passed": true
     },
@@ -13061,7 +13061,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:14.552000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7215s)",
+      "detail": "verified at 2026-11-21 21:15:01.655000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4502s)",
       "name": "funding.aster-2.publication_time",
       "passed": true
     },
@@ -13076,12 +13076,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.aster-2.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.aster-2.interval_history",
       "passed": true
     },
@@ -13091,7 +13091,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.aster-2.settlement_coverage",
       "passed": true
     },
@@ -13211,12 +13211,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.axie-infinity.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.axie-infinity.manifest_matches",
       "passed": true
     },
@@ -13231,7 +13231,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:17.469000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7217s)",
+      "detail": "verified at 2026-11-21 21:15:03.604000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4504s)",
       "name": "funding.axie-infinity.publication_time",
       "passed": true
     },
@@ -13246,12 +13246,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.axie-infinity.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.axie-infinity.interval_history",
       "passed": true
     },
@@ -13261,7 +13261,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.axie-infinity.settlement_coverage",
       "passed": true
     },
@@ -13721,12 +13721,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.bittensor.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.bittensor.manifest_matches",
       "passed": true
     },
@@ -13741,12 +13741,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:25.152000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7225s)",
+      "detail": "verified at 2026-11-21 21:15:05.563000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4506s)",
       "name": "funding.bittensor.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 7e-06 matches history/current evidence (match)",
+      "detail": "rate -0.000119 matches history/current evidence (match)",
       "name": "funding.bittensor.publication_rate",
       "passed": true
     },
@@ -13756,12 +13756,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.bittensor.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.bittensor.interval_history",
       "passed": true
     },
@@ -13771,7 +13771,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.bittensor.settlement_coverage",
       "passed": true
     },
@@ -13806,12 +13806,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.bitway.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.bitway.manifest_matches",
       "passed": true
     },
@@ -13826,7 +13826,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:27.320000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7227s)",
+      "detail": "verified at 2026-11-21 21:15:07.493000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4507s)",
       "name": "funding.bitway.publication_time",
       "passed": true
     },
@@ -13841,12 +13841,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.bitway.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.bitway.interval_history",
       "passed": true
     },
@@ -13856,7 +13856,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.bitway.settlement_coverage",
       "passed": true
     },
@@ -13976,12 +13976,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.canton-network.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.canton-network.manifest_matches",
       "passed": true
     },
@@ -13996,12 +13996,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:30.335000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7230s)",
+      "detail": "verified at 2026-11-21 21:15:09.442000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4509s)",
       "name": "funding.canton-network.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -4.1e-05 matches history/current evidence (match)",
+      "detail": "rate -0.000216 matches history/current evidence (match)",
       "name": "funding.canton-network.publication_rate",
       "passed": true
     },
@@ -14011,12 +14011,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.canton-network.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.canton-network.interval_history",
       "passed": true
     },
@@ -14026,7 +14026,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.canton-network.settlement_coverage",
       "passed": true
     },
@@ -14146,12 +14146,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.celestia.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.celestia.manifest_matches",
       "passed": true
     },
@@ -14166,12 +14166,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:33.560000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7234s)",
+      "detail": "verified at 2026-11-21 21:15:11.380000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4511s)",
       "name": "funding.celestia.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 4.4e-05 matches history/current evidence (match)",
+      "detail": "rate -3.5e-05 matches history/current evidence (match)",
       "name": "funding.celestia.publication_rate",
       "passed": true
     },
@@ -14181,12 +14181,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.celestia.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.celestia.interval_history",
       "passed": true
     },
@@ -14196,7 +14196,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.celestia.settlement_coverage",
       "passed": true
     },
@@ -15166,12 +15166,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.enjincoin.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.enjincoin.manifest_matches",
       "passed": true
     },
@@ -15186,7 +15186,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:48.063000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7248s)",
+      "detail": "verified at 2026-11-21 21:15:13.486000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4513s)",
       "name": "funding.enjincoin.publication_time",
       "passed": true
     },
@@ -15201,12 +15201,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.enjincoin.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.enjincoin.interval_history",
       "passed": true
     },
@@ -15216,7 +15216,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.enjincoin.settlement_coverage",
       "passed": true
     },
@@ -15251,12 +15251,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.ethena.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.ethena.manifest_matches",
       "passed": true
     },
@@ -15271,12 +15271,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:49.899000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7250s)",
+      "detail": "verified at 2026-11-21 21:15:15.457000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4515s)",
       "name": "funding.ethena.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 3.3e-05 matches history/current evidence (match)",
+      "detail": "rate -1.3e-05 matches history/current evidence (match)",
       "name": "funding.ethena.publication_rate",
       "passed": true
     },
@@ -15286,12 +15286,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.ethena.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.ethena.interval_history",
       "passed": true
     },
@@ -15301,7 +15301,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.ethena.settlement_coverage",
       "passed": true
     },
@@ -15336,12 +15336,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.ether-fi.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.ether-fi.manifest_matches",
       "passed": true
     },
@@ -15356,7 +15356,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:51.778000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7252s)",
+      "detail": "verified at 2026-11-21 21:15:17.373000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4517s)",
       "name": "funding.ether-fi.publication_time",
       "passed": true
     },
@@ -15371,12 +15371,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.ether-fi.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.ether-fi.interval_history",
       "passed": true
     },
@@ -15386,7 +15386,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.ether-fi.settlement_coverage",
       "passed": true
     },
@@ -15676,12 +15676,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.falcon-finance-ff.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.falcon-finance-ff.manifest_matches",
       "passed": true
     },
@@ -15696,7 +15696,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:57.101000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7257s)",
+      "detail": "verified at 2026-11-21 21:15:19.320000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4519s)",
       "name": "funding.falcon-finance-ff.publication_time",
       "passed": true
     },
@@ -15711,12 +15711,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.falcon-finance-ff.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.falcon-finance-ff.interval_history",
       "passed": true
     },
@@ -15726,7 +15726,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.falcon-finance-ff.settlement_coverage",
       "passed": true
     },
@@ -15761,12 +15761,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.fantom.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.fantom.manifest_matches",
       "passed": true
     },
@@ -15781,7 +15781,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:00:58.931000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7259s)",
+      "detail": "verified at 2026-11-21 21:15:21.198000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4521s)",
       "name": "funding.fantom.publication_time",
       "passed": true
     },
@@ -15796,12 +15796,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.fantom.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.fantom.interval_history",
       "passed": true
     },
@@ -15811,7 +15811,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.fantom.settlement_coverage",
       "passed": true
     },
@@ -16186,12 +16186,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.hyperliquid.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.hyperliquid.manifest_matches",
       "passed": true
     },
@@ -16206,12 +16206,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:05.568000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7266s)",
+      "detail": "verified at 2026-11-21 21:15:23.051000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4523s)",
       "name": "funding.hyperliquid.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -4e-06 matches history/current evidence (match)",
+      "detail": "rate -2.4e-05 matches history/current evidence (match)",
       "name": "funding.hyperliquid.publication_rate",
       "passed": true
     },
@@ -16221,12 +16221,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.hyperliquid.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.hyperliquid.interval_history",
       "passed": true
     },
@@ -16236,7 +16236,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.hyperliquid.settlement_coverage",
       "passed": true
     },
@@ -16271,12 +16271,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.immutable-x.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.immutable-x.manifest_matches",
       "passed": true
     },
@@ -16291,7 +16291,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:07.481000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7267s)",
+      "detail": "verified at 2026-11-21 21:15:24.924000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4525s)",
       "name": "funding.immutable-x.publication_time",
       "passed": true
     },
@@ -16306,12 +16306,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.immutable-x.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.immutable-x.interval_history",
       "passed": true
     },
@@ -16321,7 +16321,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.immutable-x.settlement_coverage",
       "passed": true
     },
@@ -16526,12 +16526,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.jupiter-exchange-solana.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.jupiter-exchange-solana.manifest_matches",
       "passed": true
     },
@@ -16546,12 +16546,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:11.690000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7272s)",
+      "detail": "verified at 2026-11-21 21:15:26.816000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4527s)",
       "name": "funding.jupiter-exchange-solana.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -0.000113 matches history/current evidence (match)",
+      "detail": "rate 2.4e-05 matches history/current evidence (match)",
       "name": "funding.jupiter-exchange-solana.publication_rate",
       "passed": true
     },
@@ -16561,12 +16561,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.jupiter-exchange-solana.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.jupiter-exchange-solana.interval_history",
       "passed": true
     },
@@ -16576,7 +16576,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.jupiter-exchange-solana.settlement_coverage",
       "passed": true
     },
@@ -16611,12 +16611,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.just.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.just.manifest_matches",
       "passed": true
     },
@@ -16631,12 +16631,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:13.620000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7274s)",
+      "detail": "verified at 2026-11-21 21:15:28.664000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4529s)",
       "name": "funding.just.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -7.9e-05 matches history/current evidence (match)",
+      "detail": "rate 5e-05 matches history/current evidence (match)",
       "name": "funding.just.publication_rate",
       "passed": true
     },
@@ -16646,12 +16646,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.just.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.just.interval_history",
       "passed": true
     },
@@ -16661,7 +16661,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.just.settlement_coverage",
       "passed": true
     },
@@ -16696,12 +16696,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.kaspa.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.kaspa.manifest_matches",
       "passed": true
     },
@@ -16716,12 +16716,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:15.740000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7276s)",
+      "detail": "verified at 2026-11-21 21:15:30.570000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4531s)",
       "name": "funding.kaspa.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "detail": "rate 8e-06 matches history/current evidence (match)",
       "name": "funding.kaspa.publication_rate",
       "passed": true
     },
@@ -16731,12 +16731,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.kaspa.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.kaspa.interval_history",
       "passed": true
     },
@@ -16746,7 +16746,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.kaspa.settlement_coverage",
       "passed": true
     },
@@ -16781,12 +16781,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.kite-2.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.kite-2.manifest_matches",
       "passed": true
     },
@@ -16801,7 +16801,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:17.605000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7278s)",
+      "detail": "verified at 2026-11-21 21:15:32.476000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4532s)",
       "name": "funding.kite-2.publication_time",
       "passed": true
     },
@@ -16816,12 +16816,12 @@
       "passed": true
     },
     {
-      "detail": "all 555 observed gaps are multiples of 4h",
+      "detail": "all 556 observed gaps are multiples of 4h",
       "name": "funding.kite-2.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 555 gaps match the declared 4h cadence",
+      "detail": "all 556 gaps match the declared 4h cadence",
       "name": "funding.kite-2.interval_history",
       "passed": true
     },
@@ -16831,7 +16831,7 @@
       "passed": true
     },
     {
-      "detail": "all 556 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 557 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.kite-2.settlement_coverage",
       "passed": true
     },
@@ -16866,12 +16866,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.layerzero.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.layerzero.manifest_matches",
       "passed": true
     },
@@ -16886,12 +16886,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:19.435000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7279s)",
+      "detail": "verified at 2026-11-21 21:15:34.479000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4534s)",
       "name": "funding.layerzero.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 4.9e-05 matches history/current evidence (match)",
+      "detail": "rate 5e-05 matches history/current evidence (match)",
       "name": "funding.layerzero.publication_rate",
       "passed": true
     },
@@ -16901,12 +16901,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.layerzero.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.layerzero.interval_history",
       "passed": true
     },
@@ -16916,7 +16916,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.layerzero.settlement_coverage",
       "passed": true
     },
@@ -17036,12 +17036,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.lighter.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.lighter.manifest_matches",
       "passed": true
     },
@@ -17056,12 +17056,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:22.624000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7283s)",
+      "detail": "verified at 2026-11-21 21:15:36.403000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4536s)",
       "name": "funding.lighter.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -0.000117 matches history/current evidence (match)",
+      "detail": "rate -0.000138 matches history/current evidence (match)",
       "name": "funding.lighter.publication_rate",
       "passed": true
     },
@@ -17071,12 +17071,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.lighter.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.lighter.interval_history",
       "passed": true
     },
@@ -17086,7 +17086,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.lighter.settlement_coverage",
       "passed": true
     },
@@ -17206,12 +17206,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.matic-network.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.matic-network.manifest_matches",
       "passed": true
     },
@@ -17226,7 +17226,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:25.684000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7286s)",
+      "detail": "verified at 2026-11-21 21:15:38.406000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4538s)",
       "name": "funding.matic-network.publication_time",
       "passed": true
     },
@@ -17241,12 +17241,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.matic-network.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.matic-network.interval_history",
       "passed": true
     },
@@ -17256,7 +17256,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.matic-network.settlement_coverage",
       "passed": true
     },
@@ -17291,12 +17291,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.memecore.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.memecore.manifest_matches",
       "passed": true
     },
@@ -17311,7 +17311,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:27.528000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7288s)",
+      "detail": "verified at 2026-11-21 21:15:40.341000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4540s)",
       "name": "funding.memecore.publication_time",
       "passed": true
     },
@@ -17326,12 +17326,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.memecore.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.memecore.interval_history",
       "passed": true
     },
@@ -17341,7 +17341,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.memecore.settlement_coverage",
       "passed": true
     },
@@ -17376,12 +17376,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.midnight-3.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.midnight-3.manifest_matches",
       "passed": true
     },
@@ -17396,12 +17396,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:29.489000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7289s)",
+      "detail": "verified at 2026-11-21 21:15:42.313000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4542s)",
       "name": "funding.midnight-3.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -7.2e-05 matches history/current evidence (match)",
+      "detail": "rate -5.4e-05 matches history/current evidence (match)",
       "name": "funding.midnight-3.publication_rate",
       "passed": true
     },
@@ -17411,12 +17411,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.midnight-3.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.midnight-3.interval_history",
       "passed": true
     },
@@ -17426,7 +17426,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.midnight-3.settlement_coverage",
       "passed": true
     },
@@ -17546,12 +17546,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.morpho.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.morpho.manifest_matches",
       "passed": true
     },
@@ -17566,12 +17566,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:32.538000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7293s)",
+      "detail": "verified at 2026-11-21 21:15:44.245000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4544s)",
       "name": "funding.morpho.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -7.6e-05 matches history/current evidence (match)",
+      "detail": "rate -4.9e-05 matches history/current evidence (match)",
       "name": "funding.morpho.publication_rate",
       "passed": true
     },
@@ -17581,12 +17581,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.morpho.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.morpho.interval_history",
       "passed": true
     },
@@ -17596,7 +17596,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.morpho.settlement_coverage",
       "passed": true
     },
@@ -17801,12 +17801,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.ondo-finance.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.ondo-finance.manifest_matches",
       "passed": true
     },
@@ -17821,12 +17821,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:36.969000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7297s)",
+      "detail": "verified at 2026-11-21 21:15:46.143000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4546s)",
       "name": "funding.ondo-finance.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -7.9e-05 matches history/current evidence (match)",
+      "detail": "rate -1.5e-05 matches history/current evidence (match)",
       "name": "funding.ondo-finance.publication_rate",
       "passed": true
     },
@@ -17836,12 +17836,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.ondo-finance.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.ondo-finance.interval_history",
       "passed": true
     },
@@ -17851,7 +17851,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.ondo-finance.settlement_coverage",
       "passed": true
     },
@@ -17971,12 +17971,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.pancakeswap-token.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.pancakeswap-token.manifest_matches",
       "passed": true
     },
@@ -17991,12 +17991,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:40.015000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7300s)",
+      "detail": "verified at 2026-11-21 21:15:48.072000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4548s)",
       "name": "funding.pancakeswap-token.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 3.7e-05 matches history/current evidence (match)",
+      "detail": "rate 5e-05 matches history/current evidence (match)",
       "name": "funding.pancakeswap-token.publication_rate",
       "passed": true
     },
@@ -18006,12 +18006,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.pancakeswap-token.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.pancakeswap-token.interval_history",
       "passed": true
     },
@@ -18021,7 +18021,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.pancakeswap-token.settlement_coverage",
       "passed": true
     },
@@ -18141,12 +18141,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.pi-network.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.pi-network.manifest_matches",
       "passed": true
     },
@@ -18161,12 +18161,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:43.560000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7304s)",
+      "detail": "verified at 2026-11-21 21:15:49.987000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4550s)",
       "name": "funding.pi-network.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "detail": "rate -3.3e-05 matches history/current evidence (match)",
       "name": "funding.pi-network.publication_rate",
       "passed": true
     },
@@ -18176,12 +18176,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.pi-network.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.pi-network.interval_history",
       "passed": true
     },
@@ -18191,7 +18191,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.pi-network.settlement_coverage",
       "passed": true
     },
@@ -18226,12 +18226,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.pieverse.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.pieverse.manifest_matches",
       "passed": true
     },
@@ -18246,7 +18246,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:45.618000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7306s)",
+      "detail": "verified at 2026-11-21 21:15:51.888000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4552s)",
       "name": "funding.pieverse.publication_time",
       "passed": true
     },
@@ -18261,12 +18261,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.pieverse.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.pieverse.interval_history",
       "passed": true
     },
@@ -18276,7 +18276,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.pieverse.settlement_coverage",
       "passed": true
     },
@@ -18396,12 +18396,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.polygon-ecosystem-token.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.polygon-ecosystem-token.manifest_matches",
       "passed": true
     },
@@ -18416,7 +18416,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:48.948000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7309s)",
+      "detail": "verified at 2026-11-21 21:15:53.807000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4554s)",
       "name": "funding.polygon-ecosystem-token.publication_time",
       "passed": true
     },
@@ -18431,12 +18431,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.polygon-ecosystem-token.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.polygon-ecosystem-token.interval_history",
       "passed": true
     },
@@ -18446,7 +18446,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.polygon-ecosystem-token.settlement_coverage",
       "passed": true
     },
@@ -18481,12 +18481,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.pump-fun.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.pump-fun.manifest_matches",
       "passed": true
     },
@@ -18501,12 +18501,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:50.890000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7311s)",
+      "detail": "verified at 2026-11-21 21:15:55.714000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4556s)",
       "name": "funding.pump-fun.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -0.0001 matches history/current evidence (match)",
+      "detail": "rate -4.8e-05 matches history/current evidence (match)",
       "name": "funding.pump-fun.publication_rate",
       "passed": true
     },
@@ -18516,12 +18516,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.pump-fun.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.pump-fun.interval_history",
       "passed": true
     },
@@ -18531,7 +18531,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.pump-fun.settlement_coverage",
       "passed": true
     },
@@ -18566,12 +18566,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.pyth-network.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.pyth-network.manifest_matches",
       "passed": true
     },
@@ -18586,12 +18586,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:52.892000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7313s)",
+      "detail": "verified at 2026-11-21 21:15:57.591000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4558s)",
       "name": "funding.pyth-network.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -0.000102 matches history/current evidence (match)",
+      "detail": "rate 5e-05 matches history/current evidence (match)",
       "name": "funding.pyth-network.publication_rate",
       "passed": true
     },
@@ -18601,12 +18601,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.pyth-network.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.pyth-network.interval_history",
       "passed": true
     },
@@ -18616,7 +18616,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.pyth-network.settlement_coverage",
       "passed": true
     },
@@ -18736,12 +18736,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.raydium.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.raydium.manifest_matches",
       "passed": true
     },
@@ -18756,12 +18756,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:56.144000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7316s)",
+      "detail": "verified at 2026-11-21 21:15:59.571000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4560s)",
       "name": "funding.raydium.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -1.4e-05 matches history/current evidence (match)",
+      "detail": "rate -0.000221 matches history/current evidence (match)",
       "name": "funding.raydium.publication_rate",
       "passed": true
     },
@@ -18771,12 +18771,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.raydium.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.raydium.interval_history",
       "passed": true
     },
@@ -18786,7 +18786,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.raydium.settlement_coverage",
       "passed": true
     },
@@ -18821,12 +18821,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.render-token.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.render-token.manifest_matches",
       "passed": true
     },
@@ -18841,12 +18841,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:01:58.188000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7318s)",
+      "detail": "verified at 2026-11-21 21:16:01.594000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4562s)",
       "name": "funding.render-token.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -2.5e-05 matches history/current evidence (match)",
+      "detail": "rate -2e-05 matches history/current evidence (match)",
       "name": "funding.render-token.publication_rate",
       "passed": true
     },
@@ -18856,12 +18856,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.render-token.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.render-token.interval_history",
       "passed": true
     },
@@ -18871,7 +18871,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.render-token.settlement_coverage",
       "passed": true
     },
@@ -19161,12 +19161,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.sky.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.sky.manifest_matches",
       "passed": true
     },
@@ -19181,12 +19181,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:04.197000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7324s)",
+      "detail": "verified at 2026-11-21 21:16:03.545000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4564s)",
       "name": "funding.sky.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -1e-05 matches history/current evidence (match)",
+      "detail": "rate -9.1e-05 matches history/current evidence (match)",
       "name": "funding.sky.publication_rate",
       "passed": true
     },
@@ -19196,12 +19196,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.sky.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.sky.interval_history",
       "passed": true
     },
@@ -19211,7 +19211,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.sky.settlement_coverage",
       "passed": true
     },
@@ -19331,12 +19331,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.stable-2.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.stable-2.manifest_matches",
       "passed": true
     },
@@ -19351,7 +19351,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:07.347000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7327s)",
+      "detail": "verified at 2026-11-21 21:16:07.914000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4568s)",
       "name": "funding.stable-2.publication_time",
       "passed": true
     },
@@ -19366,12 +19366,12 @@
       "passed": true
     },
     {
-      "detail": "all 567 observed gaps are multiples of 4h",
+      "detail": "all 568 observed gaps are multiples of 4h",
       "name": "funding.stable-2.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 567 gaps match the declared 4h cadence",
+      "detail": "all 568 gaps match the declared 4h cadence",
       "name": "funding.stable-2.interval_history",
       "passed": true
     },
@@ -19381,7 +19381,7 @@
       "passed": true
     },
     {
-      "detail": "all 568 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 569 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.stable-2.settlement_coverage",
       "passed": true
     },
@@ -19501,12 +19501,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.stepn.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.stepn.manifest_matches",
       "passed": true
     },
@@ -19521,12 +19521,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:10.766000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7331s)",
+      "detail": "verified at 2026-11-21 21:16:09.636000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4570s)",
       "name": "funding.stepn.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -6.1e-05 matches history/current evidence (match)",
+      "detail": "rate -8.4e-05 matches history/current evidence (match)",
       "name": "funding.stepn.publication_rate",
       "passed": true
     },
@@ -19536,12 +19536,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.stepn.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.stepn.interval_history",
       "passed": true
     },
@@ -19551,7 +19551,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.stepn.settlement_coverage",
       "passed": true
     },
@@ -19841,12 +19841,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.terra-luna-2.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.terra-luna-2.manifest_matches",
       "passed": true
     },
@@ -19861,7 +19861,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:16.429000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7336s)",
+      "detail": "verified at 2026-11-21 21:16:11.304000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4571s)",
       "name": "funding.terra-luna-2.publication_time",
       "passed": true
     },
@@ -19876,12 +19876,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.terra-luna-2.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.terra-luna-2.interval_history",
       "passed": true
     },
@@ -19891,7 +19891,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.terra-luna-2.settlement_coverage",
       "passed": true
     },
@@ -19926,12 +19926,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.tezos.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.tezos.manifest_matches",
       "passed": true
     },
@@ -19946,7 +19946,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:18.382000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7338s)",
+      "detail": "verified at 2026-11-21 21:16:12.950000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4573s)",
       "name": "funding.tezos.publication_time",
       "passed": true
     },
@@ -19961,12 +19961,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.tezos.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.tezos.interval_history",
       "passed": true
     },
@@ -19976,7 +19976,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.tezos.settlement_coverage",
       "passed": true
     },
@@ -20096,12 +20096,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.the-open-network.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.the-open-network.manifest_matches",
       "passed": true
     },
@@ -20116,12 +20116,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:21.539000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7342s)",
+      "detail": "verified at 2026-11-21 21:16:14.700000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4575s)",
       "name": "funding.the-open-network.publication_time",
       "passed": true
     },
     {
-      "detail": "rate -5e-05 matches history/current evidence (match)",
+      "detail": "rate -0.000116 matches history/current evidence (match)",
       "name": "funding.the-open-network.publication_rate",
       "passed": true
     },
@@ -20131,12 +20131,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.the-open-network.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.the-open-network.interval_history",
       "passed": true
     },
@@ -20146,7 +20146,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.the-open-network.settlement_coverage",
       "passed": true
     },
@@ -20691,12 +20691,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.venice-token.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.venice-token.manifest_matches",
       "passed": true
     },
@@ -20711,7 +20711,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:30.898000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7351s)",
+      "detail": "verified at 2026-11-21 21:16:16.364000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4576s)",
       "name": "funding.venice-token.publication_time",
       "passed": true
     },
@@ -20726,12 +20726,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.venice-token.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.venice-token.interval_history",
       "passed": true
     },
@@ -20741,7 +20741,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.venice-token.settlement_coverage",
       "passed": true
     },
@@ -20776,12 +20776,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.world-liberty-financial.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.world-liberty-financial.manifest_matches",
       "passed": true
     },
@@ -20796,7 +20796,7 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:32.856000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7353s)",
+      "detail": "verified at 2026-11-21 21:16:18.030000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4578s)",
       "name": "funding.world-liberty-financial.publication_time",
       "passed": true
     },
@@ -20811,12 +20811,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.world-liberty-financial.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.world-liberty-financial.interval_history",
       "passed": true
     },
@@ -20826,7 +20826,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.world-liberty-financial.settlement_coverage",
       "passed": true
     },
@@ -21031,12 +21031,12 @@
       "passed": true
     },
     {
-      "detail": "latest funding timestamp 2026-11-21 16:00:00+00:00 is materially in the future",
+      "detail": "latest funding timestamp 2026-11-21 20:00:00+00:00 is materially in the future",
       "name": "funding.zilliqa.no_future",
       "passed": true
     },
     {
-      "detail": "manifest last='2026-11-21 16:00:00+00:00' actual last=2026-11-21 16:00:00+00:00",
+      "detail": "manifest last='2026-11-21 20:00:00+00:00' actual last=2026-11-21 20:00:00+00:00",
       "name": "funding.zilliqa.manifest_matches",
       "passed": true
     },
@@ -21051,12 +21051,12 @@
       "passed": true
     },
     {
-      "detail": "verified at 2026-11-21 18:02:37.235000+00:00 after settlement 2026-11-21 16:00:00+00:00 (lag 7357s)",
+      "detail": "verified at 2026-11-21 21:16:19.731000+00:00 after settlement 2026-11-21 20:00:00+00:00 (lag 4580s)",
       "name": "funding.zilliqa.publication_time",
       "passed": true
     },
     {
-      "detail": "rate 5e-05 matches history/current evidence (match)",
+      "detail": "rate 2e-06 matches history/current evidence (match)",
       "name": "funding.zilliqa.publication_rate",
       "passed": true
     },
@@ -21066,12 +21066,12 @@
       "passed": true
     },
     {
-      "detail": "all 599 observed gaps are multiples of 4h",
+      "detail": "all 600 observed gaps are multiples of 4h",
       "name": "funding.zilliqa.observed_gap_grid",
       "passed": true
     },
     {
-      "detail": "all 599 gaps match the declared 4h cadence",
+      "detail": "all 600 gaps match the declared 4h cadence",
       "name": "funding.zilliqa.interval_history",
       "passed": true
     },
@@ -21081,7 +21081,7 @@
       "passed": true
     },
     {
-      "detail": "all 600 expected settlements present through 2026-11-21 16:00:00+00:00",
+      "detail": "all 601 expected settlements present through 2026-11-21 20:00:00+00:00",
       "name": "funding.zilliqa.settlement_coverage",
       "passed": true
     },
@@ -21095,131 +21095,131 @@
   "passed": true,
   "provenance": {
     "files": {
-      "candles/1INCHUSDT_mark.csv": "0e350e974a7559e196ab1c2f5634bf3b4eddf85a02f529b3ecec7a5b183e1c6c",
-      "candles/AAVEUSDT_mark.csv": "d4fbc4634a4337e7757849fb72bfe1c58ea080b5aa45fa186f9913163611bb72",
-      "candles/ADAUSDT_mark.csv": "21de020581c997a2b079a9b63a63df27bf6dfb6cfa8b6be4802d6730cbf6b08b",
-      "candles/AEROUSDT_mark.csv": "4c558da1bde580d1cbfddece7ea587c1c69d70a2fc4758e523fa70139b1ac7b9",
-      "candles/ALGOUSDT_mark.csv": "39ad6049f8beac2fa333b8f7dda998829671389db71711a03ed353a5d3129628",
-      "candles/APEUSDT_mark.csv": "2501335213923dc6d9726620a31b4888422d1473cfcbcb3f27c9ededb3524b63",
-      "candles/APTUSDT_mark.csv": "cfb6dc00a9e6b01522124c42e7dbb2a35b436febe745cc3dfddfcab1c871bd46",
-      "candles/ARBUSDT_mark.csv": "e1b93f5fe21183e376799c012f6268ea28c8da5489d0057d861b50967ba96abd",
-      "candles/ASTERUSDT_mark.csv": "29f53ec17823ee61c33a667d578127e5992eac5801dc1c44f6a81e3dbfe154e5",
-      "candles/ATOMUSDT_mark.csv": "91d81ea2b77aff9a7744ad9c6e804bd727862ad6bddb5f7d38f31f15a52a819b",
-      "candles/AVAXUSDT_mark.csv": "2b51839b32679837f49793e75b95091d9732c554f1bbf81948eb0d90a13da110",
-      "candles/AXSUSDT_mark.csv": "dea7be4d51964574d4badaad6380217018485fc406262ceeb353940ab8a5d470",
-      "candles/BATUSDT_mark.csv": "f457c941d41f578cd68f28c366e937585a7f37e6f8250c21661d4f8c1b3f1331",
-      "candles/BCHUSDT_mark.csv": "34ed762d618555f4e94398d903082b5acd34de9b0fb7cbc74125bb2d58ac1dce",
-      "candles/BGBUSDT_mark.csv": "8ab3cb8745c955f6a9601ff5a8d952fbf3248502fc429a2810c28dc5f0ee632e",
-      "candles/BNBUSDT_mark.csv": "b195fc25e783ca2fa625fa1419c0f229db242c217d1a44145f185001814aee7c",
-      "candles/BTCUSDT_mark.csv": "1b35c250b5796cc400578674ae0c08aadb140077685525163439099b69ad601f",
-      "candles/BTWUSDT_mark.csv": "19aeca70cd1d1d7a644afbe03deed50ce23f82331bddbaa7bfdca5e15d80cd1c",
-      "candles/CAKEUSDT_mark.csv": "e9f6b0fb4de42f6dfadf0d29862fe0de0f389558df8d3da888d77333ca079992",
-      "candles/CCUSDT_mark.csv": "ddea08d76c074287ff368a7815458d4ce5de13d2bbe8dd71cfa6b9f69ea0a5b6",
-      "candles/CHZUSDT_mark.csv": "c46a9cf837454c41000bb198e296b0cce6d8a21f7bf30de5d7f42a90379e2cb6",
-      "candles/COMPUSDT_mark.csv": "47b93f898e495253833db9ee9f444faab7d9f313f6e6d4582c8e601fdbbfecb9",
-      "candles/CROUSDT_mark.csv": "964eded5168ae2f2172fd608fc061c0ccf34221038344688f2c797dd13abd6b2",
-      "candles/CRVUSDT_mark.csv": "851180973b6d433ca0eb3d65f4320c68b69548aef7389fa5f54c48a8ccbcc5b3",
-      "candles/DASHUSDT_mark.csv": "87547eae7ccff55c16604cb1560e1899d6a26bf0189f321232644a4e38da5301",
-      "candles/DOGEUSDT_mark.csv": "d0b25d0971a330b85af0b2f13889ffd1fcfcd4bf411373c745cb30687ee70755",
-      "candles/DOTUSDT_mark.csv": "f534df2c2ad822792b1431b18128b6bc13927b7d268451002849dfe9406d05c4",
-      "candles/DYDXUSDT_mark.csv": "1634cf731b41d21979be9060b9c112aeac2b1075f8908edf1e8f94a6de6fa266",
-      "candles/EGLDUSDT_mark.csv": "1be77f8a39f9132172d07d529fab2f29be9ac4a99485552fd84ab585615c7ae2",
-      "candles/ENAUSDT_mark.csv": "4f6dc20512eec312bd81d51a0f292a7c3310df61952e0cf9955192d7a7ab7a9d",
-      "candles/ENJUSDT_mark.csv": "23aa924cbf225554265563231d0847d332ff494c14d9d6f7d7a56395fde183ac",
-      "candles/ENSUSDT_mark.csv": "fd7c076d4621c25585d1d20cd450ca1d3dc771e72e7edda5c387857b46d6ffab",
-      "candles/ETCUSDT_mark.csv": "e549dd1af995f0a049256760115a1ef08edd315e1ae3b08cdbf47f49871bd306",
-      "candles/ETHFIUSDT_mark.csv": "81bb7ccd6e4ca15b530b9cf03a2fe30cb6a39ef3e482d9e419204947c286470f",
-      "candles/ETHUSDT_mark.csv": "c2758b47e92dfb16d5447e2bab736e0ca4d06ff810f05b7fc282925ddd302afc",
-      "candles/FFUSDT_mark.csv": "16c71918e06926b046bee8e066341644f058426883a2b35c0b406c367dc93bb2",
-      "candles/FILUSDT_mark.csv": "5c55a4cc1698e91e85ab2ee2a0f0d5dc75850c88317d3849c01484c9b19da0cd",
-      "candles/GALAUSDT_mark.csv": "d853dd3705f5ad3ea9fb0e3c90b201d97070b968c5141a56f5560aaf71a30a06",
-      "candles/GMTUSDT_mark.csv": "c4b0a20066fa698696605d8fb45c2a62370578522ce903d9be5f8335bc24e9fc",
-      "candles/GRAMUSDT_mark.csv": "e4ac5b801cd0510f62bc0c35ca8f72cc5b0dc13025ab04f5913d819460b19a52",
-      "candles/GRTUSDT_mark.csv": "275ef0d99f4e00bb3c65ab669deda6285e43954692bdb4644f8c018aec73b78c",
-      "candles/HBARUSDT_mark.csv": "9cc0ed8985c207921f1ddd75a655d86bb2d89293e7faa1772a8570d271c43900",
-      "candles/HYPEUSDT_mark.csv": "042f549757b48830192dff44457b50eb810d4891d21d43275e99c54daeff636e",
-      "candles/ICPUSDT_mark.csv": "12a2eb9737b1442927d13fb69f2b4b67b78e540921603b7d3a909a8b9e122ffb",
-      "candles/IMXUSDT_mark.csv": "6f8e1814dedbdf36917345853b7e3dd32f78fb9dd34880ff8b9a0a4af625d917",
-      "candles/INJUSDT_mark.csv": "fdb6edf1ac8e55c66f2370a9473893357b84aed5b0e6c7cdd1fa963b6718ce63",
-      "candles/JSTUSDT_mark.csv": "172c6a0c4ee29f3f3435b315d96065eb2afeb15872810b5dab1f247e6b1c1f9c",
-      "candles/JUPUSDT_mark.csv": "b901218346a36489ed04431a32dfbd4091ab13b8b150c5eb1f0135811e6cf22e",
-      "candles/KASUSDT_mark.csv": "da1a0faa962626e05ef780bcd94425da83ff93f8bee7aa9f8e6bbb2d5ed5099a",
-      "candles/KITEUSDT_mark.csv": "733654c722b7ccebcad88d0141a8eac9bd7e3dcf47782c66380b5cb72d03d0c8",
-      "candles/LDOUSDT_mark.csv": "7f3523796d3c7e40742efebd128bac07c1343d968b43a5919b7db407a0ba0984",
-      "candles/LINKUSDT_mark.csv": "c2209636d620976fbabb4c695731ecf1a0a37ced2031d14b3c5c9cfd7c40884b",
-      "candles/LITUSDT_mark.csv": "cf68d52f98aaa299885f08b3a229e7555944616d5cf4a532e1bca90c75a2511e",
-      "candles/LTCUSDT_mark.csv": "7a017c2976ce6819119d6ad7c1e3c9f82e732ee448cda200e398dfef145e5084",
-      "candles/LUNAUSDT_mark.csv": "d90a30b8eb72d4525fcc5fc52ffdf6828848312beda2a196dc0b9fda028da28e",
-      "candles/LUNCUSDT_mark.csv": "111606c7ee3bb83eeff67a6e7806b894ea96a01b38b384d86ebc83412bbacb80",
-      "candles/MANAUSDT_mark.csv": "f30968e2f55e030650b0ff937abf307d60e9184004265c906f934ed0a10a067a",
-      "candles/MORPHOUSDT_mark.csv": "1fb08ca9aa7b5f5ec8669dc26af82627aeb9a1d16b0f985b590b7da7bf7a7350",
-      "candles/MUSDT_mark.csv": "931527dcc8ecc6263924b8d35f0071d7fba7e2821bbc23981e9c866579414a17",
-      "candles/NEARUSDT_mark.csv": "2bfe4d4a23ea492353e4927a585f348a3ec2d9e4ba34746c59d0990dda04753e",
-      "candles/NEOUSDT_mark.csv": "d561b180da9718bd6694b6fc1393c71b95a628578f57d2684cbcd15e694e744c",
-      "candles/NIGHTUSDT_mark.csv": "648fa42eb647b7a5d3e85d0d1391401f9554322a66c13bc232175889e7afaaa3",
-      "candles/ONDOUSDT_mark.csv": "b915e427cb610f4130a22512cafe961b8475c843728f239c2ffbe3f780cb01b8",
-      "candles/OPUSDT_mark.csv": "258db5a6ac9310a7865a6f8fde76f41ad50751923132ff8dfb9c8a28480df7be",
-      "candles/PEPEUSDT_mark.csv": "4c776027b1911526683fd7d4d51757bd7bcd0b5b4d8ede5b82ef2ea726882b2d",
-      "candles/PIEVERSEUSDT_mark.csv": "2ab45f92298be96a3600c9a41e85f2e614ce0720171114ce17c4ee815d652637",
-      "candles/PIUSDT_mark.csv": "652736829d3fa0dfd6a78b3c27c87de923b562467c9b6d11537c630c11c06b30",
-      "candles/POLUSDT_mark.csv": "7d3679fc988fde50593e552f9050fe935aefe57f5e4525628c684b331603fcf6",
-      "candles/PUMPUSDT_mark.csv": "e0ad02f91cac5345a989991634a4527ec9c270516285c7408151bbf2117f4060",
-      "candles/PYTHUSDT_mark.csv": "1fa1535b8f2e944faaec95a1bb42a06dbe9fa4f408368f7acd1e0885147ed0bb",
-      "candles/QNTUSDT_mark.csv": "7568d3ac9caae07a3e478560e0501140a1c1431a0fcac697e8ec2b9d2969ea22",
-      "candles/RAYUSDT_mark.csv": "694ad951c729678e920b59f1fc30b420d13bc780d90a16c3f7c9a680e3fd84f3",
-      "candles/RENDERUSDT_mark.csv": "873c73e1824c76a7d6e84272697035819ce20f24eb3369b78a3deea71082dfcf",
-      "candles/RUNEUSDT_mark.csv": "e804da92481d873abbe0a0e9e5c23c0894d24ed5c5632845e2c13a0b409d8e7d",
-      "candles/SANDUSDT_mark.csv": "b40a37cc9e99c48b92f0c3506eaf1f401076cb45ebee98882deed2e5a304e3ef",
-      "candles/SEIUSDT_mark.csv": "160cc0f7d2ecdabed2ed49dc78462d817bac35aa9f7f687d7342b9bf28a25982",
-      "candles/SHIBUSDT_mark.csv": "f4f53ff0335372bfd626725bf35effa78f3173e37c5be197cecdc4dd40b7596b",
-      "candles/SKYUSDT_mark.csv": "d1aa8f8618e7711fe6e3e0f52d397248fe60da9860037f2013a5314e75726930",
-      "candles/SNXUSDT_mark.csv": "fccffc52f414e7e6f3f177d25254a3264e99809b1ea4905e83be4fe4fc9393af",
-      "candles/SOLUSDT_mark.csv": "e405be0316d77d657254245d92989e3e3010ab30ad3bf4f2192b393e7ba3380e",
-      "candles/STABLEUSDT_mark.csv": "7293acc909fa8c08c9b5160e9aaa69a14c621aa5884c606fc62a1517a53ff2a8",
-      "candles/STXUSDT_mark.csv": "2d4711dfe83f693a7605b5e0867fc04f2c250fc35ccb77ff61bcd80038fd7a0e",
-      "candles/SUIUSDT_mark.csv": "2228569a6720633696e1b3c1ee78ecd84d59663e115c9ae2c4a03936a27b963b",
-      "candles/SUSDT_mark.csv": "3b1b178fbdcfcd7e64a69fdb33fe8b802196b4aaeada00c2cdcf667e063bfb13",
-      "candles/SUSHIUSDT_mark.csv": "91ca60e25ae73551a06f234d37f0ea616c214a326071e1aa253f2ad46c28365b",
-      "candles/TAOUSDT_mark.csv": "5b5596bb36d5eaa4f23e44c53d0ee7f71028f2049ea4e979f36a2f9624ce6005",
-      "candles/THETAUSDT_mark.csv": "161e04886305e4af0bb866c540f7881bf80dd0e0224243d5ae2e53aee6c860d2",
-      "candles/TIAUSDT_mark.csv": "4d94756d37ad6b31e681381919a62a3d5145081e0b991e39791760cabdf12328",
-      "candles/TRXUSDT_mark.csv": "7d6ba3e23e1d53f71344c35994806b0bfdac84136711b34a2dfa5823fe34c880",
-      "candles/UNIUSDT_mark.csv": "9d0400849af8f7f8d9b86d50775cbd334508b84bd8360c1ad818065269330e54",
-      "candles/VETUSDT_mark.csv": "1b7f9477e60debbb01c53c56feeb64c1a4026889fb12915afd50c52c69619542",
-      "candles/VVVUSDT_mark.csv": "2a6f14bfcc6b601e521439e5fc24bff533d4b90fe6ef95db8181247e56514504",
-      "candles/WLDUSDT_mark.csv": "388944a8b179ded7355818cd144ae870a491423cd146524a617cb0aa99b72385",
-      "candles/WLFIUSDT_mark.csv": "e82dce39d159ab5312c4b223b401705d645e179d592c6152e12d02ff2d1ab6d9",
-      "candles/XLMUSDT_mark.csv": "0d1258f44f575706bda566302a45aac7b288ccbb5695a51b85801dbe65b23dee",
-      "candles/XMRUSDT_mark.csv": "add89c9e4338aeecd736c197ea9693c61740f29000b08b260562490332038077",
-      "candles/XRPUSDT_mark.csv": "2501e3ccb5088d5de4291460cca6db4a2d7e941be660da697684dc3d08089720",
-      "candles/XTZUSDT_mark.csv": "1e55ca5030341f6073416e296a1df92050461e35d75f97ce62fe5c64efd09d9f",
-      "candles/ZECUSDT_mark.csv": "554a7c8a11718e27b1dc3e7f7cb2fe2ede0cc9edd87010140605380e946019e1",
-      "candles/ZILUSDT_mark.csv": "bba7c6798f177cb2c5dfea8ce2165a083831a7bc146cab1e1e1b32ced210c3ab",
-      "candles/ZROUSDT_mark.csv": "fb240ae23c3aa4452c7aa48dbab092c5d3814593501d6dae6edd089148b0bd21",
+      "candles/1INCHUSDT_mark.csv": "97ed3152732585c18fbe40a16afc3562d05b13f2ec99a5d0d6e021471773e30d",
+      "candles/AAVEUSDT_mark.csv": "fd346395269e3d93ad28533476a8a5f23db28c05c9165ab3ed812251926943db",
+      "candles/ADAUSDT_mark.csv": "86c23b6628726e06bd464622354e3e71d0fa79ba76e9047867968751bf94d201",
+      "candles/AEROUSDT_mark.csv": "bf5688b8dcc49e2a57225858754ef0d4f8f68f23401c8cf37660fd8b75bb6f3a",
+      "candles/ALGOUSDT_mark.csv": "5fafac1959bded894d798309600dd70cd5e0a77cb9cab8ec19de97f2598223fb",
+      "candles/APEUSDT_mark.csv": "e22a870f809dacac257989747cc4fcffb6a6d0ba75a1939b652742d4119ea95e",
+      "candles/APTUSDT_mark.csv": "4e203e4fdd71426742a15da50c3efe0f4d0a5738408f22f334fef3bb4432048b",
+      "candles/ARBUSDT_mark.csv": "91d012d8a5d2d9472b7c05cedc51e981e926e98787112053438c06f6d388d5ee",
+      "candles/ASTERUSDT_mark.csv": "7af2b4c30b09be05d7d0969a33df82b24f74e5650f4f4b1ad61aeb505b411932",
+      "candles/ATOMUSDT_mark.csv": "ce86ffef53b29c46548df1a41bcd835013cf9d27f7dccdbec8d639fde3aafaca",
+      "candles/AVAXUSDT_mark.csv": "6d8dbbe34dde597e036a8fcd94324bded108c26dbafce6d96b15ae1c1e690b7a",
+      "candles/AXSUSDT_mark.csv": "f411e9315b565305f9ae35ee32040110005e367412277fd8e4b06c677f5a154c",
+      "candles/BATUSDT_mark.csv": "8c792be15761174cbeee6ede3087a5c231f158c46a2c52e2442285b5d075c00d",
+      "candles/BCHUSDT_mark.csv": "8367f64b31d80b99e8da76b92340ebc2f4ac00b64586cb86e3f9bae6be0d3e84",
+      "candles/BGBUSDT_mark.csv": "f45e4644669f09c8849a12b5435c382af8f030e586f9cbd9b40fcaf594abf206",
+      "candles/BNBUSDT_mark.csv": "2aabe60ce06c1ac021f17bab07e758468366c419e3baff45984c078226ab9423",
+      "candles/BTCUSDT_mark.csv": "c1128950cae9208b91de643a279253be1d23b3fd869fc54a6b2a60d600596e61",
+      "candles/BTWUSDT_mark.csv": "f413183a22e5bb07c917a47c1170d0c2735092c4af889e59f0bea4c85d837f34",
+      "candles/CAKEUSDT_mark.csv": "2ab0b5a53806fbcfd30ca09818fcd4783224336a6af9c512e71609eb0ec89698",
+      "candles/CCUSDT_mark.csv": "e08e087c355a96e4d167dcfd231c5378e5f1cda63fd47d93876a5efbaa1c0fde",
+      "candles/CHZUSDT_mark.csv": "959adb92dd870ab06ef6bfe9d95f02480870d5452da993223fff5433efdcde65",
+      "candles/COMPUSDT_mark.csv": "ee6a90a44961f6501be40127a622eadef80132a60b51f469a8ddac0ece324db4",
+      "candles/CROUSDT_mark.csv": "4c487808f5da23b7b65ed173eb89ffb7fdef3d178794c7d66c6ed01dfe978184",
+      "candles/CRVUSDT_mark.csv": "32a4dd07b2d98ae15b2639f43597ba4d3f7d0b814b0f16b95aebcfc1116c020b",
+      "candles/DASHUSDT_mark.csv": "1a4a700882153afd2cbded1ca512f40efa4c9b12fa6142deb27e4fc24f55432e",
+      "candles/DOGEUSDT_mark.csv": "ad52d8332cbe1df201f338dc001ea7ff95bcd802a16e64dcefdc3ddd0a50afa6",
+      "candles/DOTUSDT_mark.csv": "74b1da3d61112dfd026f204c986800ad846241985e61785f67e9e20933d24c1c",
+      "candles/DYDXUSDT_mark.csv": "2225ded646ac1fa930053f25e69561724f0a68f69f762bc0fe214dc3c54873c5",
+      "candles/EGLDUSDT_mark.csv": "e43b75a2bbd97923c3b6a48549ec1daeaac2be44a9379b989ad6a7a8aba19378",
+      "candles/ENAUSDT_mark.csv": "28f2ff7cac6a86838f88d016e738430bc434128dec0f8e4a3da1156aa6cbb5ab",
+      "candles/ENJUSDT_mark.csv": "a0cae933a462115c65a20054607109b29c345be195bc54907cd3140b2bb9d5ea",
+      "candles/ENSUSDT_mark.csv": "f9fdae91a491bc92ac2ebf37d40e04e7defbafa936a202bb0f00365a193e3d02",
+      "candles/ETCUSDT_mark.csv": "b1a85115a32030a36ef9abff49c59fb483359953b86995c1d0689dcf1b617418",
+      "candles/ETHFIUSDT_mark.csv": "3727903f55d47e8dc92aa3d7acae8d9e9b8ee74f202488d83cbf06de45173a3c",
+      "candles/ETHUSDT_mark.csv": "4f119f7c26f68d28f0e782dd5d65a3235ce9382f2c7b209f72c43d2fe48d8f41",
+      "candles/FFUSDT_mark.csv": "b838020c078217b877f86a6d210c4e7754899cd4e03b1de8a53eefe1318b1249",
+      "candles/FILUSDT_mark.csv": "074f796c611038ff6b9202198230fd58a18977ae0459a0e6f0037e0334f66a99",
+      "candles/GALAUSDT_mark.csv": "31fe7d8f0dce7bfdf8447bba1b1f2f79935bd413063c8d3370572c71f88bdb95",
+      "candles/GMTUSDT_mark.csv": "7e3db65cea8f185f9e7fe0c00d9caa70e543a8641c8635c5eb155a271a50ac64",
+      "candles/GRAMUSDT_mark.csv": "459c22aaffa14088108e464039d032c6d6bbc08abfe18a1b81ec3d39a0460b5b",
+      "candles/GRTUSDT_mark.csv": "019e1ed76107473cfb52361dee0d2d0b944747e8bf45c890df889b522ff58da8",
+      "candles/HBARUSDT_mark.csv": "dd49133970de15d08c0d97214a3614174deca38bf40ce19e56b6f798b48aae8a",
+      "candles/HYPEUSDT_mark.csv": "840e49ca46dfbe409a1d65b1d57c7655e0d2ac3f6eebe104cc9b5b3625b03adc",
+      "candles/ICPUSDT_mark.csv": "2355a401534414de76714d991a4dc99a003f2dd3913034f3cccae29ec32eb06a",
+      "candles/IMXUSDT_mark.csv": "676ff87ed09fb790c1f91aac3bd650b52a7c81d5b2b765f3af5438b292e2f0c5",
+      "candles/INJUSDT_mark.csv": "9e0ef5e4f26cb88df5ceb2066f80c2c08e119d76348d6ce2836ad1990633c546",
+      "candles/JSTUSDT_mark.csv": "cf4abdaa61131e1c932484b2842630ca1d2530732b8e4daa76474917b8de90d5",
+      "candles/JUPUSDT_mark.csv": "581d133d32bd33137b2f3b5cb4ff23c17173b24eed3890ca313acb2d7459d230",
+      "candles/KASUSDT_mark.csv": "089b025d3cf09b33cd300a92611f01cc38f53fad11c0ebe13013e81868d03b80",
+      "candles/KITEUSDT_mark.csv": "501e868166ef163eda2460d6eb08c0f2d659d0a225ade532534e399b5850a8dc",
+      "candles/LDOUSDT_mark.csv": "9a7cf111694a192de69996917e3337cc20fab8e6ff80e5eab3eaea390521942f",
+      "candles/LINKUSDT_mark.csv": "1bb462520e7f6a81e92d69db41c8c94306e833de71cc2beed1c17774ccb035ed",
+      "candles/LITUSDT_mark.csv": "e0ff33c0bd33d656818b1e7787f9d6180fe9460be1a5cd708de79101254cecfc",
+      "candles/LTCUSDT_mark.csv": "75d5cf27cd67d221cca655537a196bfb370a06dc77ba73cd957d82184d382ede",
+      "candles/LUNAUSDT_mark.csv": "de51d43dcfabd2cd2a79a9eff77a2d88b20fe646492675ba843b9715f0cefc24",
+      "candles/LUNCUSDT_mark.csv": "2fe080c932c835c8659b42229491180ec06fe2ea68513580ef91e4cd9487a5f4",
+      "candles/MANAUSDT_mark.csv": "34ebea6a4f969109fcb275e24d950cd4112ffd650245bc83708b17b7520445cd",
+      "candles/MORPHOUSDT_mark.csv": "fcff1f43c95a731b044d7d99125962c310f0429d2b0a7f55a25a8a4f60d39ea4",
+      "candles/MUSDT_mark.csv": "d83719b4845341ff09a069066a5f229e4edae9031fff803715f98c46a295b27f",
+      "candles/NEARUSDT_mark.csv": "8776437ac10f265c007701cb5a9b13109f80341e29cece72543450951d921571",
+      "candles/NEOUSDT_mark.csv": "4cf206077974ea37e90f9a93b8339f5768bb1376f20657cdbfe0ee5d03747781",
+      "candles/NIGHTUSDT_mark.csv": "d6df7529fb5ebea07357b9d6f1fa611515ae20083791180eb161b952173bf21e",
+      "candles/ONDOUSDT_mark.csv": "1390ca751f492e91d710ae15db8046d4dcd10728d53e48b3d94cd4e600eb55a3",
+      "candles/OPUSDT_mark.csv": "0f5c1f5ac55917f7798339a490c252464a4a1babf966abb4171c9b20971ceba9",
+      "candles/PEPEUSDT_mark.csv": "13c8fcf3f2d80019bd8204eaaf0fcb1354f876e73a84d290fe5c5537a36b82ad",
+      "candles/PIEVERSEUSDT_mark.csv": "398d150055fb48e462fd1cee1cee0b2e9cbbee2a9c6aed86af079a365187cb8f",
+      "candles/PIUSDT_mark.csv": "f53bd1b7e64e005c2000532cd37ce170c4aff8085aa5945a635abc7a2a3b5d13",
+      "candles/POLUSDT_mark.csv": "2a2ec73aa05d9bd2997f8b00f7c83b89f8d5252c87c3c9a9fb3f4df9a84cfd2c",
+      "candles/PUMPUSDT_mark.csv": "999302e7de076d27241175cc47a5de185291100e8c03ad0c415107b10ea691af",
+      "candles/PYTHUSDT_mark.csv": "f0a4d0b8d9e0c45372fd569e7a4def645aa985f72320b6fed102d75fe83e2436",
+      "candles/QNTUSDT_mark.csv": "3e833269aa566fdc6bb014750f1c2e730254f3dd88f1cfdaf3a23caca460e366",
+      "candles/RAYUSDT_mark.csv": "07cee8759bf2a4c2cf95b746410b36e9122f90ace2a1b279b6058d510f40f023",
+      "candles/RENDERUSDT_mark.csv": "282fe618be7179cb314ab98077f355946936fd2031ebdd46845acd0018153228",
+      "candles/RUNEUSDT_mark.csv": "3ea3ed6cce556315b1dc9af83359c2ce63044cb110881718c19befaa90bc1aab",
+      "candles/SANDUSDT_mark.csv": "af1728fbb0b5f89eb189f873b57da4bb0a59a5360db5960fa15a558938bc25e0",
+      "candles/SEIUSDT_mark.csv": "b4fc9838c1b7c2e8f695f22f2a0e8299e540419f1b1b6618aee7fec29280e0e2",
+      "candles/SHIBUSDT_mark.csv": "ad15d56b894a498c2aafbc95567b5b5b80267ff4fe7fb6aa03b60d7730f6376a",
+      "candles/SKYUSDT_mark.csv": "eb670a6a9c2a8bc849730ed7ca50787891a5aca8f3bbe978947c92355a3bf3e4",
+      "candles/SNXUSDT_mark.csv": "63530036a97716e70bdde90b3362a12ce2a1b8d5414497017a9aa8e23d1fc077",
+      "candles/SOLUSDT_mark.csv": "ceeef1b5be81a921c0811d6193762ea39ed886e6981b998bcfe32a92fe591321",
+      "candles/STABLEUSDT_mark.csv": "73260a90532bcab280c229b78a7708b74046374003917f778b5952e407b25248",
+      "candles/STXUSDT_mark.csv": "92012853623c73d54e7a06e704cdfb9e756a962359abaab786879b9fb1131572",
+      "candles/SUIUSDT_mark.csv": "3d12cbd220d3a596ee170ec78150440610b1296a137371eaa3c603d77aab843c",
+      "candles/SUSDT_mark.csv": "ac0e00391a784b4288c120a6bf0fcd24578a5c03b7975dec7512cbe35a44b90c",
+      "candles/SUSHIUSDT_mark.csv": "10d55a8cb733712421847a3bcf9056b18d443a975ae9b2e62c19ef0374142569",
+      "candles/TAOUSDT_mark.csv": "d44855c7b32a29308aa28ffe6c5ded58626aa1c84c439162adaefe9de3011fe7",
+      "candles/THETAUSDT_mark.csv": "e5c7c8e48141b0f55df498ebb57746127578ac81bb3a5f7460595cebed1108b5",
+      "candles/TIAUSDT_mark.csv": "d2b4ad02aa533550da088703f57d393462193dc4bec041057b45bd180a486278",
+      "candles/TRXUSDT_mark.csv": "67d8658ea56343b0f89a7b248e551abd26a4edcc48465f991fcdbf7655a8bff3",
+      "candles/UNIUSDT_mark.csv": "1f4164676d13f9a779c620b3418431aaea1e79db98a9f08a7f0a662ec7e91c55",
+      "candles/VETUSDT_mark.csv": "d4a1af11d848f34edc9672ea7c95ee4285b64a5468c203ca7a14608309cca392",
+      "candles/VVVUSDT_mark.csv": "cac351edf9929e567459fad98dcc2ec05eac7a2c460295bf69696101464fc29c",
+      "candles/WLDUSDT_mark.csv": "d224a5cab1912a918cc70cb48e9756606ab94eb3af4e17280d298455e4062a63",
+      "candles/WLFIUSDT_mark.csv": "f47d2a824712c6a4ca5baaf2e20c05d6c131b24758bd3a5c9cb7354ca8a69bf1",
+      "candles/XLMUSDT_mark.csv": "508d649d5802145c1f451ad88cb368a386dd257b4d4daba9593909dc671a2550",
+      "candles/XMRUSDT_mark.csv": "a811d3c8383400ad60f48f2a78738913a869dbab9b627b978b29fab58e5d1bb4",
+      "candles/XRPUSDT_mark.csv": "4415abf098a82b47996681f3bff143e9f410a52c9e7e84ef8fde8746d3747847",
+      "candles/XTZUSDT_mark.csv": "f5530ed2e641ab62a0030a02c3ed33624ce00c68eeaff1ed53c2f257b26328ec",
+      "candles/ZECUSDT_mark.csv": "770ad93e9e4da051214bd047ed6bc687911b46161dcec0348c7851307806ed87",
+      "candles/ZILUSDT_mark.csv": "ad0ffad3ab9c582adb388d9a6c6582253664fc88f2473a3fb6a06e9c4b3a0d21",
+      "candles/ZROUSDT_mark.csv": "bceb6f04cddbac215213743db12482eead753c53c187a65f0167839ca7757851",
       "contracts.json": "edd93200396f72d1ca4c7493cdc9a6e72730e4cc479eb82f7d292687be6db8d8",
-      "coverage.json": "7f120b2c4f40777c6fde6fcc53844eedb40b849ee818a0009ee1b76e65a03904",
+      "coverage.json": "62f7cc9f05a7419abab258be21f0ec31fca24604c6ea4e8458fcc0767580eda7",
       "data/processed/panel_daily.csv": "45e5f67de305eda8cbde0be93e3e0ce12cba09073130f5046c2ffab9d63d9a9f",
       "funding/1inch.csv": "39b8eb80613d32a955b410d4eff953fae0cd9cbb157b1d013d64f38bf8d7fba5",
       "funding/aave.csv": "17e97e61ce2eb9a49e456ef9d837679a92226ff59e7fa3400727fc31fb246f60",
-      "funding/aero.csv": "fef11b64c24f2dbd544857344c5e3abdcc4d0c40f6d6ed7743b2be6c6e1d9cf9",
+      "funding/aero.csv": "14566313dbaf2ecdd200bbc854867c86e42b7bc81ae1bc170f20f39b2079ffff",
       "funding/algorand.csv": "e9ffe617a0fa2fe608168eb0577da7414251bd1e58c56b43854f1b14d6ef0434",
       "funding/apecoin.csv": "4a628c1d56688bacb09a59197df625557b97ce081e3a4a9fb1b485f436dd7c8b",
       "funding/aptos.csv": "8954ccc0d76fef37f00387fd368e532694a49786f95b948bb8ab3b7a903dd980",
       "funding/arbitrum.csv": "abe0f8eae6546a542e06129df11fef8577a386bb65668d3abd538a714de992e5",
-      "funding/aster-2.csv": "a59a005457b92aa1b6b7b38912bec9ee9369c1907e7dae0254ea8ceb8b2b94ae",
+      "funding/aster-2.csv": "301695807c2ddb3b0017106f7839631c826e349bf2cd466fcc9e1da930419d30",
       "funding/avalanche-2.csv": "c37ab19d5073cbc7b0d4ade35970b1212b88255c421cb93d78e520dae8ee2b81",
-      "funding/axie-infinity.csv": "3be1f1f5d88ef08c02a4660a1ccf422ed098e98979f84ab6b2e419474fe7a071",
+      "funding/axie-infinity.csv": "13d3124667ed590ba75f04d31db11d04aece32ef281832c94333a0103db92a48",
       "funding/basic-attention-token.csv": "25452fb049bda79da0312488df31ae97c0c932fb620e4ed7d999508494f2c889",
       "funding/binancecoin.csv": "a36b82151e1a800afb2d6fe18ff83e9d6f7e574bb6b52d090c17ebc577a93f3c",
       "funding/bitcoin-cash.csv": "9fef87092bd56b27715e736b28f9831a133c198f8de6bbe154f75d433434b2f2",
       "funding/bitcoin.csv": "30181bbd9a8e81a0dcdd3bb8c927c81c69abe8e91b75d329d4fbedf133391cd8",
       "funding/bitget-token.csv": "d8acb1f9887b4d9b5062dd865bdd67f4b2b86fee7073ecb2ba2f973e0d07d12a",
-      "funding/bittensor.csv": "ac589ab286146052a404aa95b07bc63fdb59955375f4f4515d2b6818d53688ba",
-      "funding/bitway.csv": "6d0bca6016a8e5ac7a4fe70e9a288439926c53a88a3ceff76283e127c3fdf291",
+      "funding/bittensor.csv": "896e53cfd7d02e55573a026557afa4fe05b144598d51d8485cca7a9ae1a787ee",
+      "funding/bitway.csv": "f0b242afa54e6bfeac9e432fd4abd5f2ab9511b357b87ab4faf831c23185540c",
       "funding/blockstack.csv": "97bb8bb45ddf2e07eaf35a61fdc54b3d3053fab7ef4c7e53a90bd51ead39bff2",
-      "funding/canton-network.csv": "61476e7ecb7e8579e92a4a98863c1ee7d48fe989f316123634d251d3d3b03b9b",
+      "funding/canton-network.csv": "19dd05968651ae3d3cdba890d8561ef4a204a201bcfb955c4cb6ff49612677a1",
       "funding/cardano.csv": "df3d060c5cf85f596146a5e8b2a1b605d57202e320985d5b6c265a82f1a60716",
-      "funding/celestia.csv": "2b786f954cfe4bd0cd8121ff7f604e20d566de401b6940ed0866ca0824c38aa5",
+      "funding/celestia.csv": "035ad335774851b927bbf3821b86e69a1d0612fd4a9adff2c0ef79e28cadfce1",
       "funding/chainlink.csv": "70b2896f7e92ea0077710fb8e5aebf26e1415e815f7b5d721cb29832f82df11b",
       "funding/chiliz.csv": "e19511fe93ff85eb18bc73319269e907d23aabb298b9d4599449371922c86e49",
       "funding/compound-governance-token.csv": "9e138b99cf1eed4964f236869e5511b051219426621eea4401fa22af52c844d8",
@@ -21231,82 +21231,82 @@
       "funding/dogecoin.csv": "379e86c17c682e3a2eabc984a06a652d3ea49d782f59203149c35ec6c2e07157",
       "funding/dydx-chain.csv": "44b624e5c2b537b571a69b0b6c984811d288729742616073ade6a41164fce455",
       "funding/elrond-erd-2.csv": "227b581779d1811d958b02dbe3a431bbcf1f35f6ef8610b3db2e23f0027e0573",
-      "funding/enjincoin.csv": "a0bc6c188afeb25f202478db9ee4d9d43d51580d32cc9fc139438aee9940a75c",
-      "funding/ethena.csv": "33f298e24af197e1b1b79d14e294d78d81bca2aae100bf2f5bf13b6a26de40d0",
-      "funding/ether-fi.csv": "c25487fea42a44db409b8236546b0675d966d44fc3b6a2e7d95979ebf736c9c6",
+      "funding/enjincoin.csv": "d7f0bfa9fbe65e95d747fb26baa33d8617b7eaf84a1fc777b6f7358517864201",
+      "funding/ethena.csv": "5f1223ed8ffb5214873917d896b702ddb875dcda217e8f4c9508649a04720fed",
+      "funding/ether-fi.csv": "3a6556f98ed0f8a941ce10c46fa093ade5672e6a42d4ef920dcdfb6eb4702d31",
       "funding/ethereum-classic.csv": "4b61e8807b6858a4080329363b6fdf38cc4580c5ec55cd7d99d5b862de884d82",
       "funding/ethereum-name-service.csv": "671289112ec287bc575beac93aa256d627acd0121bc5ad558b4b9100a13edf82",
       "funding/ethereum.csv": "484c2e467aa0fe84f35901eb364376f44e05d9d52f3e3ce7f7759174dc85464f",
-      "funding/falcon-finance-ff.csv": "12a81a45949379e8b5c97468d9421b3ae260f3f9765823fd1aef53001a82e893",
-      "funding/fantom.csv": "7652e4374c243d26c93e90a9deb2dae9a6f130164e83cd6624f885c67331818a",
+      "funding/falcon-finance-ff.csv": "b9211eb154d97c806ad2129f5904aedeceaeafd1ffd209f37d4f364e759e1382",
+      "funding/fantom.csv": "cd6b86200e7f83d917a419a98ced36c46f36bdfa782c33743accd26c0fc55bfe",
       "funding/filecoin.csv": "7479b44466aca87213b48d9765dfde722c222c15f8502fe1d584a5acaffd53ae",
       "funding/gala.csv": "d1d0cbbaf3d0e4d554693c5f5b1b40cf4c76dc8103198503dd3ccbba174b9fbf",
       "funding/havven.csv": "1d249cf57a49f087f84e50f5fda0e736840b9d749b45ef816e05a02b078f27ca",
       "funding/hedera-hashgraph.csv": "f8ae24f95a3a42f41a1bb5fae9595a0c09540722d7d8e5bd34c3bb28d5fed951",
-      "funding/hyperliquid.csv": "7aebe3e223b0fad35df35ec448fcf35f209b0d0df441c48cb98fc4a2f549fab9",
-      "funding/immutable-x.csv": "e392ea84e4f3c125aefc2fb37dbe7873e59bcdec3e55b68feece428927549656",
+      "funding/hyperliquid.csv": "1f201ca3e7b89f5c8f362df2ce6afc6223d3f6b8e6027497b0b8b1fd46f2e90b",
+      "funding/immutable-x.csv": "4915a5c1212827233f07a66bca88edeb0723e284c65161f2bf21918f7a5656cd",
       "funding/injective-protocol.csv": "87180b59f03736ee15324a27118b8b2da14596c0b24733cc133903b26bb79944",
       "funding/internet-computer.csv": "35c9845135a76f65e6ffcc8b466a13d869744777c65baff37c4a8221835731c4",
-      "funding/jupiter-exchange-solana.csv": "97588001a46db882e257578392aed229839762dd020e7cd0e6fc7d46b01fdcec",
-      "funding/just.csv": "07a6886ab08a3ee9e539b2cba28caa51c95c257a1839fff4711b794eb87785b9",
-      "funding/kaspa.csv": "51794b1f3774419d9ff31e6fe3daf60f1084a93018fb4acd52d9ad9b25aca795",
-      "funding/kite-2.csv": "d9a80b2a184bdc38c69343827853a7f9d58b7f5a3c1229dc52812c2b25b4d364",
-      "funding/layerzero.csv": "2a764cdd1f8b5ebe1089028c2b65d8352f2792750369c8990a024b2c41e211b9",
+      "funding/jupiter-exchange-solana.csv": "47c54c644fe546753fdd9f9d2621d9d08bb30f42d7472cdc9ae6ccc036505569",
+      "funding/just.csv": "e8cb402a2beb07cdcc41eaf5c9b35c834ce183f52f56791c13293891714f4963",
+      "funding/kaspa.csv": "b6baebce614e2f63c1a52947764005f64168750e75938cec8e609d61f1e735bb",
+      "funding/kite-2.csv": "b45c6c9b9b7d5f57a56bdca9dab8aa2d3440ed77ae048d52e4dd82ff4d26d6f7",
+      "funding/layerzero.csv": "4ba6e8700d85d61e0567dd1cf512673265a876d6394190afbfe8dab5153c1777",
       "funding/lido-dao.csv": "eba786750606af01cddaf3f8f83f5b03b7f5890e0a052f74a929c66ddd61b504",
-      "funding/lighter.csv": "29aeac2c7e5f980cad3a6f9f40ed44c2d4c4ae37c80eafe5ee194691426bcaff",
+      "funding/lighter.csv": "f3b2f8d05fd900f83d55274d7bbba0ab91694c457b6b2e6d0ba1f8cfa2c90e3b",
       "funding/litecoin.csv": "f72787b7471852a1087ad2298fb7c6e6240baa10bf154ce27886e6fce25bfb15",
-      "funding/matic-network.csv": "530f71cfc87db28ccc115887e1f3b1d12bc99d3bcbf05a65c0086bc28917db18",
-      "funding/memecore.csv": "75fde7405b073e55609086db58587e353b18b6b5035e4ed475aae0cd5f3c1de6",
-      "funding/midnight-3.csv": "c5746363247236809cbfe2035c0c2b1eee87db430f145652057655eb0a3d1618",
+      "funding/matic-network.csv": "01943360a3e980b4133c172980343effd9f04cd1ea9d05265c23161c7485d288",
+      "funding/memecore.csv": "c90978c99bccd8cd90f0dbdade3cf46937ccdd86cd4454ae349efabd7ea82775",
+      "funding/midnight-3.csv": "e1623fab7c52b1becd1001a358fae4d82cfc34355c34040847a440d34600fba0",
       "funding/monero.csv": "fb99a97ef68bcdf3607156de22465dba900c95c1f0d84f5e29abdba3bc0368c1",
-      "funding/morpho.csv": "ca9ce834019e4c9b93feb73c7c9cc66ff0aa76eef163dcfe185e0d62442a1608",
+      "funding/morpho.csv": "a3b133c201d12aec8d586a6866a370ab0a1bb2eff03af0f0d47dbc329d20a2ec",
       "funding/near.csv": "d67d970b3ed5b7f2734444fa964b120429041e31a51b8bc7b4709a5c4b7ed02a",
       "funding/neo.csv": "5620f1dc28f3ad7efff39553449b118f5325f9cc5578c0215a02b1126417ee33",
-      "funding/ondo-finance.csv": "63611a85abc94e15d4c3c410836121ea0c8f589db7fc4e6eb215be0814d772a6",
+      "funding/ondo-finance.csv": "7e2dcfe8dde4807cf7d421e7f21c6d7b5f2cf98ff413c8a5ced0cd18b7fac09a",
       "funding/optimism.csv": "d861c2af92bc658b8aca8de45fc3708f306f70c51f5c96d366960c6e6c44ba8e",
-      "funding/pancakeswap-token.csv": "817895129ecc2fd24afd327c858e60c6988dbfc371e766ad2cd2981724277e58",
+      "funding/pancakeswap-token.csv": "c993f89cd353b4d188a9158e59441a53050f5aec48913c4e782dd42fa78559b6",
       "funding/pepe.csv": "762d77c9d88bc0606f45a7dc5709e8cc93e5b060289a7763b0de7eda52b11234",
-      "funding/pi-network.csv": "a727aad18692f3fbe7186b4c50566b7eaabea9f7e0fd350ea4894dc370339cd3",
-      "funding/pieverse.csv": "e9a04ffb93926fe49c9a56dcace1a3a7755d9057b9f37a4675c76a4b224373e8",
+      "funding/pi-network.csv": "0a97e213485f94574ecefe60e3b8a7192ba720d449a2ceae8907ee4f9f29c333",
+      "funding/pieverse.csv": "b76d68f8837efe23da13261926692b551117e8055881d362832c0b897a8113e6",
       "funding/polkadot.csv": "7fd86b1ee2cb0664af4deef3b01bba70889a5afdbd29d34dd585a11d4e1b57ff",
-      "funding/polygon-ecosystem-token.csv": "530f71cfc87db28ccc115887e1f3b1d12bc99d3bcbf05a65c0086bc28917db18",
-      "funding/pump-fun.csv": "aced6f566fb0966b99e41f61b56bcfa049ed5b6cd2cd70a2afc451aa48387cfa",
-      "funding/pyth-network.csv": "26d94f1e98d9c632bdbc5c5e1764e2b26e2092a53e373491f2318a55e75f16a7",
+      "funding/polygon-ecosystem-token.csv": "01943360a3e980b4133c172980343effd9f04cd1ea9d05265c23161c7485d288",
+      "funding/pump-fun.csv": "9f3b856a9e8e79ab128b91145239d8af9ce0a617787a74a0efd40f147fb0cb5d",
+      "funding/pyth-network.csv": "81981ad4e95eb4c4af82dadebd085763016d8046d21ef5e29761032692f1c82d",
       "funding/quant-network.csv": "a383254499359e01d084c0b58908d83b9ca8e896fc59fbf7e4e30e2e54320c00",
-      "funding/raydium.csv": "a6068e48956a1dcf524163a4fe85aed44984dd50683ec924eefebfc1b5f87c63",
-      "funding/render-token.csv": "88bcb47b0dbe3127008bfbf39af966efd9629229b8447522396701a344dd7bce",
+      "funding/raydium.csv": "d10949b46f7ec0a94302a44b19fa38bf82621f6ed1a16396560a095f5a1e0ef9",
+      "funding/render-token.csv": "8f4df3a4ab7bd407b2a6df39caeb85d9eb2a849a021597de1de5c383fc5059ab",
       "funding/ripple.csv": "3cefc91fa0d3c1b4ae9061205b02fb508ba9a1eb869bbac4ef7f8b6387009d2c",
       "funding/sei-network.csv": "ae0d28d8c7e6e27afd5f35c79fdba1c9a6ac9201a2360f7159192614a38ee6ee",
       "funding/shiba-inu.csv": "b9fc1fbce73c84ddb09a7a2d48dabeda2a540e2e055b8b17ead04afbe9747671",
-      "funding/sky.csv": "dced4325a21a00e89bda91b72960900091363c785f19f0848e0e2351b50acda0",
+      "funding/sky.csv": "dbab392242780c10d1bc14c589e7e91dac982be9cfd3139b29025f5f9a65ecab",
       "funding/solana.csv": "2caa12360247a4aac78978308e5304831acbb3b83c23a27e7f9018912e29e5c0",
-      "funding/stable-2.csv": "075738bbc3c429d2a4e175abb5b7e97b0f7fa6029d1a52a63d3ff4f23793175a",
+      "funding/stable-2.csv": "d590dbe0970a3d2f39c1e9eeef258bc6a4d59182701ab3eaa80838088b4a4fb7",
       "funding/stellar.csv": "b1f408e5207e44a7e9da988eea70b41143b1dd1f30f80baa3b3755c3bd75a776",
-      "funding/stepn.csv": "8452b3d611cb14f4b6a9a14e9de6b7c4fba92c28ed19955e9cb75f56a8c75a30",
+      "funding/stepn.csv": "46b778e4b926e77cd184015056de9644be301aa0999cfa77182a916a345cc1b8",
       "funding/sui.csv": "3eb5c3ced44b1a99e4129476d0461a4a0dfb264e65a50eecb95187f0722fdc30",
       "funding/sushi.csv": "3d21ddc210e5918b5f4e426d840c8ad114d7e69fcb6321b7f5890de746941959",
-      "funding/terra-luna-2.csv": "3a577630c34c71969f05caf33057cd8c32380b97b4d6ee4942e9ad9cd63e280a",
+      "funding/terra-luna-2.csv": "7902f893b3059e42447cff09c5decbc83907a42fa1dd8114b1041229e98e93b9",
       "funding/terra-luna.csv": "596a869e75769b9a5143de7acd950f9598ee5290fdb5706c8bb03159ddd52cbe",
-      "funding/tezos.csv": "21dfc9c450220e28bd41dd78c8dd7d5dc9dcb3b89a882d0f524437b08f171d94",
+      "funding/tezos.csv": "2fdebf2f59833b4312d95cb1b3bdfea4971989212aaf5237c2cbf75e03a54166",
       "funding/the-graph.csv": "7e4aabe0234f8bb040bcd72c0d644e96f1273aecfbb4a3664109327529b964bc",
-      "funding/the-open-network.csv": "5372c373ff08151f9a91dbc3b3f3a34b02e910582fb3ca9ecb3f0fef0e45bd4d",
+      "funding/the-open-network.csv": "e9ff660b56396b01576199718a5b3247dda90f5b4c31abf92d44b9065a920a15",
       "funding/the-sandbox.csv": "08d09451a310efa1343586365d068dbd9bec14b43b73244135ae4f6ccdd484b8",
       "funding/theta-token.csv": "10da333fce4155faa9da0af26d8d0c8fccbecc1ed0f4f1ea8cc69acd5379d401",
       "funding/thorchain.csv": "9734d5539f0dadedf4af3856d2950e13419328870be6cf84254c4c79a342d3b1",
       "funding/tron.csv": "49c262a961bde5ea5d0300911043f566089c510f49bf7a1eb62eb8e222509a85",
       "funding/uniswap.csv": "64c72ea7ed5901b4bcade89337c5e4b6f0693e57b002cc476fe2562196b60ae1",
       "funding/vechain.csv": "8e05bf7e4f218a914e027d79ace2b2f415972542320f3e357c2d839534a46cda",
-      "funding/venice-token.csv": "87e9db109761123314a1dcd1daa678904ec0471ebb8f8087e5c7ff02e25ea8e2",
-      "funding/world-liberty-financial.csv": "511068ab30b70da94982d725b4089669fee0614d984fd1e82704005b8ed44b22",
+      "funding/venice-token.csv": "a54d884cc5c058c413d0f8246093dad9ee802bc88d254c54dd345a1410d5b86a",
+      "funding/world-liberty-financial.csv": "073bd077550dac278f356f9e79d5a921d612c18454ba789f6a2caf50ffb61afe",
       "funding/worldcoin-wld.csv": "b6f08ec263c1cf78603f435f9a0804fdfa2ae7ab6c80922d7721ce6d02b1725a",
       "funding/zcash.csv": "9d0ca1ca4f62ffd166ef71832393edaa1b44aabb781c2a30f2764dcf37a4736e",
-      "funding/zilliqa.csv": "ec7ea59a93f7a2f2a6360facdfbb4db69b95f9abc143de89ba7f5036655bb3e3",
-      "funding_manifest.json": "93997c42760e515e8e314fea6e2774ebf3549ccf7a424ac01cc5defa64bc66d4",
-      "funding_publication.json": "5915005037a37195065a929ebda6bd911fc4c3c7e02e10711fb30a933dafcf27",
+      "funding/zilliqa.csv": "3bc3712a415fd7c704aeaa3b2c9b06b3105750abb2aef018f81031a3d817aecd",
+      "funding_manifest.json": "e7d1d35f46f8f23913a21ef072d0c46422c42973660b7eb9f1f8b2c5686d7801",
+      "funding_publication.json": "5ae8df8987d412cc660ceb8101f0db50db10d39a56dc7aa90b401db37f917f57",
       "symbol_map.csv": "ff6db5118bebc8f9bf838bf9c0a0051ffdce11fc8e4e1a619007cf5b25990f44"
     },
-    "fingerprint": "sha256:89b685bb9089b4ca3b0f82c9216e7ca06b383d7f1f6f29bfd048bf439ff6f752",
-    "manifest_sha256": "3ad7930be4e5229124c69575214b1541a2aa4bdb4ac21075b8048032abb34b71",
+    "fingerprint": "sha256:88e1515ef0ee80bdf2d3031c0626459b63354b0a3b2363516b65b98a58951ec5",
+    "manifest_sha256": "4cdb5a84424b5f88b0bb9ca2a4cefbedc1a3c4de8222acaf0c1ed30c44a94d33",
     "panel_path": "data/processed/panel_daily.csv",
     "raw_dir": "data/raw/bitget_derivatives/merged_oos_20261112",
     "symbol_map_path": "data/raw/bitget_derivatives/merged_oos_20261112/symbol_map.csv"
@@ -21344,16 +21344,16 @@
       },
       "aero": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7207.588,
+          "publication_lag_seconds": 4499.539,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:07.588000+00:00"
+          "verified_at": "2026-11-21T21:14:59.539000+00:00"
         },
-        "rows": 562,
+        "rows": 563,
         "stale": false
       },
       "algorand": {
@@ -21414,16 +21414,16 @@
       },
       "aster-2": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7214.552,
+          "publication_lag_seconds": 4501.655,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:14.552000+00:00"
+          "verified_at": "2026-11-21T21:15:01.655000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "avalanche-2": {
@@ -21442,16 +21442,16 @@
       },
       "axie-infinity": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7217.469,
+          "publication_lag_seconds": 4503.604,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:17.469000+00:00"
+          "verified_at": "2026-11-21T21:15:03.604000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "basic-attention-token": {
@@ -21526,30 +21526,30 @@
       },
       "bittensor": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7225.152,
+          "publication_lag_seconds": 4505.563,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:25.152000+00:00"
+          "verified_at": "2026-11-21T21:15:05.563000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "bitway": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7227.32,
+          "publication_lag_seconds": 4507.493,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:27.320000+00:00"
+          "verified_at": "2026-11-21T21:15:07.493000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "blockstack": {
@@ -21568,16 +21568,16 @@
       },
       "canton-network": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7230.335,
+          "publication_lag_seconds": 4509.442,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:30.335000+00:00"
+          "verified_at": "2026-11-21T21:15:09.442000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "cardano": {
@@ -21596,16 +21596,16 @@
       },
       "celestia": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7233.56,
+          "publication_lag_seconds": 4511.38,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:33.560000+00:00"
+          "verified_at": "2026-11-21T21:15:11.380000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "chainlink": {
@@ -21764,44 +21764,44 @@
       },
       "enjincoin": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7248.063,
+          "publication_lag_seconds": 4513.486,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:48.063000+00:00"
+          "verified_at": "2026-11-21T21:15:13.486000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "ethena": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7249.899,
+          "publication_lag_seconds": 4515.457,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:49.899000+00:00"
+          "verified_at": "2026-11-21T21:15:15.457000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "ether-fi": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7251.778,
+          "publication_lag_seconds": 4517.373,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:51.778000+00:00"
+          "verified_at": "2026-11-21T21:15:17.373000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "ethereum": {
@@ -21848,30 +21848,30 @@
       },
       "falcon-finance-ff": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7257.101,
+          "publication_lag_seconds": 4519.32,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:57.101000+00:00"
+          "verified_at": "2026-11-21T21:15:19.320000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "fantom": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7258.931,
+          "publication_lag_seconds": 4521.198,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:00:58.931000+00:00"
+          "verified_at": "2026-11-21T21:15:21.198000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "filecoin": {
@@ -21932,30 +21932,30 @@
       },
       "hyperliquid": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7265.568,
+          "publication_lag_seconds": 4523.051,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:05.568000+00:00"
+          "verified_at": "2026-11-21T21:15:23.051000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "immutable-x": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7267.481,
+          "publication_lag_seconds": 4524.924,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:07.481000+00:00"
+          "verified_at": "2026-11-21T21:15:24.924000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "injective-protocol": {
@@ -21988,72 +21988,72 @@
       },
       "jupiter-exchange-solana": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7271.69,
+          "publication_lag_seconds": 4526.816,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:11.690000+00:00"
+          "verified_at": "2026-11-21T21:15:26.816000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "just": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7273.62,
+          "publication_lag_seconds": 4528.664,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:13.620000+00:00"
+          "verified_at": "2026-11-21T21:15:28.664000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "kaspa": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7275.74,
+          "publication_lag_seconds": 4530.57,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:15.740000+00:00"
+          "verified_at": "2026-11-21T21:15:30.570000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "kite-2": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7277.605,
+          "publication_lag_seconds": 4532.476,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:17.605000+00:00"
+          "verified_at": "2026-11-21T21:15:32.476000+00:00"
         },
-        "rows": 556,
+        "rows": 557,
         "stale": false
       },
       "layerzero": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7279.435,
+          "publication_lag_seconds": 4534.479,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:19.435000+00:00"
+          "verified_at": "2026-11-21T21:15:34.479000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "lido-dao": {
@@ -22072,16 +22072,16 @@
       },
       "lighter": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7282.624,
+          "publication_lag_seconds": 4536.403,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:22.624000+00:00"
+          "verified_at": "2026-11-21T21:15:36.403000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "litecoin": {
@@ -22100,44 +22100,44 @@
       },
       "matic-network": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7285.684,
+          "publication_lag_seconds": 4538.406,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:25.684000+00:00"
+          "verified_at": "2026-11-21T21:15:38.406000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "memecore": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7287.528,
+          "publication_lag_seconds": 4540.341,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:27.528000+00:00"
+          "verified_at": "2026-11-21T21:15:40.341000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "midnight-3": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7289.489,
+          "publication_lag_seconds": 4542.313,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:29.489000+00:00"
+          "verified_at": "2026-11-21T21:15:42.313000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "monero": {
@@ -22156,16 +22156,16 @@
       },
       "morpho": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7292.538,
+          "publication_lag_seconds": 4544.245,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:32.538000+00:00"
+          "verified_at": "2026-11-21T21:15:44.245000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "near": {
@@ -22198,16 +22198,16 @@
       },
       "ondo-finance": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7296.969,
+          "publication_lag_seconds": 4546.143,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:36.969000+00:00"
+          "verified_at": "2026-11-21T21:15:46.143000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "optimism": {
@@ -22226,16 +22226,16 @@
       },
       "pancakeswap-token": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7300.015,
+          "publication_lag_seconds": 4548.072,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:40.015000+00:00"
+          "verified_at": "2026-11-21T21:15:48.072000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "pepe": {
@@ -22254,30 +22254,30 @@
       },
       "pi-network": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7303.56,
+          "publication_lag_seconds": 4549.987,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:43.560000+00:00"
+          "verified_at": "2026-11-21T21:15:49.987000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "pieverse": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7305.618,
+          "publication_lag_seconds": 4551.888,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:45.618000+00:00"
+          "verified_at": "2026-11-21T21:15:51.888000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "polkadot": {
@@ -22296,44 +22296,44 @@
       },
       "polygon-ecosystem-token": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7308.948,
+          "publication_lag_seconds": 4553.807,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:48.948000+00:00"
+          "verified_at": "2026-11-21T21:15:53.807000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "pump-fun": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7310.89,
+          "publication_lag_seconds": 4555.714,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:50.890000+00:00"
+          "verified_at": "2026-11-21T21:15:55.714000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "pyth-network": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7312.892,
+          "publication_lag_seconds": 4557.591,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:52.892000+00:00"
+          "verified_at": "2026-11-21T21:15:57.591000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "quant-network": {
@@ -22352,30 +22352,30 @@
       },
       "raydium": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7316.144,
+          "publication_lag_seconds": 4559.571,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:56.144000+00:00"
+          "verified_at": "2026-11-21T21:15:59.571000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "render-token": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7318.188,
+          "publication_lag_seconds": 4561.594,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:01:58.188000+00:00"
+          "verified_at": "2026-11-21T21:16:01.594000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "ripple": {
@@ -22422,16 +22422,16 @@
       },
       "sky": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7324.197,
+          "publication_lag_seconds": 4563.545,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:04.197000+00:00"
+          "verified_at": "2026-11-21T21:16:03.545000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "solana": {
@@ -22450,16 +22450,16 @@
       },
       "stable-2": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7327.347,
+          "publication_lag_seconds": 4567.914,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:07.347000+00:00"
+          "verified_at": "2026-11-21T21:16:07.914000+00:00"
         },
-        "rows": 568,
+        "rows": 569,
         "stale": false
       },
       "stellar": {
@@ -22478,16 +22478,16 @@
       },
       "stepn": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7330.766,
+          "publication_lag_seconds": 4569.636,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:10.766000+00:00"
+          "verified_at": "2026-11-21T21:16:09.636000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "sui": {
@@ -22534,30 +22534,30 @@
       },
       "terra-luna-2": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7336.429,
+          "publication_lag_seconds": 4571.304,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:16.429000+00:00"
+          "verified_at": "2026-11-21T21:16:11.304000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "tezos": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7338.382,
+          "publication_lag_seconds": 4572.95,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:18.382000+00:00"
+          "verified_at": "2026-11-21T21:16:12.950000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "the-graph": {
@@ -22576,16 +22576,16 @@
       },
       "the-open-network": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7341.539,
+          "publication_lag_seconds": 4574.7,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:21.539000+00:00"
+          "verified_at": "2026-11-21T21:16:14.700000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "the-sandbox": {
@@ -22674,30 +22674,30 @@
       },
       "venice-token": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7350.898,
+          "publication_lag_seconds": 4576.364,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:30.898000+00:00"
+          "verified_at": "2026-11-21T21:16:16.364000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "world-liberty-financial": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7352.856,
+          "publication_lag_seconds": 4578.03,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:32.856000+00:00"
+          "verified_at": "2026-11-21T21:16:18.030000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       },
       "worldcoin-wld": {
@@ -22730,27 +22730,27 @@
       },
       "zilliqa": {
         "interval_matches_contract": true,
-        "last": "2026-11-21 16:00:00+00:00",
+        "last": "2026-11-21 20:00:00+00:00",
         "observed_interval_hours": 4.0,
         "publication": {
           "api_interval_hours": 4.0,
           "latest_source": "history",
-          "publication_lag_seconds": 7357.235,
+          "publication_lag_seconds": 4579.731,
           "rate_relation": "match",
-          "verified_at": "2026-11-21T18:02:37.235000+00:00"
+          "verified_at": "2026-11-21T21:16:19.731000+00:00"
         },
-        "rows": 600,
+        "rows": 601,
         "stale": false
       }
     },
     "funding_assets": 102,
     "hard_failures": 0,
-    "last_mark": "2026-11-21 18:00:00+00:00",
+    "last_mark": "2026-11-21 20:00:00+00:00",
     "mark_assets": 102,
-    "now": "2026-11-21T19:11:34.773416+00:00",
+    "now": "2026-11-21T21:22:03.348174+00:00",
     "panel_latest": "2026-11-20",
     "panel_latest_assets": 118,
-    "publication_now": "2026-11-21T19:11:34.776884+00:00",
+    "publication_now": "2026-11-21T21:22:03.351817+00:00",
     "required_leverage": 4.0,
     "required_leverage_assets": [
       "bitcoin-cash",
