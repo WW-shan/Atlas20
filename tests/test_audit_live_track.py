@@ -14,6 +14,7 @@ from atlas20.derivatives.live_journal import (
     protected_short_symbols,
 )
 from scripts.audit_live_track import (
+    _active_event_is_delayed,
     _active_event_state_issues,
     _event_quantity_issues,
     _execution_floor_issue,
@@ -1860,6 +1861,14 @@ def test_active_event_state_allows_an_unapplied_latest_event_to_remain_visible()
     )
 
     assert issues == []
+
+
+def test_active_event_delay_requires_a_valid_event_date() -> None:
+    target = pd.Timestamp("2026-11-20T00:00:00Z")
+
+    assert _active_event_is_delayed({"signal_date": "2026-11-13"}, target) is True
+    assert _active_event_is_delayed({"signal_date": "not-a-date"}, target) is False
+    assert _active_event_is_delayed({"signal_date": "2026-11-21"}, target) is False
 
 
 def test_active_event_state_requires_a_stopped_symbols_object() -> None:

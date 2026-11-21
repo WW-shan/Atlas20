@@ -596,7 +596,7 @@ def _active_event_state_issues(
         return [*issues, "execution state has no active target event"]
     expected_signal = str(pd.Timestamp(signal_date).date())
     event_signal = str(event.get("signal_date") or "")
-    event_is_delayed = bool(event_signal) and event_signal < expected_signal
+    event_is_delayed = _active_event_is_delayed(event, signal_date)
     if event_signal != expected_signal and not event_is_delayed:
         issues.append(
             f"active event signal_date {event_signal or '<missing>'} != {expected_signal}"
@@ -717,6 +717,30 @@ def _active_event_state_issues(
                 f"{symbol}: stopped event is not backed by its journal stop trade"
             )
     return issues
+
+
+def _active_event_is_delayed(
+    active_event: Mapping[str, object] | None,
+    signal_date: pd.Timestamp,
+) -> bool:
+    """Whether a valid active event predates the latest frozen target event.
+
+    This is an actionable pending application, not corrupt state.  An invalid
+    event date must never be mistaken for a delayed event merely because its
+    text sorts before the target date.
+    """
+
+    if not isinstance(active_event, Mapping):
+        return False
+    raw_event_signal = active_event.get("signal_date")
+    if raw_event_signal in (None, ""):
+        return False
+    try:
+        event_day = pd.Timestamp(str(raw_event_signal)).date()
+        target_day = pd.Timestamp(signal_date).date()
+    except (TypeError, ValueError):
+        return False
+    return event_day < target_day
 
 
 def _state_track_issue(state: Mapping[str, object], expected_spec: str) -> str | None:
@@ -1874,6 +1898,21 @@ def main(argv: list[str] | None = None) -> int:
         str(active_event.get("signal_date") or "")
         if isinstance(active_event, Mapping)
         else ""
+    )
+    delayed_active_event = _active_event_is_delayed(
+        active_event if isinstance(active_event, Mapping) else None,
+        signal_date,
+    )
+    check(
+        "冻结账本最新事件已应用",
+        not delayed_active_event,
+        (
+            f"active={active_event_signal} < target={pd.Timestamp(signal_date).date()}；"
+            "下一执行窗口将按冻结权重应用，当前账户仍按旧 active event 审计"
+            if delayed_active_event
+            else "active event 已是冻结账本最新事件"
+        ),
+        hard=False,
     )
     active_event_quantities = (
         effective_event_target_quantities(active_event)
