@@ -1085,3 +1085,50 @@ def test_provenance_fingerprint_is_independent_of_the_audit_time(tmp_path: Path)
     )
 
     assert second.provenance["fingerprint"] == first.provenance["fingerprint"]
+
+
+def test_provenance_fingerprint_is_independent_of_raw_dir_path_spelling(
+    tmp_path: Path,
+) -> None:
+    """The same snapshot must have one identity across finalize and execute."""
+
+    from datetime import date, datetime, timezone
+    from atlas20.derivatives.data_audit import audit_derivatives_data
+
+    paths = _fixture(tmp_path)
+    paths["manifest"].write_text(
+        json.dumps({"data_fingerprint": "sha256:example"}),
+        encoding="utf-8",
+    )
+    import os
+
+    previous_cwd = Path.cwd()
+    os.chdir(tmp_path)
+    try:
+        relative_raw = paths["raw"].relative_to(tmp_path)
+        relative_panel = paths["panel"].relative_to(tmp_path)
+        relative_symbol_map = paths["symbol_map"].relative_to(tmp_path)
+        relative_manifest = paths["manifest"].relative_to(tmp_path)
+        first = audit_derivatives_data(
+            relative_raw,
+            relative_panel,
+            relative_symbol_map,
+            relative_manifest,
+            now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+            expected_panel_day=date(2026, 11, 13),
+            required_leverage=4.0,
+        )
+        second = audit_derivatives_data(
+            paths["raw"].resolve(),
+            paths["panel"],
+            paths["symbol_map"],
+            paths["manifest"],
+            now=datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc),
+            expected_panel_day=date(2026, 11, 13),
+            required_leverage=4.0,
+        )
+    finally:
+        os.chdir(previous_cwd)
+
+    assert first.provenance["files"] == second.provenance["files"]
+    assert first.provenance["fingerprint"] == second.provenance["fingerprint"]

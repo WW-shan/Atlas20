@@ -114,6 +114,26 @@ def _tree_fingerprint(paths: Iterable[Path], *, root: Path | None = None) -> str
     return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
+def _provenance_name(path: Path, raw: Path) -> str:
+    """Return a path spelling that is stable across equivalent invocations.
+
+    The finalize job passes an absolute raw directory while the executor uses
+    the CLI's relative default.  Hashing the caller's spelling made the same
+    bytes produce two identities and blocked live execution.  Prefer the
+    raw-relative name, then a cwd-relative name, and only fall back to the
+    resolved path for inputs outside both roots.
+    """
+
+    resolved = Path(path).expanduser().resolve()
+    raw_resolved = Path(raw).expanduser().resolve()
+    if resolved.is_relative_to(raw_resolved):
+        return str(resolved.relative_to(raw_resolved))
+    cwd = Path.cwd().resolve()
+    if resolved.is_relative_to(cwd):
+        return str(resolved.relative_to(cwd))
+    return str(resolved)
+
+
 def _funding_publication_data_identity(path: Path) -> str:
     """Stable identity of funding evidence, excluding observation timestamps.
 
@@ -1201,7 +1221,10 @@ def audit_derivatives_data(
         *funding_paths,
     ]
     provenance_paths = [path for path in files if path.is_file()]
-    file_hashes = {str(path.relative_to(raw)) if path.is_relative_to(raw) else str(path): _file_sha256(path) for path in provenance_paths}
+    file_hashes = {
+        _provenance_name(path, raw): _file_sha256(path)
+        for path in provenance_paths
+    }
     fingerprint_paths = [
         path
         for path in provenance_paths
@@ -1209,8 +1232,8 @@ def audit_derivatives_data(
     ]
     publication_path = raw / "funding_publication.json"
     fingerprint_payload = "\n".join(
-        f"{path.relative_to(raw) if path.is_relative_to(raw) else path}\0{_file_sha256(path)}"
-        for path in sorted(fingerprint_paths, key=str)
+        f"{_provenance_name(path, raw)}\0{_file_sha256(path)}"
+        for path in sorted(fingerprint_paths, key=lambda item: _provenance_name(item, raw))
     ).encode()
     if publication_path.is_file():
         fingerprint_payload += (
