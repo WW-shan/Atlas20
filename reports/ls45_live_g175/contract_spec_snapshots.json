@@ -54,7 +54,7 @@
       "label": "merged_oos_20261112",
       "path": "data/raw/bitget_derivatives/merged_oos_20261112/contracts.json",
       "schema": "list",
-      "sha256": "edd93200396f72d1ca4c7493cdc9a6e72730e4cc479eb82f7d292687be6db8d8",
+      "sha256": "72207a0bdd0812ceb310c1b4a4dbe785a164041bfa754c829f0d60dd84c17936",
       "symbols": 892
     },
     {
@@ -153,6 +153,20 @@
       "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261120T190511Z_6af83a8fbc96.json",
       "schema": "capture_wrapper",
       "sha256": "5564fa2d01d99599e6db5d541e528d3ac95ef256a863480ca71a01472a94debd",
+      "symbols": 892
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261122T100507Z_102718b75264.json",
+      "schema": "capture_wrapper",
+      "sha256": "a631064e2f85ffa7e73c6e4040b923be319c677d4b380e67656d04c1312b6d0c",
+      "symbols": 892
+    },
+    {
+      "label": "contract_snapshots",
+      "path": "data/raw/bitget_derivatives/merged_oos_20261112/contract_snapshots/contracts_20261123T050450Z_e0982964ada4.json",
+      "schema": "capture_wrapper",
+      "sha256": "fd82a05400813e0ff7047962583f796bcaf68359f92224b0d21b4261053e643c",
       "symbols": 892
     }
   ],

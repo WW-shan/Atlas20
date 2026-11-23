@@ -1,32 +1,34 @@
 {
   "account_fingerprint": "cb05dac7a33ea24f",
   "active_event": {
-    "applied_at": "2026-11-15T01:10:52.918638+00:00",
-    "equity_at_execution": 507.94333735,
-    "execution_hint": "2026-11-15T01:05:00+00:00",
+    "applied_at": "2026-11-23T01:08:20.366097+00:00",
+    "equity_at_execution": 515.33409105,
+    "execution_hint": "2026-11-23T01:05:00+00:00",
     "position_failures": [],
     "position_status": "ok",
     "prices": {
-      "bitcoin-cash": 196.28,
-      "hyperliquid": 63.346,
-      "near": 2.9738,
-      "zcash": 848.62
+      "bitcoin-cash": 197.67,
+      "ethereum": 1712.35,
+      "hyperliquid": 62.55,
+      "near": 2.9684,
+      "uniswap": 4.672,
+      "zcash": 787.5
     },
-    "signal_date": "2026-11-13",
+    "signal_date": "2026-11-20",
     "stopped_symbols": {},
     "target_quantities": {
-      "BCHUSDT": 0.3234813387443957,
-      "HYPEUSDT": 1.0023192809135542,
-      "NEARUSDT": 21.350769106446297,
-      "ZECUSDT": 0.07481902049062006
+      "BCHUSDT": 0.32,
+      "ETHUSDT": 0.03,
+      "UNIUSDT": 13.0,
+      "ZECUSDT": 0.081
     },
     "target_weights": {
       "bitcoin-cash": -0.125,
-      "hyperliquid": -0.125,
-      "near": -0.125,
+      "ethereum": -0.125,
+      "uniswap": -0.125,
       "zcash": -0.125
     },
-    "targets_sha256": "2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930",
+    "targets_sha256": "e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc",
     "track_spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
   },
   "attempt_counts": {
@@ -34,69 +36,14 @@
     "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-17": 5,
     "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-18": 6,
     "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-19": 6,
-    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-20": 6
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-20": 6,
+    "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23": 6
   },
-  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-20",
-  "last_run_at": "2026-11-20T15:59:51.633982+00:00",
+  "last_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+  "last_run_at": "2026-11-23T06:14:16.710590+00:00",
   "last_run_mode": "protect_only",
   "last_status": "ok",
   "runs": [
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T09:37:33.345640+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T09:45:16.278203+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T10:17:40.058400+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T10:33:50.804205+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T14:26:27.621959+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-15",
-      "mode": "protect_only",
-      "ran_at": "2026-11-15T14:27:26.859530+00:00",
-      "status": "ok"
-    },
-    {
-      "failures": [],
-      "fills": [],
-      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-16",
-      "mode": "execution",
-      "ran_at": "2026-11-16T01:22:57.310668+00:00",
-      "status": "ok"
-    },
     {
       "failures": [],
       "fills": [],
@@ -360,9 +307,290 @@
       "mode": "protect_only",
       "ran_at": "2026-11-20T15:59:51.633982+00:00",
       "status": "ok"
+    },
+    {
+      "failures": [
+        {
+          "action": "CLOSE",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25227\",\"msg\":\"No position available to close\",\"requestTime\":1795396102101,\"data\":null}",
+          "side": "buy",
+          "size": "1",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "action": "CLOSE",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25227\",\"msg\":\"No position available to close\",\"requestTime\":1795396102380,\"data\":null}",
+          "side": "buy",
+          "size": "21",
+          "symbol": "NEARUSDT"
+        },
+        {
+          "action": "OPEN",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "0.03",
+          "symbol": "ETHUSDT"
+        },
+        {
+          "action": "OPEN",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "13",
+          "symbol": "UNIUSDT"
+        },
+        {
+          "action": "INCREASE",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "0.007",
+          "symbol": "ZECUSDT"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: ETHUSDT \u76ee\u6807\u6570\u91cf 0.03 vs \u5b9e\u9645 0",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: UNIUSDT \u76ee\u6807\u6570\u91cf 13 vs \u5b9e\u9645 0",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: ZECUSDT \u76ee\u6807\u6570\u91cf 0.081 vs \u5b9e\u9645 -0.074",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        }
+      ],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "execution",
+      "ran_at": "2026-11-23T01:08:24.927277+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [
+        {
+          "action": "CLOSE",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25227\",\"msg\":\"No position available to close\",\"requestTime\":1795397711598,\"data\":null}",
+          "side": "buy",
+          "size": "1",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "action": "CLOSE",
+          "error": "Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25227\",\"msg\":\"No position available to close\",\"requestTime\":1795397711868,\"data\":null}",
+          "side": "buy",
+          "size": "21",
+          "symbol": "NEARUSDT"
+        },
+        {
+          "action": "OPEN",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "0.03",
+          "symbol": "ETHUSDT"
+        },
+        {
+          "action": "OPEN",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "13",
+          "symbol": "UNIUSDT"
+        },
+        {
+          "action": "INCREASE",
+          "error": "open blocked because a prior reduction/close failed",
+          "side": "sell",
+          "size": "0.007",
+          "symbol": "ZECUSDT"
+        },
+        {
+          "action": "VERIFY",
+          "error": "existing short has no live venue stop: no active strategy stop; emergency close attempted",
+          "side": "short",
+          "size": "1",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "action": "EMERGENCY_CLOSE",
+          "error": "stop-gap close failed: Bitget /api/v3/trade/place-order HTTP 400: {\"code\":\"25227\",\"msg\":\"No position available to close\",\"requestTime\":1795397712393,\"data\":null}",
+          "side": "buy",
+          "size": "1",
+          "symbol": "HYPEUSDT"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: ETHUSDT \u76ee\u6807\u6570\u91cf 0.03 vs \u5b9e\u9645 0",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: UNIUSDT \u76ee\u6807\u6570\u91cf 13 vs \u5b9e\u9645 0",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        },
+        {
+          "action": "VERIFY",
+          "error": "active event position completion failed: ZECUSDT \u76ee\u6807\u6570\u91cf 0.081 vs \u5b9e\u9645 -0.074",
+          "side": "-",
+          "size": "-",
+          "symbol": "*"
+        }
+      ],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "execution",
+      "ran_at": "2026-11-23T01:35:14.507924+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "reconcile_only",
+      "ran_at": "2026-11-23T02:04:47.249673+00:00",
+      "status": "partial"
+    },
+    {
+      "failures": [],
+      "fills": [
+        {
+          "action": "CLOSE",
+          "asset": "near",
+          "avg_price": 2.9624,
+          "client_oid": "a20891a8dd906482117177eoded9082059a1e02b",
+          "fee": 0.03732624,
+          "fee_coin": "USDT",
+          "filled_size": 21.0,
+          "normalized_stop_loss": null,
+          "notional": 62.2104,
+          "order_id": "1508585436652617728",
+          "position_side": "short",
+          "reason": "",
+          "requested_size": 21.0,
+          "requested_stop_loss": null,
+          "side": "buy",
+          "status": "filled",
+          "stop_loss": null,
+          "stop_order_type": "",
+          "stop_trigger_by": "",
+          "strategy_order_id": "",
+          "symbol": "NEARUSDT",
+          "triggered_at": ""
+        },
+        {
+          "action": "OPEN",
+          "asset": "ethereum",
+          "avg_price": 1706.65,
+          "client_oid": "a20891a8dd906482117177eo67eee9c35f140de5",
+          "fee": 0.0307197,
+          "fee_coin": "USDT",
+          "filled_size": 0.03,
+          "normalized_stop_loss": 2047.98,
+          "notional": 51.1995,
+          "order_id": "1508585437738942464",
+          "position_side": "short",
+          "reason": "",
+          "requested_size": 0.03,
+          "requested_stop_loss": 2047.73,
+          "side": "sell",
+          "status": "filled",
+          "stop_loss": 2047.73,
+          "stop_order_type": "market",
+          "stop_trigger_by": "mark",
+          "strategy_order_id": "",
+          "symbol": "ETHUSDT",
+          "triggered_at": ""
+        },
+        {
+          "action": "OPEN",
+          "asset": "uniswap",
+          "avg_price": 4.65,
+          "client_oid": "a20891a8dd906482117177eof2df46e178db0966",
+          "fee": 0.03627,
+          "fee_coin": "USDT",
+          "filled_size": 13.0,
+          "normalized_stop_loss": 5.58,
+          "notional": 60.45,
+          "order_id": "1508585438439391232",
+          "position_side": "short",
+          "reason": "",
+          "requested_size": 13.0,
+          "requested_stop_loss": 5.582,
+          "side": "sell",
+          "status": "filled",
+          "stop_loss": 5.582,
+          "stop_order_type": "market",
+          "stop_trigger_by": "mark",
+          "strategy_order_id": "",
+          "symbol": "UNIUSDT",
+          "triggered_at": ""
+        },
+        {
+          "action": "INCREASE",
+          "asset": "zcash",
+          "avg_price": 786.54,
+          "client_oid": "a20891a8dd906482117177eo8ada8fc9b61dd0c8",
+          "fee": 0.00330346,
+          "fee_coin": "USDT",
+          "filled_size": 0.007,
+          "normalized_stop_loss": 1082.16,
+          "notional": 5.5057,
+          "order_id": "1508585439534104576",
+          "position_side": "short",
+          "reason": "",
+          "requested_size": 0.007,
+          "requested_stop_loss": 1082.14,
+          "side": "sell",
+          "status": "filled",
+          "stop_loss": 1082.14,
+          "stop_order_type": "market",
+          "stop_trigger_by": "mark",
+          "strategy_order_id": "",
+          "symbol": "ZECUSDT",
+          "triggered_at": ""
+        }
+      ],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "execution",
+      "ran_at": "2026-11-23T02:25:20.423841+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "protect_only",
+      "ran_at": "2026-11-23T02:40:45.955834+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "protect_only",
+      "ran_at": "2026-11-23T03:05:11.161475+00:00",
+      "status": "ok"
+    },
+    {
+      "failures": [],
+      "fills": [],
+      "key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23",
+      "mode": "protect_only",
+      "ran_at": "2026-11-23T06:14:16.710590+00:00",
+      "status": "ok"
     }
   ],
-  "stop_reconciliation_through": "2026-11-20T15:59:39.065866+00:00",
-  "telegram_sent_at": "2026-11-20T01:43:17.490284+00:00",
-  "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-13|2ef4e701d29376ec0073bd589424dbcf30525914f7eb587459de88a263863930|2026-11-20"
+  "stop_reconciliation_through": "2026-11-23T06:14:12.425462+00:00",
+  "telegram_sent_at": "2026-11-23T01:35:14.507924+00:00",
+  "telegram_sent_key": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090|2026-11-20|e04b17f3f82071f6b272616b14407348486f73e14dd40e67673bf7d2e26dd1dc|2026-11-23"
 }

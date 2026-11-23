@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-20T08:55:30.419347+00:00",
+  "checked_at": "2026-11-23T06:14:35.965932+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -9,7 +9,7 @@
     },
     {
       "check": "venue drill 订单登记表可读",
-      "detail": "6 笔已登记；仅这些精确 orderId 不进入生产台账核对",
+      "detail": "9 笔已登记；仅这些精确 orderId 不进入生产台账核对",
       "hard": true,
       "ok": true
     },
@@ -27,7 +27,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 506.01 USDT",
+      "detail": "权益 512.22 USDT",
       "hard": true,
       "ok": true
     },
@@ -51,13 +51,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "506.0145 vs 360.8081 + 132.9216 + 12.2848 = 506.0145",
+      "detail": "512.2242 vs 378.2636 + 124.6821 + 9.2785 = 512.2242",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 255.7245",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 242.0247",
       "hard": true,
       "ok": true
     },
@@ -99,13 +99,13 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-20 equity=503.6628；折算后应为 506.0223，交易所 506.0145",
+      "detail": "台账 2026-11-23 equity=512.1552；折算后应为 512.2250，交易所 512.2242",
       "hard": true,
       "ok": true
     },
     {
       "check": "台账 PnL 链一致",
-      "detail": "5 个相邻日全部一致",
+      "detail": "6 个相邻日全部一致",
       "hard": true,
       "ok": true
     },
@@ -122,8 +122,14 @@
       "ok": true
     },
     {
+      "check": "冻结账本最新事件已应用",
+      "detail": "active event 已是冻结账本最新事件",
+      "hard": false,
+      "ok": true
+    },
+    {
       "check": "台账成交都能在交易所订单历史里对上",
-      "detail": "核对 12 笔订单",
+      "detail": "核对 7 笔订单",
       "hard": true,
       "ok": true
     },
@@ -195,25 +201,25 @@
     },
     {
       "check": "总名义 <= 1.75x 权益（规格上限）",
-      "detail": "gross 255.72 / equity 506.01 = 0.505x",
+      "detail": "gross 242.02 / equity 512.22 = 0.472x",
       "hard": true,
       "ok": true
     },
     {
       "check": "组合保证金占用 <= 90%",
-      "detail": "isolated margin 132.92 / equity 506.01 = 0.263x",
+      "detail": "isolated margin 124.68 / equity 512.22 = 0.243x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-20 07:00:00+00:00（1.9h 前）",
+      "detail": "最新 mark 2026-11-23 04:00:00+00:00（2.2h 前）",
       "hard": true,
       "ok": true
     },
     {
       "check": "账本已评估到最新可判定日（无跳过）",
-      "detail": "账本评估到 2026-11-19 / 数据到 2026-11-19",
+      "detail": "账本评估到 2026-11-22 / 数据到 2026-11-22",
       "hard": true,
       "ok": true
     },
@@ -237,26 +243,26 @@
     },
     {
       "check": "manifest data_fingerprint = 当前输入指纹",
-      "detail": "manifest=sha256:78b04120f515dbee86eeca5f5193d3eb3cdb62f3efadf89217524ab165e3377a current=sha256:78b04120f515dbee86eeca5f5193d3eb3cdb62f3efadf89217524ab165e3377a",
+      "detail": "manifest=sha256:7f5c01552c1d78f5db95eb11edcc19c3ad4515aa54eb72e7490101f4b5e970fb current=sha256:7f5c01552c1d78f5db95eb11edcc19c3ad4515aa54eb72e7490101f4b5e970fb",
       "hard": true,
       "ok": true
     },
     {
       "check": "信号事件距今（事件驱动，非每日变化）",
-      "detail": "最近一次仓位变化 2026-11-13（7 天前；无变化＝继续持有）",
+      "detail": "最近一次仓位变化 2026-11-20（3 天前；无变化＝继续持有）",
       "hard": false,
       "ok": true
     },
     {
-      "check": "台账信号日 = 冻结账本最新信号日",
-      "detail": "台账 2026-11-13 vs 账本 2026-11-13",
+      "check": "台账信号日 = 已应用的 active target event",
+      "detail": "台账 2026-11-20 vs active 2026-11-20",
       "hard": true,
       "ok": true
     }
   ],
-  "equity": 506.01449737,
+  "equity": 512.22423192,
   "hard_failures": 0,
-  "position_value": 255.72450000000003,
-  "signal_date": "2026-11-13",
+  "position_value": 242.02472,
+  "signal_date": "2026-11-20",
   "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
 }

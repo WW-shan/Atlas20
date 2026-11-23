@@ -29,6 +29,21 @@
       "client_oid": "a20mig64f17308617e475e9fc6",
       "order_id": "1505253382380699648",
       "purpose": "account migration isolated short/stop/margin drill"
+    },
+    {
+      "client_oid": "atlas20probe5398122533",
+      "order_id": "1508574556867117057",
+      "purpose": "2026-11-23 Bitget hedge-close marginMode diagnostic; crossed probe open, not an alpha position"
+    },
+    {
+      "client_oid": "atlas20probe5398186468",
+      "order_id": "1508574824040087552",
+      "purpose": "2026-11-23 Bitget hedge-close marginMode diagnostic; crossed probe close, not an alpha position"
+    },
+    {
+      "client_oid": "atlas20probeisolated01",
+      "order_id": "1508575059273433088",
+      "purpose": "2026-11-23 Bitget hedge-close marginMode diagnostic; isolated close validation, not an alpha position"
     }
   ]
 }
