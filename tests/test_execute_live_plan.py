@@ -183,7 +183,7 @@ def test_protect_only_uses_venue_mark_when_a_held_quote_is_unavailable(
         max_gross_multiple=1.75,
         max_margin_utilization=0.90,
         cost_bps=20.0,
-        catchup_hours=6.0,
+        catchup_hours=0.25,
         min_rebalance_usdt=5.0,
         equity_floor=20.0,
         max_mark_staleness_hours=30.0,
@@ -296,7 +296,7 @@ def test_protect_only_rejects_profile_parameter_drift_before_network(
         short_buffer=0.50,
         short_stop_loss_pct=0.05,
         cost_bps=20.0,
-        catchup_hours=6.0,
+        catchup_hours=0.25,
         max_quote_age_seconds=120.0,
         equity_floor=20.0,
         min_rebalance_usdt=5.0,
@@ -357,7 +357,7 @@ def _manifest_args(**overrides):
         "cost_bps": 20.0,
         "leverage": 2.0,
         "max_margin_utilization": 0.85,
-        "catchup_hours": 6.0,
+        "catchup_hours": 0.25,
         "max_quote_age_seconds": 120.0,
         "equity_floor": 20.0,
         "min_rebalance_usdt": 5.0,
@@ -439,7 +439,7 @@ def test_live_manifest_rejects_a_second_execution_clock() -> None:
 @pytest.mark.parametrize(
     ("arg_name", "value"),
     [
-        ("catchup_hours", 24.0),
+        ("catchup_hours", 6.0),
         ("max_quote_age_seconds", 86_400.0),
         ("equity_floor", 0.0),
         ("min_rebalance_usdt", 999.0),
@@ -890,7 +890,7 @@ def test_protect_only_rejects_state_from_a_different_track_before_network(
         short_buffer=0.50,
         short_stop_loss_pct=0.20,
         cost_bps=20.0,
-        catchup_hours=6.0,
+        catchup_hours=0.25,
         max_quote_age_seconds=120.0,
         equity_floor=20.0,
         min_rebalance_usdt=5.0,
@@ -960,7 +960,7 @@ def test_protect_only_rejects_an_active_event_not_bound_to_the_manifest(
         short_buffer=0.50,
         short_stop_loss_pct=0.20,
         cost_bps=20.0,
-        catchup_hours=6.0,
+        catchup_hours=0.25,
         max_quote_age_seconds=120.0,
         equity_floor=20.0,
         min_rebalance_usdt=5.0,
@@ -1944,7 +1944,7 @@ def test_execution_window_refuses_to_trade_before_the_signal_hint() -> None:
     error = execute_live_plan._execution_window_error(
         execution_hint=datetime(2026, 11, 4, 3, 0, tzinfo=timezone.utc),
         now=datetime(2026, 11, 4, 2, 59, tzinfo=timezone.utc),
-        catchup_hours=6.0,
+        catchup_hours=0.25,
         allow_late=False,
     )
 
@@ -1952,15 +1952,17 @@ def test_execution_window_refuses_to_trade_before_the_signal_hint() -> None:
     assert "not due" in error
 
 
-def test_execution_window_requires_explicit_permission_after_six_hours() -> None:
-    hint = datetime(2026, 11, 4, 3, 0, tzinfo=timezone.utc)
-    now = datetime(2026, 11, 4, 9, 1, tzinfo=timezone.utc)
+def test_execution_window_has_no_automatic_late_catchup() -> None:
+    hint = datetime(2026, 11, 4, 1, 5, tzinfo=timezone.utc)
+    now = datetime(2026, 11, 4, 1, 21, tzinfo=timezone.utc)
 
     assert execute_live_plan._execution_window_error(
-        execution_hint=hint, now=now, catchup_hours=6.0, allow_late=False
+        execution_hint=hint, now=now, catchup_hours=0.25, allow_late=False
     ) is not None
+    # An explicit operator override remains available for emergency repair,
+    # but no scheduled timer supplies it.
     assert execute_live_plan._execution_window_error(
-        execution_hint=hint, now=now, catchup_hours=6.0, allow_late=True
+        execution_hint=hint, now=now, catchup_hours=0.25, allow_late=True
     ) is None
 
 

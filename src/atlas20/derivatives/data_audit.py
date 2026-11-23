@@ -79,15 +79,14 @@ def required_last_mark_time(
 
     moment = pd.Timestamp(_as_utc(now))
     last_completed = moment.date() - timedelta(days=1)
-    execution_target = pd.Timestamp(
-        datetime.combine(
-            last_completed + timedelta(days=1),
-            execution_utc,
-            tzinfo=UTC,
-        )
-    )
-    if moment >= execution_target:
-        return execution_target - pd.Timedelta(hours=1, minutes=5)
+    # The signal is a completed-daily-bar strategy.  The 01:05 clock is the
+    # execution time, not the signal-data boundary: a 00:00 hourly mark bar is
+    # neither a return observation nor a fill input for the daily decision.
+    # Requiring it would force the entire data/signal build into the execution
+    # window.  Demand only the completed daily close (23:00 open of D-1, whose
+    # covering close is D-1 23:59), while market candles separately prove the
+    # 01:00 open fill anchor.
+    del execution_utc
     return pd.Timestamp(last_completed, tz=UTC) + pd.Timedelta(hours=23)
 
 

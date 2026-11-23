@@ -1,5 +1,5 @@
 [Unit]
-Description=Atlas20 LS104 intraday data refresh and signal rebuild (no trading)
+Description=Atlas20 daily data and signal preparation (no trading)
 Documentation=file:/opt/atlas20/docs/operations/derivatives_live_runbook.md
 After=network-online.target
 Wants=network-online.target
@@ -8,5 +8,6 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/atlas20
 Environment=ATLAS20_PROJECT_ROOT=/opt/atlas20
-ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_refresh.sh
+Environment=ATLAS20_CONFIG_DIR=/etc/atlas20
+ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_prepare.sh
 TimeoutStartSec=1800

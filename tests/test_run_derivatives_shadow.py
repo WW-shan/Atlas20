@@ -522,6 +522,28 @@ def test_ls104_manifest_pins_the_aggressive_track_design_not_the_ls45_baseline()
     )
 
 
+def test_execution_mark_audit_counts_a_future_fill_bar_as_unavailable() -> None:
+    from scripts.run_derivatives_shadow import _execution_mark_audit
+
+    signal = pd.Timestamp("2026-11-14", tz="UTC")
+    frame = pd.DataFrame(
+        {"open": [1.0], "high": [1.0], "low": [1.0], "close": [1.0]},
+        index=pd.DatetimeIndex(["2026-11-14T23:00:00Z"]),
+    )
+
+    audit = _execution_mark_audit(
+        {signal: pd.Series({"bitcoin": -0.125})},
+        {"bitcoin": frame},
+        execution_hour=1,
+        execution_minute=5,
+        execution_price_snap="floor",
+    )
+
+    assert audit["unavailable_pair_count"] == 1
+    assert audit["missing_pair_count"] == 1
+    assert audit["missing"][0]["signal_date"] == str(signal)
+
+
 def test_execution_mark_audit_marks_only_the_final_pre_0100_delay_as_provisional() -> (
     None
 ):

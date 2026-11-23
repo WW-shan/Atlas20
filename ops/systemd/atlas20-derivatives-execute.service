@@ -1,5 +1,5 @@
 [Unit]
-Description=Atlas20 selected live-track automated daily rebalance
+Description=Atlas20 selected live-track daily rebalance
 Documentation=file:/opt/atlas20/docs/operations/derivatives_live_runbook.md
 After=network-online.target
 Wants=network-online.target
@@ -7,16 +7,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/atlas20
-# Telegram token + chat ids, and the Bitget UTA key (trade permission).
 EnvironmentFile=-/etc/atlas20/telegram.env
 EnvironmentFile=-/etc/atlas20/bitget.env
-# This host keeps the checkout and the credentials outside the macOS defaults
-# the wrapper ships with.
 Environment=ATLAS20_PROJECT_ROOT=/opt/atlas20
 Environment=ATLAS20_CONFIG_DIR=/etc/atlas20
-# The wrapper applies the same three gates as the macOS job: the trading
-# window, the panel self-heal, then marks -> book -> orders -> journal ->
-# Telegram.  Running `make` directly here would skip all of them.
+# Execution only: data and signal are produced by the separate prepare timer.
 ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_daily.sh
-# The panel self-heal may wait up to 15 minutes for a scheduled refresh.
-TimeoutStartSec=1800
+TimeoutStartSec=600

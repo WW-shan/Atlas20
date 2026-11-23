@@ -314,7 +314,7 @@ def test_live_execution_clock_is_the_single_0105_utc_contract() -> None:
     assert execution_utc_text() == "01:05"
 
 
-def test_window_closes_after_the_catchup_budget() -> None:
+def test_window_closes_after_the_short_operational_grace() -> None:
     opened = datetime(2026, 10, 16, 1, 5, tzinfo=timezone.utc)
     inside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS - 0.01)
     assert within_run_window(inside)[0] is True
@@ -322,11 +322,11 @@ def test_window_closes_after_the_catchup_budget() -> None:
     outside = opened + timedelta(hours=DEFAULT_CATCHUP_HOURS + 0.01)
     ok, reason = within_run_window(outside)
     assert ok is False
-    assert "catch-up" in reason
+    assert "catch-up" in reason or "grace" in reason
 
 
 def test_window_honours_a_shifted_schedule() -> None:
-    moment = datetime(2026, 10, 16, 3, 30, tzinfo=timezone.utc)
+    moment = datetime(2026, 10, 16, 3, 10, tzinfo=timezone.utc)
     assert within_run_window(moment, scheduled_utc=time(4, 0))[0] is False
     assert within_run_window(moment, scheduled_utc=time(3, 0))[0] is True
 

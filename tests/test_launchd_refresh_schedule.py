@@ -31,25 +31,14 @@ def _scheduled_utc_times() -> list[tuple[int, int]]:
     return sorted(times)
 
 
-def test_refresh_runs_at_documented_utc_times():
-    assert _scheduled_utc_times() == [(0, 30), (0, 50), (2, 30), (2, 55), (6, 30)]
+def test_refresh_runs_once_at_documented_utc_time():
+    assert _scheduled_utc_times() == [(0, 30)]
 
 
-def test_a_catchup_lands_before_the_trade_job_reads_the_panel():
-    """A primary run killed by a reboot must be repaired before 01:05 UTC.
-
-    On 2026-10-16 the machine went down mid-refresh at 10:34 Beijing, the panel
-    stayed on 10-14, and the trade job failed closed with nothing to trade.
-    The early and late catch-ups are the fix; the trade job also self-heals.
-    """
-
+def test_the_single_refresh_lands_before_the_trade_job_reads_the_panel():
     execute_plist = PLIST_PATH.parent / "com.atlas20.derivatives-execute.plist"
     trade_hour, trade_minute = _trade_utc_time(execute_plist)
-
-    assert any(
-        (hour, minute) < (trade_hour, trade_minute)
-        for hour, minute in _scheduled_utc_times()
-    ), "a catch-up must fire between the primary refresh and the trade job"
+    assert (0, 30) < (trade_hour, trade_minute)
 
 
 def test_refresh_runs_after_the_utc_close_is_published():
@@ -80,6 +69,5 @@ def test_refresh_job_runs_through_the_locked_wrapper() -> None:
     payload = plistlib.loads(PLIST_PATH.read_bytes())
     command = payload["ProgramArguments"][-1]
 
-    assert "scripts/refresh_daily_data.py" in command
-    assert "download_data.py" not in command
+    assert payload["ProgramArguments"][-1].endswith("ops/run_derivatives_data.sh")
     assert payload["RunAtLoad"] is False

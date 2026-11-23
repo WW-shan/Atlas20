@@ -282,19 +282,22 @@ def test_historical_market_cap_gap_is_unrankable_but_not_a_warning(
     assert not any("panel.valid_market_cap" in item for item in report.warnings)
 
 
-def test_required_last_mark_time_waits_for_the_completed_execution_hour() -> None:
+def test_required_last_mark_time_tracks_the_completed_daily_close() -> None:
     before_fill = data_audit.required_last_mark_time(
         datetime(2026, 11, 14, 1, 4, tzinfo=timezone.utc)
     )
-    at_fill = data_audit.required_last_mark_time(
+    after_fill = data_audit.required_last_mark_time(
         datetime(2026, 11, 14, 1, 5, tzinfo=timezone.utc)
     )
 
+    # The daily signal does not consume the 00:00 hourly mark bar.  The 01:05
+    # clock is execution-only; both moments require the same completed daily
+    # close.  The 01:00 market bar is audited separately as the fill anchor.
     assert before_fill == pd.Timestamp("2026-11-13T23:00:00Z")
-    assert at_fill == pd.Timestamp("2026-11-14T00:00:00Z")
+    assert after_fill == pd.Timestamp("2026-11-13T23:00:00Z")
 
 
-def test_missing_required_mark_bar_fails_even_when_a_newer_bar_exists(
+def test_missing_completed_daily_mark_close_fails_even_when_a_newer_bar_exists(
     tmp_path: Path,
 ) -> None:
     paths = _fixture(tmp_path)
@@ -302,7 +305,7 @@ def test_missing_required_mark_bar_fails_even_when_a_newer_bar_exists(
     frame = pd.read_csv(path)
     frame = frame.loc[
         pd.to_datetime(frame["open_time"], utc=True)
-        != pd.Timestamp("2026-11-14T00:00:00Z")
+        != pd.Timestamp("2026-11-13T23:00:00Z")
     ]
     frame.to_csv(path, index=False)
 

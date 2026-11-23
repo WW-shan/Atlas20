@@ -1,41 +1,18 @@
 #!/bin/sh
-# Atlas20 derivatives daily automation wrapper.
+# Atlas20 daily 09:05 production entry point.
 #
-# Runs the full live chain in one job, in order, with the credentials that the
-# trade step needs:
+# The daily production chain has exactly four business nodes:
 #
-#   1. decide whether this load may trade at all              (preflight window)
-#   2. repair the point-in-time Top20 panel if it lags        (self-heal)
-#   3. refresh Bitget mark candles and rebuild the selected track book
-#   4. audit CMC/mark/funding/contract reliability                  (audit-data)
-#   5. size the book from the real account equity, place the orders, write the
-#      journal, and push the Telegram report                  (derivatives-live)
+#   1. data refresh        (prepared before the fill clock)
+#   2. signal construction (prepared before the fill clock)
+#   3. execution           (T+1 01:05 UTC / 09:05 Beijing)
+#   4. read-only monitor   (19:00 Beijing)
 #
-# Why a wrapper instead of a ProgramArguments one-liner: launchd does not read
-# ~/.zshrc or any shell rc file, so export statements living in a shell profile
-# are invisible to the job. The Bitget and Telegram credentials live outside
-# the repo on purpose; this script is the single place that loads them, and it
-# fails closed if they are missing.
+# The 09:05 clock is the same clock used by the live-parity backtest.  It is
+# not a data-rebuild clock and there is no automatic catch-up: a missed or
+# failed execution is surfaced by the monitor and handled by an operator.
 #
-# Written for POSIX sh because the same file is the entry point for both
-# deployments: macOS launchd (ops/com.atlas20.derivatives-execute.plist, which
-# calls /bin/zsh explicitly) and Ubuntu systemd
-# (ops/systemd/atlas20-derivatives-execute.service). The Ubuntu host keeps the
-# checkout and the credentials somewhere else, so both paths are overridable.
-#
-# The primary schedule fires at 09:05 Beijing = 01:05 UTC, the owner-approved
-# live fast path after the 08:30/08:50 Beijing panel refresh and catch-up. The
-# 01:35/03:05/03:35/04:35/06:35 UTC fires remain fallbacks; a successful same-day
-# alpha execution makes those retries non-alpha no-ops, but they still run the
-# risk-reducing protect-only path and the read-only monitor.
-# macOS loads the job at boot (RunAtLoad) and
-# systemd replays a missed timer fire (Persistent=true);
-# scripts/live_chain_preflight.py keeps those from turning into a second trade
-# or an out-of-hours one.
-#
-# Do not run two copies at once: launchd carries a start-interval throttle, the
-# refresh step takes its own lock, and the executor is idempotent per run day
-# plus exact target-book identity; protect-only never opens or increases risk.
+# Credentials are loaded here because launchd does not read shell rc files.
 
 set -eu
 
@@ -97,14 +74,7 @@ case "$TRACK_PROFILE" in
     STATE_FILE="data/ls45_g125_execution_state.json"
     JOURNAL_FILE="reports/ls45_live_g125_live/journal.csv"
     JSON_OUT="reports/ls45_live_g125_live/latest.json"
-    AUDIT_JSON="reports/ls45_live_g125_live/audit.json"
-    HEALTH_JSON="reports/ls45_live_g125_live/health.json"
     KILL_FILE="data/ls45_g125_execution.KILL"
-    PRIOR_ORDER_REGISTRY=""
-    SYMBOL_AUDIT_JSON="reports/ls45_live_g125_live/venue_symbol_audit.json"
-    SIGNAL_TARGET="derivatives-ls45-signal"
-    DATA_AUDIT_TARGET="audit-data"
-    SIGNAL_AUDIT_TARGET="audit-signal"
     LEVERAGE="2.0"
     MAX_GROSS="1.25"
     MARGIN_CAP="0.85"
@@ -116,14 +86,7 @@ case "$TRACK_PROFILE" in
     STATE_FILE="data/ls45_g175_execution_state.json"
     JOURNAL_FILE="reports/ls45_live_g175_live/journal.csv"
     JSON_OUT="reports/ls45_live_g175_live/latest.json"
-    AUDIT_JSON="reports/ls45_live_g175_live/audit.json"
-    HEALTH_JSON="reports/ls45_live_g175_live/health.json"
     KILL_FILE="data/ls45_g175_execution.KILL"
-    PRIOR_ORDER_REGISTRY="reports/ls45_live_g175_live/prior_track_order_registry.json"
-    SYMBOL_AUDIT_JSON="reports/ls45_live_g175_live/venue_symbol_audit.json"
-    SIGNAL_TARGET="derivatives-ls104-signal"
-    DATA_AUDIT_TARGET="audit-data-ls104"
-    SIGNAL_AUDIT_TARGET="audit-signal-ls104"
     LEVERAGE="4.0"
     MAX_GROSS="1.75"
     MARGIN_CAP="0.90"
@@ -135,197 +98,15 @@ case "$TRACK_PROFILE" in
 esac
 export ATLAS20_TRACK_PROFILE="$TRACK_PROFILE"
 echo "Atlas20 track profile: $TRACK_PROFILE"
+
 LOCK_FILE="data/derivatives_execution.lock"
 
-# A new track starts from an empty state/journal.  The first application of
-# its frozen book is an explicit one-time bootstrap, not a late replay of an
-# old signal.  Once any state file exists, retries use the normal active-event
-# completion path and this flag is never added again.
-BOOTSTRAP_ARG=""
-if [ "$TRACK_PROFILE" = "ls104-g175-m090" ] && [ ! -e "$STATE_FILE" ]; then
-  BOOTSTRAP_ARG="--bootstrap-track"
-fi
-
-run_monitor_audit() {
-  if [ -n "$PRIOR_ORDER_REGISTRY" ]; then
-    .venv/bin/python scripts/monitor_live_track.py \
-      --notify --spec "$SPEC" \
-      --state-file "$STATE_FILE" \
-      --journal-file "$JOURNAL_FILE" \
-      --targets-file "$TARGETS_FILE" \
-      --manifest-file "$MANIFEST_FILE" \
-      --out "$HEALTH_JSON" \
-      --audit-out "$AUDIT_JSON" \
-      --prior-track-registry "$PRIOR_ORDER_REGISTRY"
-  else
-    .venv/bin/python scripts/monitor_live_track.py \
-      --notify --spec "$SPEC" \
-      --state-file "$STATE_FILE" \
-      --journal-file "$JOURNAL_FILE" \
-      --targets-file "$TARGETS_FILE" \
-      --manifest-file "$MANIFEST_FILE" \
-      --out "$HEALTH_JSON" \
-      --audit-out "$AUDIT_JSON"
-  fi
-}
-
-# --- 1. May this load trade? -------------------------------------------------
-# The preflight exits 3 when a documented reason says no (before the fill
-# point, today's run day already succeeded, or past the catch-up budget) and
-# anything else on a real error, which must still abort the job loudly.
-#
-# A manual `ops/run_derivatives_daily.sh --force` is the operator's deliberate
-# late catch-up and drops *only* the window gate.  The panel self-heal below
-# and every executor guard still apply, and the executor's per-run-day
-# idempotency still refuses a second trade.  Neither launchd nor systemd ever
-# passes an argument, so the scheduled and boot-replay fires always obey the
-# window.
-late_arg=""
-window_status=0
-if [ "${1:-}" = "--force" ]; then
-  .venv/bin/python scripts/live_chain_preflight.py \
-    --check window --force \
-    --manifest-file "$MANIFEST_FILE" \
-    --state-file "$STATE_FILE" || window_status=$?
-  late_arg="--allow-late-execution"
-else
-  .venv/bin/python scripts/live_chain_preflight.py \
-    --check window \
-    --manifest-file "$MANIFEST_FILE" \
-    --state-file "$STATE_FILE" || window_status=$?
-fi
-if [ "$window_status" -eq 4 ]; then
-  # Today's trade is already complete.  Run risk-reducing protection only:
-  # reconcile venue-triggered stops, normalize/restore every short stop, and
-  # enforce the gross cap.  OPEN/INCREASE are structurally disabled, so this
-  # cannot add risk on a fallback fire.
-  protect_status=0
-  .venv/bin/python scripts/execute_live_plan.py \
-    --live --notify --require-isolated --protect-only \
-    --spec "$SPEC" \
-    --targets-file "$TARGETS_FILE" \
-    --manifest-file "$MANIFEST_FILE" \
-    --state-file "$STATE_FILE" \
-    --journal-file "$JOURNAL_FILE" \
-    --json-out "$JSON_OUT" \
-    --kill-switch "$KILL_FILE" \
-    --lock-file "$LOCK_FILE" \
-    --leverage "$LEVERAGE" \
-    --max-gross-multiple "$MAX_GROSS" \
-    --max-margin-utilization "$MARGIN_CAP" || protect_status=$?
-
-  monitor_status=0
-  run_monitor_audit || monitor_status=$?
-
-  if [ "$protect_status" -ne 0 ]; then
-    exit "$protect_status"
-  fi
-  exit "$monitor_status"
-elif [ "$window_status" -eq 3 ]; then
-  exit 0
-elif [ "$window_status" -ne 0 ]; then
-  echo "live chain window preflight failed with status $window_status" >&2
-  exit "$window_status"
-fi
-
-# --- 2. Self-heal and re-check the panel -------------------------------------
-# A shutdown in the middle of the daily refresh leaves the panel a day behind
-# while the Bitget marks keep moving; the executor would then fail closed and
-# silently skip the day. Repair it once here, waiting for a scheduled refresh
-# that is already in flight instead of racing it. The panel can also carry the
-# right date while the newest provider day is still partial; --force rebuilds
-# that case instead of letting refresh_daily_data.py skip it as date-current.
-# Re-check after the refresh: a lock timeout or an unfinished provider day must
-# stop the chain before any order is planned.
-panel_status=0
-.venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
-if [ "$panel_status" -eq 3 ]; then
-  echo "panel is stale or partial; forcing a rebuild before the chain" >&2
-  .venv/bin/python scripts/refresh_daily_data.py \
-    --config config/base.yaml \
-    --force \
-    --wait-seconds 900
-elif [ "$panel_status" -ne 0 ]; then
-  echo "live chain panel preflight failed with status $panel_status" >&2
-  exit "$panel_status"
-fi
-
-panel_status=0
-.venv/bin/python scripts/live_chain_preflight.py --check panel || panel_status=$?
-if [ "$panel_status" -eq 3 ]; then
-  echo "panel is still stale or partial after self-heal; refusing to trade" >&2
-  exit 1
-elif [ "$panel_status" -ne 0 ]; then
-  echo "live chain panel recheck failed with status $panel_status" >&2
-  exit "$panel_status"
-fi
-
-# A 08:55 Beijing catch-up may still be rebuilding the frozen book at 01:05.
-# Do not start a second data build against the same raw cache and manifest;
-# leave this fire to the next bounded retry instead.  The check is read-only;
-# the executor still takes the same lock for its own order window.
-lock_status=0
-.venv/bin/python scripts/refresh_derivatives_data.py \
-  --check-lock --lock-file "$LOCK_FILE" || lock_status=$?
-if [ "$lock_status" -eq 3 ]; then
-  echo "prepare still holds the execution lock; deferring this fire to the next retry"
-  exit 0
-elif [ "$lock_status" -ne 0 ]; then
-  echo "execution lock check failed with status $lock_status" >&2
-  exit "$lock_status"
-fi
-
-# --- 3/4. The chain itself ---------------------------------------------------
-# The 08:55 Beijing prepare job refreshes marks/funding, rebuilds the frozen
-# ledger and runs every audit.  The 09:05 Beijing execution fire may reuse that
-# receipt only when it is fresh and still matches the current manifest and
-# audit files.  Otherwise it falls back to the full chain, which is slower but
-# still fail-closed.  This is what keeps the strategy clock at 01:05 instead of
-# turning a 5-10 minute data rebuild into an accidental 01:10 fill.
-receipt_status=0
-.venv/bin/python scripts/refresh_derivatives_data.py \
-  --check-receipt --max-age-minutes 30 || receipt_status=$?
-if [ "$receipt_status" -ne 0 ]; then
-  # A failed prepare can leave an old receipt even though the manifest has
-  # already advanced to the latest completed UTC day.  The 01:00 finalize is
-  # the bounded repair for that exact case: it revalidates the receipt's
-  # identity, fetches only the missing 00:00 mark tail, refreshes the data and
-  # signal audits, and writes a fresh receipt.  Do not jump straight to the
-  # slow full rebuild; that is what delayed the 01:05 fill in the first place.
-  finalize_status=0
-  .venv/bin/python scripts/refresh_derivatives_data.py \
-    --finalize-execution --mark-wait-seconds 120 --mark-poll-seconds 15 \
-    || finalize_status=$?
-  if [ "$finalize_status" -eq 0 ]; then
-    receipt_status=0
-    echo "bounded finalize repaired the prepare receipt before execution"
-  else
-    # The bounded repair is not allowed to guess.  Only now fall back to the
-    # full chain, which rebuilds Top50 readiness before the signal and keeps
-    # every existing fail-closed audit in place.
-    /usr/bin/make derivatives-live-data
-    /usr/bin/make top50-readiness ARGS="--wait-seconds 60"
-    /usr/bin/make "$SIGNAL_TARGET"
-    /usr/bin/make audit-data-chain
-    .venv/bin/python scripts/audit_venue_symbols.py \
-      --required-leverage "$LEVERAGE" \
-      --out "$SYMBOL_AUDIT_JSON"
-    /usr/bin/make "$DATA_AUDIT_TARGET"
-    /usr/bin/make "$SIGNAL_AUDIT_TARGET"
-  fi
-else
-  echo "using the fresh prepare receipt; skipping the slow rebuild before execution"
-fi
-
-# Independent post-trade verification.  The executor already validates its own
-# fills and stops, but a read-only full-account audit here catches any mismatch
-# between the venue's final book, the frozen target and the journal while the
-# operator is still close to the execution window.  Run it even after a partial
-# execution so its Telegram alert describes the actual venue state; then
-# preserve the execution failure as the wrapper's exit status.
-execution_status=0
+# Data and signal are separate scheduled nodes.  This entry point only checks
+# that their outputs exist and then performs the one live execution attempt.
+# It deliberately does not acquire the data/signal lock, rebuild anything, or
+# retry a failed order run.
 .venv/bin/python scripts/execute_live_plan.py \
-  --live --notify --require-isolated $late_arg \
+  --live --notify --require-isolated \
   --spec "$SPEC" \
   --targets-file "$TARGETS_FILE" \
   --manifest-file "$MANIFEST_FILE" \
@@ -336,12 +117,4 @@ execution_status=0
   --lock-file "$LOCK_FILE" \
   --leverage "$LEVERAGE" \
   --max-gross-multiple "$MAX_GROSS" \
-  --max-margin-utilization "$MARGIN_CAP" $BOOTSTRAP_ARG || execution_status=$?
-
-monitor_status=0
-run_monitor_audit || monitor_status=$?
-
-if [ "$execution_status" -ne 0 ]; then
-  exit "$execution_status"
-fi
-exit "$monitor_status"
+  --max-margin-utilization "$MARGIN_CAP"

@@ -95,12 +95,14 @@ def test_window_check_blocks_before_the_fill_point(tmp_path: Path) -> None:
     assert code == BLOCKED
 
 
-def test_window_check_allows_a_reboot_catchup_after_the_fill_point(tmp_path: Path) -> None:
+def test_window_check_allows_only_the_short_operational_grace(tmp_path: Path) -> None:
     state = _write_state(tmp_path / "state.json", "spec|2026-10-14|2026-10-15", "ok")
 
-    code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T04:00:00+00:00"])
+    code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T01:19:00+00:00"])
 
     assert code == 0
+    late = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T01:21:00+00:00"])
+    assert late == BLOCKED
 
 
 def test_window_check_blocks_when_today_already_traded(tmp_path: Path) -> None:
@@ -111,12 +113,12 @@ def test_window_check_blocks_when_today_already_traded(tmp_path: Path) -> None:
     assert code == DONE
 
 
-def test_window_check_retries_a_failed_day(tmp_path: Path) -> None:
+def test_window_check_does_not_automatically_retry_a_failed_day(tmp_path: Path) -> None:
     state = _write_state(tmp_path / "state.json", "spec|2026-10-15|2026-10-16", "failed")
 
     code = main(["--check", "window", "--state-file", str(state), "--now", "2026-10-16T04:00:00+00:00"])
 
-    assert code == 0
+    assert code == BLOCKED
 
 
 def test_window_check_retries_when_the_target_book_changed(tmp_path: Path) -> None:
@@ -150,7 +152,7 @@ def test_window_check_retries_when_the_target_book_changed(tmp_path: Path) -> No
             "--manifest-file",
             str(manifest),
             "--now",
-            "2026-10-16T04:00:00+00:00",
+            "2026-10-16T01:10:00+00:00",
         ]
     )
 
@@ -228,7 +230,7 @@ def test_window_check_retries_when_the_manifest_is_behind_the_completed_day(
             "--manifest-file",
             str(manifest),
             "--now",
-            "2026-10-16T04:00:00+00:00",
+            "2026-10-16T01:10:00+00:00",
         ]
     )
 
@@ -309,7 +311,7 @@ def test_window_check_rebuilds_when_the_target_file_disagrees_with_the_manifest(
             "--manifest-file",
             str(manifest),
             "--now",
-            "2026-10-16T04:00:00+00:00",
+            "2026-10-16T01:10:00+00:00",
         ]
     )
 

@@ -42,229 +42,66 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 
 ## 1. 当前自动化拓扑
 
-### 1.1 macOS（本机默认）
+### 1.1 四个每日节点
 
-| launchd 任务 | 北京时间 | 作用 | 日志 |
+当前生产链固定为四个业务节点，各自只做一件事：
+
+| 节点 | 北京时间 | 作用 | 日志 |
 |---|---|---|---|
-| `com.atlas20.daily-refresh` | 08:30、08:50、10:30、10:55、14:30 | 刷新 CMC/Binance/Gate 面板；已有完整数据时跳过 | `~/Library/Logs/atlas20-daily-refresh.log` |
-| `com.atlas20.cmc-probe` | 08:05–11:50 每 15 分钟 | 记录 CMC 发布完成时刻，研究用 | `~/Library/Logs/atlas20-cmc-probe.log` |
-| `com.atlas20.derivatives-refresh` | **08:35、08:55、09:00、13:05**、15:05、18:05、18:35、21:05、03:05 | 非交易刷新：Bitget mark/market/funding → 可执行 Top50 readiness（只补失败证据层）→ LS104 冻结账本 → 全链/数据/venue/信号审计 → 写 `prepared.json`；08:35 在 00:50 UTC 后不再启动新任务；08:55 先检查 receipt，新鲜则 no-op，否则以 01:05 为最晚启动线做有界 catch-up（panel 最多等 120s）；09:00 只补 00:00 UTC mark tail、更新数据/信号审计和 receipt，不重建信号；13:05 在最后一次 14:35 重试前补齐 04:00 UTC settlement；18:05 在 19:00 monitor 前补齐 08:00 UTC settlement，18:35 做一次有界重试 | `~/Library/Logs/atlas20-derivatives-refresh.log` |
-| `com.atlas20.derivatives-execute` | **09:05**；重试 09:35、11:05、11:35、12:35、14:35 | 优先复用 08:35/08:55 的新鲜 prepare receipt；否则 fail-closed 回退完整刷新链。按真实权益执行 → 写 journal → 执行后立即只读 monitor；当日已完成时先跑 risk-reducing protect-only（禁止开仓/加仓）再 monitor → Telegram | `~/Library/Logs/atlas20-derivatives-execute.log` |
-| `com.atlas20.top50-readiness` | 09:45 | Top50 readiness 兜底与 Telegram pending 重试；只加载 Telegram 凭据，不加载 Bitget 交易凭据、不下单 | `~/Library/Logs/atlas20-top50-readiness.log` |
-| `com.atlas20.live-monitor` | 19:00 | 只读全链路巡检；异常才发消息 | `~/Library/Logs/atlas20-live-monitor.log` |
-| `com.atlas20.protect-live-logs` | 登录时 + 每 5 分钟 | 保护运营日志不被清理工具删除 | `~/Library/Logs/atlas20-log-protect.log` |
-| `com.atlas20.keep-awake` | 登录时常驻 | `caffeinate -dimsu` 防止机器/磁盘空闲睡眠；KeepAlive 自动拉起 | `~/Library/Logs/atlas20-keep-awake.log` |
+| 数据 | 08:30 | CMC/Binance/Gate 面板 + Bitget mark/market/funding + Top50 readiness | `~/Library/Logs/atlas20-daily-refresh.log` |
+| 信号 | 08:35 | 构建冻结目标账本 + data/venue/signal 审计 | `~/Library/Logs/atlas20-derivatives-refresh.log` |
+| 执行 | 09:05 | 按 T+1 01:05 UTC 的真实账户执行一次 | `~/Library/Logs/atlas20-derivatives-execute.log` |
+| 巡检 | 19:00 | 只读全链路核对；异常才告警 | `~/Library/Logs/atlas20-live-monitor.log` |
 
-主任务入口固定为：
+不再存在 prepare/finalize 补跑、09:35/11:05/11:35/12:35/14:35 执行重试、top50 独立重试或
+盘前自动自愈。任一节点失败即保持失败；19:00 巡检负责提示，是否人工修复由负责人决定。
 
-```text
-com.atlas20.derivatives-execute
-  -> ops/run_derivatives_daily.sh
-  -> make derivatives-live-data <profile-signal-target>
-     -> audit-data-chain
-     -> audit_venue_symbols.py
-     -> audit-data-ls104 / audit-signal-ls104
-     -> scripts/execute_live_plan.py --live --notify --require-isolated
-     -> scripts/monitor_live_track.py --notify
-```
-
-LS104 首次运行且 `data/ls45_g175_execution_state.json` 不存在时，wrapper 额外传入
-`--bootstrap-track`。该旗标只允许 state、journal 均为空且 manifest 有 `targets_sha256`；它把当前
-冻结账本作为新 track 的首个事件应用，不重放 LS45 历史 PnL/funding，也不复用 LS45 state/journal。
-继承仓位的累计 `totalFunding` 只写入首行 positions 作为下一日差分基线；bootstrap 首次写入时该行
-`funding_total=0`，不会把迁移前 funding 计入 LS104 收益。同日后续 protect-only 若重写该行，只记录
-bootstrap 之后新发生的 funding 差分。
-一旦 state 文件存在，后续重试只围绕 `active_event` 做 complete/maintain；如果冻结账本已有
-尚未应用的最新事件，则先走一次 `execute` 把它应用，再回到 complete/maintain。
-
-执行器按以下五种互斥模式处理冻结事件账本：
-
-- `fresh`：target 最新事件等于 manifest 最新评估日，按当前权益执行该事件；
-- `execute`：target 最新事件早于 manifest 评估日但尚未应用，按该事件的冻结权重和
-  当前执行价重算数量；漏执行后的下一个正常窗口仍必须应用，不能降级为 `maintain`；
-- `complete`：同一事件的 `active_event.position_status=partial`，按冻结数量补齐；
-- `maintain`：active event 已是最新 target 事件，只保留同向漂移并做风险降低维护；
-- `pending`：target ledger 与 manifest 的日期关系不一致（target 领先 manifest），或
-  输入已确认被更新事件取代；拒绝交易并要求重建/复核，不能用手工状态掩盖。
-
-非空 execution state 如果没有 `active_event`，执行器在读取 target 之前就 fail closed；
-历史 state 不能被当成“漏执行事件”重新应用。延迟事件成功应用后必须写入新的
-`signal_date` 和 `targets_sha256`，不能继续沿用旧 active event。
-
-若窗口闸返回 `DONE=4`，wrapper 不刷新数据、不重读新的 alpha 目标，而是先运行：
+主任务入口：
 
 ```text
-scripts/execute_live_plan.py --live --notify --require-isolated --protect-only
-scripts/monitor_live_track.py --notify
+08:30  ops/run_derivatives_data.sh
+         -> scripts/refresh_daily_data.py
+         -> make derivatives-live-data
+         -> make top50-readiness-unlocked / top50-readiness-check
+
+08:35  ops/run_derivatives_signal.sh
+         -> make derivatives-ls104-signal
+         -> audit-data-chain / audit-data-ls104
+         -> audit_venue_symbols.py / audit-contract-specs-ls104
+         -> audit-signal-ls104
+
+09:05  ops/run_derivatives_daily.sh
+         -> scripts/execute_live_plan.py --live --notify --require-isolated
+
+19:00  ops/run_live_monitor.sh
+         -> scripts/monitor_live_track.py --notify
 ```
 
-`protect-only` 只允许 reduce/close、止损恢复/归一、风险 cap 缩减和逐仓保证金维护；OPEN/INCREASE
-在计划器与执行器两层都被禁止。因此执行后若止损被修改、消失，或 gross 越过硬上限，下一次 fallback
-会立即修复，而不是只等 Telegram 告警。它不按旧目标权重重新贴仓。
+### 1.2 执行时钟
 
-需要“只补 journal、连 reduce/close 也不做”时，可单独人工运行 `--reconcile-only`；该模式不进入交易
-计划器，也不调用任何下单函数。
+- 回测、target ledger 和实盘统一使用 **T+1 01:05 UTC = 北京 09:05**；
+- 回测成交价使用 Bitget 01:00 UTC 的 1H market open；
+- 日线信号只依赖已完成的日线数据，不等待 01:00 的 mark bar；
+- 执行器只有一次尝试，另有 15 分钟调度/进程宽限；超过即失败，不做自动晚跑；
+- 01:00 的 fill bar 由执行器在 09:05 现场校验，而不是让信号构建等待它。
 
-`derivatives-live-data` 使用稳定目录：
+### 1.3 信号与数据边界
 
-```text
-data/raw/bitget_derivatives/merged_oos_20261112/
-```
+- 00:30 UTC 的数据节点必须拿到上一完整 UTC 日的 CMC 面板、Bitget mark/market/funding 与
+  Top50 readiness；
+- 00:35 UTC 的信号节点只消费上述冻结输入，生成 target ledger 和审计；
+- 最新事件的 T+1 01:00 market bar 可以尚未发布；该 bar 由 09:05 执行器负责获取和校验；
+- 历史 target 的 01:00 bar 仍必须完整；缺历史 bar 会阻止信号发布；
+- 不使用 23:00 mark bar 冒充 00:00 数据，也不在数据缺失时下单。
 
-下载器每天用滚动窗口追加/修复 mark，不再回退到旧的 `merged_oos_20261009` 实盘源。
+### 1.4 失败处理
 
-01:05 UTC 刚触发时，Bitget 的 1H `history-candles` 可能还没发布刚在 01:00 UTC 收完的上一根
-bar。下载器会在严格审计前做一次有上限的条件等待：
+数据、信号或执行任一节点失败时：
 
-- 只对落后不超过 3 小时的 mark 做尾部重取；
-- prepare 最多等待 180 秒、每 30 秒检查一次；09:00 finalize 最多等待 120 秒、每 15 秒检查一次；
-- 只重取要求 bar 前后两小时，不使用宽松的“最后一根够新就放行”；
-- 超过等待预算、文件损坏或缺口过深时仍然 fail closed；
-- 后续 01:35、03:05、03:35、04:35、06:35 UTC 的定时重试继续保留。
-
-2026-11-14 的失败是交易所发布延迟，而不是信号或下单逻辑错误。修复不会放宽 mark 完整性，
-也不会在数据缺失时下单。
-
-2026-11-20 01:05 UTC 的失败则是 receipt 边界问题：08:35/08:55 的 prepare 只能看到
-2026-11-19 23:00 的已完成 mark，01:05 执行器要求 00:00 bar，因此即使 receipt 仍“新鲜”
-也必须拒绝。当天回退链在 01:43 UTC 才完成成交。此前 2026-11-17/18/19 的可见成功时间
-分别是约 01:35、01:15、01:15 UTC，也主要是重试或完整回退完成的，不是稳定的 01:05
-直单路径；09:00 finalize 就是为消除这个边界缺口而增加的。
-
-### 1.1.1 01:05 执行前置准备（prepare receipt）
-
-01:05 是策略时钟，不是“开始下载 88 个合约并重跑 54 天回测”的时钟。为避免把 5-10 分钟
-的数据/审计工作变成 01:10 之后的成交，正常路径改为：
-
-```text
-08:35 北京  prepare: data + executable Top50 readiness + LS104 signal
-            + audit-data-chain + audit-data-ls104
-            + audit-symbols-ls104 + audit-signal-ls104
-            -> reports/ls45_live_g175_live/prepared.json
-08:55 北京  catch-up: 若 08:35 receipt 仍有效则 no-op；
-            否则在 01:05 前启动有界补跑（panel 最多等 120s）
-09:00 北京  finalize: 只补 00:00 UTC mark tail、重生成四项审计和 receipt；
-            不重建 signal，不改变冻结目标；若旧 receipt 只是 age 过期，而
-            manifest 已评估到最近完成 UTC 日且 manifest/target/READY 身份一致，
-            可把旧 receipt 仅作为身份基线，但仍必须重新生成全部审计后才发布新 receipt
-09:05 北京  execute: 只接受 receipt 仍新鲜（默认 <= 30 分钟）、
-            manifest/targets/data/market-fill 指纹与 audit 文件哈希全部一致；
-            receipt 失效时 wrapper 先调用有界 finalize，finalize 失败才回退完整链；
-            绝不使用过期 receipt
-```
-
-09:00 的 finalize 是正常快路径：00:00 bar 在 01:00 UTC 才发布，所以 08:55 之前不可能
-完成包含该 bar 的 prepare；09:00 只取尾部 bar，避免把 01:05 变成一次完整数据重建。
-01:05 执行器仍要求 receipt 覆盖 00:00 bar；若 finalize 失败或尾部数据未发布，wrapper
-才回退到有界完整刷新。不能为了复用快路径放宽 mark 审计，也不能用 23:00 bar 假装
-覆盖 00:00 执行输入。
-
-08:35 prepare 在 00:50 UTC 后不再启动新任务；08:55 catch-up 只允许在 01:05 前启动，
-panel 最多等 120s。这样正常路径不会持有 `data/derivatives_execution.lock` 跨过 01:05；
-若补跑仍未完成，09:05 wrapper 检测到执行锁被占用会直接让给下一次重试，不会并发重建。
-08:35 prepare 仍会先等待 `data/.daily-refresh.lock` 释放并确认 panel 已到最近完成日，
-再开始下载/重建；今天的 08:30 panel 重建如果拖到 08:43，prepare 会等它完成而不是读取
-半成品。若当天 08:35/08:55 都失败，09:05 会先执行有界 finalize（只补 mark tail、
-重生成审计和 receipt）；只有 finalize 也失败才走完整链并接受相应延迟。这是安全回退，
-不是正常路径。2026-11-21 的实测证明该路径可在不重建 signal 的情况下恢复并让下一个
-执行窗口拿到 valid receipt。
-2026-11-15 首次 LS104 bootstrap 的真实成交约 **01:10:59 UTC**；根因是当天 01:05 才启动
-mark/funding 下载、54 天账本重建和 `audit-data-chain`，不是信号本身偏离。该事实保留在
-RESEARCH 记录中，不回写成 01:05。
-
-### 1.1.2 可执行 Top50 readiness（Top20 前置数据池）
-
-本轮新增的不是第二套行情，而是对现有数据链的**成员级完整性门槛**：
-
-```text
-panel_daily.csv（CMC，当日排名）
-  -> build_rebalance_universe（原 point-in-time eligibility）
-  -> Bitget symbol_map / USDT-M perpetual
-  -> 无合约币跳过并顺延至 Top50
-  -> 有合约但数据不完整：该成员 BLOCKED，不自动用第 51 名掩盖
-  -> 原 downloader / repair / audit_derivatives_data
-  -> reports/top50_data_readiness/latest_ready.json
-  -> 前 20 名进入 Top20 readiness handoff
-```
-
-权威产物：
-
-- `reports/top50_data_readiness/latest.json`：最新一次评估，可能为 READY 或 BLOCKED；
-- `reports/top50_data_readiness/latest_ready.json`：只有 50/50 READY 才存在；
-- `reports/top50_data_readiness/history/YYYY-MM-DD.json` / `ready/YYYY-MM-DD.json`；
-- `reports/top50_data_readiness/top50.csv` / `top20.csv`：列含 final/original rank、CMC/mark/market/funding 范围和 failures；
-- `reports/top50_data_readiness/audit/YYYY-MM-DD.json`：scoped `audit_derivatives_data` 的完整 checks；
-- `data/top50_readiness_state.json`：成员首次进入、上次 status、Telegram 幂等键和 pending 事件。
-
-规则：
-
-- CMC 是唯一排名源；Top50 只从当天 eligible ranking 产生；
-- 没有 Bitget USDT-M perpetual 的币记 `VENUE_UNAVAILABLE` 并顺延；
-- 只有 `normal + perpetual + quoteCoin=USDT` 才进入映射；不合格的直连 base 会继续尝试
-  已登记 alias，不会阻断同一币的正常 USDT perpetual fallback；
-- 有合约但 CMC/mark/market/funding/venue/杠杆证据不完整时 fail closed；
-- Bitget `openTime` 为空时，成员起点取 warmup/live OHLC 与 funding 档案的最早有效观测，
-  不能把“当前 live 文件第一条”当作上市日；若 funding 已早于 warmup 截止日，必须补全
-  warmup/live 历史，否则该成员保持 BLOCKED；
-- 即使 `openTime` 非空，只要真实 funding/OHLC 已出现更早观测，成员起点仍取最早值；不能被
-  错误或滞后的 venue 上市时间覆盖并跳过 warmup；
-- 首次 READY 初始化只建立基线，不发送 50 条历史进入消息；首次基线若本来含 BLOCKED，
-  仍发送该真实故障，不能把首个失败静默成基线；
-- 后续只对“新进 Top50 / 状态变化 / 新进 Top20”生成事件，键为 `(event, coin_id, as_of)`；
-- 同日同币未发送的 READY/BLOCKED 事件按最后一次真实状态收敛；已经发送的事件不删除；
-  `TOP50_ENTER` / `TOP20_ENTER` 的未发送文本会同步到最终状态；
-- `--check-current` 必须同时通过当日日期、50/20 成员语义、全部 READY、audit passed、
-  fingerprint 和 `latest.json == latest_ready.json`，不能只凭旧文件存在就放行；
-- `TOP50_DATA_BLOCKED` 或未 READY 的 `TOP20_ENTER` 明确禁止用第 51 名掩盖数据故障；
-- LS104 signal 现在显式消费当日 `latest_ready.json`：先校验 READY fingerprint 和当前 CMC/Bitget 输入文件哈希，
-  再把 signal 当日 universe 替换为可执行 Top20；历史日期仍是普通 PIT CMC Top20；
-- 无合约导致的 Top20 递补成员必须已在候选行情池中；signal 不会为绑定临时下载、拼接或伪造历史；
-- LS104 manifest 必须包含 `executable_universe`，记录 source、READY fingerprint、完整 Top20 membership
-  和 skip 轨迹；`audit-signal-ls104` 固定重放 manifest 指向的 `ready/YYYY-MM-DD.json`，不能读取次日 pointer；
-- `prepared.json` 还必须与当前 `latest_ready.json` 的 as-of、fingerprint 和字节哈希一致；若
-  Top50 pointer 在 signal 重建后变化，receipt 失效并强制执行前重新绑定 signal，不能用旧账本跳过新 universe；
-- 实盘执行器在取得 execution lock 后会再次核对 manifest 指向的 `latest_ready.json` source
-  bytes、as-of 和 fingerprint；若 pointer 在 receipt 检查后、下单前变化，必须 fail closed；
-- readiness 任务本身不修改 trade state/journal，也不下单；补齐 raw market 后由现有
-  `derivatives-ls104-signal` 重建 manifest fingerprint，executor 仍须通过全部执行闸门。
-
-手工检查：
-
-```bash
-make top50-readiness ARGS=--dry-run
-make top50-readiness ARGS=--no-backfill
-make top50-readiness-check
-make top50-readiness ARGS=--notify-only
-.venv/bin/python - <<'PY'
-import json
-r=json.load(open('reports/top50_data_readiness/latest.json'))
-print(r['ready'], r['fingerprint'], len(r['members']), len(r['top20']))
-print([(m['final_rank'], m['original_rank'], m['coin_id'], m['status']) for m in r['members']])
-print([(s['original_rank'], s['coin_id'], s['reason']) for s in r['skipped']])
-manifest=json.load(open('reports/ls45_live_g175/manifest.json'))
-assert manifest['executable_universe']['as_of'] == r['as_of']
-assert manifest['executable_universe']['fingerprint'] == r['fingerprint']
-PY
-```
-
-若上述断言失败，signal 与 readiness 未接轨，禁止执行新的风险变更；先运行
-`derivatives-ls104-signal` 和 `audit-signal-ls104` 重新生成并验证绑定证据。
-
-### 1.2 Ubuntu（可选，不能与 macOS 同时跑）
-
-```bash
-sudo cp ops/systemd/atlas20-data-refresh.{service,timer} /etc/systemd/system/
-sudo cp ops/systemd/atlas20-derivatives-execute.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-execute.timer
-```
-
-- execute timer：01:05 / 01:35 / 03:05 / 03:35 / 04:35 / 06:35 UTC；
-- `Persistent=true`：重启后补跑错过的一次；
-- 补跑仍经过窗口闸和当日幂等闸；
-- 不要同时安装 `atlas20-derivatives-signal.timer` 与 execute timer。signal timer 只给“不下单、只播报”的备用部署使用。
-
----
+1. 不自动重试、不补跑、不执行 finalize；
+2. 19:00 巡检读取真实账户、state、journal 和审计，报告异常；
+3. 负责人确认后，才允许手工运行对应节点；
+4. 手工补跑不是常规路径，也不能改变回测冻结的 01:05 时钟。
 
 ## 2. 信号与执行时点
 
@@ -308,99 +145,55 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 
 因此事件信号可以显示旧信号日，但定时任务不会因为“今天没有新交易事件”而失效。
 
-实盘主任务在 01:05 UTC 开始，信号仍只使用 D 日收盘及之前的数据。重试点在：
+实盘主任务在 01:05 UTC 开始，信号只使用 D 日收盘及之前的数据。全天只有一个执行时点：
 
 ```text
-01:05 UTC = 09:05 北京  primary
-01:35 UTC = 09:35 北京  retry
-03:05 UTC = 11:05 北京  fallback
-03:35 UTC = 11:35 北京  fallback
-04:35 UTC = 12:35 北京  fallback
-06:35 UTC = 14:35 北京  final retry
+01:05 UTC = 09:05 北京  single execution attempt
 ```
 
-交易窗口从 01:05 UTC 起 6 小时，即最晚到 07:05 UTC / 15:05 北京。窗口外只允许人工显式 `--force` 补做；即使 `--force`，当日已成功、数据不新鲜、风险或对账闸门仍会阻止重复交易。
+正常执行允许 15 分钟的调度/进程宽限（最晚 01:20 UTC）；超过即失败，不自动晚跑。交易窗口
+不再延伸到 07:05 UTC，也没有 01:35/03:05/03:35/04:35/06:35 的补跑。窗口外人工 `--force`
+只能用于负责人明确确认的异常修复，不是自动流程。
 
 ---
 
-## 3. 自愈、补跑和幂等
+## 3. 四节点幂等与失败处理
 
-`ops/run_derivatives_daily.sh` 在每次 launchd/systemd 启动时按顺序执行：
+1. **数据节点** `ops/run_derivatives_data.sh`：刷新面板、Bitget mark/market/funding、Top50
+   readiness。失败即停，不重试。
+2. **信号节点** `ops/run_derivatives_signal.sh`：构建冻结账本并运行 data/venue/signal 审计。
+   失败即停，不重试。
+3. **执行节点** `ops/run_derivatives_daily.sh`：只调用 `execute_live_plan.py --live`，不刷新
+   数据、不构建信号、不 finalize、不重试。
+4. **巡检节点** `ops/run_live_monitor.sh`：只读核对账户、目标、止损、journal、审计和新鲜度；
+   异常才告警。
 
-1. **窗口闸**：`scripts/live_chain_preflight.py --check window`
-   - 01:05 UTC 前退出；
-   - 只有 `signal_end_date` 与 `index_end_date` 都已覆盖最新完成 UTC 日、manifest 的
-     `targets_sha256` 与磁盘上的目标 CSV 完全一致，并且当日状态已 `ok` 的目标身份与它相同时才退出；
-   - 旧 manifest 落后一天或目标 CSV 是半写/混合快照时，**不得**先用旧账本的“成功空操作”
-     跳过重试；窗口内必须继续刷新数据、重建账本，再由执行器按新目标哈希判断是否真的重复；
-   - 超过 6 小时补跑窗口退出；
-   - 退出码 3 表示“设计上不交易”，不是故障；
-   - 退出码 4 表示“今天已经成功完成且 manifest/目标哈希仍匹配”；wrapper 仍会先运行
-     `--protect-only`，恢复/归一切异常止损、执行必要的 risk-reducing 维护并补 journal，再运行
-     只读 monitor，避免执行后风险漂移拖到下一日。
-2. **面板自愈**：`--check panel`
-   - 面板落后或最后一天不完整时，运行 `refresh_daily_data.py --force --wait-seconds 900`；
-   - 刷新后再次检查，仍不完整就拒绝下单。
-3. **数据与账本**：`make derivatives-live-data derivatives-ls104-signal`（当前 profile）
-4. **数据审计**：`make audit-data-ls104` 后接 `make audit-data-chain`；任何未来时间、重复、非法 OHLC、最后完成日缺失、
-   **任一 normal 合约 funding 过期**、合约规格缺失或 manifest fingerprint 不一致都会拒绝执行。
-   `audit-data-ls104` 还校验 mark/funding 单调性、完整 funding settlement 日历、funding manifest 与实际最后时间一致，
-   把每个 funding CSV 和 `funding_publication.json` 的字节哈希纳入 data fingerprint，并校验最新 panel 的
-   price/volume/market-cap 有效值。每个 required asset 的 publication evidence 必须绑定当前 funding 文件哈希、
-   在最后 settlement 之后取得、rate 与当前/历史端点一致；冲突或缺失即 hard failure。
-   下载器以合约 funding interval 的下一次结算时刻判断缓存是否到期：结算一到就同时请求 history 与
-   `current-fund-rate`，不会再用 `interval + 1h` 的宽限期跳过刷新；history 报错或返回空也不能阻断
-   `current-fund-rate` 的独立兜底。08:35/08:55 是结算后的真实重试窗口，不是延迟一小时后才允许查询。
-   缓存是否可复用还取决于 publication evidence 是否完整：若 CSV 已有最新行，但缺少交易所 interval、
-   current-rate 一致性或发布时间证明，下载器会主动重查并修复证据，而不是等到下一个 settlement 才自愈。
-   `audit-data-chain` 额外从 CMC/独立源缓存重建 panel，检查 point-in-time 排名、feed 连续性、跨源确认和缺失收益策略。
-5. **合约规格快照**：`make audit-contract-specs-ls104` 比较冻结 track 的 7 个下单规格字段。
-   下载器把合约变化点写入 `<raw-dir>/contract_snapshots/index.json`，相同内容只更新
-   `last_seen_at`，不制造重复大文件；任一 track symbol 在快照间变化或缺失都会拒绝执行。
-6. **全品种实时能力**：`make audit-symbols AUDIT_REQUIRED_LEVERAGE=4.0 AUDIT_SYMBOL_OUT=reports/ls45_live_g175_live/venue_symbol_audit.json` 对全部映射资产逐项核对 Bitget v3 合约身份、
-   online/perpetual/USDT、报价新鲜度，并按 `--required-leverage 4.0` 验证 all-universe 杠杆能力，
-   生成多单、空单止损和 long→short 翻转计划；
-   `audit-data-ls104 --required-leverage 4.0` 进一步要求目标账本内每个资产支持 4x。
-7. **信号等价性**：`make audit-signal-ls104` 重新构建冻结账本并逐行比较；同时要求最新信号动作
-   在 replay 中留下对应成交、持仓或显式的交易所最小额跳过记录，且成交时间必须落在执行时刻
-   前 1 小时到执行时刻之间。任何差异都会拒绝执行。
-8. **执行**：`scripts/execute_live_plan.py --live --notify --require-isolated`
-9. **执行后即时审计**：无论执行成功、partial 还是失败，都立即运行
-   `scripts/monitor_live_track.py --notify`；它重新执行独立的 `audit-live`，并可发送实际账户状态告警。
-   wrapper 保留 executor 的失败退出码，不会因为 monitor 成功而把 partial 洗成 ok。
-10. **当日已完成的重试**：preflight 返回 4 时先运行 `--protect-only`，再运行 monitor。
-   这一步会补记交易所止损、更新 `active_event.stopped_symbols`/风险 overlay/高水位，并恢复或
-   归一止损、执行 gross/margin 的风险降低；它没有任何 OPEN/INCREASE 路径。
-
-执行器自身还有：
+执行器自身保留的安全门禁：
 
 - 持有 `data/derivatives_execution.lock` 的进程级 `flock`（LS45/LS104 共用）；另一个实例直接退出；
-- mark 新鲜度硬阈值 30h；
+- mark 新鲜度硬阈值 30h；日线信号只要求上一完整日线收盘，不要求 00:00 hourly mark bar；
 - 目标账本评估日必须等于数据最新可判定日；
 - `manifest.targets_sha256` 必须与 `oos_targets.csv` 字节哈希一致，防止“新账本 + 旧 manifest”
   或进程中断留下的半写账本被当成完整目标；
 - 实时 ticker 不得超过 120s、价格必须可用；
 - account equity 不低于 20 USDT；
 - kill switch 文件存在时拒绝一切操作；
-- 每个 run day + `targets_sha256` 只允许一个 `ok`；同一天账本重建后会重新进入补跑链，
-  `partial` 也会在后续重试窗口重读账户并自愈；
+- 每个 run day + `targets_sha256` 只允许一个 `ok`；`partial` 不会在当天自动补跑，留给
+  19:00 巡检告警和负责人决定；
 - `active_event` 保存事件日、最终应用时间、冻结方向/价格/币数量、应用状态和已止损腿；
   若硬 gross/margin cap 触发了风险缩减，额外保存 `risk_overlay.target_quantities` 作为**有效**
   数量锚点，原始事件目标仍保留在 `target_quantities`，不会静默改写 alpha 目标；
 - `stop_reconciliation_through` 保存已经完整扫描过的止损历史高水位；`last_run_mode` 区分
   `execution` / `protect_only` / `reconcile_only`，防止把补账运行误读成 alpha 执行；
-- 旧事件 `partial` 的重试只按冻结数量补齐；margin-only 失败不阻塞下一目标事件；
 - 已止损腿在旧事件中永久保持目标 0，新目标事件才会重新授权同 symbol 开仓；
-- 同一 run day 的 clientOid 稳定；请求超时或缺少 `orderId` 时按 clientOid 回查，避免重启重试
+- 同一 run day 的 clientOid 稳定；请求超时或缺少 `orderId` 时按 clientOid 回查，避免重启
   把“已接受但响应丢失”的订单再下一遍；
-- clientOid 按订单业务身份做稳定哈希，不再使用“当前订单数组下标”；前面订单成交后，
-  下一轮计划不会因为序号左移而撞上已成交订单的 clientOid；
-- 同日重试会按 `orderId/clientOid` 合并已有成交，而不会用当前轮的空 `trades` 覆盖当日已落账成交；
-- 若订单已在交易所成交、但进程在写 journal 前崩溃，下一轮会从当日 `order-history`
+- 同日手工重跑会按 `orderId/clientOid` 合并已有成交，不会用当前轮的空 `trades` 覆盖已落账成交；
+- 若订单已在交易所成交、但进程在写 journal 前崩溃，下一次运行会从当日 `order-history`
   找回当前 prefix 的成交并补入 journal；
 - journal/state/latest/audit/monitor/capital-flow 写入均为同目录临时文件 + `fsync` + `os.replace`；
 - 成交、journal、latest.json、通知全部成功后才写 `ok`；
-- journal 或 Telegram 写失败时不会把 run 标记为完成，下一轮可以继续；
+- journal 或 Telegram 写失败时不会把 run 标记为完成，下一次运行可以继续；
 - 未捕获的顶层异常会写 `latest.json(status=error)` 并尝试发 Telegram 告警，不写 `ok`。
 
 kill switch：
@@ -457,7 +250,7 @@ slOrderType = market
 - 回读一致：把三字段和 `position_side / client_oid / status` 一并记录到 journal；
 - 未确认：立即市价买回平掉该空头（`EMERGENCY_CLOSE`），并把本次 run 标记为 `partial`；
 - 空头加仓的止损未确认时，平掉该 symbol 当前完整空头腿，而不只是新加的数量；
-- 下一次重试会重新读取真实账户，不会重复开仓；
+- 下一次运行会重新读取真实账户，不会重复开仓；
 - `audit-live` 会核对 journal 中带止损的空头成交与交易所订单历史的 `stopLoss / slTriggerBy / slOrderType`。
 - `audit-live` 必须独立确认实际止损价格严格早于逐仓强平价；`liquidationPrice` 缺失、非法或
   `stop >= liquidationPrice` 都硬失败。执行器在最终保护判定中也使用同一约束，不会把晚于强平的
@@ -599,19 +392,24 @@ ops/run_live_monitor.sh                 # 只在异常时发 Telegram
 LS104 维护命令必须使用上面两个带 profile 路径、spec 和风险参数的 Makefile target。裸跑
 `scripts/execute_live_plan.py` 会使用脚本内保留的 LS45 回滚默认值，不是当前 live track。
 
-### 7.2 手动执行链
+### 7.2 手动执行
 
 ```bash
-ops/run_derivatives_daily.sh            # 遵守窗口和幂等
-ops/run_derivatives_daily.sh --force    # 只跳过窗口闸
+ops/run_derivatives_data.sh      # 数据节点；失败即停
+ops/run_derivatives_signal.sh    # 信号节点；失败即停
+ops/run_derivatives_daily.sh     # 唯一执行节点；不做数据/信号重建
 ```
 
-同日成功后普通重试会先走 `--protect-only` 风险维护，再做只读 monitor；不会重新贴旧权重。
-`--force` 不是“强制重复交易”，只是允许窗口外补跑一次未完成的当日任务。
-进程在状态落盘前崩溃时，同日重试复用确定性 `clientOid`，以便从订单历史恢复已成交订单；
-若前一次失败已经写入 state，则下一次 attempt 使用新的确定性前缀，避免交易所把新补单误判为旧幂等键。
-失败重试按前一次同日 journal 的 `run_at_utc` 只追加新的外部资金流；旧资金流/数据新鲜度提示会被本轮提示替换，不会重复记账。
-来自公网的瞬时连接、TLS 或 429/5xx 会做有限次指数退避；响应成功但内容无效仍然 fail closed。
+自动流程不提供 `--force` 补跑，也不在 09:05 之后自动重试。负责人确认需要人工修复时，才按
+顺序重跑对应节点；执行节点的窗口仍只允许 01:05–01:20 UTC，超过则需显式人工覆盖并重新核对
+真实账户。`--force` 不是“强制重复交易”，不会绕过数据审计、manifest、isolated、风险、
+对账或幂等门禁。
+
+进程在状态落盘前崩溃时，下一次手工运行复用确定性 `clientOid`，以便从订单历史恢复已成交订单；
+若前一次失败已经写入 state，则下一次 attempt 使用新的确定性前缀，避免交易所把新补单误判为旧
+幂等键。同日手工重跑按前一次同日 journal 的 `run_at_utc` 只追加新的外部资金流；旧资金流/
+数据新鲜度提示会被本轮提示替换，不会重复记账。来自公网的瞬时连接、TLS 或 429/5xx 会做有限
+次指数退避；响应成功但内容无效仍然 fail closed。
 
 权益跌到 20 USDT 以下或非正数时，执行器不再整体拒绝运行：它会抑制所有新开/加仓和保证金追加，
 但仍允许 reduce/close、止损核对、记账和告警。这样不会因为“余额太小”把现有风险锁在仓位里。
@@ -713,7 +511,7 @@ make audit-live-ls104
 
 ## 10. 故障处置
 
-### 07:05 UTC（15:05 北京）后仍未成功
+### 09:20 UTC（北京 09:20）后仍未成功
 
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.derivatives-execute
@@ -721,11 +519,8 @@ tail -100 ~/Library/Logs/atlas20-derivatives-execute.log
 make audit-live-ls104
 ```
 
-若在窗口内，下一次重试会自动补；窗口外需要人工确认后：
-
-```bash
-ops/run_derivatives_daily.sh --force
-```
+自动流程不会在 09:05 之后重试。负责人确认需要修复时，先检查 08:30 数据、08:35 信号和
+09:05 执行三个节点，再按需手工重跑对应节点；执行节点的正常窗口仍只有 01:05–01:20 UTC。
 
 ### 全链路核对失败
 
@@ -748,7 +543,7 @@ ops/run_derivatives_daily.sh --force
 4. 只为失败层重跑原工具：`make top50-readiness`（warmup 失败才重建 warmup；live mark/market/funding
    或成员级 full-audit funding failure 才重建 OOS）；
 5. 若仍阻塞，保留 `latest_ready.json` 的旧日期并禁止消费为今日 ready；
-6. Telegram pending 不因重跑丢失；下一次 fallback 或 `make top50-readiness ARGS=--notify` 会重试；
+6. Telegram pending 不因重跑丢失；负责人确认后运行 `make top50-readiness ARGS=--notify`；
    同日先 BLOCKED 后 READY 时，未发送的相反状态会收敛为最终状态，避免重复噪音；
 7. 任何 universe 规则变化必须另立 track/spec，不能借 readiness 修复静默改 LS104。
 
@@ -867,10 +662,9 @@ current-fund-rate；另加 publication evidence 完整性检查，CSV 虽新但 
 NEAR/ZEC，四条均为 history/current rate match；Top50 全 50 成员 6 小时 mark/market
 共 600 根 K 线回源 0 mismatch，11 个成员各 5 个 funding settlement 重叠区 0 mismatch。
 
-操作注意：结算后到下一次 refresh 前，funding CSV 可能尚未包含新 settlement。
-当前定时拓扑会在 08:00 UTC settlement 之后、19:00 北京 monitor 之前执行 18:05
-北京 refresh，并以 18:35 refresh 做一次有界重试；若两次任务都失败或手工在 refresh
-前触发 monitor，settlement coverage 仍会 fail closed。先在真实顺序中运行
-derivatives refresh，再运行 execute/monitor。
+操作注意：结算后到下一次数据节点前，funding CSV 可能尚未包含新 settlement。
+当前定时拓扑只有一个数据节点（08:30 北京）；若它失败，19:00 巡检会报告 settlement coverage
+或 funding freshness 问题。负责人确认后先手工运行 `ops/run_derivatives_data.sh`，再运行
+`ops/run_derivatives_signal.sh`，最后才运行 `ops/run_derivatives_daily.sh`。
 若 `latest.json` 为 `status=error`，不要手工改写；按本文故障处置重新运行并让
 下一次真实成功覆盖。

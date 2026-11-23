@@ -11,28 +11,22 @@ def test_data_refresh_timer_precedes_the_signal_attempts() -> None:
         encoding="utf-8"
     )
 
+    assert timer.count("OnCalendar=") == 1
     assert "OnCalendar=*-*-* 00:30:00 UTC" in timer
-    assert "OnCalendar=*-*-* 00:50:00 UTC" in timer
-    assert "OnCalendar=*-*-* 02:30:00 UTC" in timer
-    assert "OnCalendar=*-*-* 02:55:00 UTC" in timer
-    assert "OnCalendar=*-*-* 06:30:00 UTC" in timer
-    assert "Persistent=true" in timer
+    assert "Persistent=false" in timer
     assert "Unit=atlas20-data-refresh.service" in timer
-    # Go through the locked, skip-when-current wrapper: `make refresh-data`
-    # would race the 02:55 catch-up into the same raw cache.
-    assert "scripts/refresh_daily_data.py" in service
+    assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_data.sh" in service
     assert "make refresh-data" not in service
     assert "launchd" not in timer.lower()
     assert "launchd" not in service.lower()
 
 
-def test_data_refresh_catchup_lands_before_the_rebalance() -> None:
-    """A primary run a reboot killed must be repaired before 01:05 UTC."""
-
-    timer = (ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer").read_text(encoding="utf-8")
-
-    assert "OnCalendar=*-*-* 00:50:00 UTC" in timer
-    assert timer.index("00:30:00") < timer.index("00:50:00")
+def test_prepare_timer_lands_before_the_single_execution_attempt() -> None:
+    timer = (ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.timer").read_text(encoding="utf-8")
+    assert "OnCalendar=*-*-* 00:35:00 UTC" in timer
+    assert "Persistent=false" in timer
+    assert "01:00:00 UTC" not in timer
+    assert "00:55:00 UTC" not in timer
 
 
 def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
@@ -51,7 +45,7 @@ def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
     ).read_text(encoding="utf-8")
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
 
-    assert "Persistent=true" in timer
+    assert "Persistent=false" in timer
     assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_daily.sh" in service
     assert "make derivatives-live-data" not in service
     assert "ATLAS20_PROJECT_ROOT=/opt/atlas20" in service
@@ -61,29 +55,13 @@ def test_derivatives_execute_runs_through_the_gated_wrapper() -> None:
     assert "print -u2" not in wrapper
 
 
-def test_derivatives_refresh_finalizes_the_mark_tail_before_execution() -> None:
-    timer = (
-        ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.timer"
-    ).read_text(encoding="utf-8")
-    wrapper = (ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
-        encoding="utf-8"
-    )
-
-    assert "OnCalendar=*-*-* 01:00:00 UTC" in timer
-    assert "AccuracySec=1s" in timer
-    assert "--finalize-execution" in wrapper
-    assert "mark-wait-seconds 120" in wrapper
-
-
-def test_derivatives_timer_retries_failed_runs_inside_the_catchup_window() -> None:
-    timer = (
-        ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer"
-    ).read_text(encoding="utf-8")
-
-    for clock in ("01:05:00", "01:35:00", "03:05:00", "03:35:00", "04:35:00", "06:35:00"):
-        assert f"OnCalendar=*-*-* {clock} UTC" in timer
-    assert "AccuracySec=1s" in timer
-    assert "OnCalendar=*-*-* 09:05:00 UTC" not in timer
+def test_derivatives_execute_has_one_attempt_and_no_replay() -> None:
+    timer = (ROOT / "ops" / "systemd" / "atlas20-derivatives-execute.timer").read_text(encoding="utf-8")
+    assert timer.count("OnCalendar=") == 1
+    assert "OnCalendar=*-*-* 01:05:00 UTC" in timer
+    assert "Persistent=false" in timer
+    assert "01:35:00" not in timer
+    assert "06:35:00" not in timer
 
 
 def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
@@ -107,17 +85,18 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
     assert "scripts/execute_live_plan.py --live --notify --require-isolated" in live
 
 
-def test_daily_wrapper_uses_the_selected_profile_chain() -> None:
+def test_daily_execution_wrapper_does_not_rebuild_data_or_signal() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
-
-    assert "/usr/bin/make derivatives-live-data" in wrapper
-    assert '/usr/bin/make "$SIGNAL_TARGET"' in wrapper
-    assert "/usr/bin/make audit-data-chain" in wrapper
-    assert "scripts/audit_venue_symbols.py" in wrapper
-    assert '/usr/bin/make "$DATA_AUDIT_TARGET"' in wrapper
-    assert '/usr/bin/make "$SIGNAL_AUDIT_TARGET"' in wrapper
-    assert 'scripts/execute_live_plan.py \\' in wrapper
-    assert "derivatives-oos-data derivatives-oos execute-plan-live" not in wrapper
+    prepare = (ROOT / "ops" / "run_derivatives_prepare.sh").read_text(encoding="utf-8")
+    assert "scripts/execute_live_plan.py" in wrapper
+    assert "scripts/refresh_daily_data.py" not in wrapper
+    assert "/usr/bin/make derivatives-live-data" not in wrapper
+    assert "finalize" not in wrapper
+    assert "no automatic catch-up" in wrapper
+    assert "scripts/refresh_daily_data.py" in prepare
+    assert "/usr/bin/make derivatives-live-data" in prepare
+    assert '/usr/bin/make "$SIGNAL_TARGET"' in prepare
+    assert "scripts/execute_live_plan.py" not in prepare
 
 
 def test_derivatives_signal_fallback_rebuilds_and_audits_before_notifying() -> None:
@@ -136,37 +115,26 @@ def test_makefile_refresh_target_runs_only_the_ls104_data_chain() -> None:
     assert "execute_live_plan.py" not in target
 
 
-def test_derivatives_refresh_is_a_separate_non_trading_job() -> None:
+def test_derivatives_refresh_is_a_separate_non_trading_prepare_job() -> None:
     timer = (ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.timer").read_text(
         encoding="utf-8"
     )
     service = (ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.service").read_text(
         encoding="utf-8"
     )
-    wrapper = (ROOT / "ops" / "run_derivatives_refresh.sh").read_text(
+    wrapper = (ROOT / "ops" / "run_derivatives_prepare.sh").read_text(
         encoding="utf-8"
     )
 
-    for clock in (
-        "00:35:00",
-        "00:55:00",
-        "05:05:00",
-        "07:05:00",
-        "13:05:00",
-        "19:05:00",
-    ):
-        assert f"OnCalendar=*-*-* {clock} UTC" in timer
-    assert (
-        timer.index("00:35:00")
-        < timer.index("00:55:00")
-        < timer.index("05:05:00")
-        < timer.index("07:05:00")
-    )
+    assert "OnCalendar=*-*-* 00:35:00 UTC" in timer
+    assert timer.count("OnCalendar=") == 1
     assert "Unit=atlas20-derivatives-refresh.service" in timer
-    assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_refresh.sh" in service
-    assert "execute_live_plan.py" not in service
-    assert "execute_live_plan.py" not in wrapper
-    assert "scripts/refresh_derivatives_data.py" in wrapper
+    assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_prepare.sh" in service
+    assert "scripts/execute_live_plan.py" not in service
+    assert "scripts/execute_live_plan.py" not in wrapper
+    assert "scripts/refresh_daily_data.py" in wrapper
+    assert "/usr/bin/make derivatives-live-data" in wrapper
+    assert '/usr/bin/make "$SIGNAL_TARGET"' in wrapper
 
 
 def test_makefile_refresh_target_rebuilds_the_panel() -> None:
@@ -192,8 +160,8 @@ def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
         "derivatives-live-data derivatives-ls104-signal audit-data-chain "
         "audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104"
     ) in service
-    # The data-refresh timer must run before the 03:45 signal attempt.
-    assert "00:50:00 UTC" in (
+    # The single data node must run before the notification timer.
+    assert "00:30:00 UTC" in (
         ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer"
     ).read_text(encoding="utf-8")
 

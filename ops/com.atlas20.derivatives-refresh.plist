@@ -4,36 +4,10 @@
 <dict>
 	<key>Label</key>
 	<string>com.atlas20.derivatives-refresh</string>
-	<!--
-	  Refreshes Bitget marks/funding and rebuilds the frozen LS104 manifest
-	  between the daily executor windows.  It never places orders, sends
-	  Telegram messages, or sources trading credentials.  The shared execution
-	  lock makes a fire skip rather than race a live execution.
-
-	  Schedule: 08:35/08:55/09:00/13:05/15:05/18:05/18:35/21:05/03:05 Beijing =
-	  00:35/00:55/01:00/05:05/07:05/10:05/10:35/13:05/19:05 UTC.  The 08:35
-	  fire is the normal pre-execution prepare; 08:55 is the bounded catch-up:
-	  it no-ops when the 08:35 receipt is still valid, otherwise it may start
-	  until 01:05 with a 120s panel wait.  The 09:00 fire fetches only the
-	  newly published 00:00 mark tail and republishes the receipt; it never
-	  rebuilds the signal or places an order.  The throttle is kept below the
-	  five-minute gap between 08:55 and 09:00 so a quick no-op cannot defer the
-	  finalize past the executor.  If prepare is still running,
-	  the 09:05 executor defers to the next retry instead of racing the same
-	  raw cache.  The 09:05 Beijing (01:05 UTC) executor then reuses the
-	  finalized receipt instead of spending the fill window on a data rebuild.
-	  The 13:05 fire refreshes
-	  the 04:00 UTC settlement before the final 14:35 Beijing (06:35 UTC)
-	  retry makes that settlement mandatory after the one-hour allowance.  The
-	  18:05 Beijing (10:05 UTC) fire publishes the 08:00 UTC settlement before
-	  the read-only 19:00 Beijing (11:00 UTC) monitor requires it.  The 18:35
-	  Beijing (10:35 UTC) retry adds one bounded recovery attempt; it no-ops
-	  when the 18:05 receipt is already valid.
-	-->
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/zsh</string>
-		<string>/Users/ww/Project/Atlas20/ops/run_derivatives_refresh.sh</string>
+		<string>/Users/ww/Project/Atlas20/ops/run_derivatives_signal.sh</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>/Users/ww/Project/Atlas20</string>
@@ -44,54 +18,6 @@
 			<integer>8</integer>
 			<key>Minute</key>
 			<integer>35</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>8</integer>
-			<key>Minute</key>
-			<integer>55</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>9</integer>
-			<key>Minute</key>
-			<integer>0</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>3</integer>
-			<key>Minute</key>
-			<integer>5</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>13</integer>
-			<key>Minute</key>
-			<integer>5</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>15</integer>
-			<key>Minute</key>
-			<integer>5</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>18</integer>
-			<key>Minute</key>
-			<integer>5</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>18</integer>
-			<key>Minute</key>
-			<integer>35</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>21</integer>
-			<key>Minute</key>
-			<integer>5</integer>
 		</dict>
 	</array>
 	<key>RunAtLoad</key>

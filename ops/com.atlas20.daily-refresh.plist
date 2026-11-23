@@ -4,48 +4,10 @@
 <dict>
 	<key>Label</key>
 	<string>com.atlas20.daily-refresh</string>
-	<!--
-	  Refreshes the raw provider cache and rebuilds the processed panel.
-
-	  Why a wrapper script instead of a single command: the download step only
-	  updates data/raw, while every strategy reads data/processed/panel_daily.csv.
-	  Running both under one lock keeps "new data arrived" and "the panel knows
-	  about it" in the same job, so a silent half-refresh cannot leave research
-	  running on a stale panel - and a slow run can never race a catch-up fire
-	  into the same raw cache.
-
-	  The schedule fires five times, and scripts/refresh_daily_data.py exits
-	  immediately when the panel already carries the last completed UTC day, so
-	  only the runs that are actually needed do any work.  The first pair is the
-	  fast path; the old pair and the late run remain fail-safe fallbacks:
-
-	    08:30 Beijing (00:30 UTC)  early primary, after the 10-asset probe's
-	                               measured 00:20 CMC publication window
-	    08:50 Beijing (00:50 UTC)  early catch-up, before the 09:05 trade
-	    10:30 Beijing (02:30 UTC)  legacy primary fallback
-	    10:55 Beijing (02:55 UTC)  legacy fallback before the 11:05 retry
-	    14:30 Beijing (06:30 UTC)  late catch-up for anything that still failed
-
-	  The pre-trade catch-up is what makes a shutdown in the middle of the
-	  primary run survivable: on 2026-10-16 the machine went down at 10:34 and
-	  killed the primary mid-write, so the panel stayed on 10-14 and the legacy
-	  11:05 trade job failed closed.  With this fire the panel is repaired 10 minutes
-	  before the trade, and the trade job can also repair it itself.
-
-	  Both the download and the build write through temp files, and the lock is
-	  released by the OS if the process is killed, so a reboot cannot leave a
-	  stale lock behind.
-
-	  launchd reads StartCalendarInterval in the machine's LOCAL time zone,
-	  not UTC. This workstation runs Asia/Shanghai (UTC+8), so the UTC times
-	  above map to the Hour/Minute pairs below. On a machine in another zone,
-	  convert again. tests/test_launchd_refresh_schedule.py pins this.
-	-->
 	<key>ProgramArguments</key>
 	<array>
 		<string>/bin/zsh</string>
-		<string>-lc</string>
-		<string>cd /Users/ww/Project/Atlas20 &amp;&amp; .venv/bin/python scripts/refresh_daily_data.py --config config/base.yaml</string>
+		<string>/Users/ww/Project/Atlas20/ops/run_derivatives_data.sh</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>/Users/ww/Project/Atlas20</string>
@@ -57,33 +19,11 @@
 			<key>Minute</key>
 			<integer>30</integer>
 		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>8</integer>
-			<key>Minute</key>
-			<integer>50</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>10</integer>
-			<key>Minute</key>
-			<integer>30</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>10</integer>
-			<key>Minute</key>
-			<integer>55</integer>
-		</dict>
-		<dict>
-			<key>Hour</key>
-			<integer>14</integer>
-			<key>Minute</key>
-			<integer>30</integer>
-		</dict>
 	</array>
 	<key>RunAtLoad</key>
 	<false/>
+	<key>ThrottleInterval</key>
+	<integer>300</integer>
 	<key>StandardOutPath</key>
 	<string>/Users/ww/Library/Logs/atlas20-daily-refresh.log</string>
 	<key>StandardErrorPath</key>

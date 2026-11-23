@@ -1,25 +1,12 @@
 [Unit]
-Description=Refresh Atlas20 LS104 marks/funding between live execution windows
+Description=Run the Atlas20 daily data and signal preparation node
 
 [Timer]
-# 08:35 / 08:55 / 09:00 / 13:05 / 15:05 / 21:05 / 03:05 Beijing =
-# 00:35 / 00:55 / 01:00 / 05:05 / 07:05 / 13:05 / 19:05 UTC.  The 00:35 UTC
-# fire is the normal pre-execution prepare; 00:55 is the catch-up and no-ops
-# when the receipt is still valid.  The 01:00 UTC fire is the bounded
-# finalization: it fetches only the newly published 00:00 mark tail and
-# republishes the receipt before the 01:05 executor.  These fires are separate
-# from the trading chain and never call the executor.  The shared execution
-# lock makes a fire skip if a run is active.  05:05 UTC refreshes the 04:00
-# settlement before the 06:35 UTC final retry makes it mandatory after the
-# one-hour allowance.
+# 08:35 Beijing = 00:35 UTC.  The strategy is daily-bar based; the 01:05
+# execution clock is not a signal-build clock.  There is no prepare retry,
+# catch-up, or 01:00 finalize.  A failure is surfaced by the 19:00 monitor.
 OnCalendar=*-*-* 00:35:00 UTC
-OnCalendar=*-*-* 00:55:00 UTC
-OnCalendar=*-*-* 01:00:00 UTC
-OnCalendar=*-*-* 05:05:00 UTC
-OnCalendar=*-*-* 07:05:00 UTC
-OnCalendar=*-*-* 13:05:00 UTC
-OnCalendar=*-*-* 19:05:00 UTC
-Persistent=true
+Persistent=false
 AccuracySec=1s
 Unit=atlas20-derivatives-refresh.service
 

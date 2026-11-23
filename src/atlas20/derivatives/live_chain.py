@@ -48,10 +48,11 @@ from atlas20.data.completeness import assess_last_day
 LIVE_EXECUTION_UTC = time(1, 5)
 DEFAULT_SCHEDULED_UTC = LIVE_EXECUTION_UTC
 
-#: How long after the fill point a missed run may still be caught up.  Beyond
-#: this the rebalance is skipped and the 19:00 monitor reports the gap, because
-#: executing a daily signal many hours late is a different trade.
-DEFAULT_CATCHUP_HOURS = 6.0
+#: The live track has one execution attempt at the backtest fill clock.  A
+#: short 15-minute operational grace covers scheduler/process latency only; it
+#: is not a catch-up window.  A later signal is a different trade and must be
+#: left to the operator after the read-only monitor raises the failure.
+DEFAULT_CATCHUP_HOURS = 0.25
 LIVE_MAX_QUOTE_AGE_SECONDS = 120.0
 LIVE_EQUITY_FLOOR_USDT = 20.0
 LIVE_MIN_REBALANCE_USDT = 5.0
@@ -525,7 +526,7 @@ def within_run_window(
     closes = opens + timedelta(hours=float(catchup_hours))
     if moment > closes:
         return False, (
-            f"past the {float(catchup_hours):g}h catch-up window "
-            f"(it closed {closes:%Y-%m-%d %H:%M} UTC)"
+            f"past the {float(catchup_hours):g}h execution grace window "
+            f"(it closed {closes:%Y-%m-%d %H:%M} UTC); no automatic catch-up"
         )
     return True, "inside the run window"

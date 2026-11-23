@@ -1,18 +1,12 @@
 [Unit]
-Description=Run and retry the Atlas20 derivatives rebalance inside the daily window
+Description=Run the Atlas20 derivatives rebalance once at the backtest clock
 
 [Timer]
-# 09:05 Beijing = 01:05 UTC is the owner-approved live fast path after the
-# 08:30/08:50 Beijing panel refresh and catch-up. The later 01:35/03:05/03:35/
-# 04:35/06:35 UTC fires are fallbacks for a late provider, reboot, or transient
-# API/order failure. A successful same-day run makes each retry a quick no-op.
+# 09:05 Beijing = 01:05 UTC.  One attempt only; failures are surfaced by the
+# 19:00 monitor.  Persistent is intentionally false so a reboot cannot replay
+# a stale trade hours later.
 OnCalendar=*-*-* 01:05:00 UTC
-OnCalendar=*-*-* 01:35:00 UTC
-OnCalendar=*-*-* 03:05:00 UTC
-OnCalendar=*-*-* 03:35:00 UTC
-OnCalendar=*-*-* 04:35:00 UTC
-OnCalendar=*-*-* 06:35:00 UTC
-Persistent=true
+Persistent=false
 AccuracySec=1s
 Unit=atlas20-derivatives-execute.service
 

@@ -492,6 +492,7 @@ def _execution_mark_audit(
     exact_bar_count = 0
     floor_resolved_count = 0
     provisional_resolved_count = 0
+    unavailable_count = 0
     required_pair_count = 0
     missing: list[dict[str, str]] = []
     previous_assets: set[str] = set()
@@ -546,6 +547,7 @@ def _execution_mark_audit(
                 else:
                     floor_resolved_count += 1
                 continue
+            unavailable_count += 1
             missing.append(
                 {
                     "signal_date": str(signal),
@@ -563,6 +565,9 @@ def _execution_mark_audit(
         "exact_bar_count": exact_bar_count,
         "floor_resolved_count": floor_resolved_count,
         "provisional_resolved_count": provisional_resolved_count,
+        "unavailable_pair_count": unavailable_count,
+        # This count includes the one newest T+1 bar intentionally deferred to
+        # the live executor; the caller filters that pair from hard failures.
         "missing_pair_count": len(missing),
         "missing": missing,
     }
@@ -1356,7 +1361,10 @@ def main() -> None:
     )
     execution_max_lag_minutes = 60.0
     provisional_latest_signal = False
-    if args.allow_final_provisional_fill and combined:
+    # The newest signal's 01:05 fill bar is deliberately deferred to the live
+    # executor.  The pre-execution signal build must not wait for the 01:00
+    # bar; historical bars still have to be complete below.
+    if combined:
         latest_signal_time = max(combined)
         latest_execution_time = _execution_hint(
             latest_signal_time,
@@ -1380,13 +1388,51 @@ def main() -> None:
     )
     if int(execution_mark_audit["missing_pair_count"]) > 0 and not args.allow_incomplete_marks:
         missing_examples = execution_mark_audit["missing"][:10]
-        raise SystemExit(
-            "target execution mark audit failed: "
-            f"{len(execution_mark_audit['missing'])} target pair(s) lack a usable "
-            f"mark near {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
-            f"examples={missing_examples}. Refresh the marks or pass "
-            "--allow-incomplete-marks only for a deliberately labelled diagnostic"
+        # The newest signal's T+1 fill bar is intentionally not required by
+        # this pre-execution signal build.  It is fetched and checked by the
+        # executor at 01:05.  Every historical target pair still needs a bar.
+        unavailable_pairs = {
+            (item["signal_date"], item["execution_hint"])
+            for item in execution_mark_audit["missing"]
+        }
+        latest_signal = max(combined) if combined else None
+        latest_execution = (
+            _execution_hint(
+                latest_signal,
+                execution_hour=int(args.execution_hour),
+                execution_minute=int(args.execution_minute),
+            )
+            if latest_signal is not None
+            else None
         )
+        historical_missing = [
+            item
+            for item in execution_mark_audit["missing"]
+            if (
+                pd.Timestamp(item["signal_date"]),
+                pd.Timestamp(item["execution_hint"]),
+            )
+            != (latest_signal, latest_execution)
+        ]
+        if historical_missing:
+            raise SystemExit(
+                "target execution mark audit failed: "
+                f"{len(historical_missing)} historical target pair(s) lack a usable "
+                f"mark near {int(args.execution_hour):02d}:{int(args.execution_minute):02d} UTC; "
+                f"examples={historical_missing[:10]}. Refresh the marks or pass "
+                "--allow-incomplete-marks only for a deliberately labelled diagnostic"
+            )
+        if latest_signal is not None and latest_execution is not None:
+            provisional_latest_signal = True
+            execution_max_lag_minutes = max(
+                execution_max_lag_minutes,
+                (latest_execution - last_mark).total_seconds() / 60.0 + 1.0,
+            )
+            print(
+                "newest execution bar "
+                f"{latest_execution.isoformat()} is deferred to the 01:05 "
+                "executor; historical execution bars are complete"
+            )
     latest_target = combined[max(combined)] if combined else pd.Series(dtype=float)
     fill_required_assets = _fill_required_assets(
         combined,
