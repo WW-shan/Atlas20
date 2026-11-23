@@ -882,13 +882,22 @@ def _event_quantity_issues(
         except (TypeError, ValueError):
             issues.append(f"{upper} 目标数量非法")
             continue
-        if not isfinite(target_qty) or target_qty <= 0.0:
+        if not isfinite(target_qty) or target_qty < 0.0:
             issues.append(f"{upper} 目标数量非法")
             continue
         if upper not in symbol_assets:
             issues.append(f"{upper} 缺少事件资产映射")
             continue
         asset = str(symbol_assets[upper]).lower()
+        if target_qty == 0.0:
+            # A hard-risk-cap overlay records one zero for a leg that has been
+            # intentionally removed from the effective book.  It is a valid
+            # completion target only when the stopped-symbol record proves the
+            # leg was closed; an unexplained zero must still fail below.
+            if upper in stopped and abs(actual.get(upper, 0.0)) <= 1e-12:
+                continue
+            issues.append(f"{upper} 目标数量为零但没有止损授权")
+            continue
         try:
             target_weight = float(target_weights.get(asset))
         except (TypeError, ValueError):

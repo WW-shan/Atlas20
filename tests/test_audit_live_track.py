@@ -1762,6 +1762,41 @@ def test_event_quantity_target_accepts_a_journaled_stop_closure() -> None:
     assert issues == []
 
 
+def test_event_quantity_target_accepts_a_zero_for_a_journaled_stop() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 0.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={
+            "NEARUSDT": {
+                "order_id": "executed-stop-1",
+                "strategy_order_id": "strategy-stop-1",
+                "triggered_at": "2026-11-15T00:00:00+00:00",
+                "quantity": 9.0,
+            }
+        },
+    )
+
+    assert issues == []
+
+
+def test_event_quantity_target_rejects_a_zero_without_a_stop_record() -> None:
+    issues = _event_quantity_issues(
+        target_quantities={"NEARUSDT": 0.0},
+        target_weights={"near": -0.0625},
+        symbol_assets={"NEARUSDT": "near"},
+        positions=[],
+        specs_by_symbol={"NEARUSDT": ContractSpec("NEARUSDT", min_order_qty=1.0)},
+        event_prices={"near": 5.0},
+        stopped_symbols={},
+    )
+
+    assert issues == ["NEARUSDT 目标数量为零但没有止损授权"]
+
+
 def _stop_journal() -> pd.DataFrame:
     entry = JournalEntry(
         date="2026-11-15",

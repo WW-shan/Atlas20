@@ -3632,6 +3632,44 @@ def test_risk_overlay_snapshot_records_effective_quantities_for_every_target_leg
     assert quantities == {"NEARUSDT": 4.0, "ZECUSDT": 0.0}
 
 
+def test_protect_only_completes_a_stopped_leg_that_the_overlay_already_zeroed() -> None:
+    active_event = {
+        "target_weights": {"near": -0.1, "zcash": -0.07},
+        "target_quantities": {"NEARUSDT": 10.0, "ZECUSDT": 7.0},
+        "prices": {"near": 5.0, "zcash": 10.0},
+        "stopped_symbols": {
+            "ZECUSDT": {
+                "order_id": "stop-1",
+                "strategy_order_id": "strategy-1",
+                "quantity": 7.0,
+            }
+        },
+        "risk_overlay": {
+            "target_quantities": {"NEARUSDT": 4.0, "ZECUSDT": 0.0},
+            "reason": "risk_cap_scaled",
+        },
+    }
+
+    issues = execute_live_plan._event_completion_issues(
+        active_event,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "posSide": "short",
+                "total": "4",
+                "markPrice": "5",
+            }
+        ],
+        symbol_assets={"NEARUSDT": "near", "ZECUSDT": "zcash"},
+        specs_by_symbol={
+            "NEARUSDT": execute_live_plan.ContractSpec("NEARUSDT"),
+            "ZECUSDT": execute_live_plan.ContractSpec("ZECUSDT"),
+        },
+    )
+
+    assert issues == []
+
+
 def test_event_completion_check_flags_a_wrong_signed_position() -> None:
     issues = execute_live_plan._event_completion_issues(
         {
