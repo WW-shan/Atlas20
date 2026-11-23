@@ -67,7 +67,6 @@ def test_refresh_job_runs_through_the_locked_wrapper() -> None:
     """
 
     payload = plistlib.loads(PLIST_PATH.read_bytes())
-    command = payload["ProgramArguments"][-1]
 
     assert payload["ProgramArguments"][-1].endswith("ops/run_derivatives_data.sh")
     assert payload["RunAtLoad"] is False

@@ -66,6 +66,25 @@ def test_derivatives_job_has_one_execution_attempt_per_day() -> None:
     assert _scheduled_utc_times(EXECUTE_PLIST) == [(1, 5)]
 
 
+def test_data_node_builds_the_top50_and_top20_pool_before_signal() -> None:
+    """The Top50 data pull is required; only the duplicate retry job is gone."""
+
+    data = (PROJECT_ROOT / "ops" / "run_derivatives_data.sh").read_text(encoding="utf-8")
+    signal = (PROJECT_ROOT / "ops" / "run_derivatives_signal.sh").read_text(encoding="utf-8")
+    data_at = data.index("/usr/bin/make top50-readiness-unlocked")
+    check_at = data.index("/usr/bin/make top50-readiness-check")
+    assert data_at < check_at
+    assert "scripts/refresh_daily_data.py" in data
+    assert "/usr/bin/make derivatives-live-data" in data
+    assert data.index("/usr/bin/make derivatives-live-data") < data_at
+    assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
+    assert "top50-readiness" not in signal
+    # The repository may retain the legacy plist for rollback documentation,
+    # but it must not be installed or referenced by the four-node schedule.
+    assert "com.atlas20.top50-readiness" not in data
+    assert "com.atlas20.top50-readiness" not in signal
+
+
 def test_data_node_runs_once_before_the_signal_node() -> None:
     data_plist = PROJECT_ROOT / "ops" / "com.atlas20.daily-refresh.plist"
     signal_plist = PROJECT_ROOT / "ops" / "com.atlas20.derivatives-refresh.plist"

@@ -87,16 +87,18 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
 
 def test_daily_execution_wrapper_does_not_rebuild_data_or_signal() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
-    prepare = (ROOT / "ops" / "run_derivatives_prepare.sh").read_text(encoding="utf-8")
+    data = (ROOT / "ops" / "run_derivatives_data.sh").read_text(encoding="utf-8")
+    signal = (ROOT / "ops" / "run_derivatives_signal.sh").read_text(encoding="utf-8")
     assert "scripts/execute_live_plan.py" in wrapper
     assert "scripts/refresh_daily_data.py" not in wrapper
     assert "/usr/bin/make derivatives-live-data" not in wrapper
     assert "finalize" not in wrapper
     assert "no automatic catch-up" in wrapper
-    assert "scripts/refresh_daily_data.py" in prepare
-    assert "/usr/bin/make derivatives-live-data" in prepare
-    assert '/usr/bin/make "$SIGNAL_TARGET"' in prepare
-    assert "scripts/execute_live_plan.py" not in prepare
+    assert "scripts/refresh_daily_data.py" in data
+    assert "/usr/bin/make derivatives-live-data" in data
+    assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
+    assert "scripts/execute_live_plan.py" not in data
+    assert "scripts/execute_live_plan.py" not in signal
 
 
 def test_derivatives_signal_fallback_rebuilds_and_audits_before_notifying() -> None:
@@ -122,18 +124,18 @@ def test_derivatives_refresh_is_a_separate_non_trading_prepare_job() -> None:
     service = (ROOT / "ops" / "systemd" / "atlas20-derivatives-refresh.service").read_text(
         encoding="utf-8"
     )
-    wrapper = (ROOT / "ops" / "run_derivatives_prepare.sh").read_text(
+    wrapper = (ROOT / "ops" / "run_derivatives_signal.sh").read_text(
         encoding="utf-8"
     )
 
     assert "OnCalendar=*-*-* 00:35:00 UTC" in timer
     assert timer.count("OnCalendar=") == 1
     assert "Unit=atlas20-derivatives-refresh.service" in timer
-    assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_prepare.sh" in service
+    assert "ExecStart=/bin/sh /opt/atlas20/ops/run_derivatives_signal.sh" in service
     assert "scripts/execute_live_plan.py" not in service
     assert "scripts/execute_live_plan.py" not in wrapper
-    assert "scripts/refresh_daily_data.py" in wrapper
-    assert "/usr/bin/make derivatives-live-data" in wrapper
+    assert "scripts/refresh_daily_data.py" not in wrapper
+    assert "/usr/bin/make derivatives-live-data" not in wrapper
     assert '/usr/bin/make "$SIGNAL_TARGET"' in wrapper
 
 
