@@ -1604,6 +1604,34 @@ def _funding_delta_errors(journal: pd.DataFrame) -> list[str]:
     return errors
 
 
+def _data_audit_required_through(manifest: dict[str, object]) -> pd.Timestamp:
+    """Return the frozen mark boundary represented by the manifest.
+
+    The 19:00 read-only monitor runs many hours after the 00:30 data snapshot.
+    Funding settlements that became due after this boundary were never inputs
+    to the frozen signal/execution attempt and must not be reported as missing
+    by a retrospective audit.
+    """
+
+    raw = str(manifest.get("last_mark") or "").strip()
+    if not raw:
+        raise ValueError("manifest last_mark is missing")
+    try:
+        stamp = pd.Timestamp(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"manifest last_mark is invalid: {raw!r}") from exc
+    if pd.isna(stamp):
+        raise ValueError(f"manifest last_mark is invalid: {raw!r}")
+    if stamp.tzinfo is None:
+        stamp = stamp.tz_localize("UTC")
+    else:
+        stamp = stamp.tz_convert("UTC")
+    # The mark timestamp names the bar that *opens* at that instant.  A
+    # settlement printed at the same instant belongs to the next, incomplete
+    # bar and may still be in flight while the data snapshot is fetched.
+    return stamp - pd.Timedelta(microseconds=1)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--spec", default=TRACKED_SPEC)
@@ -1940,12 +1968,6 @@ def main(argv: list[str] | None = None) -> int:
         and isinstance(active_event.get("prices"), dict)
         else {}
     )
-    active_event_stopped = (
-        active_event.get("stopped_symbols")
-        if isinstance(active_event, dict)
-        and isinstance(active_event.get("stopped_symbols"), dict)
-        else {}
-    )
 
     # -- trades vs venue order history -----------------------------------
     now_ms = int(checked_at.timestamp() * 1000)
@@ -2279,12 +2301,18 @@ def main(argv: list[str] | None = None) -> int:
             if (symbol := str(row.get("symbol") or "").upper()) in symbol_assets
             and abs(_num(row.get("total"))) > 1e-12
         }
+        required_through: pd.Timestamp | None = None
+        try:
+            required_through = _data_audit_required_through(manifest)
+        except ValueError as exc:
+            check("manifest data boundary 可证明", False, str(exc))
         data_audit = audit_derivatives_data(
             args.raw_dir,
             args.panel,
             args.symbol_map,
             args.manifest_file,
             now=checked_at,
+            required_through=required_through,
             required_short_assets=required_short_assets,
             required_leverage_assets=set(targets),
             required_funding_assets=set(targets) | position_assets,

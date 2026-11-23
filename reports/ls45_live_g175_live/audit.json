@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-23T06:14:35.965932+00:00",
+  "checked_at": "2026-11-23T14:50:26.186401+00:00",
   "checks": [
     {
       "check": "冻结目标都有唯一 Bitget 合约映射",
@@ -27,7 +27,7 @@
     },
     {
       "check": "账户权益 >= 执行下限 20.00 USDT",
-      "detail": "权益 512.22 USDT",
+      "detail": "权益 496.22 USDT",
       "hard": true,
       "ok": true
     },
@@ -51,13 +51,13 @@
     },
     {
       "check": "账户恒等式 equity = USDT 等值抵押品 + isolated margin + uPnL",
-      "detail": "512.2242 vs 378.2636 + 124.6821 + 9.2785 = 512.2242",
+      "detail": "496.2237 vs 378.2636 + 124.6786 + -6.7185 = 496.2237",
       "hard": true,
       "ok": true
     },
     {
       "check": "仓位市值 = Σ 数量 × 标记价",
-      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 242.0247",
+      "detail": "Bitget assets.positionValue=0 for isolated legs; current-position 重算 258.0411",
       "hard": true,
       "ok": true
     },
@@ -99,7 +99,7 @@
     },
     {
       "check": "台账最新一行 = 当前账户（按实时标记价折算）",
-      "detail": "台账 2026-11-23 equity=512.1552；折算后应为 512.2250，交易所 512.2242",
+      "detail": "台账 2026-11-23 equity=512.1552；折算后应为 496.2050，交易所 496.2237",
       "hard": true,
       "ok": true
     },
@@ -201,19 +201,19 @@
     },
     {
       "check": "总名义 <= 1.75x 权益（规格上限）",
-      "detail": "gross 242.02 / equity 512.22 = 0.472x",
+      "detail": "gross 258.04 / equity 496.22 = 0.520x",
       "hard": true,
       "ok": true
     },
     {
       "check": "组合保证金占用 <= 90%",
-      "detail": "isolated margin 124.68 / equity 512.22 = 0.243x",
+      "detail": "isolated margin 124.68 / equity 496.22 = 0.251x",
       "hard": true,
       "ok": true
     },
     {
       "check": "mark 数据新鲜（<= 30h）",
-      "detail": "最新 mark 2026-11-23 04:00:00+00:00（2.2h 前）",
+      "detail": "最新 mark 2026-11-23 04:00:00+00:00（10.8h 前）",
       "hard": true,
       "ok": true
     },
@@ -260,9 +260,9 @@
       "ok": true
     }
   ],
-  "equity": 512.22423192,
+  "equity": 496.22367365,
   "hard_failures": 0,
-  "position_value": 242.02472,
+  "position_value": 258.04112,
   "signal_date": "2026-11-20",
   "spec": "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090"
 }

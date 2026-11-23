@@ -916,6 +916,7 @@ def audit_derivatives_data(
     manifest_path: str | Path | None = None,
     *,
     now: datetime | None = None,
+    required_through: datetime | None = None,
     expected_panel_day: date | None = None,
     min_panel_assets: int = 20,
     required_short_assets: Iterable[str] | None = None,
@@ -933,6 +934,7 @@ def audit_derivatives_data(
     panel_file = Path(panel_path)
     symbol_file = Path(symbol_map_path) if symbol_map_path is not None else raw / "symbol_map.csv"
     moment = _as_utc(now or datetime.now(UTC))
+    required_moment = _as_utc(required_through) if required_through is not None else moment
     publication_moment = _as_utc(publication_now or datetime.now(UTC))
     if not np.isfinite(float(required_leverage)) or float(required_leverage) <= 0.0:
         raise ValueError("required_leverage must be positive and finite")
@@ -958,6 +960,7 @@ def audit_derivatives_data(
     }
     report = DataAuditReport(passed=False)
     report.summary["now"] = moment.isoformat()
+    report.summary["required_through"] = required_moment.isoformat()
     report.summary["publication_now"] = publication_moment.isoformat()
     report.summary["required_leverage"] = float(required_leverage)
     report.summary["required_leverage_assets"] = sorted(required_leverage_set)
@@ -1203,7 +1206,7 @@ def audit_derivatives_data(
             required_assets=required_funding_set,
             require_all_fresh=bool(require_all_funding_fresh),
             stale_hours=float(funding_stale_hours),
-            now=moment,
+            now=required_moment,
             publication_now=publication_moment,
         )
     report.summary["funding"] = funding_summary

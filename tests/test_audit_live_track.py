@@ -2310,3 +2310,22 @@ def test_emergency_close_ends_the_old_short_cycle_before_a_reopen() -> None:
     )
 
     assert protected_short_symbols(journal) == set()
+
+
+def test_data_audit_boundary_uses_manifest_last_mark() -> None:
+    """A 19:00 monitor must stop at the frozen data snapshot, not wall clock."""
+
+    from scripts import audit_live_track
+
+    boundary = audit_live_track._data_audit_required_through(
+        {"last_mark": "2026-11-23 04:00:00+00:00"}
+    )
+
+    assert boundary == pd.Timestamp("2026-11-23T03:59:59.999999Z")
+
+
+def test_data_audit_boundary_rejects_a_manifest_without_last_mark() -> None:
+    from scripts import audit_live_track
+
+    with pytest.raises(ValueError, match="last_mark"):
+        audit_live_track._data_audit_required_through({})

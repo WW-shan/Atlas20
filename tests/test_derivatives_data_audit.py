@@ -459,6 +459,32 @@ def test_non_monotonic_funding_fails(tmp_path: Path) -> None:
     assert any("not monotonic" in item for item in report.hard_failures)
 
 
+def test_required_through_keeps_the_frozen_execution_boundary(
+    tmp_path: Path,
+) -> None:
+    """A post-close monitor must not demand a settlement after the frozen run."""
+
+    paths = _fixture(tmp_path)
+    # The manifest snapshot was captured through the completed 00:00 bar.  A
+    # settlement exactly on that boundary was fetched concurrently and is not
+    # yet a complete public settlement at the snapshot cutoff.
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=NOW,
+        required_through=pd.Timestamp(
+            "2026-11-13T23:59:59.999999Z"
+        ).to_pydatetime(),
+        min_panel_assets=1,
+        required_funding_assets={"bitcoin"},
+    )
+
+    assert report.passed is True, report.hard_failures
+    assert not any("settlement_coverage" in item for item in report.hard_failures)
+
+
 def test_missing_recent_funding_settlement_fails(tmp_path: Path) -> None:
     paths = _fixture(tmp_path)
     path = paths["raw"] / "funding" / "bitcoin.csv"
