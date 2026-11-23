@@ -474,7 +474,19 @@ def test_one_way_accounts_close_with_reduce_only_and_no_pos_side() -> None:
         mark_price=5.0,
         margin=2.5,
     )
-    client = _FakeLiveClient(hold_mode="one_way_mode")
+    client = _FakeLiveClient(
+        hold_mode="one_way_mode",
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "10",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "2.5",
+            }
+        ],
+    )
     plan = _plan(weight=0.0, position=position)
 
     _run(client, plan)
@@ -1644,9 +1656,27 @@ def test_long_to_short_flip_configures_the_new_short_side() -> None:
 
 
 def test_close_does_not_get_blocked_by_a_leverage_setup_failure() -> None:
-    client = _FakeLiveClient(
+    class _ShortClosesOnFill(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            result = super().place_order(**kwargs)
+            if kwargs.get("side") == "buy":
+                self.positions = []
+            return result
+
+    client = _ShortClosesOnFill(
         reject_isolated_orders=False,
         crossed_leverage_error="leverage unavailable",
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
     )
     plan = _signed_plan(target_weight=0.0, position=_short_position())
 
@@ -1664,7 +1694,20 @@ def test_failed_close_blocks_the_opposite_side_open() -> None:
                 raise BitgetAPIError("close rejected")
             return super().place_order(**kwargs)
 
-    client = _FailShortClose(reject_isolated_orders=False)
+    client = _FailShortClose(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
     plan = _signed_plan(target_weight=0.4, position=_short_position())
 
     report = _run(client, plan)
@@ -1722,7 +1765,27 @@ def test_failed_close_blocks_all_following_opens_in_a_rotation() -> None:
 
 
 def test_hedge_mode_short_close_uses_buy_and_short_position_side() -> None:
-    client = _FakeLiveClient(reject_isolated_orders=False)
+    class _ShortClosesOnFill(_FakeLiveClient):
+        def place_order(self, **kwargs: Any) -> dict[str, Any]:
+            result = super().place_order(**kwargs)
+            if kwargs.get("side") == "buy":
+                self.positions = []
+            return result
+
+    client = _ShortClosesOnFill(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
     plan = _signed_plan(target_weight=0.0, position=_short_position())
 
     report = _run(client, plan)
@@ -1735,7 +1798,20 @@ def test_hedge_mode_short_close_uses_buy_and_short_position_side() -> None:
 
 
 def test_one_way_short_close_uses_reduce_only_without_position_side() -> None:
-    client = _FakeLiveClient(hold_mode="one_way_mode", reject_isolated_orders=False)
+    client = _FakeLiveClient(
+        hold_mode="one_way_mode",
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
     plan = _signed_plan(target_weight=0.0, position=_short_position())
 
     _run(client, plan)
@@ -2525,7 +2601,20 @@ def test_strategy_order_query_failure_still_allows_a_risk_reducing_close() -> No
         mark_price=5.0,
         margin=51.5,
     )
-    client = _StrategyQueryFails(reject_isolated_orders=False)
+    client = _StrategyQueryFails(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "long",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
 
     report = _run(client, _plan(weight=0.0, position=position))
 
@@ -2976,3 +3065,78 @@ def test_zero_fill_short_increase_keeps_the_existing_stop_and_book() -> None:
     assert any("order cancelled" in item["error"] for item in report.failures)
     assert not any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
     assert [row["orderId"] for row in client.strategy_orders] == ["old-stop"]
+
+
+def test_hedge_mode_reduce_carries_the_live_position_margin_mode() -> None:
+    """A close must state the venue leg's margin mode, not rely on a default."""
+
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "avgPrice": "5",
+                "markPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
+
+    _run(client, _signed_plan(target_weight=0.0, position=_short_position()))
+
+    assert client.placed[0]["margin_mode"] == "isolated"
+
+
+def test_stop_gap_emergency_close_carries_the_live_margin_mode() -> None:
+    """The no-stop fallback must use the same exact venue leg mode as a close."""
+
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "marginMode": "isolated",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+        strategy_orders=[],
+    )
+
+    report = _run(
+        client,
+        _signed_plan(target_weight=-1.0, position=_short_position()),
+        known_protected_short_symbols={"NEARUSDT"},
+    )
+
+    emergency = [order for order in client.placed if order["side"] == "buy"]
+    assert emergency
+    assert all(order["margin_mode"] == "isolated" for order in emergency)
+    assert any(fill.action == "EMERGENCY_CLOSE" for fill in report.fills)
+
+
+def test_close_refuses_to_guess_when_the_live_leg_mode_is_unproven() -> None:
+    client = _FakeLiveClient(
+        reject_isolated_orders=False,
+        positions=[
+            {
+                "symbol": "NEARUSDT",
+                "total": "20",
+                "posSide": "short",
+                "markPrice": "5",
+                "avgPrice": "5",
+                "positionBalance": "51.5",
+            }
+        ],
+    )
+
+    report = _run(client, _signed_plan(target_weight=0.0, position=_short_position()))
+
+    assert client.placed == []
+    assert any("cannot prove" in item["error"] for item in report.failures)

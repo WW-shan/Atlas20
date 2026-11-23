@@ -411,6 +411,39 @@ def _invalid_margin_modes(positions: list[dict[str, Any]]) -> list[str]:
     return sorted(mode for mode in modes if mode != MARGIN_MODE_ISOLATED)
 
 
+def _live_position_margin_mode(
+    positions: list[dict[str, Any]],
+    *,
+    symbol: str,
+    pos_side: str,
+) -> str:
+    """Resolve the exact venue margin mode for one open hedge leg.
+
+    Bitget hedge closes require the live leg's ``marginMode``.  Guessing the
+    field is unsafe: omitting it can reject an isolated close, and a crossed
+    request against an isolated leg is not interchangeable.  If the selected
+    leg has no unique position row, return an empty string so the caller can
+    fail closed rather than send an ambiguous order.
+    """
+
+    upper = str(symbol).strip().upper()
+    side = str(pos_side).strip().lower()
+    matches: list[dict[str, Any]] = []
+    for row in positions:
+        if str(row.get("symbol") or "").strip().upper() != upper:
+            continue
+        row_side = str(row.get("posSide") or "").strip().lower()
+        if row_side not in {"", "net", side}:
+            continue
+        if abs(_signed_position_qty(row)) <= 1e-12:
+            continue
+        matches.append(row)
+    if len(matches) != 1:
+        return ""
+    mode = str(matches[0].get("marginMode") or "").strip().lower()
+    return mode if mode in {MARGIN_MODE_ISOLATED, MARGIN_MODE_CROSSED} else ""
+
+
 def _is_terminal_order_status(status: str) -> bool:
     return status.lower() in {_FILLED, _CANCELLED, "canceled"}
 
@@ -1765,8 +1798,42 @@ def execute_plan(
                 reduce_only=order.reduce_only,
             ),
         }
-        if isolated_ok and not order.reduce_only:
-            body["margin_mode"] = MARGIN_MODE_ISOLATED
+        if order.reduce_only:
+            live_margin_mode = _live_position_margin_mode(
+                initial_positions,
+                symbol=symbol,
+                pos_side=order_pos_side,
+            )
+            if not live_margin_mode:
+                failure = (
+                    f"{symbol}: cannot prove the live {order_pos_side} leg margin mode; "
+                    "refusing to place a close"
+                )
+                blocked_all_opens = True
+                blocked_all_opens_by_failure = True
+                if order.action == "CLOSE":
+                    blocked_open_assets.add(order.asset)
+                report.failures.append(
+                    {
+                        "symbol": symbol,
+                        "action": order.action,
+                        "side": order.side,
+                        "size": f"{order.size:.12g}",
+                        "error": failure,
+                    }
+                )
+                continue
+            body["margin_mode"] = live_margin_mode
+        else:
+            # Record the mode that was actually sent with this open before the
+            # fill is processed.  The stop-loss path below runs immediately
+            # after the fill and must be able to close an unprotected increase
+            # without re-reading a position book that has not been refreshed.
+            close_body_margin_mode = (
+                MARGIN_MODE_ISOLATED if isolated_ok else ""
+            )
+            if isolated_ok:
+                body["margin_mode"] = MARGIN_MODE_ISOLATED
         if order.stop_loss is not None and not order.reduce_only:
             body["stop_loss"] = order.stop_loss
             body["sl_trigger_by"] = MARK_PRICE_TRIGGER
@@ -2081,6 +2148,17 @@ def execute_plan(
                     "order_type": "market",
                     "pos_side": order_pos_side if hedging else None,
                     "reduce_only": not hedging,
+                    # Prefer the live position row; for a just-filled increase
+                    # the pre-trade book only has the legacy leg, so fall back
+                    # to the mode attached to the filled order itself.
+                    "margin_mode": (
+                        _live_position_margin_mode(
+                            report.positions_after,
+                            symbol=symbol,
+                            pos_side=order_pos_side,
+                        )
+                        or close_body_margin_mode
+                    ),
                     "client_oid": _client_oid(
                         prefix,
                         purpose="stop-close",
@@ -2091,6 +2169,11 @@ def execute_plan(
                         reduce_only=not hedging,
                     ),
                 }
+                if not close_body["margin_mode"]:
+                    raise BitgetAPIError(
+                        f"{symbol}: cannot prove the live {order_pos_side} leg margin mode; "
+                        "refusing the emergency close"
+                    )
                 close_complete = False
                 try:
                     closed = client.place_order(**close_body)
@@ -2335,6 +2418,16 @@ def execute_plan(
                 continue
             _cancel_symbol_strategy_orders(client, report, symbol=symbol)
             try:
+                live_margin_mode = _live_position_margin_mode(
+                    report.positions_after,
+                    symbol=symbol,
+                    pos_side="short",
+                )
+                if not live_margin_mode:
+                    raise BitgetAPIError(
+                        f"{symbol}: cannot prove the live short leg margin mode; "
+                        "refusing the stop-gap close"
+                    )
                 closed = client.place_order(
                     symbol=symbol,
                     qty=qty,
@@ -2342,6 +2435,7 @@ def execute_plan(
                     order_type="market",
                     pos_side="short" if hedging else None,
                     reduce_only=not hedging,
+                    margin_mode=live_margin_mode,
                     client_oid=_client_oid(
                         prefix,
                         purpose="gap-close",
