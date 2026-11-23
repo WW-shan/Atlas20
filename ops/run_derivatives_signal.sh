@@ -45,6 +45,15 @@ esac
 export ATLAS20_TRACK_PROFILE="$TRACK_PROFILE"
 echo "Atlas20 signal track profile: $TRACK_PROFILE"
 
+# Data and signal are separate launchd jobs.  A slow data refresh may still be
+# running at 08:35, so wait for (and authenticate) the data node's completion
+# receipt before consuming any input.  This is a bounded wait for the one
+# scheduled data run, not a retry or a second data build.  If it times out, the
+# signal fails and the 19:00 monitor reports the incident.
+.venv/bin/python scripts/data_ready_receipt.py check \
+  --wait-seconds 900 \
+  --poll-seconds 10
+
 /usr/bin/make "$SIGNAL_TARGET"
 /usr/bin/make audit-data-chain
 /usr/bin/make "$DATA_AUDIT_TARGET"

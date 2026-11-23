@@ -404,22 +404,3 @@ def test_send_telegram_message_redacts_token_on_failure(monkeypatch: pytest.Monk
 
     assert "super-secret-token" not in str(exc_info.value)
     assert "HTTP 401" in str(exc_info.value)
-
-
-def test_systemd_timer_runs_daily_in_utc() -> None:
-    root = Path(__file__).resolve().parents[1]
-    timer = (root / "ops" / "systemd" / "atlas20-telegram-signal.timer").read_text(
-        encoding="utf-8"
-    )
-    service = (root / "ops" / "systemd" / "atlas20-telegram-signal.service").read_text(
-        encoding="utf-8"
-    )
-
-    assert "OnCalendar=*-*-* 03:00:00 UTC" in timer
-    assert "OnCalendar=*-*-* 07:00:00 UTC" in timer
-    assert "Persistent=true" in timer
-    assert "Unit=atlas20-telegram-signal.service" in timer
-    assert "scripts/run_phase_momentum_live_signal.py" in service
-    assert "scripts/send_telegram_signal.py" in service
-    assert "launchd" not in timer.lower()
-    assert "launchd" not in service.lower()

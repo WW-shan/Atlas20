@@ -45,12 +45,13 @@ for many days while the executor still reconciles and journals every day.
 | UTC | What happens | Where |
 | --- | --- | --- |
 | 00:00 | Day D-1 closes; CMC starts writing D-1 rows asset by asset | provider |
-| 00:30 / 00:50 | early panel refresh and catch-up | `ops/com.atlas20.daily-refresh.plist`, `scripts/refresh_daily_data.py` |
-| 00:35 / 00:55 | LS104 prepare and bounded catch-up | `ops/com.atlas20.derivatives-refresh.plist`, `ops/run_derivatives_refresh.sh` |
-| 01:05 / 01:35 / 03:05 / 03:35 / 04:35 / 06:35 | primary live chain and retries | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
-| 06:30 | late panel catch-up | `scripts/refresh_daily_data.py` |
+| 00:30 | single data acquisition and Top50/Top20 readiness build | `ops/com.atlas20.daily-refresh.plist`, `ops/run_derivatives_data.sh` |
+| 00:35 | single signal construction, gated by the data-ready receipt | `ops/com.atlas20.derivatives-refresh.plist`, `ops/run_derivatives_signal.sh` |
+| 01:05 | single live execution attempt | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
+| 11:00 | read-only monitor | `ops/com.atlas20.live-monitor.plist`, `ops/run_live_monitor.sh` |
 
-The later 03:05/03:35/04:35/06:35 fires are fallbacks, not the primary schedule.
+There is no prepare catch-up, finalize, or later execution retry. A missed node
+is surfaced by the monitor and requires an operator decision.
 
 Before every order the wrapper now checks both the panel date and the
 finished-last-day volume/market-cap coverage. If either is stale or partial it
@@ -105,34 +106,10 @@ without refreshing their Binance/Gate windows, so the next
 sampled assets - which are the largest coins - as unverified. Keep the two
 caches separate.
 
-`ops/com.atlas20.cmc-probe.plist` is the launchd job that runs this grid. It is
-installed on this workstation and fires every 15 minutes from 08:05 to 11:50
-local (00:05 to 03:50 UTC at UTC+8), appending to
-`reports/provider_publication/cmc_publication_probe.csv` with logs in
-`~/Library/Logs/atlas20-cmc-probe.log`. That CSV is a local, untracked
-operational log (`reports/provider_publication/*` is gitignored, the directory
-is held by `.gitkeep`), so the 15-minute job never dirties the working tree. Verify or install it the same way as the
-daily refresh:
-
-```bash
-launchctl print gui/$(id -u)/com.atlas20.cmc-probe | head
-cp ops/com.atlas20.cmc-probe.plist ~/Library/LaunchAgents/
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.cmc-probe.plist
-launchctl kickstart -k gui/$(id -u)/com.atlas20.cmc-probe   # one-off smoke run
-```
-
-launchd reads `StartCalendarInterval` in **local** time; the checked-in hours
-are UTC+8 and must be converted on any other host
-(`tests/test_launchd_probe_schedule.py` pins the conversion). On a Linux host,
-the equivalent crontab entry is:
-
-```cron
-5,20,35,50 0-3 * * * cd /path/to/Atlas20 && .venv/bin/python scripts/probe_cmc_publication.py --sample-size 10 --output reports/provider_publication/cmc_publication_probe.csv >> reports/provider_publication/probe.log 2>&1
-```
-
-Cost: 16 runs/day at the default 10-asset sample is 160 CoinMarketCap requests
-per day, about 1.5x a normal daily refresh. Raise the sample for a sharper
-coverage estimate; lower it if the provider rate-limits.
+The CMC publication probe is historical research tooling. Its launchd job,
+local cache and log have been retired from the production host; the measured
+T90 result is what fixed the 00:30 UTC data-node schedule. Do not reinstall the
+probe unless a new publication-timing study is explicitly requested.
 
 **Historical decision rule.** Let `T90` be the earliest UTC time by which >=90% of the
 sample carries D-1 on >=90% of days (the P90 across days):

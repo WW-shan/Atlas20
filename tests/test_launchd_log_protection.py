@@ -18,11 +18,9 @@ PROTECT_PLIST = ROOT / "ops" / "com.atlas20.protect-live-logs.plist"
 PROTECT_SCRIPT = ROOT / "ops" / "protect_live_logs.sh"
 
 LOG_NAMES = (
-    "atlas20-cmc-probe.log",
     "atlas20-daily-refresh.log",
     "atlas20-derivatives-execute.log",
     "atlas20-derivatives-refresh.log",
-    "atlas20-top50-readiness.log",
     "atlas20-live-monitor.log",
     "atlas20-log-protect.log",
 )

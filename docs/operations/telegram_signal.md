@@ -1,8 +1,8 @@
-# Telegram Daily Signal（现货轨 · 已退役）
+# Telegram Daily Signal
 
-> **状态（2026-10-11，负责人决定）**：实盘只跑衍生品轨，**现货信号不参与实盘**。
-> 本文档保留给研究/回放用；部署时不要安装 `atlas20-telegram-signal.timer`。
-> 实盘入口见 `docs/operations/derivatives_live_runbook.md`。
+> **状态**：现货 Telegram 定时任务已退役；实盘只跑衍生品轨。
+> 本文档只保留通知格式、凭据和手工回放说明，不再包含现货生产定时器。
+> 实盘四节点入口见 `docs/operations/derivatives_live_runbook.md`。
 
 The daily Telegram push sends one message per day from the frozen H5 signal
 snapshot. It reports:
@@ -61,33 +61,12 @@ set +a
 `--dry-run` prints the message without requiring credentials and does not write
 the sent-state file. `--force` bypasses the same-day idempotency guard.
 
-## Install on Ubuntu
+## Scheduling
 
-The checked-in units use `/opt/atlas20` as the deployment path. Change the path
-in both files if the repository lives elsewhere.
-
-```bash
-sudo mkdir -p /etc/atlas20
-sudo install -m 600 /dev/null /etc/atlas20/telegram.env
-sudo editor /etc/atlas20/telegram.env
-
-sudo cp ops/systemd/atlas20-telegram-signal.service /etc/systemd/system/
-sudo cp ops/systemd/atlas20-telegram-signal.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-telegram-signal.timer
-
-systemctl list-timers atlas20-telegram-signal.timer
-journalctl -u atlas20-telegram-signal.service -n 100 --no-pager
-```
-
-The timer makes two attempts per day: 03:00 UTC (11:00 Beijing) and 07:00 UTC
-(15:00 Beijing). The first attempt targets the strategy's assumed +3h execution
-window; the second is a catch-up for days when the primary data refresh is late.
-The same-day idempotency state means only the first successful attempt sends a
-message. Both attempts assume the Ubuntu data-refresh job has completed; adjust
-`OnCalendar` if that job runs at a different time. The service regenerates the
-signal first, so a stale or partial panel makes the attempt fail instead of
-sending a stale message.
+There is no spot notification timer in the production topology. The derivatives
+executor sends its own daily report after a real execution attempt, and the
+19:00 Beijing monitor is alert-only. Use the manual commands above for research
+replay; do not reinstall the retired spot timer.
 
 ## Derivatives track (`PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-S050-G175-M090`)
 
@@ -137,23 +116,11 @@ same successful execution report was already delivered; `--force` is the
 explicit override for a deliberate resend. If the executor notification fails,
 the marker is not written, so the later fallback attempt remains active.
 
-On Ubuntu, install the derivatives execution timer for real trading. The signal
-timer is only for a notification-only deployment and is mutually exclusive with
-the execution timer:
-
-```bash
-sudo cp ops/systemd/atlas20-derivatives-signal.service /etc/systemd/system/
-sudo cp ops/systemd/atlas20-derivatives-signal.timer /etc/systemd/system/
-sudo cp ops/systemd/atlas20-data-refresh.service /etc/systemd/system/
-sudo cp ops/systemd/atlas20-data-refresh.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now atlas20-data-refresh.timer atlas20-derivatives-signal.timer
-```
-
-The signal fallback timer fires at 03:45 and 04:15 UTC, after the 01:05 UTC
-primary execution attempt, and is mutually exclusive with the execution timer.
-The real execution timer fires at 01:05 / 01:35 / 03:05 / 03:35 / 04:35 /
-06:35 UTC.
+On Ubuntu, install the same four production nodes documented in the live
+runbook: data (00:30 UTC), signal (00:35 UTC), execution (01:05 UTC) and the
+read-only monitor. Do not install a separate notification or retry timer; the
+executor sends the execution report, and a failed node is surfaced by the
+monitor for an operator decision.
 
 ## Idempotency
 

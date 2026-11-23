@@ -243,10 +243,10 @@ def test_prepare_receipt_validates_manifest_and_audit_files(tmp_path: Path) -> N
     assert valid is True, reason
 
 
-def test_prepare_receipt_rejects_the_pre_execution_mark_after_the_fill_boundary(
+def test_prepare_receipt_uses_the_completed_daily_close_at_the_fill_boundary(
     tmp_path: Path,
 ) -> None:
-    """A receipt prepared before 01:05 cannot prove the 00:00 execution bar."""
+    """The receipt proves the completed daily close, not a 00:00 hourly bar."""
 
     import json
 
@@ -307,9 +307,7 @@ def test_prepare_receipt_rejects_the_pre_execution_mark_after_the_fill_boundary(
     )
 
     assert before_fill is True, before_reason
-    assert at_fill is False
-    assert "last_mark" in at_fill_reason
-    assert "2026-11-14T00:00:00" in at_fill_reason
+    assert at_fill is True, at_fill_reason
     assert finalize_base is True, finalize_reason
 
 

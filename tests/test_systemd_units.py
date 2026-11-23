@@ -97,16 +97,13 @@ def test_daily_execution_wrapper_does_not_rebuild_data_or_signal() -> None:
     assert "scripts/refresh_daily_data.py" in data
     assert "/usr/bin/make derivatives-live-data" in data
     assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
+    assert "scripts/data_ready_receipt.py check" in signal
+    assert signal.index("scripts/data_ready_receipt.py check") < signal.index(
+        '/usr/bin/make "$SIGNAL_TARGET"'
+    )
+    assert "scripts/data_ready_receipt.py write" in data
     assert "scripts/execute_live_plan.py" not in data
     assert "scripts/execute_live_plan.py" not in signal
-
-
-def test_derivatives_signal_fallback_rebuilds_and_audits_before_notifying() -> None:
-    service = (
-        ROOT / "ops" / "systemd" / "atlas20-derivatives-signal.service"
-    ).read_text(encoding="utf-8")
-
-    assert "audit-data-chain audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104" in service
 
 
 def test_makefile_refresh_target_runs_only_the_ls104_data_chain() -> None:
@@ -145,27 +142,6 @@ def test_makefile_refresh_target_rebuilds_the_panel() -> None:
     target = makefile.split("refresh-data:", 1)[1].split("\n\n", 1)[0]
     assert "scripts/download_data.py" in target
     assert "scripts/build_datasets.py" in target
-
-
-def test_derivatives_timer_refreshes_marks_before_notifying() -> None:
-    timer = (ROOT / "ops" / "systemd" / "atlas20-derivatives-signal.timer").read_text(
-        encoding="utf-8"
-    )
-    service = (ROOT / "ops" / "systemd" / "atlas20-derivatives-signal.service").read_text(
-        encoding="utf-8"
-    )
-
-    assert "OnCalendar=*-*-* 03:45:00 UTC" in timer
-    assert "OnCalendar=*-*-* 04:15:00 UTC" in timer
-    assert "Unit=atlas20-derivatives-signal.service" in timer
-    assert (
-        "derivatives-live-data derivatives-ls104-signal audit-data-chain "
-        "audit-data-ls104 audit-signal-ls104 derivatives-notify-ls104"
-    ) in service
-    # The single data node must run before the notification timer.
-    assert "00:30:00 UTC" in (
-        ROOT / "ops" / "systemd" / "atlas20-data-refresh.timer"
-    ).read_text(encoding="utf-8")
 
 
 def test_ls104_make_target_uses_an_isolated_kill_switch_and_global_lock() -> None:

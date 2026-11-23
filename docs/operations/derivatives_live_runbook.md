@@ -89,7 +89,10 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
 
 - 00:30 UTC 的数据节点必须拿到上一完整 UTC 日的 CMC 面板、Bitget mark/market/funding 与
   Top50 readiness；
-- 00:35 UTC 的信号节点只消费上述冻结输入，生成 target ledger 和审计；
+- 00:35 UTC 的信号节点先校验数据节点写出的 `data/derivatives_data_ready.json`
+  完成凭证，确认面板、metadata、Bitget symbol map 与当前 READY Top50 指针完全一致后，
+  才消费这些冻结输入生成 target ledger 和审计；数据节点超过 15 分钟仍未完成时信号节点
+  直接失败，由 19:00 巡检报告，不自动重跑；
 - 最新事件的 T+1 01:00 market bar 可以尚未发布；该 bar 由 09:05 执行器负责获取和校验；
 - 历史 target 的 01:00 bar 仍必须完整；缺历史 bar 会阻止信号发布；
 - 不使用 23:00 mark bar 冒充 00:00 数据，也不在数据缺失时下单。
@@ -160,9 +163,9 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 ## 3. 四节点幂等与失败处理
 
 1. **数据节点** `ops/run_derivatives_data.sh`：刷新面板、Bitget mark/market/funding、Top50
-   readiness。失败即停，不重试。
-2. **信号节点** `ops/run_derivatives_signal.sh`：构建冻结账本并运行 data/venue/signal 审计。
-   失败即停，不重试。
+   readiness，并在全部检查通过后原子写出 `data/derivatives_data_ready.json`。失败即停，不重试。
+2. **信号节点** `ops/run_derivatives_signal.sh`：先验证数据节点完成凭证（最多等待 15 分钟），
+   再构建冻结账本并运行 data/venue/signal 审计。失败即停，不重试。
 3. **执行节点** `ops/run_derivatives_daily.sh`：只调用 `execute_live_plan.py --live`，不刷新
    数据、不构建信号、不 finalize、不重试。
 4. **巡检节点** `ops/run_live_monitor.sh`：只读核对账户、目标、止损、journal、审计和新鲜度；
@@ -500,6 +503,7 @@ make audit-live-ls104
 | 对账 | `reports/ls45_live_g175_live/audit.json` | `hard_failures = 0` |
 | 巡检 | `reports/ls45_live_g175_live/health.json` | `issues` 为空 |
 | journal | `reports/ls45_live_g175_live/journal.csv` | 每日一行；同日重跑覆盖 |
+| 数据完成凭证 | `data/derivatives_data_ready.json` | `ready=true`，`completed_date_utc` 为当天，且 `ready_sha256`/`input_files` 与当前 Top50 指针及输入一致 |
 | Top50 readiness | `reports/top50_data_readiness/latest.json` | `ready=true` 且 50 个成员全 READY；否则查 `failure_details`，不能手工改 status |
 | Top50 ready pointer | `reports/top50_data_readiness/latest_ready.json` | 只应指向最近一个 50/50 READY 的 as-of；日期落后即阻断新 executable-universe 风险 |
 | Top50 notifications | `data/top50_readiness_state.json` | `pending` 应为空；非空表示 Telegram 需重试，优先手工运行 `make top50-readiness ARGS=--notify` |
@@ -646,12 +650,11 @@ make audit-live-ls104
 `audit-funding-semantics-ls104` 的 4 个 position cycle 也通过，最大绝对 funding
 误差 3.89997e-05。
 
-部署闭环已验证：运行时代码 tip `67676398` 已推送 `origin/main`；
-`com.atlas20.top50-readiness`
-已安装并加载，真实 kickstart `runs=1`、`exit 0`，只执行 notify-only 与 check-current，
-未重建数据、未调用 executor；Telegram 部署消息实投 1 个 chat 成功，生产 readiness state
-仍为 `pending={}` / `sent_keys={}`。`com.atlas20.derivatives-refresh` 的 kickstart 因 fresh
-receipt 安全 no-op，`com.atlas20.derivatives-execute` 保持 `not running`、`last exit code=0`。
+部署闭环已验证：运行时代码已推送 `origin/main`；旧的
+`com.atlas20.top50-readiness` 09:45 兜底 job 已卸载并删除，不再进入生产拓扑。
+数据节点仍在 08:30 完成 Top50 拉取与 Top20 数据池构建；信号节点通过
+`data/derivatives_data_ready.json` 等待并校验这次完成，而不是另起一个重复 job。
+`com.atlas20.derivatives-execute` 保持单次 09:05 触发。
 
 2026-11-19 的 09:15 执行报告复盘：调度仍是 09:05，09:15 只是回退链完成时间。旧缓存规则
 把 8h funding 的 freshness 宽限到 `interval + 1h`，导致 00:35/00:55 两次 prepare 在 00:00

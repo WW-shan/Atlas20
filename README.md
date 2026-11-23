@@ -453,17 +453,12 @@ launchctl list | grep atlas20        # confirms it is registered
 For another machine, install the checked-in plist with `cp` plus
 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlas20.daily-refresh.plist`.
 launchd reads the plist's `StartCalendarInterval` in the machine's **local**
-time zone, not UTC. The checked-in hours are the 00:30/00:50/02:30/02:55/06:30
-UTC schedule for this workstation's Asia/Shanghai zone; convert them for any
-other zone, or the job fires before CoinMarketCap has published the close.
-
-`ops/com.atlas20.cmc-probe.plist` is a second launchd job (installed here as
-well) that measured when CoinMarketCap finishes publishing day D-1; it supported
-the implemented move from +3h to +1h. It runs every 15 minutes through the 00:05-03:50 UTC
-window and appends to `reports/provider_publication/cmc_publication_probe.csv`
-(a local, untracked operational log; `reports/provider_publication/*` is
-gitignored so the job never dirties the working tree);
-see `docs/operations/execution_latency.md` for the decision rule.
+time zone, not UTC. The checked-in data job is the single 08:30 Beijing (00:30 UTC) fire for this
+workstation's Asia/Shanghai zone; convert it for any other zone. The old
+intraday CMC publication probe has completed its purpose and is no longer
+installed. The live chain now has exactly four production nodes: data, signal,
+execution and read-only monitor; see
+`docs/operations/derivatives_live_runbook.md`.
 
 Verify the result by checking the panel's last date, which is the number that
 actually matters for a backtest:
@@ -767,9 +762,8 @@ model capital and can be changed with
 `ATLAS20_TELEGRAM_CAPITAL` or `--capital`. It is notification-only and never
 places an order. Credentials are read from `ATLAS20_TELEGRAM_BOT_TOKEN` and
 `ATLAS20_TELEGRAM_CHAT_ID`; multiple comma-separated chat ids are supported.
-See `docs/operations/telegram_signal.md`. Ubuntu
-deployments use the checked-in `ops/systemd/atlas20-telegram-signal.{service,timer}`
-units, with no macOS launchd dependency.
+See `docs/operations/telegram_signal.md`. The spot notification timer is
+retired from production; the derivatives executor sends the daily report.
 
 Reproduce the current frozen spec with the commands in `RESEARCH.md` section
 0.3 (dependency order) and `RESEARCH.md` section 00.13.

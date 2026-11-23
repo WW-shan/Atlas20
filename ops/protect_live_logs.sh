@@ -15,11 +15,9 @@ set -eu
 
 LOG_DIR="${ATLAS20_LOG_DIR:-$HOME/Library/Logs}"
 LOG_NAMES="
-atlas20-cmc-probe.log
 atlas20-daily-refresh.log
 atlas20-derivatives-execute.log
 atlas20-derivatives-refresh.log
-atlas20-top50-readiness.log
 atlas20-live-monitor.log
 atlas20-log-protect.log
 "

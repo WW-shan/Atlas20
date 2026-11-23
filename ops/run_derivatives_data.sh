@@ -46,3 +46,9 @@ fi
 /usr/bin/make derivatives-live-data
 /usr/bin/make top50-readiness-unlocked
 /usr/bin/make top50-readiness-check
+
+# This receipt is the only completion boundary the signal node trusts.  It
+# binds the finished panel/metadata/symbol map to the exact READY Top50 pointer
+# consumed by the signal, so a slow download cannot be mistaken for completion
+# merely because the 08:35 clock has arrived.
+.venv/bin/python scripts/data_ready_receipt.py write
