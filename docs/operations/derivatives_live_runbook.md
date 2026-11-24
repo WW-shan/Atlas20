@@ -92,7 +92,7 @@ wrapper 只在环境没有显式设置 `ATLAS20_TRACK_PROFILE` 时读取该文�
   被总时限终止并失败，不会拖到 09:05 才由执行器发现；
 - 00:35 UTC 的信号节点先校验数据节点写出的 `data/derivatives_data_ready.json`
   完成凭证，确认面板、metadata、Bitget symbol map 与当前 READY Top50 指针完全一致后，
-  才消费这些冻结输入生成 target ledger 和审计；08:35 起最多等待 10 分钟（即 08:45 北京），
+  才消费这些冻结输入生成 target ledger 和审计；08:35 起最多等待 15 分钟（即 08:50 北京），
   超时则信号节点直接失败，09:05 执行器不会拿半成品下单；由 19:00 巡检报告，不自动重跑；
 - 最新事件的 T+1 01:00 market bar 可以尚未发布；该 bar 由 09:05 执行器负责获取和校验；
 - 历史 target 的 01:00 bar 仍必须完整；缺历史 bar 会阻止信号发布；
@@ -165,7 +165,7 @@ engine_end = signal_end_date + 1 day + 1 hour 5 minutes + 1 second
 
 1. **数据节点** `ops/run_derivatives_data.sh`：刷新面板、Bitget mark/market/funding、Top50
    readiness，并在全部检查通过后原子写出 `data/derivatives_data_ready.json`。失败即停，不重试。
-2. **信号节点** `ops/run_derivatives_signal.sh`：先验证数据节点完成凭证（最多等待 10 分钟），
+2. **信号节点** `ops/run_derivatives_signal.sh`：先验证数据节点完成凭证（最多等待 15 分钟），
    再构建冻结账本并运行 data/venue/signal 审计。失败即停，不重试。
 3. **执行节点** `ops/run_derivatives_daily.sh`：只调用 `execute_live_plan.py --live`，不刷新
    数据、不构建信号、不 finalize、不重试。

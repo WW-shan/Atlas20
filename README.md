@@ -443,7 +443,7 @@ is the equivalent launchd job. It runs one 08:30 Beijing (00:30 UTC) data node,
 which incrementally refreshes CMC/venue caches, Bitget marks and the Top50/Top20
 pool, then publishes the data-ready receipt. The entire node and the signal
 node are hard-bounded before the 09:05 execution clock (data by 08:50, signal
-wait by 08:45 on this workstation). Verify it with:
+waits until that same boundary on this workstation). Verify it with:
 
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.daily-refresh | head

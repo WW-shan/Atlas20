@@ -156,4 +156,4 @@ def test_signal_node_waits_for_the_data_receipt_before_building_the_signal() -> 
     assert signal.index("data_ready_receipt.py check") < signal.index(
         '/usr/bin/make "$SIGNAL_TARGET"'
     )
-    assert "--wait-seconds 600" in signal
+    assert "--wait-seconds 900" in signal
