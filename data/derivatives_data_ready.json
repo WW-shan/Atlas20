@@ -1,15 +1,15 @@
 {
-  "as_of": "2026-11-22",
-  "completed_at": "2026-11-23T06:11:55.269644+00:00",
-  "completed_date_utc": "2026-11-23",
-  "fingerprint": "sha256:b925096e18135c721e0e25b4d137b02743d6b61be5f5e8573637db92065d5a18",
+  "as_of": "2026-11-23",
+  "completed_at": "2026-11-24T06:05:26.205814+00:00",
+  "completed_date_utc": "2026-11-24",
+  "fingerprint": "sha256:21492e35fe36f7eca84c2d21c2e40c38889a61fbaf52488f17e5fc9867c88a54",
   "input_files": {
-    "metadata": "sha256:ebec8d757eae92c31f7e1e21ef9f7ef479a4e714dbdb7b27e485c6bf9a94b1f5",
-    "panel": "sha256:925f7eab8e09c74d2b7be68b653f2e4b1c32c2332c77f78481fdf36e6fa1b181",
+    "metadata": "sha256:629eda3f8ed58b9a4b451d33b782e7517884e82d1d09c2f5af95ea26fbb806e7",
+    "panel": "sha256:fa0037e50dd3308e827daacebcc6a1111b158239cfc638adcf3e109dcc52a99b",
     "symbol_map": "sha256:92dc77a1624f92365173a3329ce17c8728a348fb325cf262c42d08118ec3604a"
   },
   "ready": true,
   "ready_pointer": "/Users/ww/Project/Atlas20/reports/top50_data_readiness/latest_ready.json",
-  "ready_sha256": "sha256:a623bdcbc0e9414b1f5ec65d22127df615e14a8a5be94082966660dc13ebb61a",
+  "ready_sha256": "sha256:aa2521bf54eb1f082c5fe533ee0a80cb2a5d3e7645daed3b1f52f530477153a3",
   "version": 1
 }
