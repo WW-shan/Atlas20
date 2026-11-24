@@ -105,7 +105,7 @@ derivatives-live-data: $(VENV_STAMP)
 		--wait-for-live-mark-poll-seconds $(DERIVATIVES_LIVE_MARK_POLL_SECONDS) \
 		--execution-utc 01:05
 
-derivatives-ls45-signal: derivatives-live-data $(VENV_STAMP)
+derivatives-ls45-signal: $(VENV_STAMP)
 	$(PYTHON) scripts/run_ls45_live_signal.py
 
 derivatives-live: derivatives-live-data derivatives-ls45-signal

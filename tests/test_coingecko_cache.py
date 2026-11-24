@@ -10,6 +10,31 @@ from atlas20.config import CoinGeckoConfig
 from atlas20.data.coingecko import MARKET_CHART_CACHE_MAX_AGE_SECONDS, CoinGeckoClient
 
 
+def test_forced_refresh_does_not_force_coin_metadata(tmp_path, monkeypatch) -> None:
+    """A daily catalog refresh must not re-request every coin's metadata."""
+
+    config = CoinGeckoConfig(
+        rate_limit_seconds=0.0,
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+    )
+    client = CoinGeckoClient(config, tmp_path)
+    cache = client._cache_path("coin_metadata", "bitcoin.json")
+    cache.write_text(json.dumps({"id": "bitcoin"}), encoding="utf-8")
+
+    calls: list[str] = []
+
+    def fake_get(url, params, timeout):
+        calls.append(url)
+        raise AssertionError("cached metadata must not be fetched")
+
+    monkeypatch.setattr(client.session, "get", fake_get)
+    payload = client.fetch_coin_metadata("bitcoin", force=True)
+
+    assert payload == {"id": "bitcoin"}
+    assert calls == []
+
+
 def test_stale_market_chart_cache_is_refreshed(tmp_path, monkeypatch) -> None:
     config = CoinGeckoConfig(
         rate_limit_seconds=0.0,

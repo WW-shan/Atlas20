@@ -50,8 +50,10 @@ for many days while the executor still reconciles and journals every day.
 | 01:05 | single live execution attempt | `ops/com.atlas20.derivatives-execute.plist`, `ops/run_derivatives_daily.sh` |
 | 11:00 | read-only monitor | `ops/com.atlas20.live-monitor.plist`, `ops/run_live_monitor.sh` |
 
-There is no prepare catch-up, finalize, or later execution retry. A missed node
-is surfaced by the monitor and requires an operator decision.
+There is no prepare catch-up, finalize, or later execution retry. The complete
+08:30 data node has one process-group deadline at 08:50 Beijing (00:50 UTC);
+if it crosses that boundary it is terminated and fails closed. A missed node is
+surfaced by the monitor and requires an operator decision.
 
 Before every order the wrapper now checks both the panel date and the
 finished-last-day volume/market-cap coverage. If either is stale or partial it
@@ -136,9 +138,10 @@ remain mandatory.
 
 ## Step 1 - Move the refresh (implemented)
 
-- The workstation `ops/com.atlas20.daily-refresh.plist` now fires at 08:30 and
-  08:50 Beijing (00:30/00:50 UTC), then keeps the legacy 02:30/02:55/06:30 UTC
-  fires as fallbacks.
+- The workstation `ops/com.atlas20.daily-refresh.plist` fires once at 08:30
+  Beijing (00:30 UTC). The wrapper enforces 08:50 Beijing (00:50 UTC) as a hard
+  process-group deadline for the complete data node; there are no later data
+  or execution fires.
 - `scripts/refresh_daily_data.py` owns the lock and skip-if-current behavior;
   the executor wrapper owns the stronger finished-last-day check.
 - The API scheduler's `ATLAS20_DAILY_REFRESH_*` environment remains a separate

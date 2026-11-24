@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import signal
 from filelock import FileLock, Timeout
 from pathlib import Path
 import sys
@@ -46,6 +47,16 @@ from scripts import build_datasets, download_data  # noqa: E402
 
 DEFAULT_CONFIG = "config/base.yaml"
 DEFAULT_LOCK = PROJECT_ROOT / "data" / ".daily-refresh.lock"
+
+
+class DataRefreshDeadlineExceeded(BaseException):
+    """Terminate the data node instead of becoming a per-asset failure.
+
+    The provider downloader intentionally catches ``Exception`` around each
+    asset so one bad coin cannot abort the whole panel.  A deadline is not an
+    asset error: inheriting directly from ``BaseException`` prevents that
+    recovery path from swallowing the stop and continuing past 08:50 Beijing.
+    """
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -74,7 +85,49 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="ISO-8601 UTC timestamp to evaluate against (default: the real clock)",
     )
+    parser.add_argument(
+        "--deadline-utc",
+        default=None,
+        help="fail closed once this UTC timestamp is reached (ISO-8601)",
+    )
     return parser.parse_args(argv)
+
+
+def _arm_deadline_alarm(seconds: float) -> None:
+    """Interrupt the download/build if it crosses the data-node deadline."""
+
+    if seconds <= 0:
+        raise RuntimeError("data refresh deadline has already passed")
+    if not hasattr(signal, "SIGALRM"):
+        return
+
+    def _expired(_signum: int, _frame: object) -> None:
+        raise DataRefreshDeadlineExceeded(
+            "data refresh crossed its execution deadline"
+        )
+
+    signal.signal(signal.SIGALRM, _expired)
+    signal.setitimer(signal.ITIMER_REAL, float(seconds))
+
+
+def _clear_deadline_alarm() -> None:
+    if hasattr(signal, "SIGALRM"):
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+
+
+def _deadline_reached(args: argparse.Namespace) -> bool:
+    """True when a data-node deadline has passed."""
+
+    raw = getattr(args, "deadline_utc", None)
+    if not raw:
+        return False
+    now = (
+        as_utc(datetime.fromisoformat(args.now.replace("Z", "+00:00")))
+        if getattr(args, "now", None)
+        else datetime.now(timezone.utc)
+    )
+    deadline = as_utc(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
+    return now >= deadline
 
 
 def panel_path_for(config_path: str) -> Path:
@@ -108,6 +161,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     panel = Path(args.panel) if args.panel is not None else panel_path_for(args.config)
 
+    if _deadline_reached(args):
+        print(
+            "data refresh deadline reached before the panel was current; "
+            "failing closed instead of delaying the execution clock",
+            file=sys.stderr,
+        )
+        return 3
+
     if not args.force and not panel_lags_last_completed_day(panel, now):
         print(f"panel already carries {last_completed_utc_day(now).isoformat()}; skipping refresh")
         return 0
@@ -123,11 +184,43 @@ def main(argv: list[str] | None = None) -> int:
         if not args.force and not panel_lags_last_completed_day(panel, now):
             print("panel became current while waiting for the lock; skipping refresh")
             return 0
+        if _deadline_reached(args):
+            print(
+                "data refresh deadline reached while waiting for the panel lock; "
+                "failing closed instead of delaying the execution clock",
+                file=sys.stderr,
+            )
+            return 3
         print(
             f"refreshing: panel ends {panel_end_date(panel) or 'missing'}, "
             f"{last_completed_utc_day(now).isoformat()} is the last completed UTC day"
         )
-        run_refresh(args.config, force=args.force)
+        if args.deadline_utc:
+            deadline = as_utc(
+                datetime.fromisoformat(str(args.deadline_utc).replace("Z", "+00:00"))
+            )
+            _arm_deadline_alarm((deadline - now).total_seconds())
+        try:
+            run_refresh(args.config, force=args.force)
+        except DataRefreshDeadlineExceeded as exc:
+            print(
+                f"data refresh interrupted at its deadline: {exc}; failing closed",
+                file=sys.stderr,
+            )
+            return 3
+        finally:
+            _clear_deadline_alarm()
+        # A refresh can finish without advancing the panel when one live asset
+        # is still unverified (the processor intentionally holds the last
+        # complete day).  That is not a successful data-node handoff: fail now
+        # so the signal and execution clocks never consume a stale snapshot.
+        if panel_lags_last_completed_day(panel, now):
+            print(
+                "refresh completed but the panel still lacks the last completed "
+                f"UTC day {last_completed_utc_day(now).isoformat()}; failing the data node",
+                file=sys.stderr,
+            )
+            return 3
     finally:
         lock.release()
     return 0

@@ -51,7 +51,7 @@ echo "Atlas20 signal track profile: $TRACK_PROFILE"
 # scheduled data run, not a retry or a second data build.  If it times out, the
 # signal fails and the 19:00 monitor reports the incident.
 .venv/bin/python scripts/data_ready_receipt.py check \
-  --wait-seconds 900 \
+  --wait-seconds 600 \
   --poll-seconds 10
 
 /usr/bin/make "$SIGNAL_TARGET"

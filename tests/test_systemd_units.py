@@ -88,20 +88,22 @@ def test_makefile_live_chain_runs_ls45_from_the_fresh_marks() -> None:
 def test_daily_execution_wrapper_does_not_rebuild_data_or_signal() -> None:
     wrapper = (ROOT / "ops" / "run_derivatives_daily.sh").read_text(encoding="utf-8")
     data = (ROOT / "ops" / "run_derivatives_data.sh").read_text(encoding="utf-8")
+    inner = (ROOT / "ops" / "run_derivatives_data_inner.sh").read_text(encoding="utf-8")
     signal = (ROOT / "ops" / "run_derivatives_signal.sh").read_text(encoding="utf-8")
     assert "scripts/execute_live_plan.py" in wrapper
     assert "scripts/refresh_daily_data.py" not in wrapper
     assert "/usr/bin/make derivatives-live-data" not in wrapper
     assert "finalize" not in wrapper
     assert "no automatic catch-up" in wrapper
-    assert "scripts/refresh_daily_data.py" in data
-    assert "/usr/bin/make derivatives-live-data" in data
+    assert "scripts/run_node_deadline.py" in data
+    assert "scripts/refresh_daily_data.py" in inner
+    assert "/usr/bin/make derivatives-live-data" in inner
     assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
     assert "scripts/data_ready_receipt.py check" in signal
     assert signal.index("scripts/data_ready_receipt.py check") < signal.index(
         '/usr/bin/make "$SIGNAL_TARGET"'
     )
-    assert "scripts/data_ready_receipt.py write" in data
+    assert "scripts/data_ready_receipt.py write" in inner
     assert "scripts/execute_live_plan.py" not in data
     assert "scripts/execute_live_plan.py" not in signal
 

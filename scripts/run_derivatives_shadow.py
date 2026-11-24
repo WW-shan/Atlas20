@@ -1161,6 +1161,7 @@ def main() -> None:
     # whose panel refresh may not have run yet.
     audit_now = datetime.now(timezone.utc)
     expected_panel_day = None
+    historical_panel_day = None
     if args.end_date is not None:
         # A pinned end-date is a point-in-time rebuild.  Cap the audit clock
         # at the last observed mark (plus one hour) so later rows in the same
@@ -1170,7 +1171,7 @@ def main() -> None:
             audit_now,
             (last_mark + pd.Timedelta(hours=1)).to_pydatetime(),
         )
-        expected_panel_day = end_date.date()
+        historical_panel_day = end_date.date()
     engine_end = _engine_end_for_signal_end(
         end_date,
         execution_hour=int(args.execution_hour),
@@ -1387,14 +1388,9 @@ def main() -> None:
         start=start,
     )
     if int(execution_mark_audit["missing_pair_count"]) > 0 and not args.allow_incomplete_marks:
-        missing_examples = execution_mark_audit["missing"][:10]
         # The newest signal's T+1 fill bar is intentionally not required by
         # this pre-execution signal build.  It is fetched and checked by the
         # executor at 01:05.  Every historical target pair still needs a bar.
-        unavailable_pairs = {
-            (item["signal_date"], item["execution_hint"])
-            for item in execution_mark_audit["missing"]
-        }
         latest_signal = max(combined) if combined else None
         latest_execution = (
             _execution_hint(
@@ -1465,6 +1461,7 @@ def main() -> None:
         args.raw_dir / "symbol_map.csv",
         now=audit_now,
         expected_panel_day=expected_panel_day,
+        historical_panel_day=historical_panel_day,
         required_short_assets=required_short_assets,
         required_leverage_assets={str(asset) for asset in latest_target.index},
         required_funding_assets=(

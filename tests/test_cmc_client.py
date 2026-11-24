@@ -208,6 +208,41 @@ def test_fetch_history_rewinds_past_a_delisted_series(tmp_path: Path) -> None:
     assert session.calls[1]["timeEnd"] < session.calls[0]["timeEnd"]
 
 
+def test_fetch_history_retries_a_transient_cmc_failure(tmp_path: Path) -> None:
+    """One CMC 502/timeout must not freeze the panel a day behind."""
+
+    class _RetrySession(_FakeSession):
+        def __init__(self) -> None:
+            super().__init__([[_quote("2024-01-01", 100.0, 1000.0)]])
+            self.attempts = 0
+
+        def get(self, url: str, params: dict[str, object], timeout: int) -> _FakeResponse:
+            del url, timeout
+            self.calls.append(dict(params))
+            self.attempts += 1
+            if self.attempts == 1:
+                return _FakeResponse({"message": "bad gateway"}, status_code=502)
+            return _FakeResponse(
+                {"data": {"quotes": [_quote("2024-01-01", 100.0, 1000.0)]}}
+            )
+
+    session = _RetrySession()
+    client = CoinMarketCapClient(
+        CoinMarketCapConfig(
+            max_retries=2,
+            retry_backoff_seconds=0.0,
+            request_interval_seconds=0.0,
+        ),
+        tmp_path,
+    )
+    client.session = session  # type: ignore[assignment]
+
+    frame = client.fetch_history(1, start="2024-01-01", end="2024-01-03")
+
+    assert len(frame) == 1
+    assert session.attempts >= 2
+
+
 def test_fetch_history_persists_rows_in_ascending_order(tmp_path: Path) -> None:
     """Paging walks backwards; the cache must still be chronological."""
     newer = [_quote(f"2024-02-{d:02d}", 200.0, 1000.0) for d in range(1, 4)]

@@ -623,6 +623,119 @@ def test_panel_missing_last_completed_day_fails(tmp_path: Path) -> None:
     assert any("panel does not reach the last completed UTC day" in item for item in report.hard_failures)
 
 
+def test_historical_panel_day_accepts_a_later_complete_panel(tmp_path: Path) -> None:
+    """A historical replay must not reject a newer, still-valid panel."""
+
+    from datetime import date
+
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    extra = panel.loc[panel["date"] == "2026-11-13"].copy()
+    extra["date"] = "2026-11-14"
+    pd.concat([panel, extra], ignore_index=True).to_csv(paths["panel"], index=False)
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 15, 2, 0, tzinfo=timezone.utc),
+        historical_panel_day=date(2026, 11, 13),
+        min_panel_assets=1,
+    )
+
+    assert report.passed is True, report.hard_failures
+    assert report.summary["panel_audited_day"] == "2026-11-13"
+
+
+def test_historical_panel_day_rejects_a_panel_that_starts_after_the_requested_day(
+    tmp_path: Path,
+) -> None:
+    from datetime import date
+
+    paths = _fixture(tmp_path)
+    panel = pd.read_csv(paths["panel"])
+    panel = panel.loc[panel["date"] == "2026-11-13"]
+    panel["date"] = "2026-11-14"
+    panel.to_csv(paths["panel"], index=False)
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 15, 2, 0, tzinfo=timezone.utc),
+        historical_panel_day=date(2026, 11, 13),
+        min_panel_assets=1,
+    )
+
+    assert report.passed is False
+    assert any("historical day" in item for item in report.hard_failures)
+
+
+def test_historical_panel_day_uses_that_days_completed_mark_close(tmp_path: Path) -> None:
+    """Historical marks are judged at the requested close, not wall-clock now."""
+
+    from datetime import date
+
+    paths = _fixture(tmp_path)
+    mark = paths["raw"] / "candles" / "BTCUSDT_mark.csv"
+    frame = pd.read_csv(mark)
+    extra = frame.loc[frame["open_time"] == "2026-11-13T23:00:00+00:00"].copy()
+    extra["open_time"] = "2026-11-14T23:00:00+00:00"
+    pd.concat([frame, extra], ignore_index=True).to_csv(mark, index=False)
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 15, 2, 0, tzinfo=timezone.utc),
+        historical_panel_day=date(2026, 11, 13),
+        min_panel_assets=1,
+    )
+
+    assert report.passed is True, report.hard_failures
+    assert report.summary["required_through"] == "2026-11-14T00:00:00+00:00"
+
+
+def test_historical_panel_day_ignores_funding_published_after_its_boundary(
+    tmp_path: Path,
+) -> None:
+    """Archived funding rows are history, not "future" data for a replay."""
+
+    from datetime import date
+
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    future = pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": ["2026-11-14T08:00:00+00:00"],
+            "funding_rate": [0.0001],
+        }
+    )
+    pd.concat([frame, future], ignore_index=True).to_csv(path, index=False)
+    manifest_path = paths["raw"] / "funding_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bitcoin"]["last"] = "2026-11-14T08:00:00+00:00"
+    manifest["bitcoin"]["rows"] += 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=datetime(2026, 11, 15, 2, 0, tzinfo=timezone.utc),
+        historical_panel_day=date(2026, 11, 13),
+        min_panel_assets=1,
+    )
+
+    assert not any(item.startswith("funding.bitcoin.no_future:") for item in report.hard_failures)
+
+
 def test_required_short_leverage_must_be_supported_by_the_venue(tmp_path: Path) -> None:
     paths = _fixture(tmp_path)
     contract_path = paths["raw"] / "contracts.json"

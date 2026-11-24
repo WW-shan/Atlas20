@@ -138,9 +138,9 @@ def test_data_receipt_rejects_changed_top50_inputs(tmp_path: Path) -> None:
 
 
 def test_data_node_publishes_receipt_after_top50_check() -> None:
-    data = (Path(__file__).resolve().parents[1] / "ops/run_derivatives_data.sh").read_text(
-        encoding="utf-8"
-    )
+    data = (
+        Path(__file__).resolve().parents[1] / "ops/run_derivatives_data_inner.sh"
+    ).read_text(encoding="utf-8")
 
     assert data.index("data_ready_receipt.py write") > data.index(
         "top50-readiness-check"
@@ -156,4 +156,4 @@ def test_signal_node_waits_for_the_data_receipt_before_building_the_signal() -> 
     assert signal.index("data_ready_receipt.py check") < signal.index(
         '/usr/bin/make "$SIGNAL_TARGET"'
     )
-    assert "--wait-seconds 900" in signal
+    assert "--wait-seconds 600" in signal

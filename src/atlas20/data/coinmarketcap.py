@@ -194,18 +194,44 @@ class CoinMarketCapClient:
         return mapping
 
     def _fetch_page(self, coin_id: int, start: int, end: int) -> list[dict]:
-        response = self.session.get(
-            f"{self.base_url}/cryptocurrency/historical",
-            params={
-                "id": coin_id,
-                "convertId": self.config.convert_id,
-                "timeStart": start,
-                "timeEnd": end,
-                "interval": "1d",
-            },
-            timeout=self.config.timeout_seconds,
-        )
-        response.raise_for_status()
+        response: requests.Response | None = None
+        last_error: Exception | None = None
+        for attempt in range(max(1, int(self.config.max_retries))):
+            try:
+                response = self.session.get(
+                    f"{self.base_url}/cryptocurrency/historical",
+                    params={
+                        "id": coin_id,
+                        "convertId": self.config.convert_id,
+                        "timeStart": start,
+                        "timeEnd": end,
+                        "interval": "1d",
+                    },
+                    timeout=self.config.timeout_seconds,
+                )
+                if response.status_code not in {429, 500, 502, 503, 504}:
+                    response.raise_for_status()
+                    break
+                last_error = requests.HTTPError(
+                    f"CoinMarketCap id={coin_id} returned HTTP {response.status_code}",
+                    response=response,
+                )
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                last_error = exc
+            if attempt + 1 >= max(1, int(self.config.max_retries)):
+                break
+            self.logger.warning(
+                "CoinMarketCap id=%s retry %s/%s after transient failure: %s",
+                coin_id,
+                attempt + 1,
+                self.config.max_retries,
+                last_error,
+            )
+            if self.config.retry_backoff_seconds > 0:
+                time.sleep(self.config.retry_backoff_seconds * (2**attempt))
+        if response is None or response.status_code in {429, 500, 502, 503, 504}:
+            assert last_error is not None
+            raise last_error
         payload = response.json()
         if not isinstance(payload, dict):
             raise ValueError(f"CoinMarketCap returned an unexpected payload for id={coin_id}: {str(payload)[:200]}")

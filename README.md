@@ -439,11 +439,11 @@ still publishing when the job fires, so a second conditional attempt runs
 That scheduler lives **inside the API process**, so nothing refreshes while the
 API is stopped - which is the normal state on this workstation. For a machine
 that is not running the API around the clock, `ops/com.atlas20.daily-refresh.plist`
-is an equivalent launchd job that runs `scripts/download_data.py` followed by
-`scripts/build_datasets.py` on the early 00:30/00:50 UTC fast path and the
-02:30/02:55/06:30 UTC fallback path, appending to
-`~/Library/Logs/atlas20-daily-refresh.log`. It is installed on this machine;
-verify it with:
+is the equivalent launchd job. It runs one 08:30 Beijing (00:30 UTC) data node,
+which incrementally refreshes CMC/venue caches, Bitget marks and the Top50/Top20
+pool, then publishes the data-ready receipt. The entire node and the signal
+node are hard-bounded before the 09:05 execution clock (data by 08:50, signal
+wait by 08:45 on this workstation). Verify it with:
 
 ```bash
 launchctl print gui/$(id -u)/com.atlas20.daily-refresh | head

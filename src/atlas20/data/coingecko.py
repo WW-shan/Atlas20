@@ -184,7 +184,14 @@ class CoinGeckoClient:
         return pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
 
     def fetch_coin_metadata(self, coin_id: str, force: bool = False) -> dict[str, Any]:
-        """Fetch CoinGecko metadata for a coin."""
+        """Fetch CoinGecko metadata for a coin.
+
+        Metadata is not a price/catalog fact and does not need a new network
+        request on every scheduled data run.  A cached document remains valid
+        even when the caller is forcing the market data refresh; otherwise a
+        temporary CoinGecko 429 can turn 135 cheap cache reads into an
+        hour-long retry storm before the execution clock.
+        """
         return self._request_json(
             endpoint=f"coins/{coin_id}",
             params={
@@ -196,7 +203,7 @@ class CoinGeckoClient:
                 "sparkline": "false",
             },
             cache_path=self._cache_path("coin_metadata", f"{coin_id}.json"),
-            force=force,
+            force=False,
         )
 
     def fetch_daily_market_chart(self, coin_id: str, days: int, force: bool = False) -> pd.DataFrame:

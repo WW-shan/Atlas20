@@ -70,13 +70,20 @@ def test_data_node_builds_the_top50_and_top20_pool_before_signal() -> None:
     """The Top50 data pull is required; only the duplicate retry job is gone."""
 
     data = (PROJECT_ROOT / "ops" / "run_derivatives_data.sh").read_text(encoding="utf-8")
+    inner = (PROJECT_ROOT / "ops" / "run_derivatives_data_inner.sh").read_text(encoding="utf-8")
     signal = (PROJECT_ROOT / "ops" / "run_derivatives_signal.sh").read_text(encoding="utf-8")
-    data_at = data.index("/usr/bin/make top50-readiness-unlocked")
-    check_at = data.index("/usr/bin/make top50-readiness-check")
+    data_at = inner.index("/usr/bin/make top50-readiness-unlocked")
+    check_at = inner.index("/usr/bin/make top50-readiness-check")
     assert data_at < check_at
-    assert "scripts/refresh_daily_data.py" in data
-    assert "/usr/bin/make derivatives-live-data" in data
-    assert data.index("/usr/bin/make derivatives-live-data") < data_at
+    assert "scripts/run_node_deadline.py" in data
+    assert "00:50:00+00:00" in data
+    assert "scripts/refresh_daily_data.py" in inner
+    assert " --force " not in inner
+    assert "--wait-seconds 300" in inner
+    assert "/usr/bin/make derivatives-live-data" in inner
+    assert inner.index("/usr/bin/make derivatives-live-data") < inner.index(
+        "/usr/bin/make top50-readiness-unlocked"
+    )
     assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
     assert "top50-readiness" not in signal
     # The repository may retain the legacy plist for rollback documentation,
@@ -92,13 +99,15 @@ def test_data_node_runs_once_before_the_signal_node() -> None:
     assert _scheduled_utc_times(signal_plist) == [(0, 35)]
 
     data = (PROJECT_ROOT / "ops" / "run_derivatives_data.sh").read_text(encoding="utf-8")
+    inner = (PROJECT_ROOT / "ops" / "run_derivatives_data_inner.sh").read_text(encoding="utf-8")
     signal = (PROJECT_ROOT / "ops" / "run_derivatives_signal.sh").read_text(encoding="utf-8")
-    assert "scripts/refresh_daily_data.py" in data
-    assert "/usr/bin/make derivatives-live-data" in data
-    assert "scripts/execute_live_plan.py" not in data
+    assert "scripts/run_node_deadline.py" in data
+    assert "scripts/refresh_daily_data.py" in inner
+    assert "/usr/bin/make derivatives-live-data" in inner
+    assert "scripts/execute_live_plan.py" not in inner
     assert '/usr/bin/make "$SIGNAL_TARGET"' in signal
     assert "scripts/execute_live_plan.py" not in signal
-    assert "finalize" not in data
+    assert "finalize" not in inner
     assert "finalize" not in signal
 
 
@@ -274,3 +283,15 @@ def test_wrappers_fail_closed_without_a_track_profile(tmp_path: Path) -> None:
                 f"stdout={result.stdout!r} stderr={result.stderr!r}"
             )
             assert "missing ATLAS20_TRACK_PROFILE" in result.stderr
+
+
+def test_data_node_does_not_fail_or_rebuild_when_an_execution_already_holds_the_lock() -> None:
+    """Signal can safely run on the completed artifacts after execution exists."""
+
+    inner = (PROJECT_ROOT / "ops" / "run_derivatives_data_inner.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert "another Atlas20 execution holds" in inner
+    assert "signal already completed" in inner
+    assert 'echo "another Atlas20 process holds $LOCK_FILE; refusing data refresh" >&2' not in inner

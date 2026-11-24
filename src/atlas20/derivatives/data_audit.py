@@ -590,6 +590,7 @@ def _read_funding(
     stale_hours: float,
     now: datetime,
     publication_now: datetime,
+    historical: bool = False,
 ) -> dict[str, dict[str, Any]]:
     manifest_path = raw_dir / "funding_manifest.json"
     manifest_payload: object = None
@@ -693,7 +694,18 @@ def _read_funding(
         _check(
             report,
             f"funding.{asset}.no_future",
-            bool(pd.isna(last) or _as_utc(last) <= _as_utc(now) + pd.Timedelta(hours=1)),
+            # A historical replay audits against its frozen boundary, while
+            # the cumulative funding cache legitimately contains later rows.
+            # Treat those rows as archived history in that mode; a live audit
+            # still rejects a timestamp materially ahead of its own clock.
+            bool(
+                pd.isna(last)
+                or _as_utc(last) <= _as_utc(now) + pd.Timedelta(hours=1)
+                # Archived replay uses a cumulative file: rows after the
+                # frozen day are later history, not an impossible print.
+                # Wall-clock future detection remains active for live audits.
+                or historical
+            ),
             f"latest funding timestamp {last} is materially in the future",
         )
         if isinstance(manifest_payload, dict):
@@ -918,6 +930,7 @@ def audit_derivatives_data(
     now: datetime | None = None,
     required_through: datetime | None = None,
     expected_panel_day: date | None = None,
+    historical_panel_day: date | None = None,
     min_panel_assets: int = 20,
     required_short_assets: Iterable[str] | None = None,
     required_leverage_assets: Iterable[str] | None = None,
@@ -960,34 +973,73 @@ def audit_derivatives_data(
     }
     report = DataAuditReport(passed=False)
     report.summary["now"] = moment.isoformat()
-    report.summary["required_through"] = required_moment.isoformat()
     report.summary["publication_now"] = publication_moment.isoformat()
     report.summary["required_leverage"] = float(required_leverage)
     report.summary["required_leverage_assets"] = sorted(required_leverage_set)
+    if historical_panel_day is not None and required_through is None:
+        required_moment = datetime.combine(
+            historical_panel_day + timedelta(days=1),
+            time(0, 0),
+            tzinfo=UTC,
+        )
+    report.summary["required_through"] = required_moment.isoformat()
     panel = _read_panel(panel_file, report, moment)
     symbol_map = _read_symbol_map(symbol_file, report)
     contracts = _read_contracts(raw / "contracts.json", report)
     if panel is not None and symbol_map is not None:
         _check_panel_symbol_alignment(panel, symbol_map, report)
     if panel is not None and not panel.empty:
-        last_completed = (
-            expected_panel_day
-            if expected_panel_day is not None
-            else moment.date() - timedelta(days=1)
-        )
+        if expected_panel_day is not None and historical_panel_day is not None:
+            raise ValueError(
+                "expected_panel_day and historical_panel_day are mutually exclusive"
+            )
         latest = panel["date"].max().date()
+        if historical_panel_day is not None:
+            # A historical replay only needs the requested completed day to be
+            # present in the current, cumulative panel.  It must not reject a
+            # newer panel: that would make every archived-date audit fail once
+            # the daily refresh advances.  The live exact-day gate below stays
+            # unchanged.
+            audited_day = historical_panel_day
+            present = bool(
+                (panel["date"] == pd.Timestamp(audited_day, tz="UTC")).any()
+            )
+            _check(
+                report,
+                "panel.historical_day_present",
+                present,
+                f"panel does not contain historical day {audited_day}",
+            )
+        else:
+            audited_day = (
+                expected_panel_day
+                if expected_panel_day is not None
+                else moment.date() - timedelta(days=1)
+            )
+            _check(
+                report,
+                "panel.last_completed_day",
+                latest == audited_day,
+                f"panel does not reach the last completed UTC day {audited_day} (latest {latest})"
+                if latest != audited_day
+                else f"panel reaches {audited_day}",
+            )
+        audited = panel.loc[
+            panel["date"] == pd.Timestamp(audited_day, tz="UTC")
+        ]
+        audited_assets = int(audited["coin_id"].nunique())
         _check(
             report,
-            "panel.last_completed_day",
-            latest == last_completed,
-            f"panel does not reach the last completed UTC day {last_completed} (latest {latest})"
-            if latest != last_completed
-            else f"panel reaches {last_completed}",
+            "panel.min_assets",
+            audited_assets >= int(min_panel_assets),
+            f"{audited_assets} asset(s) on {audited_day}, require {min_panel_assets}",
         )
-        latest_assets = int(panel.loc[panel["date"] == pd.Timestamp(latest, tz="UTC"), "coin_id"].nunique())
-        _check(report, "panel.min_assets", latest_assets >= int(min_panel_assets), f"{latest_assets} asset(s), require {min_panel_assets}")
         report.summary["panel_latest"] = str(latest)
-        report.summary["panel_latest_assets"] = latest_assets
+        report.summary["panel_latest_assets"] = int(
+            panel.loc[panel["date"] == pd.Timestamp(latest, tz="UTC"), "coin_id"].nunique()
+        )
+        report.summary["panel_audited_day"] = str(audited_day)
+        report.summary["panel_audited_day_assets"] = audited_assets
 
     marks: dict[str, pd.DataFrame] = {}
     mark_paths: list[Path] = []
@@ -1173,9 +1225,14 @@ def audit_derivatives_data(
                 # the same minute is used later by the retrospective engine,
                 # not by the live data refresh.  Requiring it here would make
                 # every 09:05 Beijing run fail until 02:00 UTC.
-                required_last = required_last_mark_time(
-                    moment,
-                    execution_utc=execution_utc,
+                required_last = (
+                    pd.Timestamp(historical_panel_day, tz="UTC")
+                    + pd.Timedelta(hours=23)
+                    if historical_panel_day is not None
+                    else required_last_mark_time(
+                        moment,
+                        execution_utc=execution_utc,
+                    )
                 )
                 _check(report, f"marks.{asset}.last_bar", last >= required_last, f"last mark {last} is before required {required_last}")
                 required_bar_present = required_last in clean.index
@@ -1208,6 +1265,7 @@ def audit_derivatives_data(
             stale_hours=float(funding_stale_hours),
             now=required_moment,
             publication_now=publication_moment,
+            historical=historical_panel_day is not None,
         )
     report.summary["funding"] = funding_summary
 

@@ -190,6 +190,8 @@ class CoinMarketCapConfig(BaseModel):
     # before the backtest window so universe-eligibility lookback is covered.
     history_start: str = "2020-01-01"
     timeout_seconds: int = 30
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
     convert_id: str = "2781"  # USD
     page_size: int = 400
     request_interval_seconds: float = 1.0

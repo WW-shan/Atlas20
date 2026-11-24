@@ -49,25 +49,121 @@ def test_current_panel_skips_the_download(tmp_path: Path, monkeypatch) -> None:
 
 def test_lagging_panel_refreshes(tmp_path: Path, monkeypatch) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(
-        refresh_daily_data,
-        "run_refresh",
-        lambda config, *, force=False: calls.append(config),
-    )
     panel = _write_panel(tmp_path / "panel.csv", ["2026-10-13", "2026-10-14"])
+
+    def fake_refresh(config: str, *, force: bool = False) -> None:
+        calls.append(config)
+        _write_panel(panel, ["2026-10-13", "2026-10-14", "2026-10-15"])
+
+    monkeypatch.setattr(refresh_daily_data, "run_refresh", fake_refresh)
 
     assert refresh_daily_data.main(_args(tmp_path, panel)) == 0
     assert calls == ["config/base.yaml"]
 
 
-def test_missing_panel_refreshes(tmp_path: Path, monkeypatch) -> None:
-    calls: list[str] = []
+def test_deadline_arms_a_wall_clock_alarm_before_the_network_refresh(
+    tmp_path: Path, monkeypatch
+) -> None:
+    panel = _write_panel(tmp_path / "panel.csv", ["2026-10-14"])
+    calls: list[float] = []
+    monkeypatch.setattr(
+        refresh_daily_data,
+        "_arm_deadline_alarm",
+        lambda seconds: calls.append(seconds) or None,
+    )
     monkeypatch.setattr(
         refresh_daily_data,
         "run_refresh",
-        lambda config, *, force=False: calls.append(config),
+        lambda *args, **kwargs: _write_panel(panel, ["2026-10-15"]),
     )
+
+    code = refresh_daily_data.main(
+        _args(
+            tmp_path,
+            panel,
+            **{"--deadline-utc": "2026-10-16T03:10:00+00:00"},
+        )
+    )
+
+    assert code == 0
+    assert calls and calls[0] > 0
+
+
+def test_deadline_interrupt_is_not_swallowed_by_the_refresh(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The alarm must terminate the data node, not one asset in its loop."""
+
+    panel = _write_panel(tmp_path / "panel.csv", ["2026-10-14"])
+
+    def expire(*_args, **_kwargs) -> None:
+        raise refresh_daily_data.DataRefreshDeadlineExceeded("deadline crossed")
+
+    monkeypatch.setattr(refresh_daily_data, "run_refresh", expire)
+
+    code = refresh_daily_data.main(
+        _args(
+            tmp_path,
+            panel,
+            **{"--deadline-utc": "2026-10-16T03:10:00+00:00"},
+        )
+    )
+
+    assert code == 3
+
+
+def test_data_node_has_a_hard_completion_deadline() -> None:
+    """A refresh that cannot finish before 08:50 Beijing must fail closed."""
+
+    from scripts import refresh_daily_data
+
+    args = refresh_daily_data.parse_args(
+        [
+            "--deadline-utc",
+            "2026-11-24T00:50:00+00:00",
+            "--now",
+            "2026-11-24T00:49:59+00:00",
+        ]
+    )
+    assert refresh_daily_data._deadline_reached(args) is False
+    args = refresh_daily_data.parse_args(
+        [
+            "--deadline-utc",
+            "2026-11-24T00:50:00+00:00",
+            "--now",
+            "2026-11-24T00:50:00+00:00",
+        ]
+    )
+    assert refresh_daily_data._deadline_reached(args) is True
+
+
+def test_refresh_fails_if_the_build_did_not_reach_the_completed_day(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A partial provider day must fail the data node, not become a stale handoff."""
+
+    panel = _write_panel(tmp_path / "panel.csv", ["2026-10-14"])
+
+    def fake_refresh(_config: str, *, force: bool = False) -> None:
+        # The build leaves the panel short because a live asset is unverified.
+        _write_panel(panel, ["2026-10-14"])
+
+    monkeypatch.setattr(refresh_daily_data, "run_refresh", fake_refresh)
+
+    code = refresh_daily_data.main(_args(tmp_path, panel))
+
+    assert code == 3
+
+
+def test_missing_panel_refreshes(tmp_path: Path, monkeypatch) -> None:
+    calls: list[str] = []
     panel = tmp_path / "absent.csv"
+
+    def fake_refresh(config: str, *, force: bool = False) -> None:
+        calls.append(config)
+        _write_panel(panel, ["2026-10-15"])
+
+    monkeypatch.setattr(refresh_daily_data, "run_refresh", fake_refresh)
 
     assert refresh_daily_data.main(_args(tmp_path, panel)) == 0
     assert calls == ["config/base.yaml"]
