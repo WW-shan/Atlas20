@@ -590,7 +590,7 @@ def _read_funding(
     stale_hours: float,
     now: datetime,
     publication_now: datetime,
-    historical: bool = False,
+    frozen_boundary: bool = False,
 ) -> dict[str, dict[str, Any]]:
     manifest_path = raw_dir / "funding_manifest.json"
     manifest_payload: object = None
@@ -694,17 +694,15 @@ def _read_funding(
         _check(
             report,
             f"funding.{asset}.no_future",
-            # A historical replay audits against its frozen boundary, while
-            # the cumulative funding cache legitimately contains later rows.
-            # Treat those rows as archived history in that mode; a live audit
-            # still rejects a timestamp materially ahead of its own clock.
+            # A replay or retrospective monitor audits against a frozen
+            # boundary, while the cumulative funding cache legitimately
+            # contains newer published rows.  Treat those rows as archived
+            # history in that mode; a live audit still rejects a timestamp
+            # materially ahead of its own clock.
             bool(
                 pd.isna(last)
                 or _as_utc(last) <= _as_utc(now) + pd.Timedelta(hours=1)
-                # Archived replay uses a cumulative file: rows after the
-                # frozen day are later history, not an impossible print.
-                # Wall-clock future detection remains active for live audits.
-                or historical
+                or frozen_boundary
             ),
             f"latest funding timestamp {last} is materially in the future",
         )
@@ -1265,7 +1263,8 @@ def audit_derivatives_data(
             stale_hours=float(funding_stale_hours),
             now=required_moment,
             publication_now=publication_moment,
-            historical=historical_panel_day is not None,
+            frozen_boundary=historical_panel_day is not None
+            or required_through is not None,
         )
     report.summary["funding"] = funding_summary
 

@@ -485,6 +485,77 @@ def test_required_through_keeps_the_frozen_execution_boundary(
     assert not any("settlement_coverage" in item for item in report.hard_failures)
 
 
+def test_required_through_accepts_funding_published_after_the_frozen_boundary(
+    tmp_path: Path,
+) -> None:
+    """A retrospective audit must not call cumulative later funding future."""
+
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    extra = pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": ["2026-11-14T00:00:00+00:00"],
+            "funding_rate": [0.0001],
+        }
+    )
+    pd.concat([frame, extra], ignore_index=True).to_csv(path, index=False)
+    manifest_path = paths["raw"] / "funding_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bitcoin"]["last"] = "2026-11-14T00:00:00+00:00"
+    manifest["bitcoin"]["rows"] += 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = audit_derivatives_data(
+        paths["raw"],
+        paths["panel"],
+        paths["symbol_map"],
+        paths["manifest"],
+        now=NOW,
+        required_through=pd.Timestamp(
+            "2026-11-13T22:59:59.999999Z"
+        ).to_pydatetime(),
+        min_panel_assets=1,
+        required_funding_assets={"bitcoin"},
+    )
+
+    assert not any(
+        item.startswith("funding.bitcoin.no_future:")
+        for item in report.hard_failures
+    )
+
+
+def test_live_audit_still_rejects_funding_beyond_its_publication_grace(
+    tmp_path: Path,
+) -> None:
+    """The frozen-boundary exception must not weaken pre-execution audits."""
+
+    paths = _fixture(tmp_path)
+    path = paths["raw"] / "funding" / "bitcoin.csv"
+    frame = pd.read_csv(path)
+    extra = pd.DataFrame(
+        {
+            "symbol": ["BTCUSDT"],
+            "funding_time": ["2026-11-14T08:00:00+00:00"],
+            "funding_rate": [0.0001],
+        }
+    )
+    pd.concat([frame, extra], ignore_index=True).to_csv(path, index=False)
+    manifest_path = paths["raw"] / "funding_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bitcoin"]["last"] = "2026-11-14T08:00:00+00:00"
+    manifest["bitcoin"]["rows"] += 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = _audit(paths, required_funding_assets={"bitcoin"})
+
+    assert any(
+        item.startswith("funding.bitcoin.no_future:")
+        for item in report.hard_failures
+    )
+
+
 def test_missing_recent_funding_settlement_fails(tmp_path: Path) -> None:
     paths = _fixture(tmp_path)
     path = paths["raw"] / "funding" / "bitcoin.csv"
