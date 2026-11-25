@@ -2234,6 +2234,29 @@ def test_live_executor_fatal_error_writes_json_and_notifies(tmp_path, monkeypatc
     assert json.loads(out.read_text(encoding="utf-8"))["status"] == "error"
 
 
+def test_fatal_execution_message_is_short_and_keeps_raw_error_out_of_telegram() -> None:
+    from scripts.execute_live_plan import _format_fatal_execution_message
+
+    message = _format_fatal_execution_message(
+        spec=(
+            "PR2026-11-LS104-H5-LS23-PROFITLOCK-STRONGER21-"
+            "S050-G175-M090"
+        ),
+        error=SystemExit(
+            "data audit failed before live execution: panel.last_completed_day: "
+            "panel does not reach 2026-11-23; marks.1inch.required_bar: missing"
+        ),
+        now=datetime(2026, 11, 25, 1, 5, tzinfo=timezone.utc),
+    )
+
+    assert "Atlas20 执行失败" in message
+    assert "时间：2026-11-25 09:05 北京" in message
+    assert "策略：LS104-G175-M090" in message
+    assert "原因：盘前数据未到最新完整日" in message
+    assert "panel.last_completed_day" not in message
+    assert len(message.splitlines()) <= 6
+
+
 def test_live_entrypoint_requires_explicit_isolated_mode(tmp_path, monkeypatch) -> None:
     called = False
 

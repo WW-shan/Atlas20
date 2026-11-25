@@ -16,6 +16,8 @@ from scripts.monitor_live_track import (
     _audit_metrics,
     _event_position_issues,
     _execution_freshness,
+    _format_monitor_issue,
+    _format_monitor_message,
     _gross_ratio,
     _ledger_change,
 )
@@ -64,8 +66,8 @@ def test_execution_freshness_labels_reconcile_runs_as_runs_not_trades(
     )
 
     assert fresh is True
-    assert "最近成功运行" in detail
-    assert "最近成功执行" not in detail
+    assert "2026-10-31 11:06 北京" in detail
+    assert "reconcile" not in detail
 
 
 def test_execution_freshness_does_not_accept_a_protect_only_as_today_s_execution(
@@ -97,7 +99,41 @@ def test_execution_freshness_does_not_accept_a_protect_only_as_today_s_execution
     )
 
     assert fresh is False
-    assert "execution" in detail
+    assert "今日执行未成功" in detail
+
+
+def test_monitor_message_is_short_and_removes_internal_check_wording() -> None:
+    message = _format_monitor_message(
+        now=datetime(2026, 11, 25, 11, 0, tzinfo=timezone.utc),
+        equity=521.8,
+        gross=232.4,
+        ratio=232.4 / 521.8,
+        day_pnl=-7.93,
+        signal_date="2026-11-20",
+        execution_detail="execution · 2026-11-25 09:05 北京",
+        issues=[
+            "全链路核对失败：无计划外持仓 — HYPE, NEAR",
+            "今天没有成功的 execution 运行（最后成功：2026-11-25T01:05:00+00:00）",
+        ],
+    )
+
+    assert "🩺 Atlas20 巡检 · 2026-11-25 19:00 北京" in message
+    assert "权益：521.80 USDT" in message
+    assert "仓位：232.40 USDT（0.45x）" in message
+    assert "计划外持仓：HYPE、NEAR" in message
+    assert "今日执行未成功" in message
+    assert "全链路核对失败" not in message
+    assert "最后成功" not in message
+    assert len(message.splitlines()) <= 11
+
+
+def test_monitor_issue_collapses_internal_audit_text() -> None:
+    issue = _format_monitor_issue(
+        "全链路核对失败：数据可靠性审计 — "
+        "funding.bitcoin-cash.settlement_coverage: missing 1 expected settlement"
+    )
+
+    assert issue == "资金费数据不完整"
 
 
 def test_execution_freshness_accepts_a_protect_only_after_a_real_execution(

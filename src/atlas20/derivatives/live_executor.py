@@ -2791,6 +2791,53 @@ def _qty(value: float) -> str:
     return f"{value:.8g}"
 
 
+def _compact_execution_note(note: object) -> str | None:
+    """Translate known operational notes and drop internal repetition."""
+
+    text = " ".join(str(note or "").split())
+    if not text:
+        return None
+    if text.startswith("no new target event:"):
+        return None
+    if "同向持仓漂移" in text or "只执行风险降低、止损和逐仓保证金维护" in text:
+        return None
+    if text.startswith("protect-only：只允许"):
+        return None
+    if text.startswith("数据管线:"):
+        return None
+    if "copy-trading/elite trader" in text:
+        return "当前 API Key 不支持逐仓，本轮仅允许减仓"
+    if text.startswith("DRY RUN"):
+        return "模拟运行，未下单"
+    if text.startswith("正在按最近目标事件冻结的币数量"):
+        return "正在补齐未完成仓位"
+    if text.startswith("止损成交历史未能完整对账"):
+        return "止损成交记录未完全对上，本轮仅减仓"
+    return text if len(text) <= 120 else text[:117].rstrip() + "..."
+
+
+def _compact_execution_notes(notes: list[str]) -> list[str]:
+    compact: list[str] = []
+    for note in notes:
+        rendered = _compact_execution_note(note)
+        if rendered is not None and rendered not in compact:
+            compact.append(rendered)
+    return compact
+
+
+def _compact_target_status_note(note: str | None) -> str:
+    text = " ".join(str(note or "").split())
+    replacements = {
+        "今日无新目标事件，不做权重再平衡": "今日无新目标，维持现有仓位",
+        "按冻结事件数量补齐未完成仓位，不按今日权益重算": "按冻结数量补齐仓位",
+        "延迟应用最新目标事件：按当前权益执行冻结权重，不沿用旧 active 数量": "延迟执行最新目标",
+        "最新目标事件已完整应用，不做旧权重再平衡": "最新目标已执行",
+        "DRY RUN：以下为按当前计划应达到的目标，未回读为已成交仓位": "模拟运行，未下单",
+        "保护性维护：只降低风险并维护止损，不开仓": "保护性维护，未开仓",
+    }
+    return replacements.get(text, text or "维持现有仓位")
+
+
 def format_execution_report(
     report: ExecutionReport,
     *,
@@ -2853,9 +2900,14 @@ def format_execution_report(
         else equity - float(prev_equity) - float(capital_flow)
     )
 
-    lines = [f"Atlas20 自动调仓 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
+    title = (
+        "🧪 Atlas20 模拟执行"
+        if "DRY RUN" in str(target_status_note or "")
+        else "✅ Atlas20 每日执行"
+    )
+    lines = [f"{title} · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
     lines.append(f"总权益 {_money(equity)} USDT")
-    share = f"（{total_notional / equity:.1%} 权益）" if equity > 0 else ""
+    share = f"（{total_notional / equity:.1%}）" if equity > 0 else ""
     lines.append(f"仓位价值 {_money(total_notional)} USDT{share}")
     capital_base = None if prev_equity is None else float(prev_equity) + float(capital_flow)
     if day_pnl is None or not capital_base or capital_base <= 0:
@@ -2869,9 +2921,11 @@ def format_execution_report(
     if abs(float(capital_flow)) > 0.005:
         lines.append(f"外部资金流 {float(capital_flow):+.2f} USDT（不计入盈亏）")
 
-    lines += ["", "今日成交:"]
+    lines.append("")
     if not report.fills:
-        lines.append("  无")
+        lines.append("成交：无")
+    else:
+        lines.append("成交：")
     for fill in report.fills:
         verb = "买入" if fill.side == "buy" else "卖出"
         note = "" if fill.status == _FILLED else f"（{fill.status}）"
@@ -2897,7 +2951,7 @@ def format_execution_report(
             f" · {_money(order.notional)} USDT"
         )
 
-    lines += ["", "当前持仓:"]
+    lines += ["", "持仓："]
     if not positions:
         lines.append("  空仓")
     for row, asset, notional in position_notionals:
@@ -2910,10 +2964,11 @@ def format_execution_report(
         if not upnl:
             upnl = (mark - entry) * signed_size
         weight = notional / equity if equity > 0 else 0.0
-        side = "SHORT" if signed_size < 0.0 else "LONG"
+        side = "空" if signed_size < 0.0 else "多"
+        ticker = ticker_by_asset.get(asset, asset.upper())
         lines.append(
-            f"  {asset.upper()} {side} {_qty(size)} 枚 · "
-            f"{_money(notional)} USDT · {weight:.1%} · 浮盈 {upnl:+.2f}"
+            f"  {ticker} {side} {_qty(size)} 枚 · "
+            f"{_money(notional)} USDT · {weight:.1%} · 盈亏 {upnl:+.2f}"
         )
 
     if targets is not None:
@@ -2939,20 +2994,11 @@ def format_execution_report(
             age = (
                 ""
                 if event_age_days is None
-                else (
-                    "（今天的变化）"
-                    if event_age_days <= 0
-                    else f"（{event_age_days} 天前的最近变化）"
-                )
+                else ("（今天）" if event_age_days <= 0 else f"（{event_age_days} 天前）")
             )
-            prefix = (
-                f"信号 {signal_date}{age} · "
-                if target_rebalance_enabled
-                else (
-                    f"信号 {signal_date}{age} · "
-                    f"{target_status_note or '今日无新目标事件，不做权重再平衡'}"
-                )
-            )
+            prefix = f"信号：{signal_date}{age}"
+            if not target_rebalance_enabled:
+                prefix += f" · {_compact_target_status_note(target_status_note)}"
             suffix = " · ".join(checks)
             lines += ["", prefix + (f" · {suffix}" if suffix else "")]
 
@@ -2963,8 +3009,10 @@ def format_execution_report(
                 f"  {failure['symbol']} {failure['action']} {failure['side']}"
                 f" {failure['size']}: {failure['error'][:100]}"
             )
-    notes = list(report.margin_notes) + list(warnings or [])
+    notes = _compact_execution_notes(
+        [*report.margin_notes, *(warnings or [])]
+    )
     if notes:
-        lines += ["", "提示:"]
+        lines += ["", "提示："]
         lines += [f"  - {note}" for note in notes]
     return "\n".join(lines)

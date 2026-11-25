@@ -1747,32 +1747,32 @@ def notification_key(event: str, coin_id: str, as_of: str) -> str:
 
 
 def format_event_message(event: dict[str, str]) -> str:
+    titles = {
+        "TOP50_ENTER": "进入 Top50",
+        "TOP50_DATA_READY": "数据就绪",
+        "TOP50_DATA_BLOCKED": "数据阻断",
+        "TOP20_ENTER": "进入 Top20",
+    }
+    title = titles.get(event["event"], event["event"])
+    symbol = event.get("symbol") or event.get("coin_id") or "未知资产"
+    status = {"READY": "就绪", "BLOCKED": "阻断"}.get(
+        event["status"], event["status"]
+    )
     lines = [
-        f"Atlas20 Top50 {event['event']}",
-        f"日期: {event['as_of']}",
-        f"币种: {event['symbol']} ({event['coin_id']})",
-        f"状态: {event['status']}",
+        f"Atlas20 池变动 · {event['as_of']}",
+        f"{title}：{symbol}",
+        f"状态：{status}",
     ]
-    if event["event"] == "TOP50_ENTER":
-        lines.append("开始构建/审核完整数据。")
-    elif event["event"] == "TOP50_DATA_READY":
-        lines.append("数据完整，进入 Top20 时可直接构建信号。")
-    elif event["event"] == "TOP50_DATA_BLOCKED":
-        lines.append("数据审核失败，该币不能进入新风险。")
-    elif event["event"] == "TOP20_ENTER":
-        lines.append("已进入 Top20；READY 时无需临时下载历史数据。")
     if (
-        event["event"] in {"TOP50_DATA_READY", "TOP20_ENTER"}
-        and event.get("overall_status") not in (None, "", "READY")
+        event.get("overall_status") not in (None, "", "READY")
+        and event["status"] == "READY"
     ):
-        lines.append(
-            "Top50 总审核未通过，本次不会进入实盘信号；"
-            "禁止用第 51 名掩盖数据故障。"
-        )
-    if event["event"] in {"TOP50_DATA_BLOCKED", "TOP20_ENTER"} and event["status"] != "READY":
-        lines.append("未进入信号；禁止用第 51 名掩盖数据故障。")
-    if event.get("details"):
-        lines.extend(["", "缺口:", event["details"]])
+        lines.append("全局未就绪，暂不进入实盘")
+    details = " ".join(str(event.get("details") or "").split())
+    if details and event["status"] != "READY":
+        if len(details) > 140:
+            details = details[:137].rstrip() + "..."
+        lines.append(f"原因：{details}")
     return "\n".join(lines)
 
 

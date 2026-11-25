@@ -29,7 +29,7 @@ Exit code is 0 when healthy (and with ``--quiet`` nothing is printed/sent),
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -315,15 +315,15 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
     """Fail unless the latest daily run is both successful and recent."""
 
     if not state_file.exists():
-        return False, "no execution state file; the daily run has never completed"
+        return False, "无执行记录"
     state = json.loads(state_file.read_text(encoding="utf-8"))
     last_at = state.get("last_run_at") or ""
     if not last_at:
-        return False, "execution state has no last_run_at"
+        return False, "执行记录缺少时间"
     status = str(state.get("last_status") or "missing")
     mode = str(state.get("last_run_mode") or "execution")
     if status != "ok":
-        return False, f"最近一次调仓未完成（status={status}，mode={mode}，最后尝试：{last_at}）"
+        return False, f"最近一次执行未完成（{status}）"
     last = datetime.fromisoformat(str(last_at))
     if last.tzinfo is None:
         last = last.replace(tzinfo=timezone.utc)
@@ -355,13 +355,78 @@ def _execution_freshness(state_file: Path, now: datetime) -> tuple[bool, str]:
             and key_parts[-1] == today
         )
     if now.hour >= EXECUTION_OVERDUE_UTC_HOUR and not execution_today:
-        return False, (
-            "今天没有成功的 execution 运行"
-            f"（最后成功：{last_at}，last_run_mode={mode}）"
-        )
+        return False, "今日执行未成功"
     if age_hours > MAX_EXECUTION_AGE_HOURS:
-        return False, f"超过 {MAX_EXECUTION_AGE_HOURS:.0f}h 没有成功执行（最后：{last_at}）"
-    return True, f"最近成功运行（{mode}）{last_at}（{age_hours:.1f}h 前）"
+        return False, f"超过 {MAX_EXECUTION_AGE_HOURS:.0f} 小时未成功执行"
+    beijing = last.astimezone(timezone(timedelta(hours=8)))
+    return True, (
+        f"{mode} · {beijing.strftime('%Y-%m-%d %H:%M')} 北京"
+        f"（{age_hours:.1f} 小时前）"
+    )
+
+
+def _format_monitor_issue(issue: str) -> str:
+    """Collapse raw audit wording into one short operator-facing issue."""
+
+    text = " ".join(str(issue or "").split()).removeprefix("全链路核对失败：")
+    if text.startswith("无计划外持仓") and "—" in text:
+        raw_assets = text.split("—", 1)[1].strip()
+        assets = [
+            item.strip().split()[0]
+            for item in raw_assets.split(",")
+            if item.strip()
+        ]
+        return "计划外持仓：" + "、".join(assets)
+    if text.startswith(("今天没有成功的 execution 运行", "最近一次执行未完成")):
+        return "今日执行未成功"
+    if text.startswith("最新执行报告与执行状态一致"):
+        return "执行报告与状态不一致"
+    if "funding." in text or "settlement_coverage" in text:
+        return "资金费数据不完整"
+    if "panel." in text:
+        return "日线面板不完整"
+    if "marks." in text or "required mark bar" in text:
+        return "行情 mark 数据不完整"
+    return text if len(text) <= 120 else text[:117].rstrip() + "..."
+
+
+def _format_monitor_message(
+    *,
+    now: datetime,
+    equity: float | None,
+    gross: float | None,
+    ratio: float | None,
+    day_pnl: float | None,
+    signal_date: str,
+    execution_detail: str,
+    issues: list[str],
+) -> str:
+    beijing = now.astimezone(timezone(timedelta(hours=8)))
+    lines = [f"🩺 Atlas20 巡检 · {beijing.strftime('%Y-%m-%d %H:%M')} 北京", ""]
+    lines.append(f"权益：{equity:.2f} USDT" if equity is not None else "权益：未知")
+    if gross is None:
+        lines.append("仓位：未知")
+    elif ratio is None:
+        lines.append(f"仓位：{gross:.2f} USDT")
+    else:
+        lines.append(f"仓位：{gross:.2f} USDT（{ratio:.2f}x）")
+    if day_pnl is not None:
+        lines.append(f"较上次记账：{day_pnl:+.2f} USDT")
+    signal_label = str(signal_date)
+    try:
+        signal_label = str(pd.Timestamp(signal_date).date())
+    except (TypeError, ValueError):
+        pass
+    lines.append(f"信号日：{signal_label}")
+    lines.append(f"最近执行：{execution_detail}")
+    compact_issues = list(dict.fromkeys(_format_monitor_issue(item) for item in issues))
+    lines.append("")
+    if compact_issues:
+        lines.append("⚠️ 需要处理：")
+        lines.extend(f"• {item}" for item in compact_issues)
+    else:
+        lines.append("✅ 正常")
+    return "\n".join(lines)
 
 
 def _ledger_change(
@@ -497,31 +562,16 @@ def _main(args: argparse.Namespace) -> int:
     ensure_dir(args.out.parent)
     atomic_write_text(args.out, json.dumps(flags, indent=2, ensure_ascii=False))
 
-    equity_line = (
-        f"账户总价值: {equity:.2f} USDT"
-        if equity is not None
-        else "账户总价值: 未知（全链路核对失败）"
+    message = _format_monitor_message(
+        now=now,
+        equity=equity,
+        gross=gross,
+        ratio=ratio,
+        day_pnl=day_pnl,
+        signal_date=signal_date,
+        execution_detail=fresh_detail,
+        issues=issues,
     )
-    if gross is None:
-        position_line = "仓位价值: 未知（全链路核对失败）"
-    elif ratio is None:
-        position_line = f"仓位价值: {gross:.2f} USDT（权益≤0 或未知，比例不可计算）"
-    else:
-        position_line = f"仓位价值: {gross:.2f} USDT（{ratio:.2f}x）"
-    lines = ["🩺 Atlas20 实盘巡检", equity_line, position_line]
-    if day_pnl is not None:
-        lines.append(f"较上次记账: {day_pnl:+.2f} USDT")
-    lines.append(f"当前信号日: {signal_date}")
-    lines.append(f"最近执行: {fresh_detail}")
-    if issues:
-        lines.append("")
-        lines.append("⚠️ 需要处理:")
-        lines.extend(f"• {item}" for item in issues)
-    else:
-        lines.append("")
-        lines.append("✅ 全部正常（这条只在有异常时才发）")
-
-    message = "\n".join(lines)
     if not args.quiet:
         print(message)
 
@@ -554,15 +604,15 @@ def main(argv: list[str] | None = None) -> int:
         }
         ensure_dir(args.out.parent)
         atomic_write_text(args.out, json.dumps(flags, indent=2, ensure_ascii=False))
-        message = "\n".join(
-            [
-                "🩺 Atlas20 实盘巡检",
-                "账户总价值: 未知（巡检进程异常）",
-                "仓位价值: 未知（巡检进程异常）",
-                "",
-                "⚠️ 需要处理:",
-                f"• {issue}",
-            ]
+        message = _format_monitor_message(
+            now=now,
+            equity=None,
+            gross=None,
+            ratio=None,
+            day_pnl=None,
+            signal_date="未知",
+            execution_detail="未知",
+            issues=[issue],
         )
         if not args.quiet:
             print(message)

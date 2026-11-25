@@ -270,7 +270,7 @@ def test_cycle_alerts_when_the_initial_baseline_is_blocked(tmp_path) -> None:
     assert result["initialized_now"] is True
     assert [event["event"] for event in result["events"]] == ["TOP50_DATA_BLOCKED"]
     assert len(sent) == 1
-    assert "TOP50_DATA_BLOCKED" in sent[0]
+    assert "数据阻断" in sent[0]
     state = load_state(session.state_path)
     assert state["notifications"]["pending"] == {}
     assert len(state["notifications"]["sent_keys"]) == 1
@@ -316,7 +316,7 @@ def test_cycle_notifies_only_a_new_top50_member_after_baseline(tmp_path) -> None
         "TOP50_DATA_READY",
     ]
     assert len(sent) == 2
-    assert all("coin-50" in message for message in sent)
+    assert all("C50" in message for message in sent)
 
 
 def test_cycle_backfills_once_then_reassesses(tmp_path) -> None:
@@ -658,7 +658,7 @@ def test_cycle_publishes_blocked_alert_before_raising_backfill_failure(
         for detail in report["top20"][0]["failure_details"]
     )
     assert session.state_path.is_file()
-    assert any("TOP50_DATA_BLOCKED" in message for message in sent)
+    assert any("数据阻断" in message for message in sent)
     assert not assessments
 
 
@@ -743,10 +743,10 @@ def test_pending_notifications_are_delivered_in_human_event_order() -> None:
     )
 
     assert failures == []
-    assert [message.splitlines()[0] for message in sent] == [
-        "Atlas20 Top50 TOP50_ENTER",
-        "Atlas20 Top50 TOP50_DATA_READY",
-        "Atlas20 Top50 TOP20_ENTER",
+    assert [message.splitlines()[1] for message in sent] == [
+        "进入 Top50：C1",
+        "数据就绪：C1",
+        "进入 Top20：C1",
     ]
 
 

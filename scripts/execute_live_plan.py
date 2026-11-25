@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 from contextlib import suppress
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import fcntl
 import hashlib
 import json
@@ -3426,19 +3426,62 @@ def _main(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compact_fatal_reason(detail: str) -> str:
+    text = " ".join(str(detail or "").split())
+    if "data audit failed before live execution" in text:
+        return "盘前数据未到最新完整日"
+    if "target execution time" in text and (
+        "not due yet" in text or "old" in text
+    ):
+        return "当前不在允许的执行窗口"
+    if "data_fingerprint" in text or "targets_sha256" in text:
+        return "数据版本校验未通过"
+    if "live quote check failed" in text:
+        return "实时行情检查未通过"
+    if "account equity" in text:
+        return "账户权益检查未通过"
+    if "kill-switch" in text or "kill switch" in text:
+        return "熔断开关已开启"
+    return text if len(text) <= 180 else text[:177].rstrip() + "..."
+
+
+def _short_spec_label(spec: str) -> str:
+    if "LS104" in spec and "G175-M090" in spec:
+        return "LS104-G175-M090"
+    if "LS45" in spec and "G125" in spec:
+        return "LS45-G125"
+    return str(spec)
+
+
+def _format_fatal_execution_message(
+    *,
+    spec: str,
+    error: BaseException,
+    now: datetime,
+) -> str:
+    moment = now if now.tzinfo is not None else now.replace(tzinfo=timezone.utc)
+    beijing = moment.astimezone(timezone(timedelta(hours=8)))
+    detail = _compact_fatal_reason(str(error) or type(error).__name__)
+    return "\n".join(
+        [
+            "🚨 Atlas20 执行失败",
+            f"时间：{beijing.strftime('%Y-%m-%d %H:%M')} 北京",
+            f"策略：{_short_spec_label(spec)}",
+            f"原因：{detail}",
+            "状态：未确认完成，请检查执行报告",
+        ]
+    )
+
+
 def _handle_fatal_execution(args: argparse.Namespace, exc: BaseException) -> int:
     """Persist and notify a pre-report execution failure without marking done."""
 
     now = datetime.now(timezone.utc)
     detail = str(exc) or type(exc).__name__
-    message = "\n".join(
-        [
-            "🚨 Atlas20 实盘执行失败",
-            f"规格: {args.spec}",
-            f"时间: {now.isoformat()}",
-            f"错误: {type(exc).__name__}: {detail}",
-            "执行状态未标记为完成；下一次窗口内重试仍可继续。",
-        ]
+    message = _format_fatal_execution_message(
+        spec=args.spec,
+        error=exc,
+        now=now,
     )
     if args.live:
         payload = {

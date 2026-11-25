@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -730,7 +731,7 @@ def test_report_message_shows_real_positions_and_the_cross_warning() -> None:
     assert "仓位价值 74.54 USDT" in message
     assert "今日盈亏 +0.11 USDT（+0.11%）" in message
     assert "昨日盈亏 +0.42 USDT" in message
-    assert "NEAR LONG 14 枚 · 74.54 USDT" in message
+    assert "NEAR 多 14 枚 · 74.54 USDT" in message
     assert "NEAR 目标 77.61 / 实际 74.54" in message
     # concise: no margin-mode lecture, no filler
     assert "规格要求逐仓" not in message
@@ -766,7 +767,8 @@ def test_report_does_not_flag_intentional_drift_without_a_new_event() -> None:
     )
 
     assert "NEAR 目标" not in message
-    assert "不做权重再平衡" in message
+    assert "维持现有仓位" in message
+    assert "不做权重再平衡" not in message
 
 
 def test_report_labels_event_quantity_completion_without_weight_drift() -> None:
@@ -795,7 +797,7 @@ def test_report_labels_event_quantity_completion_without_weight_drift() -> None:
         target_status_note="按冻结事件数量补齐未完成仓位，不按今日权益重算",
     )
 
-    assert "不按今日权益重算" in message
+    assert "按冻结数量补齐仓位" in message
     assert "今日无新目标事件" not in message
 
 
@@ -894,8 +896,8 @@ def test_report_matches_a_signed_short_target_and_marks_short_pnl() -> None:
     )
 
     assert "目标 -100.00 / 实际 -110.00" in message
-    assert "SHORT" in message
-    assert "浮盈 -10.00" in message
+    assert "NEAR 空" in message
+    assert "盈亏 -10.00" in message
 
 
 def test_execution_report_serializes_actual_gross_position_value() -> None:
@@ -943,8 +945,9 @@ def test_report_shows_margin_and_capability_notes() -> None:
 
     message = format_execution_report(report, signal_date="2026-11-13", spec="SPEC")
 
-    assert "提示:" in message
-    assert "copy-trading/elite trader" in message
+    assert "提示：" in message
+    assert "当前 API Key 不支持逐仓，本轮仅允许减仓" in message
+    assert "copy-trading/elite trader" not in message
 
 
 def test_report_flags_an_orphan_position() -> None:
@@ -1055,7 +1058,7 @@ def test_signal_line_says_how_old_the_last_change_is() -> None:
         event_age_days=3,
     )
 
-    assert "信号 2026-10-08（3 天前的最近变化）" in message
+    assert "信号：2026-10-08（3 天前）" in message
 
     today = format_execution_report(
         report,
@@ -1064,7 +1067,51 @@ def test_signal_line_says_how_old_the_last_change_is() -> None:
         targets={"near": 0.75},
         event_age_days=0,
     )
-    assert "（今天的变化）" in today
+    assert "（今天）" in today
+
+
+def test_report_message_drops_internal_repetition_and_uses_tickers() -> None:
+    report = ExecutionReport(
+        signal_date="2026-11-20",
+        equity_before=512.0,
+        equity_after=521.05,
+        positions_after=[
+            {
+                "asset": "zcash",
+                "symbol": "ZECUSDT",
+                "posSide": "short",
+                "total": "0.081",
+                "avgPrice": "901.8",
+                "markPrice": "730.0",
+                "unrealisedPnl": "13.88",
+            }
+        ],
+    )
+
+    message = format_execution_report(
+        report,
+        signal_date="2026-11-20",
+        spec="SPEC",
+        targets={"zcash": -0.12},
+        warnings=[
+            "no new target event: same-side position drift is preserved; "
+            "only risk-reducing closes and account maintenance are enabled",
+            "今日没有新的目标事件：保留当前同向持仓漂移，不按旧事件权重日常再平衡；"
+            "只执行风险降低、止损和逐仓保证金维护",
+        ],
+        target_rebalance_enabled=False,
+        target_status_note="今日无新目标，维持现有仓位",
+        event_age_days=5,
+        run_at=datetime(2026, 11, 25, 1, 5, tzinfo=timezone.utc),
+    )
+
+    assert "成交：无" in message
+    assert "ZEC 空 0.081 枚" in message
+    assert "信号：2026-11-20（5 天前） · 今日无新目标，维持现有仓位" in message
+    assert "no new target event" not in message
+    assert "同向持仓漂移" not in message
+    assert "提示:" not in message
+    assert len(message.splitlines()) <= 14
 
 
 def _short_position(size: float = 20.0) -> PositionState:

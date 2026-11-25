@@ -1171,8 +1171,7 @@ def test_top20_enter_message_discloses_an_overall_top50_block() -> None:
     top20_event = next(event for event in events if event["event"] == "TOP20_ENTER")
     message = format_event_message(top20_event)
     assert top20_event["overall_status"] == "BLOCKED"
-    assert "Top50 总审核未通过" in message
-    assert "不会进入实盘信号" in message
+    assert "全局未就绪，暂不进入实盘" in message
 
 
 def test_top50_ready_message_discloses_an_overall_top50_block() -> None:
@@ -1191,8 +1190,7 @@ def test_top50_ready_message_discloses_an_overall_top50_block() -> None:
         }
     )
 
-    assert "Top50 总审核未通过" in message
-    assert "本次不会进入实盘信号" in message
+    assert "全局未就绪，暂不进入实盘" in message
 
 
 def test_member_status_change_emits_blocked_once() -> None:
@@ -1559,10 +1557,33 @@ def test_format_event_message_marks_blocked_top20_without_rank51_fallback() -> N
         }
     )
 
-    assert "TOP20_ENTER" in message
-    assert "BLOCKED" in message
-    assert "missing hour" in message
-    assert "禁止用第 51 名" in message
+    assert "进入 Top20：ETH" in message
+    assert "状态：阻断" in message
+    assert "原因：live_mark: missing hour" in message
+
+
+def test_event_message_is_short_and_uses_operator_language() -> None:
+    from atlas20.derivatives.top50_readiness import format_event_message
+
+    message = format_event_message(
+        {
+            "key": "TOP20_ENTER|ethereum|2026-11-15",
+            "event": "TOP20_ENTER",
+            "coin_id": "ethereum",
+            "symbol": "ETH",
+            "as_of": "2026-11-15",
+            "status": "BLOCKED",
+            "overall_status": "BLOCKED",
+            "details": "live_mark: missing hour",
+        }
+    )
+
+    assert "Atlas20 池变动 · 2026-11-15" in message
+    assert "进入 Top20：ETH" in message
+    assert "状态：阻断" in message
+    assert "原因：live_mark: missing hour" in message
+    assert "禁止用第 51 名" not in message
+    assert len(message.splitlines()) <= 5
 
 
 def test_warmup_market_range_accepts_sparse_hourly_prints(tmp_path) -> None:
