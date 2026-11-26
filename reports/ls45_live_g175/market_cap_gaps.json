@@ -13,11 +13,11 @@
   "affected_assets_current_valid": true,
   "affected_assets_last_observed_valid": false,
   "invalid_market_cap_rows": 685,
-  "latest_panel_date": "2026-11-24",
+  "latest_panel_date": "2026-11-25",
   "latest_panel_rows_valid": true,
   "latest_rows_valid": true,
   "panel_assets": 124,
-  "panel_rows": 212271,
+  "panel_rows": 212390,
   "passed": true,
   "status_counts": {
     "provider_zero_supply": 685
