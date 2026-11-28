@@ -361,6 +361,47 @@ def test_monitor_flags_a_partial_event_quantity_and_an_extra_leg() -> None:
     assert any("ZECUSDT" in issue and "计划外" in issue for issue in issues)
 
 
+def test_monitor_accepts_a_frozen_all_cash_target() -> None:
+    """An empty target_quantities map is valid when the event is 100% cash."""
+
+    state = {
+        "active_event": {
+            "target_quantities": {},
+            "target_weights": {},
+            "prices": {"zcash": 740.6},
+            "stopped_symbols": {},
+        }
+    }
+
+    issues = _event_position_issues(
+        state,
+        positions=[],
+        symbol_map={"zcash": "ZECUSDT"},
+        specs={},
+    )
+
+    assert issues == []
+
+
+def test_monitor_still_rejects_a_missing_quantity_anchor_for_a_non_cash_book() -> None:
+    state = {
+        "active_event": {
+            "target_weights": {"zcash": -0.125},
+            "prices": {"zcash": 740.6},
+            "stopped_symbols": {},
+        }
+    }
+
+    issues = _event_position_issues(
+        state,
+        positions=[],
+        symbol_map={"zcash": "ZECUSDT"},
+        specs={},
+    )
+
+    assert issues == ["执行状态 active target event 缺少冻结目标数量"]
+
+
 def test_audit_timeout_becomes_a_diagnostic_instead_of_an_unhandled_exception(tmp_path, monkeypatch) -> None:
     import subprocess
     from scripts import monitor_live_track

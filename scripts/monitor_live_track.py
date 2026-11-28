@@ -280,9 +280,10 @@ def _event_position_issues(
     if not isinstance(active_event, dict):
         return ["执行状态没有 active target event"]
     quantities = effective_event_target_quantities(active_event)
-    if not quantities:
-        return ["执行状态 active target event 缺少冻结目标数量"]
     weights = active_event.get("target_weights")
+    has_quantity_anchor = isinstance(active_event.get("target_quantities"), dict)
+    if not quantities and (not has_quantity_anchor or bool(weights)):
+        return ["执行状态 active target event 缺少冻结目标数量"]
     prices = active_event.get("prices")
     stopped = active_event.get("stopped_symbols")
     specs_by_symbol = {
