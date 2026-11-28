@@ -238,6 +238,42 @@ def test_latest_action_execution_rejects_a_previous_hour_trade() -> None:
     assert "no replay trade" in issues[0]
 
 
+def test_latest_provisional_close_accepts_the_previous_hour_fill_bar() -> None:
+    """The final T+1 close may use the last published provisional bar."""
+
+    targets = _ledger()
+    targets.loc[0, "execution_hint"] = "2026-11-07 01:05:00+00:00"
+    targets.loc[0, "side"] = "flat"
+    targets.loc[0, "target_weight"] = 0.0
+    targets.loc[0, "change_weight"] = 0.25
+    targets.loc[0, "action"] = "CLOSE"
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": "2026-11-07 00:00:00+00:00",
+                "asset": "ethereum",
+                "side": "short",
+                "action": "close",
+            }
+        ]
+    )
+
+    assert _latest_action_execution_issues(
+        targets,
+        trades,
+        positions=pd.DataFrame(),
+    )
+    assert (
+        _latest_action_execution_issues(
+            targets,
+            trades,
+            positions=pd.DataFrame(),
+            allow_provisional_final=True,
+        )
+        == []
+    )
+
+
 def test_latest_action_execution_rejects_a_later_trade() -> None:
     targets = _ledger()
     targets.loc[0, "execution_hint"] = "2026-11-07 01:05:00+00:00"

@@ -199,6 +199,7 @@ def _latest_action_execution_issues(
     positions: pd.DataFrame,
     *,
     order_skips: pd.DataFrame | None = None,
+    allow_provisional_final: bool = False,
 ) -> list[str]:
     """Require the latest target actions to exist in the replay artifacts.
 
@@ -250,7 +251,11 @@ def _latest_action_execution_issues(
         # The engine's floor resolver accepts a mark bar from the preceding
         # hour through the exact execution time.  Trades after the execution
         # clock cannot have produced this action.
-        earliest_match = execution_hint - pd.Timedelta(hours=1)
+        earliest_match = (
+            (execution_hint - pd.Timedelta(hours=1)).floor("h")
+            if allow_provisional_final
+            else execution_hint - pd.Timedelta(hours=1)
+        )
 
         def matches_execution_time(frame: pd.DataFrame) -> pd.Series:
             return (frame["timestamp"] >= earliest_match) & (
@@ -445,6 +450,9 @@ def main(argv: list[str] | None = None) -> int:
             replay_bundle["trades"],
             replay_bundle["positions"],
             order_skips=replay_bundle["order_skips"],
+            allow_provisional_final=bool(
+                manifest.get("final_execution_provisional")
+            ),
         )
 
     comparison = _compare_target_ledgers(frozen, replay)
@@ -462,6 +470,9 @@ def main(argv: list[str] | None = None) -> int:
         "checked_at": checked_at.isoformat(),
         **comparison,
         "latest_action_execution_passed": execution_passed,
+        "provisional_latest_execution_allowed": bool(
+            manifest.get("final_execution_provisional")
+        ),
         "latest_action_execution_issues": (
             ["execution artifacts were not rebuilt"] if execution_issues is None else execution_issues
         ),
